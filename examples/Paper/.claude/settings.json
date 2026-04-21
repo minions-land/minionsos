@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "deny": [
+      "Write(./template/**)",
+      "Edit(./template/**)",
+      "MultiEdit(./template/**)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)"
+    ]
+  },
+  "hooks": {
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/paper_subagent_log.py"
+          }
+        ]
+      }
+    ]
+  }
+}
