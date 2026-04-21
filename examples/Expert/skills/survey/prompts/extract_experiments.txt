@@ -1,0 +1,60 @@
+Analyze the following paper and extract ALL EXPERIMENTS reported.
+
+Paper text:
+---
+{paper_text}
+---
+
+Return ONLY a JSON object with this exact structure:
+{{
+  "experiments": [
+    {{
+      "id": "exp-1",
+      "task": "Task name (e.g., Long-term Forecasting)",
+      "dataset": "Dataset name (e.g., ETTh1, Weather, Electricity)",
+      "metric": "Metric name (e.g., MSE, MAE)",
+      "method_variant": "Specific model variant tested",
+      "result": 0.375,
+      "baselines": [
+        {{
+          "name": "Baseline method name",
+          "result": 0.412,
+          "source_paper": "arxiv:XXXX.XXXXX or paper title"
+        }}
+      ],
+      "setting": "Key experimental settings (e.g., lookback=336, horizon=96)",
+      "claims": [
+        {{
+          "text": "The specific claim made based on this experiment",
+          "type": "performance | scalability | efficiency | generalization | novelty | limitation"
+        }}
+      ],
+      "ablations": [
+        {{
+          "variant": "What was changed (e.g., w/o patching)",
+          "result": 0.401,
+          "insight": "What this ablation reveals"
+        }}
+      ]
+    }}
+  ],
+  "experiment_gaps": [
+    {{
+      "type": "COMBINATION_MISSING | SCALE_MISSING | ABLATION_MISSING | BASELINE_MISSING | SETTING_MISSING | REPRODUCIBILITY_MISSING",
+      "description": "Description of the experimental gap",
+      "severity": "low | medium | high"
+    }}
+  ]
+}}
+
+Gap types:
+- COMBINATION_MISSING: Method not tested on an obvious/important dataset or task
+- SCALE_MISSING: Not tested at important scale points
+- ABLATION_MISSING: Missing ablation that would be informative
+- BASELINE_MISSING: Important baseline not compared
+- SETTING_MISSING: Key experimental setting not reported
+- REPRODUCIBILITY_MISSING: Missing info needed to reproduce
+
+Use numeric IDs like "exp-1", "exp-2", etc.
+If a result is not a single number, use the best/main number or null.
+Return ONLY valid JSON, no markdown formatting.

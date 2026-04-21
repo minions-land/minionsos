@@ -1,0 +1,18 @@
+Are these two knowledge units the same concept, or different?
+
+Unit A:
+  Label: {label_a}
+  Description: {desc_a}
+  Type: {type_a}
+
+Unit B:
+  Label: {label_b}
+  Description: {desc_b}
+  Type: {type_b}
+
+Answer with ONLY one of:
+- SAME — they refer to the same concept (should be merged)
+- RELATED — they are related but distinct (should have an edge between them)
+- DIFFERENT — they are unrelated
+
+Then on a new line, briefly explain why (one sentence).

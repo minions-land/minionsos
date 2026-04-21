@@ -1,0 +1,214 @@
+# ModernKnowledge Schema
+# Defines the Knowledge Lattice: node types, edge types, and constraints.
+
+# ============================================================
+# Layer 0: Paradigm — broad research paradigms
+# Layer 1: Direction — research directions within a paradigm
+# Layer 2: Method — specific methods / systems / models
+# Layer 3: Component — reusable building blocks, techniques, modules
+# Layer 4: Claim — specific assertions made by papers
+# Layer 5: Evidence — experimental results backing claims
+# ============================================================
+
+node_types:
+
+  paradigm:
+    layer: 0
+    required_fields: [id, label, description]
+    optional_fields: [status, era]
+    id_prefix: "paradigm:"
+    description: "Broad research paradigm (e.g., deep learning, statistical methods)"
+
+  direction:
+    layer: 1
+    required_fields: [id, label, description, belongs_to]
+    optional_fields: [status, active_period, key_question]
+    id_prefix: "direction:"
+    belongs_to: paradigm  # must reference a paradigm node
+    description: "Research direction within a paradigm"
+
+  method:
+    layer: 2
+    required_fields: [id, label, description, belongs_to, introduced_by]
+    optional_fields: [year, venue, pretraining_scale, architecture_type]
+    id_prefix: "method:"
+    belongs_to: direction  # must reference a direction node
+    introduced_by: paper   # provenance: which paper introduced this
+    description: "A specific method, model, or system"
+
+  component:
+    layer: 3
+    required_fields: [id, label, description, introduced_by]
+    optional_fields: [used_by, complexity, component_type]
+    id_prefix: "component:"
+    introduced_by: paper
+    description: "Reusable building block: architecture module, training strategy, encoding scheme, etc."
+
+  claim:
+    layer: 4
+    required_fields: [id, label, claim_type, asserted_by]
+    optional_fields: [confidence, conditions, year]
+    id_prefix: "claim:"
+    asserted_by: paper
+    claim_type_enum: [performance, scalability, efficiency, generalization, novelty, limitation]
+    description: "A specific assertion made by a paper"
+
+  evidence:
+    layer: 5
+    required_fields: [id, label, supports_claim, source_paper]
+    optional_fields: [task, dataset, metric, result, baselines, setting]
+    id_prefix: "evidence:"
+    supports_claim: claim
+    description: "Experimental result or empirical observation backing a claim"
+
+  paper:
+    layer: null  # papers are provenance, not lattice nodes
+    required_fields: [id, title, authors, year]
+    optional_fields: [venue, url, tags]
+    id_prefix: "paper:"
+    description: "Source paper — provenance only, not a lattice layer"
+
+# ============================================================
+# Edge types — typed relationships within and across layers
+# ============================================================
+
+edge_types:
+
+  # --- Within-layer: Paradigm (L0) ---
+  influences:
+    source: paradigm
+    target: paradigm
+    description: "One paradigm influences another"
+
+  competes_with:
+    source: paradigm
+    target: paradigm
+    symmetric: true
+    description: "Two paradigms compete for the same problem space"
+
+  # --- Within-layer: Direction (L1) ---
+  branches_from:
+    source: direction
+    target: direction
+    description: "A direction branches off from another"
+
+  converges_with:
+    source: direction
+    target: direction
+    symmetric: true
+    description: "Two directions converge toward similar solutions"
+
+  # --- Within-layer: Method (L2) ---
+  extends:
+    source: method
+    target: method
+    description: "Method A extends Method B with new capabilities"
+
+  combines:
+    source: method
+    target: [method, method]
+    description: "Method A combines ideas from Methods B and C"
+
+  supersedes:
+    source: method
+    target: method
+    description: "Method A supersedes Method B (strictly better on same tasks)"
+
+  # --- Within-layer: Component (L3) ---
+  generalizes:
+    source: component
+    target: component
+    description: "Component A is a generalization of Component B"
+
+  specializes:
+    source: component
+    target: component
+    description: "Component A is a specialization of Component B"
+
+  is_variant_of:
+    source: component
+    target: component
+    symmetric: true
+    description: "Two components are variants of the same idea"
+
+  transfers_from:
+    source: component
+    target: component
+    description: "Component A is transferred from a different domain via Component B"
+
+  # --- Within-layer: Claim (L4) ---
+  supports:
+    source: claim
+    target: claim
+    description: "Claim A provides evidence supporting Claim B"
+
+  contradicts:
+    source: claim
+    target: claim
+    symmetric: true
+    description: "Two claims contradict each other"
+
+  refines:
+    source: claim
+    target: claim
+    description: "Claim A refines/narrows Claim B"
+
+  # --- Cross-layer edges ---
+  belongs_to:
+    source: [direction, method]
+    target: [paradigm, direction]
+    description: "Hierarchical containment"
+
+  composed_of:
+    source: method
+    target: component
+    description: "Method is composed of components"
+
+  asserts:
+    source: method
+    target: claim
+    description: "Method asserts a claim"
+
+  evidenced_by:
+    source: claim
+    target: evidence
+    description: "Claim is backed by evidence"
+
+  inspired_by:
+    source: [method, component]
+    target: [method, component]
+    description: "Generic inspiration link (use more specific types when possible)"
+
+  # --- Provenance edges ---
+  introduced_by:
+    source: [method, component, claim]
+    target: paper
+    description: "Knowledge unit was introduced by this paper"
+
+# ============================================================
+# Confidence model
+# ============================================================
+
+confidence:
+  EXTRACTED:
+    score_range: [0.9, 1.0]
+    description: "Explicitly stated in source (citation, direct reference)"
+  INFERRED:
+    score_range: [0.5, 0.9]
+    description: "Reasonable deduction from structural/semantic similarity"
+  AMBIGUOUS:
+    score_range: [0.0, 0.5]
+    description: "Uncertain, flagged for human review"
+
+# ============================================================
+# Constraints
+# ============================================================
+
+constraints:
+  - "Every direction must belong_to exactly one paradigm"
+  - "Every method must belong_to exactly one direction"
+  - "Every method must have at least one composed_of edge to a component"
+  - "Every claim must have an asserted_by edge to a paper"
+  - "Cross-layer inspired_by edges must specify provenance (which paper established the link)"
+  - "No self-loops"
+  - "No duplicate edges (same source, target, type)"

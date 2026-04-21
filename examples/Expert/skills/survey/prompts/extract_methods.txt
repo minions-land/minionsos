@@ -1,0 +1,45 @@
+Analyze the following paper and extract all METHOD COMPONENTS at three granularity levels.
+
+{meta_context}
+
+Paper text:
+---
+{paper_text}
+---
+
+Extract method components and return ONLY a JSON object (no other text) with this exact structure:
+{{
+  "method_components": [
+    {{
+      "name": "Component Name",
+      "level": 0,
+      "description": "Brief description of what this component does",
+      "section": "section reference if identifiable, e.g. §3.2",
+      "sub_components": ["list of sub-component names"],
+      "novelty": "What is novel about this specific component",
+      "inspirational_links": [
+        {{
+          "target_paper": "arxiv:XXXX.XXXXX or paper title if ID unknown",
+          "target_component": "Name of the component this was inspired by",
+          "relation": "inspired_by | extends | contradicts | transfers_from",
+          "evidence": {{
+            "explicit_citation": true,
+            "structural_homology": false,
+            "author_narrative": true
+          }},
+          "confidence": 0.85,
+          "evidence_text": "Quote or paraphrase from paper showing the link"
+        }}
+      ]
+    }}
+  ]
+}}
+
+Level meanings:
+- level 0: Architecture-level (the overall system/framework)
+- level 1: Module-level (major functional blocks)
+- level 2: Atomic-level (individual operations/techniques)
+
+For each component, identify inspirational links to prior work if mentioned.
+Only include links you can support with evidence from the text.
+Return ONLY valid JSON, no markdown formatting.

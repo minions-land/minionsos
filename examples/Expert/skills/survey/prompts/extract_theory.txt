@@ -1,0 +1,44 @@
+Analyze the following paper and extract ALL THEORETICAL CONTRIBUTIONS.
+
+Paper text:
+---
+{paper_text}
+---
+
+Return ONLY a JSON object with this exact structure:
+{{
+  "theoretical_contributions": [
+    {{
+      "id": "thm-1",
+      "type": "convergence | generalization | expressiveness | computational_complexity | information_theoretic",
+      "statement": "Full statement of the theorem/proposition/lemma",
+      "assumptions": ["List of assumptions required"],
+      "tools_imported": ["Mathematical tools or frameworks used in the proof"],
+      "depends_on": [
+        {{
+          "paper": "arxiv:XXXX.XXXXX or paper title",
+          "theorem": "Statement or name of the theorem depended upon",
+          "relation": "uses_lemma | generalizes | tightens | weakens_assumption | specializes"
+        }}
+      ]
+    }}
+  ],
+  "empirical_theory_gaps": [
+    {{
+      "observation": "Empirical finding that lacks theoretical explanation",
+      "year_observed": 2024,
+      "theoretical_status": "none | partial | complete",
+      "known_explanations": [
+        {{
+          "paper": "arxiv:XXXX.XXXXX or paper title",
+          "explanation_type": "convergence | expressiveness | generalization | other",
+          "year": 2024
+        }}
+      ],
+      "lag_years": 0
+    }}
+  ]
+}}
+
+If the paper has no theoretical contributions, return empty lists.
+Return ONLY valid JSON, no markdown formatting.

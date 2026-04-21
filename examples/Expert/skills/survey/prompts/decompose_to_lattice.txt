@@ -1,0 +1,88 @@
+You are decomposing a paper's extracted knowledge into a six-layer knowledge lattice.
+
+EXISTING LATTICE CONTEXT (anchor to these when possible):
+{lattice_context}
+
+PAPER METADATA:
+Title: {title}
+Year: {year}
+Venue: {venue}
+Authors: {authors}
+
+RAW EXTRACTION (from LLM analysis of the paper):
+{extraction_json}
+
+Your task: map the extracted information into lattice-layer-aligned candidate nodes.
+
+RULES:
+1. PARADIGM (L0): Only propose a new paradigm if the paper's approach doesn't fit ANY existing paradigm. Almost always use an existing one.
+2. DIRECTION (L1): Propose a new direction only if genuinely novel. Otherwise reference existing by id.
+3. METHOD (L2): One method node — the paper's main contribution. Include:
+   - architecture_type, origin_field (where the core idea came from, e.g. "NLP", "computer-vision", "signal-processing")
+   - constraints: what inputs it requires, compute scale (low/medium/high)
+   - relations: extends/combines edges to existing methods (use existing method ids)
+4. COMPONENT (L3): Decompose into 5-10 reusable building blocks. Each must be:
+   - A technique reusable in other methods (not "the model itself")
+   - Precisely named (not "attention" but "dilated sliding window attention")
+   - Typed: architecture | encoding | training-task | strategy | framework | algorithm | design-principle | capability
+   - Marked as novel (true) or standard (false)
+5. CLAIM (L4): Extract 3-8 specific, falsifiable claims with:
+   - claim_type: performance | scalability | efficiency | generalization | novelty | limitation
+   - conditions: under what conditions the claim holds
+   - relations: supports/contradicts/refines edges to existing claims (use labels)
+6. EVIDENCE (L5): For each claim, extract supporting experimental evidence:
+   - task, dataset, metric, result, baselines, setting
+
+Use Chinese for descriptions and labels when the content is about Chinese-language research; otherwise use the paper's language.
+
+Return ONLY valid JSON:
+{{
+  "paradigm": null | {{"label": "...", "description": "..."}},
+  "direction": {{"existing_id": "direction:xxx"}} | {{"label": "...", "description": "...", "belongs_to": "paradigm:xxx", "key_question": "..."}},
+  "method": {{
+    "label": "...",
+    "description": "...",
+    "year": 2024,
+    "venue": "...",
+    "architecture_type": "...",
+    "origin_field": "...",
+    "constraints": {{"compute_scale": "medium", "platforms": ["general"]}},
+    "relations": [
+      {{"target_id": "method:xxx", "type": "extends", "confidence": 0.85, "provenance": "..."}}
+    ]
+  }},
+  "components": [
+    {{
+      "label": "...",
+      "description": "...",
+      "component_type": "architecture",
+      "is_novel": true,
+      "relations": [
+        {{"target_label": "...", "type": "specializes", "confidence": 0.8, "provenance": "..."}}
+      ]
+    }}
+  ],
+  "claims": [
+    {{
+      "label": "...",
+      "claim_type": "performance",
+      "confidence": 0.9,
+      "conditions": "...",
+      "relations": [
+        {{"target_label": "...", "type": "contradicts", "confidence": 0.7, "provenance": "..."}}
+      ]
+    }}
+  ],
+  "evidence": [
+    {{
+      "label": "...",
+      "task": "...",
+      "dataset": "...",
+      "metric": "...",
+      "result": "...",
+      "baselines": [{{"name": "...", "result": "..."}}],
+      "setting": "...",
+      "supports_claim_label": "..."
+    }}
+  ]
+}}
