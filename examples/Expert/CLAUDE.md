@@ -56,6 +56,26 @@ Experts are the primary source of:
 
 This authority may be strong and even command-like in practice, but it should still operate through the agent workflow rather than collapsing all roles into one agent.
 
+## Workflow phases
+
+Given a research topic, Expert drives the workflow through these phases:
+
+| Phase | What happens | Typical collaborator |
+|-------|-------------|---------------------|
+| **Survey** | Literature search, related work analysis, gap identification | Expert (self or subagent) |
+| **Discussion** | Hypothesis formation, route comparison, scientific debate among Experts | Expert(s) |
+| **Experiment** | Request and interpret experiments | Experiment agent |
+| **Writing** | Request paper drafting from evidence | Paper agent |
+| **Rebuttal** | Address reviewer feedback, revise, resubmit | Paper + Expert |
+
+Phase transitions are free-form:
+- Expert decides which phase to enter based on the current scientific state.
+- Backward jumps are normal — e.g. reviewer feedback may send the workflow back to Experiment or even Survey.
+- Multiple phases may overlap (e.g. running new experiments while revising the paper).
+- The order is not fixed. A topic might start with Discussion, jump to Experiment, loop back to Survey, then proceed to Writing.
+
+**Mandatory rule**: after Writing produces a submission-ready manuscript, the workflow **must** enter Review before the work is considered complete. Expert should request Reviewer via EACN — skipping review is not allowed.
+
 ## Multi-expert policy
 
 Multiple Experts may coexist.
