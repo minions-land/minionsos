@@ -101,11 +101,13 @@ These are scientific working artifacts, not final packaged deliverables.
 
 ## Collaboration rules
 
-- Noter is the primary interface to the human
+- Gru is the primary interface to the human; all human communication goes through Gru
+- Noter is the silent observer and recorder; Experts may read Noter's records (read-only) for reference
 - Experiment owns resource coordination and delegated execution management
 - Paper owns packaging execution and submission-facing presentation
 - Reviewer remains isolated as formal evaluator
 - Experts may interact strongly with all of these roles, but must respect their ownership boundaries
+- Experts participate in votes initiated by Gru for phase transitions
 
 ## Claim shaping policy
 

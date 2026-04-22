@@ -9,17 +9,33 @@ An open-ended autonomous scientific discovery system built on EACN3. Agents self
 
 ## What Is MinionsOS
 
-MinionsOS is not a single-paper pipeline. It is a continuously running scientific workflow where five types of agents collaborate through EACN to tackle open research problems end to end.
+MinionsOS is not a single-paper pipeline. It is a continuously running scientific workflow where six types of agents collaborate through EACN to tackle open research problems end to end.
 
 | Agent | Role | Stateless |
 |-------|------|-----------|
+| **Gru** | Supervisor — sole human interface, voting-based phase coordination, instruction relay | Yes (no branch) |
 | **Expert** | Scientific brain — hypotheses, decomposition, route comparison, result interpretation | Yes |
-| **Experiment** | Execution resource manager — dispatches work to subagents, never does hands-on work | Yes |
+| **Experiment** | Execution resource manager — dispatches work to subagents, maximizes GPU utilization | Yes |
 | **Paper** | Research presentation PM — owns LaTeX, structure, narrative, submission package | Yes |
 | **Reviewer** | AC/Editor — runs multi-round review loops with focused subspect subagents | Yes |
-| **Noter** | Human-facing interface — publishes tasks, records process, distills reusable experience | Yes (owns `main`) |
+| **Noter** | Silent observer — records the full workflow timeline, read-only for all agents | Yes (owns `main`) |
 
 All agents are stateless. Their durable state lives on GitHub branches in a shared repo under `Minions-Land`. Any agent instance can be replaced at any time — `git checkout` the branch, read its `CLAUDE.md`, and continue.
+
+## Phase Model
+
+The workflow operates in discrete phases, coordinated by Gru through voting:
+
+| Phase | Description | Primary agents |
+|-------|-------------|---------------|
+| **DeepResearch** | Independent literature survey and exploration | Expert(s) |
+| **Plan Mode** | Collective structured discussion among Experts | Expert(s) |
+| **Experiment** | GPU experiments requested and executed (max_bids=1, parallel GPU) | Experiment |
+| **Paper Writing** | Manuscript drafting | Paper |
+| **Review** | Formal review loops | Reviewer |
+| **Rebuttal** | Address reviewer feedback | Expert(s) + Paper |
+
+Phase transitions are decided by human instruction (via Gru, immediate) or Gru proposal + majority vote.
 
 ## Two-Layer Architecture
 
@@ -32,7 +48,7 @@ Agents never pass files directly. Agent A pushes to its branch and sends `{repo_
 
 ## Getting Started (Current Stage)
 
-At this stage, you need to manually set up three agent windows to run a minimal scientific workflow: **Noter**, **Expert**, and **Paper**. Experiment and Reviewer can be added when the workflow reaches those stages.
+At this stage, you need to manually set up agent windows to run a minimal scientific workflow: **Gru**, **Expert**, and **Paper**. Noter, Experiment, and Reviewer can be added when the workflow reaches those stages.
 
 ### Prerequisites
 
@@ -55,33 +71,45 @@ The repo root already includes `.mcp.json`. Make sure the plugin is built:
 cd plugin && npm install && npm run build && cd ..
 ```
 
-### Step 3 — Launch the Noter agent
+### Step 3 — Launch the Gru agent
 
-Open a Claude Code window. Set its working directory to `examples/Noter/`.
+Open a Claude Code window. Set its working directory to `examples/Gru/`.
 
-The Noter agent will:
+Gru is the sole human-facing interface. It will:
 1. Register on EACN and report its agent ID
 2. Start a cron job calling `eacn3_next` every 5 minutes
 3. Wait for you to provide a research goal
 
-When you give it a goal, Noter will:
-- Run `intake-task` to organize your request
-- Run `provision-branches` to create per-agent branches on the shared GitHub repo
-- Run `publish-task` to dispatch work via EACN with `{repo_url, branch, claude_md_path}` attached
+When you give it a goal, Gru will:
+- Forward your goal to Noter for branch provisioning and task publishing
+- Coordinate phase transitions through voting
+- Relay status updates back to you
 
-### Step 4 — Launch Expert agent(s)
+### Step 4 — Launch the Noter agent
+
+Open a Claude Code window. Set its working directory to `examples/Noter/`.
+
+Noter is a silent observer. It will:
+1. Register on EACN
+2. Provision branches when tasks are created
+3. Continuously observe and record the entire workflow timeline
+4. Make records available to all agents (read-only)
+
+Noter does not interact with you directly — use Gru for all human communication.
+
+### Step 5 — Launch Expert agent(s)
 
 Open one or more separate Claude Code windows. Set each to `examples/Expert/`.
 
 Each Expert will:
 1. Register on EACN
-2. Pick up the task published by Noter
+2. Pick up the task published via EACN
 3. `git checkout expert/<task-id>`, read the branch `CLAUDE.md`
 4. Begin scientific reasoning — hypotheses, decomposition, route comparison
 
 You can run multiple Experts. They are separate individuals and may diverge — that is by design.
 
-### Step 5 — Launch the Paper agent
+### Step 6 — Launch the Paper agent
 
 Open another Claude Code window. Set it to `examples/Paper/`.
 
@@ -91,9 +119,9 @@ Paper will:
 3. `git checkout paper/<task-id>`, read the branch `CLAUDE.md`
 4. Plan, delegate to subagents, compile the manuscript
 
-### Step 6 — Add Experiment / Reviewer when needed
+### Step 7 — Add Experiment / Reviewer when needed
 
-- **Experiment**: launch when Experts issue experiment requests. Set working directory to `examples/Experiment/`.
+- **Experiment**: launch when Experts issue experiment requests. Set working directory to `examples/Experiment/`. GPU experiment tasks use `max_bids=1` to prevent duplicate work, and experiments run in parallel to maximize GPU utilization.
 - **Reviewer**: launch when Paper produces a submission-ready PDF. Set working directory to `examples/Reviewer/`.
 
 Both follow the same pattern: register on EACN, pick up the task, checkout their branch, work, push, return `{branch, commit}` via EACN.
@@ -103,18 +131,19 @@ Both follow the same pattern: register on EACN, pick up the task, checkout their
 The agents self-organize:
 
 ```
-You (human) → give Noter a research goal
-  Noter → provisions branches, publishes tasks
-    Expert → hypothesizes, decomposes, requests experiments
-      Experiment → dispatches subagents, returns reports
-    Expert → interprets results, requests paper
-      Paper → delegates writing, compiles PDF
-        Reviewer → multi-round review, returns revision requests
-      Paper + Expert → revise, resubmit
-    Noter → records everything, distills experience
+You (human) → give Gru a research goal
+  Gru → forwards to Noter, coordinates phases via voting
+    Noter → provisions branches, publishes tasks, silently records everything
+      Expert → hypothesizes, decomposes, requests experiments
+        Experiment → dispatches subagents in parallel, returns reports
+      Expert → interprets results, requests paper
+        Paper → delegates writing, compiles PDF
+          Reviewer → multi-round review, returns revision requests
+        Paper + Expert → revise, resubmit
+      Noter → records everything, distills experience
 ```
 
-By default the workflow is fully autonomous. You only intervene if you explicitly enable breakpoint mode on Noter.
+By default the workflow is fully autonomous. You only intervene by giving Gru direct instructions.
 
 ## Branch Model
 
@@ -137,6 +166,7 @@ Full role definitions, skills, and boundary rules for each agent type live under
 ```
 examples/
 ├── _shared/skills/sync-branch/    # Shared git sync skill for all agents
+├── Gru/                           # Supervisor: human window, voting, phase coordination
 ├── Expert/                        # 8 skills: hypothesis, decompose, compare, etc.
 ├── Experiment/                    # 7 skills: triage, allocate, dispatch, etc.
 ├── Paper/                         # 8 skills: plan, draft, shape-claims, etc.

@@ -1,6 +1,6 @@
 # examples/ — scoping rule for `/init`
 
-This directory holds multiple independent example agents, each in its own sibling folder (e.g. `Experiment/`, `Expert/`, `Noter/`, `Paper/`, `Reviewer/`). They are **not** one combined project — each subfolder is its own self-contained agent example.
+This directory holds multiple independent example agents, each in its own sibling folder (e.g. `Experiment/`, `Expert/`, `Gru/`, `Noter/`, `Paper/`, `Reviewer/`). They are **not** one combined project — each subfolder is its own self-contained agent example.
 
 ## Scoping rule
 
@@ -23,7 +23,43 @@ When cwd is `examples/XXX`, `/init` sees exactly one thing: `XXX/`. Everything e
 
 # General EACN usage rules (apply to every agent under `examples/`)
 
-These rules are shared across all example agents (`Experiment/`, `Expert/`, `Noter/`, `Paper/`, `Reviewer/`, …). They define how any agent participates in the team task on the EACN network. Each agent's own `CLAUDE.md` may add role-specific behavior on top of these, but must not contradict them.
+These rules are shared across all example agents (`Experiment/`, `Expert/`, `Gru/`, `Noter/`, `Paper/`, `Reviewer/`, …). They define how any agent participates in the team task on the EACN network. Each agent's own `CLAUDE.md` may add role-specific behavior on top of these, but must not contradict them.
+
+## Role summary
+
+| Agent | Role | Human-facing? |
+|-------|------|--------------|
+| **Gru** | Supervisor — human window, voting-based phase coordination, instruction relay | Yes (sole human interface) |
+| **Noter** | Silent observer — records everything, read-only for others | No |
+| **Expert** | Scientific brain — direction, hypotheses, decomposition | No |
+| **Experiment** | Execution manager — GPU/resource coordination, parallel experiments | No |
+| **Paper** | Packaging — manuscript writing, submission preparation | No |
+| **Reviewer** | Evaluator — evidence-backed multi-round review | No |
+
+## Phase model
+
+The workflow operates in discrete phases, coordinated by Gru:
+
+| Phase | Description | Primary agents |
+|-------|-------------|---------------|
+| **DeepResearch** | Independent literature survey and exploration | Expert(s) |
+| **Plan Mode** | Collective structured discussion among Experts | Expert(s) |
+| **Experiment** | GPU experiments requested and executed | Experiment |
+| **Paper Writing** | Manuscript drafting | Paper |
+| **Review** | Formal review loops | Reviewer |
+| **Rebuttal** | Address reviewer feedback | Expert(s) + Paper |
+
+Phase transitions are decided by:
+1. **Human instruction** via Gru — immediate, no vote needed
+2. **Gru proposal + majority vote** — Gru proposes, agents vote, majority wins
+
+## Voting protocol
+
+- Gru initiates votes for phase transitions or collective decisions
+- Each agent (including Gru) gets one vote: **approve** or **reject**
+- **Majority rule**: more than half approve → passes; otherwise rejected
+- Ties are escalated to the human via Gru
+- Human override: human instructions forwarded by Gru skip voting
 
 ## Communication standards
 
@@ -82,7 +118,7 @@ All agents record their work in their own git branch. **Exclude any data volumes
 
 ## Stateless agents + branch-as-state model
 
-All agents except Noter are treated as **stateless**. Their durable state lives only on GitHub branches in the shared `Minions-Land` repo, so that a different instance of the same agent type can pick up the work at any time by cloning the branch. Local caches are not authoritative.
+All agents except Noter are treated as **stateless**. Gru is also stateless — it has no branch and no persistent artifacts. Their durable state lives only on GitHub branches in the shared `Minions-Land` repo, so that a different instance of the same agent type can pick up the work at any time by cloning the branch. Local caches are not authoritative.
 
 ### Branch ownership
 
@@ -134,7 +170,11 @@ Other agents reference your work by `{branch, commit}`, not by copying files acr
 - Oversize artifacts (>500MB, checkpoints, datasets) go to LFS or an external store; commit only a pointer + metadata.
 - Completed task branches are archived by tag, not deleted.
 
+### Experiment task acceptance
+
+GPU experiment tasks are published with `max_bids=1` on EACN. Only one Experiment agent may accept a given experiment task to prevent duplicate work. The accepting Experiment agent should maximize GPU utilization by running all experiments in parallel as long as GPU memory allows.
+
 ### Implication
 
-Experiment and Reviewer agents are fully interchangeable across sessions — if the original instance is gone, any new same-type agent can resume by reading the branch `CLAUDE.md`. Expert branches follow the same mechanics, though a new Expert may bring its own scientific bias by design.
+Experiment and Reviewer agents are fully interchangeable across sessions — if the original instance is gone, any new same-type agent can resume by reading the branch `CLAUDE.md`. Expert branches follow the same mechanics, though a new Expert may bring its own scientific bias by design. Gru is fully stateless and interchangeable — any Gru instance can take over coordination by reading EACN event history.
 

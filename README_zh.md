@@ -9,17 +9,33 @@
 
 ## MinionsOS 是什么
 
-MinionsOS 不是单篇论文流水线，而是一个持续运转的科学工作流。五类 agent 通过 EACN 协作，端到端地解决开放性研究问题。
+MinionsOS 不是单篇论文流水线，而是一个持续运转的科学工作流。六类 agent 通过 EACN 协作，端到端地解决开放性研究问题。
 
 | Agent | 角色 | 无状态 |
 |-------|------|--------|
+| **Gru** | 监督者 — 唯一人类接口，投票制阶段协调，指令转发 | 是（无 branch） |
 | **Expert** | 科学大脑 — 假设、分解、路线比较、结果解读 | 是 |
-| **Experiment** | 执行资源管理者 — 把工作派给 subagent，自己绝不动手 | 是 |
+| **Experiment** | 执行资源管理者 — 把工作派给 subagent，并行吃满 GPU | 是 |
 | **Paper** | 研究展示产品经理 — 拥有 LaTeX、结构、叙事、投稿包 | 是 |
 | **Reviewer** | AC/Editor — 多轮 review loop，每轮由窄视角 subspect subagent 组成 | 是 |
-| **Noter** | 人类接口 — 发布任务、记录过程、沉淀可复用经验 | 是（拥有 `main`） |
+| **Noter** | 沉默观察者 — 记录完整工作流时间线，对所有 agent 只读开放 | 是（拥有 `main`） |
 
 所有 agent 都是无状态的。持久状态只存在于 `Minions-Land` 组织下共享 repo 的 GitHub branch 上。任何 agent 实例随时可被替换 — `git checkout` 对应 branch，读取其 `CLAUDE.md`，即可继续工作。
+
+## 阶段模型
+
+工作流由 Gru 通过投票协调，分为以下阶段：
+
+| 阶段 | 描述 | 主要 agent |
+|------|------|-----------|
+| **DeepResearch** | 独立文献调研和方向探索 | Expert |
+| **Plan Mode** | Expert 集体结构化讨论 | Expert(s) |
+| **Experiment** | GPU 实验（max_bids=1，并行吃满显存） | Experiment |
+| **Paper Writing** | 论文写作 | Paper |
+| **Review** | 正式多轮审稿 | Reviewer |
+| **Rebuttal** | 回应审稿意见 | Expert(s) + Paper |
+
+阶段切换由人类指令（通过 Gru 直接生效）或 Gru 提案 + 多数投票决定。
 
 ## 两层架构
 
@@ -32,7 +48,7 @@ agent 之间不直接传文件。A push 到自己的 branch，通过 EACN 发送
 
 ## 快速上手（当前阶段）
 
-当前阶段需要手动启动三个 agent 窗口来运行最小科学工作流：**Noter**、**Expert** 和 **Paper**。Experiment 和 Reviewer 在工作流推进到相应阶段时再加入。
+当前阶段需要手动启动 agent 窗口来运行最小科学工作流：**Gru**、**Expert** 和 **Paper**。Noter、Experiment 和 Reviewer 在工作流推进到相应阶段时再加入。
 
 ### 前置条件
 
@@ -55,33 +71,45 @@ cd MinionsOS
 cd plugin && npm install && npm run build && cd ..
 ```
 
-### 第三步 — 启动 Noter agent
+### 第三步 — 启动 Gru agent
 
-打开一个 Claude Code 窗口，工作目录设为 `examples/Noter/`。
+打开一个 Claude Code 窗口，工作目录设为 `examples/Gru/`。
 
-Noter 会：
+Gru 是唯一的人类接口。它会：
 1. 在 EACN 上注册并报告 agent ID
 2. 启动 cron 任务，每 5 分钟调用 `eacn3_next`
 3. 等待你提供研究目标
 
-当你给出目标后，Noter 会：
-- 执行 `intake-task` 整理你的需求
-- 执行 `provision-branches` 在共享 GitHub repo 上创建各 agent 的 branch
-- 执行 `publish-task` 通过 EACN 派发任务，附带 `{repo_url, branch, claude_md_path}`
+当你给出目标后，Gru 会：
+- 将目标转发给 Noter 进行 branch 创建和任务发布
+- 通过投票协调阶段切换
+- 向你汇报状态更新
 
-### 第四步 — 启动 Expert agent
+### 第四步 — 启动 Noter agent
+
+打开一个 Claude Code 窗口，工作目录设为 `examples/Noter/`。
+
+Noter 是沉默的观察者。它会：
+1. 在 EACN 上注册
+2. 在任务创建时创建各 agent 的 branch
+3. 持续观察并记录完整的工作流时间线
+4. 将记录向所有 agent 只读开放
+
+Noter 不与你直接交互 — 所有人类沟通通过 Gru。
+
+### 第五步 — 启动 Expert agent
 
 打开一个或多个独立的 Claude Code 窗口，工作目录设为 `examples/Expert/`。
 
 每个 Expert 会：
 1. 在 EACN 上注册
-2. 接收 Noter 发布的任务
+2. 接收通过 EACN 发布的任务
 3. `git checkout expert/<task-id>`，读取 branch 上的 `CLAUDE.md`
 4. 开始科学推理 — 假设、分解、路线比较
 
 可以同时运行多个 Expert。它们是独立个体，可能产生分歧 — 这是设计意图。
 
-### 第五步 — 启动 Paper agent
+### 第六步 — 启动 Paper agent
 
 再打开一个 Claude Code 窗口，工作目录设为 `examples/Paper/`。
 
@@ -91,9 +119,9 @@ Paper 会：
 3. `git checkout paper/<task-id>`，读取 branch 上的 `CLAUDE.md`
 4. 规划、委托 subagent 写各 section、编译稿件
 
-### 第六步 — 按需加入 Experiment / Reviewer
+### 第七步 — 按需加入 Experiment / Reviewer
 
-- **Experiment**：当 Expert 发出实验请求时启动，工作目录设为 `examples/Experiment/`
+- **Experiment**：当 Expert 发出实验请求时启动，工作目录设为 `examples/Experiment/`。GPU 实验任务使用 `max_bids=1` 防止重复，实验并行运行以最大化 GPU 利用率。
 - **Reviewer**：当 Paper 产出可提交的 PDF 时启动，工作目录设为 `examples/Reviewer/`
 
 两者遵循相同模式：注册 EACN → 接任务 → checkout branch → 工作 → push → 通过 EACN 返回 `{branch, commit}`。
@@ -103,18 +131,19 @@ Paper 会：
 agent 自组织运转：
 
 ```
-你（人类）→ 给 Noter 一个研究目标
-  Noter → 创建 branch、发布任务
-    Expert → 假设、分解、请求实验
-      Experiment → 派遣 subagent、返回报告
-    Expert → 解读结果、请求写论文
-      Paper → 委托写作、编译 PDF
-        Reviewer → 多轮 review、返回修改意见
-      Paper + Expert → 修改、重新提交
-    Noter → 全程记录、沉淀经验
+你（人类）→ 给 Gru 一个研究目标
+  Gru → 转发给 Noter，通过投票协调阶段
+    Noter → 创建 branch、发布任务、沉默记录一切
+      Expert → 假设、分解、请求实验
+        Experiment → 并行派遣 subagent、返回报告
+      Expert → 解读结果、请求写论文
+        Paper → 委托写作、编译 PDF
+          Reviewer → 多轮 review、返回修改意见
+        Paper + Expert → 修改、重新提交
+      Noter → 全程记录、沉淀经验
 ```
 
-默认全自主运行。只有你在 Noter 上显式开启断点模式时才会介入。
+默认全自主运行。你只需通过 Gru 下达指令。
 
 ## Branch 模型
 
@@ -137,6 +166,7 @@ agent 自组织运转：
 ```
 examples/
 ├── _shared/skills/sync-branch/    # 所有 agent 共享的 git 同步技能
+├── Gru/                           # 监督者：人类窗口、投票、阶段协调
 ├── Expert/                        # 8 个技能：假设、分解、比较等
 ├── Experiment/                    # 7 个技能：分诊、分配、调度等
 ├── Paper/                         # 8 个技能：规划、起草、claim shaping 等

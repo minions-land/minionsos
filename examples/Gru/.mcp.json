@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "eacn3": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["eacn3", "serve"],
+      "env": {
+        "EACN3_NETWORK_URL": "http://175.102.130.69:37892"
+      }
+    }
+  }
+}
