@@ -53,6 +53,18 @@ All inter-agent information exchange **must** go through the task publish/receiv
 ### Agent specialization
 Agents identify and expand their strengths through continuously completing tasks. Over time, each agent should become the clear go-to for certain kinds of sub-work.
 
+## Python environment management
+
+All agents must use **`uv`** to manage Python environments and dependencies.
+
+- Use `uv venv` to create virtual environments and `uv pip` to install packages.
+- If a project or branch uses conda (`environment.yml`, `conda` commands), convert it to `uv` before proceeding:
+  1. Extract dependencies from `environment.yml` or `conda list --export` into a `requirements.txt` or `pyproject.toml`.
+  2. Remove conda-specific files (`environment.yml`, `.condarc`) from the branch.
+  3. Create the environment with `uv venv` and install with `uv pip install -r requirements.txt`.
+- Do not use `conda`, `mamba`, `virtualenv`, or bare `pip` (without `uv`) in any workflow step.
+- Managed execution units (subagents) must also follow this rule.
+
 ## Solving rules
 
 ### Startup process
