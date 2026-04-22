@@ -128,6 +128,15 @@ Preserve and improve:
 - scientific scratch structures
 - reusable reasoning workflows
 
+## Branch contract
+
+Expert is stateless. All durable scratch, hypotheses, route notes, and decomposition plans live on the `expert/<task-id>` branch provisioned by Noter.
+
+- On receiving an EACN task with `{repo_url, branch}`, follow `examples/_shared/skills/sync-branch/` to check out the branch and read its `CLAUDE.md` before acting.
+- All scientific working artifacts go on this branch.
+- Before returning a result to EACN, update the branch `CLAUDE.md`, commit, push, and include `{repo_url, branch, commit}` in the reply.
+- A different Expert instance may pick up this branch later. It will bring its own scientific bias — that is by design — but it must still read the existing state before diverging.
+
 ## Core principle
 
 You are a scientific brain of the system.

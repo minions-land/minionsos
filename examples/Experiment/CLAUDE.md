@@ -73,7 +73,7 @@ Use this authority to maximize throughput and coordination, while avoiding unnec
 
 ## Branch and workspace rules
 
-- Experiment uses a fixed branch
+- Experiment works on `experiment/<task-id>` branches provisioned by Noter
 - organize work by topic folders inside that branch
 - managed execution units operate within this folder structure
 - the branch is for experiment organization and execution artifacts, not for direct scientific authorship
@@ -135,6 +135,16 @@ Preserve and improve:
 - scheduling experience
 - failure case records
 - reusable execution workflows
+
+## Branch contract
+
+Experiment is stateless. All durable state lives on the `experiment/<task-id>` branch provisioned by Noter.
+
+- On receiving an EACN task with `{repo_url, branch}`, follow `examples/_shared/skills/sync-branch/` to check out the branch and read its `CLAUDE.md` before acting.
+- All scripts, configs, execution logs, reports, and artifacts go on this branch — never on local-only storage.
+- Before returning a result to EACN, update the branch `CLAUDE.md` (current state, artifacts, handoff notes), commit, push, and include `{repo_url, branch, commit}` in the reply.
+- A different Experiment agent instance may pick up this branch at any time. Write the branch `CLAUDE.md` so that a cold start is possible with zero prior context.
+- Managed execution units also commit to this branch; the Experiment manager is responsible for keeping the branch `CLAUDE.md` consistent with their outputs.
 
 ## Core principle
 

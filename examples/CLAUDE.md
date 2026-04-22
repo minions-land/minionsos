@@ -68,3 +68,61 @@ Agents may **actively** start the collaborative solving flow **only after the te
 ### Work record
 All agents record their work in their own git branch. **Exclude any data volumes larger than 500MB** from the branch.
 
+## Stateless agents + branch-as-state model
+
+All agents except Noter are treated as **stateless**. Their durable state lives only on GitHub branches in the shared `Minions-Land` repo, so that a different instance of the same agent type can pick up the work at any time by cloning the branch. Local caches are not authoritative.
+
+### Branch ownership
+
+- `main` — owned by **Noter**. Workflow records, stage summaries, experience assets.
+- `expert/<task-id>` — owned by **Expert** of that task (scratch, hypotheses, route notes).
+- `experiment/<task-id>` — owned by **Experiment** (scripts, configs, reports, execution assets).
+- `paper/<task-id>` — owned by **Paper** (LaTeX project, figures, submission bundle).
+- `reviewer/<task-id>/round-<n>` — owned by **Reviewer** for that round.
+
+Additional branches may be provisioned on demand, but the rule "one agent type writes one branch" must hold.
+
+### Noter as branch provisioner
+
+When a new team task is set, Noter runs `provision-branches` **before** `publish-task`:
+
+1. Ensure the shared repo exists under `https://github.com/Minions-Land/` (create if missing).
+2. Create the needed branches from a clean `main` commit.
+3. Seed each branch with an initial `CLAUDE.md` describing the branch.
+4. Put `{repo_url, branch, claude_md_path}` into every EACN task message, so the invitee can locate its branch without external context.
+
+### Branch-level CLAUDE.md contract
+
+Every working branch (not `main`) must carry its own `CLAUDE.md` at the branch root, structured as:
+
+- **Role on this branch** — which agent type owns it
+- **Task context** — summary inherited from Noter's intake
+- **Upstream dependencies** — other branches + commit hashes this branch relies on
+- **What's been done** — reverse-chronological human-readable log (not `git log`)
+- **Current state** — what is in progress, what is blocked, what is next
+- **Artifacts produced** — paths with one-line descriptions
+- **Handoff notes** — message to the next agent of the same type
+
+This file is the **only** onboarding document a fresh agent needs. It must be kept truthful; update it in the same commit as the work it describes.
+
+### Pickup / handoff protocol
+
+Every agent, on receiving an EACN task carrying `{repo_url, branch}`, must follow the shared `sync-branch` skill (under `examples/_shared/skills/sync-branch/`):
+
+1. **Pickup**: `git fetch` → `git checkout <branch>` → `git pull --ff-only` → read branch `CLAUDE.md` end-to-end before acting.
+2. **Work**: do the role-specific work; produce artifacts on this branch only.
+3. **Handoff**: update branch `CLAUDE.md` → commit → push → return `{repo_url, branch, commit}` in the EACN reply so peers can cite the exact snapshot.
+
+Other agents reference your work by `{branch, commit}`, not by copying files across branches.
+
+### Concurrency and safety
+
+- One agent of a given type writes a given branch at a time; EACN bid/claim enforces exclusivity.
+- Use `git push --force-with-lease` rather than `--force` if an overwrite is ever needed.
+- Oversize artifacts (>500MB, checkpoints, datasets) go to LFS or an external store; commit only a pointer + metadata.
+- Completed task branches are archived by tag, not deleted.
+
+### Implication
+
+Experiment and Reviewer agents are fully interchangeable across sessions — if the original instance is gone, any new same-type agent can resume by reading the branch `CLAUDE.md`. Expert branches follow the same mechanics, though a new Expert may bring its own scientific bias by design.
+

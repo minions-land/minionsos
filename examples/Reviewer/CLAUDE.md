@@ -135,7 +135,7 @@ They exist to diversify review perspectives, not to create random noise.
 
 ## Branch and workspace rules
 
-- Reviewer uses one fixed branch
+- Reviewer works on `reviewer/<task-id>/round-<n>` branches provisioned by Noter
 - each reviewed paper should have a matching subdirectory corresponding to the paper workspace
 - keep review artifacts organized per paper or per review target
 
@@ -163,6 +163,16 @@ Preserve and improve:
 - subspect review prompts
 - rebuttal interaction patterns
 - common rejection and revision patterns
+
+## Branch contract
+
+Reviewer is stateless. All review artifacts live on `reviewer/<task-id>/round-<n>` branches provisioned by Noter.
+
+- On receiving an EACN task with `{repo_url, branch}`, follow `examples/_shared/skills/sync-branch/` to check out the branch and read its `CLAUDE.md` before acting.
+- Each review round gets its own branch. Prior-round branches are read-only references for the current round.
+- All subspect outputs, aggregated reviews, and verdict records go on the current round's branch.
+- Before returning a result to EACN, update the branch `CLAUDE.md`, commit, push, and include `{repo_url, branch, commit}` in the reply.
+- A different Reviewer instance may pick up a new round at any time. The prior round's branch `CLAUDE.md` + artifacts must be sufficient for a cold-start continuation.
 
 ## Core principle
 

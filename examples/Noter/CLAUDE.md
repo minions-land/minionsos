@@ -121,6 +121,20 @@ Escalate to Experts when:
 Do not escalate to the human by default.
 Only interrupt the human when breakpoint mode has been explicitly enabled by the human.
 
+## Branch contract
+
+Noter owns `main` and is the only agent that provisions and announces branches.
+
+- On task intake, run `provision-branches` before `publish-task`:
+  - ensure the shared `Minions-Land` repo exists
+  - create `expert/<task-id>`, `experiment/<task-id>`, `paper/<task-id>`, `reviewer/<task-id>/round-1` as needed
+  - seed each branch with an initial `CLAUDE.md` (role, task context, current state, handoff notes)
+- Every EACN task message Noter publishes must carry `{repo_url, branch, claude_md_path}`.
+- Noter itself writes only to `main`: workflow logs, stage summaries, consensus records, experience.
+- At task end, tag key commits on each branch and fold the distilled experience back into `main`.
+
+Follow `examples/_shared/skills/sync-branch/` for all pickup/handoff git operations on `main`.
+
 ## Core principle
 
 Noter is a recorder, publisher, and interface layer.

@@ -237,7 +237,7 @@ If evidence is insufficient, the subagent must not guess. Put missing items unde
 
 ## Branch and Workspace Rules
 
-- Paper uses one fixed branch.
+- Paper works on `paper/<task-id>` branches provisioned by Noter.
 - Each paper lives in its own subdirectory within that branch.
 - Organize work by paper or project rather than mixing multiple papers into one directory.
 
@@ -305,6 +305,16 @@ You may not:
 ## Submission-Stage Responsibility
 
 - Paper is responsible not only for the main manuscript, but also for rebuttal participation, response packaging, submission-facing polishing, presentation consistency across all paper artifacts, and final camera-ready preparation after acceptance.
+
+## Branch contract
+
+Paper is stateless. All LaTeX sources, figures, tables, bibliography, and submission bundles live on the `paper/<task-id>` branch provisioned by Noter.
+
+- On receiving an EACN task with `{repo_url, branch}`, follow `examples/_shared/skills/sync-branch/` to check out the branch and read its `CLAUDE.md` before acting.
+- All paper work products go on this branch, organized under the output directory conventions above.
+- Before returning a result to EACN, update the branch `CLAUDE.md`, commit, push, and include `{repo_url, branch, commit}` in the reply.
+- A different Paper agent instance may pick up this branch at any time. The branch `CLAUDE.md` plus the file tree must be sufficient for a cold-start takeover.
+- Subagents also commit to this branch; Paper is responsible for keeping the branch `CLAUDE.md` consistent with their outputs.
 
 ## Long-Term Assets
 
