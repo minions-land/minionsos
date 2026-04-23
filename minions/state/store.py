@@ -13,16 +13,16 @@ import json
 import logging
 import os
 import socket
-import time
+from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Generator, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 from minions.errors import PortError, StateError
-from minions.paths import PROJECTS_JSON, STATE_DIR
+from minions.paths import PROJECTS_JSON
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ class ProjectsData(BaseModel):
 
 
 def _now_iso() -> str:
-    return datetime.now(tz=timezone.utc).isoformat()
+    return datetime.now(tz=UTC).isoformat()
 
 
 def _bind_probe(port: int) -> bool:
@@ -240,7 +240,7 @@ class StateStore:
                 return port
             # Port is in use by something else on the system; skip.
 
-        raise PortError(f"No free port available in range {PORT_MIN}–{PORT_MAX}.")
+        raise PortError(f"No free port available in range {PORT_MIN}-{PORT_MAX}.")
 
     # ------------------------------------------------------------------
     # Role helpers (convenience wrappers around update_project)

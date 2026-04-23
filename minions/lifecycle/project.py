@@ -241,7 +241,7 @@ def _render_project_claude_md(
     lines.append("")
     lines.append("## Brief")
     lines.append("")
-    lines.append(brief.strip() if brief else "_TODO: write a 1–3 paragraph project brief._")
+    lines.append(brief.strip() if brief else "_TODO: write a 1-3 paragraph project brief._")
     lines.append("")
     lines.append("## Working rules")
     lines.append("")

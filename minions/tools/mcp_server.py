@@ -64,15 +64,18 @@ class ProjectCreateArgs(BaseModel):
     upstream: str | None = Field(default=None, description="Upstream branch name.")
     brief: str | None = Field(
         default=None,
-        description="Optional 1–3 paragraph project brief; inlined into generated CLAUDE.md.",
+        description="Optional 1-3 paragraph project brief; inlined into generated CLAUDE.md.",
     )
     topic_doc: str | None = Field(
         default=None,
-        description="Absolute path to a topic/spec doc; recorded in meta.json + CLAUDE.md.",
+        description="Absolute path to a topic/spec doc; recorded in meta.json & CLAUDE.md.",
     )
     template_dir: str | None = Field(
         default=None,
-        description="Absolute path to venue formatting templates; recorded in meta.json + CLAUDE.md.",
+        description=(
+            "Absolute path to venue formatting templates; "
+            "recorded in meta.json & CLAUDE.md."
+        ),
     )
 
 

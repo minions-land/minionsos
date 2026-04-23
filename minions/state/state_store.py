@@ -15,7 +15,7 @@ import threading
 from pathlib import Path
 from typing import Any, Literal
 
-from minions.errors import PortError, StateError
+from minions.errors import StateError
 from minions.state.port_allocator import PortAllocator
 
 logger = logging.getLogger(__name__)

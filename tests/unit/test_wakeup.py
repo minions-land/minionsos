@@ -6,8 +6,6 @@ from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import patch
 
-import pytest
-
 from minions.lifecycle.wakeup import WakeupScheduler, _EventDedup
 
 

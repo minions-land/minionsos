@@ -32,7 +32,8 @@ def test_standard_h1_plus_summary(fake_roles: Path) -> None:
         fake_roles,
         "experimenter",
         "execution-guide",
-        "# Skill — Execution Guide\n\nA disciplined procedure for running experiments.\n\n## Core move\n...",
+        "# Skill - Execution Guide\n\nA disciplined procedure for running experiments.\n"
+        "\n## Core move\n...",
     )
     result = skills_mod.list_skills("experimenter")
     assert result == [("execution-guide", "A disciplined procedure for running experiments.")]

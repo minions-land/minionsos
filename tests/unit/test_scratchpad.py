@@ -156,7 +156,7 @@ class TestWakeupScratchpad:
         assert "exceeds" in posted[0][2]
 
     def test_dedup_resets_when_file_drops_below_veto(self, tmp_path: Path) -> None:
-        sched, calls = self._make(tmp_path)
+        sched, _calls = self._make(tmp_path)
         sp = tmp_path / "project_37596" / "memory" / "noter.md"
         _write_tokens(sp, VETO + 10)
         p1, p2 = _patch_paths(tmp_path)
@@ -190,7 +190,7 @@ class TestWakeupScratchpad:
         assert len(posted) == 2
 
     def test_memory_dir_auto_created(self, tmp_path: Path) -> None:
-        sched, calls = self._make(tmp_path)
+        sched, _calls = self._make(tmp_path)
         p1, p2 = _patch_paths(tmp_path)
         payload = {"events": [{"id": "e1"}]}
         with p1, p2, patch.object(wakeup_mod, "poll_events", return_value=payload):

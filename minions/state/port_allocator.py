@@ -32,4 +32,4 @@ class PortAllocator:
                 continue
             if self._is_free(port):
                 return port
-        raise PortError(f"No free port in range {self.port_min}–{self.port_max}.")
+        raise PortError(f"No free port in range {self.port_min}-{self.port_max}.")
