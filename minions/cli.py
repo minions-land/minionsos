@@ -168,6 +168,23 @@ def doctor(
     r = subprocess.run(["git", "--version"], capture_output=True, text=True)
     _check("git", r.returncode == 0, r.stdout.strip())
 
+    # Parent directory is a git repo (required for project_create worktree).
+    from minions.paths import MINIONS_ROOT
+
+    parent = MINIONS_ROOT.parent
+    pr = subprocess.run(
+        ["git", "rev-parse", "--is-inside-work-tree"],
+        cwd=str(parent),
+        capture_output=True,
+        text=True,
+    )
+    parent_is_repo = pr.returncode == 0 and pr.stdout.strip() == "true"
+    _check(
+        "parent-dir-is-git-repo",
+        parent_is_repo,
+        str(parent) if parent_is_repo else f"{parent} — run: git init && git add -A && git commit",
+    )
+
     # EACN3 importable
     try:
         import importlib

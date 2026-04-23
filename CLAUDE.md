@@ -61,6 +61,23 @@ MinionsOS_V2/
 - Use `./mos status`, `./mos logs`, `./mos doctor` for project management.
 - See the Commands section below.
 
+**Prerequisite — parent directory must be a git repo.**
+MinionsOS creates per-project **git worktrees** branched off the directory
+that *contains* `MinionsOS_V2/`. Before the first `project_create`, that
+parent directory must be git-initialised, and `MinionsOS_V2/.git` must not
+be treated as an embedded repo by it. `./install.sh` warns if this is
+wrong; `./mos doctor` re-checks it. If you need to fix it by hand:
+
+```bash
+cd <parent of MinionsOS_V2>
+# if MinionsOS_V2/.git is a plain directory and you are NOT using
+# submodules, remove it so the parent can own it:
+# rm -rf MinionsOS_V2/.git
+git init
+git add -A
+git commit -m "init"
+```
+
 **If you are Gru:**
 - Read this file, then `minions/state/projects.json`, then each active project's `CLAUDE.md`.
 - Your role definition is in `minions/roles/gru/SYSTEM.md`.
