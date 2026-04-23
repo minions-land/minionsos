@@ -78,3 +78,7 @@ workspace/paper/
 ├── build/          # compiled PDF and build logs
 └── main.tex        # entry point
 ```
+
+## Skills
+
+Methodology / procedure skills live in `minions/roles/writer/skills/`. On wake-up, the list is injected into your init message with a one-line summary per skill (compilation, plotting, citation audit, LaTeX scaffolding, figure specs, rebuttal, submission packaging). Consult the relevant skill in full before non-trivial writing / packaging decisions. Skills are procedure disciplines, not rituals — apply to the ~20% of decisions where framing matters. New skills may be added over time; discovery handles them automatically.

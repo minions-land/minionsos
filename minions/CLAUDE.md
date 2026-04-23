@@ -72,13 +72,16 @@ Key design points:
 5. Write a unit test under `tests/unit/` covering registration and whitelist resolution.
 6. If the new role has a multi-pass workflow (like Reviewer's 3-Pass progressive disclosure), document the pass boundaries and isolation rules explicitly; do not let later passes contaminate earlier ones by accident.
 
-## How to add an Expert methodology skill
+## How to add a Role skill
 
-1. Create `minions/roles/expert/skills/{slug}.md` where `{slug}` is a lowercase hyphen-separated name of the reasoning discipline (e.g. `occams-razor.md`, `counterfactual-reasoning.md`).
-2. Follow the structure of existing skills: Core move / question, Procedure, When to invoke, Pitfalls, Output habit (marking derived claims per root §9).
-3. Keep skills short (≤ 60 lines). They are reasoning disciplines, not exhaustive treatises.
-4. No code change needed — Expert discovers skills by listing the directory at wake-up.
-5. Do not duplicate domain knowledge into a skill; domain specifics belong in `minions/domains/`. Skills are cross-domain reasoning tools.
+Applies to any Role (Expert, Experimenter, Writer, Noter, Coder, Reviewer, Ethics, Gru).
+
+1. Create `minions/roles/{role}/skills/{slug}.md` where `{slug}` is lowercase hyphen-separated (e.g. `occams-razor.md`, `triage-request.md`, `citation-audit.md`).
+2. Follow the standard structure: H1 title on the first line, a one-line summary on the next non-blank line (used by the discovery mechanism), then `Core move` / `Core question`, `Procedure`, `When to invoke`, `Pitfalls`, `Output habit` (marking derived claims per root §9).
+3. Keep skills short (≤ 60 lines). They are reasoning / procedure disciplines, not exhaustive treatises.
+4. No code change needed — every Role discovers its skills by listing `minions/roles/{role}/skills/` at wake-up via `minions.lifecycle.skills.list_skills`, which seeds a `[Skills]` block into the init message.
+5. Do not duplicate domain knowledge into a skill; domain specifics belong in `minions/domains/`. Skills are cross-domain reasoning or procedure tools.
+6. Add or extend a unit test under `tests/unit/test_skills_discovery.py` if the new skill exercises an edge case (e.g. unusual title format).
 
 ## How to add a domain pack
 

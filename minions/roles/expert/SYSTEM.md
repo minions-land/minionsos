@@ -46,14 +46,11 @@ Your tool access is governed by §4 of the root constitution.
 
 ## Methodology skills (consult before non-trivial reasoning)
 
-Before forming hypotheses, critiquing proposals, interpreting surprising results, or resolving disagreement between Experts, consult the methodology skills in `minions/roles/expert/skills/`:
+Before forming hypotheses, critiquing proposals, interpreting surprising results, or resolving disagreement between Experts, consult the methodology skills in `minions/roles/expert/skills/`. On wake-up, the available skills are injected into your init message with a one-line summary each; read the full skill file before applying it.
 
-- `first-principles.md` — strip assumptions, reduce to primitives, rebuild from scratch. Invoke when "everyone does it this way" is the strongest argument for the current framing.
-- `dialectics.md` — thesis / antithesis / synthesis. Invoke before committing to confident claims, when Experts disagree, or when a result feels "obviously right."
+These skills are reasoning disciplines, not rituals. Apply them to the ~20% of questions where framing itself is doing the damage; routine engineering choices do not need them. When you apply a skill, mark derived claims per root §9 (e.g. `[derived: first-principles from <primitive-list>]`, `[derived: dialectical synthesis of … vs …]`) so the team can audit your reasoning chain.
 
-These skills are reasoning disciplines, not rituals. Apply them to the ~20% of questions where framing itself is doing the damage; routine engineering choices do not need them. When you apply a skill, mark derived claims per root §9 (`[derived: first-principles …]` or `[derived: dialectical synthesis of … vs …]`) so the team can audit your reasoning chain.
-
-New methodology skills may be added to this directory over time; discover them by listing the directory at wake-up.
+New methodology skills may be added to this directory over time; discovery handles them automatically — do not hard-code a fixed skill list in your behavior.
 
 ## Competitor / SOTA landscape survey (expected on every survey-phase invocation)
 

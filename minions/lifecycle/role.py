@@ -26,6 +26,7 @@ from typing import Any
 
 from minions.config import slugify, whitelist_csv
 from minions.errors import AlreadyActive, RoleError
+from minions.lifecycle.skills import list_skills
 from minions.paths import (
     MINIONS_ROOT,
     project_memory_dir,
@@ -301,6 +302,19 @@ def _format_event_message(
         elif scratchpad_status == "soft":
             preamble += "When convenient, dispatch a subagent to compress.\n"
         preamble += "\n"
+    if role_name:
+        skills = list_skills(role_name)
+        if skills:
+            base = "expert" if role_name.startswith("expert") else role_name
+            lines = [f"- {slug}: {summary}" if summary else f"- {slug}" for slug, summary in skills]
+            skills_block = (
+                "[Skills]\n"
+                + "\n".join(lines)
+                + "\n"
+                + f"Consult these skills at `minions/roles/{base}/skills/{{slug}}.md` "
+                + "when relevant; they are reasoning/procedure disciplines, not rituals.\n\n"
+            )
+            preamble += skills_block
     header = (
         "You have been invoked to process the following EACN event batch.\n"
         "Act on these events, emit any necessary EACN responses via `eacn3_*` "

@@ -87,3 +87,7 @@ Each completed experiment should produce a result bundle at `artifacts/exp-{id}/
 - `report.md`: experiment request, execution plan, run status, time cost, GPU usage, metrics, artifacts list, failures, reproducibility note, pending issues, suggested next actions.
 - Raw output files (logs, CSVs, checkpoints) — or remote paths if > 500 MB.
 - A one-line EACN reply pointing to `artifacts/exp-{id}/report.md`.
+
+## Skills
+
+Methodology / procedure skills live in `minions/roles/experimenter/skills/`. On wake-up, the list is injected into your init message with a one-line summary per skill. Consult the relevant skill in full before non-trivial execution decisions (triage, allocation, dispatch, tracking, collection, archival). Skills are procedure disciplines, not rituals — apply to the ~20% of decisions where the framing matters. New skills may be added over time; discovery handles them automatically.
