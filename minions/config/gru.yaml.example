@@ -1,0 +1,33 @@
+# Gru supervisor configuration.
+# Copy this file to gru.yaml and adjust as needed.
+# gru.yaml is gitignored; only gru.yaml.example is committed.
+
+# How often Gru emits a heartbeat status report.
+# Format: "<N>h" or "<N>m". Set to "0" to disable.
+heartbeat_report_interval: "2h"
+
+# Whether Gru (and all roles it spawns) may use web search tools.
+# Set to false to air-gap the session.
+allow_web_search: true
+
+# Logging verbosity: debug | info | warning | error
+log_level: info
+
+# Default cron interval for all spawned Roles (allowed: 1m / 3m / 5m).
+# Every Role installs a polling loop that calls eacn3_events_poll on this cadence.
+poll_interval_default: 1m
+
+# EACN agent_id used when system components (e.g. the Python-side wakeup
+# dispatcher posting scratchpad-veto warnings) address Gru. Change only if
+# you have renamed the Gru agent on the EACN bus.
+gru_eacn_agent_id: gru
+
+# Scratchpad size thresholds, expressed as a fraction of the model context
+# window so they auto-scale as we upgrade to larger-context models.
+# Rationale: Context Rot / NoLiMa research shows effective context degrades
+# well before the nominal window is full — keep the scratchpad well under it.
+# Defaults (1M-token window): soft=100k, hard=150k, veto=200k tokens.
+model_context_window_tokens: 1000000
+scratchpad_soft_pct: 0.10   # gentle compression hint
+scratchpad_hard_pct: 0.15   # require compression before new events
+scratchpad_veto_pct: 0.20   # refuse to spawn and alert Gru

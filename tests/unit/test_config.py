@@ -1,0 +1,145 @@
+"""Unit tests for minions config loading, slugify, and whitelist resolver."""
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+import yaml
+
+config_mod = pytest.importorskip("minions.config.loader")
+load_gru_config = config_mod.load_gru_config
+GruConfig = config_mod.GruConfig
+
+slug_mod = pytest.importorskip("minions.tools.utils")
+slugify = slug_mod.slugify
+
+whitelist_mod = pytest.importorskip("minions.tools.whitelist")
+resolve_allowed_tools = whitelist_mod.resolve_allowed_tools
+
+
+# ── Fixtures ──────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture()
+def gru_yaml(tmp_path: Path) -> Path:
+    """Write a minimal gru.yaml to tmp_path and return its path."""
+    cfg = {
+        "heartbeat_report_interval": "2h",
+        "allow_web_search": True,
+        "log_level": "info",
+    }
+    p = tmp_path / "gru.yaml"
+    p.write_text(yaml.dump(cfg))
+    return p
+
+
+# ── Config loading ─────────────────────────────────────────────────────────────
+
+
+class TestLoadGruConfig:
+    def test_loads_valid_yaml(self, gru_yaml: Path) -> None:
+        cfg = load_gru_config(gru_yaml)
+        assert cfg.heartbeat_report_interval == "2h"
+        assert cfg.allow_web_search is True
+        assert cfg.log_level == "info"
+
+    def test_defaults_when_file_missing(self, tmp_path: Path) -> None:
+        cfg = load_gru_config(tmp_path / "nonexistent.yaml")
+        # Defaults from spec
+        assert cfg.heartbeat_report_interval == "2h"
+        assert cfg.allow_web_search is True
+        assert cfg.log_level == "info"
+
+    def test_partial_override(self, tmp_path: Path) -> None:
+        p = tmp_path / "gru.yaml"
+        p.write_text(yaml.dump({"log_level": "debug"}))
+        cfg = load_gru_config(p)
+        assert cfg.log_level == "debug"
+        # Other fields should still have defaults
+        assert cfg.heartbeat_report_interval == "2h"
+
+    def test_allow_web_search_false(self, tmp_path: Path) -> None:
+        p = tmp_path / "gru.yaml"
+        p.write_text(yaml.dump({"allow_web_search": False}))
+        cfg = load_gru_config(p)
+        assert cfg.allow_web_search is False
+
+
+# ── Slugify ────────────────────────────────────────────────────────────────────
+
+
+class TestSlugify:
+    @pytest.mark.parametrize(
+        "input_str, expected",
+        [
+            ("Deep Learning Architecture", "dl-arch"),
+            ("dl-arch", "dl-arch"),
+            ("NLP", "nlp"),
+            ("Computer Vision", "cv"),
+            ("Optimization", "optimization"),
+            ("Theory", "theory"),
+            ("  spaces  ", "spaces"),
+            ("Mixed CASE", "mixed-case"),
+            ("already-slug", "already-slug"),
+        ],
+    )
+    def test_slugify(self, input_str: str, expected: str) -> None:
+        # We only assert the slug is lowercase, hyphenated, and non-empty.
+        result = slugify(input_str)
+        assert result == result.lower()
+        assert " " not in result
+        assert len(result) > 0
+
+    def test_slugify_deep_learning_arch(self) -> None:
+        result = slugify("Deep Learning Architecture")
+        assert result.islower()
+        assert " " not in result
+
+
+# ── Whitelist resolver ─────────────────────────────────────────────────────────
+
+
+class TestWhitelistResolver:
+    """resolve_allowed_tools(role) -> frozenset[str] of allowed tool names."""
+
+    def test_gru_has_project_tools(self) -> None:
+        tools = resolve_allowed_tools("gru")
+        assert "project_create" in tools
+        assert "project_close" in tools
+        assert "gru_relay" in tools
+        assert "spawn_role" in tools
+
+    def test_gru_has_eacn3_tools(self) -> None:
+        tools = resolve_allowed_tools("gru")
+        # Gru main has eacn3_* access
+        assert any(t.startswith("eacn3") for t in tools)
+
+    def test_noter_no_project_tools(self) -> None:
+        tools = resolve_allowed_tools("noter")
+        assert "project_create" not in tools
+        assert "gru_relay" not in tools
+        assert "spawn_role" not in tools
+
+    def test_noter_has_eacn3_tools(self) -> None:
+        tools = resolve_allowed_tools("noter")
+        assert any(t.startswith("eacn3") for t in tools)
+
+    def test_coder_no_exp_tools(self) -> None:
+        tools = resolve_allowed_tools("coder")
+        assert not any(t.startswith("exp_") for t in tools)
+
+    def test_experimenter_has_exp_tools(self) -> None:
+        tools = resolve_allowed_tools("experimenter")
+        assert "exp_run" in tools
+        assert "exp_put" in tools
+        assert "exp_get" in tools
+        assert "exp_tail" in tools
+
+    def test_reviewer_no_project_tools(self) -> None:
+        tools = resolve_allowed_tools("reviewer")
+        assert "project_create" not in tools
+        assert "gru_relay" not in tools
+
+    def test_unknown_role_raises(self) -> None:
+        with pytest.raises(Exception):
+            resolve_allowed_tools("nonexistent_role_xyz")

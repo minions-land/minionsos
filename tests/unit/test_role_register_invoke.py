@@ -1,0 +1,101 @@
+"""Unit tests for register_role / invoke_role_ephemeral."""
+from __future__ import annotations
+
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from minions.lifecycle import role as role_mod
+from minions.state.store import ProjectEntry, RoleEntry
+
+
+class FakeStore:
+    def __init__(self) -> None:
+        self.project = ProjectEntry(
+            port=37596,
+            real_name="Test",
+            status="active",
+            created="2026-01-01T00:00:00Z",
+            current_branch="minionsos/project-37596",
+            active_roles=[],
+        )
+        self.upserts: list[RoleEntry] = []
+
+    def get_project(self, port: int) -> ProjectEntry | None:
+        return self.project if port == self.project.port else None
+
+    def upsert_role(self, port: int, role: RoleEntry) -> None:
+        self.upserts.append(role)
+        self.project = self.project.model_copy(
+            update={
+                "active_roles": [
+                    *(r for r in self.project.active_roles if r.name != role.name),
+                    role,
+                ]
+            }
+        )
+
+
+class TestRegister:
+    def test_register_role_no_subprocess(self) -> None:
+        store = FakeStore()
+        with patch.object(role_mod, "invoke_role_ephemeral") as inv:
+            out = role_mod.register_role(
+                37596, "noter", init_brief=None, store=store, poll_interval="1m"
+            )
+        assert inv.call_count == 0
+        assert out["name"] == "noter"
+        assert out["poll_interval"] == "1m"
+        assert out["ephemeral"] is True
+        assert store.upserts[0].state == "active"
+        assert store.upserts[0].pid is None
+
+    def test_register_with_init_brief_invokes_once(self) -> None:
+        store = FakeStore()
+        with patch.object(role_mod, "invoke_role_ephemeral") as inv:
+            role_mod.register_role(
+                37596, "noter", init_brief="hello world", store=store, poll_interval="1m"
+            )
+        assert inv.call_count == 1
+        args = inv.call_args[0]
+        assert args[0] == "noter"
+        assert args[1] == 37596
+        assert args[2][0]["type"] == "init_brief"
+
+    def test_register_rejects_duplicate_active(self) -> None:
+        store = FakeStore()
+        role_mod.register_role(37596, "noter", store=store, poll_interval="1m")
+        with pytest.raises(Exception):
+            role_mod.register_role(37596, "noter", store=store, poll_interval="1m")
+
+    def test_register_expert_slugifies(self) -> None:
+        store = FakeStore()
+        with patch.object(role_mod, "invoke_role_ephemeral"):
+            out = role_mod.register_expert(
+                37596, "Deep Learning Architecture",
+                init_brief=None, store=store, poll_interval="1m",
+            )
+        assert out["name"].startswith("expert-")
+
+    def test_spawn_role_alias(self) -> None:
+        assert role_mod.spawn_role is role_mod.register_role
+        assert role_mod.spawn_expert is role_mod.register_expert
+
+
+class TestInvokeEphemeral:
+    def test_invoke_launches_subprocess(self, tmp_path: Path) -> None:
+        fake_proc = MagicMock()
+        fake_proc.pid = 4321
+        with patch("minions.lifecycle.role.subprocess.Popen", return_value=fake_proc) as popen, \
+             patch("minions.lifecycle.role.project_workspace", return_value=tmp_path), \
+             patch("minions.lifecycle.role.project_role_log",
+                   return_value=tmp_path / "role-noter.log"):
+            out = role_mod.invoke_role_ephemeral(
+                "noter", 37596, [{"id": "e1", "content": "hi"}]
+            )
+        assert out == {"name": "noter", "pid": 4321, "events": 1}
+        assert popen.call_count == 1
+        cmd = popen.call_args[0][0]
+        assert "--message" in cmd
+        assert "--allowed-tools" in cmd

@@ -1,0 +1,18 @@
+# Experiment execution targets.
+# Copy this file to experiment_targets.yaml and adjust as needed.
+# experiment_targets.yaml is gitignored; only the .example is committed.
+# WARNING: this file may contain SSH keys and hostnames — never commit it.
+
+targets:
+  # Local execution target (always available).
+  - id: local
+    type: local
+    # Working directory for local experiments (relative to repo root or absolute).
+    workdir: ./experiments
+
+  # Example SSH target — uncomment and fill in to add a remote GPU machine.
+  # - id: lab-a100
+  #   type: ssh
+  #   host: user@1.2.3.4
+  #   key: ~/.ssh/lab_a100_ed25519
+  #   workdir: /data/exp

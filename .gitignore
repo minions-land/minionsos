@@ -1,0 +1,51 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+*.so
+
+# uv lock — keep committed for reproducibility
+# uv.lock  ← intentionally NOT ignored
+
+# MinionsOS runtime state (generated at runtime, not source)
+minions/state/
+
+# Config files with secrets/local paths — only .example files are committed
+minions/config/*.yaml
+!minions/config/*.yaml.example
+
+# Per-project runtime directories (created by Gru at runtime)
+project_*/eacn3_data/
+project_*/artifacts/
+project_*/artifacts/ethics/
+project_*/memory/
+project_*/logs/
+
+# Node
+node_modules/
+EACN3/plugin/dist/
+EACN3/plugin/node_modules/
+
+# macOS
+.DS_Store
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# EACN3 legacy patterns (from original .gitignore)
+eacn/network/config.toml
+eacn3.db
+eacn3.db-shm
+eacn3.db-wal
+data/
+answer/
+.git.backup-v1/
