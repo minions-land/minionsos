@@ -97,5 +97,12 @@ class TestInvokeEphemeral:
         assert out == {"name": "noter", "pid": 4321, "events": 1}
         assert popen.call_count == 1
         cmd = popen.call_args[0][0]
-        assert "--message" in cmd
+        # Prompt is now piped via stdin in --print mode (was --message flag).
+        assert "--print" in cmd
+        assert "--message" not in cmd
         assert "--allowed-tools" in cmd
+        # stdin must be a pipe so the prompt can be written.
+        assert popen.call_args.kwargs.get("stdin") is not None
+        # And the message was actually written to the subprocess stdin.
+        fake_proc.stdin.write.assert_called()
+        fake_proc.stdin.close.assert_called()

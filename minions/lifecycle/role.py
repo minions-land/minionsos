@@ -239,8 +239,12 @@ def invoke_role_ephemeral(
         str(MINIONS_ROOT / ".mcp.json"),
         "--allowed-tools",
         allowed,
-        "--message",
-        message,
+        # Non-interactive "print" mode; prompt is delivered via stdin to avoid
+        # argv length limits and quoting issues on long event batches. The
+        # previous `--message <msg>` flag does not exist in current Claude CLI
+        # versions and caused role wake-ups to fail with
+        # `error: unknown option '--message'`.
+        "--print",
     ]
 
     env = {
@@ -265,9 +269,20 @@ def invoke_role_ephemeral(
         cmd,
         cwd=str(workspace) if workspace.exists() else str(MINIONS_ROOT),
         env=env,
+        stdin=subprocess.PIPE,
         stdout=log_fp,
         stderr=log_fp,
     )
+    try:
+        proc.stdin.write(message.encode("utf-8"))  # type: ignore[union-attr]
+        proc.stdin.close()  # type: ignore[union-attr]
+    except BrokenPipeError:
+        logger.warning(
+            "invoke_role_ephemeral: claude closed stdin before message was fully written "
+            "(role=%r port=%d)",
+            role_name,
+            project_port,
+        )
     if wait:
         proc.wait()
     return {"name": role_name, "pid": proc.pid, "events": len(events)}

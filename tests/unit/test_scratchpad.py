@@ -225,9 +225,14 @@ class TestInvokeEphemeralScratchpad:
         assert env["MINIONS_SCRATCHPAD_STATUS"] == "soft"
         assert env["MINIONS_SCRATCHPAD_PATH"] == str(sp)
         cmd = popen.call_args[0][0]
-        msg_idx = cmd.index("--message") + 1
-        assert "[Scratchpad]" in cmd[msg_idx]
-        assert "When convenient, dispatch a subagent to compress." in cmd[msg_idx]
+        assert "--print" in cmd
+        assert "--message" not in cmd
+        # The prompt is now delivered via stdin; verify the write carried it.
+        written = b"".join(
+            call.args[0] for call in fake_proc.stdin.write.call_args_list
+        ).decode("utf-8")
+        assert "[Scratchpad]" in written
+        assert "When convenient, dispatch a subagent to compress." in written
 
 
 if __name__ == "__main__":
