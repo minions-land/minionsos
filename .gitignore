@@ -14,7 +14,13 @@ build/
 # uv.lock  ← intentionally NOT ignored
 
 # MinionsOS runtime state (generated at runtime, not source)
-minions/state/
+# NOTE: minions/state/ itself contains source modules (store.py, state_store.py,
+# port_allocator.py, __init__.py). Only the runtime artifacts are ignored.
+minions/state/logs/
+minions/state/projects.json
+minions/state/*.db
+minions/state/*.db-shm
+minions/state/*.db-wal
 
 # Config files with secrets/local paths — only .example files are committed
 minions/config/*.yaml
