@@ -162,14 +162,29 @@ def _do_register(
     logger.info("register_role: role=%r port=%d poll=%s", role_name, project_port, interval)
 
     if init_brief:
+        # Post the kickoff as a real EACN direct message (gru → role). The
+        # WakeupScheduler will then deliver it on the next tick. This is the
+        # authoritative path: it leaves an audit trail on the bus and matches
+        # the "dispatch via EACN only" convention. We deliberately do NOT
+        # spawn a local ephemeral Claude here — that would be invisible to
+        # EACN and race with the scheduler.
         try:
-            invoke_role_ephemeral(
+            from minions.lifecycle import eacn_client
+
+            eacn_client.post_message(
+                port=project_port,
+                to_agent_id=role_name,
+                from_agent_id="gru",
+                content={"type": "init_brief", "text": init_brief},
+            )
+            logger.info("init_brief posted via EACN: role=%r port=%d", role_name, project_port)
+        except Exception as exc:
+            logger.warning(
+                "init_brief EACN post failed for %r on port %d: %s",
                 role_name,
                 project_port,
-                [{"id": f"init-{role_name}", "type": "init_brief", "content": init_brief}],
+                exc,
             )
-        except Exception as exc:
-            logger.warning("init_brief invocation failed for %r: %s", role_name, exc)
 
     return {"name": role_name, "poll_interval": interval, "ephemeral": True}
 
@@ -239,12 +254,14 @@ def invoke_role_ephemeral(
         str(MINIONS_ROOT / ".mcp.json"),
         "--allowed-tools",
         allowed,
-        # Non-interactive "print" mode; prompt is delivered via stdin to avoid
-        # argv length limits and quoting issues on long event batches. The
-        # previous `--message <msg>` flag does not exist in current Claude CLI
-        # versions and caused role wake-ups to fail with
+        # Headless wake-up: bypass interactive permission prompts (Roles are
+        # ephemeral and cannot answer them), and use -p/--print with stdin for
+        # prompt delivery. The legacy `--message <msg>` flag does not exist in
+        # current Claude CLI and caused role wake-ups to fail with
         # `error: unknown option '--message'`.
-        "--print",
+        "--permission-mode",
+        "bypassPermissions",
+        "-p",
     ]
 
     env = {

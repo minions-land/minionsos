@@ -43,10 +43,10 @@ done
 
 has_print=0
 for a in "${ARGS[@]}"; do
-  if [[ "$a" == "--print" ]]; then has_print=1; fi
+  if [[ "$a" == "--print" || "$a" == "-p" ]]; then has_print=1; fi
 done
 if [[ "$has_print" -ne 1 ]]; then
-  echo "fake-claude: missing --print" >&2
+  echo "fake-claude: missing -p/--print" >&2
   exit 3
 fi
 
@@ -148,7 +148,9 @@ class TestRoleWakeupLauncherRegression:
         argv_line = next(
             line for line in log.splitlines() if line.startswith("FAKE_CLAUDE_ARGV:")
         )
-        assert "--print" in argv_line
+        assert "-p" in argv_line.split() or "--print" in argv_line.split()
+        assert "--permission-mode" in argv_line
+        assert "bypassPermissions" in argv_line
         assert "--allowed-tools" in argv_line
         assert "--mcp-config" in argv_line
 
@@ -167,7 +169,7 @@ class TestRoleWakeupLauncherRegression:
         log = _wait_for_log(log_path, "FAKE_CLAUDE_STDIN_END")
         # Neither of the fake-claude error paths fired.
         assert "unknown option" not in log
-        assert "missing --print" not in log
+        assert "missing -p/--print" not in log
 
 
 class TestGruCanLaunchRole:

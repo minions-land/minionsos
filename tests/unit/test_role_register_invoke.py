@@ -53,15 +53,19 @@ class TestRegister:
 
     def test_register_with_init_brief_invokes_once(self) -> None:
         store = FakeStore()
-        with patch.object(role_mod, "invoke_role_ephemeral") as inv:
+        with patch(
+            "minions.lifecycle.eacn_client.post_message", return_value={}
+        ) as post:
             role_mod.register_role(
                 37596, "noter", init_brief="hello world", store=store, poll_interval="1m"
             )
-        assert inv.call_count == 1
-        args = inv.call_args[0]
-        assert args[0] == "noter"
-        assert args[1] == 37596
-        assert args[2][0]["type"] == "init_brief"
+        assert post.call_count == 1
+        kwargs = post.call_args.kwargs
+        assert kwargs["port"] == 37596
+        assert kwargs["to_agent_id"] == "noter"
+        assert kwargs["from_agent_id"] == "gru"
+        assert kwargs["content"]["type"] == "init_brief"
+        assert kwargs["content"]["text"] == "hello world"
 
     def test_register_rejects_duplicate_active(self) -> None:
         store = FakeStore()
@@ -71,7 +75,7 @@ class TestRegister:
 
     def test_register_expert_slugifies(self) -> None:
         store = FakeStore()
-        with patch.object(role_mod, "invoke_role_ephemeral"):
+        with patch("minions.lifecycle.eacn_client.post_message", return_value={}):
             out = role_mod.register_expert(
                 37596, "Deep Learning Architecture",
                 init_brief=None, store=store, poll_interval="1m",
@@ -97,9 +101,11 @@ class TestInvokeEphemeral:
         assert out == {"name": "noter", "pid": 4321, "events": 1}
         assert popen.call_count == 1
         cmd = popen.call_args[0][0]
-        # Prompt is now piped via stdin in --print mode (was --message flag).
-        assert "--print" in cmd
+        # Prompt is now piped via stdin in -p/--print mode (was --message flag).
+        assert "-p" in cmd or "--print" in cmd
         assert "--message" not in cmd
+        assert "--permission-mode" in cmd
+        assert "bypassPermissions" in cmd
         assert "--allowed-tools" in cmd
         # stdin must be a pipe so the prompt can be written.
         assert popen.call_args.kwargs.get("stdin") is not None

@@ -132,8 +132,16 @@ class WakeupScheduler:
         invoke_fn: InvokeFn | None = None,
         default_interval: str | None = None,
         config: GruConfig | None = None,
+        *,
+        state_store: StateStore | None = None,
     ) -> None:
-        self._store = store or StateStore()
+        # Accept `state_store=` as an alias for `store=` (the docs and some
+        # callers use the longer name). Reject passing both at once.
+        if state_store is not None and store is not None:
+            raise TypeError(
+                "WakeupScheduler: pass either 'store' or 'state_store', not both."
+            )
+        self._store = store or state_store or StateStore()
         self._invoke_fn = invoke_fn
         self._default_interval = default_interval
         self._dedup = _EventDedup()

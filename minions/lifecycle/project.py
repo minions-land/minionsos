@@ -153,6 +153,34 @@ def _stop_backend(port: int, pid: int | None) -> None:
         logger.warning("Error stopping backend PID=%d: %s", pid, exc)
 
 
+def _ensure_parent_is_git_repo() -> None:
+    """Verify that MINIONS_ROOT.parent is a git repository.
+
+    The worktree mechanism needs a containing git repo to branch off of. If
+    the parent is not a git repo we fail fast with an actionable message
+    instead of letting ``git worktree add`` emit a cryptic
+    ``fatal: not a git repository`` error.
+    """
+    parent_repo = MINIONS_ROOT.parent
+    result = subprocess.run(
+        ["git", "rev-parse", "--is-inside-work-tree"],
+        cwd=str(parent_repo),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or result.stdout.strip() != "true":
+        raise ProjectError(
+            f"The directory containing MinionsOS_V2 ({parent_repo}) is not a git "
+            "repository. MinionsOS creates project worktrees branched from this "
+            "parent repo, so it must be git-initialized before project_create.\n"
+            "Fix with:\n"
+            f"    cd {parent_repo} && git init && git add -A && "
+            "git commit -m 'init'\n"
+            "Also make sure MinionsOS_V2/.git is absent (or added as a "
+            "submodule) so the parent does not treat it as an embedded repo."
+        )
+
+
 def _create_worktree(port: int, base_branch: str) -> str:
     """Create a git worktree for *port* inside the parent repo.
 
@@ -298,6 +326,7 @@ def project_create(
 
     # Create git worktree.
     try:
+        _ensure_parent_is_git_repo()
         branch = _create_worktree(port, base_branch)
     except ProjectError as exc:
         logger.error("Worktree creation failed: %s", exc)

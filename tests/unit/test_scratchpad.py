@@ -225,7 +225,7 @@ class TestInvokeEphemeralScratchpad:
         assert env["MINIONS_SCRATCHPAD_STATUS"] == "soft"
         assert env["MINIONS_SCRATCHPAD_PATH"] == str(sp)
         cmd = popen.call_args[0][0]
-        assert "--print" in cmd
+        assert "-p" in cmd or "--print" in cmd
         assert "--message" not in cmd
         # The prompt is now delivered via stdin; verify the write carried it.
         written = b"".join(
