@@ -51,15 +51,38 @@ MAX_DOWNLOAD_BYTES = 500 * 1024 * 1024  # 500 MB
 # ---------------------------------------------------------------------------
 
 
+def _expand_workdir(workdir: str) -> str:
+    """Expand template tokens in a target's ``workdir`` string.
+
+    Supported tokens:
+    - ``{project_workspace}`` → absolute path of the current project's git
+      worktree (``project_{port}/workspace``), resolved from the
+      ``MINIONS_PROJECT_PORT`` env var. Falls back to the literal token
+      if the env var is absent (e.g. standalone CLI use).
+    """
+    import os
+
+    if "{project_workspace}" in workdir:
+        port_s = os.environ.get("MINIONS_PROJECT_PORT")
+        if port_s and port_s.isdigit():
+            from minions.paths import project_workspace as _pws
+
+            workdir = workdir.replace(
+                "{project_workspace}", str(_pws(int(port_s)).resolve())
+            )
+    return workdir
+
+
 def _resolve_workdir(
     target_id: str,
 ) -> tuple[Literal["local", "ssh"], str, str | None, str | None]:
     """Return (type, workdir, host, key) for *target_id*."""
     cfg = load_experiment_targets()
     target = cfg.get_target(target_id)
+    workdir = _expand_workdir(target.workdir)
     if target.type == "local":
-        return "local", target.workdir, None, None
-    return "ssh", target.workdir, target.host, target.key  # type: ignore[return-value]
+        return "local", workdir, None, None
+    return "ssh", workdir, target.host, target.key  # type: ignore[return-value]
 
 
 def _ssh_cmd(host: str, key: str, remote_cmd: str) -> list[str]:

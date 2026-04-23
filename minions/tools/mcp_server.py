@@ -62,6 +62,18 @@ class ProjectCreateArgs(BaseModel):
     venue: str | None = Field(default=None, description="Target venue (e.g. 'NeurIPS 2026').")
     base_branch: str = Field(default="HEAD", description="Git base branch for the worktree.")
     upstream: str | None = Field(default=None, description="Upstream branch name.")
+    brief: str | None = Field(
+        default=None,
+        description="Optional 1–3 paragraph project brief; inlined into generated CLAUDE.md.",
+    )
+    topic_doc: str | None = Field(
+        default=None,
+        description="Absolute path to a topic/spec doc; recorded in meta.json + CLAUDE.md.",
+    )
+    template_dir: str | None = Field(
+        default=None,
+        description="Absolute path to venue formatting templates; recorded in meta.json + CLAUDE.md.",
+    )
 
 
 class ProjectPortArgs(BaseModel):
@@ -135,14 +147,36 @@ class GruRelayArgs(BaseModel):
 
 @mcp.tool()
 def project_create(args: ProjectCreateArgs) -> dict:
-    """Create a new MinionsOS project, start its EACN3 backend, and register it."""
+    """Create a new MinionsOS project, start its EACN3 backend, and register it.
+
+    Returns:
+        port: allocated port
+        branch: git branch name (e.g. ``minionsos/project-37596``)
+        workspace_path: absolute filesystem path to the git worktree
+        project_dir: absolute filesystem path to ``project_{port}/``
+        claude_md: absolute filesystem path to the auto-generated project CLAUDE.md
+    """
+    from minions.paths import project_dir as _pdir
+    from minions.paths import project_workspace as _pws
+
     entry = _project_create(
         real_name=args.real_name,
         venue=args.venue,
         base_branch=args.base_branch,
         upstream=args.upstream,
+        brief=args.brief,
+        topic_doc=args.topic_doc,
+        template_dir=args.template_dir,
     )
-    return {"port": entry.port, "path": str(entry.current_branch)}
+    pdir = _pdir(entry.port).resolve()
+    ws = _pws(entry.port).resolve()
+    return {
+        "port": entry.port,
+        "branch": entry.current_branch,
+        "workspace_path": str(ws),
+        "project_dir": str(pdir),
+        "claude_md": str(pdir / "CLAUDE.md"),
+    }
 
 
 @mcp.tool()

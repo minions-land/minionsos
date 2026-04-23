@@ -207,11 +207,65 @@ def _git_tag(port: int, tag: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _render_project_claude_md(
+    port: int,
+    real_name: str,
+    venue: str | None,
+    branch: str,
+    workspace_abs: str,
+    brief: str | None,
+    topic_doc: str | None,
+    template_dir: str | None,
+) -> str:
+    """Render a default project CLAUDE.md skeleton."""
+    lines: list[str] = []
+    lines.append(f"# {real_name} — Project CLAUDE.md")
+    lines.append("")
+    lines.append(
+        "> Project-scoped narrative. Authored jointly by the human and Gru; "
+        "other Roles read-only."
+    )
+    lines.append("")
+    lines.append("## Facts")
+    lines.append("")
+    lines.append(f"- **Port:** `{port}`")
+    lines.append(f"- **Real name:** {real_name}")
+    if venue:
+        lines.append(f"- **Venue:** {venue}")
+    lines.append(f"- **Git branch:** `{branch}`")
+    lines.append(f"- **Workspace (absolute):** `{workspace_abs}`")
+    if topic_doc:
+        lines.append(f"- **Topic doc:** `{topic_doc}`")
+    if template_dir:
+        lines.append(f"- **Venue template dir:** `{template_dir}`")
+    lines.append("")
+    lines.append("## Brief")
+    lines.append("")
+    lines.append(brief.strip() if brief else "_TODO: write a 1–3 paragraph project brief._")
+    lines.append("")
+    lines.append("## Working rules")
+    lines.append("")
+    lines.append("- All inter-Role communication goes through EACN3 on this port.")
+    lines.append(
+        "- Workspace edits happen on branch above; Noter / Reviewer are read-only "
+        "on `workspace/`."
+    )
+    lines.append(
+        "- Root constitution at repo `CLAUDE.md` always wins on conflicts "
+        "(see Hard rules)."
+    )
+    lines.append("")
+    return "\n".join(lines)
+
+
 def project_create(
     real_name: str,
     venue: str | None = None,
     base_branch: str = "HEAD",
     upstream: str | None = None,
+    brief: str | None = None,
+    topic_doc: str | None = None,
+    template_dir: str | None = None,
     store: StateStore | None = None,
 ) -> ProjectEntry:
     """Create a new project, start its EACN3 backend, and register it.
@@ -280,6 +334,11 @@ def project_create(
     entry_dict["backend_pid"] = proc.pid
     entry_dict["eacn3_server_id"] = server_id
     entry_dict["eacn3_server_token"] = eacn3_server_token
+    # Persist external resource pointers so revive / downstream tools can see them.
+    if topic_doc:
+        entry_dict["topic_doc"] = topic_doc
+    if template_dir:
+        entry_dict["template_dir"] = template_dir
 
     # Write meta.json with extra fields.
     path = project_meta_json(port)
@@ -289,6 +348,31 @@ def project_create(
 
     tmp.write_text(_json.dumps(entry_dict, indent=2), encoding="utf-8")
     os.replace(tmp, path)
+
+    # Auto-generate project CLAUDE.md skeleton if not already present.
+    claude_md = pdir / "CLAUDE.md"
+    workspace_abs = str(project_workspace(port).resolve())
+    if not claude_md.exists():
+        claude_md.write_text(
+            _render_project_claude_md(
+                port=port,
+                real_name=real_name,
+                venue=venue,
+                branch=branch,
+                workspace_abs=workspace_abs,
+                brief=brief,
+                topic_doc=topic_doc,
+                template_dir=template_dir,
+            ),
+            encoding="utf-8",
+        )
+        logger.info("Wrote project CLAUDE.md skeleton: %s", claude_md)
+
+    # Ensure workspace/experiments/ exists so local experiment target resolves.
+    try:
+        (project_workspace(port) / "experiments").mkdir(parents=True, exist_ok=True)
+    except Exception as exc:  # non-fatal
+        logger.warning("Could not create workspace/experiments/: %s", exc)
 
     # Register in projects.json.
     _store.add_project(entry)
