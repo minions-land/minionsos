@@ -294,7 +294,7 @@ def doctor(
         _check("gru-agent-scan", False, str(exc))
 
     # viz: build freshness + daemon reachability
-    viz_build = MINIONS_ROOT / "eacn-viz" / "dist" / "web" / "index.html"
+    viz_build = MINIONS_ROOT / "minions-viz" / "dist" / "web" / "index.html"
     _check(
         "viz-build",
         viz_build.exists(),
@@ -478,7 +478,7 @@ def role_dismiss(
 # viz subcommands (dispatch to minions/bin/viz)
 # ---------------------------------------------------------------------------
 
-viz_app = typer.Typer(help="MinionsOS Observatory (eacn-viz) control.")
+viz_app = typer.Typer(help="MinionsOS Observatory (minions-viz) control.")
 app.add_typer(viz_app, name="viz")
 
 

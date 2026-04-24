@@ -95,8 +95,8 @@ else
     fi
     ok "EACN3 MCP plugin built: $PLUGIN_DIST"
 
-    # ── 5b. Build eacn-viz Observatory ───────────────────────────────
-    VIZ_DIR="$ROOT/eacn-viz"
+    # ── 5b. Build minions-viz Observatory ───────────────────────────────
+    VIZ_DIR="$ROOT/minions-viz"
     VIZ_MARKER="$VIZ_DIR/dist/web/index.html"
     if [ -d "$VIZ_DIR" ]; then
         need_build=1
@@ -106,14 +106,14 @@ else
             fi
         fi
         if [ "$need_build" = "1" ]; then
-            info "Building eacn-viz Observatory (npm install + build)..."
+            info "Building minions-viz Observatory (npm install + build)..."
             (cd "$VIZ_DIR" && npm install && npm run build)
-            ok "eacn-viz built"
+            ok "minions-viz built"
         else
-            ok "eacn-viz already built (set MINIONS_VIZ_REBUILD=1 to force)"
+            ok "minions-viz already built (set MINIONS_VIZ_REBUILD=1 to force)"
         fi
     else
-        warn "eacn-viz/ directory missing — skipping Observatory build."
+        warn "minions-viz/ directory missing — skipping Observatory build."
     fi
 fi
 

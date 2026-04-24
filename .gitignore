@@ -56,8 +56,8 @@ data/
 answer/
 .git.backup-v1/
 
-# eacn-viz (Observatory frontend) — commit src + dist, not installed deps
-eacn-viz/node_modules/
+# minions-viz (Observatory frontend) — commit src + dist, not installed deps
+minions-viz/node_modules/
 
 # Stray dev log
 output.log

@@ -37,7 +37,7 @@ VIZ_URL_FILE="$USER_DIR/viz.url"
 VIZ_LOCK="$USER_DIR/viz.lock"
 LOG_DIR="$ROOT/minions/state/logs"
 LOG_FILE="$LOG_DIR/viz.log"
-VIZ_DIR="$ROOT/eacn-viz"
+VIZ_DIR="$ROOT/minions-viz"
 VIZ_BUILD_MARKER="$VIZ_DIR/dist/web/index.html"
 mkdir -p "$LOG_DIR" "$USER_DIR"
 chmod 0700 "$USER_DIR" 2>/dev/null || true
@@ -210,11 +210,11 @@ PY
 ensure_build() {
     if [ -f "$VIZ_BUILD_MARKER" ]; then return 0; fi
     if ! command -v node &>/dev/null || ! command -v npm &>/dev/null; then
-        die "eacn-viz is not built and node/npm are missing."
+        die "minions-viz is not built and node/npm are missing."
     fi
-    info "Building eacn-viz (first-time)..."
-    (cd "$VIZ_DIR" && npm install && npm run build) || die "eacn-viz build failed."
-    ok "eacn-viz built."
+    info "Building minions-viz (first-time)..."
+    (cd "$VIZ_DIR" && npm install && npm run build) || die "minions-viz build failed."
+    ok "minions-viz built."
 }
 
 stop_running() {

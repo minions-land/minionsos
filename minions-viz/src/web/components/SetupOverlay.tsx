@@ -85,8 +85,8 @@ export default function SetupOverlay() {
                 </svg>
               </div>
               <div>
-                <div className="font-mono text-[10px] text-[#0f766e] tracking-[0.12em] uppercase leading-none">Science OS</div>
-                <div className="text-lg font-bold text-[#171717] tracking-tight">EACN Viz</div>
+                <div className="font-mono text-[10px] text-[#0f766e] tracking-[0.12em] uppercase leading-none">MinionsOS</div>
+                <div className="text-lg font-bold text-[#171717] tracking-tight">MinionsVIZ</div>
               </div>
             </div>
 

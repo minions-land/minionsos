@@ -1,8 +1,8 @@
-"""Smoke test for the MinionsOS Observatory (eacn-viz) launcher + server.
+"""Smoke test for the MinionsOS Observatory (minions-viz) launcher + server.
 
 Exercises the real shell launcher ``minions/bin/viz`` against a real Node
 process, so the test is skipped when node/npm are unavailable or when the
-``eacn-viz/dist/web/index.html`` build artefact is missing.
+``minions-viz/dist/web/index.html`` build artefact is missing.
 
 What it covers:
 
@@ -32,7 +32,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 VIZ = ROOT / "minions" / "bin" / "viz"
-DIST_INDEX = ROOT / "eacn-viz" / "dist" / "web" / "index.html"
+DIST_INDEX = ROOT / "minions-viz" / "dist" / "web" / "index.html"
 
 
 def _have(cmd: str) -> bool:
@@ -41,7 +41,7 @@ def _have(cmd: str) -> bool:
 
 pytestmark = pytest.mark.skipif(
     not (_have("node") and _have("npm") and DIST_INDEX.exists()),
-    reason="node/npm/eacn-viz build missing",
+    reason="node/npm/minions-viz build missing",
 )
 
 

@@ -1,6 +1,6 @@
 # AGENTREAD — MinionsOS Project Observatory (for AI agents)
 
-This document explains how `eacn-viz/` is wired. It is the observatory for
+This document explains how `minions-viz/` is wired. It is the observatory for
 **MinionsOS V2** and is a **machine-wide singleton**: every Gru installation
 on the host shares one viz process reachable at one URL. Read
 `/Users/mjm/MinionsOS_V2/CLAUDE.md` first for the system-level constitution.
@@ -171,7 +171,7 @@ observatory only calls GET, idempotent endpoints (`/health`, `/api/tasks`,
 
 - Viz never writes to `EACN3/` or any Gru's `minions/`.
 - Viz writes `~/.minionsos/{grus.json, viz.pid, viz.port, viz.url}` (atomic
-  rename) and its build output under `eacn-viz/dist/`.
+  rename) and its build output under `minions-viz/dist/`.
 - Per-client state that survives a refresh is
   `localStorage["mos.viz.selection"] = {gruId, port}`.
 

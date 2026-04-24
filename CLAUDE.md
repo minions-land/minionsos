@@ -46,7 +46,12 @@ MinionsOS_V2/
 │   └── logs/
 │       ├── backend.log          # EACN3 backend subprocess
 │       └── role-{name}.log      # each role subprocess
-├── gru / minionsos / mos        # symlinks → minions/bin/gru
+├── minions-viz/                 # MinionsVIZ — read-only Observatory dashboard
+│   ├── src/{server,web,shared}  # Express + WebSocket server, React frontend
+│   ├── proxy/                   # optional Cloudflare Workers proxy
+│   ├── package.json
+│   └── AGENTREAD.md             # agent-level notes on viz internals
+├── gru / minionsos / mos / viz  # symlinks → minions/bin/{gru,viz}
 ├── install.sh
 ├── pyproject.toml               # uv-managed
 ├── uv.lock
@@ -209,13 +214,13 @@ Compression is a **plain subagent task**: "read the scratchpad at `<path>`, outp
 ./mos role dismiss 37596 noter
 ```
 
-## Visualization (Observatory)
+## Visualization (MinionsVIZ Observatory)
 
-The `eacn-viz/` package is a strictly **read-only** dashboard for the
-MinionsOS system. It is a **machine-wide singleton**: every Gru
-installation on the host shares **one** viz process at **one** URL. Start
-two Grus from two checkouts and you'll see both in the same browser tab,
-filtered by a Gru ▾ / Project ▾ two-level picker.
+The `minions-viz/` package — **MinionsVIZ** — is a strictly **read-only**
+dashboard for the MinionsOS system. It is a **machine-wide singleton**:
+every Gru installation on the host shares **one** viz process at **one**
+URL. Start two Grus from two checkouts and you'll see both in the same
+browser tab, filtered by a Gru ▾ / Project ▾ two-level picker.
 
 - **User-level state.** `~/.minionsos/` (mode 0700) holds the Gru
   registry (`grus.json`), a `grus.lock`, and the running viz's
@@ -246,7 +251,7 @@ filtered by a Gru ▾ / Project ▾ two-level picker.
     for a free port).
   - `MINIONS_GRU_LABEL=<name>` — override the Gru's label on
     `register`/`ensure` (default: `basename(dirname($ROOT))`).
-  - `MINIONS_VIZ_REBUILD=1` — force `install.sh` to rebuild eacn-viz.
+  - `MINIONS_VIZ_REBUILD=1` — force `install.sh` to rebuild minions-viz.
 - **Read-only guarantees.** The Observatory never POSTs to EACN3 and
   never calls `/api/events/{agent_id}`. All HTTP endpoints are `GET` and
   idempotent; project-scoped endpoints require `?gru=<id>` and 404 on

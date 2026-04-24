@@ -29,7 +29,7 @@ for a free port).
 **Integrated (primary path).** From any MinionsOS_V2 checkout:
 
 ```bash
-./install.sh        # builds eacn-viz/dist on first run; creates ~/.minionsos/
+./install.sh        # builds minions-viz/dist on first run; creates ~/.minionsos/
 ./gru               # registers this Gru + starts the singleton viz
 # Manual control:
 ./viz ensure                      # register + start (no-op if already up)
@@ -45,7 +45,7 @@ browser open, `MINIONS_VIZ_PORT=N` to override the port, and
 **Dev fallback** (only when hacking on the viz itself):
 
 ```bash
-cd eacn-viz
+cd minions-viz
 npm install
 npm run build
 npm start          # http://localhost:7891
@@ -62,7 +62,7 @@ Environment variables:
 | Var            | Default                                      | Purpose                                   |
 |----------------|----------------------------------------------|-------------------------------------------|
 | `PORT`         | `7891`                                       | Observatory HTTP/WebSocket port           |
-| `MINIONS_ROOT` | parent of `eacn-viz/` (i.e. `MinionsOS_V2/`) | Where `minions/state/projects.json` lives |
+| `MINIONS_ROOT` | parent of `minions-viz/` (i.e. `MinionsOS_V2/`) | Where `minions/state/projects.json` lives |
 
 ## How project discovery works
 
@@ -132,4 +132,4 @@ matches.
   queue (see `AGENTREAD.md` §6).
 - No writes to `EACN3/` (git submodule) or to `minions/`.
 
-All writes live under `eacn-viz/`.
+All writes live under `minions-viz/`.

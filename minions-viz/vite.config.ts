@@ -7,7 +7,7 @@ const isGHPages = process.env.GITHUB_PAGES === "true";
 export default defineConfig({
   plugins: [react()],
   root: "src/web",
-  base: isGHPages ? "/eacn-viz/" : "/",
+  base: isGHPages ? "/minions-viz/" : "/",
   resolve: {
     alias: { "@shared": resolve(__dirname, "src/shared") },
   },

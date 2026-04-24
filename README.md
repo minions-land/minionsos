@@ -182,6 +182,39 @@ The authoritative versions live in the root `CLAUDE.md`.
 8. **Idle time is working time (soft).** Prefer short bounded idle subagent tasks; no new directions / experiments / review rounds on idle time.
 9. **Evidence-first communication (soft).** Substantive claims should carry `[evidence: …]`, `[speculation]`, or `[derived: …]` markers.
 
+### Observatory (MinionsVIZ)
+
+`minions-viz/` ships **MinionsVIZ**, a strictly read-only dashboard for
+the whole MinionsOS system. It is a **machine-wide singleton**: every
+Gru installation on the host shares one viz process at one URL, filtered
+in the UI by a two-level **Gru ▾ / Project ▾** picker.
+
+```bash
+./install.sh        # builds minions-viz/dist on first run; creates ~/.minionsos/
+./gru               # registers this Gru + auto-starts MinionsVIZ (no-op if up)
+
+# Manual control:
+./viz ensure                      # register + start (idempotent)
+./viz start|stop|status|open|logs
+./viz register|deregister|heartbeat
+./mos viz ensure|start|stop|status|open|logs
+```
+
+- **Read-only guarantees.** Never POSTs to EACN3; never calls
+  `/api/events/{agent_id}` (which would drain a real agent's queue). All
+  HTTP endpoints are `GET` and idempotent.
+- **User-level state.** `~/.minionsos/` (mode 0700) holds the Gru
+  registry (`grus.json`) and the running viz's `{viz.pid, viz.port,
+  viz.url, viz.lock}`.
+- **Env knobs.** `GRU_VIZ=0` disables auto-start, `GRU_VIZ_OPEN=0`
+  suppresses the browser open, `MINIONS_VIZ_PORT=N` overrides the port
+  (default 7891; scans 7891..7910), `MINIONS_VIZ_REBUILD=1` forces a
+  rebuild during `./install.sh`, `MINIONS_GRU_LABEL=<name>` overrides
+  this Gru's label on register/ensure.
+
+See `minions-viz/README.md` for tabs, HTTP/WebSocket API, and dev
+workflow; `minions-viz/AGENTREAD.md` for the internal architecture.
+
 ### Contributing / dev
 
 - Package architecture, coding conventions, and extension recipes (new Role / skill / domain / MCP tool) live in `minions/CLAUDE.md`.
@@ -348,6 +381,27 @@ Role 系统提示位于 `minions/roles/{role}/SYSTEM.md`。
 7. **仅 Gru 可 spawn EACN 可见 agent。** subagent 与 team 成员对 EACN 不可见。
 8. **空闲即工作（软）。** 鼓励小粒度 idle 子任务；不启动新方向 / 新实验 / 新评审轮次。
 9. **证据优先（软）。** 重要论断应附 `[evidence: …]` / `[speculation]` / `[derived: …]`。
+
+### Observatory（MinionsVIZ 观察台）
+
+`minions-viz/` 是 **MinionsVIZ**——整个 MinionsOS 系统的严格只读仪表盘。它是**机器级单例**：同一主机上多份 Gru checkout 共享同一个 viz 进程与同一个 URL，前端用 **Gru ▾ / Project ▾** 两级下拉筛选。
+
+```bash
+./install.sh        # 首次构建 minions-viz/dist；创建 ~/.minionsos/
+./gru               # 注册当前 Gru + 自动启动 MinionsVIZ（已在运行则 no-op）
+
+# 手动控制：
+./viz ensure                      # register + start（幂等）
+./viz start|stop|status|open|logs
+./viz register|deregister|heartbeat
+./mos viz ensure|start|stop|status|open|logs
+```
+
+- **只读保证。** 不 POST 任何 EACN3 后端；绝不调用 `/api/events/{agent_id}`（那会消耗真实 agent 的事件队列）。所有 HTTP 端点都是 `GET` 且幂等。
+- **用户级状态。** `~/.minionsos/`（0700）存放 Gru 注册表 `grus.json` 与运行中 viz 的 `{viz.pid, viz.port, viz.url, viz.lock}`。
+- **环境变量。** `GRU_VIZ=0` 关闭自动启动；`GRU_VIZ_OPEN=0` 不打开浏览器；`MINIONS_VIZ_PORT=N` 指定端口（默认 7891，扫描 7891..7910）；`MINIONS_VIZ_REBUILD=1` 强制在 `./install.sh` 中重建；`MINIONS_GRU_LABEL=<name>` 覆盖 Gru 在注册表中的显示名。
+
+更多细节（tab 组成、HTTP / WebSocket API、开发流程）见 `minions-viz/README.md`；架构内部机制见 `minions-viz/AGENTREAD.md`。
 
 ### 参与开发
 
