@@ -1,41 +1,45 @@
 """Atomic, file-locked state store for ``minions/state/projects.json``.
 
 Design:
-- All writes go through ``_write_atomic``: write to ``.tmp`` then ``os.replace``.
-- Cross-process safety via ``fcntl.flock`` (exclusive lock on the JSON file).
+- Cross-process safety via ``fcntl.flock`` on a **separate lockfile**
+  (``projects.lock``), not on the data file. ``os.replace`` swaps inodes on
+  the data file, which would silently desync ``flock`` holders if we locked
+  the data file directly. Locking a stable inode fixes this.
+- In-process safety via a ``threading.Lock`` instance per ``StateStore``
+  (plus a module-level lock so concurrent ``StateStore()`` instances that
+  point at the same default path also serialize).
+- All writes go through ``_write_atomic``: write to a sibling ``.tmp`` in
+  the same directory then ``os.replace`` onto the data file.
 - Port allocation uses a bind-probe to guarantee the port is actually free.
 - Retired ports are tracked permanently so they are never reused.
 """
+
 from __future__ import annotations
 
 import fcntl
-import json
 import logging
 import os
-import socket
-from collections.abc import Generator
+import tempfile
+import threading
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, TypeVar
 
 from pydantic import BaseModel, Field
 
 from minions.errors import PortError, StateError
 from minions.paths import PROJECTS_JSON
+from minions.state.port_allocator import PORT_MAX, PORT_MIN, PortAllocator
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Port range
-# ---------------------------------------------------------------------------
+# Module-level lock to serialize in-process writers that share the default
+# projects.json path across threads, even across distinct StateStore() objects.
+_GLOBAL_THREAD_LOCK = threading.Lock()
 
-PORT_MIN = 37596
-PORT_MAX = 37999
-
-# ---------------------------------------------------------------------------
-# Pydantic models for projects.json
-# ---------------------------------------------------------------------------
+T = TypeVar("T")
 
 
 class RoleEntry(BaseModel):
@@ -66,11 +70,6 @@ class ProjectsData(BaseModel):
     retired_ports: list[int] = Field(default_factory=list)
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
 def _now_iso() -> str:
     return datetime.now(tz=UTC).isoformat()
 
@@ -78,61 +77,64 @@ def _now_iso() -> str:
 def _bind_probe(port: int) -> bool:
     """Return True if *port* can be bound (i.e. is free).
 
-    Do NOT set SO_REUSEADDR: on Linux it would let this probe succeed even
-    when another listener already owns the port.
+    Delegated to ``PortAllocator`` so there is one canonical probe.
     """
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("127.0.0.1", port))
-        return True
-    except OSError:
-        return False
-
-
-# ---------------------------------------------------------------------------
-# StateStore
-# ---------------------------------------------------------------------------
+    return PortAllocator(PORT_MIN, PORT_MAX)._is_free(port)
 
 
 class StateStore:
     """Thread- and process-safe store for ``projects.json``.
 
-    Usage::
-
-        store = StateStore()
-        port = store.find_next_port()
-        store.add_project(ProjectEntry(port=port, ...))
+    Accepts either ``path=<file>`` (canonical callers) or ``root=<dir>``
+    (legacy dict-API callers migrated from the removed ``state_store``
+    module, where the data file is ``root/projects.json``).
     """
 
-    def __init__(self, path: Path | None = None) -> None:
-        self._path: Path = path or PROJECTS_JSON
+    def __init__(
+        self,
+        path: Path | None = None,
+        *,
+        root: Path | None = None,
+    ) -> None:
+        if path is not None and root is not None:
+            raise ValueError("StateStore: pass either 'path' or 'root', not both.")
+        if root is not None:
+            root.mkdir(parents=True, exist_ok=True)
+            self._path: Path = root / "projects.json"
+        else:
+            self._path = path or PROJECTS_JSON
         self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock_path: Path = self._path.with_name(self._path.stem + ".lock")
+        self._thread_lock = threading.Lock()
+        self._allocator = PortAllocator(PORT_MIN, PORT_MAX)
 
     # ------------------------------------------------------------------
-    # Low-level I/O
+    # Low-level I/O — lockfile + thread lock
     # ------------------------------------------------------------------
 
     @contextmanager
-    def _locked(self, mode: str = "r+") -> Generator[Any, None, None]:
-        """Open the JSON file with an exclusive flock, yielding the file object.
+    def _locked(self) -> Generator[None, None, None]:
+        """Acquire thread lock then exclusive flock on the **lockfile**.
 
-        Creates the file with an empty structure if it does not exist.
+        Locking a separate, stable-inode lockfile is critical: ``os.replace``
+        on the data file would otherwise swap the inode out from under other
+        processes still holding an flock on the old inode, producing torn
+        writes.
         """
-        if not self._path.exists():
-            self._path.write_text(
-                json.dumps({"projects": [], "retired_ports": []}, indent=2),
-                encoding="utf-8",
-            )
-
-        with self._path.open(mode, encoding="utf-8") as fh:
-            fcntl.flock(fh, fcntl.LOCK_EX)
+        self._lock_path.touch(exist_ok=True)
+        with (
+            _GLOBAL_THREAD_LOCK,
+            self._thread_lock,
+            self._lock_path.open("r+", encoding="utf-8") as lock_fh,
+        ):
+            fcntl.flock(lock_fh, fcntl.LOCK_EX)
             try:
-                yield fh
+                yield
             finally:
-                fcntl.flock(fh, fcntl.LOCK_UN)
+                fcntl.flock(lock_fh, fcntl.LOCK_UN)
 
     def _read_data(self) -> ProjectsData:
-        """Read and parse projects.json (no lock — caller must hold lock or use _locked)."""
+        """Read and parse projects.json. Callers may invoke with or without lock."""
         if not self._path.exists():
             return ProjectsData()
         try:
@@ -144,16 +146,32 @@ class StateStore:
             raise StateError(f"Failed to parse {self._path}: {exc}") from exc
 
     def _write_atomic(self, data: ProjectsData) -> None:
-        """Write *data* atomically (tmp + rename) — caller must hold lock."""
-        tmp = self._path.with_suffix(".tmp")
+        """Write *data* atomically via tmp-in-same-dir + ``os.replace``.
+
+        Uses ``tempfile.mkstemp`` so concurrent writers never race on a
+        shared ``.tmp`` name. Caller must hold ``_locked()``.
+        """
+        dir_path = self._path.parent
+        fd, tmp_path_str = tempfile.mkstemp(dir=str(dir_path), suffix=".tmp")
+        tmp_path = Path(tmp_path_str)
         try:
-            tmp.write_text(data.model_dump_json(indent=2), encoding="utf-8")
-            os.replace(tmp, self._path)
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(data.model_dump_json(indent=2))
+            os.replace(tmp_path, self._path)
         except OSError as exc:
+            tmp_path.unlink(missing_ok=True)
             raise StateError(f"Failed to write {self._path}: {exc}") from exc
-        finally:
-            if tmp.exists():
-                tmp.unlink(missing_ok=True)
+        except Exception:
+            tmp_path.unlink(missing_ok=True)
+            raise
+
+    def _mutate(self, fn: Callable[[ProjectsData], T]) -> T:
+        """Run *fn(data) -> result* under lock; persist ``data`` afterward."""
+        with self._locked():
+            data = self._read_data()
+            result = fn(data)
+            self._write_atomic(data)
+            return result
 
     # ------------------------------------------------------------------
     # Public API
@@ -163,36 +181,38 @@ class StateStore:
         """Return a snapshot of the current projects data (no lock held)."""
         return self._read_data()
 
-    def add_project(self, entry: ProjectEntry) -> None:
+    def add_project(self, entry: ProjectEntry | dict[str, Any]) -> None:
         """Append *entry* to projects.json.
+
+        Accepts a ``ProjectEntry`` (canonical) or a ``dict`` (legacy dict API
+        from the removed ``state_store`` module).
 
         Raises ``StateError`` if a project with the same port already exists.
         """
-        with self._locked("r+") as fh:
-            raw = fh.read()
-            data = ProjectsData.model_validate_json(raw) if raw.strip() else ProjectsData()
-            if any(p.port == entry.port for p in data.projects):
-                raise StateError(f"Project with port {entry.port} already exists.")
-            data.projects.append(entry)
-            self._write_atomic(data)
-        logger.debug("add_project port=%d name=%r", entry.port, entry.real_name)
+        model = entry if isinstance(entry, ProjectEntry) else ProjectEntry.model_validate(entry)
+
+        def _add(data: ProjectsData) -> None:
+            if any(p.port == model.port for p in data.projects):
+                raise StateError(f"Project with port {model.port} already exists.")
+            data.projects.append(model)
+
+        self._mutate(_add)
+        logger.debug("add_project port=%d name=%r", model.port, model.real_name)
 
     def update_project(self, port: int, **fields: Any) -> ProjectEntry:
-        """Update fields on the project identified by *port*.
+        """Update fields on the project identified by *port*. Raises if missing."""
 
-        Returns the updated ``ProjectEntry``.  Raises ``StateError`` if not found.
-        """
-        with self._locked("r+") as fh:
-            raw = fh.read()
-            data = ProjectsData.model_validate_json(raw) if raw.strip() else ProjectsData()
+        def _update(data: ProjectsData) -> ProjectEntry:
             for i, p in enumerate(data.projects):
                 if p.port == port:
                     updated = p.model_copy(update=fields)
                     data.projects[i] = updated
-                    self._write_atomic(data)
-                    logger.debug("update_project port=%d fields=%s", port, list(fields))
                     return updated
-        raise StateError(f"Project with port {port} not found.")
+            raise StateError(f"Project with port {port} not found.")
+
+        updated = self._mutate(_update)
+        logger.debug("update_project port=%d fields=%s", port, list(fields))
+        return updated
 
     def get_project(self, port: int) -> ProjectEntry | None:
         """Return the project entry for *port*, or ``None`` if absent."""
@@ -204,76 +224,71 @@ class StateStore:
 
     def list_projects(
         self,
-        filter: Literal["all", "active", "dormant", "closed"] = "all",
+        filter: Literal["all", "active", "dormant", "closed"] | None = None,
+        *,
+        status: Literal["all", "active", "dormant", "closed"] | None = None,
     ) -> list[ProjectEntry]:
-        """Return projects matching *filter*."""
+        """Return projects matching ``filter`` (or the legacy ``status`` kwarg)."""
+        sel = status if status is not None else (filter if filter is not None else "all")
         data = self._read_data()
-        if filter == "all":
+        if sel == "all":
             return list(data.projects)
-        return [p for p in data.projects if p.status == filter]
+        return [p for p in data.projects if p.status == sel]
 
     def retire_port(self, port: int) -> None:
         """Mark *port* as permanently retired (used by project_close)."""
-        with self._locked("r+") as fh:
-            raw = fh.read()
-            data = ProjectsData.model_validate_json(raw) if raw.strip() else ProjectsData()
+
+        def _retire(data: ProjectsData) -> None:
             if port not in data.retired_ports:
                 data.retired_ports.append(port)
-                self._write_atomic(data)
+
+        self._mutate(_retire)
         logger.debug("retire_port port=%d", port)
 
+    def is_port_retired(self, port: int) -> bool:
+        """Return True if *port* has been retired."""
+        return port in self._read_data().retired_ports
+
     def find_next_port(self) -> int:
-        """Find the next free port in [PORT_MIN, PORT_MAX] via bind-probe.
-
-        Skips ports already in use by active/dormant projects and permanently
-        retired ports.
-
-        Raises ``PortError`` if no free port is available.
-        """
+        """Find the next free port via bind-probe, skipping retired/in-use ports."""
         data = self._read_data()
         used_ports: set[int] = {p.port for p in data.projects if p.status != "closed"}
         retired: set[int] = set(data.retired_ports)
         excluded = used_ports | retired
-
-        for port in range(PORT_MIN, PORT_MAX + 1):
-            if port in excluded:
-                continue
-            if _bind_probe(port):
-                logger.debug("find_next_port → %d", port)
-                return port
-            # Port is in use by something else on the system; skip.
-
-        raise PortError(f"No free port available in range {PORT_MIN}-{PORT_MAX}.")
+        try:
+            port = self._allocator.allocate(excluded)
+        except PortError:
+            raise PortError(f"No free port available in range {PORT_MIN}-{PORT_MAX}.") from None
+        logger.debug("find_next_port → %d", port)
+        return port
 
     # ------------------------------------------------------------------
-    # Role helpers (convenience wrappers around update_project)
+    # Role helpers
     # ------------------------------------------------------------------
 
     def upsert_role(self, port: int, role: RoleEntry) -> None:
         """Insert or replace a role entry in the project's ``active_roles`` list."""
-        with self._locked("r+") as fh:
-            raw = fh.read()
-            data = ProjectsData.model_validate_json(raw) if raw.strip() else ProjectsData()
+
+        def _upsert(data: ProjectsData) -> None:
             for i, p in enumerate(data.projects):
                 if p.port == port:
                     roles = [r for r in p.active_roles if r.name != role.name]
                     roles.append(role)
-                    updated = p.model_copy(update={"active_roles": roles})
-                    data.projects[i] = updated
-                    self._write_atomic(data)
+                    data.projects[i] = p.model_copy(update={"active_roles": roles})
                     return
-        raise StateError(f"Project with port {port} not found.")
+            raise StateError(f"Project with port {port} not found.")
+
+        self._mutate(_upsert)
 
     def remove_role(self, port: int, role_name: str) -> None:
         """Remove a role entry from the project's ``active_roles`` list."""
-        with self._locked("r+") as fh:
-            raw = fh.read()
-            data = ProjectsData.model_validate_json(raw) if raw.strip() else ProjectsData()
+
+        def _remove(data: ProjectsData) -> None:
             for i, p in enumerate(data.projects):
                 if p.port == port:
                     roles = [r for r in p.active_roles if r.name != role_name]
-                    updated = p.model_copy(update={"active_roles": roles})
-                    data.projects[i] = updated
-                    self._write_atomic(data)
+                    data.projects[i] = p.model_copy(update={"active_roles": roles})
                     return
-        raise StateError(f"Project with port {port} not found.")
+            raise StateError(f"Project with port {port} not found.")
+
+        self._mutate(_remove)

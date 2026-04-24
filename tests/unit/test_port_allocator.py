@@ -2,6 +2,7 @@
 
 Tests: bind-probe in 37596-37999, skip retired ports.
 """
+
 from __future__ import annotations
 
 import socket
@@ -39,6 +40,20 @@ def _bind_port(port: int) -> socket.socket:
     return sock
 
 
+def _reserve_free_port() -> tuple[socket.socket, int]:
+    """Bind port 0 so the OS hands us a currently-free ephemeral port.
+
+    Returns the still-listening socket plus its port number. Using an OS-
+    assigned port keeps these tests independent of whatever happens to be
+    running on the hard-coded 37596 on a dev machine (e.g. a live
+    MinionsOS project or VS Code).
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("127.0.0.1", 0))
+    sock.listen(1)
+    return sock, sock.getsockname()[1]
+
+
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 
@@ -48,10 +63,11 @@ class TestRangeConstraint:
         assert PORT_MIN <= port <= PORT_MAX
 
     def test_raises_when_range_exhausted(self) -> None:
-        # Use a tiny range of 1 port and bind it so nothing is free.
-        tiny = PortAllocator(port_min=PORT_MIN, port_max=PORT_MIN)
-        sock = _bind_port(PORT_MIN)
+        # Reserve a currently-free OS-assigned port and build a tiny
+        # 1-port range around it so nothing in the range is free.
+        sock, busy_port = _reserve_free_port()
         try:
+            tiny = PortAllocator(port_min=busy_port, port_max=busy_port)
             with pytest.raises(Exception):
                 tiny.allocate(retired_ports=set())
         finally:
@@ -59,14 +75,17 @@ class TestRangeConstraint:
 
 
 class TestBindProbe:
-    def test_skips_bound_port(self, allocator: PortAllocator) -> None:
+    def test_skips_bound_port(self) -> None:
         """Allocator must skip a port that is already bound."""
-        # Bind the first port in range so allocator must skip it.
-        sock = _bind_port(PORT_MIN)
+        # Reserve an OS-assigned free port, then build a 2-port range
+        # whose first port is that (now-bound) port. Avoids colliding
+        # with real processes (e.g. a live project on 37596).
+        sock, busy_port = _reserve_free_port()
         try:
-            port = allocator.allocate(retired_ports=set())
-            assert port != PORT_MIN
-            assert PORT_MIN < port <= PORT_MAX
+            alloc = PortAllocator(port_min=busy_port, port_max=busy_port + 1)
+            port = alloc.allocate(retired_ports=set())
+            assert port != busy_port
+            assert busy_port < port <= busy_port + 1
         finally:
             sock.close()
 

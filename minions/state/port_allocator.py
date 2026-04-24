@@ -1,15 +1,23 @@
 """Port allocator: bind-probe based free-port discovery."""
+
 from __future__ import annotations
 
 import socket
 
 from minions.errors import PortError
 
+# ---------------------------------------------------------------------------
+# Canonical port range — single source of truth. Import from here.
+# ---------------------------------------------------------------------------
+
+PORT_MIN: int = 37596
+PORT_MAX: int = 37999
+
 
 class PortAllocator:
     """Find a free TCP port in [port_min, port_max] via bind-probe."""
 
-    def __init__(self, port_min: int = 37596, port_max: int = 37999) -> None:
+    def __init__(self, port_min: int = PORT_MIN, port_max: int = PORT_MAX) -> None:
         self.port_min = port_min
         self.port_max = port_max
 
