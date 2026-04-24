@@ -55,3 +55,9 @@ eacn3.db-wal
 data/
 answer/
 .git.backup-v1/
+
+# eacn-viz (Observatory frontend) — commit src + dist, not installed deps
+eacn-viz/node_modules/
+
+# Stray dev log
+output.log
