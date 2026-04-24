@@ -199,8 +199,13 @@ class WakeupScheduler:
                     continue
                 interval = _interval_seconds(role.poll_interval or self._default_interval)
                 key = (project.port, role.name)
-                last = self._last_poll_ts.get(key, 0.0)
-                if now - last < interval:
+                last = self._last_poll_ts.get(key)
+                # First tick for this (port, role) is always eligible; we
+                # compare against an explicit 'last' only on subsequent ticks.
+                # Using a default of 0.0 here would be wrong on short-uptime
+                # hosts (e.g. GitHub Actions runners) where time.monotonic()
+                # is itself smaller than the poll interval.
+                if last is not None and now - last < interval:
                     continue
                 self._last_poll_ts[key] = now
 
