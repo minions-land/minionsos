@@ -1,4 +1,5 @@
 """Unit tests for the Python-level WakeupScheduler."""
+
 from __future__ import annotations
 
 import asyncio
@@ -112,4 +113,7 @@ class TestWakeup:
         sched = WakeupScheduler(store=store, invoke_fn=lambda *a: None)
         with patch("minions.lifecycle.wakeup.poll_events", side_effect=fake_poll):
             _run(sched.tick_once())
-        assert polled == ["noter"]
+        # "gru" is polled once per project for the passive-mailbox inbox;
+        # dismissed roles are skipped. Active role "noter" is polled.
+        assert "noter" in polled
+        assert "coder" not in polled

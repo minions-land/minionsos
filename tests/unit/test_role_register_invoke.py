@@ -1,4 +1,5 @@
 """Unit tests for register_role / invoke_role_ephemeral."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -53,9 +54,7 @@ class TestRegister:
 
     def test_register_with_init_brief_invokes_once(self) -> None:
         store = FakeStore()
-        with patch(
-            "minions.lifecycle.eacn_client.post_message", return_value={}
-        ) as post:
+        with patch("minions.lifecycle.eacn_client.post_message", return_value={}) as post:
             role_mod.register_role(
                 37596, "noter", init_brief="hello world", store=store, poll_interval="1m"
             )
@@ -77,8 +76,11 @@ class TestRegister:
         store = FakeStore()
         with patch("minions.lifecycle.eacn_client.post_message", return_value={}):
             out = role_mod.register_expert(
-                37596, "Deep Learning Architecture",
-                init_brief=None, store=store, poll_interval="1m",
+                37596,
+                "Deep Learning Architecture",
+                init_brief=None,
+                store=store,
+                poll_interval="1m",
             )
         assert out["name"].startswith("expert-")
 
@@ -91,14 +93,18 @@ class TestInvokeEphemeral:
     def test_invoke_launches_subprocess(self, tmp_path: Path) -> None:
         fake_proc = MagicMock()
         fake_proc.pid = 4321
-        with patch("minions.lifecycle.role.subprocess.Popen", return_value=fake_proc) as popen, \
-             patch("minions.lifecycle.role.project_workspace", return_value=tmp_path), \
-             patch("minions.lifecycle.role.project_role_log",
-                   return_value=tmp_path / "role-noter.log"):
-            out = role_mod.invoke_role_ephemeral(
-                "noter", 37596, [{"id": "e1", "content": "hi"}]
-            )
-        assert out == {"name": "noter", "pid": 4321, "events": 1}
+        with (
+            patch("minions.lifecycle.role.subprocess.Popen", return_value=fake_proc) as popen,
+            patch("minions.lifecycle.role.project_workspace", return_value=tmp_path),
+            patch(
+                "minions.lifecycle.role.project_role_log", return_value=tmp_path / "role-noter.log"
+            ),
+        ):
+            out = role_mod.invoke_role_ephemeral("noter", 37596, [{"id": "e1", "content": "hi"}])
+        assert out["name"] == "noter"
+        assert out["pid"] == 4321
+        assert out["events"] == 1
+        assert out["deferred"] is False
         assert popen.call_count == 1
         cmd = popen.call_args[0][0]
         # Prompt is now piped via stdin in -p/--print mode (was --message flag).

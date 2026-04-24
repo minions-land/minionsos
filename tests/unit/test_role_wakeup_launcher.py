@@ -12,6 +12,7 @@ capture) without hitting the Anthropic API.
 Run:
     uv run pytest tests/unit/test_role_wakeup_launcher.py -v
 """
+
 from __future__ import annotations
 
 import os
@@ -137,17 +138,14 @@ class TestRoleWakeupLauncherRegression:
         log_path = self._invoke(tmp_path)
         log = _wait_for_log(log_path, "FAKE_CLAUDE_STDIN_END")
         assert "unknown option '--message'" not in log, (
-            "Regression: the --message flag is back in the Claude CLI argv.\n"
-            f"Log:\n{log}"
+            f"Regression: the --message flag is back in the Claude CLI argv.\nLog:\n{log}"
         )
 
     def test_launcher_uses_print_mode(self, tmp_path: Path) -> None:
         log_path = self._invoke(tmp_path)
         log = _wait_for_log(log_path, "FAKE_CLAUDE_ARGV")
         assert "FAKE_CLAUDE_ARGV" in log, f"fake claude never ran. Log:\n{log}"
-        argv_line = next(
-            line for line in log.splitlines() if line.startswith("FAKE_CLAUDE_ARGV:")
-        )
+        argv_line = next(line for line in log.splitlines() if line.startswith("FAKE_CLAUDE_ARGV:"))
         assert "-p" in argv_line.split() or "--print" in argv_line.split()
         assert "--permission-mode" in argv_line
         assert "bypassPermissions" in argv_line
@@ -199,10 +197,7 @@ class TestGruCanLaunchRole:
             result = role_mod.invoke_role_ephemeral(
                 "noter",
                 37596,
-                [
-                    {"id": f"e{i}", "content": f"event number {i}"}
-                    for i in range(5)
-                ],
+                [{"id": f"e{i}", "content": f"event number {i}"} for i in range(5)],
                 wait=True,
             )
 

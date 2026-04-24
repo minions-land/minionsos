@@ -228,9 +228,9 @@ class TestInvokeEphemeralScratchpad:
         assert "-p" in cmd or "--print" in cmd
         assert "--message" not in cmd
         # The prompt is now delivered via stdin; verify the write carried it.
-        written = b"".join(
-            call.args[0] for call in fake_proc.stdin.write.call_args_list
-        ).decode("utf-8")
+        written = b"".join(call.args[0] for call in fake_proc.stdin.write.call_args_list).decode(
+            "utf-8"
+        )
         assert "[Scratchpad]" in written
         assert "When convenient, dispatch a subagent to compress." in written
 

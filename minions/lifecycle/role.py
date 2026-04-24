@@ -16,19 +16,22 @@ existing MCP tool callers and tests keep working.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
 import subprocess
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 from minions.config import slugify, whitelist_csv
 from minions.errors import AlreadyActive, RoleError
 from minions.lifecycle.skills import list_skills
 from minions.paths import (
     MINIONS_ROOT,
+    project_dir,
     project_memory_dir,
     project_role_log,
     project_scratchpad,
@@ -44,6 +47,65 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 FIXED_ROLES = {"noter", "coder", "experimenter", "writer", "reviewer", "ethics"}
+
+# ---------------------------------------------------------------------------
+# In-flight tracking / reaper
+# ---------------------------------------------------------------------------
+
+# (port, role) -> (Popen, log_fp). Guarded by _INFLIGHT_LOCK.
+_INFLIGHT: dict[tuple[int, str], tuple[subprocess.Popen[bytes], IO[Any]]] = {}
+_INFLIGHT_LOCK = threading.Lock()
+
+
+def is_inflight(project_port: int, role_name: str) -> bool:
+    """Return True if an ephemeral subprocess for (port, role) is still running.
+
+    Opportunistically reaps any exited processes before answering.
+    """
+    reap_finished()
+    with _INFLIGHT_LOCK:
+        return (project_port, role_name) in _INFLIGHT
+
+
+def reap_finished(store: StateStore | None = None) -> list[tuple[int, str, int]]:
+    """Reap any exited in-flight ephemeral subprocesses.
+
+    Closes their log file handles, clears PID from the registry, and records
+    the exit status. Returns a list of ``(port, role, returncode)`` tuples
+    for the processes that were reaped in this call.
+    """
+    reaped: list[tuple[int, str, int]] = []
+    with _INFLIGHT_LOCK:
+        keys = list(_INFLIGHT.keys())
+        for key in keys:
+            proc, log_fp = _INFLIGHT[key]
+            rc = proc.poll()
+            if rc is None:
+                continue
+            with contextlib.suppress(Exception):
+                log_fp.close()
+            del _INFLIGHT[key]
+            reaped.append((key[0], key[1], rc))
+
+    if reaped:
+        _store = store or StateStore()
+        for port, role_name, _rc in reaped:
+            try:
+                entry = _store.get_project(port)
+                if entry is None:
+                    continue
+                role = next((r for r in entry.active_roles if r.name == role_name), None)
+                if role is None or role.state != "active":
+                    continue
+                # Clear pid so liveness check does not misfire on a reused PID.
+                _store.upsert_role(
+                    port,
+                    role.model_copy(update={"pid": None}),
+                )
+            except Exception as exc:
+                logger.debug("reap: clear pid failed port=%d role=%r: %s", port, role_name, exc)
+    return reaped
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -201,6 +263,7 @@ def invoke_role_ephemeral(
     extra_env: dict[str, str] | None = None,
     wait: bool = False,
     scratchpad_path: Path | None = None,
+    store: StateStore | None = None,
 ) -> dict[str, object]:
     """Launch a short-lived Claude subprocess for *role_name* to process *events*.
 
@@ -215,10 +278,31 @@ def invoke_role_ephemeral(
         extra_env: Optional additional environment variables.
         wait: If True, block until the subprocess exits. Default False
             (fire-and-forget; the scheduler does not block on one role).
+        store: Optional StateStore for PID persistence.
 
     Returns:
-        ``{"name": role_name, "pid": <pid>, "events": <count>}``.
+        ``{"name": role_name, "pid": <pid>, "events": <count>,
+        "deferred": <bool>}``. When ``deferred`` is True another invocation
+        for the same (port, role) is still in flight and this call was a
+        no-op.
     """
+    # Opportunistic reap before in-flight check so a just-exited process does
+    # not spuriously block a new wakeup.
+    reap_finished(store=store)
+    with _INFLIGHT_LOCK:
+        if (project_port, role_name) in _INFLIGHT:
+            logger.info(
+                "invoke_role_ephemeral: deferring — role=%r port=%d already in flight",
+                role_name,
+                project_port,
+            )
+            return {
+                "name": role_name,
+                "pid": None,
+                "events": len(events),
+                "deferred": True,
+            }
+
     system_path = _build_system_prompt(role_name)
     workspace = project_workspace(project_port)
     log_path = project_role_log(project_port, role_name)
@@ -269,6 +353,11 @@ def invoke_role_ephemeral(
         "MINIONS_ROLE_NAME": role_name,
         "MINIONS_PROJECT_PORT": str(project_port),
         "EACN3_NETWORK_URL": f"http://127.0.0.1:{project_port}",
+        # Per-role state dir so the EACN3 MCP plugin's on-disk agent-token
+        # cache does not collide between roles sharing the same host.
+        "EACN3_STATE_DIR": str(
+            (project_dir(project_port) / "eacn3_data" / f"plugin-{role_name}").resolve()
+        ),
         "MINIONS_EPHEMERAL": "1",
         "MINIONS_SCRATCHPAD_PATH": str(scratchpad_path),
         "MINIONS_SCRATCHPAD_STATUS": scratchpad_status,
@@ -289,6 +378,7 @@ def invoke_role_ephemeral(
         stdin=subprocess.PIPE,
         stdout=log_fp,
         stderr=log_fp,
+        start_new_session=True,
     )
     try:
         proc.stdin.write(message.encode("utf-8"))  # type: ignore[union-attr]
@@ -300,9 +390,30 @@ def invoke_role_ephemeral(
             role_name,
             project_port,
         )
+
+    # Persist liveness state.
+    _store = store or StateStore()
+    try:
+        entry = _store.get_project(project_port)
+        if entry is not None:
+            role = next((r for r in entry.active_roles if r.name == role_name), None)
+            if role is not None:
+                _store.upsert_role(
+                    project_port,
+                    role.model_copy(update={"pid": proc.pid, "spawned_at": _now_iso()}),
+                )
+    except Exception as exc:
+        logger.debug("invoke_role_ephemeral: pid persist failed: %s", exc)
+
+    with _INFLIGHT_LOCK:
+        _INFLIGHT[(project_port, role_name)] = (proc, log_fp)
+
     if wait:
-        proc.wait()
-    return {"name": role_name, "pid": proc.pid, "events": len(events)}
+        try:
+            proc.wait()
+        finally:
+            reap_finished(store=_store)
+    return {"name": role_name, "pid": proc.pid, "events": len(events), "deferred": False}
 
 
 def _format_event_message(

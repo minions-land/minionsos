@@ -118,6 +118,16 @@ class GruLoop:
 
     def _tick(self) -> None:
         """One monitoring cycle."""
+        # Reap any exited ephemeral role subprocesses so their log file
+        # handles are closed and their PIDs in projects.json are cleared
+        # before we run the liveness check below.
+        try:
+            from minions.lifecycle.role import reap_finished
+
+            reap_finished(store=self._store)
+        except Exception as exc:
+            logger.debug("reap_finished failed: %s", exc)
+
         now = time.monotonic()
         projects = self._store.list_projects(filter="active")
 
