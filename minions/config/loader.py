@@ -4,6 +4,7 @@ The test suite imports ``minions.config.loader`` and calls
 ``load_gru_config(path)`` where *path* is a direct file path (not a dir).
 This module adapts that interface.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -29,6 +30,7 @@ def load_gru_config(path: Path | None = None) -> GruConfig:
     """
     if path is None:
         from minions.paths import CONFIG_DIR
+
         path = CONFIG_DIR / "gru.yaml"
     elif path.is_dir():
         path = path / "gru.yaml"

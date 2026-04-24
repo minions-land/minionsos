@@ -4,6 +4,7 @@ Call ``configure_logging()`` once at process startup (e.g. from the MCP
 server entry-point or the CLI).  Subsequent ``logging.getLogger(__name__)``
 calls in any module will automatically inherit the configured handlers.
 """
+
 from __future__ import annotations
 
 import logging

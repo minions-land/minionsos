@@ -6,6 +6,7 @@ Covers:
      message (gru → role), does NOT spawn a local ephemeral Claude
 - #9 WakeupScheduler accepts 'state_store=' as a kwarg alias for 'store='
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -87,7 +88,8 @@ class TestInitBriefGoesThroughEacn:
             patch.object(role_mod, "invoke_role_ephemeral") as invoke,
         ):
             role_mod.register_role(
-                37596, "noter",
+                37596,
+                "noter",
                 init_brief="kick off please",
                 store=store,
                 poll_interval="1m",
@@ -112,7 +114,8 @@ class TestInitBriefGoesThroughEacn:
             patch.object(role_mod, "invoke_role_ephemeral") as invoke,
         ):
             role_mod.register_expert(
-                37596, "deep learning architecture",
+                37596,
+                "deep learning architecture",
                 init_brief=None,  # expert injects a default
                 store=store,
                 poll_interval="1m",
@@ -133,7 +136,8 @@ class TestInitBriefGoesThroughEacn:
             side_effect=RuntimeError("EACN is down"),
         ):
             out = role_mod.register_role(
-                37596, "noter",
+                37596,
+                "noter",
                 init_brief="kick",
                 store=store,
                 poll_interval="1m",

@@ -1,4 +1,5 @@
 """Unit tests for minions config loading, slugify, and whitelist resolver."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -24,7 +25,7 @@ resolve_allowed_tools = whitelist_mod.resolve_allowed_tools
 def gru_yaml(tmp_path: Path) -> Path:
     """Write a minimal gru.yaml to tmp_path and return its path."""
     cfg = {
-        "heartbeat_report_interval": "2h",
+        "heartbeat_report_interval": "3m",
         "allow_web_search": True,
         "log_level": "info",
     }
@@ -39,14 +40,14 @@ def gru_yaml(tmp_path: Path) -> Path:
 class TestLoadGruConfig:
     def test_loads_valid_yaml(self, gru_yaml: Path) -> None:
         cfg = load_gru_config(gru_yaml)
-        assert cfg.heartbeat_report_interval == "2h"
+        assert cfg.heartbeat_report_interval == "3m"
         assert cfg.allow_web_search is True
         assert cfg.log_level == "info"
 
     def test_defaults_when_file_missing(self, tmp_path: Path) -> None:
         cfg = load_gru_config(tmp_path / "nonexistent.yaml")
         # Defaults from spec
-        assert cfg.heartbeat_report_interval == "2h"
+        assert cfg.heartbeat_report_interval == "3m"
         assert cfg.allow_web_search is True
         assert cfg.log_level == "info"
 
@@ -56,7 +57,7 @@ class TestLoadGruConfig:
         cfg = load_gru_config(p)
         assert cfg.log_level == "debug"
         # Other fields should still have defaults
-        assert cfg.heartbeat_report_interval == "2h"
+        assert cfg.heartbeat_report_interval == "3m"
 
     def test_allow_web_search_false(self, tmp_path: Path) -> None:
         p = tmp_path / "gru.yaml"

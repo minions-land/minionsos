@@ -1,4 +1,5 @@
 """Whitelist resolver for MCP tool access control."""
+
 from __future__ import annotations
 
 from minions.config import resolve_whitelist

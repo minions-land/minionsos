@@ -7,6 +7,7 @@ backend via ``POST /api/messages``.
 This module delegates to ``minions.tools.relay`` which contains the
 canonical implementation against the real EACN3 API.
 """
+
 from __future__ import annotations
 
 from minions.tools.relay import (

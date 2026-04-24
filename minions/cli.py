@@ -11,16 +11,19 @@ Subcommands:
 
 Run ``mos --help`` for full usage.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import subprocess
+from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
+from minions.errors import MinionsError
 from minions.logging_setup import configure_logging
 from minions.paths import CONFIG_DIR, GRU_LOG, MINIONS_ROOT, STATE_DIR, project_dir
 
@@ -50,6 +53,17 @@ def _json_out(data: object) -> None:
     typer.echo(json.dumps(data, indent=2, default=str))
 
 
+def _fail(msg: str, code: int = 1) -> typer.Exit:
+    """Emit a terse one-line error and exit with ``code``.
+
+    Used to wrap ``MinionsError`` subclasses so the CLI shows an actionable
+    message instead of a full Rich traceback for user-facing conditions like
+    "project not found" or "corrupt state file".
+    """
+    console.print(f"[red]error:[/red] {msg}")
+    return typer.Exit(code)
+
+
 # ---------------------------------------------------------------------------
 # status
 # ---------------------------------------------------------------------------
@@ -63,7 +77,10 @@ def status(
     from minions.lifecycle.health import backend_health
 
     store = _get_store()
-    projects = store.list_projects()
+    try:
+        projects = store.list_projects()
+    except MinionsError as e:
+        raise _fail(f"{e}\nHint: back up and remove minions/state/projects.json to reset.") from e
 
     if json_flag:
         rows = []
@@ -138,7 +155,10 @@ def logs(
         cmd.append("-f")
     cmd.append(str(log_path))
 
-    subprocess.run(cmd)
+    try:
+        raise typer.Exit(subprocess.run(cmd).returncode)
+    except FileNotFoundError:
+        raise _fail("`tail` not found on PATH.") from None
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +214,45 @@ def doctor(
     except ImportError as exc:
         _check("eacn3-importable", False, str(exc))
 
+    # EACN3 MCP plugin built (required so Roles have eacn3_* tools).
+    plugin_dist = MINIONS_ROOT / "EACN3" / "plugin" / "dist" / "server.js"
+    _check(
+        "eacn3-plugin-built",
+        plugin_dist.exists(),
+        str(plugin_dist) if plugin_dist.exists() else "run ./install.sh",
+    )
+
+    # Node >= 16 (needed to run the plugin).
+    node_ok = False
+    node_detail = ""
+    try:
+        nr = subprocess.run(["node", "--version"], capture_output=True, text=True)
+        if nr.returncode == 0:
+            ver = nr.stdout.strip().lstrip("v")
+            major = int(ver.split(".", 1)[0]) if ver else 0
+            node_ok = major >= 16
+            node_detail = f"v{ver} ({'>=16' if node_ok else '<16 — upgrade'})"
+        else:
+            node_detail = "node not on PATH"
+    except Exception as exc:
+        node_detail = str(exc)
+    _check("node>=16", node_ok, node_detail)
+
+    # .mcp.json mounts both minionsos and eacn3 servers.
+    try:
+        import json as _json
+
+        mcp_cfg = _json.loads((MINIONS_ROOT / ".mcp.json").read_text(encoding="utf-8"))
+        servers = set(mcp_cfg.get("mcpServers", {}).keys())
+        missing = {"minionsos", "eacn3"} - servers
+        _check(
+            "mcp-config-mounts-eacn3",
+            not missing,
+            f"present: {sorted(servers)}" if not missing else f"missing: {sorted(missing)}",
+        )
+    except Exception as exc:
+        _check("mcp-config-mounts-eacn3", False, str(exc))
+
     # Port range probe
     from minions.state.store import _bind_probe
 
@@ -210,6 +269,51 @@ def doctor(
     except Exception as exc:
         _check("state-dir-writable", False, str(exc))
 
+    # Per-project: gru passive-mailbox agent present on each active backend.
+    try:
+        from minions.config import load_gru_config
+        from minions.lifecycle import eacn_client
+        from minions.state.store import StateStore
+
+        gru_id = load_gru_config().gru_eacn_agent_id
+        for p in StateStore().list_projects():
+            if p.status != "active":
+                continue
+            snap = eacn_client.probe_backend(p.port)
+            if not snap["health"]:
+                _check(f"gru-agent[{p.port}]", False, "backend /health not 200")
+                continue
+            ids = {a.get("agent_id") for a in snap.get("agents", [])}
+            present = gru_id in ids
+            _check(
+                f"gru-agent[{p.port}]",
+                present,
+                f"id={gru_id}" if present else f"missing; run `./mos project repair {p.port}`",
+            )
+    except Exception as exc:
+        _check("gru-agent-scan", False, str(exc))
+
+    # viz: build freshness + daemon reachability
+    viz_build = MINIONS_ROOT / "eacn-viz" / "dist" / "web" / "index.html"
+    _check(
+        "viz-build",
+        viz_build.exists(),
+        str(viz_build) if viz_build.exists() else "run ./install.sh or ./viz start",
+    )
+
+    try:
+        import urllib.request
+
+        port_file = Path.home() / ".minionsos" / "viz.port"
+        viz_port = int(port_file.read_text().strip()) if port_file.exists() else 7891
+        try:
+            urllib.request.urlopen(f"http://127.0.0.1:{viz_port}/", timeout=1).read(1)
+            _check("viz-daemon", True, f"http://127.0.0.1:{viz_port}")
+        except Exception as exc:
+            _check("viz-daemon", False, f"port {viz_port}: {exc}")
+    except Exception as exc:
+        _check("viz-daemon", False, str(exc))
+
     if json_flag:
         _json_out(checks)
         return
@@ -223,7 +327,7 @@ def doctor(
         table.add_row(c["name"], status_str, c.get("detail", ""))
     console.print(table)
 
-    if not all(c["ok"] for c in checks):
+    if not all(c["ok"] for c in checks if not c["name"].startswith("viz-")):
         raise typer.Exit(1)
 
 
@@ -284,7 +388,10 @@ def project_close_cmd(port: int = typer.Argument(..., help="Project port.")) -> 
     """Close a project permanently."""
     from minions.lifecycle.project import project_close
 
-    entry = project_close(port)
+    try:
+        entry = project_close(port)
+    except MinionsError as e:
+        raise _fail(str(e)) from e
     console.print(f"[green]Closed project {entry.port}.[/green]")
 
 
@@ -293,8 +400,31 @@ def project_revive_cmd(port: int = typer.Argument(..., help="Project port.")) ->
     """Revive a dormant project."""
     from minions.lifecycle.project import project_revive
 
-    entry = project_revive(port)
+    try:
+        entry = project_revive(port)
+    except MinionsError as e:
+        raise _fail(str(e)) from e
     console.print(f"[green]Revived project {entry.port}.[/green]")
+
+
+@project_app.command(name="repair")
+def project_repair_cmd(port: int = typer.Argument(..., help="Project port.")) -> None:
+    """Repair a running project's EACN state (currently: register the ``gru`` mailbox agent)."""
+    from minions.lifecycle.project import project_repair_gru_agent
+
+    try:
+        result = project_repair_gru_agent(port)
+    except MinionsError as e:
+        raise _fail(str(e)) from e
+    if result["status"] == "already":
+        console.print(
+            f"[yellow]gru agent already registered on port {port} "
+            f"(id={result['gru_agent_id']}).[/yellow]"
+        )
+    else:
+        console.print(
+            f"[green]Registered gru agent on port {port} (id={result['gru_agent_id']}).[/green]"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -313,7 +443,10 @@ def role_list(
     """List roles for a project."""
     from minions.lifecycle.role import list_roles
 
-    roles = list_roles(port)
+    try:
+        roles = list_roles(port)
+    except MinionsError as e:
+        raise _fail(str(e)) from e
     if json_flag:
         _json_out(roles)
         return
@@ -334,8 +467,91 @@ def role_dismiss(
     """Dismiss a role."""
     from minions.lifecycle.role import dismiss_role
 
-    result = dismiss_role(port, name)
+    try:
+        result = dismiss_role(port, name)
+    except MinionsError as e:
+        raise _fail(str(e)) from e
     console.print(f"[green]Dismissed role {result['name']}.[/green]")
+
+
+# ---------------------------------------------------------------------------
+# viz subcommands (dispatch to minions/bin/viz)
+# ---------------------------------------------------------------------------
+
+viz_app = typer.Typer(help="MinionsOS Observatory (eacn-viz) control.")
+app.add_typer(viz_app, name="viz")
+
+
+def _viz_script() -> str:
+    return str(MINIONS_ROOT / "minions" / "bin" / "viz")
+
+
+@viz_app.command("start")
+def viz_start(
+    port: int | None = typer.Option(None, "--port", help="Override port."),
+    foreground: bool = typer.Option(False, "--foreground", "-F"),
+) -> None:
+    """Start the Observatory (default: daemon, port 7891)."""
+    cmd = [_viz_script(), "start"]
+    if port is not None:
+        cmd += ["--port", str(port)]
+    if foreground:
+        cmd.append("--foreground")
+    raise typer.Exit(subprocess.run(cmd).returncode)
+
+
+@viz_app.command("stop")
+def viz_stop() -> None:
+    """Stop the Observatory."""
+    raise typer.Exit(subprocess.run([_viz_script(), "stop"]).returncode)
+
+
+@viz_app.command("status")
+def viz_status() -> None:
+    """Show Observatory status."""
+    raise typer.Exit(subprocess.run([_viz_script(), "status"]).returncode)
+
+
+@viz_app.command("open")
+def viz_open() -> None:
+    """Open the Observatory in your browser."""
+    raise typer.Exit(subprocess.run([_viz_script(), "open"]).returncode)
+
+
+@viz_app.command("logs")
+def viz_logs(
+    tail: int = typer.Option(50, "--tail", "-n"),
+    follow: bool = typer.Option(False, "--follow", "-f"),
+) -> None:
+    """Tail/follow the Observatory log."""
+    cmd = [_viz_script(), "logs", "--tail", str(tail)]
+    if follow:
+        cmd.append("--follow")
+    raise typer.Exit(subprocess.run(cmd).returncode)
+
+
+@viz_app.command("register")
+def viz_register() -> None:
+    """Register this Gru in ~/.minionsos/grus.json."""
+    raise typer.Exit(subprocess.run([_viz_script(), "register"]).returncode)
+
+
+@viz_app.command("deregister")
+def viz_deregister() -> None:
+    """Remove this Gru from the registry."""
+    raise typer.Exit(subprocess.run([_viz_script(), "deregister"]).returncode)
+
+
+@viz_app.command("heartbeat")
+def viz_heartbeat() -> None:
+    """Refresh this Gru's last_seen."""
+    raise typer.Exit(subprocess.run([_viz_script(), "heartbeat"]).returncode)
+
+
+@viz_app.command("ensure")
+def viz_ensure() -> None:
+    """Register this Gru, then start viz (no-op if already running)."""
+    raise typer.Exit(subprocess.run([_viz_script(), "ensure"]).returncode)
 
 
 # ---------------------------------------------------------------------------

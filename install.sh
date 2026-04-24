@@ -60,19 +60,60 @@ uv pip install -e ./EACN3
 ok "EACN3 installed"
 
 # ── 5. Build EACN3 MCP plugin ─────────────────────────────────────────────────
-if ! command -v node &>/dev/null; then
-    warn "node not found — skipping EACN3 plugin build.\n       Install Node ≥ 16 and re-run ./install.sh to complete setup."
-elif ! command -v npm &>/dev/null; then
-    warn "npm not found — skipping EACN3 plugin build.\n       Install npm and re-run ./install.sh to complete setup."
+# This plugin exposes the `eacn3_*` MCP tools that every Role uses to talk to
+# the per-project EACN3 backend. Without it, Roles have no way to post
+# messages or poll events, and the entire MinionsOS bus is dark. So this step
+# is FATAL: if Node is missing, the build fails, or dist/server.js is absent
+# at the end, we stop here with an actionable error rather than let the user
+# discover the breakage mid-session.
+#
+# Escape hatch: set MINIONS_SKIP_PLUGIN_BUILD=1 to intentionally skip (e.g.
+# CI smoke test on a node-less runner). This is the only supported way.
+if [ -n "${MINIONS_SKIP_PLUGIN_BUILD:-}" ]; then
+    warn "MINIONS_SKIP_PLUGIN_BUILD=1 — skipping EACN3 plugin build."
+    warn "Roles will NOT have eacn3_* tools; the EACN bus will be dark."
 else
+    if ! command -v node &>/dev/null; then
+        die "node not found. EACN3 plugin build requires Node >= 16.\n       Install Node (https://nodejs.org/), then re-run ./install.sh.\n       To intentionally skip (not recommended), set MINIONS_SKIP_PLUGIN_BUILD=1."
+    fi
+    if ! command -v npm &>/dev/null; then
+        die "npm not found. EACN3 plugin build requires npm.\n       Install npm, then re-run ./install.sh."
+    fi
     NODE_VER=$(node --version | sed 's/v//')
     NODE_MAJOR=$(echo "$NODE_VER" | cut -d. -f1)
     if [ "$NODE_MAJOR" -lt 16 ]; then
-        warn "Node $(node --version) is below the required ≥16 — skipping plugin build."
+        die "Node $(node --version) is below the required >= 16.\n       Upgrade Node, then re-run ./install.sh."
+    fi
+
+    info "Building EACN3 MCP plugin (npm install + build)..."
+    if ! (cd "$ROOT/EACN3/plugin" && npm install && npm run build); then
+        die "EACN3 plugin build failed.\n       Inspect the output above; fix the error, then re-run ./install.sh."
+    fi
+    PLUGIN_DIST="$ROOT/EACN3/plugin/dist/server.js"
+    if [ ! -f "$PLUGIN_DIST" ]; then
+        die "EACN3 plugin build reported success but $PLUGIN_DIST is missing.\n       This indicates a broken build script in EACN3/plugin/."
+    fi
+    ok "EACN3 MCP plugin built: $PLUGIN_DIST"
+
+    # ── 5b. Build eacn-viz Observatory ───────────────────────────────
+    VIZ_DIR="$ROOT/eacn-viz"
+    VIZ_MARKER="$VIZ_DIR/dist/web/index.html"
+    if [ -d "$VIZ_DIR" ]; then
+        need_build=1
+        if [ -f "$VIZ_MARKER" ] && [ -z "${MINIONS_VIZ_REBUILD:-}" ]; then
+            if [ "$VIZ_MARKER" -nt "$VIZ_DIR/package.json" ]; then
+                need_build=0
+            fi
+        fi
+        if [ "$need_build" = "1" ]; then
+            info "Building eacn-viz Observatory (npm install + build)..."
+            (cd "$VIZ_DIR" && npm install && npm run build)
+            ok "eacn-viz built"
+        else
+            ok "eacn-viz already built (set MINIONS_VIZ_REBUILD=1 to force)"
+        fi
     else
-        info "Building EACN3 MCP plugin (npm install + build)..."
-        (cd "$ROOT/EACN3/plugin" && npm install && npm run build)
-        ok "EACN3 MCP plugin built"
+        warn "eacn-viz/ directory missing — skipping Observatory build."
     fi
 fi
 
@@ -98,6 +139,26 @@ if [ -f "$ROOT/minions/bin/gru" ]; then
     chmod +x "$ROOT/minions/bin/gru"
     ok "minions/bin/gru is executable"
 fi
+if [ -f "$ROOT/minions/bin/viz" ]; then
+    chmod +x "$ROOT/minions/bin/viz"
+    ok "minions/bin/viz is executable"
+fi
+# Top-level symlinks (gru / mos / minionsos / viz → minions/bin/*)
+for link in gru mos minionsos; do
+    if [ ! -e "$ROOT/$link" ] && [ ! -L "$ROOT/$link" ]; then
+        (cd "$ROOT" && ln -sf minions/bin/gru "$link")
+        ok "Created symlink: ./$link → minions/bin/gru"
+    fi
+done
+if [ ! -e "$ROOT/viz" ] && [ ! -L "$ROOT/viz" ]; then
+    (cd "$ROOT" && ln -sf minions/bin/viz viz)
+    ok "Created symlink: ./viz → minions/bin/viz"
+fi
+
+# User-level state dir for machine-singleton viz + Gru registry.
+mkdir -p "$HOME/.minionsos"
+chmod 0700 "$HOME/.minionsos" 2>/dev/null || true
+ok "User dir ready: $HOME/.minionsos"
 
 # ── 8. Parent-directory git preflight (non-fatal) ────────────────────────────
 # MinionsOS creates per-project git worktrees branched off the directory that

@@ -5,6 +5,12 @@
       "command": "uv",
       "args": ["run", "--project", ".", "python", "-m", "minions.tools.mcp_server"],
       "env": {}
+    },
+    "eacn3": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["EACN3/plugin/dist/server.js"],
+      "env": {}
     }
   }
 }

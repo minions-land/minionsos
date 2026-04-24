@@ -5,6 +5,7 @@ Usage:
 
 Exits non-zero on any failure; prints ✓/✗ per step.
 """
+
 from __future__ import annotations
 
 import json
@@ -200,6 +201,7 @@ def main() -> int:
                 if pid:
                     try:
                         import signal
+
                         os.kill(pid, signal.SIGKILL)
                     except Exception:
                         pass

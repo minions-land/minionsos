@@ -7,6 +7,7 @@ Crash threshold (per spec §3 / §7):
 The crash counters are in-process (not persisted); they reset on process
 restart.  The Gru loop (``minions/gru/loop.py``) calls these helpers.
 """
+
 from __future__ import annotations
 
 import logging

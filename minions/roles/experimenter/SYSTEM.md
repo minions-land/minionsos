@@ -55,11 +55,33 @@ Your tool access is governed by §4 of the root constitution.
 - Default: `target=auto` — pick the best available target from `experiment_targets.yaml`.
 - If the EACN request specifies an explicit `target_id`, honor it.
 
-### Fill-GPU scheduling
-1. Poll `nvidia-smi` on each target to find GPUs with sufficient free VRAM.
-2. Launch pending experiments onto free GPUs immediately — do not serialize when parallelism is possible.
-3. Queue experiments only when all GPUs are genuinely occupied.
-4. Default: single GPU per experiment unless the request specifies `gpus_needed: N`.
+### Fill-GPU scheduling (aggressive, spread-first)
+
+**Core stance: if there is work and there is capacity, it runs. Now. In parallel. On as many distinct GPUs as possible.** Serial execution is a bug, not a safe default.
+
+1. **Poll per-GPU state.** Call `query_gpus` on every configured target to get per-GPU `{id, free_mb}`. Also inspect `exp_list` to know which GPUs already host a MinionsOS-launched run.
+2. **Spread-first ordering (mandatory).** When assigning N pending units to available GPUs, rank candidate GPUs by:
+   1. **GPU not currently hosting any MinionsOS run** (freshest slot) — highest priority.
+   2. Among those, **largest `free_mb`** (most headroom / least foreign process pressure) wins.
+   3. Only *after every eligible GPU in the fleet has at least one MinionsOS run* may you **stack a second run onto an already-busy GPU**, and only if the residual free VRAM comfortably fits the new unit.
+   Rationale: piling all units onto one GPU while sibling GPUs idle is **forbidden** — it wastes the fleet and starves whoever else shares that one card.
+3. **Launch immediately, in parallel.** Walk the pending list and issue `exp_run` back-to-back for every unit that has a target+GPU assignment — do **not** wait for the first to start before dispatching the second. Record every `run_id`.
+4. **Only queue when truly saturated.** A unit enters `queued` only when every GPU across every target has been filled to the point where one more stacked run would overflow VRAM. Re-evaluate each wake-up: when any GPU drains, dispatch the head of the queue to the freshest slot per rule 2.
+5. **Default 1 GPU per experiment** unless the request specifies `gpus_needed: N`. Multi-GPU units consume their N slots under the same spread-first ordering.
+6. **Do not honor habits that serialize.** If you catch yourself planning "run A, then when A finishes run B," stop — that is a bug unless B has an explicit data dependency on A's output.
+
+### Local vs. SSH targets (boundary cases)
+
+Targets in `experiment_targets.yaml` may be `type: local` (MinionsOS runs on the GPU host itself) or `type: ssh` (remote). The scheduler treats them **uniformly**:
+
+- **Fleet = union of all targets' GPUs.** Spread-first ranks candidates across the whole fleet, not within one target. Do not fill all local GPUs before touching remote ones (or vice versa) — that re-introduces the pile-up you were told to avoid.
+- **Foreign-process detection.** `query_gpus` returns `free_mb` only; it does not distinguish "MinionsOS run" from "a user's Jupyter kernel." Compute `fresh_slot = (no MinionsOS run via exp_list) AND (free_mb ≥ unit VRAM floor + headroom)`. A GPU with 2 GB free because someone else is using it is **not** a fresh slot.
+- **Hands off non-MinionsOS processes.** Only `exp_kill` `run_id`s that you (or prior Experimenter invocations) launched via `exp_run`. Never touch PIDs you did not spawn — especially on a `local` target where Gru / other Roles' Python processes share the box.
+- **No-GPU local degradation.** If `query_gpus` on `local` returns empty (dev box / CPU-only), degrade gracefully: CPU-parallel up to a sane concurrency (roughly `min(n_units, os.cpu_count() // 2)`), or fall back to serial with a clear EACN note. Do not busy-spin waiting for a GPU that will never appear.
+- **Multi-GPU units first.** Place any `gpus_needed: N ≥ 2` units **before** spreading single-GPU units, so you don't fragment the fleet and leave no contiguous N-GPU slot on any single target. Multi-GPU units require N GPUs on the *same* target.
+- **`target=auto` tiebreaker = data locality.** When fresh-slot rank ties between a local and a remote target, prefer the one where input data already lives — avoids large `exp_put` transfers.
+- **Stacking caps.** Even once stacking is permitted (every GPU has ≥1 run), keep ≥10–15% VRAM headroom per GPU and soft-cap MinionsOS runs per GPU at ~3 to avoid SM thrash. Beyond the cap, queue.
+- **Local-run collision hygiene.** Parallel runs on the same local host must not collide: give every run a unique `artifact_dir=artifacts/exp-{id}/`, a randomized DDP `MASTER_PORT`, a distinct `WANDB_DIR` / TensorBoard logdir, and an explicit `CUDA_VISIBLE_DEVICES=<gpu_id>`. On SSH targets different hosts isolate this for free; on `local` it is your responsibility.
 
 ### OOM / crash handling
 - On OOM or unexpected crash: re-queue the experiment once.

@@ -4,6 +4,7 @@ Gru is the only agent that may call this.  The relay builds a formatted
 message with source attribution and posts it to the target project's EACN
 backend via the real ``POST /api/messages`` endpoint.
 """
+
 from __future__ import annotations
 
 import logging
@@ -17,15 +18,11 @@ logger = logging.getLogger(__name__)
 
 RelayMode = Literal["auto", "quote", "paraphrase"]
 
-# Agent ID used as the relay sender on the target backend.
-_GRU_RELAY_AGENT_ID = "gru-relay"
-
 
 def format_relay_message(
     content: str,
     mode: RelayMode,
     from_port: int,
-    to_port: int,
     source_note: str | None = None,
 ) -> str:
     """Build the relay message body with source attribution.
@@ -34,7 +31,6 @@ def format_relay_message(
         content: The raw message content.
         mode: ``"auto"``, ``"quote"``, or ``"paraphrase"``.
         from_port: Source project port (for attribution).
-        to_port: Destination project port (unused in body, accepted for API symmetry).
         source_note: Optional human-readable note about the relay source.
 
     Returns:
@@ -93,8 +89,17 @@ def _post_message(port: int, to_agent_id: str, from_agent_id: str, content: str)
 def _get_gru_agent_id(port: int) -> str | None:
     """Look up the Gru agent ID on the target backend via discovery.
 
-    Returns the first agent_id whose name starts with 'gru', or None.
+    Returns the agent_id whose ``name`` is exactly ``"gru"`` or whose
+    ``agent_id`` matches the configured ``gru_eacn_agent_id``. This avoids
+    matching stale relay-origin agents like ``"gru-relay-<port>"`` that a
+    prior run may have left in the registry.
     """
+    try:
+        from minions.config import load_gru_config
+
+        configured_id = load_gru_config().gru_eacn_agent_id
+    except Exception:
+        configured_id = "gru"
     try:
         resp = httpx.get(
             f"http://127.0.0.1:{port}/api/discovery/agents",
@@ -104,8 +109,7 @@ def _get_gru_agent_id(port: int) -> str | None:
         if resp.status_code == 200:
             agents = resp.json()
             for a in agents:
-                name = a.get("name", "")
-                if name.startswith("gru") or a.get("agent_id", "").startswith("gru"):
+                if a.get("name") == "gru" or a.get("agent_id") == configured_id:
                     return a.get("agent_id")
     except Exception:
         pass
@@ -148,7 +152,7 @@ def gru_relay(
         mode,
         len(content),
     )
-    message = format_relay_message(content, mode, from_port, to_port, source_note)
+    message = format_relay_message(content, mode, from_port, source_note)
 
     # Resolve the Gru agent ID on the target backend; fall back to "gru".
     to_agent_id = _get_gru_agent_id(to_port) or "gru"

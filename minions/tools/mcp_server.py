@@ -73,8 +73,7 @@ class ProjectCreateArgs(BaseModel):
     template_dir: str | None = Field(
         default=None,
         description=(
-            "Absolute path to venue formatting templates; "
-            "recorded in meta.json & CLAUDE.md."
+            "Absolute path to venue formatting templates; recorded in meta.json & CLAUDE.md."
         ),
     )
 
@@ -275,6 +274,45 @@ def gru_relay(args: GruRelayArgs) -> dict:
     )
 
 
+class GruInboxPollArgs(BaseModel):
+    port: int | None = Field(
+        default=None,
+        description="Project port. If None, drain all active projects.",
+    )
+    max_events: int = Field(default=50, ge=1, le=500)
+    mark_read: bool = Field(default=True)
+
+
+@mcp.tool()
+def gru_inbox_poll(args: GruInboxPollArgs) -> dict:
+    """Drain the Gru passive-mailbox inbox for one or all active projects.
+
+    Role → Gru direct messages land on each project's EACN ``gru`` agent;
+    the WakeupScheduler appends them to ``project_{port}/logs/gru_inbox.jsonl``.
+    This tool returns the unread slice and (by default) advances the cursor.
+    """
+    from minions.lifecycle import gru_inbox as _inbox
+
+    if args.port is None:
+        store = StateStore()
+        ports = [p.port for p in store.list_projects(filter="active")]
+    else:
+        ports = [args.port]
+
+    out: dict[str, list[dict]] = {}
+    total = 0
+    for p in ports:
+        entries = _inbox.read_unread(p, max_events=args.max_events)
+        if not entries:
+            continue
+        out[str(p)] = entries
+        total += len(entries)
+        if args.mark_read and entries:
+            max_seq = max(int(e.get("seq", 0)) for e in entries)
+            _inbox.mark_read(p, max_seq)
+    return {"total": total, "per_port": out}
+
+
 class SchedulePollArgs(BaseModel):
     interval: str = Field(
         description="Poll cadence: one of '1m', '3m', '5m'.",
@@ -314,19 +352,30 @@ def schedule_poll(args: SchedulePollArgs) -> dict:
 def gru_start_monitor(heartbeat_interval: int | None = None) -> dict:
     """Start the Gru heartbeat/health monitor as a background daemon thread.
 
+    Idempotent: a second call while the monitor is still alive is a no-op
+    and returns ``{"started": False, "already_running": True, ...}``. This
+    avoids racing monitors writing to the same ``projects.json``.
+
     Args:
         heartbeat_interval: Override the interval in seconds (default from gru.yaml).
-
-    Returns:
-        ``{"started": True, "interval": <seconds>}``
     """
     from minions.gru.loop import GruLoop
+
+    existing = getattr(gru_start_monitor, "_thread", None)
+    if existing is not None and existing.is_alive():
+        return {
+            "started": False,
+            "already_running": True,
+            "interval": getattr(gru_start_monitor, "_interval", None),
+        }
 
     loop = GruLoop(heartbeat_interval=heartbeat_interval)
     t = threading.Thread(target=loop.run, daemon=True, name="gru-monitor")
     t.start()
+    gru_start_monitor._thread = t  # type: ignore[attr-defined]
+    gru_start_monitor._interval = loop.interval  # type: ignore[attr-defined]
     logger.info("Gru monitor thread started (interval=%ds).", loop.interval)
-    return {"started": True, "interval": loop.interval}
+    return {"started": True, "already_running": False, "interval": loop.interval}
 
 
 # ---------------------------------------------------------------------------

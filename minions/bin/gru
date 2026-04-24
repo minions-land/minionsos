@@ -33,11 +33,11 @@ warn()  { echo -e "${YELLOW}[gru]${RESET} $*"; }
 die()   { echo -e "${RED}[gru]${RESET} $*" >&2; exit 1; }
 
 # ── Subcommand whitelist ──────────────────────────────────────────────────────
-SUBCOMMANDS="status|logs|doctor|config|project|role|wipe|--help|-h"
+SUBCOMMANDS="status|logs|doctor|config|project|role|wipe|viz|--help|-h"
 
 is_subcommand() {
     local arg="${1:-}"
-    [[ "$arg" =~ ^(status|logs|doctor|config|project|role|wipe|--help|-h)$ ]]
+    [[ "$arg" =~ ^(status|logs|doctor|config|project|role|wipe|viz|--help|-h)$ ]]
 }
 
 # ── State dir ─────────────────────────────────────────────────────────────────
@@ -121,6 +121,9 @@ fi
 #   GRU_EFFORT=...       (default: max)
 #   GRU_SANDBOX=0        (unset IS_SANDBOX; default: 1)
 #   GRU_SKIP_PERMS=0     (omit --dangerously-skip-permissions; default: 1)
+#   GRU_VIZ=0            (disable Observatory auto-start; default: 1)
+#   GRU_VIZ_OPEN=0       (do not open browser on interactive launch; default: 1)
+#   MINIONS_VIZ_PORT=N   (override default Observatory port 7891)
 : "${GRU_MODEL:=claude-opus-4-7}"
 : "${GRU_EFFORT:=max}"
 : "${GRU_SANDBOX:=1}"
@@ -144,11 +147,41 @@ CLAUDE_CMD=(
     "${PASSTHROUGH_ARGS[@]+"${PASSTHROUGH_ARGS[@]}"}"
 )
 
+# ── Auto-start MinionsOS Observatory (viz, machine singleton) ────────────────
+if [ "${GRU_VIZ:-1}" != "0" ] && [ -x "$ROOT/minions/bin/viz" ]; then
+    if "$ROOT/minions/bin/viz" ensure >/dev/null 2>&1; then
+        VIZ_URL="$(cat "$HOME/.minionsos/viz.url" 2>/dev/null || echo "http://127.0.0.1:${MINIONS_VIZ_PORT:-7891}")"
+        info "MinionsOS Observatory: $VIZ_URL"
+        if [ "$DAEMON" -eq 0 ] && [ "${GRU_VIZ_OPEN:-1}" != "0" ] && [ -t 0 ]; then
+            ("$ROOT/minions/bin/viz" open >/dev/null 2>&1 &) || true
+        fi
+    else
+        warn "Observatory failed to start (non-fatal). Try:  ./viz status ;  ./viz logs"
+    fi
+fi
+
 if [ "$DAEMON" -eq 1 ]; then
+    # Idempotency: if a live daemon already exists, do nothing.
+    if [ -f "$PID_FILE" ]; then
+        EXISTING_PID="$(cat "$PID_FILE" 2>/dev/null || echo "")"
+        if [ -n "$EXISTING_PID" ] && kill -0 "$EXISTING_PID" 2>/dev/null; then
+            info "Gru daemon already running (PID $EXISTING_PID). Nothing to do."
+            info "Attach with:  $0 attach   Stop with:  kill $EXISTING_PID"
+            exit 0
+        fi
+    fi
     info "Starting Gru in daemon mode..."
     info "Log: $LOG_FILE"
-    # Use setsid to detach from terminal; nohup for HUP immunity
-    nohup setsid "${CLAUDE_CMD[@]}" >> "$LOG_FILE" 2>&1 &
+    # Detach into a new process group so logs/signals are isolated.
+    # macOS lacks setsid(1); fall back to a python os.setsid() shim.
+    if command -v setsid >/dev/null 2>&1; then
+        nohup setsid "${CLAUDE_CMD[@]}" >> "$LOG_FILE" 2>&1 &
+    elif command -v python3 >/dev/null 2>&1; then
+        nohup python3 -c 'import os,sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' \
+            "${CLAUDE_CMD[@]}" >> "$LOG_FILE" 2>&1 &
+    else
+        nohup "${CLAUDE_CMD[@]}" >> "$LOG_FILE" 2>&1 &
+    fi
     BGPID=$!
     echo "$BGPID" > "$PID_FILE"
     ok() { echo -e "${GREEN}[gru]${RESET} $*"; }

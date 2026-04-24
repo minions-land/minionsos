@@ -4,7 +4,7 @@
 
 # How often Gru emits a heartbeat status report.
 # Format: "<N>h" or "<N>m". Set to "0" to disable.
-heartbeat_report_interval: "2h"
+heartbeat_report_interval: "3m"
 
 # Whether Gru (and all roles it spawns) may use web search tools.
 # Set to false to air-gap the session.

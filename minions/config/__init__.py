@@ -76,6 +76,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("gru", "main"): [
         "eacn3_*",
         "gru_relay",
+        "gru_inbox_poll",
         "project_create",
         "project_close",
         "project_dormant",
@@ -204,7 +205,7 @@ class GruConfig(BaseModel):
     """Settings loaded from ``minions/config/gru.yaml``."""
 
     heartbeat_report_interval: str = Field(
-        default="2h",
+        default="3m",
         description="Heartbeat report interval (e.g. '30s', '5m', '2h'). '0' disables.",
     )
 

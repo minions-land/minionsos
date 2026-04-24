@@ -6,6 +6,7 @@ lifecycle layer so that they stay consistent across project/role/relay.
 All functions are synchronous and use ``httpx``.  They raise
 ``minions.errors.BackendError`` on failure.
 """
+
 from __future__ import annotations
 
 import logging
@@ -45,13 +46,15 @@ def register_server(
     }
     try:
         resp = httpx.post(url, json=payload, timeout=timeout)
-        resp.raise_for_status()
-        data = resp.json()
-        return str(data["server_id"]), str(data.get("token", ""))
     except Exception as exc:
+        raise BackendError(f"register_server POST to {url} failed (transport): {exc}") from exc
+    if resp.status_code >= 400:
         raise BackendError(
-            f"register_server failed on port {port}: {exc}"
-        ) from exc
+            f"register_server port={port} HTTP {resp.status_code}: {resp.text!r} "
+            f"(payload keys={sorted(payload)})"
+        )
+    data = resp.json()
+    return str(data["server_id"]), str(data.get("token", ""))
 
 
 def delete_server(
@@ -122,13 +125,17 @@ def register_agent(
     }
     try:
         resp = httpx.post(url, json=payload, timeout=timeout)
-        resp.raise_for_status()
-        data = resp.json()
-        return str(data.get("token", "")), list(data.get("seeds", []))
     except Exception as exc:
+        raise BackendError(f"register_agent POST to {url} failed (transport): {exc}") from exc
+    if resp.status_code >= 400:
         raise BackendError(
-            f"register_agent {agent_id!r} on port {port} failed: {exc}"
-        ) from exc
+            f"register_agent agent_id={agent_id!r} port={port} HTTP "
+            f"{resp.status_code}: {resp.text!r} "
+            f"(payload keys={sorted(payload)}, server_id={server_id!r}, "
+            f"domains={payload['domains']})"
+        )
+    data = resp.json()
+    return str(data.get("token", "")), list(data.get("seeds", []))
 
 
 def unregister_agent(
@@ -144,6 +151,42 @@ def unregister_agent(
             resp.raise_for_status()
     except Exception as exc:
         logger.warning("unregister_agent port=%d id=%s failed: %s", port, agent_id, exc)
+
+
+# ---------------------------------------------------------------------------
+# Diagnostics
+# ---------------------------------------------------------------------------
+
+
+def probe_backend(port: int, timeout: float = 3.0) -> dict[str, Any]:
+    """Best-effort snapshot of what the EACN3 backend on *port* currently holds.
+
+    Returns a dict with keys: ``health``, ``servers``, ``agents``, ``errors``.
+    Never raises; failures are captured in ``errors``. Used by ``./mos doctor``
+    and by callers diagnosing register_* 4xx responses.
+    """
+    result: dict[str, Any] = {
+        "port": port,
+        "health": False,
+        "servers": [],
+        "agents": [],
+        "errors": [],
+    }
+    base = base_url(port)
+    try:
+        r = httpx.get(f"{base}/health", timeout=timeout)
+        result["health"] = r.status_code == 200
+    except Exception as exc:
+        result["errors"].append(f"/health: {exc}")
+    try:
+        r = httpx.get(f"{base}/api/discovery/agents", timeout=timeout)
+        if r.status_code == 200:
+            result["agents"] = r.json()
+        else:
+            result["errors"].append(f"GET /agents HTTP {r.status_code}: {r.text!r}")
+    except Exception as exc:
+        result["errors"].append(f"GET /agents: {exc}")
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -170,9 +213,7 @@ def post_message(
         resp.raise_for_status()
         return dict(resp.json())
     except Exception as exc:
-        raise BackendError(
-            f"post_message to {to_agent_id!r} on port {port} failed: {exc}"
-        ) from exc
+        raise BackendError(f"post_message to {to_agent_id!r} on port {port} failed: {exc}") from exc
 
 
 def poll_events(
@@ -192,6 +233,4 @@ def poll_events(
         resp.raise_for_status()
         return dict(resp.json())
     except Exception as exc:
-        raise BackendError(
-            f"poll_events {agent_id!r} on port {port} failed: {exc}"
-        ) from exc
+        raise BackendError(f"poll_events {agent_id!r} on port {port} failed: {exc}") from exc

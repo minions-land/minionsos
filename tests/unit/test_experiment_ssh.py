@@ -1,4 +1,5 @@
 """Unit tests for the fire-and-poll Experimenter tool surface."""
+
 from __future__ import annotations
 
 import time
@@ -50,9 +51,7 @@ def local_target(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
 
 class TestFireAndPoll:
     def test_exp_run_returns_immediately_with_run_id(self, local_target: str) -> None:
-        result = exp_run(
-            ExpRunArgs(target_id=local_target, cmd="sleep 0.3 && echo done")
-        )
+        result = exp_run(ExpRunArgs(target_id=local_target, cmd="sleep 0.3 && echo done"))
         assert result["run_id"].startswith("exp-")
         assert result["target_id"] == local_target
         assert result["pid"] > 0
@@ -73,9 +72,7 @@ class TestFireAndPoll:
         assert status_early["state"] in {"running", "exited"}
 
         # Wait for it to finish.
-        final = exp_wait(
-            ExpWaitArgs(target_id=local_target, run_id=run_id, timeout=10)
-        )
+        final = exp_wait(ExpWaitArgs(target_id=local_target, run_id=run_id, timeout=10))
         assert final["state"] == "exited"
         assert final["exit_code"] == 0
         assert "done" in final["log_tail"]

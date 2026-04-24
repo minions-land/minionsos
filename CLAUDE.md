@@ -209,6 +209,49 @@ Compression is a **plain subagent task**: "read the scratchpad at `<path>`, outp
 ./mos role dismiss 37596 noter
 ```
 
+## Visualization (Observatory)
+
+The `eacn-viz/` package is a strictly **read-only** dashboard for the
+MinionsOS system. It is a **machine-wide singleton**: every Gru
+installation on the host shares **one** viz process at **one** URL. Start
+two Grus from two checkouts and you'll see both in the same browser tab,
+filtered by a Gru ▾ / Project ▾ two-level picker.
+
+- **User-level state.** `~/.minionsos/` (mode 0700) holds the Gru
+  registry (`grus.json`), a `grus.lock`, and the running viz's
+  `{viz.pid, viz.port, viz.url, viz.lock}`. Created by `./install.sh`.
+- **Auto-start.** `./gru` calls `./viz ensure` on launch, which (a)
+  registers this Gru in `~/.minionsos/grus.json` and (b) starts the viz
+  if it is not already running (no-op if another Gru on this host already
+  started it). The server itself refreshes each Gru's `last_seen` every
+  time it successfully reads that Gru's `projects.json`, so no heartbeat
+  daemon is needed. A Gru is `online=false` once both `last_seen` and its
+  `projects.json` mtime are older than 2 minutes.
+- **Manual control.**
+
+  ```bash
+  ./viz ensure                      # register + start (idempotent)
+  ./viz start [--port N] [--foreground]
+  ./viz stop                        # refuses to kill another user's PID
+  ./viz status|open|logs
+  ./viz register|deregister|heartbeat
+  # or equivalently via the CLI:
+  ./mos viz ensure|start|stop|status|open|logs|register|deregister|heartbeat
+  ```
+
+- **Env vars.**
+  - `GRU_VIZ=0` — disable Observatory auto-start from `./gru`.
+  - `GRU_VIZ_OPEN=0` — start the service but do not open a browser.
+  - `MINIONS_VIZ_PORT=N` — preferred port (default 7891; scans 7891..7910
+    for a free port).
+  - `MINIONS_GRU_LABEL=<name>` — override the Gru's label on
+    `register`/`ensure` (default: `basename(dirname($ROOT))`).
+  - `MINIONS_VIZ_REBUILD=1` — force `install.sh` to rebuild eacn-viz.
+- **Read-only guarantees.** The Observatory never POSTs to EACN3 and
+  never calls `/api/events/{agent_id}`. All HTTP endpoints are `GET` and
+  idempotent; project-scoped endpoints require `?gru=<id>` and 404 on
+  unknown (Gru, port) pairs.
+
 ## Debug entry points
 
 | What broke | Where to look |

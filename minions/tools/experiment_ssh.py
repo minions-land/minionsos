@@ -19,6 +19,7 @@ Tools:
 - exp_tail     — tail a log file on a target
 - query_gpus   — list free GPU memory on a target
 """
+
 from __future__ import annotations
 
 import json
@@ -67,9 +68,7 @@ def _expand_workdir(workdir: str) -> str:
         if port_s and port_s.isdigit():
             from minions.paths import project_workspace as _pws
 
-            workdir = workdir.replace(
-                "{project_workspace}", str(_pws(int(port_s)).resolve())
-            )
+            workdir = workdir.replace("{project_workspace}", str(_pws(int(port_s)).resolve()))
     return workdir
 
 
@@ -144,14 +143,9 @@ def _build_launch_script(cmd: str, workdir: str, log_path: str, exit_path: str) 
     used when present to fully detach from the controlling terminal; when
     absent (e.g. macOS default install) ``nohup`` + ``disown`` is sufficient.
     """
-    inner = (
-        f"cd {shlex.quote(workdir)} && "
-        f"( {cmd} ); echo $? > {shlex.quote(exit_path)}"
-    )
+    inner = f"cd {shlex.quote(workdir)} && ( {cmd} ); echo $? > {shlex.quote(exit_path)}"
     # Prefer setsid for full session detachment, but fall back gracefully.
-    detach = (
-        "if command -v setsid >/dev/null 2>&1; then DETACH=setsid; else DETACH=; fi; "
-    )
+    detach = "if command -v setsid >/dev/null 2>&1; then DETACH=setsid; else DETACH=; fi; "
     return (
         f"mkdir -p {shlex.quote(str(Path(log_path).parent))} && "
         f"{detach}"
@@ -273,9 +267,7 @@ def exp_run(args: ExpRunArgs) -> dict:
         env_prefix = f"CUDA_VISIBLE_DEVICES={ids_str} "
     cmd = env_prefix + cmd
 
-    logger.info(
-        "exp_run target=%s run_id=%s cmd=%r (detached)", target_id, run_id, cmd[:120]
-    )
+    logger.info("exp_run target=%s run_id=%s cmd=%r (detached)", target_id, run_id, cmd[:120])
 
     meta: dict[str, object] = {
         "run_id": run_id,
@@ -296,15 +288,11 @@ def exp_run(args: ExpRunArgs) -> dict:
             check=False,
         )
         if result.returncode != 0:
-            raise ExperimentError(
-                f"Failed to launch local run {run_id}: {result.stderr}"
-            )
+            raise ExperimentError(f"Failed to launch local run {run_id}: {result.stderr}")
         try:
             pid = int(result.stdout.strip().splitlines()[-1])
         except (ValueError, IndexError) as exc:
-            raise ExperimentError(
-                f"Could not parse launch pid: {result.stdout!r}"
-            ) from exc
+            raise ExperimentError(f"Could not parse launch pid: {result.stdout!r}") from exc
         meta["pid"] = pid
         meta_path.write_text(json.dumps(meta, indent=2))
         return {
@@ -329,15 +317,12 @@ def exp_run(args: ExpRunArgs) -> dict:
     try:
         pid = int(result.stdout.strip().splitlines()[-1])
     except (ValueError, IndexError) as exc:
-        raise ExperimentError(
-            f"Could not parse launch pid: {result.stdout!r}"
-        ) from exc
+        raise ExperimentError(f"Could not parse launch pid: {result.stdout!r}") from exc
     meta["pid"] = pid
     meta_blob = json.dumps(meta, indent=2)
     # Write meta on the remote side.
     write_meta = (
-        f"cat > {shlex.quote(meta_path_s)} <<'__MINIONS_META__'\n"
-        f"{meta_blob}\n__MINIONS_META__"
+        f"cat > {shlex.quote(meta_path_s)} <<'__MINIONS_META__'\n{meta_blob}\n__MINIONS_META__"
     )
     subprocess.run(
         _ssh_cmd(host, key, write_meta),
@@ -620,9 +605,7 @@ def exp_get(args: ExpGetArgs) -> dict:
     try:
         size = int(size_result.stdout.strip())
     except ValueError:
-        raise ExperimentError(
-            f"Unexpected stat output: {size_result.stdout!r}"
-        ) from None
+        raise ExperimentError(f"Unexpected stat output: {size_result.stdout!r}") from None
     if size > MAX_DOWNLOAD_BYTES:
         raise ExperimentError(
             f"Remote file is {size / 1e6:.1f} MB > 500 MB limit; keep big data remote."
