@@ -14,9 +14,12 @@ class PortAllocator:
         self.port_max = port_max
 
     def _is_free(self, port: int) -> bool:
+        # Do NOT set SO_REUSEADDR here: on Linux that option lets this probe
+        # succeed even when another listener is already bound to the same port
+        # (including a running EACN3 backend), causing the allocator to
+        # incorrectly report the port as free.
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 s.bind(("127.0.0.1", port))
             return True
         except OSError:

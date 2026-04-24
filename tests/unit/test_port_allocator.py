@@ -27,10 +27,15 @@ def allocator() -> PortAllocator:
 
 
 def _bind_port(port: int) -> socket.socket:
-    """Bind a real socket to a port so the allocator sees it as in-use."""
+    """Bind a real socket to a port so the allocator sees it as in-use.
+
+    We deliberately do NOT set ``SO_REUSEADDR``: on Linux that option lets the
+    allocator's own bind-probe succeed on the same port and incorrectly
+    conclude the port is free, which breaks these tests in CI.
+    """
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(("127.0.0.1", port))
+    sock.listen(1)
     return sock
 
 

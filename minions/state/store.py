@@ -76,10 +76,13 @@ def _now_iso() -> str:
 
 
 def _bind_probe(port: int) -> bool:
-    """Return True if *port* can be bound (i.e. is free)."""
+    """Return True if *port* can be bound (i.e. is free).
+
+    Do NOT set SO_REUSEADDR: on Linux it would let this probe succeed even
+    when another listener already owns the port.
+    """
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind(("127.0.0.1", port))
         return True
     except OSError:
