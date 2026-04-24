@@ -50,20 +50,56 @@ def _now_iso() -> str:
     return datetime.now(tz=UTC).isoformat()
 
 
-def _write_meta(port: int, entry: ProjectEntry) -> None:
-    """Write (or overwrite) ``meta.json`` for *port*."""
+def _write_meta(
+    port: int,
+    entry: ProjectEntry,
+    extras: dict[str, object] | None = None,
+) -> None:
+    """Write ``meta.json`` for *port*, preserving any prior extra fields.
+
+    ``ProjectEntry`` is configured with ``extra="allow"`` but runtime-only
+    fields (``backend_pid``, ``eacn3_server_id``, ``eacn3_server_token``,
+    ``gru_agent_id``, ``gru_agent_token``, ``topic_doc``, ``template_dir``,
+    ...) are generally kept on disk rather than round-tripped through the
+    store. To avoid silently dropping them on dormant / revive cycles, we
+    read the existing meta.json first, overlay the current entry dump on
+    top, and overlay explicit *extras* last.
+    """
     path = project_meta_json(port)
     path.parent.mkdir(parents=True, exist_ok=True)
+    base: dict[str, object] = {}
+    if path.exists():
+        try:
+            base = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(base, dict):
+                base = {}
+        except Exception:
+            base = {}
+    base.update(entry.model_dump())
+    if extras:
+        base.update(extras)
     tmp = path.with_suffix(".tmp")
-    tmp.write_text(entry.model_dump_json(indent=2), encoding="utf-8")
+    tmp.write_text(json.dumps(base, indent=2), encoding="utf-8")
     os.replace(tmp, path)
 
 
-def _read_meta(port: int) -> ProjectEntry:
+def _read_meta_raw(port: int) -> dict[str, object]:
+    """Read raw ``meta.json`` dict for *port*, preserving extras.
+
+    Prefer this over constructing a ``ProjectEntry`` when you only need
+    the on-disk dict (e.g. to read runtime-only fields like ``backend_pid``
+    that are stored on disk but not in ``projects.json``).
+    """
     path = project_meta_json(port)
     if not path.exists():
         raise ProjectError(f"meta.json not found for port {port}: {path}")
-    return ProjectEntry.model_validate_json(path.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise ProjectError(f"meta.json for port {port} is not valid JSON: {e}") from e
+    if not isinstance(data, dict):
+        raise ProjectError(f"meta.json for port {port} is not an object.")
+    return data
 
 
 def _start_backend(port: int) -> subprocess.Popen:  # type: ignore[type-arg]
@@ -250,8 +286,7 @@ def _render_project_claude_md(
     lines.append(f"# {real_name} — Project CLAUDE.md")
     lines.append("")
     lines.append(
-        "> Project-scoped narrative. Authored jointly by the human and Gru; "
-        "other Roles read-only."
+        "> Project-scoped narrative. Authored jointly by the human and Gru; other Roles read-only."
     )
     lines.append("")
     lines.append("## Facts")
@@ -275,12 +310,10 @@ def _render_project_claude_md(
     lines.append("")
     lines.append("- All inter-Role communication goes through EACN3 on this port.")
     lines.append(
-        "- Workspace edits happen on branch above; Noter / Reviewer are read-only "
-        "on `workspace/`."
+        "- Workspace edits happen on branch above; Noter / Reviewer are read-only on `workspace/`."
     )
     lines.append(
-        "- Root constitution at repo `CLAUDE.md` always wins on conflicts "
-        "(see Hard rules)."
+        "- Root constitution at repo `CLAUDE.md` always wins on conflicts (see Hard rules)."
     )
     lines.append("")
     return "\n".join(lines)
@@ -341,11 +374,39 @@ def project_create(
         raise
 
     # Register a server record with EACN3 so roles can register as agents.
+    # Now FATAL: a silently-absent server breaks downstream role registration
+    # and gru-inbox delivery, so fail loud rather than limp along.
     try:
         server_id, eacn3_server_token = _register_server(port)
     except BackendError as exc:
-        logger.warning("Server registration failed (non-fatal): %s", exc)
-        server_id, eacn3_server_token = "", ""
+        logger.error("Server registration failed (fatal): %s", exc)
+        proc.terminate()
+        raise
+
+    # Register the "gru" passive-mailbox agent on this project's bus so that
+    # role → gru direct messages land in a real EACN inbox (not dead letters).
+    # FATAL on failure: without it, every `post_message(to_agent_id="gru", ...)`
+    # from a Role is silently dropped, which is exactly the bug this fixes.
+    try:
+        from minions.config import load_gru_config
+
+        gru_agent_id = load_gru_config().gru_eacn_agent_id
+        gru_agent_token, _seeds = eacn_client.register_agent(
+            port=port,
+            agent_id=gru_agent_id,
+            name="gru",
+            server_id=server_id,
+            domains=["coordination"],
+            description=(
+                "MinionsOS global coordinator (passive mailbox on this project). "
+                "Polled by the Python-side WakeupScheduler; not a live Claude process."
+            ),
+            tier="coordinator",
+        )
+    except BackendError as exc:
+        logger.error("Gru agent registration failed (fatal): %s", exc)
+        proc.terminate()
+        raise
 
     now = _now_iso()
     entry = ProjectEntry(
@@ -363,6 +424,8 @@ def project_create(
     entry_dict["backend_pid"] = proc.pid
     entry_dict["eacn3_server_id"] = server_id
     entry_dict["eacn3_server_token"] = eacn3_server_token
+    entry_dict["gru_agent_id"] = gru_agent_id
+    entry_dict["gru_agent_token"] = gru_agent_token
     # Persist external resource pointers so revive / downstream tools can see them.
     if topic_doc:
         entry_dict["topic_doc"] = topic_doc
@@ -431,15 +494,13 @@ def project_dormant(
 
     logger.info("project_dormant port=%d", port)
 
-    # Stop backend.
-    meta = _read_meta(port)
-    backend_pid: int | None = getattr(meta, "backend_pid", None)
-    # Try to read from meta.json raw dict for extra fields.
+    # Stop backend. Read backend_pid from the on-disk meta (not from the
+    # store entry — runtime-only fields live on disk).
+    backend_pid: int | None = None
     try:
-        raw = project_meta_json(port).read_text(encoding="utf-8")
-        raw_dict = json.loads(raw)
-        backend_pid = raw_dict.get("backend_pid")
-    except Exception:
+        raw_dict = _read_meta_raw(port)
+        backend_pid = raw_dict.get("backend_pid")  # type: ignore[assignment]
+    except (ProjectError, Exception):
         pass
     _stop_backend(port, backend_pid)
 
@@ -542,12 +603,32 @@ def project_revive(
         proc.terminate()
         raise
 
-    # Re-register server with the fresh EACN3 backend.
+    # Re-register server with the fresh EACN3 backend (FATAL on failure).
     try:
         server_id, eacn3_server_token = _register_server(port)
     except BackendError as exc:
-        logger.warning("Server re-registration failed (non-fatal): %s", exc)
-        server_id, eacn3_server_token = "", ""
+        logger.error("Server re-registration failed (fatal): %s", exc)
+        proc.terminate()
+        raise
+
+    # Re-register the "gru" passive-mailbox agent on the fresh backend.
+    try:
+        from minions.config import load_gru_config
+
+        gru_agent_id = load_gru_config().gru_eacn_agent_id
+        gru_agent_token, _seeds = eacn_client.register_agent(
+            port=port,
+            agent_id=gru_agent_id,
+            name="gru",
+            server_id=server_id,
+            domains=["coordination"],
+            description=("MinionsOS global coordinator (passive mailbox on this project)."),
+            tier="coordinator",
+        )
+    except BackendError as exc:
+        logger.error("Gru agent re-registration failed (fatal): %s", exc)
+        proc.terminate()
+        raise
 
     now = _now_iso()
 
@@ -573,19 +654,87 @@ def project_revive(
         port,
         status="active",
         dormant_at=None,
+        active_roles=revived_roles,
     )
-    # Manually set active_roles since update_project doesn't deep-merge lists.
-    updated = _store.update_project(port, active_roles=revived_roles)
 
-    # Persist backend PID and new server_id in meta.json.
-    raw_dict = json.loads(project_meta_json(port).read_text(encoding="utf-8"))
-    raw_dict.update(updated.model_dump())
-    raw_dict["backend_pid"] = proc.pid
-    raw_dict["eacn3_server_id"] = server_id
-    raw_dict["eacn3_server_token"] = eacn3_server_token
-    tmp = project_meta_json(port).with_suffix(".tmp")
-    tmp.write_text(json.dumps(raw_dict, indent=2), encoding="utf-8")
-    os.replace(tmp, project_meta_json(port))
+    # Persist backend PID and new server_id in meta.json (preserving extras).
+    _write_meta(
+        port,
+        updated,
+        extras={
+            "backend_pid": proc.pid,
+            "eacn3_server_id": server_id,
+            "eacn3_server_token": eacn3_server_token,
+            "gru_agent_id": gru_agent_id,
+            "gru_agent_token": gru_agent_token,
+        },
+    )
 
     logger.info("project_revive done: port=%d pid=%d", port, proc.pid)
     return updated
+
+
+def project_repair_gru_agent(
+    port: int,
+    store: StateStore | None = None,
+) -> dict[str, str]:
+    """Ensure the ``gru`` passive-mailbox agent is registered on *port*.
+
+    Idempotent repair for projects created before Gru-agent auto-registration
+    existed, or whose EACN3 backend was restarted without going through
+    ``project_revive``. Reads ``eacn3_server_id`` from ``meta.json``, probes
+    the backend, and registers ``gru`` if absent.
+
+    Returns ``{"status": "already"|"registered", "gru_agent_id": ..., "gru_agent_token": ...}``.
+    Raises ``ProjectError`` / ``BackendError`` on failure.
+    """
+    _store = store or StateStore()
+    entry = _store.get_project(port)
+    if entry is None:
+        raise ProjectError(f"Project {port} not found.")
+
+    meta_path = project_meta_json(port)
+    raw = json.loads(meta_path.read_text(encoding="utf-8"))
+    server_id = raw.get("eacn3_server_id") or ""
+    if not server_id:
+        raise ProjectError(
+            f"Project {port} has no eacn3_server_id in meta.json; "
+            "cannot repair without re-creating the project."
+        )
+
+    from minions.config import load_gru_config
+
+    gru_agent_id = load_gru_config().gru_eacn_agent_id
+
+    # Probe first — if already registered, no-op.
+    snap = eacn_client.probe_backend(port)
+    for a in snap.get("agents", []):
+        if a.get("agent_id") == gru_agent_id:
+            logger.info("project_repair: gru agent already registered on port %d", port)
+            return {
+                "status": "already",
+                "gru_agent_id": gru_agent_id,
+                "gru_agent_token": raw.get("gru_agent_token", ""),
+            }
+
+    gru_agent_token, _seeds = eacn_client.register_agent(
+        port=port,
+        agent_id=gru_agent_id,
+        name="gru",
+        server_id=server_id,
+        domains=["coordination"],
+        description="MinionsOS global coordinator (passive mailbox).",
+        tier="coordinator",
+    )
+    raw["gru_agent_id"] = gru_agent_id
+    raw["gru_agent_token"] = gru_agent_token
+    tmp = meta_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    os.replace(tmp, meta_path)
+
+    logger.info("project_repair: registered gru agent on port %d", port)
+    return {
+        "status": "registered",
+        "gru_agent_id": gru_agent_id,
+        "gru_agent_token": gru_agent_token,
+    }
