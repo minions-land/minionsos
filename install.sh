@@ -1,0 +1,202 @@
+#!/usr/bin/env bash
+# MinionsOS V2 — idempotent installer.
+# Usage: ./install.sh
+# Re-running is safe; each step checks before acting.
+set -euo pipefail
+
+# ── ANSI colours ──────────────────────────────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'
+BOLD='\033[1m'; RESET='\033[0m'
+
+info()  { echo -e "${CYAN}[info]${RESET}  $*"; }
+ok()    { echo -e "${GREEN}[ok]${RESET}    $*"; }
+warn()  { echo -e "${YELLOW}[warn]${RESET}  $*"; }
+die()   { echo -e "${RED}[error]${RESET} $*" >&2; exit 1; }
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
+
+# ── 0. Submodule guard ────────────────────────────────────────────────────────
+if [ ! -f "$ROOT/EACN3/pyproject.toml" ] && [ ! -f "$ROOT/EACN3/setup.py" ]; then
+    die "EACN3 submodule is missing or empty.\n       Run: git submodule update --init --recursive\n       Then re-run ./install.sh"
+fi
+
+# ── 1. Bootstrap uv ───────────────────────────────────────────────────────────
+if ! command -v uv &>/dev/null; then
+    info "uv not found — attempting to install via curl..."
+    if ! command -v curl &>/dev/null; then
+        die "curl is required to install uv but was not found.\n       Install uv manually: https://docs.astral.sh/uv/getting-started/installation/\n       Then re-run ./install.sh"
+    fi
+    if ! curl -LsSf https://astral.sh/uv/install.sh | sh; then
+        die "uv installation failed (are you offline?).\n       Install uv manually: https://docs.astral.sh/uv/getting-started/installation/\n       Then re-run ./install.sh"
+    fi
+    # Reload PATH so the newly installed uv is visible
+    export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+    if ! command -v uv &>/dev/null; then
+        die "uv was installed but is not on PATH.\n       Add ~/.local/bin (or ~/.cargo/bin) to your PATH, then re-run ./install.sh"
+    fi
+    ok "uv installed: $(uv --version)"
+else
+    ok "uv already present: $(uv --version)"
+fi
+
+# ── 2. Python 3.11 ────────────────────────────────────────────────────────────
+if ! uv python list 2>/dev/null | grep -q '3\.11'; then
+    info "Python 3.11 not found in uv — installing..."
+    uv python install 3.11
+    ok "Python 3.11 installed"
+else
+    ok "Python 3.11 already available"
+fi
+
+# ── 3. uv sync (creates .venv, installs MinionsOS editable) ──────────────────
+info "Running uv sync..."
+uv sync
+ok "uv sync complete"
+
+# ── 4. Install EACN3 editable ─────────────────────────────────────────────────
+info "Installing EACN3 (editable)..."
+uv pip install -e ./EACN3
+ok "EACN3 installed"
+
+# ── 5. Build EACN3 MCP plugin ─────────────────────────────────────────────────
+# This plugin exposes the `eacn3_*` MCP tools that every Role uses to talk to
+# the per-project EACN3 backend. Without it, Roles have no way to post
+# messages or poll events, and the entire MinionsOS bus is dark. So this step
+# is FATAL: if Node is missing, the build fails, or dist/server.js is absent
+# at the end, we stop here with an actionable error rather than let the user
+# discover the breakage mid-session.
+#
+# Escape hatch: set MINIONS_SKIP_PLUGIN_BUILD=1 to intentionally skip (e.g.
+# CI smoke test on a node-less runner). This is the only supported way.
+if [ -n "${MINIONS_SKIP_PLUGIN_BUILD:-}" ]; then
+    warn "MINIONS_SKIP_PLUGIN_BUILD=1 — skipping EACN3 plugin build."
+    warn "Roles will NOT have eacn3_* tools; the EACN bus will be dark."
+else
+    if ! command -v node &>/dev/null; then
+        die "node not found. EACN3 plugin build requires Node >= 16.\n       Install Node (https://nodejs.org/), then re-run ./install.sh.\n       To intentionally skip (not recommended), set MINIONS_SKIP_PLUGIN_BUILD=1."
+    fi
+    if ! command -v npm &>/dev/null; then
+        die "npm not found. EACN3 plugin build requires npm.\n       Install npm, then re-run ./install.sh."
+    fi
+    NODE_VER=$(node --version | sed 's/v//')
+    NODE_MAJOR=$(echo "$NODE_VER" | cut -d. -f1)
+    if [ "$NODE_MAJOR" -lt 16 ]; then
+        die "Node $(node --version) is below the required >= 16.\n       Upgrade Node, then re-run ./install.sh."
+    fi
+
+    info "Building EACN3 MCP plugin (npm install + build)..."
+    if ! (cd "$ROOT/EACN3/plugin" && npm install && npm run build); then
+        die "EACN3 plugin build failed.\n       Inspect the output above; fix the error, then re-run ./install.sh."
+    fi
+    PLUGIN_DIST="$ROOT/EACN3/plugin/dist/server.js"
+    if [ ! -f "$PLUGIN_DIST" ]; then
+        die "EACN3 plugin build reported success but $PLUGIN_DIST is missing.\n       This indicates a broken build script in EACN3/plugin/."
+    fi
+    ok "EACN3 MCP plugin built: $PLUGIN_DIST"
+
+    # ── 5b. Build minions-viz Observatory ───────────────────────────────
+    VIZ_DIR="$ROOT/minions-viz"
+    VIZ_MARKER="$VIZ_DIR/dist/web/index.html"
+    if [ -d "$VIZ_DIR" ]; then
+        need_build=1
+        if [ -f "$VIZ_MARKER" ] && [ -z "${MINIONS_VIZ_REBUILD:-}" ]; then
+            if [ "$VIZ_MARKER" -nt "$VIZ_DIR/package.json" ]; then
+                need_build=0
+            fi
+        fi
+        if [ "$need_build" = "1" ]; then
+            info "Building minions-viz Observatory (npm install + build)..."
+            (cd "$VIZ_DIR" && npm install && npm run build)
+            ok "minions-viz built"
+        else
+            ok "minions-viz already built (set MINIONS_VIZ_REBUILD=1 to force)"
+        fi
+    else
+        warn "minions-viz/ directory missing — skipping Observatory build."
+    fi
+fi
+
+# ── 6. Copy .yaml.example → .yaml (if not already present) ───────────────────
+CONFIG_DIR="$ROOT/minions/config"
+if [ -d "$CONFIG_DIR" ]; then
+    for example in "$CONFIG_DIR"/*.yaml.example; do
+        [ -f "$example" ] || continue
+        target="${example%.example}"
+        if [ ! -f "$target" ]; then
+            cp "$example" "$target"
+            ok "Created config: $(basename "$target")"
+        else
+            ok "Config already exists: $(basename "$target") (not overwritten)"
+        fi
+    done
+else
+    warn "minions/config/ not found — skipping config copy (run install.sh again after full checkout)"
+fi
+
+# ── 7. Ensure launcher is executable ─────────────────────────────────────────
+if [ -f "$ROOT/minions/bin/gru" ]; then
+    chmod +x "$ROOT/minions/bin/gru"
+    ok "minions/bin/gru is executable"
+fi
+if [ -f "$ROOT/minions/bin/viz" ]; then
+    chmod +x "$ROOT/minions/bin/viz"
+    ok "minions/bin/viz is executable"
+fi
+# Top-level symlinks (gru / mos / minionsos / viz → minions/bin/*)
+for link in gru mos minionsos; do
+    if [ ! -e "$ROOT/$link" ] && [ ! -L "$ROOT/$link" ]; then
+        (cd "$ROOT" && ln -sf minions/bin/gru "$link")
+        ok "Created symlink: ./$link → minions/bin/gru"
+    fi
+done
+if [ ! -e "$ROOT/viz" ] && [ ! -L "$ROOT/viz" ]; then
+    (cd "$ROOT" && ln -sf minions/bin/viz viz)
+    ok "Created symlink: ./viz → minions/bin/viz"
+fi
+
+# User-level state dir for machine-singleton viz + Gru registry.
+mkdir -p "$HOME/.minionsos"
+chmod 0700 "$HOME/.minionsos" 2>/dev/null || true
+ok "User dir ready: $HOME/.minionsos"
+
+# ── 8. Parent-directory git preflight (non-fatal) ────────────────────────────
+# MinionsOS creates per-project git worktrees branched off the directory that
+# CONTAINS MinionsOS_V2. If that parent is not a git repo, project_create will
+# fail with an actionable error at runtime. We warn here so users can fix it
+# before the first ./gru run instead of hitting it mid-flow.
+PARENT="$(cd "$ROOT/.." && pwd)"
+if ! git -C "$PARENT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    warn "Parent directory is NOT a git repository: $PARENT"
+    warn "MinionsOS needs the parent to be git-initialised so it can create"
+    warn "per-project worktrees. Before running ./gru, do:"
+    warn "    cd $PARENT && git init && git add -A && git commit -m 'init'"
+    warn "Also make sure MinionsOS_V2/.git is absent (or added as a submodule)"
+    warn "so the parent does not treat it as an embedded repo."
+else
+    # Parent is a git repo — check the embedded-.git trap too.
+    if [ -d "$ROOT/.git" ]; then
+        # Is MinionsOS_V2 registered as a submodule of the parent? If yes, .git
+        # is normally a file (gitlink), not a directory — so a literal .git/
+        # directory inside a parent repo is the footgun case.
+        if ! git -C "$PARENT" ls-files --error-unmatch "MinionsOS_V2" >/dev/null 2>&1; then
+            warn "MinionsOS_V2/.git exists inside a parent git repo, and"
+            warn "MinionsOS_V2 is not registered as a submodule. The parent"
+            warn "repo will treat it as an embedded repo and 'git add' there"
+            warn "will misbehave. Either register as a submodule, or remove"
+            warn "MinionsOS_V2/.git before the parent's first commit."
+        fi
+    fi
+    ok "Parent directory git state looks sane: $PARENT"
+fi
+
+# ── Done ──────────────────────────────────────────────────────────────────────
+echo ""
+echo -e "${BOLD}${GREEN}MinionsOS V2 installation complete.${RESET}"
+echo ""
+echo -e "  ${BOLD}Next steps:${RESET}"
+echo -e "  1. Edit ${CYAN}minions/config/gru.yaml${RESET} to adjust heartbeat interval, log level, etc."
+echo -e "  2. Edit ${CYAN}minions/config/experiment_targets.yaml${RESET} to add SSH compute targets."
+echo -e "  3. Launch Gru:  ${BOLD}./gru${RESET}"
+echo -e "     Or use the CLI:  ${BOLD}./mos status${RESET}"
+echo ""

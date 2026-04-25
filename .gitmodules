@@ -1,0 +1,3 @@
+[submodule "EACN3"]
+	path = EACN3
+	url = https://github.com/EACN3/eacn3

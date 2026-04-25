@@ -1,0 +1,149 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --bg: #f5f0e6;
+  --bg-soft: #fbf8f2;
+  --panel: rgba(255, 251, 244, 0.8);
+  --panel-strong: rgba(255, 247, 235, 0.92);
+  --text: #171717;
+  --muted: #5f5a52;
+  --line: rgba(23, 23, 23, 0.1);
+  --accent: #0f766e;
+  --accent-2: #df6d2d;
+  --accent-3: #174066;
+  --shadow: 0 20px 60px rgba(32, 24, 12, 0.08);
+  --radius: 24px;
+  --radius-sm: 16px;
+}
+
+body {
+  font-family: "Sora", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(15, 118, 110, 0.1), transparent 34%),
+    radial-gradient(circle at 85% 8%, rgba(223, 109, 45, 0.12), transparent 26%),
+    linear-gradient(180deg, #f9f4ea 0%, #f2ebdf 45%, #f7f2e8 100%);
+  background-attachment: fixed;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(23, 23, 23, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 23, 23, 0.03) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.16), transparent 70%);
+  z-index: 0;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+.mono {
+  font-family: "IBM Plex Mono", monospace;
+}
+
+/* Custom scrollbar — warm style */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(23, 23, 23, 0.15); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(23, 23, 23, 0.25); }
+
+/* React Flow overrides — light theme */
+.react-flow__background { background: #f5f0e6 !important; }
+.react-flow__minimap { background: var(--panel) !important; border: 1px solid var(--line) !important; }
+
+/* Toast slide-in animation */
+@keyframes slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+/* Slow pulse for connection indicator */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+/* Panel with gradient top border */
+.panel-card {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.panel-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2), transparent);
+  opacity: 0.85;
+}
+
+/* Pill / tag style */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(23, 23, 23, 0.08);
+  background: rgba(255, 252, 247, 0.78);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+/* Metric card */
+.metric-card {
+  padding: 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: rgba(255, 250, 241, 0.75);
+  box-shadow: var(--shadow);
+}
+
+/* Input style override */
+input[type="text"].eacn-input,
+.eacn-input {
+  background: rgba(255, 252, 247, 0.84);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px 16px;
+}
+
+.eacn-input::placeholder {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.eacn-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+}

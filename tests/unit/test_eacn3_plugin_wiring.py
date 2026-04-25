@@ -1,0 +1,62 @@
+"""Pin the EACN3-MCP-plugin wiring invariants.
+
+These assertions guard the "Role ↔ EACN3 over `eacn3_*` tools" path that is
+required by the root constitution but is easy to silently lose by editing
+``.mcp.json`` or ``install.sh``. Breaking any of them means Roles fall back
+to artifact-only communication and Gru stops seeing bus traffic.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+class TestMcpConfigMountsEacn3:
+    def test_mcp_json_has_both_servers(self) -> None:
+        cfg = json.loads((ROOT / ".mcp.json").read_text(encoding="utf-8"))
+        servers = cfg.get("mcpServers", {})
+        assert "minionsos" in servers, "minionsos MCP server missing"
+        assert "eacn3" in servers, "eacn3 MCP server missing — Roles will have no eacn3_* tools"
+
+    def test_eacn3_entry_runs_plugin_dist(self) -> None:
+        cfg = json.loads((ROOT / ".mcp.json").read_text(encoding="utf-8"))
+        eacn3 = cfg["mcpServers"]["eacn3"]
+        assert eacn3["command"] == "node"
+        args = eacn3["args"]
+        # Must target the built plugin entrypoint.
+        assert any("EACN3/plugin/dist/server.js" in a for a in args), args
+
+
+class TestInstallShMandatoryPluginBuild:
+    def test_install_fails_without_node(self) -> None:
+        text = (ROOT / "install.sh").read_text(encoding="utf-8")
+        # The installer must die (not warn-and-skip) when node is absent,
+        # because Roles cannot function without the plugin.
+        # Accept either the literal `die ` call in the node-missing branch
+        # or the explicit MINIONS_SKIP_PLUGIN_BUILD escape hatch.
+        assert "MINIONS_SKIP_PLUGIN_BUILD" in text
+        # The old soft-skip phrasing must be gone.
+        assert "skipping EACN3 plugin build" not in text or "MINIONS_SKIP_PLUGIN_BUILD" in text
+        # Must verify dist/server.js exists after build.
+        assert "dist/server.js" in text
+
+
+class TestRoleSpawnEnvPropagation:
+    def test_role_sets_network_url_and_state_dir(self) -> None:
+        # Grey-box: read role.py text to confirm env vars are set. We do not
+        # spawn a real subprocess here (that lives in smoke tests).
+        text = (ROOT / "minions" / "lifecycle" / "role.py").read_text(encoding="utf-8")
+        assert '"EACN3_NETWORK_URL"' in text
+        assert '"EACN3_STATE_DIR"' in text
+        # Per-role dir to avoid token collisions across roles.
+        assert "plugin-" in text
+
+
+class TestDoctorEacn3Checks:
+    def test_doctor_has_plugin_and_node_and_mcp_checks(self) -> None:
+        text = (ROOT / "minions" / "cli.py").read_text(encoding="utf-8")
+        for name in ("eacn3-plugin-built", "node>=16", "mcp-config-mounts-eacn3"):
+            assert name in text, f"doctor lost check: {name}"

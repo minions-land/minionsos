@@ -1,0 +1,9 @@
+line-length = 100
+target-version = "py311"
+exclude = ["EACN3/", ".venv/", "__pycache__/", "examples/", "answer/"]
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# B017: tests use pytest.raises(Exception) intentionally
+# UP042: StrEnum not available in all Python 3.11 contexts
+ignore = ["UP042", "B017"]
