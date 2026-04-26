@@ -92,10 +92,11 @@ def status(
                     "name": p.real_name,
                     "status": p.status,
                     "venue": p.venue,
-                    "roles": len(p.active_roles),
+                    "roles": [r.model_dump() for r in p.active_roles],
                     "backend_alive": snap["backend_alive"],
                     "agents": snap["agents"],
                     "queue_depth": snap["queue_depth"],
+                    "pending_events": snap["pending_events"],
                     "recent_failures": snap["recent_failures"],
                 }
             )

@@ -161,7 +161,8 @@ def unregister_agent(
 def probe_backend(port: int, timeout: float = 3.0) -> dict[str, Any]:
     """Best-effort snapshot of what the EACN3 backend on *port* currently holds.
 
-    Returns a dict with keys: ``health``, ``servers``, ``agents``, ``errors``.
+    Returns a dict with keys: ``health``, ``servers``, ``agents``, ``errors``,
+    ``queue_depth``, ``pending_events``.
     Never raises; failures are captured in ``errors``. Used by ``./mos doctor``
     and by callers diagnosing register_* 4xx responses.
     """
@@ -171,6 +172,8 @@ def probe_backend(port: int, timeout: float = 3.0) -> dict[str, Any]:
         "servers": [],
         "agents": [],
         "errors": [],
+        "queue_depth": 0,
+        "pending_events": [],
     }
     base = base_url(port)
     try:
@@ -183,9 +186,25 @@ def probe_backend(port: int, timeout: float = 3.0) -> dict[str, Any]:
         if r.status_code == 200:
             result["agents"] = r.json()
         else:
-            result["errors"].append(f"GET /agents HTTP {r.status_code}: {r.text!r}")
+            result["errors"].append(
+                f"GET /agents HTTP {r.status_code}: {r.text!r}"
+            )
     except Exception as exc:
         result["errors"].append(f"GET /agents: {exc}")
+    try:
+        r = httpx.get(
+            f"{base}/api/tasks/open", timeout=timeout,
+        )
+        if r.status_code == 200:
+            tasks = r.json()
+            result["queue_depth"] = len(tasks)
+            result["pending_events"] = tasks
+        else:
+            result["errors"].append(
+                f"GET /tasks/open HTTP {r.status_code}: {r.text!r}"
+            )
+    except Exception as exc:
+        result["errors"].append(f"GET /tasks/open: {exc}")
     return result
 
 

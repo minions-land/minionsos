@@ -48,6 +48,11 @@ class RoleEntry(BaseModel):
     pid: int | None = None
     spawned_at: str | None = None
     poll_interval: str | None = None
+    last_seen: str | None = None
+    current_task: str | None = None
+    blocked_reason: str | None = None
+    wake_policy: Literal["event", "time", "human", "any"] = "event"
+    artifact_pointers: list[str] = Field(default_factory=list)
 
 
 class ProjectEntry(BaseModel):
@@ -292,3 +297,53 @@ class StateStore:
             raise StateError(f"Project with port {port} not found.")
 
         self._mutate(_remove)
+
+    def touch_role_last_seen(self, port: int, role_name: str) -> None:
+        """Update ``last_seen`` timestamp on a role entry."""
+
+        def _touch(data: ProjectsData) -> None:
+            for i, p in enumerate(data.projects):
+                if p.port == port:
+                    roles = list(p.active_roles)
+                    for j, r in enumerate(roles):
+                        if r.name == role_name:
+                            roles[j] = r.model_copy(
+                                update={"last_seen": _now_iso()},
+                            )
+                            break
+                    data.projects[i] = p.model_copy(
+                        update={"active_roles": roles},
+                    )
+                    return
+
+        self._mutate(_touch)
+
+    def update_role_task(
+        self,
+        port: int,
+        role_name: str,
+        current_task: str | None = None,
+        blocked_reason: str | None = None,
+    ) -> None:
+        """Update ``current_task`` and/or ``blocked_reason`` on a role."""
+
+        def _update(data: ProjectsData) -> None:
+            for i, p in enumerate(data.projects):
+                if p.port == port:
+                    roles = list(p.active_roles)
+                    for j, r in enumerate(roles):
+                        if r.name == role_name:
+                            updates: dict = {}
+                            if current_task is not None:
+                                updates["current_task"] = current_task
+                            if blocked_reason is not None:
+                                updates["blocked_reason"] = blocked_reason
+                            if updates:
+                                roles[j] = r.model_copy(update=updates)
+                            break
+                    data.projects[i] = p.model_copy(
+                        update={"active_roles": roles},
+                    )
+                    return
+
+        self._mutate(_update)
