@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 import time
 from datetime import UTC, datetime
 
@@ -28,6 +29,8 @@ from minions.state.store import StateStore
 
 configure_logging()
 logger = logging.getLogger(__name__)
+
+DEBUG_MODE: bool = bool(os.environ.get("MINIONS_DEBUG", "").strip())
 
 # ---------------------------------------------------------------------------
 # GruLoop
