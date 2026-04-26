@@ -15,6 +15,7 @@ import os
 import subprocess
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 
 import httpx
 
@@ -102,16 +103,33 @@ def _read_meta_raw(port: int) -> dict[str, object]:
     return data
 
 
+def _port_is_free(port: int) -> bool:
+    """Return True if *port* can be bound right now."""
+    import socket
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", port))
+        return True
+    except OSError:
+        return False
+
+
 def _start_backend(port: int) -> subprocess.Popen:  # type: ignore[type-arg]
     """Start the EACN3 uvicorn backend subprocess for *port*.
 
+    Pre-checks port availability. Raises ``BackendError`` if occupied.
     Logs go to ``project_{port}/logs/backend.log``.
     """
+    if not _port_is_free(port):
+        raise BackendError(
+            f"Port {port} is already occupied. Cannot start backend."
+        )
+
     db_path = str(project_eacn_db(port))
     log_path = project_backend_log(port)
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Ensure the DB directory exists.
     project_eacn_db(port).parent.mkdir(parents=True, exist_ok=True)
 
     env = {**os.environ, "EACN3_DB_PATH": db_path}
@@ -266,6 +284,33 @@ def _git_tag(port: int, tag: str) -> None:
         logger.warning("git tag %s failed: %s", tag, result.stderr.strip())
 
 
+_PROJECT_GITIGNORE = """\
+# MinionsOS project workspace hygiene.
+# Only structured subdirectories are tracked; stray files are ignored.
+*
+!.gitignore
+!CLAUDE.md
+!meta.json
+!workspace/
+!workspace/**
+!artifacts/
+!artifacts/**
+!memory/
+!memory/**
+!logs/
+!logs/**
+!eacn3_data/
+!eacn3_data/**
+"""
+
+
+def _write_project_gitignore(pdir: Path) -> None:
+    """Write a restrictive .gitignore into the project directory."""
+    gi = pdir / ".gitignore"
+    if not gi.exists():
+        gi.write_text(_PROJECT_GITIGNORE, encoding="utf-8")
+
+
 # ---------------------------------------------------------------------------
 # Public lifecycle functions
 # ---------------------------------------------------------------------------
@@ -357,6 +402,9 @@ def project_create(
     (pdir / "memory").mkdir(parents=True, exist_ok=True)
     (pdir / "eacn3_data").mkdir(parents=True, exist_ok=True)
 
+    # Workspace hygiene: write a .gitignore to prevent unstructured files.
+    _write_project_gitignore(pdir)
+
     # Create git worktree.
     try:
         _ensure_parent_is_git_repo()
@@ -365,13 +413,25 @@ def project_create(
         logger.error("Worktree creation failed: %s", exc)
         raise
 
-    # Start backend.
-    proc = _start_backend(port)
-    try:
-        _wait_for_health(port)
-    except BackendError:
-        proc.terminate()
-        raise
+    # Start backend with port-conflict retry.
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            proc = _start_backend(port)
+            _wait_for_health(port)
+            break
+        except BackendError as exc:
+            if attempt < max_retries - 1:
+                logger.warning(
+                    "Port %d unavailable (attempt %d/%d): %s",
+                    port, attempt + 1, max_retries, exc,
+                )
+                port = _store.find_next_port()
+                pdir = project_dir(port)
+                pdir.mkdir(parents=True, exist_ok=True)
+                project_logs_dir(port).mkdir(parents=True, exist_ok=True)
+            else:
+                raise
 
     # Register a server record with EACN3 so roles can register as agents.
     # Now FATAL: a silently-absent server breaks downstream role registration
