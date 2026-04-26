@@ -1,419 +1,647 @@
-# MinionsOS V2
+# MinionsOS V3
 
-[English](#english) · [中文](#中文)
+[English](#english) | [中文](#中文)
 
 ---
 
 ## English
 
-> **Towards Fully Autonomous Scientific Discovery: A Multi-Agent Workflow on the EACN Protocol.**
+**MinionsOS V3** is a local multi-agent operating system for running isolated,
+paper-sized research projects. A persistent **Gru** supervisor manages projects,
+each project owns its own **EACN3** coordination backend, and event-driven
+Claude **Roles** wake up only when there is work to process.
 
-### What it is
+The design goal is simple: one author, one checkout, one Gru, many isolated
+research projects.
 
-MinionsOS V2 is a multi-agent operating system for running autonomous research projects end-to-end. A single persistent **Gru** supervises many concurrent paper-sized projects; each project runs its own **EACN3** coordination bus and spawns ephemeral **Roles** — Noter, Coder, Experimenter, Writer, Reviewer, Ethics, and Expert — that wake on events, act, and exit.
+### What You Get
 
-One author, one checkout, one Gru, as many papers as you want — each fully isolated.
-
-### Key features
-
-- **Multi-project IP isolation.** Every project runs its own EACN3 backend on a dedicated port. The only cross-project path is `gru_relay(from_port, to_port, content, mode)`, which only Gru may call.
-- **Event-driven ephemeral Roles.** No long-running Claude process per Role. A Python-side `WakeupScheduler` polls EACN on `1m` / `3m` / `5m` cadence (per-role override), dedupes events, and launches short-lived Claude subprocesses seeded with the Role's `SYSTEM.md` and the event batch. Empty polls cost zero Claude context.
-- **Tool-whitelist enforcement.** Every subprocess launches with `--allowed-tools`; mains vs. subagents get different surfaces. The whitelist is the mechanism that keeps the EACN bus from becoming a free-for-all (see §4 of `CLAUDE.md`).
-- **Git-worktree isolation per project.** Each project lives on its own branch `minionsos/project-{port}` inside a git worktree under `project_{port}/workspace/`.
-- **Layered memory.** L1 transcript (session), L2 per-Role scratchpad at `project_{port}/memory/{role}.md`, L3 artifacts + EACN history, L4 `CLAUDE.md`. Scratchpad size is auto-policed with soft / hard / veto thresholds scaled to model context window.
-- **Auto-generated project `CLAUDE.md`.** `project_create` drops a skeleton with `brief` / `topic_doc` / `template_dir` pointers so the author can stage topic and template materials without hand-editing.
-- **Skill discovery.** Drop a file into `minions/roles/{role}/skills/*.md` and every wake-up injects a `[Skills]` block listing it — no code change.
-- **Expert domain packs.** `minions/domains/` ships `dl-arch`, `optimization`, `theory`, `nlp`, `cv`; the pack is appended to the Expert system prompt at spawn time.
-- **Evidence-first communication (soft).** EACN messages making substantive claims should carry `[evidence: <path|SHA|URL|event-id>]`, `[speculation]`, or `[derived: <base>]`. Ethics audits unmarked-claim ratios per Role.
-- **Experiment targets.** Local and SSH execution via `exp_run / exp_put / exp_get / exp_tail / exp_status`, with `{project_workspace}` template expansion in `experiment_targets.yaml`.
+- **Project isolation.** Every project has its own `project_{port}/` directory,
+  EACN3 backend, SQLite state, git worktree, logs, artifacts, and role memory.
+- **Event-driven Roles.** Noter, Coder, Experimenter, Writer, Reviewer, Ethics,
+  and Expert are short-lived Claude subprocesses launched by the Python
+  `WakeupScheduler`.
+- **Gru as the control plane.** Gru is the human-facing supervisor and the only
+  component allowed to create projects, spawn roles, and relay across projects.
+- **Tool and write boundaries.** Role tool access is constrained with
+  `--allowed-tools`; Noter, Reviewer, and Ethics write only to their artifact
+  areas, while Coder, Experimenter, Writer, and Expert operate in `workspace/`.
+- **Layered memory.** Role context is reconstructed from the current invocation,
+  per-role scratchpads, artifacts, EACN history, and project `CLAUDE.md`.
+- **Skill and domain discovery.** Role skills live in
+  `minions/roles/{role}/skills/*.md`; Expert domain packs live in
+  `minions/domains/*.md`.
+- **Experiment execution.** Experimenter can run local or SSH-backed jobs with
+  `exp_run`, `exp_put`, `exp_get`, `exp_tail`, and `exp_status`.
+- **Read-only observability.** `minions-viz/` provides a machine-wide
+  MinionsVIZ dashboard without draining role queues or mutating EACN3.
 
 ### Architecture
 
-```
+```text
 Author
-  │
-  ▼
-Gru  (global supervisor; human-facing window; cross-project relay)
-  │
-  ├── project_37596/         one paper = one project = one EACN3 backend
-  │     └── EACN3 bus  (port 37596)
-  │           ├── Noter         (→ artifacts/notes/)
-  │           ├── Coder         (→ workspace/)
-  │           ├── Expert-*      (→ workspace/ scratch; domain pack appended)
-  │           ├── Experimenter  (→ workspace/ + remote GPUs via exp_*)
-  │           ├── Writer        (→ workspace/paper/)
-  │           ├── Reviewer      (→ artifacts/reviews/round-<n>/)
-  │           └── Ethics        (→ artifacts/ethics/)
-  │
-  └── project_37601/ …           (another paper, physically isolated)
-
-Cross-project path: Gru-only, via gru_relay()
-Role lifecycle:    WakeupScheduler (Python) → invoke_role_ephemeral(Claude subprocess) → exit
+  |
+  v
+Gru
+  |
+  +-- project_37596/
+  |     |
+  |     +-- EACN3 backend on 127.0.0.1:37596
+  |     |     +-- Noter          -> artifacts/notes/
+  |     |     +-- Coder          -> workspace/
+  |     |     +-- Experimenter   -> workspace/ + exp_* tools
+  |     |     +-- Writer         -> workspace/
+  |     |     +-- Reviewer       -> artifacts/reviews/round-<n>/
+  |     |     +-- Ethics         -> artifacts/ethics/
+  |     |     +-- Expert-*       -> workspace/ + domain pack
+  |     |
+  |     +-- workspace/           # git worktree
+  |     +-- memory/{role}.md     # role scratchpads
+  |     +-- artifacts/
+  |     +-- logs/
+  |
+  +-- project_37601/
+        |
+        +-- separate backend, worktree, memory, artifacts, and logs
 ```
 
-See `CLAUDE.md` for the full directory tree and reader navigation.
+Cross-project communication is intentionally narrow: roles cannot talk to other
+projects directly. Gru can bridge projects through the Gru-only relay path.
+
+### Repository Layout
+
+```text
+minions/
+  cli.py                    # mos CLI entry point
+  gru/                      # Gru monitor loop
+  lifecycle/                # projects, roles, wakeup, relay, health
+  tools/                    # MCP tools and experiment execution
+  state/                    # runtime state helpers
+  roles/                    # role SYSTEM.md prompts and skills
+  domains/                  # Expert domain packs
+  config/*.yaml.example     # local config templates
+
+minions-viz/                # read-only React/Vite dashboard
+EACN3/                      # local editable EACN3 dependency
+tests/unit/                 # fast behavior tests
+tests/smoke/                # integration-style smoke checks
+```
+
+Generated runtime output such as `project_{port}/`, `minions/state/`, logs,
+caches, and `graphify-out/` should not be committed.
 
 ### Prerequisites
 
 - Python **3.11+**
-- [`uv`](https://docs.astral.sh/uv/) (installed automatically by `install.sh` if missing)
+- [`uv`](https://docs.astral.sh/uv/) for Python dependency management
 - `git` 2.x
-- Node **≥ 16** + `npm` (for the EACN3 MCP plugin build)
-- Claude CLI on `PATH`
+- Node **16+** and `npm` for the EACN3 MCP plugin and MinionsVIZ
+- Claude CLI on `PATH` for real role execution
 
-> **Important — parent directory must be a git repo.** MinionsOS creates per-project git worktrees branched off the directory that **contains** `MinionsOS_V2/`. If the parent is not a git repo, `project_create` will fail.
->
-> Fix recipe:
-> ```bash
-> cd <parent-of-MinionsOS_V2>
-> git init && git add -A && git commit -m 'init'
-> ```
-> The installer warns about this; `./mos doctor` re-checks it.
+MinionsOS creates project worktrees from the directory that contains this
+checkout. That parent directory must be a git repository before you create
+projects:
+
+```bash
+cd <parent-of-MinionsOS_V3>
+git init
+git add -A
+git commit -m "init"
+```
+
+`./install.sh` warns about this condition, and `./mos doctor` checks it again.
 
 ### Install
 
 ```bash
-git clone --recursive <repo-url> MinionsOS_V2
-cd MinionsOS_V2
+git clone https://github.com/Minions-Land/MinionsOS_V3.git
+cd MinionsOS_V3
 ./install.sh
-./mos doctor          # sanity check: uv, node, git, EACN3, port-bind, parent-git
+./mos doctor
 ```
 
-`install.sh` is idempotent: it bootstraps `uv`, installs Python 3.11, runs `uv sync`, installs EACN3 editable, builds the EACN3 MCP plugin, and copies `*.yaml.example → *.yaml`.
+`install.sh` is idempotent. It bootstraps `uv` when needed, syncs Python
+dependencies, installs the local editable `EACN3/` package, builds the EACN3 MCP
+plugin, builds MinionsVIZ when needed, creates launcher symlinks, and copies
+`minions/config/*.yaml.example` to local `.yaml` files without overwriting
+existing config.
 
-### Quick start
+### Configure
+
+Local configuration lives under `minions/config/` and is intentionally ignored by
+git:
+
+- `gru.yaml` controls heartbeat cadence, logging, model/context settings,
+  scratchpad thresholds, and web-search policy.
+- `experiment_targets.yaml` defines local and SSH execution targets for
+  Experimenter. Paths may use `{project_workspace}` template expansion.
+
+Inspect resolved paths with:
 
 ```bash
-./gru                                  # launch interactive Gru (== ./minionsos == ./mos)
+./mos config
+./mos config --json
+```
 
-./mos status                           # dashboard of all projects
-./mos status --json                    # machine-readable
-./mos logs --project 37596             # project logs
-./mos logs --role noter --tail 50      # tail a role log
-./mos doctor                           # environment health check
-./mos config                           # print config paths
+### Run
 
+```bash
+./gru                 # launch interactive Gru
+./mos status          # project dashboard
+./mos status --json   # machine-readable project status
+./mos doctor          # environment health checks
+```
+
+Project and role management:
+
+```bash
 ./mos project list
-./mos project close 37596
-./mos project revive 37596
-./mos role list 37596
-./mos role dismiss 37596 noter
+./mos project list active
+./mos project close <port>
+./mos project revive <port>
+./mos project repair <port>
+
+./mos role list <port>
+./mos role dismiss <port> <role>
+```
+
+Logs:
+
+```bash
+./mos logs
+./mos logs --project <port>
+./mos logs --project <port> --role coder --tail 100
+./mos logs --project <port> --role coder --follow
 ```
 
 ### Roles
 
-| Role | One-liner | Writable scope |
+| Role | Responsibility | Primary write scope |
 |---|---|---|
-| **Gru** | Global supervisor, human-facing window, cross-project relay | everything |
-| **Noter** | Silent observer; records timeline & checkpoints | `artifacts/notes/` only |
-| **Coder** | Software engineer; debugs, refactors, maintains `workspace/src/` | full `workspace/` |
-| **Experimenter** | Execution manager; GPU scheduling & result collection | full `workspace/` + `exp_*` |
-| **Writer** | Paper packaging; first draft → camera-ready | full `workspace/` |
-| **Reviewer** | Area-chair-style evaluator; multi-round review loops | `artifacts/reviews/round-<n>/` only |
-| **Ethics** | Evidence auditor & hallucination checker | `artifacts/ethics/` only |
-| **Expert** | Domain consultant (dl-arch / optimization / theory / nlp / cv) | `workspace/` (soft: read mostly) |
+| Gru | Global supervisor, human interface, project lifecycle, cross-project relay | all project state |
+| Noter | Timeline, checkpoints, summaries | `artifacts/notes/` |
+| Coder | Code maintenance, debugging, implementation | `workspace/` |
+| Experimenter | Job dispatch, remote execution, result collection | `workspace/`, `artifacts/exp-*` |
+| Writer | Paper drafting, packaging, rebuttal, camera-ready work | `workspace/` |
+| Reviewer | Area-chair-style review rounds | `artifacts/reviews/round-<n>/` |
+| Ethics | Evidence audit, unsupported-claim detection | `artifacts/ethics/` |
+| Expert | Domain consultation with optional packs such as `nlp`, `cv`, `theory` | usually read-mostly in `workspace/` |
 
-Role system prompts live at `minions/roles/{role}/SYSTEM.md`.
+Role prompts are stored at `minions/roles/{role}/SYSTEM.md`.
 
-### Key MCP tools
+### MCP Surface
 
-Defined in `minions/tools/mcp_server.py` + `minions/tools/experiment_ssh.py`:
+The MinionsOS MCP server exposes lifecycle and execution tools from
+`minions/tools/`.
 
-**Project lifecycle (Gru only)**
-`project_create` · `project_close` · `project_dormant` · `project_revive` · `project_list`
+Gru-only tools:
 
-**Role lifecycle (Gru only)**
-`spawn_role` · `spawn_expert` · `dismiss_role` · `list_roles`
-
-**Coordination (Gru only)**
-`gru_relay` · `gru_start_monitor`
-
-**Experiment execution (Experimenter)**
-`exp_run` · `exp_put` · `exp_get` · `exp_tail` · `exp_status`
-
-**EACN bus (all Role mains)**
-`eacn3_*` (provided by the EACN3 MCP plugin)
-
-### Project layout
-
-Each project lives under `project_{port}/`:
-
+```text
+project_create
+project_close
+project_dormant
+project_revive
+project_list
+spawn_role
+spawn_expert
+dismiss_role
+list_roles
+gru_relay
+gru_start_monitor
 ```
+
+Experimenter tools:
+
+```text
+exp_run
+exp_put
+exp_get
+exp_tail
+exp_status
+```
+
+EACN3 tools are provided by the EACN3 MCP plugin as `eacn3_*` and are available
+only to role mains that are allowed to use the bus.
+
+### Runtime Project Structure
+
+```text
 project_{port}/
-├── CLAUDE.md              # project narrative (author + Gru write; roles read-only)
-├── meta.json              # machine fields
-├── workspace/             # git worktree on branch minionsos/project-{port}
-├── eacn3_data/eacn3.db    # per-project EACN3 SQLite backend
-├── memory/{role}.md       # L2 per-Role scratchpads
-├── artifacts/
-│   ├── notes/             # Noter summaries, checkpoints, final_summary.md
-│   ├── reviews/round-<n>/ # Reviewer outputs
-│   ├── ethics/            # Ethics reports / flags / investigations
-│   ├── exp-{id}/          # Experimenter result bundles
-│   └── external_feedback/ # injected via project_revive
-└── logs/
-    ├── backend.log
-    └── role-{name}.log
+  CLAUDE.md                 # project narrative; Gru/author write, roles read
+  meta.json                 # machine metadata
+  workspace/                # git worktree on minionsos/project-{port}
+  eacn3_data/eacn3.db       # per-project EACN3 SQLite database
+  memory/{role}.md          # L2 role scratchpads
+  artifacts/
+    notes/
+    reviews/round-<n>/
+    ethics/
+    exp-{id}/
+    external_feedback/
+  logs/
+    backend.log
+    role-{name}.log
 ```
 
-### Debug entry points
+Scratchpads are size-policed relative to the configured model context window:
+soft compression hint at 10%, hard compression at 15%, and spawn veto at 20% by
+default.
 
-| What broke | Where to look |
-|---|---|
-| Gru itself | `minions/state/logs/gru.log` |
-| EACN3 backend for a project | `project_{port}/logs/backend.log` |
-| A specific role | `project_{port}/logs/role-{name}.log` |
-| Role crash loop | `role-{name}.log` — 3 crashes → Gru marks the role dismissed |
-| Backend crash loop | `backend.log` — 3 crashes in 1h → Gru notifies author, stops auto-restart |
-| Experiment failure | `artifacts/exp-{id}/report.md` — circuit-break after 3 consecutive same-script failures |
-| EACN3 state | `project_{port}/eacn3_data/eacn3.db` (SQLite) |
+### MinionsVIZ
 
-### Hard rules (summary)
-
-The authoritative versions live in the root `CLAUDE.md`.
-
-1. **EACN3 is untouched.** It is a git submodule; upgrade by replacement. All access via `eacn3_*` tools.
-2. **uv only.** No `pip`, `conda`, `mamba`, `virtualenv`, or bare `python -m venv`.
-3. **IP isolation via `gru_relay`.** Roles on one project cannot contact roles on another directly.
-4. **Subagent tool whitelists.** Enforced via `--allowed-tools` on spawn.
-5. **Noter and Reviewer are read-only on `workspace/`.** Writes go to their dedicated artifact directories.
-6. **Event-driven Role lifecycle.** No long-running Claude processes or in-Claude polling loops; `WakeupScheduler` drives everything.
-7. **Only Gru spawns EACN-visible agents.** Subagents and team members are EACN-invisible by design.
-8. **Idle time is working time (soft).** Prefer short bounded idle subagent tasks; no new directions / experiments / review rounds on idle time.
-9. **Evidence-first communication (soft).** Substantive claims should carry `[evidence: …]`, `[speculation]`, or `[derived: …]` markers.
-
-### Observatory (MinionsVIZ)
-
-`minions-viz/` ships **MinionsVIZ**, a strictly read-only dashboard for
-the whole MinionsOS system. It is a **machine-wide singleton**: every
-Gru installation on the host shares one viz process at one URL, filtered
-in the UI by a two-level **Gru ▾ / Project ▾** picker.
+`minions-viz/` is a read-only Observatory for all Gru installations on the same
+machine. It uses `~/.minionsos/` for registry and daemon state, serves one shared
+URL, and lets the UI filter by Gru and project.
 
 ```bash
-./install.sh        # builds minions-viz/dist on first run; creates ~/.minionsos/
-./gru               # registers this Gru + auto-starts MinionsVIZ (no-op if up)
+./viz ensure
+./viz start
+./viz status
+./viz open
+./viz logs
 
-# Manual control:
-./viz ensure                      # register + start (idempotent)
-./viz start|stop|status|open|logs
-./viz register|deregister|heartbeat
-./mos viz ensure|start|stop|status|open|logs
+./mos viz ensure
+./mos viz status
 ```
 
-- **Read-only guarantees.** Never POSTs to EACN3; never calls
-  `/api/events/{agent_id}` (which would drain a real agent's queue). All
-  HTTP endpoints are `GET` and idempotent.
-- **User-level state.** `~/.minionsos/` (mode 0700) holds the Gru
-  registry (`grus.json`) and the running viz's `{viz.pid, viz.port,
-  viz.url, viz.lock}`.
-- **Env knobs.** `GRU_VIZ=0` disables auto-start, `GRU_VIZ_OPEN=0`
-  suppresses the browser open, `MINIONS_VIZ_PORT=N` overrides the port
-  (default 7891; scans 7891..7910), `MINIONS_VIZ_REBUILD=1` forces a
-  rebuild during `./install.sh`, `MINIONS_GRU_LABEL=<name>` overrides
-  this Gru's label on register/ensure.
+Environment knobs:
 
-See `minions-viz/README.md` for tabs, HTTP/WebSocket API, and dev
-workflow; `minions-viz/AGENTREAD.md` for the internal architecture.
+| Variable | Purpose |
+|---|---|
+| `GRU_VIZ=0` | disable Gru auto-starting the dashboard |
+| `GRU_VIZ_OPEN=0` | suppress browser open |
+| `MINIONS_VIZ_PORT=<port>` | override the default port, normally 7891 |
+| `MINIONS_VIZ_REBUILD=1` | force rebuild during `./install.sh` |
+| `MINIONS_GRU_LABEL=<name>` | override this Gru's dashboard label |
 
-### Contributing / dev
+MinionsVIZ never POSTs to EACN3 and never calls `/api/events/{agent_id}`, which
+would drain real role event queues.
 
-- Package architecture, coding conventions, and extension recipes (new Role / skill / domain / MCP tool) live in `minions/CLAUDE.md`.
-- Tests under `tests/unit/`:
-  ```bash
-  uv run pytest tests/unit/
-  uv run ruff check minions/
-  ```
-- Smoke tests stub Claude: `MINIONS_FAKE_CLAUDE=1 uv run pytest tests/smoke/`.
+### Development
+
+Python checks:
+
+```bash
+uv sync
+uv run pytest tests/unit -q
+MINIONS_FAKE_CLAUDE=1 uv run pytest tests/smoke/
+uv run ruff check .
+uv run ruff format --check .
+```
+
+Dashboard checks:
+
+```bash
+cd minions-viz
+npm install
+npm run build
+npm run dev
+```
+
+Useful extension points:
+
+- Add a role prompt under `minions/roles/{role}/SYSTEM.md`.
+- Add a role skill under `minions/roles/{role}/skills/{lowercase-hyphen}.md`.
+- Add an Expert domain pack under `minions/domains/{lowercase-hyphen}.md`.
+- Add MCP tools under `minions/tools/`, then update whitelists and tests.
+
+See `AGENTS.md`, root `CLAUDE.md`, and `minions/CLAUDE.md` for contributor
+rules and deeper architecture notes.
+
+### Troubleshooting
+
+| Problem | Check |
+|---|---|
+| Gru behavior | `minions/state/logs/gru.log` |
+| Project backend is down | `project_{port}/logs/backend.log` |
+| Role crashed or did not act | `project_{port}/logs/role-{name}.log` |
+| Project metadata looks wrong | `project_{port}/meta.json` |
+| EACN3 state needs inspection | `project_{port}/eacn3_data/eacn3.db` |
+| Experiment failed | `project_{port}/artifacts/exp-{id}/report.md` |
+| Viz is not reachable | `./viz status` and `./viz logs` |
+| Doctor fails parent git check | initialize and commit the parent directory |
+
+### Security and Configuration
+
+Do not commit secrets, generated project worktrees, experiment credentials,
+runtime state, logs, or local config. Cross-project communication should remain
+Gru-mediated, and dashboard endpoints must remain read-only.
 
 ### License
 
-See `pyproject.toml` / repository root. (No explicit license file is bundled at this stage; treat as proprietary until one is added.)
+No explicit license file is currently bundled. Treat the repository as
+proprietary/internal until a license is added.
 
 ---
 
 ## 中文
 
-> **迈向全自动科学发现：基于 EACN 协议的多智能体工作流。**
+**MinionsOS V3** 是一个本地多智能体操作系统，用于运行相互隔离的论文级科研项目。常驻的
+**Gru** 负责总控；每个项目拥有独立的 **EACN3** 协调后端；Claude
+**Roles** 由事件触发，短时唤醒、处理任务、完成后退出。
 
-### 项目简介
+目标很直接：一位作者、一份 checkout、一个 Gru，同时管理多个互不串扰的研究项目。
 
-MinionsOS V2 是一个用于自主驱动科研项目的多智能体操作系统。一个常驻的 **Gru** 主管同时监督多个论文级项目；每个项目运行独立的 **EACN3** 协调总线，并按事件触发 **Roles**（Noter 记录员、Coder 工程师、Experimenter 实验管理员、Writer 撰稿人、Reviewer 评审、Ethics 证据审计、Expert 领域专家）——短时唤醒、处理事件、立即退出。
+### 能力概览
 
-一位作者、一份 checkout、一个 Gru，可同时承载任意多篇论文，项目间完全隔离。
+- **项目隔离。** 每个项目都有独立的 `project_{port}/`、EACN3 后端、SQLite
+  状态、git worktree、日志、产物和 Role 记忆。
+- **事件驱动 Role。** Noter、Coder、Experimenter、Writer、Reviewer、Ethics
+  和 Expert 都是由 Python `WakeupScheduler` 拉起的短生命周期 Claude 子进程。
+- **Gru 作为控制面。** Gru 是唯一人机入口，也是唯一可创建项目、spawn Role、跨项目
+  relay 的组件。
+- **工具和写入边界。** Role 通过 `--allowed-tools` 限制工具面；Noter、Reviewer、
+  Ethics 只能写各自 artifact 区域；Coder、Experimenter、Writer、Expert 在
+  `workspace/` 工作。
+- **分层记忆。** Role 上下文来自当前事件、每 Role scratchpad、artifacts、EACN
+  历史以及项目 `CLAUDE.md`。
+- **Skill 和领域包发现。** Role 技能放在 `minions/roles/{role}/skills/*.md`；
+  Expert 领域包放在 `minions/domains/*.md`。
+- **实验执行。** Experimenter 可通过 `exp_run`、`exp_put`、`exp_get`、
+  `exp_tail`、`exp_status` 统一管理本地或 SSH 远端任务。
+- **只读观察台。** `minions-viz/` 提供机器级单例的 MinionsVIZ 仪表盘，不消耗
+  Role 事件队列，也不修改 EACN3。
 
-### 核心特性
+### 架构
 
-- **多项目 IP 隔离。** 每个项目拥有独立端口上的 EACN3 后端；跨项目唯一路径是只有 Gru 可调用的 `gru_relay(from_port, to_port, content, mode)`。
-- **事件驱动的短时 Role 生命周期。** 不再为每个 Role 维持长时间 Claude 进程。Python 侧的 `WakeupScheduler` 按 `1m` / `3m` / `5m`（每 Role 可覆盖）轮询 EACN，去重后拉起短时 Claude 子进程，处理完即退；空轮询零 Claude 上下文开销。
-- **工具白名单强约束。** 所有子进程通过 `--allowed-tools` 启动；main 与 subagent 拥有不同工具面（详见 `CLAUDE.md` §4）。
-- **按项目的 git worktree 隔离。** 每个项目位于独立分支 `minionsos/project-{port}` 的 worktree 中。
-- **分层记忆。** L1 当前会话 transcript；L2 每 Role 的 scratchpad（`project_{port}/memory/{role}.md`）；L3 artifacts + EACN 历史；L4 `CLAUDE.md`。scratchpad 大小按模型上下文窗口百分比自动管控（soft / hard / veto）。
-- **项目 `CLAUDE.md` 自动生成。** `project_create` 生成含 `brief` / `topic_doc` / `template_dir` 指针的骨架，作者无需手动创建。
-- **Skill 自动发现。** 把文件放进 `minions/roles/{role}/skills/*.md`，每次 wake-up 注入 `[Skills]` 即可，无需改代码。
-- **Expert 领域包。** `minions/domains/` 内置 `dl-arch` / `optimization` / `theory` / `nlp` / `cv`；Expert spawn 时自动拼接对应领域包到系统提示尾部。
-- **证据优先通信（软约定）。** 重要论断应标注 `[evidence: <路径|SHA|URL|事件 id>]` / `[speculation]` / `[derived: <基 claim>]`；Ethics 会按 Role 审计未标注比例。
-- **实验目标抽象。** 本地与 SSH 远端执行统一通过 `exp_run / exp_put / exp_get / exp_tail / exp_status`；`experiment_targets.yaml` 支持 `{project_workspace}` 模板展开。
-
-### 架构示意
-
-```
+```text
 作者
-  │
-  ▼
-Gru（全局主管，唯一人机接口，跨项目 relay）
-  │
-  ├── project_37596/        一篇论文 = 一个项目 = 一个 EACN3 后端
-  │     └── EACN3 总线 (port 37596)
-  │           ├── Noter         (→ artifacts/notes/)
-  │           ├── Coder         (→ workspace/)
-  │           ├── Expert-*      (→ workspace/ 草稿；拼接领域包)
-  │           ├── Experimenter  (→ workspace/ + 远端 GPU via exp_*)
-  │           ├── Writer        (→ workspace/paper/)
-  │           ├── Reviewer      (→ artifacts/reviews/round-<n>/)
-  │           └── Ethics        (→ artifacts/ethics/)
-  │
-  └── project_37601/ …           （另一篇论文，物理隔离）
-
-跨项目路径：仅 Gru，通过 gru_relay()
-Role 生命周期：WakeupScheduler (Python) → invoke_role_ephemeral (Claude 子进程) → 退出
+  |
+  v
+Gru
+  |
+  +-- project_37596/
+  |     |
+  |     +-- EACN3 backend on 127.0.0.1:37596
+  |     |     +-- Noter          -> artifacts/notes/
+  |     |     +-- Coder          -> workspace/
+  |     |     +-- Experimenter   -> workspace/ + exp_* tools
+  |     |     +-- Writer         -> workspace/
+  |     |     +-- Reviewer       -> artifacts/reviews/round-<n>/
+  |     |     +-- Ethics         -> artifacts/ethics/
+  |     |     +-- Expert-*       -> workspace/ + domain pack
+  |     |
+  |     +-- workspace/           # git worktree
+  |     +-- memory/{role}.md     # Role scratchpad
+  |     +-- artifacts/
+  |     +-- logs/
+  |
+  +-- project_37601/
+        |
+        +-- 独立后端、worktree、记忆、产物和日志
 ```
 
-完整目录树与阅读导航见根目录 `CLAUDE.md`。
+跨项目通信只有一条受控路径：Role 不能直接联系其它项目，只有 Gru 可以通过 relay
+桥接项目。
+
+### 仓库结构
+
+```text
+minions/
+  cli.py                    # mos CLI 入口
+  gru/                      # Gru 监控循环
+  lifecycle/                # 项目、Role、wakeup、relay、health
+  tools/                    # MCP 工具和实验执行
+  state/                    # 运行状态辅助模块
+  roles/                    # Role SYSTEM.md 和 skills
+  domains/                  # Expert 领域包
+  config/*.yaml.example     # 本地配置模板
+
+minions-viz/                # 只读 React/Vite 仪表盘
+EACN3/                      # 本地 editable EACN3 依赖
+tests/unit/                 # 快速单元测试
+tests/smoke/                # 集成式 smoke 检查
+```
+
+`project_{port}/`、`minions/state/`、日志、缓存、`graphify-out/` 等运行时输出不应提交。
 
 ### 环境要求
 
 - Python **3.11+**
-- [`uv`](https://docs.astral.sh/uv/)（`install.sh` 会自动安装）
+- [`uv`](https://docs.astral.sh/uv/) 用于 Python 依赖管理
 - `git` 2.x
-- Node **≥ 16** + `npm`（用于构建 EACN3 MCP 插件）
-- Claude CLI 在 `PATH` 中
+- Node **16+** 和 `npm`，用于 EACN3 MCP 插件与 MinionsVIZ
+- Claude CLI 位于 `PATH` 中，用于真实 Role 执行
 
-> **重要 —— 父目录必须是 git 仓库。** MinionsOS 会在包含 `MinionsOS_V2/` 的**父目录**上建 worktree；若父目录不是 git 仓库，`project_create` 会直接失败。
->
-> 修复方法：
-> ```bash
-> cd <MinionsOS_V2 的父目录>
-> git init && git add -A && git commit -m 'init'
-> ```
-> 安装脚本会预警告此问题；`./mos doctor` 会再次检查。
+MinionsOS 会从当前 checkout 的父目录创建项目 worktree。创建项目之前，该父目录必须是
+git 仓库：
+
+```bash
+cd <MinionsOS_V3 的父目录>
+git init
+git add -A
+git commit -m "init"
+```
+
+`./install.sh` 会提示这个条件，`./mos doctor` 也会再次检查。
 
 ### 安装
 
 ```bash
-git clone --recursive <repo-url> MinionsOS_V2
-cd MinionsOS_V2
+git clone https://github.com/Minions-Land/MinionsOS_V3.git
+cd MinionsOS_V3
 ./install.sh
-./mos doctor          # 健康检查：uv / node / git / EACN3 / port / 父目录 git
+./mos doctor
 ```
 
-`install.sh` 可重复执行：自举 `uv`、安装 Python 3.11、`uv sync`、editable 安装 EACN3、构建 EACN3 MCP 插件、复制 `*.yaml.example → *.yaml`。
+`install.sh` 可以重复执行：它会按需自举 `uv`、同步 Python 依赖、editable 安装本地
+`EACN3/`、构建 EACN3 MCP 插件、按需构建 MinionsVIZ、创建启动脚本链接，并把
+`minions/config/*.yaml.example` 复制为本地 `.yaml` 配置且不覆盖已有文件。
 
-### 快速开始
+### 配置
+
+本地配置位于 `minions/config/`，默认不进入 git：
+
+- `gru.yaml` 控制 heartbeat、日志级别、模型/上下文配置、scratchpad 阈值和 web search
+  策略。
+- `experiment_targets.yaml` 定义 Experimenter 使用的本地或 SSH 执行目标，路径支持
+  `{project_workspace}` 模板展开。
+
+查看解析后的路径：
 
 ```bash
-./gru                                  # 启动交互式 Gru（等价于 ./minionsos / ./mos）
-
-./mos status                           # 所有项目仪表盘
-./mos status --json                    # 机器可读
-./mos logs --project 37596             # 项目日志
-./mos logs --role noter --tail 50      # tail 某个 role 日志
-./mos doctor                           # 环境健康检查
-./mos config                           # 打印配置路径
-
-./mos project list
-./mos project close 37596
-./mos project revive 37596
-./mos role list 37596
-./mos role dismiss 37596 noter
+./mos config
+./mos config --json
 ```
 
-### Roles 一览
+### 运行
 
-| Role | 一句话 | 可写范围 |
+```bash
+./gru                 # 启动交互式 Gru
+./mos status          # 项目仪表盘
+./mos status --json   # 机器可读状态
+./mos doctor          # 环境健康检查
+```
+
+项目和 Role 管理：
+
+```bash
+./mos project list
+./mos project list active
+./mos project close <port>
+./mos project revive <port>
+./mos project repair <port>
+
+./mos role list <port>
+./mos role dismiss <port> <role>
+```
+
+日志：
+
+```bash
+./mos logs
+./mos logs --project <port>
+./mos logs --project <port> --role coder --tail 100
+./mos logs --project <port> --role coder --follow
+```
+
+### Roles
+
+| Role | 职责 | 主要可写范围 |
 |---|---|---|
-| **Gru** | 全局主管、人机接口、跨项目 relay | 全部 |
-| **Noter** | 静默观察、时间线与 checkpoint | 仅 `artifacts/notes/` |
-| **Coder** | 软件工程师；维护 `workspace/src/` | 整个 `workspace/` |
-| **Experimenter** | 执行管理员；GPU 调度与结果收集 | `workspace/` + `exp_*` |
-| **Writer** | 论文打包；初稿到 camera-ready | 整个 `workspace/` |
-| **Reviewer** | Area-Chair 式正式评审 | 仅 `artifacts/reviews/round-<n>/` |
-| **Ethics** | 证据审计与幻觉检查 | 仅 `artifacts/ethics/` |
-| **Expert** | 领域专家（dl-arch / optimization / theory / nlp / cv） | `workspace/`（软：主要读） |
+| Gru | 全局主管、人机接口、项目生命周期、跨项目 relay | 全部项目状态 |
+| Noter | 时间线、checkpoint、总结 | `artifacts/notes/` |
+| Coder | 代码维护、调试、实现 | `workspace/` |
+| Experimenter | 任务调度、远端执行、结果收集 | `workspace/`、`artifacts/exp-*` |
+| Writer | 论文撰写、打包、rebuttal、camera-ready | `workspace/` |
+| Reviewer | Area-Chair 式多轮评审 | `artifacts/reviews/round-<n>/` |
+| Ethics | 证据审计、无依据论断检测 | `artifacts/ethics/` |
+| Expert | 结合 `nlp`、`cv`、`theory` 等领域包提供咨询 | 通常以只读为主，必要时写 `workspace/` |
 
-Role 系统提示位于 `minions/roles/{role}/SYSTEM.md`。
+Role 提示词位于 `minions/roles/{role}/SYSTEM.md`。
 
-### 关键 MCP 工具
+### MCP 工具面
 
-定义在 `minions/tools/mcp_server.py` 与 `minions/tools/experiment_ssh.py`：
+MinionsOS MCP server 从 `minions/tools/` 暴露生命周期和执行工具。
 
-- **项目生命周期（仅 Gru）：** `project_create` · `project_close` · `project_dormant` · `project_revive` · `project_list`
-- **Role 生命周期（仅 Gru）：** `spawn_role` · `spawn_expert` · `dismiss_role` · `list_roles`
-- **协调（仅 Gru）：** `gru_relay` · `gru_start_monitor`
-- **实验执行（Experimenter）：** `exp_run` · `exp_put` · `exp_get` · `exp_tail` · `exp_status`
-- **EACN 总线（所有 Role mains）：** `eacn3_*`（来自 EACN3 MCP 插件）
+仅 Gru 可用：
 
-### 项目目录结构
+```text
+project_create
+project_close
+project_dormant
+project_revive
+project_list
+spawn_role
+spawn_expert
+dismiss_role
+list_roles
+gru_relay
+gru_start_monitor
+```
 
-每个项目位于 `project_{port}/` 下，含 `CLAUDE.md`（项目叙事，作者 + Gru 写、Roles 只读）、`meta.json`、`workspace/`（git worktree）、`eacn3_data/eacn3.db`、`memory/{role}.md`（L2 scratchpad）、`artifacts/{notes,reviews,ethics,exp-*,external_feedback}/`、`logs/`。
+Experimenter 可用：
 
-### 调试入口
+```text
+exp_run
+exp_put
+exp_get
+exp_tail
+exp_status
+```
+
+EACN3 MCP 插件提供 `eacn3_*` 工具，只分配给允许访问总线的 role main。
+
+### 运行时项目结构
+
+```text
+project_{port}/
+  CLAUDE.md                 # 项目叙事；Gru/作者写，Roles 读
+  meta.json                 # 机器元数据
+  workspace/                # minionsos/project-{port} 分支的 git worktree
+  eacn3_data/eacn3.db       # 每项目独立的 EACN3 SQLite 数据库
+  memory/{role}.md          # L2 Role scratchpad
+  artifacts/
+    notes/
+    reviews/round-<n>/
+    ethics/
+    exp-{id}/
+    external_feedback/
+  logs/
+    backend.log
+    role-{name}.log
+```
+
+scratchpad 大小按模型上下文窗口比例管控：默认 10% soft、15% hard、20% veto。
+
+### MinionsVIZ
+
+`minions-viz/` 是同一机器上所有 Gru checkout 共享的只读观察台。它用
+`~/.minionsos/` 存储注册表和守护进程状态，提供一个共享 URL，并在 UI 中按 Gru 和
+Project 筛选。
+
+```bash
+./viz ensure
+./viz start
+./viz status
+./viz open
+./viz logs
+
+./mos viz ensure
+./mos viz status
+```
+
+环境变量：
+
+| 变量 | 作用 |
+|---|---|
+| `GRU_VIZ=0` | 禁用 Gru 自动启动仪表盘 |
+| `GRU_VIZ_OPEN=0` | 不自动打开浏览器 |
+| `MINIONS_VIZ_PORT=<port>` | 覆盖默认端口，通常是 7891 |
+| `MINIONS_VIZ_REBUILD=1` | 在 `./install.sh` 中强制重建 |
+| `MINIONS_GRU_LABEL=<name>` | 覆盖当前 Gru 在仪表盘中的显示名 |
+
+MinionsVIZ 不会向 EACN3 发送 POST，也不会调用 `/api/events/{agent_id}`，避免消耗真实
+Role 的事件队列。
+
+### 开发
+
+Python 检查：
+
+```bash
+uv sync
+uv run pytest tests/unit -q
+MINIONS_FAKE_CLAUDE=1 uv run pytest tests/smoke/
+uv run ruff check .
+uv run ruff format --check .
+```
+
+仪表盘检查：
+
+```bash
+cd minions-viz
+npm install
+npm run build
+npm run dev
+```
+
+常见扩展点：
+
+- 新 Role：添加 `minions/roles/{role}/SYSTEM.md`。
+- 新 Role skill：添加 `minions/roles/{role}/skills/{lowercase-hyphen}.md`。
+- 新 Expert 领域包：添加 `minions/domains/{lowercase-hyphen}.md`。
+- 新 MCP 工具：在 `minions/tools/` 中实现，并更新白名单与测试。
+
+贡献规则和更深入的架构说明见 `AGENTS.md`、根目录 `CLAUDE.md` 和 `minions/CLAUDE.md`。
+
+### 排障入口
 
 | 问题 | 查看 |
 |---|---|
-| Gru 本身 | `minions/state/logs/gru.log` |
-| 某项目的 EACN3 后端 | `project_{port}/logs/backend.log` |
-| 某个 Role | `project_{port}/logs/role-{name}.log` |
-| Role 连续崩溃 | `role-{name}.log` —— 3 次后 Gru 将其标记为 dismissed |
-| 后端连续崩溃 | `backend.log` —— 1h 内 3 次后停止自动重启并通知作者 |
-| 实验失败 | `artifacts/exp-{id}/report.md` —— 同脚本连续 3 次失败触发断路器 |
-| EACN3 状态 | `project_{port}/eacn3_data/eacn3.db` (SQLite) |
+| Gru 行为异常 | `minions/state/logs/gru.log` |
+| 项目后端未启动 | `project_{port}/logs/backend.log` |
+| Role 崩溃或未行动 | `project_{port}/logs/role-{name}.log` |
+| 项目元数据异常 | `project_{port}/meta.json` |
+| 需要检查 EACN3 状态 | `project_{port}/eacn3_data/eacn3.db` |
+| 实验失败 | `project_{port}/artifacts/exp-{id}/report.md` |
+| Viz 无法访问 | `./viz status` 和 `./viz logs` |
+| doctor 父目录 git 检查失败 | 初始化并提交父目录 git 仓库 |
 
-### 硬性规则（摘要）
+### 安全与配置
 
-完整版见根 `CLAUDE.md`。
-
-1. **EACN3 不可改动。** 作为 submodule，仅整体替换升级；所有访问走 `eacn3_*` 工具。
-2. **仅 uv。** 不使用 `pip` / `conda` / `mamba` / `virtualenv` / 裸 venv。
-3. **IP 隔离靠 `gru_relay`。** 跨项目 Role 之间不可直接通信。
-4. **子进程工具白名单。** 通过 spawn 时的 `--allowed-tools` 强制。
-5. **Noter / Reviewer 对 `workspace/` 只读。** 只能写各自的 artifact 目录。
-6. **事件驱动的 Role 生命周期。** 无长进程、无 Claude 内轮询；由 `WakeupScheduler` 调度。
-7. **仅 Gru 可 spawn EACN 可见 agent。** subagent 与 team 成员对 EACN 不可见。
-8. **空闲即工作（软）。** 鼓励小粒度 idle 子任务；不启动新方向 / 新实验 / 新评审轮次。
-9. **证据优先（软）。** 重要论断应附 `[evidence: …]` / `[speculation]` / `[derived: …]`。
-
-### Observatory（MinionsVIZ 观察台）
-
-`minions-viz/` 是 **MinionsVIZ**——整个 MinionsOS 系统的严格只读仪表盘。它是**机器级单例**：同一主机上多份 Gru checkout 共享同一个 viz 进程与同一个 URL，前端用 **Gru ▾ / Project ▾** 两级下拉筛选。
-
-```bash
-./install.sh        # 首次构建 minions-viz/dist；创建 ~/.minionsos/
-./gru               # 注册当前 Gru + 自动启动 MinionsVIZ（已在运行则 no-op）
-
-# 手动控制：
-./viz ensure                      # register + start（幂等）
-./viz start|stop|status|open|logs
-./viz register|deregister|heartbeat
-./mos viz ensure|start|stop|status|open|logs
-```
-
-- **只读保证。** 不 POST 任何 EACN3 后端；绝不调用 `/api/events/{agent_id}`（那会消耗真实 agent 的事件队列）。所有 HTTP 端点都是 `GET` 且幂等。
-- **用户级状态。** `~/.minionsos/`（0700）存放 Gru 注册表 `grus.json` 与运行中 viz 的 `{viz.pid, viz.port, viz.url, viz.lock}`。
-- **环境变量。** `GRU_VIZ=0` 关闭自动启动；`GRU_VIZ_OPEN=0` 不打开浏览器；`MINIONS_VIZ_PORT=N` 指定端口（默认 7891，扫描 7891..7910）；`MINIONS_VIZ_REBUILD=1` 强制在 `./install.sh` 中重建；`MINIONS_GRU_LABEL=<name>` 覆盖 Gru 在注册表中的显示名。
-
-更多细节（tab 组成、HTTP / WebSocket API、开发流程）见 `minions-viz/README.md`；架构内部机制见 `minions-viz/AGENTREAD.md`。
-
-### 参与开发
-
-- 包架构、编码规范、扩展方法（新 Role / skill / domain / MCP 工具）见 `minions/CLAUDE.md`。
-- 测试：
-
-  ```bash
-  uv run pytest tests/unit/
-  uv run ruff check minions/
-  MINIONS_FAKE_CLAUDE=1 uv run pytest tests/smoke/
-  ```
+不要提交 secrets、生成的项目 worktree、实验凭据、运行时状态、日志或本地配置。跨项目通信
+应继续由 Gru relay 管控，dashboard 端点必须保持只读。
 
 ### 许可
 
-见 `pyproject.toml` 与仓库根目录。当前未附带显式 LICENSE 文件；在补充前请按内部代码对待。
+当前仓库未附带显式 LICENSE 文件；在补充许可证前请按内部/专有代码处理。
