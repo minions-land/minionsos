@@ -259,6 +259,26 @@ def doctor(
     probe_port = 37596
     _check("port-probe", _bind_probe(probe_port), f"port {probe_port}")
 
+    # Model registry consistency
+    try:
+        from minions.config import load_gru_config as _load_cfg
+
+        _cfg = _load_cfg()
+        _ok, _detail = _cfg.model_registry_valid()
+        _check("model-registry", _ok, _detail)
+    except Exception as exc:
+        _check("model-registry", False, str(exc))
+
+    # Claude --debug should be off by default; only enabled via MINIONS_DEBUG
+    import os as _os
+
+    _debug_on = bool(_os.environ.get("MINIONS_DEBUG", "").strip())
+    _check(
+        "claude-debug-disabled",
+        not _debug_on,
+        "MINIONS_DEBUG is unset (good)" if not _debug_on else "MINIONS_DEBUG is set — debug active",
+    )
+
     # State dir writable
     try:
         STATE_DIR.mkdir(parents=True, exist_ok=True)
