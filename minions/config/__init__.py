@@ -254,11 +254,13 @@ class GruConfig(BaseModel):
         description="Claude model name passed to the claude CLI (e.g. claude-sonnet-4-6).",
     )
 
-    _KNOWN_MODELS: frozenset[str] = frozenset({
-        "claude-opus-4-7",
-        "claude-sonnet-4-6",
-        "claude-haiku-4-5-20251001",
-    })
+    _KNOWN_MODELS: frozenset[str] = frozenset(
+        {
+            "claude-opus-4-7",
+            "claude-sonnet-4-6",
+            "claude-haiku-4-5-20251001",
+        }
+    )
 
     def model_registry_valid(self) -> tuple[bool, str]:
         """Return (ok, detail) for the configured claude_model."""
