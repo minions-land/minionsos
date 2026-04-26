@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "eacn3": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "D:/Git/eacn-dev/plugin/dist/server.js"
+      ],
+      "env": {
+        "EACN3_NETWORK_URL": "http://127.0.0.1:37596"
+      }
+    }
+  }
+}

@@ -1,0 +1,93 @@
+# ═══════════════════════════════════════════════════════════════════════
+# EACN Network Configuration
+# ═══════════════════════════════════════════════════════════════════════
+#
+# Copy this file to config.toml and modify as needed.
+# Unspecified values use the defaults in this file.
+# Supports hot-reload at runtime via PUT /api/admin/config.
+
+
+# ── Reputation System ─────────────────────────────────────────────────
+[reputation]
+
+# Max gain/penalty per single event
+max_gain    = 0.1
+max_penalty = -0.05
+
+# Default reputation for new agents
+default_score = 0.5
+
+# Cold start: events needed before a new server gets full weight
+cold_start_threshold = 10
+cold_start_floor     = 0.1   # minimum weight during cold start
+cold_start_ramp      = 0.9   # weight ramp-up factor
+
+# Selection propagation (PageRank)
+selection_boost_multiplier = 0.05  # selected agent boost = this × selector's reputation
+selector_judgment_boost    = 0.01  # selector "good eye" reward
+
+# Anti-fraud: burst detection
+burst_window    = 10  # sliding window of last N events
+burst_threshold = 8   # same-type events exceeding this count → flagged as anomaly
+
+# Negotiation gain
+negotiation_gain_multiplier = 0.01   # formula: this × (capped_gain - capped_penalty)
+negotiation_gain_min        = -0.1
+negotiation_gain_max        = 0.2
+
+# Event weight mapping
+[reputation.event_weights]
+result_selected        = 0.10
+result_rejected        = -0.05
+adjudication_adopted   = 0.05
+adjudication_failed    = -0.03
+task_completed_on_time = 0.05
+task_timed_out         = -0.05
+
+
+# ── Matcher ───────────────────────────────────────────────────────────
+[matcher]
+
+# Composite scoring weights (should sum to 1.0)
+weight_reputation = 0.6   # reputation weight
+weight_domain     = 0.25  # domain overlap weight
+weight_keyword    = 0.15  # keyword match weight
+
+# Bid validation
+default_reputation = 0.5  # default reputation for unknown agents
+ability_threshold  = 0.5  # confidence × reputation >= this to pass
+price_tolerance    = 0.1  # allowed over-budget ratio (10%)
+
+# Explicit target validation
+target_min_reputation = 0.3  # minimum reputation for explicitly targeted agents
+
+
+# ── Economy ───────────────────────────────────────────────────────────
+[economy]
+
+platform_fee_rate = 0.05  # platform fee ratio (5%)
+
+
+# ── Push Notifications ───────────────────────────────────────────────
+[push]
+
+max_retries = 2  # max retries on push failure
+ack_timeout = 30  # seconds to wait for client ACK before caching offline
+offline_max_per_agent = 200  # max offline messages per agent (oldest evicted)
+offline_ttl_seconds = 86400  # offline message expiration (24h)
+
+
+# ── Task Defaults ────────────────────────────────────────────────────
+[task]
+
+default_max_concurrent_bidders = 5   # default concurrent execution slots
+default_max_depth              = 10  # default max subtask nesting depth
+
+
+# ── API Pagination ───────────────────────────────────────────────────
+[api]
+
+list_tasks_default_limit = 50
+list_tasks_max_limit     = 200
+logs_default_limit       = 50
+logs_max_limit           = 500

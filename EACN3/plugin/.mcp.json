@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "eacn3": {
+      "command": "node",
+      "args": ["dist/server.js"]
+    }
+  }
+}
