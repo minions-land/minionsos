@@ -249,6 +249,23 @@ class GruConfig(BaseModel):
             "post messages to Gru."
         ),
     )
+    claude_model: str = Field(
+        default="claude-sonnet-4-6",
+        description="Claude model name passed to the claude CLI (e.g. claude-sonnet-4-6).",
+    )
+
+    _KNOWN_MODELS: frozenset[str] = frozenset({
+        "claude-opus-4-7",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5-20251001",
+    })
+
+    def model_registry_valid(self) -> tuple[bool, str]:
+        """Return (ok, detail) for the configured claude_model."""
+        if self.claude_model in self._KNOWN_MODELS:
+            return True, f"{self.claude_model} is a known model"
+        known = ", ".join(sorted(self._KNOWN_MODELS))
+        return False, f"{self.claude_model!r} not in known models ({known})"
 
     # --- Scratchpad size thresholds (as fractions of the model context window) ---
     # Rationale: Context Rot / NoLiMa research shows effective context degrades

@@ -144,3 +144,32 @@ class TestWhitelistResolver:
     def test_unknown_role_raises(self) -> None:
         with pytest.raises(Exception):
             resolve_allowed_tools("nonexistent_role_xyz")
+
+
+# ── Model registry ─────────────────────────────────────────────────────────────
+
+
+class TestGruConfigModel:
+    def test_default_claude_model(self, tmp_path: Path) -> None:
+        cfg = load_gru_config(tmp_path / "nonexistent.yaml")
+        assert cfg.claude_model == "claude-sonnet-4-6"
+
+    def test_custom_claude_model(self, tmp_path: Path) -> None:
+        p = tmp_path / "gru.yaml"
+        p.write_text(yaml.dump({"claude_model": "claude-opus-4-7"}))
+        cfg = load_gru_config(p)
+        assert cfg.claude_model == "claude-opus-4-7"
+
+    def test_model_registry_valid_known(self, tmp_path: Path) -> None:
+        cfg = load_gru_config(tmp_path / "nonexistent.yaml")
+        ok, detail = cfg.model_registry_valid()
+        assert ok is True
+        assert cfg.claude_model in detail
+
+    def test_model_registry_valid_unknown(self, tmp_path: Path) -> None:
+        p = tmp_path / "gru.yaml"
+        p.write_text(yaml.dump({"claude_model": "claude-fake-99"}))
+        cfg = load_gru_config(p)
+        ok, detail = cfg.model_registry_valid()
+        assert ok is False
+        assert "claude-fake-99" in detail
