@@ -74,7 +74,7 @@ def status(
     json_flag: bool = typer.Option(False, "--json", help="Output as JSON."),
 ) -> None:
     """Show a dashboard of all projects and their health."""
-    from minions.lifecycle.health import backend_health
+    from minions.lifecycle.health import project_status_snapshot
 
     store = _get_store()
     try:
@@ -85,15 +85,18 @@ def status(
     if json_flag:
         rows = []
         for p in projects:
-            healthy = backend_health(p.port) if p.status == "active" else None
+            snap = project_status_snapshot(p.port, p.status)
             rows.append(
                 {
                     "port": p.port,
                     "name": p.real_name,
                     "status": p.status,
                     "venue": p.venue,
-                    "healthy": healthy,
                     "roles": len(p.active_roles),
+                    "backend_alive": snap["backend_alive"],
+                    "agents": snap["agents"],
+                    "queue_depth": snap["queue_depth"],
+                    "recent_failures": snap["recent_failures"],
                 }
             )
         _json_out(rows)
@@ -108,8 +111,9 @@ def status(
     table.add_column("Roles")
 
     for p in projects:
-        healthy = backend_health(p.port) if p.status == "active" else None
-        health_str = "✓" if healthy else ("✗" if healthy is False else "—")
+        snap = project_status_snapshot(p.port, p.status)
+        alive = snap["backend_alive"]
+        health_str = "✓" if alive else ("✗" if alive is False else "—")
         table.add_row(
             str(p.port),
             p.real_name,
