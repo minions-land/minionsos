@@ -124,3 +124,51 @@ def get_crash_counter() -> CrashCounter:
     if _default_counter is None:
         _default_counter = CrashCounter()
     return _default_counter
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 minimal status snapshot
+# ---------------------------------------------------------------------------
+
+
+def project_status_snapshot(port: int, project_status: str) -> dict:
+    """Return a minimal Phase 1 status dict for one project.
+
+    Keys: port, project_status, backend_alive, agents, queue_depth, recent_failures.
+    Non-active projects skip the backend probe (backend_alive=None).
+    Never raises; errors are captured in recent_failures.
+    """
+    from minions.lifecycle import eacn_client
+
+    if project_status != "active":
+        return {
+            "port": port,
+            "project_status": project_status,
+            "backend_alive": None,
+            "agents": [],
+            "queue_depth": 0,
+            "recent_failures": [],
+        }
+
+    alive = backend_health(port)
+    agents: list[dict] = []
+    queue_depth = 0
+    recent_failures: list[str] = []
+
+    if alive:
+        try:
+            probe = eacn_client.probe_backend(port)
+            agents = probe.get("agents", [])
+            queue_depth = probe.get("queue_depth", 0)
+            recent_failures = probe.get("errors", [])
+        except Exception as exc:
+            recent_failures.append(str(exc))
+
+    return {
+        "port": port,
+        "project_status": project_status,
+        "backend_alive": alive,
+        "agents": agents,
+        "queue_depth": queue_depth,
+        "recent_failures": recent_failures,
+    }
