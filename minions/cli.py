@@ -315,6 +315,19 @@ def doctor(
                 present,
                 f"id={gru_id}" if present else f"missing; run `./mos project repair {p.port}`",
             )
+            expected_roles = {
+                r.eacn_agent_id or r.name
+                for r in p.active_roles
+                if r.state in {"active", "sleeping"}
+            }
+            missing_roles = sorted(expected_roles - ids)
+            _check(
+                f"project-role-agents[{p.port}]",
+                not missing_roles,
+                "all active/sleeping roles registered"
+                if not missing_roles
+                else f"missing: {missing_roles}",
+            )
     except Exception as exc:
         _check("gru-agent-scan", False, str(exc))
 

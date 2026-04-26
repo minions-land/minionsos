@@ -84,6 +84,7 @@ class TestInitBriefGoesThroughEacn:
     def test_register_role_posts_to_eacn(self) -> None:
         store = _FakeStore()
         with (
+            patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
             patch("minions.lifecycle.eacn_client.post_message", return_value={}) as post,
             patch.object(role_mod, "invoke_role_ephemeral") as invoke,
         ):
@@ -110,6 +111,7 @@ class TestInitBriefGoesThroughEacn:
     def test_register_expert_posts_to_eacn(self) -> None:
         store = _FakeStore()
         with (
+            patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
             patch("minions.lifecycle.eacn_client.post_message", return_value={}) as post,
             patch.object(role_mod, "invoke_role_ephemeral") as invoke,
         ):
@@ -124,28 +126,25 @@ class TestInitBriefGoesThroughEacn:
         invoke.assert_not_called()
         assert post.call_args.kwargs["to_agent_id"].startswith("expert-")
 
-    def test_register_role_tolerates_eacn_failure(self) -> None:
-        """If EACN is down, registration still succeeds (role is registered).
-
-        The error is logged but not raised; the scheduler will pick up events
-        later when EACN is healthy again.
-        """
+    def test_register_role_fails_if_init_brief_cannot_queue(self) -> None:
+        """A role is not active unless its first message is queued through EACN."""
         store = _FakeStore()
-        with patch(
-            "minions.lifecycle.eacn_client.post_message",
-            side_effect=RuntimeError("EACN is down"),
+        with (
+            patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
+            patch(
+                "minions.lifecycle.eacn_client.post_message",
+                side_effect=role_mod.BackendError("EACN is down"),
+            ),
+            pytest.raises(role_mod.RoleError),
         ):
-            out = role_mod.register_role(
+            role_mod.register_role(
                 37596,
                 "noter",
                 init_brief="kick",
                 store=store,
                 poll_interval="1m",
             )
-        assert out["name"] == "noter"
-        # Role IS in the registry even though EACN post failed.
-        assert len(store.upserts) == 1
-        assert store.upserts[0].name == "noter"
+        assert store.upserts == []
 
 
 # ---------------------------------------------------------------------------

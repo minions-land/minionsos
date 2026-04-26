@@ -158,7 +158,11 @@ def unregister_agent(
 # ---------------------------------------------------------------------------
 
 
-def probe_backend(port: int, timeout: float = 3.0) -> dict[str, Any]:
+def probe_backend(
+    port: int,
+    timeout: float = 3.0,
+    server_id: str | None = None,
+) -> dict[str, Any]:
     """Best-effort snapshot of what the EACN3 backend on *port* currently holds.
 
     Returns a dict with keys: ``health``, ``servers``, ``agents``, ``errors``,
@@ -181,28 +185,35 @@ def probe_backend(port: int, timeout: float = 3.0) -> dict[str, Any]:
         result["health"] = r.status_code == 200
     except Exception as exc:
         result["errors"].append(f"/health: {exc}")
-    try:
-        r = httpx.get(f"{base}/api/discovery/agents", timeout=timeout)
-        if r.status_code == 200:
-            result["agents"] = r.json()
-        else:
-            result["errors"].append(
-                f"GET /agents HTTP {r.status_code}: {r.text!r}"
-            )
-    except Exception as exc:
-        result["errors"].append(f"GET /agents: {exc}")
+    agents_by_id: dict[str, dict[str, Any]] = {}
+    agent_queries: list[dict[str, str]] = (
+        [{"server_id": server_id}]
+        if server_id
+        else [{"domain": "minionsos"}, {"domain": "coordination"}]
+    )
+    for query in agent_queries:
+        try:
+            r = httpx.get(f"{base}/api/discovery/agents", params=query, timeout=timeout)
+            if r.status_code == 200:
+                for agent in r.json():
+                    if isinstance(agent, dict) and agent.get("agent_id"):
+                        agents_by_id[str(agent["agent_id"])] = agent
+            else:
+                result["errors"].append(f"GET /agents {query} HTTP {r.status_code}: {r.text!r}")
+        except Exception as exc:
+            result["errors"].append(f"GET /agents {query}: {exc}")
+    result["agents"] = list(agents_by_id.values())
     try:
         r = httpx.get(
-            f"{base}/api/tasks/open", timeout=timeout,
+            f"{base}/api/tasks/open",
+            timeout=timeout,
         )
         if r.status_code == 200:
             tasks = r.json()
             result["queue_depth"] = len(tasks)
             result["pending_events"] = tasks
         else:
-            result["errors"].append(
-                f"GET /tasks/open HTTP {r.status_code}: {r.text!r}"
-            )
+            result["errors"].append(f"GET /tasks/open HTTP {r.status_code}: {r.text!r}")
     except Exception as exc:
         result["errors"].append(f"GET /tasks/open: {exc}")
     return result

@@ -122,9 +122,7 @@ def _start_backend(port: int) -> subprocess.Popen:  # type: ignore[type-arg]
     Logs go to ``project_{port}/logs/backend.log``.
     """
     if not _port_is_free(port):
-        raise BackendError(
-            f"Port {port} is already occupied. Cannot start backend."
-        )
+        raise BackendError(f"Port {port} is already occupied. Cannot start backend.")
 
     db_path = str(project_eacn_db(port))
     log_path = project_backend_log(port)
@@ -424,7 +422,10 @@ def project_create(
             if attempt < max_retries - 1:
                 logger.warning(
                     "Port %d unavailable (attempt %d/%d): %s",
-                    port, attempt + 1, max_retries, exc,
+                    port,
+                    attempt + 1,
+                    max_retries,
+                    exc,
                 )
                 port = _store.find_next_port()
                 pdir = project_dir(port)
@@ -456,7 +457,7 @@ def project_create(
             agent_id=gru_agent_id,
             name="gru",
             server_id=server_id,
-            domains=["coordination"],
+            domains=["minionsos", "project-local", "role:gru", "coordination"],
             description=(
                 "MinionsOS global coordinator (passive mailbox on this project). "
                 "Polled by the Python-side WakeupScheduler; not a live Claude process."
@@ -681,7 +682,7 @@ def project_revive(
             agent_id=gru_agent_id,
             name="gru",
             server_id=server_id,
-            domains=["coordination"],
+            domains=["minionsos", "project-local", "role:gru", "coordination"],
             description=("MinionsOS global coordinator (passive mailbox on this project)."),
             tier="coordinator",
         )
@@ -705,10 +706,31 @@ def project_revive(
         )
         logger.info("Archived external feedback to %s", fb_path)
 
-    # Restore roles to sleeping state (caller will re-spawn them).
-    revived_roles = [
-        r.model_copy(update={"state": "sleeping", "pid": None}) for r in entry.active_roles
-    ]
+    # Restore roles to sleeping state and re-register each project-local AgentCard
+    # on the fresh EACN3 backend before exposing them in projects.json.
+    revived_roles = []
+    try:
+        from minions.lifecycle.agent_registry import register_project_role_agent
+
+        for r in entry.active_roles:
+            restored = r.model_copy(update={"state": "sleeping", "pid": None})
+            role_token, _role_seeds = register_project_role_agent(
+                port,
+                r.name,
+                server_id=server_id,
+            )
+            restored = restored.model_copy(
+                update={
+                    "eacn_agent_id": r.name,
+                    "eacn_agent_token": role_token,
+                    "eacn_registered_at": now,
+                }
+            )
+            revived_roles.append(restored)
+    except BackendError as exc:
+        logger.error("Role EACN re-registration failed during revive (fatal): %s", exc)
+        proc.terminate()
+        raise
 
     updated = _store.update_project(
         port,
@@ -782,7 +804,7 @@ def project_repair_gru_agent(
         agent_id=gru_agent_id,
         name="gru",
         server_id=server_id,
-        domains=["coordination"],
+        domains=["minionsos", "project-local", "role:gru", "coordination"],
         description="MinionsOS global coordinator (passive mailbox).",
         tier="coordinator",
     )

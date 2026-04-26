@@ -48,7 +48,7 @@ minions/
 
 Roles are **ephemeral**: no long-running Claude process per Role, and no in-Claude polling loop.
 
-- `minions/lifecycle/role.py` exposes `register_role` / `register_expert` (registry-only; no subprocess) and `invoke_role_ephemeral(role, port, events)` which launches a short-lived Claude subprocess seeded with the Role's `SYSTEM.md` and an event batch, then exits.
+- `minions/lifecycle/role.py` exposes `register_role` / `register_expert` (registers a project-local EACN AgentCard and records the role; no subprocess) and `invoke_role_ephemeral(role, port, events)` which launches a short-lived Claude subprocess seeded with the Role's `SYSTEM.md` and an event batch, then exits.
 - `minions/lifecycle/wakeup.py` (`WakeupScheduler`) runs on the Python side, polls EACN3 on each registered Role's cadence, deduplicates events by id, and fires `invoke_role_ephemeral` when events arrive.
 - `minions/gru/loop.py` runs `WakeupScheduler` in parallel with Gru's heartbeat (sibling thread when `run()` is used; sibling task when `run_async()` is used). The MCP `gru_start_monitor` tool starts both.
 - `schedule_poll` MCP tool is deprecated (no-op that logs a deprecation warning); still present for backward compatibility during migration.

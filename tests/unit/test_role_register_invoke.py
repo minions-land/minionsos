@@ -41,20 +41,30 @@ class FakeStore:
 class TestRegister:
     def test_register_role_no_subprocess(self) -> None:
         store = FakeStore()
-        with patch.object(role_mod, "invoke_role_ephemeral") as inv:
+        with (
+            patch.object(role_mod, "invoke_role_ephemeral") as inv,
+            patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])) as reg,
+        ):
             out = role_mod.register_role(
                 37596, "noter", init_brief=None, store=store, poll_interval="1m"
             )
         assert inv.call_count == 0
+        reg.assert_called_once_with(37596, "noter")
         assert out["name"] == "noter"
         assert out["poll_interval"] == "1m"
         assert out["ephemeral"] is True
+        assert out["eacn_agent_id"] == "noter"
         assert store.upserts[0].state == "active"
         assert store.upserts[0].pid is None
+        assert store.upserts[0].eacn_agent_id == "noter"
+        assert store.upserts[0].eacn_agent_token == "tok"
 
     def test_register_with_init_brief_invokes_once(self) -> None:
         store = FakeStore()
-        with patch("minions.lifecycle.eacn_client.post_message", return_value={}) as post:
+        with (
+            patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
+            patch("minions.lifecycle.eacn_client.post_message", return_value={}) as post,
+        ):
             role_mod.register_role(
                 37596, "noter", init_brief="hello world", store=store, poll_interval="1m"
             )
@@ -68,13 +78,17 @@ class TestRegister:
 
     def test_register_rejects_duplicate_active(self) -> None:
         store = FakeStore()
-        role_mod.register_role(37596, "noter", store=store, poll_interval="1m")
+        with patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])):
+            role_mod.register_role(37596, "noter", store=store, poll_interval="1m")
         with pytest.raises(Exception):
             role_mod.register_role(37596, "noter", store=store, poll_interval="1m")
 
     def test_register_expert_slugifies(self) -> None:
         store = FakeStore()
-        with patch("minions.lifecycle.eacn_client.post_message", return_value={}):
+        with (
+            patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
+            patch("minions.lifecycle.eacn_client.post_message", return_value={}),
+        ):
             out = role_mod.register_expert(
                 37596,
                 "Deep Learning Architecture",
@@ -83,6 +97,19 @@ class TestRegister:
                 poll_interval="1m",
             )
         assert out["name"].startswith("expert-")
+
+    def test_register_fails_if_role_cannot_join_eacn(self) -> None:
+        store = FakeStore()
+        with (
+            patch.object(
+                role_mod,
+                "register_project_role_agent",
+                side_effect=role_mod.BackendError("backend down"),
+            ),
+            pytest.raises(role_mod.RoleError),
+        ):
+            role_mod.register_role(37596, "noter", store=store, poll_interval="1m")
+        assert store.upserts == []
 
     def test_spawn_role_alias(self) -> None:
         assert role_mod.spawn_role is role_mod.register_role

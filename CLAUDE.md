@@ -105,7 +105,7 @@ The parent directory containing this repository must be a git repository before 
 
 ### Role lifecycle and boundaries
 
-Roles are event-driven and ephemeral. No Role should run a long-lived Claude process or implement an in-Claude polling loop. The Python `WakeupScheduler` polls EACN3 at configured cadences (`1m`, `3m`, or `5m`) and launches short-lived Claude subprocesses seeded with the Role `SYSTEM.md`, discovered skills, scratchpad context, and event batch.
+Roles are event-driven and ephemeral. No Role should run a long-lived Claude process or implement an in-Claude polling loop. Every active project agent, including Noter and the per-project Gru mailbox projection, must be registered as an AgentCard on that project's Local EACN3 network. The Python `WakeupScheduler` polls EACN3 at configured cadences (`1m`, `3m`, or `5m`) and launches short-lived Claude subprocesses seeded with the Role `SYSTEM.md`, discovered skills, scratchpad context, and event batch.
 
 Only Gru may spawn EACN-visible agents or use `project_*`, `spawn_*`, and `gru_relay` tools. Subagents and Claude teams created inside a Role are EACN-invisible by design: they do not have `eacn3_*` tools and do not appear in `projects.json`.
 

@@ -38,7 +38,7 @@ Gru has full write access to the MinionsOS root and all `project_*/` directories
 
 ## Collaboration rules
 
-- **EACN3 is the only inter-role bus.** All messages between roles within a project travel through EACN.
+- **EACN3 is the only inter-role bus.** Every project agent, including Noter and this project's `gru` mailbox projection, is registered on the project's Local EACN3 network. All messages between roles within a project travel through that network.
 - **Cross-project communication is Gru-only**, via `gru_relay(from_port, to_port, content, mode)`. No role may contact another project's roles directly.
 - `gru_relay` triggers: role request, Gru self-initiated, or human instruction — all three are valid.
 - Noter records relays automatically; no separate relay log needed.

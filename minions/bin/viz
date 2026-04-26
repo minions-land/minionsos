@@ -266,14 +266,18 @@ cmd_start() {
 
     port="$(pick_port "$port")"
     ensure_build
-    command -v npm &>/dev/null || die "npm not found on PATH."
+    command -v node &>/dev/null || die "node not found on PATH."
+    local tsx_preflight="./node_modules/tsx/dist/preflight.cjs"
+    local tsx_loader_import="file://$VIZ_DIR/node_modules/tsx/dist/loader.mjs"
+    [ -f "$VIZ_DIR/$tsx_preflight" ] || die "tsx runtime missing; run: cd minions-viz && npm install"
+    [ -f "$VIZ_DIR/node_modules/tsx/dist/loader.mjs" ] || die "tsx runtime missing; run: cd minions-viz && npm install"
 
     info "Starting viz on port $port..."
     if [ "$foreground" = "1" ]; then
         cd "$VIZ_DIR"
         echo "$port" >"$VIZ_PORT_FILE"
         echo "http://127.0.0.1:${port}" >"$VIZ_URL_FILE"
-        PORT="$port" MINIONS_ROOT="$ROOT" exec npm start
+        PORT="$port" MINIONS_ROOT="$ROOT" exec node --require "$tsx_preflight" --import "$tsx_loader_import" src/server/index.ts
     fi
 
     (
@@ -284,13 +288,13 @@ cmd_start() {
         # tiny python shim that calls os.setsid() on macOS, where setsid(1)
         # is not shipped.
         if command -v setsid >/dev/null 2>&1; then
-            PORT="$port" MINIONS_ROOT="$ROOT" nohup setsid npm start >>"$LOG_FILE" 2>&1 &
+            PORT="$port" MINIONS_ROOT="$ROOT" nohup setsid node --require "$tsx_preflight" --import "$tsx_loader_import" src/server/index.ts >>"$LOG_FILE" 2>&1 &
         elif command -v python3 >/dev/null 2>&1; then
             PORT="$port" MINIONS_ROOT="$ROOT" nohup python3 -c \
                 'import os,sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' \
-                npm start >>"$LOG_FILE" 2>&1 &
+                node --require "$tsx_preflight" --import "$tsx_loader_import" src/server/index.ts >>"$LOG_FILE" 2>&1 &
         else
-            PORT="$port" MINIONS_ROOT="$ROOT" nohup npm start >>"$LOG_FILE" 2>&1 &
+            PORT="$port" MINIONS_ROOT="$ROOT" nohup node --require "$tsx_preflight" --import "$tsx_loader_import" src/server/index.ts >>"$LOG_FILE" 2>&1 &
         fi
         echo $! >"$VIZ_PID"
     )

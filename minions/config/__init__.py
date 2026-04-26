@@ -11,6 +11,7 @@ Loaders return sensible defaults when the file is absent.
 
 from __future__ import annotations
 
+import enum
 import logging
 import re
 from pathlib import Path
@@ -197,6 +198,41 @@ def whitelist_csv(role: str, agent_type: Literal["main", "subagent"] = "main") -
 
 
 # ---------------------------------------------------------------------------
+# Role classification and boundaries
+# ---------------------------------------------------------------------------
+
+
+class RoleType(enum.Enum):
+    """Whether a role faces the human or the EACN coordination network."""
+
+    human_side = "human_side"
+    eacn_visible = "eacn_visible"
+
+
+ROLE_CLASSIFICATION: dict[str, RoleType] = {
+    "gru": RoleType.human_side,
+    "noter": RoleType.human_side,
+    "coder": RoleType.eacn_visible,
+    "experimenter": RoleType.eacn_visible,
+    "writer": RoleType.eacn_visible,
+    "reviewer": RoleType.eacn_visible,
+    "ethics": RoleType.eacn_visible,
+    "expert": RoleType.eacn_visible,
+}
+
+ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
+    "gru": ["workspace/", "artifacts/", "memory/"],
+    "noter": ["artifacts/notes/", "memory/"],
+    "coder": ["workspace/", "memory/"],
+    "experimenter": ["workspace/", "artifacts/", "memory/"],
+    "writer": ["workspace/", "memory/"],
+    "reviewer": ["artifacts/reviews/", "memory/"],
+    "ethics": ["artifacts/ethics/", "memory/"],
+    "expert": ["workspace/", "memory/"],
+}
+
+
+# ---------------------------------------------------------------------------
 # gru.yaml model
 # ---------------------------------------------------------------------------
 
@@ -241,6 +277,10 @@ class GruConfig(BaseModel):
     poll_interval_default: str = Field(
         default="1m",
         description="Default EACN polling cadence for spawned Roles (allowed: 1m / 3m / 5m).",
+    )
+    role_cooldown_seconds: int = Field(
+        default=30,
+        description="Minimum seconds between dispatches for the same role (any wakeup class).",
     )
     gru_eacn_agent_id: str = Field(
         default="gru",

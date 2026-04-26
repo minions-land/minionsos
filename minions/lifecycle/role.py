@@ -2,8 +2,9 @@
 
 Event-driven model (replaces the long-running-subprocess model):
 
-- ``register_role`` / ``register_expert`` record a Role in ``projects.json``
-  (name, port, poll cadence). No Claude subprocess is launched.
+- ``register_role`` / ``register_expert`` register a project-local EACN3
+  AgentCard and record a Role in ``projects.json`` (name, port, poll cadence).
+  No Claude subprocess is launched.
 - ``invoke_role_ephemeral`` launches a SHORT-LIVED Claude subprocess seeded
   with the Role's SYSTEM.md and a batch of events to act on. The process
   exits when the Role finishes its response.
@@ -26,8 +27,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import IO, Any
 
-from minions.config import slugify, whitelist_csv
-from minions.errors import AlreadyActive, RoleError
+from minions.config import (
+    ROLE_CLASSIFICATION,
+    ROLE_WRITE_BOUNDARIES,
+    RoleType,
+    slugify,
+    whitelist_csv,
+)
+from minions.errors import AlreadyActive, BackendError, RoleError
+from minions.lifecycle.agent_registry import register_project_role_agent
 from minions.lifecycle.skills import list_skills
 from minions.paths import (
     MINIONS_ROOT,
@@ -139,9 +147,78 @@ def _resolve_poll_interval(poll_interval: str | None) -> str:
     return poll_interval
 
 
-# ---------------------------------------------------------------------------
-# Registration (no subprocess)
-# ---------------------------------------------------------------------------
+_BOUNDARY_TEXT: dict[str, str] = {
+    "gru": (
+        "[Role boundary: human-side agent]\n"
+        "You receive and interpret human instructions, recommend workflow options, "
+        "drive project progress, dispatch tasks through EACN3, and inspect health/status. "
+        "You do NOT implement code, run experiments, write final paper text, or "
+        "participate in Review.\n"
+        "Write boundaries: workspace/, artifacts/, memory/.\n"
+    ),
+    "noter": (
+        "[Role boundary: human-side agent]\n"
+        "You provide staged reports so humans can observe the system: periodic summaries, "
+        "pending tasks, risks, evidence chains, artifact indexes, concise status. "
+        "You reduce Gru context pressure rather than add to it.\n"
+        "Write boundaries: artifacts/notes/, memory/ only. Do NOT write to workspace/.\n"
+    ),
+    "coder": (
+        "[Role boundary: EACN-visible agent]\n"
+        "Communicate state and task handoffs through EACN3. "
+        "Delegate complex execution to subagents; summarize and write back results.\n"
+        "Write boundaries: workspace/, memory/.\n"
+    ),
+    "experimenter": (
+        "[Role boundary: EACN-visible agent]\n"
+        "Communicate state and task handoffs through EACN3. "
+        "Delegate complex execution to subagents; summarize and write back results.\n"
+        "Write boundaries: workspace/, artifacts/, memory/.\n"
+    ),
+    "writer": (
+        "[Role boundary: EACN-visible agent]\n"
+        "Do NOT invent claims. Output must be based on available evidence, expert feedback, "
+        "experiment results, and competitor positioning. "
+        "Claims must be supported by evidence, experiment, derivation, citation, "
+        "or explicit speculation markers.\n"
+        "Write boundaries: workspace/, memory/.\n"
+    ),
+    "reviewer": (
+        "[Role boundary: EACN-visible agent — ISOLATED]\n"
+        "You see ONLY the paper PDF and submitted/open-source-ready repository code. "
+        "You must NOT access internal experiment artifacts, evidence/claim maps, "
+        "Ethics reports, Noter reports, internal discussions, known limitations files, "
+        "or unresolved risk lists unless they are visible in the submitted PDF or repository. "
+        "Each review round produces at least three independent opinions. "
+        "Gru does not participate in Review.\n"
+        "Write boundaries: artifacts/reviews/ only. Do NOT write to workspace/.\n"
+    ),
+    "ethics": (
+        "[Role boundary: EACN-visible agent — continuous evidence validation]\n"
+        "You continuously check whether agent behavior, communication, theory, code, "
+        "and claims have real evidence support. You MAY inspect internal materials: "
+        "experiment artifacts, evidence/claim maps, appendix plans, known limitations, "
+        "unresolved risks, agent communications, and all claim types.\n"
+        "Write boundaries: artifacts/ethics/ only. Do NOT write to workspace/.\n"
+    ),
+    "expert": (
+        "[Role boundary: EACN-visible agent]\n"
+        "Communicate state and task handoffs through EACN3. "
+        "Preferably read-mostly; write to workspace/ and memory/ only when necessary.\n"
+        "Write boundaries: workspace/ (sparingly), memory/.\n"
+    ),
+}
+
+
+def _boundary_context(role_name: str, project_port: int) -> str:
+    """Return boundary enforcement text for injection into the role prompt."""
+    normalised = "expert" if role_name.startswith("expert") else role_name
+    if normalised in _BOUNDARY_TEXT:
+        return _BOUNDARY_TEXT[normalised]
+    role_type = ROLE_CLASSIFICATION.get(normalised, RoleType.eacn_visible)
+    label = "human-side" if role_type == RoleType.human_side else "EACN-visible"
+    dirs = ROLE_WRITE_BOUNDARIES.get(normalised, ["memory/"])
+    return f"[Role boundary: {label} agent]\nWrite boundaries: {', '.join(dirs)}.\n"
 
 
 def register_role(
@@ -213,15 +290,25 @@ def _do_register(
 
     interval = _resolve_poll_interval(poll_interval)
 
+    try:
+        agent_token, _seeds = register_project_role_agent(project_port, role_name)
+    except BackendError as exc:
+        raise RoleError(
+            f"Role {role_name!r} could not join project-local EACN3 network "
+            f"on port {project_port}: {exc}"
+        ) from exc
+
+    now = _now_iso()
     role_entry = RoleEntry(
         name=role_name,
         state="active",
         pid=None,
-        spawned_at=_now_iso(),
+        spawned_at=now,
         poll_interval=interval,
+        eacn_agent_id=role_name,
+        eacn_agent_token=agent_token,
+        eacn_registered_at=now,
     )
-    store.upsert_role(project_port, role_entry)
-    logger.info("register_role: role=%r port=%d poll=%s", role_name, project_port, interval)
 
     if init_brief:
         # Post the kickoff as a real EACN direct message (gru → role). The
@@ -230,25 +317,31 @@ def _do_register(
         # the "dispatch via EACN only" convention. We deliberately do NOT
         # spawn a local ephemeral Claude here — that would be invisible to
         # EACN and race with the scheduler.
-        try:
-            from minions.lifecycle import eacn_client
+        from minions.lifecycle import eacn_client
 
+        try:
             eacn_client.post_message(
                 port=project_port,
                 to_agent_id=role_name,
                 from_agent_id="gru",
                 content={"type": "init_brief", "text": init_brief},
             )
-            logger.info("init_brief posted via EACN: role=%r port=%d", role_name, project_port)
-        except Exception as exc:
-            logger.warning(
-                "init_brief EACN post failed for %r on port %d: %s",
-                role_name,
-                project_port,
-                exc,
-            )
+        except BackendError as exc:
+            raise RoleError(
+                f"Role {role_name!r} joined project-local EACN3 on port {project_port}, "
+                f"but the init_brief could not be queued through EACN3: {exc}"
+            ) from exc
+        logger.info("init_brief posted via EACN: role=%r port=%d", role_name, project_port)
 
-    return {"name": role_name, "poll_interval": interval, "ephemeral": True}
+    store.upsert_role(project_port, role_entry)
+    logger.info("register_role: role=%r port=%d poll=%s", role_name, project_port, interval)
+
+    return {
+        "name": role_name,
+        "poll_interval": interval,
+        "ephemeral": True,
+        "eacn_agent_id": role_name,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -458,6 +551,16 @@ def _format_event_message(
                 + "when relevant; they are reasoning/procedure disciplines, not rituals.\n\n"
             )
             preamble += skills_block
+    if role_name and project_port:
+        preamble += (
+            "[EACN identity]\n"
+            f"You are already registered on this project's Local EACN3 network as "
+            f"agent_id `{role_name}` at `http://127.0.0.1:{project_port}`. "
+            "When an EACN tool accepts `agent_id`, `sender_id`, or `initiator_id`, "
+            f"pass `{role_name}` explicitly. Do not create or use a different "
+            "project identity.\n\n"
+        )
+        preamble += _boundary_context(role_name, project_port) + "\n"
     header = (
         "You have been invoked to process the following EACN event batch.\n"
         "Act on these events, emit any necessary EACN responses via `eacn3_*` "
@@ -501,10 +604,19 @@ def dismiss_role(
     if role is None:
         raise RoleError(f"Role {role_name!r} not found on port {project_port}.")
 
-    _store.upsert_role(
-        project_port,
-        RoleEntry(name=role_name, state="dismissed", pid=None, spawned_at=role.spawned_at),
-    )
+    try:
+        from minions.lifecycle import eacn_client
+
+        eacn_client.unregister_agent(project_port, role.eacn_agent_id or role_name)
+    except Exception as exc:
+        logger.warning(
+            "dismiss_role: EACN unregister failed for role=%r port=%d: %s",
+            role_name,
+            project_port,
+            exc,
+        )
+
+    _store.upsert_role(project_port, role.model_copy(update={"state": "dismissed", "pid": None}))
     logger.info("dismiss_role done: role=%r port=%d", role_name, project_port)
     return {"name": role_name}
 
@@ -517,4 +629,12 @@ def list_roles(
     entry = _store.get_project(project_port)
     if entry is None:
         raise RoleError(f"Project {project_port} not found.")
-    return [{"name": r.name, "state": r.state, "pid": r.pid} for r in entry.active_roles]
+    return [
+        {
+            "name": r.name,
+            "state": r.state,
+            "pid": r.pid,
+            "eacn_agent_id": r.eacn_agent_id or r.name,
+        }
+        for r in entry.active_roles
+    ]
