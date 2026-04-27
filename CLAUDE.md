@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-MinionsOS V2 is a multi-agent operating system for running autonomous research projects. A persistent Gru process supervises many isolated paper-sized projects; each project has its own EACN3 backend, git worktree, artifacts, logs, role scratchpads, and ephemeral Claude Role subprocesses.
+MinionsOS V3 is a local multi-agent operating system for running autonomous research projects. A persistent Gru process supervises many isolated paper-sized projects; each project has its own EACN3 backend, git worktree, artifacts, logs, role scratchpads, and ephemeral Claude Role subprocesses.
 
-`EACN3/` is a git submodule and dependency. Do not edit files inside `EACN3/`; upgrade it by replacing the submodule. All EACN operations should go through the EACN MCP tools, not hand-written HTTP calls.
+`EACN3/` is a local editable dependency pinned through `pyproject.toml` and `uv.lock`. Treat it as a dependency boundary during normal MinionsOS work: prefer EACN MCP tools and the MinionsOS adapter modules over hand-written HTTP calls or incidental edits inside `EACN3/`.
 
 ## Common commands
 
@@ -28,10 +28,11 @@ uv sync
 ./mos project list
 ./mos project close <port>
 ./mos project revive <port>
+./mos project repair <port>
 ./mos role list <port>
 ./mos role dismiss <port> <role>
 ./mos logs --project <port>
-./mos logs --role <role> --tail 50
+./mos logs --project <port> --role <role> --tail 50
 
 # Python tests
 uv run pytest tests/unit/
@@ -66,10 +67,13 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/bin/gru`, root `gru`, `minionsos`, `mos`, `viz` — launcher scripts/symlinks.
 - `minions/config/` — example Gru and experiment-target configs copied by `install.sh`.
 - `minions/state/` — runtime Gru state, including `projects.json` and Gru logs; gitignored runtime data.
+- `minions/roles/SYSTEM.md` — common Role contract injected before each role-specific prompt.
 - `minions/roles/{role}/SYSTEM.md` — role prompts for Gru, Noter, Coder, Experimenter, Writer, Reviewer, Ethics, and Expert.
 - `minions/roles/{role}/skills/*.md` — optional role skills discovered at wake-up.
-- `minions/domains/*.md` — Expert domain packs appended to Expert prompts at spawn time.
+- `minions/roles/reviewer/personas/*.md` and `templates/*.md` — reviewer stance files and required review output formats.
+- `minions/domains/*.md` — Expert domain packs used as reusable specialty assets.
 - `minions-viz/` — read-only Observatory dashboard, Express/WebSocket server plus React/Vite frontend.
+- `EACN3/` — local editable EACN3 dependency.
 - `project_{port}/` — runtime projects created by Gru; gitignored.
 
 ### Python package responsibilities
@@ -77,9 +81,10 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/cli.py` is the `mos` CLI entry point and dispatches project, role, logs, doctor, and viz commands.
 - `minions/gru/loop.py` runs the Gru monitor loop and starts the Python-side wake-up scheduler.
 - `minions/lifecycle/project.py` implements project create/close/dormant/revive behavior, including project directories, metadata, worktrees, backends, and artifacts.
-- `minions/lifecycle/role.py` registers roles, invokes ephemeral role subprocesses, and dismisses roles.
+- `minions/lifecycle/role.py` registers roles, builds common+role system prompts, injects skills, invokes ephemeral role subprocesses, and dismisses roles.
 - `minions/lifecycle/wakeup.py` contains `WakeupScheduler`, which polls EACN3 on each role cadence, deduplicates events, and invokes roles only when work arrives.
 - `minions/lifecycle/eacn_client.py` is the thin EACN3 HTTP client used by the scheduler and lifecycle code.
+- `minions/lifecycle/agent_registry.py` and `eacn_identity.py` keep project-local AgentCard identities stable.
 - `minions/lifecycle/relay.py` implements the Gru-only cross-project relay path.
 - `minions/lifecycle/project_eacn.py` implements the generic project-local EACN adapter used by Gru and bootstrap paths.
 - `minions/lifecycle/gru_actions.py` keeps deprecated compatibility wrappers for older Gru message/task names; new runtime-visible paths should use `project_eacn_*`.
@@ -107,7 +112,7 @@ The parent directory containing this repository must be a git repository before 
 
 ### Role lifecycle and boundaries
 
-Roles are event-driven and ephemeral. No Role should run a long-lived Claude process or implement an in-Claude polling loop. Every active project agent, including Noter and the per-project Gru mailbox projection, must be registered as an AgentCard on that project's Local EACN3 network. The Python `WakeupScheduler` polls EACN3 at configured cadences (`1m`, `3m`, or `5m`) and launches short-lived Claude subprocesses seeded with the Role `SYSTEM.md`, discovered skills, scratchpad context, and event batch.
+Roles are event-driven and ephemeral. No Role should run a long-lived Claude process or implement an in-Claude polling loop. Every active project agent, including Noter and the per-project Gru mailbox projection, must be registered as an AgentCard on that project's Local EACN3 network. The Python `WakeupScheduler` polls EACN3 at configured cadences (`1m`, `3m`, or `5m`) and launches short-lived Claude subprocesses seeded with the shared `minions/roles/SYSTEM.md`, the Role `SYSTEM.md`, discovered skills, scratchpad context, identity/boundary context, and the event batch.
 
 Only Gru may spawn EACN-visible agents or use `project_*`, `spawn_*`, `gru_relay`, `project_eacn_send_message`, and `project_eacn_create_task` tools. Subagents and Claude teams created inside a Role are EACN-invisible by design: they do not have `eacn3_*` tools and do not appear in `projects.json`.
 
@@ -133,6 +138,18 @@ Tool/write boundaries:
 | Ethics subagent | no | no | no | no |
 
 Noter and Reviewer must not write to `workspace/`.
+
+### Role skills and reviewer workflow
+
+Role skills are markdown procedure guides under `minions/roles/{role}/skills/`. `minions.lifecycle.skills.list_skills` discovers them at wake-up, extracts one-line summaries, and injects a `[Skills]` block pointing to the full files. Skills should stay procedural and cross-domain; put domain-specific content under `minions/domains/`.
+
+Reviewer has extra review-round assets:
+
+- `minions/roles/reviewer/personas/*.md` define short reviewer stances.
+- `minions/roles/reviewer/skills/*.md` define review-round, reviewer-instance, aspect-note, code-validity, revision-delta, and publish procedures.
+- `minions/roles/reviewer/templates/*.md` define the required outputs: `aspect-note.md`, `reviewer-instance.md`, `fresh.md`, `revision_delta.md`, `consolidated.md`, and `summary.md`.
+
+Reviewer Pass A must produce 3-5 independent reviewer-instance reports before reading prior review history. History enters only through the previous rolling summary during Pass B / Pass C.
 
 ### Layered memory
 
@@ -191,5 +208,6 @@ Relevant files:
 
 - New Role: add `minions/roles/{role}/SYSTEM.md`, update role whitelist/configuration, update the root whitelist table, and add unit coverage.
 - New Role skill: add `minions/roles/{role}/skills/{slug}.md`; discovery is automatic through `minions.lifecycle.skills`.
-- New Expert domain: add `minions/domains/{slug}.md`; domain packs are discovered from that directory.
+- New Reviewer output shape: update the relevant `minions/roles/reviewer/templates/*.md`, reviewer skill, and `tests/unit/test_reviewer_system_invariants.py`.
+- New Expert domain: add `minions/domains/{slug}.md`; keep it as a reusable prompt asset and add discovery/injection tests if runtime behavior changes.
 - New MCP tool: add it under `minions/tools/`, register it in the MCP server, update whitelist rules, and add tests.

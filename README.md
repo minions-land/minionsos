@@ -28,11 +28,16 @@ research projects.
   areas, while Coder, Experimenter, Writer, and Expert operate in `workspace/`.
 - **Layered memory.** Role context is reconstructed from the current invocation,
   per-role scratchpads, artifacts, EACN history, and project `CLAUDE.md`.
-- **Skill and domain discovery.** Role skills live in
-  `minions/roles/{role}/skills/*.md`; Expert domain packs live in
+- **Skill discovery and domain assets.** Role skills live in
+  `minions/roles/{role}/skills/*.md`; Expert domain-pack assets live in
   `minions/domains/*.md`.
+- **Structured review rounds.** Reviewer uses persona files, procedural skills,
+  and strict templates to produce 3-5 independent reviewer reports, a
+  history-aware revision delta, a consolidated meta-review, and a rolling
+  summary.
 - **Experiment execution.** Experimenter can run local or SSH-backed jobs with
-  `exp_run`, `exp_put`, `exp_get`, `exp_tail`, and `exp_status`.
+  `exp_run`, `exp_status`, `exp_wait`, `exp_kill`, `exp_list`, `exp_put`,
+  `exp_get`, `exp_tail`, and `query_gpus`.
 - **Read-only observability.** `minions-viz/` provides a machine-wide
   MinionsVIZ dashboard without draining role queues or mutating EACN3.
 
@@ -77,8 +82,8 @@ minions/
   lifecycle/                # projects, roles, wakeup, relay, health
   tools/                    # MCP tools and experiment execution
   state/                    # runtime state helpers
-  roles/                    # role SYSTEM.md prompts and skills
-  domains/                  # Expert domain packs
+  roles/                    # shared Role contract, prompts, skills, reviewer assets
+  domains/                  # Expert domain-pack assets
   config/*.yaml.example     # local config templates
 
 minions-viz/                # read-only React/Vite dashboard
@@ -203,6 +208,13 @@ Logs:
 
 Role prompts are stored at `minions/roles/{role}/SYSTEM.md`.
 
+The shared Role contract at `minions/roles/SYSTEM.md` is injected before each
+role-specific prompt. Skills are discovered from `minions/roles/{role}/skills/`
+at wake-up and injected as a `[Skills]` summary block. Reviewer also has
+`personas/` and `templates/` directories; its review rounds write
+`reviewer-<i>.md`, `fresh.md`, `revision_delta.md`, `consolidated.md`, and
+`summaries/round-<n>.md` under `artifacts/reviews/`.
+
 ### MCP Surface
 
 The MinionsOS MCP server exposes lifecycle and execution tools from
@@ -223,6 +235,7 @@ list_roles
 gru_relay
 project_eacn_send_message
 project_eacn_create_task
+gru_inbox_poll
 gru_start_monitor
 ```
 
@@ -230,10 +243,14 @@ Experimenter tools:
 
 ```text
 exp_run
+exp_status
+exp_wait
+exp_kill
+exp_list
 exp_put
 exp_get
 exp_tail
-exp_status
+query_gpus
 ```
 
 EACN3 tools are provided by the EACN3 MCP plugin as `eacn3_*` and are available
@@ -318,6 +335,8 @@ Useful extension points:
 
 - Add a role prompt under `minions/roles/{role}/SYSTEM.md`.
 - Add a role skill under `minions/roles/{role}/skills/{lowercase-hyphen}.md`.
+- Update Reviewer output behavior through `minions/roles/reviewer/skills/`,
+  `templates/`, `personas/`, and reviewer invariant tests together.
 - Add an Expert domain pack under `minions/domains/{lowercase-hyphen}.md`.
 - Add MCP tools under `minions/tools/`, then update whitelists and tests.
 
@@ -371,10 +390,14 @@ proprietary/internal until a license is added.
   `workspace/` 工作。
 - **分层记忆。** Role 上下文来自当前事件、每 Role scratchpad、artifacts、EACN
   历史以及项目 `CLAUDE.md`。
-- **Skill 和领域包发现。** Role 技能放在 `minions/roles/{role}/skills/*.md`；
-  Expert 领域包放在 `minions/domains/*.md`。
-- **实验执行。** Experimenter 可通过 `exp_run`、`exp_put`、`exp_get`、
-  `exp_tail`、`exp_status` 统一管理本地或 SSH 远端任务。
+- **Skill 发现和领域资产。** Role 技能放在 `minions/roles/{role}/skills/*.md`；
+  Expert 领域包资产放在 `minions/domains/*.md`。
+- **结构化评审轮次。** Reviewer 使用 persona、流程 skill 和严格模板，生成 3-5
+  份独立 reviewer 报告、带历史上下文的 revision delta、consolidated
+  meta-review 和滚动 summary。
+- **实验执行。** Experimenter 可通过 `exp_run`、`exp_status`、`exp_wait`、
+  `exp_kill`、`exp_list`、`exp_put`、`exp_get`、`exp_tail`、`query_gpus`
+  统一管理本地或 SSH 远端任务。
 - **只读观察台。** `minions-viz/` 提供机器级单例的 MinionsVIZ 仪表盘，不消耗
   Role 事件队列，也不修改 EACN3。
 
@@ -419,8 +442,8 @@ minions/
   lifecycle/                # 项目、Role、wakeup、relay、health
   tools/                    # MCP 工具和实验执行
   state/                    # 运行状态辅助模块
-  roles/                    # Role SYSTEM.md 和 skills
-  domains/                  # Expert 领域包
+  roles/                    # 共享 Role contract、提示词、skills、Reviewer 资产
+  domains/                  # Expert 领域包资产
   config/*.yaml.example     # 本地配置模板
 
 minions-viz/                # 只读 React/Vite 仪表盘
@@ -539,6 +562,12 @@ Noter 终端只报告 backend、role、task 和 notes 状态，不会消费 EACN
 
 Role 提示词位于 `minions/roles/{role}/SYSTEM.md`。
 
+共享 Role contract 位于 `minions/roles/SYSTEM.md`，会在每个 role-specific
+提示词前注入。Role skills 从 `minions/roles/{role}/skills/` 自动发现，并在唤醒时以
+`[Skills]` 摘要块注入。Reviewer 还包含 `personas/` 和 `templates/`；评审轮次会在
+`artifacts/reviews/` 下写入 `reviewer-<i>.md`、`fresh.md`、`revision_delta.md`、
+`consolidated.md` 和 `summaries/round-<n>.md`。
+
 ### MCP 工具面
 
 MinionsOS MCP server 从 `minions/tools/` 暴露生命周期和执行工具。
@@ -558,6 +587,7 @@ list_roles
 gru_relay
 project_eacn_send_message
 project_eacn_create_task
+gru_inbox_poll
 gru_start_monitor
 ```
 
@@ -565,10 +595,14 @@ Experimenter 可用：
 
 ```text
 exp_run
+exp_status
+exp_wait
+exp_kill
+exp_list
 exp_put
 exp_get
 exp_tail
-exp_status
+query_gpus
 ```
 
 EACN3 MCP 插件提供 `eacn3_*` 工具，只分配给允许访问总线的 role main。
@@ -650,6 +684,8 @@ npm run dev
 
 - 新 Role：添加 `minions/roles/{role}/SYSTEM.md`。
 - 新 Role skill：添加 `minions/roles/{role}/skills/{lowercase-hyphen}.md`。
+- Reviewer 输出行为变更：同时更新 `minions/roles/reviewer/skills/`、
+  `templates/`、`personas/` 和 reviewer invariant 测试。
 - 新 Expert 领域包：添加 `minions/domains/{lowercase-hyphen}.md`。
 - 新 MCP 工具：在 `minions/tools/` 中实现，并更新白名单与测试。
 
