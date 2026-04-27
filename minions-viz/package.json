@@ -1,7 +1,7 @@
 {
   "name": "minions-viz",
   "version": "0.1.0",
-  "description": "MinionsVIZ — read-only Observatory dashboard for MinionsOS V2",
+  "description": "MinionsVIZ — read-only Observatory dashboard for MinionsOS V4",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",

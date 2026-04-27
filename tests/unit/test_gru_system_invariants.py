@@ -1,8 +1,8 @@
 """Pin two Gru-SYSTEM.md invariants so they survive future edits.
 
 1. Gru is explicitly forbidden from hand-rolling EACN3 HTTP calls.
-2. Gru is told to call ``gru_inbox_poll`` on activation / heartbeat to drain
-   the passive-mailbox inbox.
+2. Gru is told to call ``gru_inbox_poll`` on activation / heartbeat to poll
+   its project-local EACN queue through the MinionsOS adapter.
 
 If either disappears, the dead-letter class of bugs we just fixed can quietly
 return (role → Gru messages start being invisible again), so we lock them in.
@@ -32,7 +32,8 @@ class TestGruSystemInvariants:
     def test_documents_inbox_poll_habit(self) -> None:
         t = _text()
         assert "gru_inbox_poll" in t
-        assert "Passive-mailbox inbox" in t
+        assert "project-local EACN queue" in t
+        assert "reliability shim" in t
 
     def test_uses_project_eacn_adapters_not_old_gru_protocol(self) -> None:
         t = _text()

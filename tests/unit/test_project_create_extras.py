@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 
-from minions.lifecycle.project import _render_project_claude_md
+from minions.lifecycle.project import _render_project_agents_md, _render_project_claude_md
 from minions.tools.experiment_ssh import _expand_workdir
 
 
@@ -46,6 +46,13 @@ def test_render_claude_md_with_no_brief_has_todo() -> None:
         template_dir=None,
     )
     assert "TODO" in md
+
+
+def test_render_agents_md_points_to_shared_project_context() -> None:
+    md = _render_project_agents_md("Grokking")
+    assert "# Grokking" in md
+    assert "CLAUDE.md" in md
+    assert "Claude Code and Codex" in md
 
 
 def test_expand_workdir_no_token_passthrough() -> None:

@@ -13,13 +13,18 @@ allow_web_search: true
 # Logging verbosity: debug | info | warning | error
 log_level: info
 
-# Default cron interval for all spawned Roles (allowed: 1m / 3m / 5m).
-# Every Role installs a polling loop that calls eacn3_events_poll on this cadence.
+# Default Python-side scheduler poll interval for Roles (allowed: 1m / 3m / 5m).
+# Roles do not install in-agent polling loops; WakeupScheduler polls for them.
 poll_interval_default: 1m
 
-# Noter periodic report cadence. Noter still wakes immediately for EACN events;
-# this timer gives each project a regular summary even when the bus is quiet.
-noter_report_interval: 30m
+# Noter periodic report cadence. Noter is a local observer: it wakes on this
+# timer, plus explicit EACN direct messages addressed to Noter.
+noter_report_interval: 10m
+
+# Minimum local EACN credit balance to keep available for Gru and registered
+# Role agents. Project-local tasks still default to budget=0; this is a safety
+# margin for explicit nonzero-budget experiments.
+local_eacn_initial_balance: 10000
 
 # Minimum seconds between any two dispatches for the same role.
 role_cooldown_seconds: 30
@@ -28,6 +33,16 @@ role_cooldown_seconds: 30
 # dispatcher posting scratchpad-veto warnings) address Gru. Change only if
 # you have renamed the Gru agent on the EACN bus.
 gru_eacn_agent_id: gru
+
+# Agent host. Claude remains the default and preserves the original
+# MinionsOS behavior. Set to "codex" to launch Gru/Role processes through
+# Codex instead. You can also override per process with MINIONS_AGENT_HOST.
+agent_host: claude
+
+# Optional Codex model. Leave null to use the Codex CLI profile/default.
+codex_model:
+codex_sandbox: workspace-write
+codex_approval_policy: never
 
 # Scratchpad size thresholds, expressed as a fraction of the model context
 # window so they auto-scale as we upgrade to larger-context models.

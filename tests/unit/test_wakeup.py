@@ -19,6 +19,17 @@ class FakeRole:
     name: str
     state: str = "active"
     poll_interval: str = "1m"
+    pid: int | None = None
+
+    def model_copy(self, update: dict[str, Any] | None = None) -> FakeRole:
+        data = {
+            "name": self.name,
+            "state": self.state,
+            "poll_interval": self.poll_interval,
+            "pid": self.pid,
+        }
+        data.update(update or {})
+        return FakeRole(**data)
 
 
 @dataclass
@@ -33,6 +44,15 @@ class FakeStore:
 
     def list_projects(self, filter: str = "active") -> list[FakeProject]:
         return [p for p in self._projects if True]
+
+    def get_project(self, port: int) -> FakeProject | None:
+        return next((p for p in self._projects if p.port == port), None)
+
+    def upsert_role(self, port: int, role: FakeRole) -> None:
+        project = self.get_project(port)
+        if project is None:
+            return
+        project.active_roles = [*(r for r in project.active_roles if r.name != role.name), role]
 
 
 def _run(coro):
@@ -129,6 +149,7 @@ class TestWakeup:
                 FakeRole("noter"),
                 FakeRole("writer", state="sleeping"),
                 FakeRole("coder", state="dismissed"),
+                FakeRole("gru"),
             ],
         )
         store = FakeStore([project])
@@ -141,13 +162,13 @@ class TestWakeup:
         sched = WakeupScheduler(store=store, invoke_fn=lambda *a: None)
         with patch("minions.lifecycle.wakeup.poll_events", side_effect=fake_poll):
             _run(sched.tick_once())
-        # "gru" is polled once per project for the passive-mailbox inbox;
         # active/sleeping roles are polled, dismissed roles are skipped.
+        assert "gru" not in polled
         assert "noter" in polled
         assert "writer" in polled
         assert "coder" not in polled
 
-    def test_public_open_task_scan_wakes_all_roles_without_agent_event(self) -> None:
+    def test_public_open_task_scan_skips_noter_without_agent_event(self) -> None:
         project = FakeProject(
             port=37596,
             active_roles=[FakeRole("noter"), FakeRole("coder")],
@@ -171,16 +192,15 @@ class TestWakeup:
         ):
             count = _run(sched.tick_once())
 
-        assert count == 2
-        assert [call[0] for call in calls] == ["noter", "coder"]
+        assert count == 1
+        assert [call[0] for call in calls] == ["coder"]
         by_role = {role: events[0] for role, events in calls}
         assert by_role["coder"]["id"] == "open-task:t-coding:coder"
         assert by_role["coder"]["task_id"] == "t-coding"
         assert by_role["coder"]["payload"]["matched_by"] == "domain"
-        assert by_role["noter"]["payload"]["matched_by"] == "public_open_task"
         assert by_role["coder"]["payload"]["source"] == "tasks_open_scan"
 
-    def test_public_open_task_wakes_all_roles_even_when_noter_present(self) -> None:
+    def test_public_open_task_wakes_work_roles_even_when_noter_present(self) -> None:
         project = FakeProject(
             port=37596,
             active_roles=[FakeRole("noter"), FakeRole("coder")],
@@ -203,8 +223,44 @@ class TestWakeup:
         ):
             count = _run(sched.tick_once())
 
-        assert count == 2
-        assert calls == ["noter", "coder"]
+        assert count == 1
+        assert calls == ["coder"]
+
+    def test_task_broadcast_does_not_wake_noter(self) -> None:
+        project = FakeProject(port=37596, active_roles=[FakeRole("noter")])
+        store = FakeStore([project])
+        calls: list[str] = []
+
+        def invoke(role: str, port: int, events: list[dict]) -> None:
+            calls.append(role)
+
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        with patch(
+            "minions.lifecycle.wakeup.poll_events",
+            return_value={"events": [{"id": "task-1", "type": "task_broadcast"}]},
+        ):
+            count = _run(sched.tick_once())
+
+        assert count == 0
+        assert calls == []
+
+    def test_direct_message_can_wake_noter(self) -> None:
+        project = FakeProject(port=37596, active_roles=[FakeRole("noter")])
+        store = FakeStore([project])
+        calls: list[str] = []
+
+        def invoke(role: str, port: int, events: list[dict]) -> None:
+            calls.append(role)
+
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        with patch(
+            "minions.lifecycle.wakeup.poll_events",
+            return_value={"events": [{"id": "dm-1", "type": "direct_message"}]},
+        ):
+            count = _run(sched.tick_once())
+
+        assert count == 1
+        assert calls == ["noter"]
 
     def test_invited_open_task_wakes_only_invited_role(self) -> None:
         project = FakeProject(
@@ -262,6 +318,47 @@ class TestWakeup:
         assert count == 1
         assert calls == [["e1"]]
         assert role_inbox.read_events(37596, "noter") == []
+
+    def test_recorded_live_pid_defers_after_scheduler_restart(self) -> None:
+        project = FakeProject(port=37596, active_roles=[FakeRole("coder", pid=12345)])
+        store = FakeStore([project])
+        calls: list[str] = []
+
+        def invoke(role: str, port: int, events: list[dict]) -> None:
+            calls.append(role)
+
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        with (
+            patch("minions.lifecycle.wakeup.poll_events", return_value={"events": [{"id": "e1"}]}),
+            patch("minions.lifecycle.role.is_inflight", return_value=False),
+            patch("minions.lifecycle.wakeup._pid_alive", return_value=True),
+        ):
+            count = _run(sched.tick_once())
+
+        assert count == 0
+        assert calls == []
+        assert role_inbox.read_events(37596, "coder") == [{"id": "e1"}]
+
+    def test_recorded_dead_pid_is_cleared_and_dispatches(self) -> None:
+        project = FakeProject(port=37596, active_roles=[FakeRole("coder", pid=12345)])
+        store = FakeStore([project])
+        calls: list[str] = []
+
+        def invoke(role: str, port: int, events: list[dict]) -> None:
+            calls.append(role)
+
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        with (
+            patch("minions.lifecycle.wakeup.poll_events", return_value={"events": [{"id": "e1"}]}),
+            patch("minions.lifecycle.role.is_inflight", return_value=False),
+            patch("minions.lifecycle.wakeup._pid_alive", return_value=False),
+        ):
+            count = _run(sched.tick_once())
+
+        assert count == 1
+        assert calls == ["coder"]
+        assert store.get_project(37596).active_roles[0].pid is None  # type: ignore[union-attr]
+        assert role_inbox.read_events(37596, "coder") == []
 
     def test_dispatch_failure_leaves_events_buffered(self) -> None:
         project = FakeProject(port=37596, active_roles=[FakeRole("noter")])

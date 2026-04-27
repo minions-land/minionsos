@@ -52,14 +52,6 @@ def has_content(resp: dict[str, Any], expected: dict[str, Any]) -> bool:
     return any(payload.get("content") == expected for payload in event_payloads(resp))
 
 
-def has_task_description(resp: dict[str, Any], expected: str) -> bool:
-    for payload in event_payloads(resp):
-        content = payload.get("content")
-        if isinstance(content, dict) and content.get("description") == expected:
-            return True
-    return False
-
-
 def main() -> int:
     tmp = Path(tempfile.mkdtemp(prefix="minionsos-eacn-smoke-")).resolve()
     print(f"[eacn-smoke] tmp = {tmp}")
@@ -85,6 +77,7 @@ def main() -> int:
     from minions.lifecycle.wakeup import WakeupScheduler
     from minions.paths import MINIONS_ROOT
     from minions.state.store import StateStore
+    from minions.tools.mcp_server import GruInboxPollArgs, gru_inbox_poll
 
     assert root == MINIONS_ROOT, f"MINIONS_ROOT mismatch: {MINIONS_ROOT}"
 
@@ -103,10 +96,11 @@ def main() -> int:
         step("project has eacn server id", bool(meta.get("eacn3_server_id")))
 
         print("[eacn-smoke] register project roles")
+        noter_init_brief = "Observe this fictional project through project-local EACN only."
         noter = register_role(
             port,
             "noter",
-            init_brief="Observe this fictional project through project-local EACN only.",
+            init_brief=noter_init_brief,
             poll_interval="1m",
         )
         coder = register_role(port, "coder", poll_interval="1m")
@@ -134,9 +128,14 @@ def main() -> int:
         print("[eacn-smoke] verify project-local message delivery")
         noter_init = eacn_client.poll_events(port, "noter", timeout_secs=1)
         step(
-            "Gru -> Noter init_brief task delivered through EACN",
-            has_task_description(
-                noter_init, "Observe this fictional project through project-local EACN only."
+            "Gru -> Noter init_brief direct message delivered through EACN",
+            has_content(
+                noter_init,
+                {
+                    "type": "init_brief",
+                    "description": noter_init_brief,
+                    "role": "noter",
+                },
             ),
             f"count={noter_init.get('count')}",
         )
@@ -147,11 +146,11 @@ def main() -> int:
             from_agent_id="coder",
             content={"kind": "status", "text": "Coder reports via project-local EACN."},
         )
-        scheduler = WakeupScheduler(store=StateStore(), invoke_fn=lambda *a, **kw: None)
-        drained = scheduler._drain_gru_inbox(port)
+        polled = gru_inbox_poll(GruInboxPollArgs(port=port))
+        drained = polled["polled"]
         gru_entries = gru_inbox.read_unread(port, max_events=10)
         step(
-            "Coder -> Gru mailbox delivered through EACN",
+            "Coder -> Gru queue delivered through EACN",
             drained >= 1
             and any(
                 entry.get("event", {}).get("payload", {}).get("from") == "coder"

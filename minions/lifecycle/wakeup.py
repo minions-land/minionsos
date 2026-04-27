@@ -2,9 +2,9 @@
 
 Polls the EACN3 events endpoint on behalf of each registered Role at a
 fixed cadence (from `gru.yaml: poll_interval_default` or a per-role
-override). When events arrive, spawns a SHORT-LIVED Claude subprocess
+override). When events arrive, spawns a SHORT-LIVED agent-host subprocess
 for that Role via ``invoke_role_ephemeral``. When no events arrive,
-nothing is spawned — the Role consumes zero Claude context on idle.
+nothing is spawned — the Role consumes zero agent-host context on idle.
 
 Design notes:
 - Duplicate events are deduplicated via an in-memory LRU set keyed by
@@ -27,7 +27,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from minions.config import GruConfig, load_gru_config, parse_duration
-from minions.lifecycle import gru_inbox, role_inbox
+from minions.lifecycle import role_inbox
 from minions.lifecycle.agent_registry import role_agent_domains
 from minions.lifecycle.eacn_client import list_open_tasks, poll_events, send_message
 from minions.paths import project_memory_dir, project_scratchpad
@@ -37,6 +37,8 @@ logger = logging.getLogger(__name__)
 
 _DEDUP_MAX = 2048
 _GENERIC_TASK_DOMAINS = {"minionsos", "project-local"}
+_OPEN_TASK_EXCLUDED_ROLES = {"gru", "noter"}
+_TASK_WAKEUP_TYPES = {"task_broadcast", "adjudication_task"}
 
 
 class WakeupClass(enum.Enum):
@@ -130,7 +132,24 @@ def _interval_seconds(interval: str | None) -> int:
 
 
 def _role_schedulable(role: Any) -> bool:
-    return getattr(role, "state", None) in {"active", "sleeping"}
+    return (
+        getattr(role, "state", None) in {"active", "sleeping"}
+        and getattr(role, "name", None) != "gru"
+    )
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        import os
+
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except Exception:
+        return False
 
 
 def _task_id(task: dict[str, Any]) -> str:
@@ -154,6 +173,27 @@ def _task_invited_agent_ids(task: dict[str, Any]) -> set[str]:
 
 def _role_task_domains(role_name: str) -> set[str]:
     return set(role_agent_domains(role_name)) - _GENERIC_TASK_DOMAINS
+
+
+def _role_receives_open_tasks(role_name: str) -> bool:
+    """Return True if open-task scans should wake this role."""
+    return role_name not in _OPEN_TASK_EXCLUDED_ROLES
+
+
+def _is_task_wakeup_event(event: dict[str, Any]) -> bool:
+    """Return True for EACN task broadcasts or synthetic open-task scan events."""
+    event_type = str(event.get("type") or "")
+    if event_type in _TASK_WAKEUP_TYPES:
+        return True
+    if str(event.get("id") or "").startswith("open-task:"):
+        return True
+    payload = event.get("payload")
+    return isinstance(payload, dict) and payload.get("source") == "tasks_open_scan"
+
+
+def _event_allowed_for_role(role_name: str, event: dict[str, Any]) -> bool:
+    """Filter task-market wakeups away from local observers/supervisors."""
+    return _role_receives_open_tasks(role_name) or not _is_task_wakeup_event(event)
 
 
 def _task_match_reason(task: dict[str, Any], role_name: str) -> str | None:
@@ -390,18 +430,15 @@ class WakeupScheduler:
         triggered = 0
         projects = self._store.list_projects(filter="active")
         for project in projects:
-            try:
-                await asyncio.to_thread(self._drain_gru_inbox, project.port)
-            except Exception as exc:
-                logger.debug("gru inbox drain failed port=%d: %s", project.port, exc)
-
             roles = [role for role in project.active_roles if _role_schedulable(role)]
             open_task_events = await self._open_task_events_for_roles(project.port, roles, now)
 
             for role in roles:
                 key = (project.port, role.name)
                 buffered = await asyncio.to_thread(role_inbox.read_events, project.port, role.name)
-                events = list(buffered)
+                events = [e for e in buffered if _event_allowed_for_role(role.name, e)]
+                if len(events) != len(buffered):
+                    role_inbox.replace_events(project.port, role.name, events)
                 event_ids = {_event_id(e) for e in events}
                 known_task_ids = {_event_task_id(e) for e in events if _event_task_id(e)}
 
@@ -411,6 +448,8 @@ class WakeupScheduler:
                     self._last_poll_ts[key] = now
                     polled = await asyncio.to_thread(self._safe_poll, project.port, role.name)
                     for event in polled:
+                        if not _event_allowed_for_role(role.name, event):
+                            continue
                         event_id = _event_id(event)
                         if event_id in event_ids:
                             continue
@@ -514,6 +553,19 @@ class WakeupScheduler:
         except Exception as exc:
             logger.debug("is_inflight check failed: %s", exc)
 
+        recorded_pid = self._recorded_live_pid(port, role_name)
+        if recorded_pid is not None:
+            logger.info(
+                "Wakeup: role=%s port=%d has live recorded PID %d; "
+                "deferring %d event(s) to next tick.",
+                role_name,
+                port,
+                recorded_pid,
+                len(events),
+            )
+            self._buffer_role_events(port, role_name, events)
+            return "deferred"
+
         if not self._is_cooled_down(key):
             logger.info(
                 "Wakeup: role=%s port=%d cooldown active; deferring %d event(s) to next tick.",
@@ -574,6 +626,33 @@ class WakeupScheduler:
         for event in events:
             self._dedup.forget(port, role_name, _event_id(event))
 
+    def _recorded_live_pid(self, port: int, role_name: str) -> int | None:
+        """Return a live persisted role PID, clearing stale PIDs opportunistically."""
+        try:
+            project = self._store.get_project(port)
+        except Exception as exc:
+            logger.debug("recorded pid check failed port=%d role=%s: %s", port, role_name, exc)
+            return None
+        if project is None:
+            return None
+        role = next((r for r in project.active_roles if r.name == role_name), None)
+        pid = getattr(role, "pid", None) if role is not None else None
+        if not pid:
+            return None
+        if _pid_alive(int(pid)):
+            return int(pid)
+        try:
+            self._store.upsert_role(port, role.model_copy(update={"pid": None}))
+        except Exception as exc:
+            logger.debug(
+                "recorded pid clear failed port=%d role=%s pid=%s: %s",
+                port,
+                role_name,
+                pid,
+                exc,
+            )
+        return None
+
     async def _open_task_events_for_roles(
         self,
         port: int,
@@ -591,8 +670,10 @@ class WakeupScheduler:
         if not tasks:
             return {}
 
-        by_role: dict[str, list[dict[str, Any]]] = {role.name: [] for role in roles}
-        role_names = [role.name for role in roles]
+        role_names = [role.name for role in roles if _role_receives_open_tasks(role.name)]
+        by_role: dict[str, list[dict[str, Any]]] = {role_name: [] for role_name in role_names}
+        if not role_names:
+            return {}
         for task in tasks:
             task_id = _task_id(task)
             if not task_id:
@@ -634,37 +715,6 @@ class WakeupScheduler:
         except Exception as exc:
             logger.debug("list_open_tasks failed port=%d: %s", port, exc)
             return []
-
-    def _drain_gru_inbox(self, port: int) -> int:
-        """Poll the project's ``gru`` agent and append new events to the on-disk inbox.
-
-        Deduplicates via the same LRU as role events (keyed by agent ``"gru"``).
-        Rate-limited per-project by ``_default_interval`` so we don't hammer
-        the backend. Returns number of events appended.
-        """
-        import time as _t
-
-        try:
-            gru_id = load_gru_config().gru_eacn_agent_id
-        except Exception:
-            gru_id = "gru"
-        key = (port, f"__inbox__{gru_id}")
-        now = _t.monotonic()
-        last = self._last_poll_ts.get(key)
-        interval = _interval_seconds(self._default_interval or "1m")
-        if last is not None and now - last < interval:
-            return 0
-        self._last_poll_ts[key] = now
-
-        events = self._safe_poll(port, gru_id)
-        if not events:
-            return 0
-        new_events = [e for e in events if self._dedup.is_new(port, gru_id, _event_id(e))]
-        if not new_events:
-            return 0
-        n = gru_inbox.append_events(port, new_events)
-        logger.info("gru inbox: appended %d event(s) port=%d", n, port)
-        return n
 
     async def _dispatch(
         self,

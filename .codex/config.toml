@@ -1,0 +1,9 @@
+[mcp_servers.minionsos]
+command = "uv"
+args = ["run", "--project", ".", "python", "-m", "minions.tools.mcp_server"]
+enabled = true
+
+[mcp_servers.eacn3]
+command = "node"
+args = ["EACN3/plugin/dist/server.js"]
+enabled = true

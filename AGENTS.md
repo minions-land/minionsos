@@ -1,4 +1,4 @@
-# Repository Guidelines
+# MinionsOS V4 Repository Guidelines
 
 ## Project Structure & Module Organization
 
@@ -12,6 +12,7 @@ MinionsOS is a Python 3.11 package with a companion Vite/React dashboard. Core P
 - `uv sync` installs Python dependencies from `pyproject.toml` and `uv.lock`.
 - `uv run pytest tests/unit -q` runs the unit suite used by CI.
 - `MINIONS_FAKE_CLAUDE=1 uv run pytest tests/smoke/` runs smoke coverage without a live Claude CLI.
+- `MINIONS_AGENT_HOST=codex ./gru` launches the same MinionsOS control plane through Codex when `.codex/config.toml` is present.
 - `uv run ruff check .` and `uv run ruff format --check .` verify linting and formatting.
 - `cd minions-viz && npm install && npm run build` builds the dashboard; `npm run dev` starts live reload.
 
@@ -23,7 +24,7 @@ Role prompts and skills are markdown but still part of the runtime surface. Keep
 
 ## Testing Guidelines
 
-Place fast behavior tests in `tests/unit/` and end-to-end/manual wiring checks in `tests/smoke/`. Use `MINIONS_FAKE_CLAUDE=1` when tests exercise Claude subprocess orchestration. Add focused tests for new lifecycle, state, role, tool, role prompt, reviewer template, or skill-discovery behavior. Keep runtime state isolated; do not rely on existing `minions/state/projects.json` contents.
+Place fast behavior tests in `tests/unit/` and end-to-end/manual wiring checks in `tests/smoke/`. Use `MINIONS_FAKE_CLAUDE=1` when tests exercise Claude subprocess orchestration; use fake Codex launcher patterns when testing `agent_host: codex`. Add focused tests for new lifecycle, state, role, tool, role prompt, reviewer template, agent-host, MCP authorization, or skill-discovery behavior. Keep runtime state isolated; do not rely on existing `minions/state/projects.json` contents.
 
 ## Commit & Pull Request Guidelines
 

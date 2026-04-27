@@ -1,10 +1,10 @@
-# MinionsOS_V3 Repair Roadmap Design
+# MinionsOS_V4 Repair Roadmap Design
 
 Date: 2026-04-26
 
 ## Purpose
 
-MinionsOS_V3 should not be built by mechanically clearing every item in the issue checklist. It should first establish a stable, verifiable, and extensible operating skeleton, then layer research workflow, review, camera-ready, visualization, hooks, MCP, and higher-level skills on top.
+MinionsOS_V4 should not be built by mechanically clearing every item in the issue checklist. It should first establish a stable, verifiable, and extensible operating skeleton, then layer research workflow, review, camera-ready, visualization, hooks, MCP, and higher-level skills on top.
 
 The recommended priority is:
 
@@ -19,7 +19,7 @@ The main strategy is dual-track: fix local blockers while freezing the global co
 
 ## Phase 0: Stable Startup Baseline
 
-Goal: prove that MinionsOS_V3 has a minimal stable system.
+Goal: prove that MinionsOS_V4 has a minimal stable system.
 
 The baseline acceptance path is:
 
@@ -73,7 +73,7 @@ Phase 0 is complete when a new user can run the four baseline commands and eithe
 
 ## Phase 1: Local EACN3 Network and State Contracts
 
-Goal: make MinionsOS_V3 a local EACN3-based multi-agent operating system, not a loose collection of Claude processes.
+Goal: make MinionsOS_V4 a local EACN3-based multi-agent operating system, not a loose collection of Claude processes.
 
 ### Network contract
 
@@ -152,7 +152,7 @@ Phase 2 is complete when a project can remain always receptive to EACN messages 
 
 ## Phase 3: Human-Side Agents and Role Boundaries
 
-Goal: freeze the conceptual and operational boundaries of MinionsOS_V3 roles.
+Goal: freeze the conceptual and operational boundaries of MinionsOS_V4 roles.
 
 ### Gru
 
@@ -230,7 +230,7 @@ Phase 3 is complete when role prompts, tool whitelists, lifecycle code, and test
 
 Goal: support research emergence while enforcing common-sense gates around submission, review, and final handoff.
 
-MinionsOS_V3 should not impose a fixed global linear workflow on every project. Research can move forward, backward, or sideways across phases. The system should provide workflow suggestions, not a rigid project phase machine.
+MinionsOS_V4 should not impose a fixed global linear workflow on every project. Research can move forward, backward, or sideways across phases. The system should provide workflow suggestions, not a rigid project phase machine.
 
 The system should still enforce key constraints:
 

@@ -36,8 +36,8 @@ should not duplicate the role's whole SYSTEM prompt.
 
 ## Pitfalls
 
-- Copying Claude plugin text directly instead of translating it to MinionsOS role
-  authority.
+- Copying agent-host plugin text directly instead of translating it to MinionsOS
+  role authority.
 - Creating broad "be better at X" advice with no trigger or output habit.
 - Adding skills for rare one-off tasks.
 - Forgetting that subagents do not automatically inherit role skills.

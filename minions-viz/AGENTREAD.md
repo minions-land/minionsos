@@ -1,9 +1,9 @@
 # AGENTREAD — MinionsOS Project Observatory (for AI agents)
 
 This document explains how `minions-viz/` is wired. It is the observatory for
-**MinionsOS V2** and is a **machine-wide singleton**: every Gru installation
+**MinionsOS V4** and is a **machine-wide singleton**: every Gru installation
 on the host shares one viz process reachable at one URL. Read
-`/Users/mjm/MinionsOS_V2/CLAUDE.md` first for the system-level constitution.
+`/Users/mjm/MinionsOS_V4/CLAUDE.md` first for the system-level constitution.
 This viz is a pure read-only observer; it is not an EACN agent and holds no
 EACN credentials.
 
@@ -55,9 +55,9 @@ Created by `./install.sh` with mode 0700.
     {
       "id": "<sha1(root_path) first 12 hex chars>",
       "label": "<human name; defaults to basename(dirname(root_path))>",
-      "root_path": "/abs/path/to/MinionsOS_V2",
-      "state_dir":  "/abs/path/to/MinionsOS_V2/minions/state",
-      "parent_repo": "/abs/path/to/MinionsOS_V2/.. (project_{port} container)",
+      "root_path": "/abs/path/to/MinionsOS_V4",
+      "state_dir":  "/abs/path/to/MinionsOS_V4/minions/state",
+      "parent_repo": "/abs/path/to/MinionsOS_V4/.. (project_{port} container)",
       "registered_at": "<iso>",
       "last_seen":     "<iso>"
     }
@@ -178,7 +178,7 @@ observatory only calls GET, idempotent endpoints (`/health`, `/api/tasks`,
 ## 11. Minimal run
 
 ```bash
-# From any MinionsOS_V2 checkout:
+# From any MinionsOS_V4 checkout:
 ./viz ensure         # register this Gru + start viz (no-op if running)
 ./viz status         # PID / port / URL
 ./viz open           # open in browser

@@ -49,35 +49,53 @@ Gru has broad filesystem capability because it operates the system, but its defa
 - Use EACN delegation for role-owned work: Coder changes code, Experimenter runs experiments, Writer edits paper text, Reviewer writes reviews, Ethics writes audit reports, Noter writes notes.
 - Only edit role-owned or workspace files directly when the author explicitly asks for system-maintenance intervention, the owning role is unavailable, or a small metadata repair is required to keep MinionsOS operating. Record why you bypassed the normal role path.
 
-## EACN-only communication / Passive-mailbox inbox
+## EACN-only communication / Gru event queue
 
 All communication between Roles, Gru, and projects must travel through EACN networks. There are no private role-to-role or role-to-Gru side channels.
 
 - Within one project, use the project's Local EACN: tasks, bids, broadcasts, and EACN direct messages.
-- Role -> Gru messages go to the project's Local EACN `gru` mailbox agent.
+- Role -> Gru messages go to the project's Local EACN `gru` queue agent.
 - Gru main does not use raw `eacn3_*` tools directly. Because Gru spans projects, it uses the generic project EACN adapters below, which resolve the target project's Local EACN before sending.
 - Gru -> Role messages use `project_eacn_send_message`; this sends a generic EACN direct message to the target project's Local EACN.
 - Gru-created project tasks use `project_eacn_create_task`; this publishes a generic EACN task on the target project's Local EACN. Use `budget=0` unless the author explicitly says otherwise.
 - Cross-project communication uses `gru_relay`; this bridges information from one EACN network into another while preserving source attribution.
 - Scratchpads, files, logs, and the human conversation are not communication channels. They may store context or artifacts, but if another Role needs to know or act, send an EACN message or task.
 
-Each project's EACN bus has a `gru` passive-mailbox agent registered at `project_create` time. The Python-side `WakeupScheduler` polls each project's `gru` inbox on the default poll cadence and appends new events to `project_{port}/logs/gru_inbox.jsonl` with a monotonic `seq`. Gru has no long-running listener; consume the inbox pull-style via `gru_inbox_poll`.
+Each project's EACN bus has a `gru` agent registered at `project_create` time.
+Gru is responsible for polling that project-local EACN queue when it is online.
+EACN3's HTTP event endpoint is drain-on-read and has no usable message-level
+ack/claim in this version, so the `gru_inbox_poll` adapter keeps a private
+pending journal until you mark returned entries handled. Treat EACN3 as the
+only communication source; the journal is only a reliability shim, not a second
+mail system.
 
 At the start of each activation and before heartbeat reporting:
 1. Start or verify `gru_start_monitor`.
-2. Call `gru_inbox_poll()` (no args -> drains every active project).
-3. Triage returned entries: author-visible -> surface per the Proactive push cadence; short project-local reply -> use `project_eacn_send_message`; bounded work item -> use `project_eacn_create_task`; cross-project need -> use `gru_relay`; FYI only -> leave it for Noter-visible record or acknowledge briefly if useful.
-4. The cursor auto-advances; do not re-poll on the same event.
+2. Call `gru_inbox_poll(mark_read=false)` (no port -> all active projects).
+3. Triage returned entries: author-visible -> surface per the Proactive push cadence; short project-local reply -> use `project_eacn_send_message`; bounded work item -> use `project_eacn_create_task`; cross-project need -> use `gru_relay`; FYI only -> acknowledge briefly only when useful.
+4. After you have replied or intentionally handled the returned entries, call
+   `gru_inbox_poll(mark_read=true)` to mark those pending entries handled.
 
-If `gru_inbox_poll` returns nothing on a heartbeat, treat it as a genuine quiet tick. Do not fall back to hand-reading the jsonl file or hand-calling EACN HTTP endpoints.
+If `gru_inbox_poll(mark_read=false)` returns nothing on a heartbeat, treat it
+as a genuine quiet tick. Do not fall back to hand-reading the jsonl file or
+hand-calling EACN HTTP endpoints.
+
+When a Role sends Gru a direct EACN message that asks for action, reply on the
+same project's Local EACN. Relay requests must get a confirmation after
+`gru_relay`; blocker/risk reports must get either an action summary or a clear
+reason for no action.
 
 If `./mos doctor` reports `gru-agent[<port>] missing` for any active project, run `./mos project repair <port>` — that project's role -> Gru messages are being dropped until repair.
 
 ## Collaboration rules
 
 - **Local EACN first.** Within a project, the Local EACN network is the normal collaboration layer. Roles may publish tasks, bid on public tasks, send direct messages, ask for experiments, request code changes, request evidence, and debate hypotheses without Gru approval.
+- Public/open tasks wake EACN-visible work Roles, not Gru or Noter. Gru reviews
+  stalled open tasks only after a patient waiting period and should first ask
+  whether the task still fits the current project phase before closing or
+  converting it into a targeted task.
 - Gru uses `project_eacn_create_task` and `project_eacn_send_message` for cold starts, author instructions, stalled work, cross-role coordination gaps, risk/deadline escalation, and concise clarifications. Do not make Gru the mandatory router for ordinary role-to-role work.
-- **EACN3 is the only inter-role bus.** Every project agent, including Noter and this project's `gru` mailbox projection, is registered on the project's Local EACN3 network. All messages between roles within a project travel through that network. Do not treat project state hidden in Gru's conversation as a substitute for an EACN message when a Role needs to know or act.
+- **EACN3 is the only inter-role bus.** Every project agent, including Noter and this project's `gru` queue agent, is registered on the project's Local EACN3 network. All messages between roles within a project travel through that network. Do not treat project state hidden in Gru's conversation as a substitute for an EACN message when a Role needs to know or act.
 - **Cross-project communication is Gru-only**, via `gru_relay(from_port, to_port, content, mode)`. No Role may contact another project's Local EACN directly.
 - Relay cross-project information selectively. Preserve source attribution and enough context for the target project to judge relevance, but do not dump raw internal discussion unless the source role, author, or project safety requires it.
 - When a Role asks Gru to relay something, do it promptly, then confirm back on the source project's Local EACN.

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# minions/bin/gru — MinionsOS V2 launcher.
+# minions/bin/gru — MinionsOS V4 launcher.
 # Symlinked as ./gru, ./minionsos, ./mos at the repo root.
 #
 # Usage:
-#   ./gru                          Launch Gru Claude session (interactive)
+#   ./gru                          Launch Gru agent-host session (interactive)
 #   ./gru --daemon                 Launch Gru in background (nohup)
 #   ./gru attach                   Show how to follow Gru logs
-#   ./gru --resume                 Pass --resume through to claude
+#   ./gru --resume                 Pass --resume through to Claude host
 #   ./gru status|logs|doctor|noter|...   Dispatch to `mos` CLI
 set -euo pipefail
 
@@ -44,7 +44,9 @@ is_subcommand() {
 STATE_DIR="$ROOT/minions/state"
 mkdir -p "$STATE_DIR"
 PID_FILE="$STATE_DIR/gru.pid"
+MONITOR_PID_FILE="$STATE_DIR/gru-monitor.pid"
 LOG_FILE="$STATE_DIR/logs/gru.log"
+MONITOR_LOG_FILE="$STATE_DIR/logs/gru-monitor.log"
 mkdir -p "$STATE_DIR/logs"
 
 # ── Dependency checks ─────────────────────────────────────────────────────────
@@ -52,8 +54,21 @@ if ! command -v uv &>/dev/null; then
     die "uv not found. Run ./install.sh first."
 fi
 
-if ! command -v claude &>/dev/null && ! uv run --project "$ROOT" claude --version &>/dev/null 2>&1; then
-    warn "claude CLI not found on PATH; will attempt via 'uv run claude'."
+if [ -z "${MINIONS_AGENT_HOST:-}" ]; then
+    MINIONS_AGENT_HOST="$(uv run --project "$ROOT" python -c 'from minions.config import load_gru_config; print(load_gru_config().effective_agent_host())' 2>/dev/null || echo claude)"
+fi
+MINIONS_AGENT_HOST="$(printf '%s' "$MINIONS_AGENT_HOST" | tr '[:upper:]' '[:lower:]')"
+export MINIONS_AGENT_HOST
+
+if [ "$MINIONS_AGENT_HOST" = "codex" ]; then
+    if ! command -v codex &>/dev/null; then
+        warn "codex CLI not found on PATH; Codex Gru launch will fail unless codex is available."
+    fi
+else
+    MINIONS_AGENT_HOST="claude"
+    if ! command -v claude &>/dev/null && ! uv run --project "$ROOT" claude --version &>/dev/null 2>&1; then
+        warn "claude CLI not found on PATH; will attempt via 'uv run claude'."
+    fi
 fi
 
 # ── Parse args ────────────────────────────────────────────────────────────────
@@ -98,7 +113,7 @@ if [ ${#PASSTHROUGH_ARGS[@]} -gt 0 ] && is_subcommand "${PASSTHROUGH_ARGS[0]}"; 
     exec uv run --project "$ROOT" mos "${PASSTHROUGH_ARGS[@]}"
 fi
 
-# ── Launch Gru Claude session ─────────────────────────────────────────────────
+# ── Launch Gru agent session ──────────────────────────────────────────────────
 SYSTEM_PROMPT="$ROOT/minions/roles/gru/SYSTEM.md"
 MCP_CONFIG="$ROOT/.mcp.json"
 
@@ -117,35 +132,92 @@ else
 fi
 
 # Author's required Gru invocation defaults. Override with env:
-#   GRU_MODEL=...        (default: claude-opus-4-7)
+#   MINIONS_AGENT_HOST=claude|codex  (default: gru.yaml, then claude)
+#   GRU_MODEL=...        (Claude default: claude-opus-4-7; Codex default: CLI profile)
 #   GRU_EFFORT=...       (default: max)
 #   GRU_SANDBOX=0        (unset IS_SANDBOX; default: 1)
 #   GRU_SKIP_PERMS=0     (omit --dangerously-skip-permissions; default: 1)
+#   CODEX_SANDBOX=...    (default: workspace-write)
+#   CODEX_APPROVAL_POLICY=... (default: on-request for interactive Gru)
 #   GRU_VIZ=0            (disable Observatory auto-start; default: 1)
 #   GRU_VIZ_OPEN=0       (do not open browser on interactive launch; default: 1)
 #   MINIONS_VIZ_PORT=N   (override default Observatory port 7891)
-: "${GRU_MODEL:=claude-opus-4-7}"
+#   MINIONS_GRU_MONITOR=0 (disable Python monitor/WakeupScheduler sidecar)
 : "${GRU_EFFORT:=max}"
 : "${GRU_SANDBOX:=1}"
 : "${GRU_SKIP_PERMS:=1}"
 
-GRU_FLAGS=(--model "$GRU_MODEL" --effort "$GRU_EFFORT")
-if [ "$GRU_SKIP_PERMS" = "1" ]; then
-    GRU_FLAGS+=(--dangerously-skip-permissions)
-fi
 if [ "$GRU_SANDBOX" = "1" ]; then
     export IS_SANDBOX=1
 fi
 
-CLAUDE_CMD=(
-    uv run --project "$ROOT"
-    claude
-    "${GRU_FLAGS[@]}"
-    "${SYSTEM_PROMPT_ARGS[@]+"${SYSTEM_PROMPT_ARGS[@]}"}"
-    "${MCP_ARGS[@]+"${MCP_ARGS[@]}"}"
-    "${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"}"
-    "${PASSTHROUGH_ARGS[@]+"${PASSTHROUGH_ARGS[@]}"}"
-)
+if [ "$MINIONS_AGENT_HOST" = "codex" ]; then
+    CODEX_FLAGS=(--cd "$ROOT" --sandbox "${CODEX_SANDBOX:-workspace-write}" --ask-for-approval "${CODEX_APPROVAL_POLICY:-on-request}")
+    if [ -n "${GRU_MODEL:-}" ]; then
+        CODEX_FLAGS+=(--model "$GRU_MODEL")
+    fi
+    if [ ${#RESUME_ARGS[@]} -gt 0 ]; then
+        warn "--resume is Claude-specific in this launcher; ignoring it for Codex."
+    fi
+    CODEX_PROMPT="You are Gru, the MinionsOS human-facing supervisor. Before acting, read and follow $SYSTEM_PROMPT. Start or verify the Gru monitor with gru_start_monitor, then poll Gru inboxes and help the author through MinionsOS MCP tools. Use project-scoped adapters for EACN communication."
+    if [ ${#PASSTHROUGH_ARGS[@]} -gt 0 ]; then
+        CODEX_PROMPT="$CODEX_PROMPT
+
+Initial user request: ${PASSTHROUGH_ARGS[*]}"
+    fi
+    AGENT_CMD=(
+        codex
+        "${CODEX_FLAGS[@]}"
+        "$CODEX_PROMPT"
+    )
+else
+    : "${GRU_MODEL:=claude-opus-4-7}"
+    GRU_FLAGS=(--model "$GRU_MODEL" --effort "$GRU_EFFORT")
+    if [ "$GRU_SKIP_PERMS" = "1" ]; then
+        GRU_FLAGS+=(--dangerously-skip-permissions)
+    fi
+    AGENT_CMD=(
+        uv run --project "$ROOT"
+        claude
+        "${GRU_FLAGS[@]}"
+        "${SYSTEM_PROMPT_ARGS[@]+"${SYSTEM_PROMPT_ARGS[@]}"}"
+        "${MCP_ARGS[@]+"${MCP_ARGS[@]}"}"
+        "${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"}"
+        "${PASSTHROUGH_ARGS[@]+"${PASSTHROUGH_ARGS[@]}"}"
+    )
+fi
+
+# ── Auto-start Gru monitor + WakeupScheduler sidecar ────────────────────────
+ensure_gru_monitor() {
+    if [ "${MINIONS_GRU_MONITOR:-1}" = "0" ]; then
+        return 0
+    fi
+    if [ -f "$MONITOR_PID_FILE" ]; then
+        local existing_pid
+        existing_pid="$(cat "$MONITOR_PID_FILE" 2>/dev/null || echo "")"
+        if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
+            return 0
+        fi
+        rm -f "$MONITOR_PID_FILE"
+    fi
+
+    info "Starting Gru monitor/WakeupScheduler sidecar..."
+    if command -v setsid >/dev/null 2>&1; then
+        nohup setsid uv run --project "$ROOT" python -m minions.gru.loop \
+            >> "$MONITOR_LOG_FILE" 2>&1 &
+    elif command -v python3 >/dev/null 2>&1; then
+        nohup python3 -c 'import os,sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' \
+            uv run --project "$ROOT" python -m minions.gru.loop \
+            >> "$MONITOR_LOG_FILE" 2>&1 &
+    else
+        nohup uv run --project "$ROOT" python -m minions.gru.loop \
+            >> "$MONITOR_LOG_FILE" 2>&1 &
+    fi
+    echo "$!" > "$MONITOR_PID_FILE"
+    info "Gru monitor log: $MONITOR_LOG_FILE"
+}
+
+ensure_gru_monitor
 
 # ── Auto-start MinionsOS Observatory (viz, machine singleton) ────────────────
 if [ "${GRU_VIZ:-1}" != "0" ] && [ -x "$ROOT/minions/bin/viz" ]; then
@@ -175,12 +247,12 @@ if [ "$DAEMON" -eq 1 ]; then
     # Detach into a new process group so logs/signals are isolated.
     # macOS lacks setsid(1); fall back to a python os.setsid() shim.
     if command -v setsid >/dev/null 2>&1; then
-        nohup setsid "${CLAUDE_CMD[@]}" >> "$LOG_FILE" 2>&1 &
+        nohup setsid "${AGENT_CMD[@]}" >> "$LOG_FILE" 2>&1 &
     elif command -v python3 >/dev/null 2>&1; then
         nohup python3 -c 'import os,sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' \
-            "${CLAUDE_CMD[@]}" >> "$LOG_FILE" 2>&1 &
+            "${AGENT_CMD[@]}" >> "$LOG_FILE" 2>&1 &
     else
-        nohup "${CLAUDE_CMD[@]}" >> "$LOG_FILE" 2>&1 &
+        nohup "${AGENT_CMD[@]}" >> "$LOG_FILE" 2>&1 &
     fi
     BGPID=$!
     echo "$BGPID" > "$PID_FILE"
@@ -189,5 +261,5 @@ if [ "$DAEMON" -eq 1 ]; then
     ok "Attach with:  $0 attach"
     ok "Follow logs:  tail -f $LOG_FILE"
 else
-    exec "${CLAUDE_CMD[@]}"
+    exec "${AGENT_CMD[@]}"
 fi

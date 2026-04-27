@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -59,22 +60,41 @@ class TestRegister:
         assert store.upserts[0].eacn_agent_id == "noter"
         assert store.upserts[0].eacn_agent_token == "tok"
 
-    def test_register_with_init_brief_invokes_once(self) -> None:
+    def test_register_work_role_with_init_brief_creates_zero_budget_task(self) -> None:
         store = FakeStore()
         with (
             patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
             patch("minions.lifecycle.eacn_client.create_task", return_value={}) as create_task,
         ):
             role_mod.register_role(
-                37596, "noter", init_brief="hello world", store=store, poll_interval="1m"
+                37596, "coder", init_brief="hello world", store=store, poll_interval="1m"
             )
         assert create_task.call_count == 1
         kwargs = create_task.call_args.kwargs
         assert kwargs["port"] == 37596
         assert kwargs["initiator_id"] == "gru"
-        assert kwargs["invited_agent_ids"] == ["noter"]
+        assert kwargs["invited_agent_ids"] == ["coder"]
         assert kwargs["budget"] == 0.0
         assert kwargs["description"] == "hello world"
+
+    def test_register_noter_with_init_brief_sends_direct_message_not_task(self) -> None:
+        store = FakeStore()
+        with (
+            patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
+            patch("minions.lifecycle.eacn_client.create_task", return_value={}) as create_task,
+            patch("minions.lifecycle.eacn_client.send_message", return_value={}) as send_message,
+        ):
+            role_mod.register_role(
+                37596, "noter", init_brief="observe quietly", store=store, poll_interval="1m"
+            )
+        assert create_task.call_count == 0
+        send_message.assert_called_once()
+        kwargs = send_message.call_args.kwargs
+        assert kwargs["port"] == 37596
+        assert kwargs["from_agent_id"] == "gru"
+        assert kwargs["to_agent_id"] == "noter"
+        assert kwargs["content"]["type"] == "init_brief"
+        assert kwargs["content"]["description"] == "observe quietly"
 
     def test_register_rejects_duplicate_active(self) -> None:
         store = FakeStore()
@@ -145,3 +165,30 @@ class TestInvokeEphemeral:
         # And the message was actually written to the subprocess stdin.
         fake_proc.stdin.write.assert_called()
         fake_proc.stdin.close.assert_called()
+
+    def test_invoke_can_launch_codex_subprocess(self, tmp_path: Path) -> None:
+        fake_proc = MagicMock()
+        fake_proc.pid = 4322
+        with (
+            patch.dict(os.environ, {"MINIONS_AGENT_HOST": "codex"}, clear=False),
+            patch("minions.lifecycle.role.subprocess.Popen", return_value=fake_proc) as popen,
+            patch("minions.lifecycle.role.project_workspace", return_value=tmp_path),
+            patch(
+                "minions.lifecycle.role.project_role_log", return_value=tmp_path / "role-noter.log"
+            ),
+            patch("minions.lifecycle.agent_host.project_dir", return_value=tmp_path),
+        ):
+            out = role_mod.invoke_role_ephemeral("noter", 37596, [{"id": "e1", "content": "hi"}])
+        assert out["name"] == "noter"
+        assert out["pid"] == 4322
+        cmd = popen.call_args[0][0]
+        assert cmd[:2] == ["codex", "exec"]
+        assert cmd[-1] == "-"
+        assert "--cd" in cmd
+        assert "--add-dir" in cmd
+        assert "--append-system-prompt" not in cmd
+        assert "--allowed-tools" not in cmd
+        stdin_payload = fake_proc.stdin.write.call_args[0][0].decode("utf-8")
+        assert "MinionsOS Codex Role Invocation" in stdin_payload
+        assert "Event Batch" in stdin_payload
+        assert "e1" in stdin_payload

@@ -1,4 +1,4 @@
-"""Configuration models and loaders for MinionsOS V2.
+"""Configuration models and loaders for MinionsOS V4.
 
 Two config files are supported:
 
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import enum
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Literal
@@ -33,6 +34,21 @@ _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 _DURATION_RE = re.compile(r"^\s*(\d+)\s*([smhd]?)\s*$", re.IGNORECASE)
 _DURATION_UNITS = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}
+_WRITER_PAPER_SEARCH_TOOLS = [
+    "search_arxiv",
+    "search_pubmed",
+    "search_biorxiv",
+    "search_medrxiv",
+    "search_google_scholar",
+    "download_arxiv",
+    "download_pubmed",
+    "download_biorxiv",
+    "download_medrxiv",
+    "read_arxiv_paper",
+    "read_pubmed_paper",
+    "read_biorxiv_paper",
+    "read_medrxiv_paper",
+]
 
 
 def parse_duration(value: str | int) -> int:
@@ -72,7 +88,7 @@ def slugify(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 # Maps (role_name, agent_type) → list of allowed tool prefixes / names.
-# "main" = the top-level Claude process; "subagent" = spawned sub-processes.
+# "main" = the top-level role agent-host process; "subagent" = spawned sub-processes.
 _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("gru", "main"): [
         "gru_relay",
@@ -148,6 +164,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("writer", "main"): [
         "eacn3_*",
+        *_WRITER_PAPER_SEARCH_TOOLS,
         "Task",
         "WebSearch",
         "WebFetch",
@@ -156,7 +173,15 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Write",
         "Edit",
     ],
-    ("writer", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
+    ("writer", "subagent"): [
+        *_WRITER_PAPER_SEARCH_TOOLS,
+        "WebSearch",
+        "WebFetch",
+        "Bash",
+        "Read",
+        "Write",
+        "Edit",
+    ],
     ("expert", "main"): [
         "eacn3_*",
         "Task",
@@ -289,8 +314,15 @@ class GruConfig(BaseModel):
         description="Minimum seconds between dispatches for the same role (any wakeup class).",
     )
     noter_report_interval: str = Field(
-        default="30m",
+        default="10m",
         description="Default time-trigger cadence for Noter periodic project summaries.",
+    )
+    local_eacn_initial_balance: float = Field(
+        default=10_000.0,
+        description=(
+            "Minimum local EACN credit balance ensured for Gru and registered project roles. "
+            "MinionsOS still defaults project-local tasks to budget=0."
+        ),
     )
     gru_eacn_agent_id: str = Field(
         default="gru",
@@ -303,6 +335,22 @@ class GruConfig(BaseModel):
         default="claude-sonnet-4-6",
         description="Claude model name passed to the claude CLI (e.g. claude-sonnet-4-6).",
     )
+    agent_host: Literal["claude", "codex"] = Field(
+        default="claude",
+        description="Default agent host for Gru and role wakeups: claude or codex.",
+    )
+    codex_model: str | None = Field(
+        default=None,
+        description="Optional Codex model name. When unset, Codex CLI config/default is used.",
+    )
+    codex_sandbox: Literal["read-only", "workspace-write", "danger-full-access"] = Field(
+        default="workspace-write",
+        description="Codex sandbox mode for role wakeups.",
+    )
+    codex_approval_policy: Literal["untrusted", "on-request", "never"] = Field(
+        default="never",
+        description="Codex approval policy for non-interactive role wakeups.",
+    )
 
     _KNOWN_MODELS: frozenset[str] = frozenset(
         {
@@ -313,11 +361,27 @@ class GruConfig(BaseModel):
     )
 
     def model_registry_valid(self) -> tuple[bool, str]:
-        """Return (ok, detail) for the configured claude_model."""
+        """Return (ok, detail) for the configured model registry.
+
+        Claude remains the default and keeps the historical strict registry.
+        Codex model names are intentionally not hardcoded here; Codex CLI can
+        use its own profile/config defaults when ``codex_model`` is unset.
+        """
+        if self.effective_agent_host() == "codex":
+            model = self.codex_model or "<codex CLI default>"
+            return True, f"codex host selected; model={model}"
         if self.claude_model in self._KNOWN_MODELS:
             return True, f"{self.claude_model} is a known model"
         known = ", ".join(sorted(self._KNOWN_MODELS))
         return False, f"{self.claude_model!r} not in known models ({known})"
+
+    def effective_agent_host(self) -> Literal["claude", "codex"]:
+        """Return the configured host, allowing a process-local env override."""
+        host = os.environ.get("MINIONS_AGENT_HOST", "").strip().lower() or self.agent_host
+        if host not in {"claude", "codex"}:
+            logger.warning("Unknown MINIONS_AGENT_HOST=%r; falling back to claude.", host)
+            return "claude"
+        return host  # type: ignore[return-value]
 
     # --- Scratchpad size thresholds (as fractions of the model context window) ---
     # Rationale: Context Rot / NoLiMa research shows effective context degrades
@@ -326,7 +390,7 @@ class GruConfig(BaseModel):
     # thresholds auto-scale with the underlying model.
     model_context_window_tokens: int = Field(
         default=1_000_000,
-        description="Assumed context-window size of the underlying Claude model (tokens).",
+        description="Assumed context-window size of the underlying agent-host model (tokens).",
     )
     scratchpad_soft_pct: float = Field(
         default=0.10,
@@ -348,6 +412,15 @@ class GruConfig(BaseModel):
         if isinstance(v, str) and v.strip() in allowed:
             return v.strip()
         raise ValueError(f"poll_interval_default must be one of {sorted(allowed)}, got {v!r}")
+
+    @field_validator("agent_host", mode="before")
+    @classmethod
+    def _valid_agent_host(cls, v: object) -> object:
+        if isinstance(v, str):
+            value = v.strip().lower()
+            if value in {"claude", "codex"}:
+                return value
+        raise ValueError(f"agent_host must be 'claude' or 'codex', got {v!r}")
 
     @field_validator(
         "heartbeat_report_interval",
@@ -431,13 +504,23 @@ def _load_yaml(path: Path) -> dict:
         raise ConfigError(f"YAML parse error in {path}: {exc}") from exc
 
 
+def _config_path(config_dir: Path | None, filename: str) -> Path:
+    """Resolve config path from a directory or direct YAML file path."""
+    if config_dir is None:
+        return CONFIG_DIR / filename
+    path = Path(config_dir)
+    if path.name == filename or path.suffix.lower() in {".yaml", ".yml"}:
+        return path
+    return path / filename
+
+
 def load_gru_config(config_dir: Path | None = None) -> GruConfig:
     """Load and validate ``gru.yaml``, falling back to defaults if absent.
 
     Args:
         config_dir: Override the default ``minions/config/`` directory.
     """
-    path = (config_dir or CONFIG_DIR) / "gru.yaml"
+    path = _config_path(config_dir, "gru.yaml")
     data = _load_yaml(path)
     try:
         return GruConfig(**data)
@@ -451,7 +534,7 @@ def load_experiment_targets(config_dir: Path | None = None) -> ExperimentTargets
     Args:
         config_dir: Override the default ``minions/config/`` directory.
     """
-    path = (config_dir or CONFIG_DIR) / "experiment_targets.yaml"
+    path = _config_path(config_dir, "experiment_targets.yaml")
     data = _load_yaml(path)
     try:
         return ExperimentTargetsConfig(**data)

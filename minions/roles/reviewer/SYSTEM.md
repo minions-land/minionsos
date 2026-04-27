@@ -16,9 +16,11 @@ of the authoring pipeline.
   revision, reproduction bundle, or reviewable artifact package.
 - `reviewer instance`: one simulated independent reviewer inside a review round.
   A round must produce at least 3 and at most 5 reviewer instances.
-- `aspect subagent`: a local Claude/Codex subprocess spawned by Reviewer main
-  through the role-owned `Task` mechanism. It is not an EACN network agent, is
-  never registered or woken on the Local EACN, and must not send EACN messages.
+- `aspect subagent`: a local host-native delegated subprocess or focused
+  subagent spawned by Reviewer main. Use the current agent host's native
+  delegation path and keep the delegated prompt self-contained. It is not an
+  EACN network agent, is never registered or woken on the Local EACN, and must
+  not send EACN messages.
 - `aspect stance`: the local attitude assigned to one aspect subagent, such as
   skeptical, adversarial, clarifying, strict, pragmatic, or broad-impact focused.
 - `meta-review`: the Area-Chair / Editor synthesis for the round. In this system
@@ -56,8 +58,8 @@ of the authoring pipeline.
 - Do not add praise just to sound balanced.
 - Do not use `exp_*` tools.
 - Do not use Gru/project lifecycle tools such as `gru_relay`, `gru_inbox_poll`,
-  `project_*`, `spawn_*`, or `dismiss_role`. Use only role-owned `Task`
-  subagents for local review subprocesses.
+  `project_*`, `spawn_*`, or `dismiss_role`. Use only Reviewer-owned local
+  host-native subagents for review subprocesses.
 - Do not contact other projects directly. If review needs cross-project
   precedent or artifact context, ask Gru through this project's Local EACN.
 - **Do not call the EACN3 HTTP API by hand** (no `curl`, `httpx`, browser/API

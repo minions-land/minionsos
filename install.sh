@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MinionsOS V2 — idempotent installer.
+# MinionsOS V4 — idempotent installer.
 # Usage: ./install.sh
 # Re-running is safe; each step checks before acting.
 set -euo pipefail
@@ -15,6 +15,30 @@ die()   { echo -e "${RED}[error]${RESET} $*" >&2; exit 1; }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
+
+# ── 0. Launcher permissions first ────────────────────────────────────────────
+# Do this before dependency/build steps so a partially failed install still
+# leaves ./gru, ./mos, ./noter, and ./viz usable for diagnostics.
+ensure_launchers() {
+    for script in "$ROOT/minions/bin/gru" "$ROOT/minions/bin/viz" "$ROOT/minions/bin/noter"; do
+        if [ -f "$script" ]; then
+            chmod +x "$script"
+        fi
+    done
+    for link in gru mos minionsos; do
+        if [ ! -e "$ROOT/$link" ] && [ ! -L "$ROOT/$link" ]; then
+            (cd "$ROOT" && ln -sf minions/bin/gru "$link")
+        fi
+    done
+    if [ ! -e "$ROOT/noter" ] && [ ! -L "$ROOT/noter" ]; then
+        (cd "$ROOT" && ln -sf minions/bin/noter noter)
+    fi
+    if [ ! -e "$ROOT/viz" ] && [ ! -L "$ROOT/viz" ]; then
+        (cd "$ROOT" && ln -sf minions/bin/viz viz)
+    fi
+}
+ensure_launchers
+ok "Launcher permissions ready"
 
 # ── 0. Submodule guard ────────────────────────────────────────────────────────
 if [ ! -f "$ROOT/EACN3/pyproject.toml" ] && [ ! -f "$ROOT/EACN3/setup.py" ]; then
@@ -134,6 +158,27 @@ else
     warn "minions/config/ not found — skipping config copy (run install.sh again after full checkout)"
 fi
 
+# ── 6b. Ensure Codex project MCP config exists ───────────────────────────────
+CODEX_CONFIG_DIR="$ROOT/.codex"
+CODEX_CONFIG="$CODEX_CONFIG_DIR/config.toml"
+mkdir -p "$CODEX_CONFIG_DIR"
+if [ ! -f "$CODEX_CONFIG" ]; then
+    cat > "$CODEX_CONFIG" <<'EOF'
+[mcp_servers.minionsos]
+command = "uv"
+args = ["run", "--project", ".", "python", "-m", "minions.tools.mcp_server"]
+enabled = true
+
+[mcp_servers.eacn3]
+command = "node"
+args = ["EACN3/plugin/dist/server.js"]
+enabled = true
+EOF
+    ok "Created Codex MCP config: .codex/config.toml"
+else
+    ok "Codex MCP config already exists: .codex/config.toml (not overwritten)"
+fi
+
 # ── 7. Ensure launcher is executable ─────────────────────────────────────────
 if [ -f "$ROOT/minions/bin/gru" ]; then
     chmod +x "$ROOT/minions/bin/gru"
@@ -170,7 +215,7 @@ ok "User dir ready: $HOME/.minionsos"
 
 # ── 8. Parent-directory git preflight (non-fatal) ────────────────────────────
 # MinionsOS creates per-project git worktrees branched off the directory that
-# CONTAINS MinionsOS_V2. If that parent is not a git repo, project_create will
+# CONTAINS MinionsOS_V4. If that parent is not a git repo, project_create will
 # fail with an actionable error at runtime. We warn here so users can fix it
 # before the first ./gru run instead of hitting it mid-flow.
 PARENT="$(cd "$ROOT/.." && pwd)"
@@ -179,20 +224,20 @@ if ! git -C "$PARENT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     warn "MinionsOS needs the parent to be git-initialised so it can create"
     warn "per-project worktrees. Before running ./gru, do:"
     warn "    cd $PARENT && git init && git add -A && git commit -m 'init'"
-    warn "Also make sure MinionsOS_V2/.git is absent (or added as a submodule)"
+    warn "Also make sure MinionsOS_V4/.git is absent (or added as a submodule)"
     warn "so the parent does not treat it as an embedded repo."
 else
     # Parent is a git repo — check the embedded-.git trap too.
     if [ -d "$ROOT/.git" ]; then
-        # Is MinionsOS_V2 registered as a submodule of the parent? If yes, .git
+        # Is MinionsOS_V4 registered as a submodule of the parent? If yes, .git
         # is normally a file (gitlink), not a directory — so a literal .git/
         # directory inside a parent repo is the footgun case.
-        if ! git -C "$PARENT" ls-files --error-unmatch "MinionsOS_V2" >/dev/null 2>&1; then
-            warn "MinionsOS_V2/.git exists inside a parent git repo, and"
-            warn "MinionsOS_V2 is not registered as a submodule. The parent"
+        if ! git -C "$PARENT" ls-files --error-unmatch "MinionsOS_V4" >/dev/null 2>&1; then
+            warn "MinionsOS_V4/.git exists inside a parent git repo, and"
+            warn "MinionsOS_V4 is not registered as a submodule. The parent"
             warn "repo will treat it as an embedded repo and 'git add' there"
             warn "will misbehave. Either register as a submodule, or remove"
-            warn "MinionsOS_V2/.git before the parent's first commit."
+            warn "MinionsOS_V4/.git before the parent's first commit."
         fi
     fi
     ok "Parent directory git state looks sane: $PARENT"
@@ -200,7 +245,7 @@ fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
-echo -e "${BOLD}${GREEN}MinionsOS V2 installation complete.${RESET}"
+echo -e "${BOLD}${GREEN}MinionsOS V4 installation complete.${RESET}"
 echo ""
 echo -e "  ${BOLD}Next steps:${RESET}"
 echo -e "  1. Edit ${CYAN}minions/config/gru.yaml${RESET} to adjust heartbeat interval, log level, etc."

@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 
 from minions.lifecycle import project as proj_mod
-from minions.state.store import ProjectEntry, StateStore
+from minions.state.store import ProjectEntry, RoleEntry, StateStore
 
 
 def _install_patches(
@@ -58,6 +58,13 @@ def _install_patches(
         return gru_token, []
 
     monkeypatch.setattr(proj_mod.eacn_client, "register_agent", _fake_register_agent)
+    monkeypatch.setattr(proj_mod.eacn_client, "ensure_balance", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        proj_mod.eacn_client,
+        "get_server_card",
+        lambda port, sid, timeout=3.0: {"server_id": sid},
+    )
+    monkeypatch.setattr(proj_mod.eacn_client, "server_heartbeat", lambda *args, **kwargs: True)
 
 
 def _seed_project(
@@ -197,3 +204,115 @@ def test_repair_gru_agent_works_after_dormant_revive(
     )
     again = proj_mod.project_repair_gru_agent(port, store=store)
     assert again["status"] == "already"
+
+
+def test_project_repair_registers_missing_role_agents_and_clears_stale_pids(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    port = 40104
+    store, _entry, pdir = _seed_project(tmp_path, port=port)
+    role = RoleEntry(
+        name="coder",
+        state="active",
+        pid=99999,
+        eacn_agent_id="coder",
+        eacn_agent_token="old-token",
+    )
+    store.update_project(port, active_roles=[role])
+    _install_patches(
+        monkeypatch,
+        pdir,
+        backend_pid=42,
+        server_id="srv-repair",
+        server_token="tok-repair",
+        gru_token="gru-repair",
+    )
+    monkeypatch.setattr(
+        proj_mod.eacn_client,
+        "probe_backend",
+        lambda port, timeout=3.0: {"health": True, "agents": [{"agent_id": "gru"}]},
+    )
+    monkeypatch.setattr(proj_mod, "_pid_alive", lambda pid: False)
+
+    registered: list[tuple[int, str, str]] = []
+
+    def _register_role(port: int, role_name: str, *, server_id: str | None = None):
+        registered.append((port, role_name, server_id or ""))
+        return "coder-new-token", []
+
+    from minions.lifecycle import agent_registry
+
+    monkeypatch.setattr(agent_registry, "register_project_role_agent", _register_role)
+
+    result = proj_mod.project_repair_eacn_agents(port, store=store)
+
+    assert result["status"] == "repaired"
+    assert result["gru_status"] == "already"
+    assert result["role_agents_registered"] == ["coder"]
+    assert result["stale_pids_cleared"] == ["coder"]
+    assert registered == [(port, "coder", "srv-abc")]
+    repaired_role = store.get_project(port).active_roles[0]  # type: ignore[union-attr]
+    assert repaired_role.pid is None
+    assert repaired_role.eacn_agent_token == "coder-new-token"
+
+
+def test_project_repair_is_already_when_gru_and_roles_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    port = 40105
+    store, _entry, pdir = _seed_project(tmp_path, port=port)
+    role = RoleEntry(name="coder", state="active", eacn_agent_id="coder")
+    store.update_project(port, active_roles=[role])
+    _install_patches(
+        monkeypatch,
+        pdir,
+        backend_pid=42,
+        server_id="srv-repair",
+        server_token="tok-repair",
+        gru_token="gru-repair",
+    )
+    monkeypatch.setattr(
+        proj_mod.eacn_client,
+        "probe_backend",
+        lambda port, timeout=3.0: {
+            "health": True,
+            "agents": [{"agent_id": "gru"}, {"agent_id": "coder"}],
+        },
+    )
+
+    result = proj_mod.project_repair_eacn_agents(port, store=store)
+
+    assert result["status"] == "already"
+    assert result["gru_status"] == "already"
+    assert result["role_agents_registered"] == []
+    assert result["role_agents_already"] == ["coder"]
+
+
+def test_project_repair_refreshes_missing_server_registration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    port = 40106
+    store, _entry, pdir = _seed_project(tmp_path, port=port)
+    _install_patches(
+        monkeypatch,
+        pdir,
+        backend_pid=42,
+        server_id="srv-new",
+        server_token="tok-new",
+        gru_token="gru-new",
+    )
+    monkeypatch.setattr(proj_mod.eacn_client, "get_server_card", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        proj_mod.eacn_client,
+        "probe_backend",
+        lambda port, timeout=3.0: {"health": True, "agents": []},
+    )
+
+    result = proj_mod.project_repair_eacn_agents(port, store=store)
+
+    assert result["status"] == "repaired"
+    assert result["gru_status"] == "registered"
+    meta = json.loads((pdir / "meta.json").read_text(encoding="utf-8"))
+    assert meta["eacn3_server_id"] == "srv-new"
+    assert meta["eacn3_server_token"] == "tok-new"
+    assert meta["gru_agent_token"] == "gru-new"

@@ -1,7 +1,9 @@
 """Experiment execution MCP tools for the Experimenter role.
 
-These tools are only loaded when the role is ``experimenter`` (whitelisting
-is enforced at spawn time via ``--allowed-tools``).
+These tools are only loaded when the role is ``experimenter``. Runtime
+whitelisting is enforced by MinionsOS; Claude also receives the allowlist at
+spawn time via ``--allowed-tools``, while Codex is constrained by MCP
+server-side authorization.
 
 All execution is **fire-and-poll**: ``exp_run`` launches the command fully
 detached via ``nohup``/``setsid`` and returns immediately with a ``run_id``.

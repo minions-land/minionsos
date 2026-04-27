@@ -18,8 +18,9 @@ behavior test over broad line-coverage chasing.
    read-only guarantees.
 4. **Add tests when Coder owns the path.** Keep tests fast and isolated; do not
    depend on existing runtime state or live external services.
-5. **Use fake orchestration where needed.** For Claude subprocess paths, prefer
-   `MINIONS_FAKE_CLAUDE=1` and existing smoke patterns.
+5. **Use fake orchestration where needed.** For agent-host subprocess paths,
+   prefer existing fake launcher patterns: `MINIONS_FAKE_CLAUDE=1` for Claude
+   and fake Codex binaries for Codex.
 6. **Record untested risk.** If a gap needs heavy execution or human setup, ask
    Experimenter/Gru through EACN rather than faking confidence.
 

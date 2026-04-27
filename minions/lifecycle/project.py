@@ -182,6 +182,95 @@ def _register_server(port: int) -> tuple[str, str]:
     return eacn_client.register_server(port)
 
 
+def _ensure_local_balance(port: int, agent_id: str) -> None:
+    """Best-effort local EACN credit seeding for MinionsOS project agents."""
+    try:
+        from minions.config import load_gru_config
+
+        minimum = load_gru_config().local_eacn_initial_balance
+        eacn_client.ensure_balance(port, agent_id, minimum)
+    except Exception as exc:
+        logger.warning(
+            "Could not seed local EACN balance for agent=%s port=%d: %s",
+            agent_id,
+            port,
+            exc,
+        )
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except Exception:
+        return False
+
+
+def _clear_stale_role_pids(port: int, entry: ProjectEntry, store: StateStore) -> list[str]:
+    """Clear persisted ephemeral PIDs that no longer refer to live processes."""
+    cleared: list[str] = []
+    for role in entry.active_roles:
+        if role.state not in {"active", "sleeping"} or role.pid is None:
+            continue
+        if _pid_alive(int(role.pid)):
+            continue
+        try:
+            store.upsert_role(port, role.model_copy(update={"pid": None}))
+            cleared.append(role.name)
+        except Exception as exc:
+            logger.debug(
+                "project_repair: failed clearing stale pid port=%d role=%s pid=%s: %s",
+                port,
+                role.name,
+                role.pid,
+                exc,
+            )
+    return cleared
+
+
+def _gru_agent_spec() -> tuple[str, list[str], str]:
+    from minions.config import load_gru_config
+
+    gru_agent_id = load_gru_config().gru_eacn_agent_id
+    gru_domains = ["minionsos", "project-local", "role:gru", "coordination"]
+    gru_description = (
+        "MinionsOS global coordinator EACN queue on this project. "
+        "Polled by Gru through the MinionsOS gru_inbox_poll adapter."
+    )
+    return gru_agent_id, gru_domains, gru_description
+
+
+def _register_gru_eacn_agent(port: int, server_id: str) -> tuple[str, str]:
+    gru_agent_id, gru_domains, gru_description = _gru_agent_spec()
+    gru_agent_token, _seeds = eacn_client.register_agent(
+        port=port,
+        agent_id=gru_agent_id,
+        name="gru",
+        server_id=server_id,
+        domains=gru_domains,
+        description=gru_description,
+        tier="coordinator",
+    )
+    _ensure_local_balance(port, gru_agent_id)
+    upsert_agent_identity(
+        port,
+        role_name="gru",
+        agent_id=gru_agent_id,
+        kind="gru_mailbox",
+        server_id=server_id,
+        agent_token=gru_agent_token,
+        domains=gru_domains,
+        tier="coordinator",
+        description=gru_description,
+        name="gru",
+    )
+    return gru_agent_id, gru_agent_token
+
+
 def _stop_backend(port: int, pid: int | None) -> None:
     """Terminate the backend process for *port* gracefully."""
     if pid is None:
@@ -223,13 +312,13 @@ def _ensure_parent_is_git_repo() -> None:
     )
     if result.returncode != 0 or result.stdout.strip() != "true":
         raise ProjectError(
-            f"The directory containing MinionsOS_V2 ({parent_repo}) is not a git "
+            f"The directory containing MinionsOS_V4 ({parent_repo}) is not a git "
             "repository. MinionsOS creates project worktrees branched from this "
             "parent repo, so it must be git-initialized before project_create.\n"
             "Fix with:\n"
             f"    cd {parent_repo} && git init && git add -A && "
             "git commit -m 'init'\n"
-            "Also make sure MinionsOS_V2/.git is absent (or added as a "
+            "Also make sure MinionsOS_V4/.git is absent (or added as a "
             "submodule) so the parent does not treat it as an embedded repo."
         )
 
@@ -243,7 +332,7 @@ def _create_worktree(port: int, base_branch: str) -> str:
     workspace = project_workspace(port)
     workspace.parent.mkdir(parents=True, exist_ok=True)
 
-    # The parent repo is the directory that contains MinionsOS_V2.
+    # The parent repo is the directory that contains MinionsOS_V4.
     parent_repo = MINIONS_ROOT.parent
 
     # Resolve base_branch: "HEAD" means the current HEAD of the parent repo.
@@ -289,6 +378,7 @@ _PROJECT_GITIGNORE = """\
 *
 !.gitignore
 !CLAUDE.md
+!AGENTS.md
 !meta.json
 !workspace/
 !workspace/**
@@ -361,6 +451,23 @@ def _render_project_claude_md(
     )
     lines.append("")
     return "\n".join(lines)
+
+
+def _render_project_agents_md(real_name: str) -> str:
+    """Render a Codex-compatible project context shim."""
+    return "\n".join(
+        [
+            f"# {real_name} — Project Agent Context",
+            "",
+            "This project is managed by MinionsOS.",
+            "",
+            "Read `CLAUDE.md` in this directory for the project-scoped narrative, facts,",
+            "working rules, and current brief. In this repository, `CLAUDE.md` is kept",
+            "as the shared project context file for both Claude Code and Codex so the",
+            "two agent hosts see the same operating assumptions.",
+            "",
+        ]
+    )
 
 
 def project_create(
@@ -445,40 +552,12 @@ def project_create(
         proc.terminate()
         raise
 
-    # Register the "gru" passive-mailbox agent on this project's bus so that
-    # role → gru direct messages land in a real EACN inbox (not dead letters).
+    # Register the "gru" EACN queue agent on this project's bus so that
+    # role -> gru direct messages land in a real EACN inbox.
     # FATAL on failure: without it, every Role -> Gru EACN message is
-    # silently dropped, which is exactly the bug this fixes.
+    # silently dropped.
     try:
-        from minions.config import load_gru_config
-
-        gru_agent_id = load_gru_config().gru_eacn_agent_id
-        gru_domains = ["minionsos", "project-local", "role:gru", "coordination"]
-        gru_description = (
-            "MinionsOS global coordinator (passive mailbox on this project). "
-            "Polled by the Python-side WakeupScheduler; not a live Claude process."
-        )
-        gru_agent_token, _seeds = eacn_client.register_agent(
-            port=port,
-            agent_id=gru_agent_id,
-            name="gru",
-            server_id=server_id,
-            domains=gru_domains,
-            description=gru_description,
-            tier="coordinator",
-        )
-        upsert_agent_identity(
-            port,
-            role_name="gru",
-            agent_id=gru_agent_id,
-            kind="gru_mailbox",
-            server_id=server_id,
-            agent_token=gru_agent_token,
-            domains=gru_domains,
-            tier="coordinator",
-            description=gru_description,
-            name="gru",
-        )
+        gru_agent_id, gru_agent_token = _register_gru_eacn_agent(port, server_id)
     except BackendError as exc:
         logger.error("Gru agent registration failed (fatal): %s", exc)
         proc.terminate()
@@ -520,6 +599,7 @@ def project_create(
 
     # Auto-generate project CLAUDE.md skeleton if not already present.
     claude_md = pdir / "CLAUDE.md"
+    agents_md = pdir / "AGENTS.md"
     workspace_abs = str(project_workspace(port).resolve())
     if not claude_md.exists():
         claude_md.write_text(
@@ -536,6 +616,9 @@ def project_create(
             encoding="utf-8",
         )
         logger.info("Wrote project CLAUDE.md skeleton: %s", claude_md)
+    if not agents_md.exists():
+        agents_md.write_text(_render_project_agents_md(real_name), encoding="utf-8")
+        logger.info("Wrote project AGENTS.md shim: %s", agents_md)
 
     # Ensure workspace/experiments/ exists so local experiment target resolves.
     try:
@@ -688,34 +771,9 @@ def project_revive(
         proc.terminate()
         raise
 
-    # Re-register the "gru" passive-mailbox agent on the fresh backend.
+    # Re-register the "gru" EACN queue agent on the fresh backend.
     try:
-        from minions.config import load_gru_config
-
-        gru_agent_id = load_gru_config().gru_eacn_agent_id
-        gru_domains = ["minionsos", "project-local", "role:gru", "coordination"]
-        gru_description = "MinionsOS global coordinator (passive mailbox on this project)."
-        gru_agent_token, _seeds = eacn_client.register_agent(
-            port=port,
-            agent_id=gru_agent_id,
-            name="gru",
-            server_id=server_id,
-            domains=gru_domains,
-            description=gru_description,
-            tier="coordinator",
-        )
-        upsert_agent_identity(
-            port,
-            role_name="gru",
-            agent_id=gru_agent_id,
-            kind="gru_mailbox",
-            server_id=server_id,
-            agent_token=gru_agent_token,
-            domains=gru_domains,
-            tier="coordinator",
-            description=gru_description,
-            name="gru",
-        )
+        gru_agent_id, gru_agent_token = _register_gru_eacn_agent(port, server_id)
     except BackendError as exc:
         logger.error("Gru agent re-registration failed (fatal): %s", exc)
         proc.terminate()
@@ -787,18 +845,19 @@ def project_revive(
     return updated
 
 
-def project_repair_gru_agent(
+def project_repair_eacn_agents(
     port: int,
     store: StateStore | None = None,
-) -> dict[str, str]:
-    """Ensure the ``gru`` passive-mailbox agent is registered on *port*.
+) -> dict[str, object]:
+    """Repair project-local EACN registrations for Gru and active Roles.
 
-    Idempotent repair for projects created before Gru-agent auto-registration
-    existed, or whose EACN3 backend was restarted without going through
-    ``project_revive``. Reads ``eacn3_server_id`` from ``meta.json``, probes
-    the backend, and registers ``gru`` if absent.
+    Idempotent repair for projects whose EACN3 backend was restarted without
+    going through ``project_revive`` or whose Gru process restarted with stale
+    ephemeral Role PIDs in ``projects.json``. This function only uses MinionsOS
+    adapters around EACN3; it does not require EACN3 code changes.
 
-    Returns ``{"status": "already"|"registered", "gru_agent_id": ..., "gru_agent_token": ...}``.
+    Returns a structured summary with registered/already Role agents and stale
+    PIDs cleared.
     Raises ``ProjectError`` / ``BackendError`` on failure.
     """
     _store = store or StateStore()
@@ -814,55 +873,118 @@ def project_repair_gru_agent(
             f"Project {port} has no eacn3_server_id in meta.json; "
             "cannot repair without re-creating the project."
         )
+    server_token = str(raw.get("eacn3_server_token", ""))
+    if eacn_client.get_server_card(port, str(server_id)) is None:
+        logger.info(
+            "project_repair: server_id=%s missing on port %d; registering a fresh server.",
+            server_id,
+            port,
+        )
+        server_id, server_token = _register_server(port)
+        raw["eacn3_server_id"] = server_id
+        raw["eacn3_server_token"] = server_token
+    else:
+        eacn_client.server_heartbeat(port, str(server_id))
 
-    from minions.config import load_gru_config
-
-    gru_agent_id = load_gru_config().gru_eacn_agent_id
+    gru_agent_id, _gru_domains, _gru_description = _gru_agent_spec()
 
     # Probe first — if already registered, no-op.
     snap = eacn_client.probe_backend(port)
-    for a in snap.get("agents", []):
-        if a.get("agent_id") == gru_agent_id:
-            logger.info("project_repair: gru agent already registered on port %d", port)
-            return {
-                "status": "already",
-                "gru_agent_id": gru_agent_id,
-                "gru_agent_token": raw.get("gru_agent_token", ""),
-            }
+    if snap.get("health") is False and not snap.get("agents"):
+        raise BackendError(f"Project {port} EACN backend is not healthy; cannot repair agents.")
+    existing_ids = {
+        str(a.get("agent_id"))
+        for a in snap.get("agents", [])
+        if isinstance(a, dict) and a.get("agent_id")
+    }
 
-    gru_domains = ["minionsos", "project-local", "role:gru", "coordination"]
-    gru_description = "MinionsOS global coordinator (passive mailbox)."
-    gru_agent_token, _seeds = eacn_client.register_agent(
-        port=port,
-        agent_id=gru_agent_id,
-        name="gru",
-        server_id=server_id,
-        domains=gru_domains,
-        description=gru_description,
-        tier="coordinator",
-    )
-    upsert_agent_identity(
-        port,
-        role_name="gru",
-        agent_id=gru_agent_id,
-        kind="gru_mailbox",
-        server_id=server_id,
-        agent_token=gru_agent_token,
-        domains=gru_domains,
-        tier="coordinator",
-        description=gru_description,
-        name="gru",
-    )
+    gru_status = "already"
+    gru_agent_token = str(raw.get("gru_agent_token", ""))
+    if gru_agent_id not in existing_ids:
+        gru_agent_id, gru_agent_token = _register_gru_eacn_agent(port, str(server_id))
+        gru_status = "registered"
+        existing_ids.add(gru_agent_id)
+    else:
+        _ensure_local_balance(port, gru_agent_id)
+
+    from minions.lifecycle.agent_registry import register_project_role_agent
+
+    registered_roles: list[str] = []
+    already_roles: list[str] = []
+    refreshed_entry = _store.get_project(port) or entry
+    cleared_pids = _clear_stale_role_pids(port, refreshed_entry, _store)
+    refreshed_entry = _store.get_project(port) or refreshed_entry
+    now = _now_iso()
+
+    for role in refreshed_entry.active_roles:
+        if role.state not in {"active", "sleeping"}:
+            continue
+        agent_id = role.eacn_agent_id or role.name
+        if agent_id in existing_ids:
+            already_roles.append(role.name)
+            _ensure_local_balance(port, agent_id)
+            continue
+        role_token, _role_seeds = register_project_role_agent(
+            port,
+            role.name,
+            server_id=str(server_id),
+        )
+        registered_roles.append(role.name)
+        existing_ids.add(role.name)
+        _store.upsert_role(
+            port,
+            role.model_copy(
+                update={
+                    "pid": None,
+                    "eacn_agent_id": role.name,
+                    "eacn_agent_token": role_token,
+                    "eacn_registered_at": now,
+                }
+            ),
+        )
+
     raw["gru_agent_id"] = gru_agent_id
     raw["gru_agent_token"] = gru_agent_token
+    raw["eacn3_server_id"] = server_id
+    raw["eacn3_server_token"] = server_token
     raw["eacn_agent_map"] = identity_map_for_meta(port)
     tmp = meta_path.with_suffix(".tmp")
     tmp.write_text(json.dumps(raw, indent=2), encoding="utf-8")
     os.replace(tmp, meta_path)
 
-    logger.info("project_repair: registered gru agent on port %d", port)
+    status = (
+        "already"
+        if gru_status == "already" and not registered_roles and not cleared_pids
+        else "repaired"
+    )
+    logger.info(
+        "project_repair: port=%d status=%s gru=%s registered_roles=%s cleared_pids=%s",
+        port,
+        status,
+        gru_status,
+        registered_roles,
+        cleared_pids,
+    )
     return {
-        "status": "registered",
+        "status": status,
+        "gru_status": gru_status,
         "gru_agent_id": gru_agent_id,
         "gru_agent_token": gru_agent_token,
+        "role_agents_registered": registered_roles,
+        "role_agents_already": already_roles,
+        "stale_pids_cleared": cleared_pids,
+    }
+
+
+def project_repair_gru_agent(
+    port: int,
+    store: StateStore | None = None,
+) -> dict[str, str]:
+    """Backward-compatible repair for only the project-local ``gru`` queue agent."""
+    result = project_repair_eacn_agents(port, store=store)
+    gru_status = str(result.get("gru_status") or "already")
+    return {
+        "status": "registered" if gru_status == "registered" else "already",
+        "gru_agent_id": str(result.get("gru_agent_id") or ""),
+        "gru_agent_token": str(result.get("gru_agent_token") or ""),
     }

@@ -40,6 +40,21 @@ class TestDoctorModelRegistry:
         assert mc["ok"] is True
 
 
+class TestDoctorAgentHost:
+    def test_agent_host_check_present(self) -> None:
+        checks = _doctor_checks()
+        names = {c["name"] for c in checks}
+        assert "agent-host" in names
+
+    def test_codex_host_reports_codex_cli_and_mcp_config(self) -> None:
+        checks = _doctor_checks({"MINIONS_AGENT_HOST": "codex"})
+        names = {c["name"] for c in checks}
+        assert "codex-cli" in names
+        assert "codex-mcp-config-mounts-eacn3" in names
+        host = next(c for c in checks if c["name"] == "agent-host")
+        assert host["detail"] == "codex"
+
+
 class TestDoctorDebugFlag:
     def test_debug_flag_check_present(self) -> None:
         checks = _doctor_checks()

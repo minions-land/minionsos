@@ -1,19 +1,20 @@
 # CLAUDE.md — minions/ Developer View
 
-This file is shown when you `cd minions/ && claude` to hack MinionsOS itself. It covers the Python package architecture and how to extend it.
+This file is shown when you `cd minions/ && claude` to hack MinionsOS itself. It covers the Python package architecture and how to extend it. Runtime role execution is agent-host neutral: Claude Code remains the default, and Codex is supported through the same lifecycle abstractions.
 
 ## Package architecture
 
 ```
 minions/
 ├── __init__.py              # package root; exports version
-├── bin/gru                  # shell launcher (uv run claude ...)
+├── bin/gru                  # shell launcher (Claude Code or Codex host)
 ├── cli.py                   # `mos` CLI entrypoint (argparse); dispatches subcommands
 ├── gru/
 │   ├── __init__.py
 │   └── loop.py              # Gru heartbeat/health loop plus WakeupScheduler startup
 ├── lifecycle/
 │   ├── agent_registry.py    # project-local AgentCard registration and domains
+│   ├── agent_host.py        # Claude Code / Codex invocation builders
 │   ├── eacn_identity.py     # stable per-project role agent ids and plugin state
 │   ├── project.py           # project_create/close/dormant/revive/repair helpers
 │   ├── project_eacn.py      # Gru-facing project-local EACN adapters
@@ -22,7 +23,7 @@ minions/
 │   ├── wakeup.py            # Python-level event-driven Role dispatcher (see below)
 │   ├── relay.py             # gru_relay implementation
 │   ├── eacn_client.py       # thin EACN3 HTTP client (used by wakeup)
-│   ├── gru_inbox.py         # passive mailbox projection for role -> Gru messages
+│   ├── gru_inbox.py         # Gru EACN pending journal for drain-only queues
 │   ├── role_inbox.py        # role event queue helpers
 │   └── health.py            # backend / role health probes
 ├── tools/
@@ -48,9 +49,10 @@ minions/
 
 ## Event-driven Role lifecycle
 
-Roles are **ephemeral**: no long-running Claude process per Role, and no in-Claude polling loop.
+Roles are **ephemeral**: no long-running agent-host process per Role, and no in-agent polling loop.
 
-- `minions/lifecycle/role.py` exposes `register_role` / `register_expert` (registers a project-local EACN AgentCard and records the role; no subprocess) and `invoke_role_ephemeral(role, port, events)` which launches a short-lived Claude subprocess seeded with the shared `roles/SYSTEM.md`, the Role's `SYSTEM.md`, discovered skills, scratchpad context, identity/boundary text, and an event batch, then exits.
+- `minions/lifecycle/role.py` exposes `register_role` / `register_expert` (registers a project-local EACN AgentCard and records the role; no subprocess) and `invoke_role_ephemeral(role, port, events)` which launches a short-lived Claude Code or Codex subprocess seeded with the shared `roles/SYSTEM.md`, the Role's `SYSTEM.md`, discovered skills, scratchpad context, identity/boundary text, and an event batch, then exits.
+- `minions/lifecycle/agent_host.py` is the only place that should know CLI-specific role invocation details. Preserve the Claude command exactly unless intentionally changing the Claude path; Codex uses `codex exec -` with the role prompt on stdin.
 - `minions/lifecycle/wakeup.py` (`WakeupScheduler`) runs on the Python side, polls EACN3 on each registered Role's cadence, deduplicates events by id, and fires `invoke_role_ephemeral` when events arrive.
 - `minions/gru/loop.py` runs `WakeupScheduler` in parallel with Gru's heartbeat (sibling thread when `run()` is used; sibling task when `run_async()` is used). The MCP `gru_start_monitor` tool starts both.
 - `schedule_poll` MCP tool is deprecated (no-op that logs a deprecation warning); still present for backward compatibility during migration.
@@ -97,7 +99,7 @@ Applies to any Role (Expert, Experimenter, Writer, Noter, Coder, Reviewer, Ethic
 1. Add the tool function to the appropriate module in `minions/tools/` (or create a new module).
 2. Decorate with the MCP tool decorator (FastMCP or equivalent).
 3. Accept/return Pydantic models.
-4. Register the tool in the MCP server setup (`.mcp.json` or the server entrypoint).
+4. Register the tool in the MCP server setup (`.mcp.json`, `.codex/config.toml`, or the server entrypoint).
 5. Update the tool/write boundary table in root `CLAUDE.md` to specify which agents may use it.
 6. Write a unit test in `tests/unit/`.
 
@@ -113,7 +115,7 @@ uv run pytest tests/unit/test_port_allocator.py
 # Single test case
 uv run pytest tests/unit/test_port_allocator.py::test_no_reuse_retired_ports
 
-# Smoke tests (requires MINIONS_FAKE_CLAUDE=1 to stub claude CLI)
+# Smoke tests (requires MINIONS_FAKE_CLAUDE=1 to stub Claude CLI)
 MINIONS_FAKE_CLAUDE=1 uv run pytest tests/smoke/
 
 # Ruff lint

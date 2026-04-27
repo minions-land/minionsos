@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
+from minions.config import load_gru_config
 from minions.errors import BackendError
 from minions.lifecycle import eacn_client
 from minions.lifecycle.eacn_identity import upsert_agent_identity
 from minions.paths import project_meta_json
+
+logger = logging.getLogger(__name__)
 
 
 def project_eacn_server_id(port: int, meta_path: Path | None = None) -> str:
@@ -109,6 +113,18 @@ def register_project_role_agent(
         description=description,
         tier=tier,
     )
+    try:
+        minimum = load_gru_config().local_eacn_initial_balance
+        eacn_client.ensure_balance(port, role_name, minimum)
+    except Exception as exc:
+        # Balance seeding is a resilience convenience. Role registration itself
+        # is still the critical path; callers will surface create-task failures.
+        logger.warning(
+            "Could not seed local EACN balance for role=%s port=%d: %s",
+            role_name,
+            port,
+            exc,
+        )
     upsert_agent_identity(
         port,
         role_name=role_name,

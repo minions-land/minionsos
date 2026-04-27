@@ -8,18 +8,23 @@ Tools exposed:
 - spawn_role / spawn_expert / dismiss_role / list_roles
 - gru_relay
 - project_eacn_send_message / project_eacn_create_task
+- search_arxiv / search_pubmed / search_biorxiv / search_medrxiv / search_google_scholar
+- read_*_paper / download_* for supported paper sources
 - gru_start_monitor  (starts the Gru heartbeat loop as a background thread)
 """
 
 from __future__ import annotations
 
 import logging
+import os
 import threading
+from fnmatch import fnmatchcase
 from typing import Any, Literal
 
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
+from minions.config import resolve_whitelist
 from minions.lifecycle.project import (
     project_close as _project_close,
 )
@@ -53,11 +58,34 @@ from minions.lifecycle.role import (
 )
 from minions.logging_setup import configure_logging
 from minions.state.store import StateStore
+from minions.tools import paper_search as _paper_search
 
 configure_logging()
 logger = logging.getLogger(__name__)
 
 mcp = FastMCP("minions")
+
+
+def _require_tool_allowed(tool_name: str) -> None:
+    """Enforce MinionsOS role tool boundaries inside the MCP server.
+
+    Claude Code still receives ``--allowed-tools`` at launch. Codex does not
+    expose that exact launch flag, so this server-side check is the durable
+    authorization layer for project lifecycle tools.
+    """
+    if os.environ.get("MINIONS_DISABLE_MCP_AUTHZ", "").strip() == "1":
+        return
+    role = os.environ.get("MINIONS_ROLE_NAME", "").strip()
+    if not role:
+        return
+    agent_type = os.environ.get("MINIONS_AGENT_TYPE", "main").strip() or "main"
+    if agent_type not in {"main", "subagent"}:
+        agent_type = "main"
+    allowed = resolve_whitelist(role, agent_type)  # type: ignore[arg-type]
+    if any(fnmatchcase(tool_name, pattern) for pattern in allowed):
+        return
+    raise PermissionError(f"Tool {tool_name!r} is not allowed for role {role!r} ({agent_type}).")
+
 
 # ---------------------------------------------------------------------------
 # Argument models
@@ -187,6 +215,19 @@ class ProjectEacnCreateTaskArgs(BaseModel):
     task_id: str | None = Field(default=None)
 
 
+class PaperSearchArgs(BaseModel):
+    query: str = Field(description="Academic paper search query.")
+    max_results: int = Field(default=10, ge=1, le=50)
+
+
+class PaperIdArgs(BaseModel):
+    paper_id: str = Field(description="Paper identifier, such as arXiv id, PMID, or DOI.")
+    save_path: str = Field(
+        default="paper/references/downloads",
+        description="Relative output directory under the current project workspace.",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Tool implementations
 # ---------------------------------------------------------------------------
@@ -203,6 +244,7 @@ def project_create(args: ProjectCreateArgs) -> dict:
         project_dir: absolute filesystem path to ``project_{port}/``
         claude_md: absolute filesystem path to the auto-generated project CLAUDE.md
     """
+    _require_tool_allowed("project_create")
     from minions.paths import project_dir as _pdir
     from minions.paths import project_workspace as _pws
 
@@ -229,6 +271,7 @@ def project_create(args: ProjectCreateArgs) -> dict:
 @mcp.tool()
 def project_close(args: ProjectPortArgs) -> dict:
     """Close a project permanently (stops backend, retires port)."""
+    _require_tool_allowed("project_close")
     entry = _project_close(port=args.port)
     return {"port": entry.port}
 
@@ -236,6 +279,7 @@ def project_close(args: ProjectPortArgs) -> dict:
 @mcp.tool()
 def project_dormant(args: ProjectPortArgs) -> dict:
     """Put a project into dormant state (stops backend, dismisses roles)."""
+    _require_tool_allowed("project_dormant")
     entry = _project_dormant(port=args.port)
     return {"port": entry.port}
 
@@ -243,6 +287,7 @@ def project_dormant(args: ProjectPortArgs) -> dict:
 @mcp.tool()
 def project_revive(args: ProjectReviveArgs) -> dict:
     """Revive a dormant project (restarts backend, restores roles)."""
+    _require_tool_allowed("project_revive")
     entry = _project_revive(
         port=args.port,
         external_feedback=args.external_feedback,
@@ -254,6 +299,7 @@ def project_revive(args: ProjectReviveArgs) -> dict:
 @mcp.tool()
 def project_list(args: ProjectListArgs) -> list[dict]:
     """List projects, optionally filtered by status."""
+    _require_tool_allowed("project_list")
     store = StateStore()
     projects = store.list_projects(filter=args.filter)
     return [
@@ -272,6 +318,7 @@ def project_list(args: ProjectListArgs) -> list[dict]:
 @mcp.tool()
 def spawn_role(args: SpawnRoleArgs) -> dict:
     """Spawn a fixed role (noter, coder, experimenter, writer, reviewer, ethics)."""
+    _require_tool_allowed("spawn_role")
     return _spawn_role(
         project_port=args.project_port,
         role=args.role,
@@ -284,6 +331,7 @@ def spawn_role(args: SpawnRoleArgs) -> dict:
 @mcp.tool()
 def spawn_expert(args: SpawnExpertArgs) -> dict:
     """Spawn a domain expert role."""
+    _require_tool_allowed("spawn_expert")
     return _spawn_expert(
         project_port=args.project_port,
         domain=args.domain,
@@ -297,6 +345,7 @@ def spawn_expert(args: SpawnExpertArgs) -> dict:
 @mcp.tool()
 def dismiss_role(args: DismissRoleArgs) -> dict:
     """Dismiss (terminate) a role subprocess."""
+    _require_tool_allowed("dismiss_role")
     return _dismiss_role(
         project_port=args.project_port,
         role_name=args.role_name,
@@ -306,12 +355,14 @@ def dismiss_role(args: DismissRoleArgs) -> dict:
 @mcp.tool()
 def list_roles(args: ListRolesArgs) -> list[dict]:
     """List all roles for a project."""
+    _require_tool_allowed("list_roles")
     return _list_roles(project_port=args.project_port)
 
 
 @mcp.tool()
 def gru_relay(args: GruRelayArgs) -> dict:
     """Relay a message from one project to another via EACN broadcast."""
+    _require_tool_allowed("gru_relay")
     return _gru_relay(
         from_port=args.from_port,
         to_port=args.to_port,
@@ -324,6 +375,7 @@ def gru_relay(args: GruRelayArgs) -> dict:
 @mcp.tool()
 def project_eacn_send_message(args: ProjectEacnSendMessageArgs) -> dict:
     """Send a generic direct message on one project's Local EACN3 network."""
+    _require_tool_allowed("project_eacn_send_message")
     return _project_eacn_send_message(
         port=args.port,
         content=args.content,
@@ -337,6 +389,7 @@ def project_eacn_send_message(args: ProjectEacnSendMessageArgs) -> dict:
 @mcp.tool()
 def project_eacn_create_task(args: ProjectEacnCreateTaskArgs) -> dict:
     """Publish a generic task on one project's Local EACN3 network."""
+    _require_tool_allowed("project_eacn_create_task")
     return _project_eacn_create_task(
         port=args.port,
         description=args.description,
@@ -353,23 +406,125 @@ def project_eacn_create_task(args: ProjectEacnCreateTaskArgs) -> dict:
     )
 
 
+@mcp.tool()
+def search_arxiv(args: PaperSearchArgs) -> list[dict]:
+    """Search arXiv papers through the project-local MinionsOS MCP server."""
+    _require_tool_allowed("search_arxiv")
+    return _paper_search.search_arxiv(args.query, args.max_results)
+
+
+@mcp.tool()
+def search_pubmed(args: PaperSearchArgs) -> list[dict]:
+    """Search PubMed papers through the project-local MinionsOS MCP server."""
+    _require_tool_allowed("search_pubmed")
+    return _paper_search.search_pubmed(args.query, args.max_results)
+
+
+@mcp.tool()
+def search_biorxiv(args: PaperSearchArgs) -> list[dict]:
+    """Search bioRxiv-indexed preprints through Europe PMC."""
+    _require_tool_allowed("search_biorxiv")
+    return _paper_search.search_biorxiv(args.query, args.max_results)
+
+
+@mcp.tool()
+def search_medrxiv(args: PaperSearchArgs) -> list[dict]:
+    """Search medRxiv-indexed preprints through Europe PMC."""
+    _require_tool_allowed("search_medrxiv")
+    return _paper_search.search_medrxiv(args.query, args.max_results)
+
+
+@mcp.tool()
+def search_google_scholar(args: PaperSearchArgs) -> list[dict]:
+    """Scholar-like broad search using Semantic Scholar metadata."""
+    _require_tool_allowed("search_google_scholar")
+    return _paper_search.search_google_scholar(args.query, args.max_results)
+
+
+@mcp.tool()
+def read_arxiv_paper(args: PaperIdArgs) -> str:
+    """Read arXiv metadata and abstract text for a paper id."""
+    _require_tool_allowed("read_arxiv_paper")
+    return _paper_search.read_arxiv_paper(args.paper_id, args.save_path)
+
+
+@mcp.tool()
+def read_pubmed_paper(args: PaperIdArgs) -> str:
+    """Read PubMed metadata and abstract text for a PMID."""
+    _require_tool_allowed("read_pubmed_paper")
+    return _paper_search.read_pubmed_paper(args.paper_id, args.save_path)
+
+
+@mcp.tool()
+def read_biorxiv_paper(args: PaperIdArgs) -> str:
+    """Read bioRxiv metadata pointers for a DOI-like paper id."""
+    _require_tool_allowed("read_biorxiv_paper")
+    return _paper_search.read_biorxiv_paper(args.paper_id, args.save_path)
+
+
+@mcp.tool()
+def read_medrxiv_paper(args: PaperIdArgs) -> str:
+    """Read medRxiv metadata pointers for a DOI-like paper id."""
+    _require_tool_allowed("read_medrxiv_paper")
+    return _paper_search.read_medrxiv_paper(args.paper_id, args.save_path)
+
+
+@mcp.tool()
+def download_arxiv(args: PaperIdArgs) -> str:
+    """Download an arXiv PDF to a relative workspace path."""
+    _require_tool_allowed("download_arxiv")
+    return _paper_search.download_arxiv(args.paper_id, args.save_path)
+
+
+@mcp.tool()
+def download_pubmed(args: PaperIdArgs) -> str:
+    """Save PubMed metadata and abstract text to a relative workspace path."""
+    _require_tool_allowed("download_pubmed")
+    return _paper_search.download_pubmed(args.paper_id, args.save_path)
+
+
+@mcp.tool()
+def download_biorxiv(args: PaperIdArgs) -> str:
+    """Download a bioRxiv PDF to a relative workspace path."""
+    _require_tool_allowed("download_biorxiv")
+    return _paper_search.download_biorxiv(args.paper_id, args.save_path)
+
+
+@mcp.tool()
+def download_medrxiv(args: PaperIdArgs) -> str:
+    """Download a medRxiv PDF to a relative workspace path."""
+    _require_tool_allowed("download_medrxiv")
+    return _paper_search.download_medrxiv(args.paper_id, args.save_path)
+
+
 class GruInboxPollArgs(BaseModel):
     port: int | None = Field(
         default=None,
         description="Project port. If None, drain all active projects.",
     )
     max_events: int = Field(default=50, ge=1, le=500)
-    mark_read: bool = Field(default=True)
+    mark_read: bool = Field(
+        default=False,
+        description=(
+            "When false, poll the project-local EACN gru queue and return pending events. "
+            "When true, mark currently returned local pending entries handled without polling EACN."
+        ),
+    )
 
 
 @mcp.tool()
 def gru_inbox_poll(args: GruInboxPollArgs) -> dict:
-    """Drain the Gru passive-mailbox inbox for one or all active projects.
+    """Poll Gru's project-local EACN queue and keep a private pending journal.
 
-    Role → Gru direct messages land on each project's EACN ``gru`` agent;
-    the WakeupScheduler appends them to ``project_{port}/logs/gru_inbox.jsonl``.
-    This tool returns the unread slice and (by default) advances the cursor.
+    EACN3's event endpoint is drain-on-read and has no message-level ack/claim.
+    This tool is Gru's adapter: when ``mark_read`` is false it polls the
+    project's EACN ``gru`` agent, journals any newly drained events, and returns
+    pending journal entries. After Gru has replied or otherwise handled them,
+    call again with ``mark_read=true`` to advance the local cursor.
     """
+    _require_tool_allowed("gru_inbox_poll")
+    from minions.config import load_gru_config
+    from minions.lifecycle import eacn_client
     from minions.lifecycle import gru_inbox as _inbox
 
     if args.port is None:
@@ -380,7 +535,21 @@ def gru_inbox_poll(args: GruInboxPollArgs) -> dict:
 
     out: dict[str, list[dict]] = {}
     total = 0
+    polled = 0
+    try:
+        gru_agent_id = load_gru_config().gru_eacn_agent_id
+    except Exception:
+        gru_agent_id = "gru"
+
     for p in ports:
+        if not args.mark_read:
+            try:
+                payload = eacn_client.poll_events(p, gru_agent_id, timeout_secs=0, http_timeout=5.0)
+                events = payload.get("events") or payload.get("messages") or []
+                if isinstance(events, list) and events:
+                    polled += _inbox.append_events(p, [e for e in events if isinstance(e, dict)])
+            except Exception as exc:
+                logger.debug("gru EACN poll failed port=%d agent=%s: %s", p, gru_agent_id, exc)
         entries = _inbox.read_unread(p, max_events=args.max_events)
         if not entries:
             continue
@@ -389,7 +558,7 @@ def gru_inbox_poll(args: GruInboxPollArgs) -> dict:
         if args.mark_read and entries:
             max_seq = max(int(e.get("seq", 0)) for e in entries)
             _inbox.mark_read(p, max_seq)
-    return {"total": total, "per_port": out}
+    return {"total": total, "polled": polled, "marked_read": args.mark_read, "per_port": out}
 
 
 class SchedulePollArgs(BaseModel):
@@ -404,9 +573,10 @@ def schedule_poll(args: SchedulePollArgs) -> dict:
 
     Roles are ephemeral: they are invoked by the Python-level
     ``minions.lifecycle.wakeup.WakeupScheduler`` when EACN events arrive.
-    No in-Claude polling loop is needed, and this MCP tool has been
+    No in-agent polling loop is needed, and this MCP tool has been
     downgraded to a no-op recorder kept for backward compatibility.
     """
+    _require_tool_allowed("schedule_poll")
     import os as _os
 
     role = _os.environ.get("MINIONS_ROLE_NAME", "<unknown>")
@@ -438,6 +608,7 @@ def gru_start_monitor(heartbeat_interval: int | None = None) -> dict:
     Args:
         heartbeat_interval: Override the interval in seconds (default from gru.yaml).
     """
+    _require_tool_allowed("gru_start_monitor")
     from minions.gru.loop import GruLoop
 
     existing = getattr(gru_start_monitor, "_thread", None)

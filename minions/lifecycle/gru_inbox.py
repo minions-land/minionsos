@@ -1,16 +1,13 @@
-"""Gru passive-mailbox inbox: per-project on-disk event queue.
+"""Gru EACN pending journal: per-project on-disk event safety buffer.
 
-Gru is a global singleton Claude session — it does not run one long-lived
-process per project. The WakeupScheduler polls each project's ``"gru"``
-agent on the cadence configured for Gru and appends fetched events to
-``project_{port}/logs/gru_inbox.jsonl``. Gru's session drains them on
-demand via the ``gru_inbox_poll`` MCP tool.
+The source of truth is always the project-local EACN3 queue for agent
+``"gru"``. EACN3's HTTP event endpoint is drain-on-read and currently has no
+message-level ack/claim, so Gru's MCP adapter journals messages immediately
+after polling them. Gru then processes those pending entries and advances the
+cursor after it has replied or otherwise handled them.
 
-Why disk, not memory:
-- The scheduler runs in one thread; the MCP server (serving Gru's tool
-  calls) may be a separate process. Shared state via jsonl is the
-  simplest reliable bridge.
-- Append-only jsonl gives us a replayable audit trail for free.
+This is not a second communication system; it is a local reliability shim for
+EACN3's drain-only transport.
 
 Format: each line is a JSON object
 ``{"seq": <int>, "fetched_at": <iso>, "port": <int>, "event": <raw event>}``.

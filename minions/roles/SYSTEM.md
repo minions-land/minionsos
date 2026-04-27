@@ -6,9 +6,10 @@ SYSTEM.md. If it conflicts with a role-specific prompt, this common contract win
 ## EACN open-task stance
 
 The project-local EACN3 network is the source of collaboration truth. Open tasks
-without `invited_agent_ids` are public opportunities: every registered Role may
-inspect them and decide whether to participate. Do not assume the wake-up layer
-already filtered tasks to your specialty.
+without `invited_agent_ids` are public opportunities: every registered
+EACN-visible work Role may inspect them and decide whether to participate.
+Gru is excluded because it polls its own project-local queue. Noter is excluded
+because it wakes through its local observer timer and direct messages.
 
 When you receive a public open task:
 
@@ -20,6 +21,21 @@ When you receive a public open task:
 
 Tasks with `invited_agent_ids` are targeted. If you are not invited, do not try
 to work around the invitation through direct messages or manual bidding.
+
+## Agent-host portability
+
+This role contract must run the same way under Claude Code and Codex. Do not
+depend on host-specific slash commands, inherited plugin state, or a particular
+subagent implementation. Treat any mentioned skill as a MinionsOS skill file or
+procedure unless the role-specific prompt explicitly says otherwise.
+
+When you need delegation, use the host-native subagent mechanism available in
+the current agent host. The delegated prompt must be self-contained and must
+carry the same Role boundary, write boundary, EACN visibility, skill paths, and
+verification requirements that the main Role received. If the current host
+cannot launch a real subagent, do the smallest safe inline slice, record that no
+subagent was available, and checkpoint the remaining work through EACN or the
+scratchpad instead of silently changing the workflow contract.
 
 ## Main Role vs subagents
 

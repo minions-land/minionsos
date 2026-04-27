@@ -142,6 +142,17 @@ class TestWhitelistResolver:
         assert "project_create" not in tools
         assert "gru_relay" not in tools
 
+    def test_writer_has_paper_search_mcp_tools(self) -> None:
+        tools = resolve_allowed_tools("writer")
+        assert "search_arxiv" in tools
+        assert "read_arxiv_paper" in tools
+        assert "search_google_scholar" in tools
+
+    def test_coder_does_not_get_writer_paper_search_mcp(self) -> None:
+        tools = resolve_allowed_tools("coder")
+        assert "search_arxiv" not in tools
+        assert "search_google_scholar" not in tools
+
     def test_unknown_role_raises(self) -> None:
         with pytest.raises(Exception):
             resolve_allowed_tools("nonexistent_role_xyz")
@@ -174,3 +185,16 @@ class TestGruConfigModel:
         ok, detail = cfg.model_registry_valid()
         assert ok is False
         assert "claude-fake-99" in detail
+
+    def test_default_agent_host_is_claude(self, tmp_path: Path) -> None:
+        cfg = load_gru_config(tmp_path / "nonexistent.yaml")
+        assert cfg.agent_host == "claude"
+        assert cfg.effective_agent_host() == "claude"
+
+    def test_codex_agent_host_skips_static_claude_registry(self, tmp_path: Path) -> None:
+        p = tmp_path / "gru.yaml"
+        p.write_text(yaml.dump({"agent_host": "codex", "claude_model": "claude-fake-99"}))
+        cfg = load_gru_config(p)
+        ok, detail = cfg.model_registry_valid()
+        assert ok is True
+        assert "codex host selected" in detail

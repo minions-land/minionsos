@@ -1,12 +1,17 @@
-# MinionsOS V2 — Manual Smoke Test Scenario
+# MinionsOS V4 — Manual Smoke Test Scenario
 
 This document describes the 15-step manual smoke scenario for verifying a fresh
-MinionsOS V2 installation end-to-end. Run this after `./install.sh` completes
+MinionsOS V4 installation end-to-end. Run this after `./install.sh` completes
 successfully and before declaring a release candidate ready.
 
 Set `MINIONS_FAKE_CLAUDE=1` in your environment to stub the `claude` CLI with a
 no-op script during automated wiring checks (subprocess orchestration is verified
 without requiring a live Anthropic API key).
+Codex host wiring is covered by unit-level fake Codex launcher tests; manual
+Codex smoke can be started with `MINIONS_AGENT_HOST=codex ./gru` after
+`.codex/config.toml` is present and `codex` is on PATH.
+For a repeatable no-API Codex collaboration simulation, run:
+`uv run python tests/smoke/codex_project_collaboration.py`.
 
 ---
 
@@ -56,7 +61,7 @@ project_create(real_name="Smoke Test Paper", venue="NeurIPS 2026")
 
 Expected: returns `{port: <N>, path: "project_<N>/"}` where N is in 37596–37999.
 `minions/state/projects.json` is created/updated with the new entry.
-`project_<N>/` directory exists with `meta.json` and `CLAUDE.md`.
+`project_<N>/` directory exists with `meta.json`, `CLAUDE.md`, and `AGENTS.md`.
 
 ### Step 5 — Verify EACN3 backend started
 

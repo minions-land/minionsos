@@ -1,7 +1,7 @@
 """Gru heartbeat / health monitor loop.
 
 Can run in two modes:
-1. As a daemon thread inside Gru's Claude session (via ``gru_start_monitor()``
+1. As a daemon thread inside Gru's agent-host session (via ``gru_start_monitor()``
    MCP tool).
 2. As a standalone process: ``uv run python -m minions.gru.loop``.
 
@@ -156,6 +156,13 @@ class GruLoop:
             else:
                 # Reset crash counter on successful health check.
                 self._crash_counter.reset_backend(port)
+                try:
+                    from minions.lifecycle.project import project_repair_eacn_agents
+
+                    project_repair_eacn_agents(port, store=self._store)
+                    project = self._store.get_project(port) or project
+                except Exception as exc:
+                    logger.debug("Project EACN repair skipped port=%d: %s", port, exc)
 
             # Check role processes.
             for role in project.active_roles:

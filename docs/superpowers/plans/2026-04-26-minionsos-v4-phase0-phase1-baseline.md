@@ -1,4 +1,4 @@
-# MinionsOS V3 Phase 0 + Minimal Phase 1 Implementation Plan
+# MinionsOS V4 Phase 0 + Minimal Phase 1 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -65,7 +65,7 @@ class TestGruConfigModel:
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd /Users/mjm/MinionsOS_V3
+cd /Users/mjm/MinionsOS_V4
 uv run pytest tests/unit/test_config.py::TestGruConfigModel -v
 ```
 

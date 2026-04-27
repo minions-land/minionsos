@@ -1,4 +1,4 @@
-# MinionsOS V3
+# MinionsOS V4
 
 [English](#english) | [中文](#中文)
 
@@ -6,10 +6,12 @@
 
 ## English
 
-**MinionsOS V3** is a local multi-agent operating system for running isolated,
+**MinionsOS V4** is a local multi-agent operating system for running isolated,
 paper-sized research projects. A persistent **Gru** supervisor manages projects,
 each project owns its own **EACN3** coordination backend, and event-driven
-Claude **Roles** wake up only when there is work to process.
+agent-host **Roles** wake up only when there is work to process. Claude Code
+remains the default host; Codex is supported as an opt-in host through the same
+MinionsOS lifecycle and EACN3 bus.
 
 The design goal is simple: one author, one checkout, one Gru, many isolated
 research projects.
@@ -19,13 +21,15 @@ research projects.
 - **Project isolation.** Every project has its own `project_{port}/` directory,
   EACN3 backend, SQLite state, git worktree, logs, artifacts, and role memory.
 - **Event-driven Roles.** Noter, Coder, Experimenter, Writer, Reviewer, Ethics,
-  and Expert are short-lived Claude subprocesses launched by the Python
+  and Expert are short-lived Claude Code or Codex subprocesses launched by the Python
   `WakeupScheduler`.
 - **Gru as the control plane.** Gru is the human-facing supervisor and the only
   component allowed to create projects, spawn roles, and relay across projects.
-- **Tool and write boundaries.** Role tool access is constrained with
-  `--allowed-tools`; Noter, Reviewer, and Ethics write only to their artifact
-  areas, while Coder, Experimenter, Writer, and Expert operate in `workspace/`.
+- **Tool and write boundaries.** Claude roles still receive `--allowed-tools`;
+  MinionsOS also enforces project-lifecycle tool permissions inside its MCP
+  server so Codex roles keep the same role boundaries. Noter, Reviewer, and
+  Ethics write only to their artifact areas, while Coder, Experimenter, Writer,
+  and Expert operate in `workspace/`.
 - **Layered memory.** Role context is reconstructed from the current invocation,
   per-role scratchpads, artifacts, EACN history, and project `CLAUDE.md`.
 - **Skill discovery and domain assets.** Role skills live in
@@ -101,14 +105,15 @@ caches, and `graphify-out/` should not be committed.
 - [`uv`](https://docs.astral.sh/uv/) for Python dependency management
 - `git` 2.x
 - Node **16+** and `npm` for the EACN3 MCP plugin and MinionsVIZ
-- Claude CLI on `PATH` for real role execution
+- Claude CLI on `PATH` for the default host, or Codex CLI on `PATH` when
+  `agent_host: codex` / `MINIONS_AGENT_HOST=codex` is used
 
 MinionsOS creates project worktrees from the directory that contains this
 checkout. That parent directory must be a git repository before you create
 projects:
 
 ```bash
-cd <parent-of-MinionsOS_V3>
+cd <parent-of-MinionsOS_V4>
 git init
 git add -A
 git commit -m "init"
@@ -119,8 +124,8 @@ git commit -m "init"
 ### Install
 
 ```bash
-git clone https://github.com/Minions-Land/MinionsOS_V3.git
-cd MinionsOS_V3
+git clone https://github.com/Minions-Land/MinionsOS_V4.git
+cd MinionsOS_V4
 ./install.sh
 ./mos doctor
 ```
@@ -129,7 +134,8 @@ cd MinionsOS_V3
 dependencies, installs the local editable `EACN3/` package, builds the EACN3 MCP
 plugin, builds MinionsVIZ when needed, creates launcher symlinks, and copies
 `minions/config/*.yaml.example` to local `.yaml` files without overwriting
-existing config.
+existing config. It also ensures `.codex/config.toml` exists for Codex MCP
+mounts.
 
 ### Configure
 
@@ -137,7 +143,8 @@ Local configuration lives under `minions/config/` and is intentionally ignored b
 git:
 
 - `gru.yaml` controls heartbeat cadence, logging, model/context settings,
-  scratchpad thresholds, and web-search policy.
+  scratchpad thresholds, web-search policy, and the active agent host
+  (`agent_host: claude` or `agent_host: codex`).
 - `experiment_targets.yaml` defines local and SSH execution targets for
   Experimenter. Paths may use `{project_workspace}` template expansion.
 
@@ -147,6 +154,26 @@ Inspect resolved paths with:
 ./mos config
 ./mos config --json
 ```
+
+Agent host selection:
+
+```bash
+./gru                              # default: Claude Code
+MINIONS_AGENT_HOST=codex ./gru     # one-shot Codex override
+```
+
+or set in `minions/config/gru.yaml`:
+
+```yaml
+agent_host: codex
+codex_model:        # optional; leave empty to use Codex CLI defaults
+codex_sandbox: workspace-write
+codex_approval_policy: never
+```
+
+Claude compatibility is intentionally preserved: `CLAUDE.md` remains the shared
+project context file, and new projects also get a small `AGENTS.md` shim so Codex
+users can discover the same context.
 
 ### Run
 
@@ -253,6 +280,24 @@ exp_tail
 query_gpus
 ```
 
+Writer paper-search tools:
+
+```text
+search_arxiv
+search_pubmed
+search_biorxiv
+search_medrxiv
+search_google_scholar
+read_arxiv_paper
+read_pubmed_paper
+read_biorxiv_paper
+read_medrxiv_paper
+download_arxiv
+download_pubmed
+download_biorxiv
+download_medrxiv
+```
+
 EACN3 tools are provided by the EACN3 MCP plugin as `eacn3_*` and are available
 only to role mains that are allowed to use the bus.
 
@@ -261,6 +306,7 @@ only to role mains that are allowed to use the bus.
 ```text
 project_{port}/
   CLAUDE.md                 # project narrative; Gru/author write, roles read
+  AGENTS.md                 # Codex-friendly pointer to the same project context
   meta.json                 # machine metadata
   workspace/                # git worktree on minionsos/project-{port}
   eacn3_data/eacn3.db       # per-project EACN3 SQLite database
@@ -371,9 +417,10 @@ proprietary/internal until a license is added.
 
 ## 中文
 
-**MinionsOS V3** 是一个本地多智能体操作系统，用于运行相互隔离的论文级科研项目。常驻的
-**Gru** 负责总控；每个项目拥有独立的 **EACN3** 协调后端；Claude
-**Roles** 由事件触发，短时唤醒、处理任务、完成后退出。
+**MinionsOS V4** 是一个本地多智能体操作系统，用于运行相互隔离的论文级科研项目。常驻的
+**Gru** 负责总控；每个项目拥有独立的 **EACN3** 协调后端；Role
+由事件触发，短时唤醒、处理任务、完成后退出。Claude Code 仍是默认
+agent host，Codex 可通过同一套 MinionsOS 生命周期和 EACN3 bus 显式启用。
 
 目标很直接：一位作者、一份 checkout、一个 Gru，同时管理多个互不串扰的研究项目。
 
@@ -382,12 +429,14 @@ proprietary/internal until a license is added.
 - **项目隔离。** 每个项目都有独立的 `project_{port}/`、EACN3 后端、SQLite
   状态、git worktree、日志、产物和 Role 记忆。
 - **事件驱动 Role。** Noter、Coder、Experimenter、Writer、Reviewer、Ethics
-  和 Expert 都是由 Python `WakeupScheduler` 拉起的短生命周期 Claude 子进程。
+  和 Expert 都是由 Python `WakeupScheduler` 拉起的短生命周期 Claude Code 或
+  Codex 子进程。
 - **Gru 作为控制面。** Gru 是唯一人机入口，也是唯一可创建项目、spawn Role、跨项目
   relay 的组件。
-- **工具和写入边界。** Role 通过 `--allowed-tools` 限制工具面；Noter、Reviewer、
-  Ethics 只能写各自 artifact 区域；Coder、Experimenter、Writer、Expert 在
-  `workspace/` 工作。
+- **工具和写入边界。** Claude Role 继续通过 `--allowed-tools` 限制工具面；
+  MinionsOS MCP server 也会在服务端执行项目生命周期工具授权，因此 Codex Role
+  具有同样边界。Noter、Reviewer、Ethics 只能写各自 artifact 区域；Coder、
+  Experimenter、Writer、Expert 在 `workspace/` 工作。
 - **分层记忆。** Role 上下文来自当前事件、每 Role scratchpad、artifacts、EACN
   历史以及项目 `CLAUDE.md`。
 - **Skill 发现和领域资产。** Role 技能放在 `minions/roles/{role}/skills/*.md`；
@@ -460,13 +509,14 @@ tests/smoke/                # 集成式 smoke 检查
 - [`uv`](https://docs.astral.sh/uv/) 用于 Python 依赖管理
 - `git` 2.x
 - Node **16+** 和 `npm`，用于 EACN3 MCP 插件与 MinionsVIZ
-- Claude CLI 位于 `PATH` 中，用于真实 Role 执行
+- 默认 host 需要 Claude CLI 位于 `PATH`；当使用 `agent_host: codex` 或
+  `MINIONS_AGENT_HOST=codex` 时需要 Codex CLI 位于 `PATH`
 
 MinionsOS 会从当前 checkout 的父目录创建项目 worktree。创建项目之前，该父目录必须是
 git 仓库：
 
 ```bash
-cd <MinionsOS_V3 的父目录>
+cd <MinionsOS_V4 的父目录>
 git init
 git add -A
 git commit -m "init"
@@ -477,22 +527,23 @@ git commit -m "init"
 ### 安装
 
 ```bash
-git clone https://github.com/Minions-Land/MinionsOS_V3.git
-cd MinionsOS_V3
+git clone https://github.com/Minions-Land/MinionsOS_V4.git
+cd MinionsOS_V4
 ./install.sh
 ./mos doctor
 ```
 
 `install.sh` 可以重复执行：它会按需自举 `uv`、同步 Python 依赖、editable 安装本地
 `EACN3/`、构建 EACN3 MCP 插件、按需构建 MinionsVIZ、创建启动脚本链接，并把
-`minions/config/*.yaml.example` 复制为本地 `.yaml` 配置且不覆盖已有文件。
+`minions/config/*.yaml.example` 复制为本地 `.yaml` 配置且不覆盖已有文件。它也会确保
+Codex 使用的 `.codex/config.toml` 存在。
 
 ### 配置
 
 本地配置位于 `minions/config/`，默认不进入 git：
 
-- `gru.yaml` 控制 heartbeat、日志级别、模型/上下文配置、scratchpad 阈值和 web search
-  策略。
+- `gru.yaml` 控制 heartbeat、日志级别、模型/上下文配置、scratchpad 阈值、web search
+  策略，以及当前 agent host（`agent_host: claude` 或 `agent_host: codex`）。
 - `experiment_targets.yaml` 定义 Experimenter 使用的本地或 SSH 执行目标，路径支持
   `{project_workspace}` 模板展开。
 
@@ -502,6 +553,25 @@ cd MinionsOS_V3
 ./mos config
 ./mos config --json
 ```
+
+Agent host 选择：
+
+```bash
+./gru                              # 默认 Claude Code
+MINIONS_AGENT_HOST=codex ./gru     # 单次使用 Codex
+```
+
+也可以写入 `minions/config/gru.yaml`：
+
+```yaml
+agent_host: codex
+codex_model:        # 可选；留空则使用 Codex CLI 默认值
+codex_sandbox: workspace-write
+codex_approval_policy: never
+```
+
+为了保持 Claude 兼容性，`CLAUDE.md` 仍是共享项目上下文文件；新项目还会生成一个轻量
+`AGENTS.md`，方便 Codex 用户发现同一份上下文。
 
 ### 运行
 
@@ -605,6 +675,24 @@ exp_tail
 query_gpus
 ```
 
+Writer 论文检索工具：
+
+```text
+search_arxiv
+search_pubmed
+search_biorxiv
+search_medrxiv
+search_google_scholar
+read_arxiv_paper
+read_pubmed_paper
+read_biorxiv_paper
+read_medrxiv_paper
+download_arxiv
+download_pubmed
+download_biorxiv
+download_medrxiv
+```
+
 EACN3 MCP 插件提供 `eacn3_*` 工具，只分配给允许访问总线的 role main。
 
 ### 运行时项目结构
@@ -612,6 +700,7 @@ EACN3 MCP 插件提供 `eacn3_*` 工具，只分配给允许访问总线的 role
 ```text
 project_{port}/
   CLAUDE.md                 # 项目叙事；Gru/作者写，Roles 读
+  AGENTS.md                 # 指向同一项目上下文的 Codex 入口
   meta.json                 # 机器元数据
   workspace/                # minionsos/project-{port} 分支的 git worktree
   eacn3_data/eacn3.db       # 每项目独立的 EACN3 SQLite 数据库

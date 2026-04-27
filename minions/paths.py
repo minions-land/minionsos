@@ -1,4 +1,4 @@
-"""Canonical path constants for MinionsOS V2.
+"""Canonical path constants for MinionsOS V4.
 
 All runtime code must import paths from here — never construct paths by
 string concatenation or relative ``..`` traversal.
@@ -13,7 +13,7 @@ from pathlib import Path
 # Root resolution
 # ---------------------------------------------------------------------------
 
-# This file lives at  minions/paths.py  inside the MinionsOS_V2 checkout.
+# This file lives at  minions/paths.py  inside the MinionsOS_V4 checkout.
 # MINIONS_ROOT is the repo root (parent of the ``minions/`` package dir).
 MINIONS_ROOT: Path = Path(__file__).parent.parent.resolve()
 

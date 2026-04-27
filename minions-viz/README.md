@@ -1,10 +1,10 @@
 # MinionsOS — Project Observatory
 
-Local read-only dashboard for the MinionsOS V2 autonomous-research system.
+Local read-only dashboard for the MinionsOS V4 autonomous-research system.
 **One viz process serves every Gru installation on the host**, filtered in
 the UI by a two-level **Gru → Project** picker.
 
-1. A **Gru picker** lists every MinionsOS_V2 checkout registered in
+1. A **Gru picker** lists every MinionsOS_V4 checkout registered in
    `~/.minionsos/grus.json`, with an online/stale freshness badge.
 2. A **Project picker** then lists that Gru's projects (from its own
    `minions/state/projects.json`), with a "← Switch Gru" back-affordance.
@@ -26,7 +26,7 @@ for a free port).
 
 ## Run
 
-**Integrated (primary path).** From any MinionsOS_V2 checkout:
+**Integrated (primary path).** From any MinionsOS_V4 checkout:
 
 ```bash
 ./install.sh        # builds minions-viz/dist on first run; creates ~/.minionsos/
@@ -62,7 +62,7 @@ Environment variables:
 | Var            | Default                                      | Purpose                                   |
 |----------------|----------------------------------------------|-------------------------------------------|
 | `PORT`         | `7891`                                       | Observatory HTTP/WebSocket port           |
-| `MINIONS_ROOT` | parent of `minions-viz/` (i.e. `MinionsOS_V2/`) | Where `minions/state/projects.json` lives |
+| `MINIONS_ROOT` | parent of `minions-viz/` (i.e. `MinionsOS_V4/`) | Where `minions/state/projects.json` lives |
 
 ## How project discovery works
 

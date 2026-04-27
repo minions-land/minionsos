@@ -1,4 +1,4 @@
-"""``mos`` CLI — MinionsOS V2 command-line interface.
+"""``mos`` CLI — MinionsOS V4 command-line interface.
 
 Subcommands:
   status          — projects dashboard
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -33,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 app = typer.Typer(
     name="mos",
-    help="MinionsOS V2 — project and role management CLI.",
+    help="MinionsOS V4 — project and role management CLI.",
     no_args_is_help=True,
 )
 console = Console()
@@ -259,6 +260,22 @@ def doctor(
     except Exception as exc:
         _check("mcp-config-mounts-eacn3", False, str(exc))
 
+    # Codex project MCP config mounts the same servers for Codex host sessions.
+    try:
+        import tomllib
+
+        codex_cfg_path = MINIONS_ROOT / ".codex" / "config.toml"
+        codex_cfg = tomllib.loads(codex_cfg_path.read_text(encoding="utf-8"))
+        servers = set((codex_cfg.get("mcp_servers") or {}).keys())
+        missing = {"minionsos", "eacn3"} - servers
+        _check(
+            "codex-mcp-config-mounts-eacn3",
+            not missing,
+            f"present: {sorted(servers)}" if not missing else f"missing: {sorted(missing)}",
+        )
+    except Exception as exc:
+        _check("codex-mcp-config-mounts-eacn3", False, str(exc))
+
     # Port range probe
     from minions.state.store import _bind_probe
 
@@ -270,9 +287,36 @@ def doctor(
         from minions.config import load_gru_config as _load_cfg
 
         _cfg = _load_cfg()
+        _host = _cfg.effective_agent_host()
+        _check("agent-host", True, _host)
         _ok, _detail = _cfg.model_registry_valid()
         _check("model-registry", _ok, _detail)
+
+        if _host == "codex":
+            codex_path = shutil.which("codex")
+            if codex_path:
+                cr = subprocess.run(["codex", "--version"], capture_output=True, text=True)
+                _check("codex-cli", cr.returncode == 0, cr.stdout.strip() or codex_path)
+            else:
+                _check("codex-cli", False, "codex not on PATH")
+        else:
+            claude_path = shutil.which("claude")
+            if claude_path:
+                cr = subprocess.run(["claude", "--version"], capture_output=True, text=True)
+                _check("claude-cli", cr.returncode == 0, cr.stdout.strip() or claude_path)
+            else:
+                cr = subprocess.run(
+                    ["uv", "run", "--project", str(MINIONS_ROOT), "claude", "--version"],
+                    capture_output=True,
+                    text=True,
+                )
+                _check(
+                    "claude-cli",
+                    cr.returncode == 0,
+                    cr.stdout.strip() if cr.returncode == 0 else "claude not on PATH",
+                )
     except Exception as exc:
+        _check("agent-host", False, str(exc))
         _check("model-registry", False, str(exc))
 
     # Claude --debug should be off by default; only enabled via MINIONS_DEBUG
@@ -295,7 +339,7 @@ def doctor(
     except Exception as exc:
         _check("state-dir-writable", False, str(exc))
 
-    # Per-project: gru passive-mailbox agent present on each active backend.
+    # Per-project: Gru queue agent and active/sleeping Role AgentCards present.
     try:
         from minions.config import load_gru_config
         from minions.lifecycle import eacn_client
@@ -386,6 +430,15 @@ def config_cmd(
         "STATE_DIR": str(STATE_DIR),
         "GRU_LOG": str(GRU_LOG),
     }
+    try:
+        from minions.config import load_gru_config
+
+        cfg = load_gru_config()
+        data["AGENT_HOST"] = cfg.effective_agent_host()
+        data["CLAUDE_MODEL"] = cfg.claude_model
+        data["CODEX_MODEL"] = cfg.codex_model
+    except Exception as exc:
+        data["AGENT_HOST_ERROR"] = str(exc)
     if json_flag:
         _json_out(data)
         return
@@ -475,22 +528,22 @@ def project_revive_cmd(port: int = typer.Argument(..., help="Project port.")) ->
 
 @project_app.command(name="repair")
 def project_repair_cmd(port: int = typer.Argument(..., help="Project port.")) -> None:
-    """Repair a running project's EACN state (currently: register the ``gru`` mailbox agent)."""
-    from minions.lifecycle.project import project_repair_gru_agent
+    """Repair a running project's project-local EACN registrations and stale role PIDs."""
+    from minions.lifecycle.project import project_repair_eacn_agents
 
     try:
-        result = project_repair_gru_agent(port)
+        result = project_repair_eacn_agents(port)
     except MinionsError as e:
         raise _fail(str(e)) from e
     if result["status"] == "already":
-        console.print(
-            f"[yellow]gru agent already registered on port {port} "
-            f"(id={result['gru_agent_id']}).[/yellow]"
-        )
-    else:
-        console.print(
-            f"[green]Registered gru agent on port {port} (id={result['gru_agent_id']}).[/green]"
-        )
+        console.print(f"[yellow]Project {port} EACN state already healthy.[/yellow]")
+        return
+    roles = ", ".join(result.get("role_agents_registered", []) or []) or "none"
+    cleared = ", ".join(result.get("stale_pids_cleared", []) or []) or "none"
+    console.print(
+        f"[green]Repaired project {port} EACN state.[/green] "
+        f"gru={result.get('gru_status')} roles_registered={roles} stale_pids_cleared={cleared}"
+    )
 
 
 # ---------------------------------------------------------------------------

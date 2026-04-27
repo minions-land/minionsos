@@ -4,8 +4,8 @@ Event-driven model (replaces the long-running-subprocess model):
 
 - ``register_role`` / ``register_expert`` register a project-local EACN3
   AgentCard and record a Role in ``projects.json`` (name, port, poll cadence).
-  No Claude subprocess is launched.
-- ``invoke_role_ephemeral`` launches a SHORT-LIVED Claude subprocess seeded
+  No agent-host subprocess is launched.
+- ``invoke_role_ephemeral`` launches a SHORT-LIVED agent-host subprocess seeded
   with the Role's SYSTEM.md and a batch of events to act on. The process
   exits when the Role finishes its response.
 - ``dismiss_role`` / ``list_roles`` operate on the registry.
@@ -40,6 +40,7 @@ from minions.config import (
 )
 from minions.errors import AlreadyActive, BackendError, RoleError
 from minions.lifecycle import eacn_client
+from minions.lifecycle.agent_host import build_role_invocation
 from minions.lifecycle.agent_registry import register_project_role_agent, role_agent_domains
 from minions.lifecycle.eacn_identity import plugin_state_dir, resolve_agent_id
 from minions.lifecycle.skills import list_skills
@@ -188,7 +189,7 @@ def _resolve_time_trigger_interval(role_name: str, interval: str | None) -> str 
         try:
             interval = load_gru_config().noter_report_interval
         except Exception:
-            interval = "30m"
+            interval = "10m"
     if not interval:
         return None
     try:
@@ -284,7 +285,7 @@ def register_role(
 ) -> dict[str, object]:
     """Register a fixed role for event-driven invocation.
 
-    Does NOT launch a Claude subprocess. The Python-level WakeupScheduler
+    Does NOT launch an agent-host subprocess. The Python-level WakeupScheduler
     polls EACN for this role and invokes it ephemerally when events arrive.
 
     If *init_brief* is given, it is published as a targeted EACN task so the
@@ -375,27 +376,54 @@ def _do_register(
     if init_brief:
         target_agent_id = resolve_agent_id(project_port, role_name)
         initiator_id = resolve_agent_id(project_port, "gru")
-        try:
-            eacn_client.create_task(
-                port=project_port,
-                description=init_brief,
-                domains=role_agent_domains(role_name),
-                initiator_id=initiator_id,
-                budget=0.0,
-                expected_output={
-                    "type": "status_or_artifact",
-                    "description": (
-                        "Handle the initial role brief and report progress through EACN."
-                    ),
-                },
-                invited_agent_ids=[target_agent_id],
+        if role_name == "noter":
+            try:
+                eacn_client.send_message(
+                    port=project_port,
+                    to_agent_id=target_agent_id,
+                    from_agent_id=initiator_id,
+                    content={
+                        "type": "init_brief",
+                        "description": init_brief,
+                        "role": role_name,
+                    },
+                )
+            except BackendError as exc:
+                raise RoleError(
+                    f"Role {role_name!r} joined project-local EACN3 on port {project_port}, "
+                    f"but the init_brief direct message could not be queued through EACN3: {exc}"
+                ) from exc
+            logger.info(
+                "init_brief direct message published via EACN: role=%r port=%d",
+                role_name,
+                project_port,
             )
-        except BackendError as exc:
-            raise RoleError(
-                f"Role {role_name!r} joined project-local EACN3 on port {project_port}, "
-                f"but the init_brief task could not be queued through EACN3: {exc}"
-            ) from exc
-        logger.info("init_brief task published via EACN: role=%r port=%d", role_name, project_port)
+        else:
+            try:
+                eacn_client.create_task(
+                    port=project_port,
+                    description=init_brief,
+                    domains=role_agent_domains(role_name),
+                    initiator_id=initiator_id,
+                    budget=0.0,
+                    expected_output={
+                        "type": "status_or_artifact",
+                        "description": (
+                            "Handle the initial role brief and report progress through EACN."
+                        ),
+                    },
+                    invited_agent_ids=[target_agent_id],
+                )
+            except BackendError as exc:
+                raise RoleError(
+                    f"Role {role_name!r} joined project-local EACN3 on port {project_port}, "
+                    f"but the init_brief task could not be queued through EACN3: {exc}"
+                ) from exc
+            logger.info(
+                "init_brief task published via EACN: role=%r port=%d",
+                role_name,
+                project_port,
+            )
 
     store.upsert_role(project_port, role_entry)
     logger.info("register_role: role=%r port=%d poll=%s", role_name, project_port, interval)
@@ -411,7 +439,7 @@ def _do_register(
 
 
 # ---------------------------------------------------------------------------
-# Ephemeral invocation (short-lived Claude subprocess)
+# Ephemeral invocation (short-lived agent-host subprocess)
 # ---------------------------------------------------------------------------
 
 
@@ -424,7 +452,7 @@ def invoke_role_ephemeral(
     scratchpad_path: Path | None = None,
     store: StateStore | None = None,
 ) -> dict[str, object]:
-    """Launch a short-lived Claude subprocess for *role_name* to process *events*.
+    """Launch a short-lived agent-host subprocess for *role_name* to process *events*.
 
     The subprocess is seeded with the Role's SYSTEM.md and a user message
     containing the event batch as JSON. It exits when the Role finishes
@@ -483,29 +511,16 @@ def invoke_role_ephemeral(
         role_name=role_name,
     )
 
-    cmd = [
-        "uv",
-        "run",
-        "--project",
-        str(MINIONS_ROOT),
-        "claude",
-    ]
-    if system_path and system_path.exists():
-        cmd += ["--append-system-prompt", f"@{system_path}"]
-    cmd += [
-        "--mcp-config",
-        str(MINIONS_ROOT / ".mcp.json"),
-        "--allowed-tools",
-        allowed,
-        # Headless wake-up: bypass interactive permission prompts (Roles are
-        # ephemeral and cannot answer them), and use -p/--print with stdin for
-        # prompt delivery. The legacy `--message <msg>` flag does not exist in
-        # current Claude CLI and caused role wake-ups to fail with
-        # `error: unknown option '--message'`.
-        "--permission-mode",
-        "bypassPermissions",
-        "-p",
-    ]
+    cfg = load_gru_config()
+    invocation = build_role_invocation(
+        cfg=cfg,
+        role_name=role_name,
+        project_port=project_port,
+        system_path=system_path,
+        allowed_tools=allowed,
+        message=message,
+        workspace=workspace,
+    )
 
     env = {
         **os.environ,
@@ -525,14 +540,15 @@ def invoke_role_ephemeral(
 
     log_fp = log_path.open("a", encoding="utf-8")
     logger.info(
-        "invoke_role_ephemeral: role=%r port=%d events=%d",
+        "invoke_role_ephemeral: role=%r port=%d events=%d host=%s",
         role_name,
         project_port,
         len(events),
+        invocation.host_name,
     )
     proc = subprocess.Popen(
-        cmd,
-        cwd=str(workspace) if workspace.exists() else str(MINIONS_ROOT),
+        invocation.command,
+        cwd=str(invocation.cwd),
         env=env,
         stdin=subprocess.PIPE,
         stdout=log_fp,
@@ -540,12 +556,13 @@ def invoke_role_ephemeral(
         start_new_session=True,
     )
     try:
-        proc.stdin.write(message.encode("utf-8"))  # type: ignore[union-attr]
+        proc.stdin.write(invocation.stdin_text.encode("utf-8"))  # type: ignore[union-attr]
         proc.stdin.close()  # type: ignore[union-attr]
     except BrokenPipeError:
         logger.warning(
-            "invoke_role_ephemeral: claude closed stdin before message was fully written "
+            "invoke_role_ephemeral: %s closed stdin before message was fully written "
             "(role=%r port=%d)",
+            invocation.host_name,
             role_name,
             project_port,
         )
@@ -584,7 +601,7 @@ def _format_event_message(
     project_port: int | None = None,
     role_name: str | None = None,
 ) -> str:
-    """Render an event batch as a user message for the ephemeral Claude process."""
+    """Render an event batch as a user message for the ephemeral agent-host process."""
     preamble = ""
     if scratchpad_path is not None:
         rel = (

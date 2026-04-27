@@ -1,6 +1,6 @@
 # Skill — Project Automation Audit
 
-Recommend low-risk Claude/MinionsOS automations that fit a project's actual
+Recommend low-risk agent-host/MinionsOS automations that fit a project's actual
 workflow.
 
 ## Core move

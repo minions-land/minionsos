@@ -1,4 +1,4 @@
-"""Unit tests for the Gru passive-mailbox inbox and WakeupScheduler integration."""
+"""Unit tests for the Gru EACN pending journal and MCP polling adapter."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import pytest
 
 from minions.lifecycle import gru_inbox
 from minions.lifecycle.wakeup import WakeupScheduler
+from minions.tools.mcp_server import GruInboxPollArgs, gru_inbox_poll
 
 
 @dataclass
@@ -91,79 +92,66 @@ class TestGruInbox:
         assert gru_inbox.unread_count(37596) == 0
 
 
-# ─── WakeupScheduler gru-drain integration ──────────────────────────────────
+# ─── Gru MCP adapter / scheduler boundary ───────────────────────────────────
 
 
-class TestWakeupGruDrain:
-    def test_drain_appends_to_inbox(self, tmp_path, monkeypatch) -> None:
+class TestGruInboxPollAdapter:
+    def test_poll_appends_to_pending_journal(self, tmp_path, monkeypatch) -> None:
         monkeypatch.setattr(
             "minions.lifecycle.gru_inbox.project_logs_dir",
             lambda port: tmp_path / f"p{port}" / "logs",
         )
-        project = FakeProject(port=37596, active_roles=[])
-        store = FakeStore([project])
 
-        # Simulate: poll_events returns 2 events for the "gru" agent,
-        # nothing for roles (there are none).
         def fake_poll(port, agent_id, timeout_secs=0, http_timeout=5.0):
-            if agent_id == "gru":
-                return {"events": [{"id": "m1", "text": "ping"}, {"id": "m2", "text": "pong"}]}
-            return {"events": []}
+            assert port == 37596
+            assert agent_id == "gru"
+            return {"events": [{"id": "m1", "text": "ping"}, {"id": "m2", "text": "pong"}]}
 
-        sched = WakeupScheduler(store=store, invoke_fn=lambda *a, **kw: None)
-        with patch("minions.lifecycle.wakeup.poll_events", side_effect=fake_poll):
-            asyncio.run(sched.tick_once())
+        with patch("minions.lifecycle.eacn_client.poll_events", side_effect=fake_poll):
+            result = gru_inbox_poll(GruInboxPollArgs(port=37596))
 
-        unread = gru_inbox.read_unread(37596)
+        assert result["total"] == 2
+        assert result["polled"] == 2
+        unread = result["per_port"]["37596"]
         assert [e["event"]["id"] for e in unread] == ["m1", "m2"]
 
-    def test_drain_dedupes(self, tmp_path, monkeypatch) -> None:
+    def test_mark_read_advances_cursor_without_polling_eacn(self, tmp_path, monkeypatch) -> None:
         monkeypatch.setattr(
             "minions.lifecycle.gru_inbox.project_logs_dir",
             lambda port: tmp_path / f"p{port}" / "logs",
         )
-        project = FakeProject(port=37596, active_roles=[])
-        store = FakeStore([project])
+        gru_inbox.append_events(37596, [{"id": "m1"}, {"id": "m2"}])
 
         def fake_poll(port, agent_id, timeout_secs=0, http_timeout=5.0):
-            if agent_id == "gru":
-                return {"events": [{"id": "m1"}]}
+            raise AssertionError("mark_read=true must not drain EACN")
+
+        with patch("minions.lifecycle.eacn_client.poll_events", side_effect=fake_poll):
+            result = gru_inbox_poll(GruInboxPollArgs(port=37596, mark_read=True))
+
+        assert result["marked_read"] is True
+        assert result["total"] == 2
+        assert gru_inbox.unread_count(37596) == 0
+
+    def test_wakeup_scheduler_does_not_poll_gru_queue(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "minions.lifecycle.gru_inbox.project_logs_dir",
+            lambda port: tmp_path / f"p{port}" / "logs",
+        )
+        project = FakeProject(port=37596, active_roles=[FakeRole("coder")])
+        store = FakeStore([project])
+        polled: list[str] = []
+
+        def fake_poll(port, agent_id, timeout_secs=0, http_timeout=5.0):
+            polled.append(agent_id)
             return {"events": []}
 
         sched = WakeupScheduler(store=store, invoke_fn=lambda *a, **kw: None)
         with patch("minions.lifecycle.wakeup.poll_events", side_effect=fake_poll):
             asyncio.run(sched.tick_once())
-            # Force the gru inbox cadence gate open for the second tick so we
-            # re-enter _drain_gru_inbox and exercise the LRU dedup path.
-            sched._last_poll_ts.clear()
-            asyncio.run(sched.tick_once())
 
-        unread = gru_inbox.read_unread(37596)
-        # Same event id m1 returned twice, but dedup keeps it to one.
-        assert len(unread) == 1
-
-    def test_drain_respects_cadence(self, tmp_path, monkeypatch) -> None:
-        monkeypatch.setattr(
-            "minions.lifecycle.gru_inbox.project_logs_dir",
-            lambda port: tmp_path / f"p{port}" / "logs",
-        )
-        project = FakeProject(port=37596, active_roles=[])
-        store = FakeStore([project])
-
-        calls = {"n": 0}
-
-        def fake_poll(port, agent_id, timeout_secs=0, http_timeout=5.0):
-            if agent_id == "gru":
-                calls["n"] += 1
-            return {"events": []}
-
-        sched = WakeupScheduler(store=store, invoke_fn=lambda *a, **kw: None)
-        with patch("minions.lifecycle.wakeup.poll_events", side_effect=fake_poll):
-            asyncio.run(sched.tick_once())
-            asyncio.run(sched.tick_once())
-            asyncio.run(sched.tick_once())
-        # Second and third ticks should be gated off; only the first call polls.
-        assert calls["n"] == 1
+        assert "coder" in polled
+        assert "gru" not in polled
+        assert gru_inbox.read_unread(37596) == []
 
 
 # ─── register_agent / register_server error reporting ────────────────────────

@@ -29,7 +29,7 @@ class TestParentGitPrecheck:
     def test_raises_actionable_error_when_parent_not_git(self, tmp_path: Path) -> None:
         fake_parent = tmp_path / "not-a-repo"
         fake_parent.mkdir()
-        fake_root = fake_parent / "MinionsOS_V2"
+        fake_root = fake_parent / "MinionsOS_V4"
         fake_root.mkdir()
         with (
             patch.object(project_mod, "MINIONS_ROOT", fake_root),
@@ -48,7 +48,7 @@ class TestParentGitPrecheck:
         parent = tmp_path / "parent"
         parent.mkdir()
         subprocess.run(["git", "init", "-q"], cwd=parent, check=True)
-        fake_root = parent / "MinionsOS_V2"
+        fake_root = parent / "MinionsOS_V4"
         fake_root.mkdir()
         with patch.object(project_mod, "MINIONS_ROOT", fake_root):
             # Should not raise.
@@ -90,7 +90,7 @@ class TestInitBriefGoesThroughEacn:
         ):
             role_mod.register_role(
                 37596,
-                "noter",
+                "coder",
                 init_brief="kick off please",
                 store=store,
                 poll_interval="1m",
@@ -102,7 +102,7 @@ class TestInitBriefGoesThroughEacn:
         kwargs = create_task.call_args.kwargs
         assert kwargs["port"] == 37596
         assert kwargs["initiator_id"] == "gru"
-        assert kwargs["invited_agent_ids"] == ["noter"]
+        assert kwargs["invited_agent_ids"] == ["coder"]
         assert kwargs["description"] == "kick off please"
         assert kwargs["budget"] == 0.0
 
@@ -137,7 +137,7 @@ class TestInitBriefGoesThroughEacn:
         ):
             role_mod.register_role(
                 37596,
-                "noter",
+                "coder",
                 init_brief="kick",
                 store=store,
                 poll_interval="1m",

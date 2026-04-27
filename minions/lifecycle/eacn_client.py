@@ -73,6 +73,29 @@ def delete_server(
         logger.warning("delete_server port=%d id=%s failed: %s", port, server_id, exc)
 
 
+def get_server_card(
+    port: int,
+    server_id: str,
+    timeout: float = 3.0,
+) -> dict[str, Any] | None:
+    """Return a discovery ServerCard for *server_id*, or None if absent."""
+    url = f"{base_url(port)}/api/discovery/servers/{server_id}"
+    try:
+        resp = httpx.get(url, timeout=timeout)
+    except Exception as exc:
+        raise BackendError(f"get_server_card {server_id!r} on port {port} failed: {exc}") from exc
+    if resp.status_code == 404:
+        return None
+    if resp.status_code >= 400:
+        raise BackendError(
+            f"get_server_card {server_id!r} on port {port} HTTP {resp.status_code}: {resp.text!r}"
+        )
+    data = resp.json()
+    if not isinstance(data, dict):
+        raise BackendError(f"get_server_card {server_id!r} on port {port} returned non-object.")
+    return dict(data)
+
+
 def server_heartbeat(
     port: int,
     server_id: str,
@@ -315,6 +338,74 @@ def create_task(
         return dict(resp.json())
     except Exception as exc:
         raise BackendError(f"create_task on port {port} failed: {exc}") from exc
+
+
+# ---------------------------------------------------------------------------
+# Economy
+# ---------------------------------------------------------------------------
+
+
+def get_balance(
+    port: int,
+    agent_id: str,
+    timeout: float = 3.0,
+) -> dict[str, Any] | None:
+    """Return an agent's local EACN balance, or None if no account exists yet."""
+    url = f"{base_url(port)}/api/economy/balance"
+    try:
+        resp = httpx.get(url, params={"agent_id": agent_id}, timeout=timeout)
+    except Exception as exc:
+        raise BackendError(f"get_balance {agent_id!r} on port {port} failed: {exc}") from exc
+    if resp.status_code == 404:
+        return None
+    if resp.status_code >= 400:
+        raise BackendError(
+            f"get_balance {agent_id!r} on port {port} HTTP {resp.status_code}: {resp.text!r}"
+        )
+    data = resp.json()
+    if not isinstance(data, dict):
+        raise BackendError(f"get_balance {agent_id!r} on port {port} returned non-object.")
+    return dict(data)
+
+
+def deposit(
+    port: int,
+    agent_id: str,
+    amount: float,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> dict[str, Any]:
+    """Deposit local EACN credits into an agent account."""
+    if amount <= 0:
+        raise BackendError(f"deposit amount must be positive, got {amount!r}")
+    url = f"{base_url(port)}/api/economy/deposit"
+    try:
+        resp = httpx.post(url, json={"agent_id": agent_id, "amount": amount}, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        raise BackendError(f"deposit {agent_id!r} on port {port} failed: {exc}") from exc
+    if not isinstance(data, dict):
+        raise BackendError(f"deposit {agent_id!r} on port {port} returned non-object.")
+    return dict(data)
+
+
+def ensure_balance(
+    port: int,
+    agent_id: str,
+    minimum: float,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> dict[str, Any]:
+    """Ensure an agent has at least *minimum* total local EACN credits."""
+    if minimum <= 0:
+        balance = get_balance(port, agent_id, timeout=min(timeout, 3.0))
+        return balance or {"agent_id": agent_id, "available": 0.0, "frozen": 0.0}
+    balance = get_balance(port, agent_id, timeout=min(timeout, 3.0))
+    available = float((balance or {}).get("available", 0.0))
+    frozen = float((balance or {}).get("frozen", 0.0))
+    total = available + frozen
+    if total >= minimum:
+        return balance or {"agent_id": agent_id, "available": available, "frozen": frozen}
+    return deposit(port, agent_id, minimum - total, timeout=timeout)
 
 
 # ---------------------------------------------------------------------------
