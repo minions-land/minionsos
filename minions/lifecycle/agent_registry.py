@@ -7,6 +7,7 @@ from pathlib import Path
 
 from minions.errors import BackendError
 from minions.lifecycle import eacn_client
+from minions.lifecycle.eacn_identity import upsert_agent_identity
 from minions.paths import project_meta_json
 
 
@@ -89,19 +90,35 @@ def register_project_role_agent(
 ) -> tuple[str, list[str]]:
     """Register *role_name* as an AgentCard on the project's Local EACN3 network."""
     sid = server_id or project_eacn_server_id(port)
-    return eacn_client.register_agent(
+    domains = role_agent_domains(role_name)
+    tier = role_agent_tier(role_name)
+    description = role_agent_description(role_name)
+    token, seeds = eacn_client.register_agent(
         port=port,
         agent_id=role_name,
         name=role_name,
         server_id=sid,
-        domains=role_agent_domains(role_name),
+        domains=domains,
         skills=[
             {
                 "name": f"minionsos.{_normalise_role(role_name)}",
-                "description": role_agent_description(role_name),
+                "description": description,
                 "parameters": {"role": role_name, "project_port": port},
             }
         ],
-        description=role_agent_description(role_name),
-        tier=role_agent_tier(role_name),
+        description=description,
+        tier=tier,
     )
+    upsert_agent_identity(
+        port,
+        role_name=role_name,
+        agent_id=role_name,
+        kind="role",
+        server_id=sid,
+        agent_token=token,
+        domains=domains,
+        tier=tier,
+        description=description,
+        name=role_name,
+    )
+    return token, seeds

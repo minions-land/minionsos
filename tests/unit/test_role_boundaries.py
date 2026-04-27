@@ -8,7 +8,8 @@ from minions.config import (
     RoleType,
     resolve_whitelist,
 )
-from minions.lifecycle.role import FIXED_ROLES, _boundary_context
+from minions.lifecycle.role import FIXED_ROLES, _boundary_context, _build_system_prompt
+from minions.paths import common_role_system_md
 
 
 class TestRoleType:
@@ -93,7 +94,28 @@ class TestBoundaryContext:
         assert len(ctx) > 0
 
 
+class TestCommonRolePrompt:
+    def test_common_role_system_exists(self) -> None:
+        path = common_role_system_md()
+        assert path.exists()
+        text = path.read_text(encoding="utf-8")
+        assert "Common Role Contract" in text
+        assert "Subagent handoff contract" in text
+
+    def test_role_system_prompt_combines_common_and_role_specific(self) -> None:
+        path = _build_system_prompt("coder")
+        assert path is not None
+        text = path.read_text(encoding="utf-8")
+        assert "Common Role Contract" in text
+        assert "Coder" in text
+        assert "Subagents do not reliably inherit" in text
+
+
 class TestReviewerWhitelistIsolation:
+    def test_non_gru_main_roles_can_spawn_subagents(self) -> None:
+        for role in ("noter", "coder", "experimenter", "writer", "reviewer", "ethics", "expert"):
+            assert "Task" in resolve_whitelist(role, "main")
+
     def test_reviewer_has_no_write_tools(self) -> None:
         tools = resolve_whitelist("reviewer", "main")
         assert "Write" not in tools

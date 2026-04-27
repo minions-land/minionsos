@@ -21,6 +21,7 @@ import httpx
 
 from minions.errors import BackendError, ProjectError
 from minions.lifecycle import eacn_client
+from minions.lifecycle.eacn_identity import identity_map_for_meta, upsert_agent_identity
 from minions.paths import (
     MINIONS_ROOT,
     project_backend_log,
@@ -446,23 +447,37 @@ def project_create(
 
     # Register the "gru" passive-mailbox agent on this project's bus so that
     # role → gru direct messages land in a real EACN inbox (not dead letters).
-    # FATAL on failure: without it, every `post_message(to_agent_id="gru", ...)`
-    # from a Role is silently dropped, which is exactly the bug this fixes.
+    # FATAL on failure: without it, every Role -> Gru EACN message is
+    # silently dropped, which is exactly the bug this fixes.
     try:
         from minions.config import load_gru_config
 
         gru_agent_id = load_gru_config().gru_eacn_agent_id
+        gru_domains = ["minionsos", "project-local", "role:gru", "coordination"]
+        gru_description = (
+            "MinionsOS global coordinator (passive mailbox on this project). "
+            "Polled by the Python-side WakeupScheduler; not a live Claude process."
+        )
         gru_agent_token, _seeds = eacn_client.register_agent(
             port=port,
             agent_id=gru_agent_id,
             name="gru",
             server_id=server_id,
-            domains=["minionsos", "project-local", "role:gru", "coordination"],
-            description=(
-                "MinionsOS global coordinator (passive mailbox on this project). "
-                "Polled by the Python-side WakeupScheduler; not a live Claude process."
-            ),
+            domains=gru_domains,
+            description=gru_description,
             tier="coordinator",
+        )
+        upsert_agent_identity(
+            port,
+            role_name="gru",
+            agent_id=gru_agent_id,
+            kind="gru_mailbox",
+            server_id=server_id,
+            agent_token=gru_agent_token,
+            domains=gru_domains,
+            tier="coordinator",
+            description=gru_description,
+            name="gru",
         )
     except BackendError as exc:
         logger.error("Gru agent registration failed (fatal): %s", exc)
@@ -487,6 +502,7 @@ def project_create(
     entry_dict["eacn3_server_token"] = eacn3_server_token
     entry_dict["gru_agent_id"] = gru_agent_id
     entry_dict["gru_agent_token"] = gru_agent_token
+    entry_dict["eacn_agent_map"] = identity_map_for_meta(port)
     # Persist external resource pointers so revive / downstream tools can see them.
     if topic_doc:
         entry_dict["topic_doc"] = topic_doc
@@ -677,14 +693,28 @@ def project_revive(
         from minions.config import load_gru_config
 
         gru_agent_id = load_gru_config().gru_eacn_agent_id
+        gru_domains = ["minionsos", "project-local", "role:gru", "coordination"]
+        gru_description = "MinionsOS global coordinator (passive mailbox on this project)."
         gru_agent_token, _seeds = eacn_client.register_agent(
             port=port,
             agent_id=gru_agent_id,
             name="gru",
             server_id=server_id,
-            domains=["minionsos", "project-local", "role:gru", "coordination"],
-            description=("MinionsOS global coordinator (passive mailbox on this project)."),
+            domains=gru_domains,
+            description=gru_description,
             tier="coordinator",
+        )
+        upsert_agent_identity(
+            port,
+            role_name="gru",
+            agent_id=gru_agent_id,
+            kind="gru_mailbox",
+            server_id=server_id,
+            agent_token=gru_agent_token,
+            domains=gru_domains,
+            tier="coordinator",
+            description=gru_description,
+            name="gru",
         )
     except BackendError as exc:
         logger.error("Gru agent re-registration failed (fatal): %s", exc)
@@ -749,6 +779,7 @@ def project_revive(
             "eacn3_server_token": eacn3_server_token,
             "gru_agent_id": gru_agent_id,
             "gru_agent_token": gru_agent_token,
+            "eacn_agent_map": identity_map_for_meta(port),
         },
     )
 
@@ -799,17 +830,32 @@ def project_repair_gru_agent(
                 "gru_agent_token": raw.get("gru_agent_token", ""),
             }
 
+    gru_domains = ["minionsos", "project-local", "role:gru", "coordination"]
+    gru_description = "MinionsOS global coordinator (passive mailbox)."
     gru_agent_token, _seeds = eacn_client.register_agent(
         port=port,
         agent_id=gru_agent_id,
         name="gru",
         server_id=server_id,
-        domains=["minionsos", "project-local", "role:gru", "coordination"],
-        description="MinionsOS global coordinator (passive mailbox).",
+        domains=gru_domains,
+        description=gru_description,
         tier="coordinator",
+    )
+    upsert_agent_identity(
+        port,
+        role_name="gru",
+        agent_id=gru_agent_id,
+        kind="gru_mailbox",
+        server_id=server_id,
+        agent_token=gru_agent_token,
+        domains=gru_domains,
+        tier="coordinator",
+        description=gru_description,
+        name="gru",
     )
     raw["gru_agent_id"] = gru_agent_id
     raw["gru_agent_token"] = gru_agent_token
+    raw["eacn_agent_map"] = identity_map_for_meta(port)
     tmp = meta_path.with_suffix(".tmp")
     tmp.write_text(json.dumps(raw, indent=2), encoding="utf-8")
     os.replace(tmp, meta_path)

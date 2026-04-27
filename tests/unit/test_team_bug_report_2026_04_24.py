@@ -2,8 +2,8 @@
 
 Covers:
 - #1 project_create fails fast + actionable error when parent is not a git repo
-- #7 register_role / register_expert with init_brief posts an EACN direct
-     message (gru → role), does NOT spawn a local ephemeral Claude
+- #7 register_role / register_expert with init_brief publishes an EACN task
+     (gru → role), does NOT spawn a local ephemeral Claude
 - #9 WakeupScheduler accepts 'state_store=' as a kwarg alias for 'store='
 """
 
@@ -56,7 +56,7 @@ class TestParentGitPrecheck:
 
 
 # ---------------------------------------------------------------------------
-# #7 init_brief routes via EACN post_message
+# #7 init_brief routes via EACN task
 # ---------------------------------------------------------------------------
 
 
@@ -81,11 +81,11 @@ class _FakeStore:
 
 
 class TestInitBriefGoesThroughEacn:
-    def test_register_role_posts_to_eacn(self) -> None:
+    def test_register_role_publishes_eacn_task(self) -> None:
         store = _FakeStore()
         with (
             patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
-            patch("minions.lifecycle.eacn_client.post_message", return_value={}) as post,
+            patch("minions.lifecycle.eacn_client.create_task", return_value={}) as create_task,
             patch.object(role_mod, "invoke_role_ephemeral") as invoke,
         ):
             role_mod.register_role(
@@ -96,23 +96,21 @@ class TestInitBriefGoesThroughEacn:
                 poll_interval="1m",
             )
         # init_brief must go through EACN, NOT through a local ephemeral spawn.
-        post.assert_called_once()
+        create_task.assert_called_once()
         invoke.assert_not_called()
 
-        kwargs = post.call_args.kwargs
+        kwargs = create_task.call_args.kwargs
         assert kwargs["port"] == 37596
-        assert kwargs["to_agent_id"] == "noter"
-        assert kwargs["from_agent_id"] == "gru"
-        assert kwargs["content"] == {
-            "type": "init_brief",
-            "text": "kick off please",
-        }
+        assert kwargs["initiator_id"] == "gru"
+        assert kwargs["invited_agent_ids"] == ["noter"]
+        assert kwargs["description"] == "kick off please"
+        assert kwargs["budget"] == 0.0
 
-    def test_register_expert_posts_to_eacn(self) -> None:
+    def test_register_expert_publishes_eacn_task(self) -> None:
         store = _FakeStore()
         with (
             patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
-            patch("minions.lifecycle.eacn_client.post_message", return_value={}) as post,
+            patch("minions.lifecycle.eacn_client.create_task", return_value={}) as create_task,
             patch.object(role_mod, "invoke_role_ephemeral") as invoke,
         ):
             role_mod.register_expert(
@@ -122,9 +120,9 @@ class TestInitBriefGoesThroughEacn:
                 store=store,
                 poll_interval="1m",
             )
-        post.assert_called_once()
+        create_task.assert_called_once()
         invoke.assert_not_called()
-        assert post.call_args.kwargs["to_agent_id"].startswith("expert-")
+        assert create_task.call_args.kwargs["invited_agent_ids"][0].startswith("expert-")
 
     def test_register_role_fails_if_init_brief_cannot_queue(self) -> None:
         """A role is not active unless its first message is queued through EACN."""
@@ -132,7 +130,7 @@ class TestInitBriefGoesThroughEacn:
         with (
             patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
             patch(
-                "minions.lifecycle.eacn_client.post_message",
+                "minions.lifecycle.eacn_client.create_task",
                 side_effect=role_mod.BackendError("EACN is down"),
             ),
             pytest.raises(role_mod.RoleError),

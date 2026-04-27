@@ -75,9 +75,11 @@ def slugify(text: str) -> str:
 # "main" = the top-level Claude process; "subagent" = spawned sub-processes.
 _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("gru", "main"): [
-        "eacn3_*",
         "gru_relay",
+        "project_eacn_send_message",
+        "project_eacn_create_task",
         "gru_inbox_poll",
+        "gru_start_monitor",
         "project_create",
         "project_close",
         "project_dormant",
@@ -95,10 +97,11 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("gru", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
-    ("noter", "main"): ["eacn3_*", "WebSearch", "WebFetch", "Read"],
+    ("noter", "main"): ["eacn3_*", "Task", "WebSearch", "WebFetch", "Read"],
     ("noter", "subagent"): ["WebSearch", "WebFetch", "Read"],
     ("coder", "main"): [
         "eacn3_*",
+        "Task",
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -109,6 +112,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("coder", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
     ("experimenter", "main"): [
         "eacn3_*",
+        "Task",
         "exp_run",
         "exp_status",
         "exp_wait",
@@ -144,6 +148,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("writer", "main"): [
         "eacn3_*",
+        "Task",
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -154,6 +159,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("writer", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
     ("expert", "main"): [
         "eacn3_*",
+        "Task",
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -162,9 +168,9 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("expert", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
-    ("reviewer", "main"): ["eacn3_*", "WebSearch", "WebFetch", "Read"],
+    ("reviewer", "main"): ["eacn3_*", "Task", "WebSearch", "WebFetch", "Read"],
     ("reviewer", "subagent"): ["WebSearch", "WebFetch", "Read"],
-    ("ethics", "main"): ["eacn3_*", "WebSearch", "WebFetch", "Read"],
+    ("ethics", "main"): ["eacn3_*", "Task", "WebSearch", "WebFetch", "Read"],
     ("ethics", "subagent"): ["WebSearch", "WebFetch", "Read"],
 }
 
@@ -282,6 +288,10 @@ class GruConfig(BaseModel):
         default=30,
         description="Minimum seconds between dispatches for the same role (any wakeup class).",
     )
+    noter_report_interval: str = Field(
+        default="30m",
+        description="Default time-trigger cadence for Noter periodic project summaries.",
+    )
     gru_eacn_agent_id: str = Field(
         default="gru",
         description=(
@@ -341,6 +351,7 @@ class GruConfig(BaseModel):
 
     @field_validator(
         "heartbeat_report_interval",
+        "noter_report_interval",
         mode="before",
     )
     @classmethod

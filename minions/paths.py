@@ -111,6 +111,11 @@ def role_system_md(role: str) -> Path:
     return ROLES_DIR / role / "SYSTEM.md"
 
 
+def common_role_system_md() -> Path:
+    """Return the shared SYSTEM.md path injected into every role."""
+    return ROLES_DIR / "SYSTEM.md"
+
+
 def domain_pack(slug: str) -> Path:
     """Return the domain pack markdown path for *slug*."""
     return DOMAINS_DIR / f"{slug}.md"

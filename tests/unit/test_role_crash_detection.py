@@ -63,6 +63,26 @@ def _clear_inflight() -> None:
         role_mod._INFLIGHT.clear()
 
 
+@pytest.fixture(autouse=True)
+def _isolate_wakeup_runtime(tmp_path: Path):
+    with (
+        patch(
+            "minions.lifecycle.role_inbox.project_logs_dir",
+            lambda port: tmp_path / f"project_{port}" / "logs",
+        ),
+        patch(
+            "minions.lifecycle.wakeup.project_memory_dir",
+            lambda port: tmp_path / f"project_{port}" / "memory",
+        ),
+        patch(
+            "minions.lifecycle.wakeup.project_scratchpad",
+            lambda port, role: tmp_path / f"project_{port}" / "memory" / f"{role}.md",
+        ),
+        patch("minions.lifecycle.wakeup.list_open_tasks", return_value=[]),
+    ):
+        yield
+
+
 def _make_proc(pid: int, rc: int | None = None) -> MagicMock:
     proc = MagicMock()
     proc.pid = pid
@@ -139,7 +159,7 @@ def test_second_wakeup_while_inflight_is_deferred_not_dropped() -> None:
     def invoke(role: str, port: int, events: list[dict[str, Any]]) -> None:
         calls.append([e["id"] for e in events])
 
-    sched = WakeupScheduler(store=S(), invoke_fn=invoke)
+    sched = WakeupScheduler(store=S(), invoke_fn=invoke, cooldown_seconds=0)
 
     # Simulate tick 1 events.
     payload1 = {"events": [{"id": "a"}]}

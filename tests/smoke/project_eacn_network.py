@@ -6,8 +6,8 @@ Usage:
 This creates a temporary parent git repo, creates one fictional MinionsOS project,
 registers Noter/Coder/Expert roles, and verifies:
 - Gru, Noter, Coder, and Expert all appear in EACN discovery for that project.
-- Gru -> Noter, Coder -> Gru, Coder -> Expert, and Expert -> Coder messages
-  are all delivered through the project's local EACN3 queue.
+- Gru -> Noter initial task, Coder -> Gru, Coder -> Expert, and Expert -> Coder
+  messages are all delivered through the project's local EACN3 queue.
 """
 
 from __future__ import annotations
@@ -50,6 +50,14 @@ def event_payloads(resp: dict[str, Any]) -> list[dict[str, Any]]:
 
 def has_content(resp: dict[str, Any], expected: dict[str, Any]) -> bool:
     return any(payload.get("content") == expected for payload in event_payloads(resp))
+
+
+def has_task_description(resp: dict[str, Any], expected: str) -> bool:
+    for payload in event_payloads(resp):
+        content = payload.get("content")
+        if isinstance(content, dict) and content.get("description") == expected:
+            return True
+    return False
 
 
 def main() -> int:
@@ -126,13 +134,9 @@ def main() -> int:
         print("[eacn-smoke] verify project-local message delivery")
         noter_init = eacn_client.poll_events(port, "noter", timeout_secs=1)
         step(
-            "Gru -> Noter init_brief delivered through EACN",
-            has_content(
-                noter_init,
-                {
-                    "type": "init_brief",
-                    "text": "Observe this fictional project through project-local EACN only.",
-                },
+            "Gru -> Noter init_brief task delivered through EACN",
+            has_task_description(
+                noter_init, "Observe this fictional project through project-local EACN only."
             ),
             f"count={noter_init.get('count')}",
         )

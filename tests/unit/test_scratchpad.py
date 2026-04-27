@@ -87,7 +87,7 @@ class TestWakeupScratchpad:
         def invoke(role, port, events, **kwargs):
             calls.append((role, port, events, kwargs))
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke, config=_TEST_CFG)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, config=_TEST_CFG, cooldown_seconds=0)
         return sched, calls
 
     def test_below_soft_dispatches_ok(self, tmp_path: Path) -> None:
@@ -127,6 +127,8 @@ class TestWakeupScratchpad:
             role_name="noter",
         )
         assert "Compress the scratchpad in place (subagent) BEFORE" in msg
+        assert "agent_id `noter`" in msg
+        assert "pass `noter` explicitly" in msg
 
     def test_above_veto_no_dispatch_and_dedup_warning(self, tmp_path: Path) -> None:
         sched, calls = self._make(tmp_path)
@@ -144,7 +146,7 @@ class TestWakeupScratchpad:
             p1,
             p2,
             patch.object(wakeup_mod, "poll_events", return_value=payload),
-            patch.object(wakeup_mod, "post_message", side_effect=fake_post),
+            patch.object(wakeup_mod, "send_message", side_effect=fake_post),
         ):
             _run(sched.tick_once())
             # Second tick — same over-veto state — must NOT re-post.
@@ -169,7 +171,7 @@ class TestWakeupScratchpad:
             patch.object(wakeup_mod, "poll_events", return_value=payload),
             patch.object(
                 wakeup_mod,
-                "post_message",
+                "send_message",
                 side_effect=lambda *a, **k: posted.append(k.get("content") or a[-1]),
             ),
         ):

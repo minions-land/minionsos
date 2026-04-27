@@ -147,10 +147,24 @@ Inspect resolved paths with:
 
 ```bash
 ./gru                 # launch interactive Gru
+./noter <port>        # launch read-only Noter terminal for one project
 ./mos status          # project dashboard
 ./mos status --json   # machine-readable project status
 ./mos doctor          # environment health checks
 ```
+
+Typical operator layout is one Gru terminal plus one Noter terminal per active
+project:
+
+```bash
+./gru
+./noter 37596
+./noter 37601
+```
+
+The Noter terminal reports backend, role, task, and notes state without draining
+EACN role queues. Type `wake <message>` inside it to queue an on-demand Noter
+summary request through the project's EACN bus.
 
 Project and role management:
 
@@ -207,6 +221,8 @@ spawn_expert
 dismiss_role
 list_roles
 gru_relay
+project_eacn_send_message
+project_eacn_create_task
 gru_start_monitor
 ```
 
@@ -468,10 +484,23 @@ cd MinionsOS_V3
 
 ```bash
 ./gru                 # 启动交互式 Gru
+./noter <port>        # 启动某个项目的只读 Noter 终端
 ./mos status          # 项目仪表盘
 ./mos status --json   # 机器可读状态
 ./mos doctor          # 环境健康检查
 ```
+
+推荐的操作布局是一个 Gru 终端，加上每个活跃项目一个 Noter 终端：
+
+```bash
+./gru
+./noter 37596
+./noter 37601
+```
+
+Noter 终端只报告 backend、role、task 和 notes 状态，不会消费 EACN role 队列。
+在 Noter 终端输入 `wake <message>` 会通过该项目的 EACN bus 排队一次按需 Noter
+摘要请求。
 
 项目和 Role 管理：
 
@@ -527,6 +556,8 @@ spawn_expert
 dismiss_role
 list_roles
 gru_relay
+project_eacn_send_message
+project_eacn_create_task
 gru_start_monitor
 ```
 

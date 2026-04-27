@@ -143,13 +143,21 @@ if [ -f "$ROOT/minions/bin/viz" ]; then
     chmod +x "$ROOT/minions/bin/viz"
     ok "minions/bin/viz is executable"
 fi
-# Top-level symlinks (gru / mos / minionsos / viz → minions/bin/*)
+if [ -f "$ROOT/minions/bin/noter" ]; then
+    chmod +x "$ROOT/minions/bin/noter"
+    ok "minions/bin/noter is executable"
+fi
+# Top-level symlinks (gru / mos / minionsos / noter / viz -> minions/bin/*)
 for link in gru mos minionsos; do
     if [ ! -e "$ROOT/$link" ] && [ ! -L "$ROOT/$link" ]; then
         (cd "$ROOT" && ln -sf minions/bin/gru "$link")
         ok "Created symlink: ./$link → minions/bin/gru"
     fi
 done
+if [ ! -e "$ROOT/noter" ] && [ ! -L "$ROOT/noter" ]; then
+    (cd "$ROOT" && ln -sf minions/bin/noter noter)
+    ok "Created symlink: ./noter -> minions/bin/noter"
+fi
 if [ ! -e "$ROOT/viz" ] && [ ! -L "$ROOT/viz" ]; then
     (cd "$ROOT" && ln -sf minions/bin/viz viz)
     ok "Created symlink: ./viz → minions/bin/viz"
@@ -198,5 +206,6 @@ echo -e "  ${BOLD}Next steps:${RESET}"
 echo -e "  1. Edit ${CYAN}minions/config/gru.yaml${RESET} to adjust heartbeat interval, log level, etc."
 echo -e "  2. Edit ${CYAN}minions/config/experiment_targets.yaml${RESET} to add SSH compute targets."
 echo -e "  3. Launch Gru:  ${BOLD}./gru${RESET}"
+echo -e "     Watch one project: ${BOLD}./noter <port>${RESET}"
 echo -e "     Or use the CLI:  ${BOLD}./mos status${RESET}"
 echo ""

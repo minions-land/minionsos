@@ -12,8 +12,13 @@ class TestProjectStatusSnapshot:
         with patch("minions.lifecycle.health.backend_health", return_value=False):
             snap = project_status_snapshot(port=37596, project_status="active")
         required = {
-            "port", "project_status", "backend_alive", "agents",
-            "queue_depth", "pending_events", "recent_failures",
+            "port",
+            "project_status",
+            "backend_alive",
+            "agents",
+            "queue_depth",
+            "pending_events",
+            "recent_failures",
         }
         assert required <= snap.keys()
 

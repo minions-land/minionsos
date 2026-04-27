@@ -1,4 +1,4 @@
-"""Unit tests for new doctor checks: model-registry, claude-debug-disabled, status --json Phase 1 keys."""
+"""Unit tests for doctor checks and status JSON keys."""
 
 from __future__ import annotations
 
@@ -47,7 +47,6 @@ class TestDoctorDebugFlag:
         assert "claude-debug-disabled" in names
 
     def test_debug_disabled_by_default(self) -> None:
-        env = {k: v for k, v in os.environ.items() if k != "MINIONS_DEBUG"}
         checks = _doctor_checks(env_overrides={"MINIONS_DEBUG": ""})
         dc = next(c for c in checks if c["name"] == "claude-debug-disabled")
         assert dc["ok"] is True
@@ -64,7 +63,15 @@ class TestStatusJson:
         data = json.loads(result.stdout)
         assert isinstance(data, list)
         for row in data:
-            for key in ("port", "name", "status", "backend_alive", "agents", "queue_depth", "recent_failures"):
+            for key in (
+                "port",
+                "name",
+                "status",
+                "backend_alive",
+                "agents",
+                "queue_depth",
+                "recent_failures",
+            ):
                 assert key in row, f"Missing key {key!r} in status row"
 
 
@@ -72,11 +79,13 @@ class TestGruLoopDebugFlag:
     def test_debug_flag_off_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("MINIONS_DEBUG", raising=False)
         from minions.gru import loop as gru_loop
+
         importlib.reload(gru_loop)
         assert gru_loop.DEBUG_MODE is False
 
     def test_debug_flag_on_when_env_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("MINIONS_DEBUG", "1")
         from minions.gru import loop as gru_loop
+
         importlib.reload(gru_loop)
         assert gru_loop.DEBUG_MODE is True

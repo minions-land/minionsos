@@ -110,10 +110,11 @@ class TestWhitelistResolver:
         assert "gru_relay" in tools
         assert "spawn_role" in tools
 
-    def test_gru_has_eacn3_tools(self) -> None:
+    def test_gru_has_project_eacn_adapter_tools(self) -> None:
         tools = resolve_allowed_tools("gru")
-        # Gru main has eacn3_* access
-        assert any(t.startswith("eacn3") for t in tools)
+        assert "project_eacn_send_message" in tools
+        assert "project_eacn_create_task" in tools
+        assert "gru_start_monitor" in tools
 
     def test_noter_no_project_tools(self) -> None:
         tools = resolve_allowed_tools("noter")

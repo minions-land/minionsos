@@ -7,6 +7,7 @@ Tools exposed:
 - project_create / project_close / project_dormant / project_revive / project_list
 - spawn_role / spawn_expert / dismiss_role / list_roles
 - gru_relay
+- project_eacn_send_message / project_eacn_create_task
 - gru_start_monitor  (starts the Gru heartbeat loop as a background thread)
 """
 
@@ -14,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Literal
+from typing import Any, Literal
 
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
@@ -30,6 +31,12 @@ from minions.lifecycle.project import (
 )
 from minions.lifecycle.project import (
     project_revive as _project_revive,
+)
+from minions.lifecycle.project_eacn import (
+    project_eacn_create_task as _project_eacn_create_task,
+)
+from minions.lifecycle.project_eacn import (
+    project_eacn_send_message as _project_eacn_send_message,
 )
 from minions.lifecycle.relay import gru_relay as _gru_relay
 from minions.lifecycle.role import (
@@ -110,6 +117,10 @@ class SpawnRoleArgs(BaseModel):
         default=None,
         description="Override EACN polling cadence (1m / 3m / 5m). Default: gru.yaml.",
     )
+    time_trigger_interval: str | None = Field(
+        default=None,
+        description="Optional periodic wakeup cadence. Noter defaults to gru.yaml.",
+    )
 
 
 class SpawnExpertArgs(BaseModel):
@@ -122,6 +133,10 @@ class SpawnExpertArgs(BaseModel):
     poll_interval: str | None = Field(
         default=None,
         description="Override EACN polling cadence (1m / 3m / 5m). Default: gru.yaml.",
+    )
+    time_trigger_interval: str | None = Field(
+        default=None,
+        description="Optional periodic wakeup cadence.",
     )
 
 
@@ -140,6 +155,36 @@ class GruRelayArgs(BaseModel):
     content: str
     mode: Literal["auto", "quote", "paraphrase"] = "auto"
     source_note: str | None = None
+
+
+class ProjectEacnSendMessageArgs(BaseModel):
+    port: int = Field(description="Project port.")
+    content: Any = Field(description="Message content to send through project-local EACN3.")
+    to_agent_id: str | None = Field(default=None, description="Project-local target EACN agent id.")
+    to_role: str | None = Field(default=None, description="Project-local MinionsOS role name.")
+    from_agent_id: str | None = Field(default=None, description="Sender EACN agent id.")
+    from_role: str | None = Field(default=None, description="Sender MinionsOS role name.")
+
+
+class ProjectEacnCreateTaskArgs(BaseModel):
+    port: int = Field(description="Project port.")
+    description: str = Field(description="Task description to publish on project-local EACN3.")
+    domains: list[str] = Field(
+        default_factory=list,
+        description="Routing domains. Defaults to minionsos/project-local/coordination.",
+    )
+    invited_roles: list[str] = Field(default_factory=list)
+    invited_agent_ids: list[str] = Field(default_factory=list)
+    initiator_role: str | None = Field(default=None)
+    initiator_agent_id: str | None = Field(default=None)
+    budget: float = Field(default=0.0, ge=0.0)
+    deadline: str | None = Field(default=None, description="Optional ISO-8601 deadline.")
+    level: str | None = Field(
+        default=None,
+        description="Optional EACN task level: general, expert, expert_general, or tool.",
+    )
+    expected_output: dict | None = Field(default=None)
+    task_id: str | None = Field(default=None)
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +277,7 @@ def spawn_role(args: SpawnRoleArgs) -> dict:
         role=args.role,
         init_brief=args.init_brief,
         poll_interval=args.poll_interval,
+        time_trigger_interval=args.time_trigger_interval,
     )
 
 
@@ -244,6 +290,7 @@ def spawn_expert(args: SpawnExpertArgs) -> dict:
         name=args.name,
         init_brief=args.init_brief,
         poll_interval=args.poll_interval,
+        time_trigger_interval=args.time_trigger_interval,
     )
 
 
@@ -271,6 +318,38 @@ def gru_relay(args: GruRelayArgs) -> dict:
         content=args.content,
         mode=args.mode,
         source_note=args.source_note,
+    )
+
+
+@mcp.tool()
+def project_eacn_send_message(args: ProjectEacnSendMessageArgs) -> dict:
+    """Send a generic direct message on one project's Local EACN3 network."""
+    return _project_eacn_send_message(
+        port=args.port,
+        content=args.content,
+        to_agent_id=args.to_agent_id,
+        to_role=args.to_role,
+        from_agent_id=args.from_agent_id,
+        from_role=args.from_role,
+    )
+
+
+@mcp.tool()
+def project_eacn_create_task(args: ProjectEacnCreateTaskArgs) -> dict:
+    """Publish a generic task on one project's Local EACN3 network."""
+    return _project_eacn_create_task(
+        port=args.port,
+        description=args.description,
+        domains=args.domains or None,
+        invited_roles=args.invited_roles,
+        invited_agent_ids=args.invited_agent_ids,
+        initiator_role=args.initiator_role,
+        initiator_agent_id=args.initiator_agent_id,
+        budget=args.budget,
+        expected_output=args.expected_output,
+        deadline=args.deadline,
+        level=args.level,
+        task_id=args.task_id,
     )
 
 

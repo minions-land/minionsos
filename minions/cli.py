@@ -5,6 +5,7 @@ Subcommands:
   logs            — tail / follow log files
   doctor          — environment check
   config          — print paths / open config dir
+  noter           — read-only project Noter terminal
   project list|close|revive [PORT]
   role list|dismiss [PORT] [NAME]
   wipe [PORT]     — wipe project data (EACN DB + artifacts)
@@ -390,6 +391,33 @@ def config_cmd(
         return
     for k, v in data.items():
         console.print(f"[cyan]{k}[/cyan] = {v}")
+
+
+# ---------------------------------------------------------------------------
+# noter
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="noter")
+def noter_cmd(
+    port: int = typer.Argument(..., help="Project port to observe."),
+    interval: int = typer.Option(30, "--interval", "-i", help="Report interval in seconds."),
+    once: bool = typer.Option(False, "--once", help="Print one report and exit."),
+    max_tasks: int = typer.Option(12, "--max-tasks", help="Maximum recent tasks to show."),
+) -> None:
+    """Run a read-only Noter terminal for one project."""
+    from minions.lifecycle.noter_terminal import run_noter_terminal
+
+    try:
+        run_noter_terminal(
+            port=port,
+            interval_seconds=interval,
+            once=once,
+            max_tasks=max_tasks,
+            console=console,
+        )
+    except MinionsError as e:
+        raise _fail(str(e)) from e
 
 
 # ---------------------------------------------------------------------------

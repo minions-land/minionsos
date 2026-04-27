@@ -63,18 +63,18 @@ class TestRegister:
         store = FakeStore()
         with (
             patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
-            patch("minions.lifecycle.eacn_client.post_message", return_value={}) as post,
+            patch("minions.lifecycle.eacn_client.create_task", return_value={}) as create_task,
         ):
             role_mod.register_role(
                 37596, "noter", init_brief="hello world", store=store, poll_interval="1m"
             )
-        assert post.call_count == 1
-        kwargs = post.call_args.kwargs
+        assert create_task.call_count == 1
+        kwargs = create_task.call_args.kwargs
         assert kwargs["port"] == 37596
-        assert kwargs["to_agent_id"] == "noter"
-        assert kwargs["from_agent_id"] == "gru"
-        assert kwargs["content"]["type"] == "init_brief"
-        assert kwargs["content"]["text"] == "hello world"
+        assert kwargs["initiator_id"] == "gru"
+        assert kwargs["invited_agent_ids"] == ["noter"]
+        assert kwargs["budget"] == 0.0
+        assert kwargs["description"] == "hello world"
 
     def test_register_rejects_duplicate_active(self) -> None:
         store = FakeStore()
@@ -87,7 +87,7 @@ class TestRegister:
         store = FakeStore()
         with (
             patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
-            patch("minions.lifecycle.eacn_client.post_message", return_value={}),
+            patch("minions.lifecycle.eacn_client.create_task", return_value={}),
         ):
             out = role_mod.register_expert(
                 37596,

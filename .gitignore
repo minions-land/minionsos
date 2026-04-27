@@ -61,3 +61,8 @@ minions-viz/node_modules/
 
 # Stray dev log
 output.log
+
+# Local cleanup holding area
+other/generated/
+other/local/
+other/caches/

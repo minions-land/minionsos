@@ -81,6 +81,8 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/lifecycle/wakeup.py` contains `WakeupScheduler`, which polls EACN3 on each role cadence, deduplicates events, and invokes roles only when work arrives.
 - `minions/lifecycle/eacn_client.py` is the thin EACN3 HTTP client used by the scheduler and lifecycle code.
 - `minions/lifecycle/relay.py` implements the Gru-only cross-project relay path.
+- `minions/lifecycle/project_eacn.py` implements the generic project-local EACN adapter used by Gru and bootstrap paths.
+- `minions/lifecycle/gru_actions.py` keeps deprecated compatibility wrappers for older Gru message/task names; new runtime-visible paths should use `project_eacn_*`.
 - `minions/state/` contains file-backed state management and port allocation.
 - `minions/tools/mcp_server.py` exposes lifecycle operations as FastMCP tools.
 - `minions/tools/experiment_ssh.py` implements Experimenter `exp_*` local/SSH execution tools.
@@ -107,27 +109,27 @@ The parent directory containing this repository must be a git repository before 
 
 Roles are event-driven and ephemeral. No Role should run a long-lived Claude process or implement an in-Claude polling loop. Every active project agent, including Noter and the per-project Gru mailbox projection, must be registered as an AgentCard on that project's Local EACN3 network. The Python `WakeupScheduler` polls EACN3 at configured cadences (`1m`, `3m`, or `5m`) and launches short-lived Claude subprocesses seeded with the Role `SYSTEM.md`, discovered skills, scratchpad context, and event batch.
 
-Only Gru may spawn EACN-visible agents or use `project_*`, `spawn_*`, and `gru_relay` tools. Subagents and Claude teams created inside a Role are EACN-invisible by design: they do not have `eacn3_*` tools and do not appear in `projects.json`.
+Only Gru may spawn EACN-visible agents or use `project_*`, `spawn_*`, `gru_relay`, `project_eacn_send_message`, and `project_eacn_create_task` tools. Subagents and Claude teams created inside a Role are EACN-invisible by design: they do not have `eacn3_*` tools and do not appear in `projects.json`.
 
 Tool/write boundaries:
 
-| Agent | EACN tools | Experiment tools | Gru/project/spawn tools | Workspace writes |
+| Agent | Project-local EACN access | Experiment tools | Gru/project/spawn tools | Workspace writes |
 |---|---|---|---|---|
-| Gru main | yes | no | yes | yes |
+| Gru main | via `project_eacn_*` adapters | no | yes | yes |
 | Gru subagent | no | no | no | yes |
-| Noter main | yes | no | no | `artifacts/notes/` only |
+| Noter main | direct `eacn3_*` | no | no | `artifacts/notes/` only |
 | Noter subagent | no | no | no | no |
-| Coder main | yes | no | no | yes |
+| Coder main | direct `eacn3_*` | no | no | yes |
 | Coder subagent | no | no | no | yes |
-| Experimenter main | yes | yes | no | yes |
+| Experimenter main | direct `eacn3_*` | yes | no | yes |
 | Experimenter subagent | no | yes | no | yes |
-| Writer main | yes | no | no | yes |
+| Writer main | direct `eacn3_*` | no | no | yes |
 | Writer subagent | no | no | no | yes |
-| Expert main | yes | no | no | yes, but preferably read-mostly |
+| Expert main | direct `eacn3_*` | no | no | yes, but preferably read-mostly |
 | Expert subagent | no | no | no | yes, but preferably read-mostly |
-| Reviewer main | yes | no | no | `artifacts/reviews/round-<n>/` only |
+| Reviewer main | direct `eacn3_*` | no | no | `artifacts/reviews/round-<n>/` only |
 | Reviewer subagent | no | no | no | no |
-| Ethics main | yes | no | no | `artifacts/ethics/` only |
+| Ethics main | direct `eacn3_*` | no | no | `artifacts/ethics/` only |
 | Ethics subagent | no | no | no | no |
 
 Noter and Reviewer must not write to `workspace/`.

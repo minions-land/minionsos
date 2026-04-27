@@ -10,6 +10,7 @@ All functions are synchronous and use ``httpx``.  They raise
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any
 
 import httpx
@@ -220,18 +221,153 @@ def probe_backend(
 
 
 # ---------------------------------------------------------------------------
+# Tasks
+# ---------------------------------------------------------------------------
+
+
+def list_tasks(
+    port: int,
+    status: str | None = None,
+    initiator_id: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> list[dict[str, Any]]:
+    """Return tasks from a project-local EACN3 backend."""
+    url = f"{base_url(port)}/api/tasks"
+    params: dict[str, Any] = {"limit": limit, "offset": offset}
+    if status:
+        params["status"] = status
+    if initiator_id:
+        params["initiator_id"] = initiator_id
+    try:
+        resp = httpx.get(url, params=params, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        raise BackendError(f"list_tasks on port {port} failed: {exc}") from exc
+    if not isinstance(data, list):
+        raise BackendError(f"list_tasks on port {port} returned non-list payload.")
+    return [dict(item) for item in data if isinstance(item, dict)]
+
+
+def list_open_tasks(
+    port: int,
+    domains: list[str] | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    timeout: float = 3.0,
+) -> list[dict[str, Any]]:
+    """Return open EACN3 tasks, optionally filtered by domain overlap."""
+    url = f"{base_url(port)}/api/tasks/open"
+    params: dict[str, Any] = {"limit": limit, "offset": offset}
+    if domains:
+        params["domains"] = ",".join(domains)
+    try:
+        resp = httpx.get(url, params=params, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        raise BackendError(f"list_open_tasks on port {port} failed: {exc}") from exc
+    if not isinstance(data, list):
+        raise BackendError(f"list_open_tasks on port {port} returned non-list payload.")
+    return [dict(item) for item in data if isinstance(item, dict)]
+
+
+def create_task(
+    port: int,
+    description: str,
+    domains: list[str],
+    initiator_id: str = "gru",
+    budget: float = 0.0,
+    expected_output: dict[str, Any] | None = None,
+    deadline: str | None = None,
+    max_concurrent_bidders: int | None = None,
+    max_depth: int | None = None,
+    level: str | None = None,
+    invited_agent_ids: list[str] | None = None,
+    task_id: str | None = None,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> dict[str, Any]:
+    """Publish a task to the project-local EACN3 network."""
+    url = f"{base_url(port)}/api/tasks"
+    payload: dict[str, Any] = {
+        "task_id": task_id or f"t-{uuid.uuid4().hex[:12]}",
+        "initiator_id": initiator_id,
+        "content": {"description": description},
+        "domains": domains,
+        "budget": budget,
+        "invited_agent_ids": invited_agent_ids or [],
+    }
+    if expected_output:
+        payload["content"]["expected_output"] = expected_output
+    if deadline:
+        payload["deadline"] = deadline
+    if max_concurrent_bidders is not None:
+        payload["max_concurrent_bidders"] = max_concurrent_bidders
+    if max_depth is not None:
+        payload["max_depth"] = max_depth
+    if level:
+        payload["level"] = level
+    try:
+        resp = httpx.post(url, json=payload, timeout=timeout)
+        resp.raise_for_status()
+        return dict(resp.json())
+    except Exception as exc:
+        raise BackendError(f"create_task on port {port} failed: {exc}") from exc
+
+
+# ---------------------------------------------------------------------------
 # Messaging
 # ---------------------------------------------------------------------------
 
 
-def post_message(
+def get_agent_card(
+    port: int,
+    agent_id: str,
+    timeout: float = 3.0,
+) -> dict[str, Any] | None:
+    """Return the project-local AgentCard for *agent_id*, or None on 404."""
+    url = f"{base_url(port)}/api/discovery/agents/{agent_id}"
+    try:
+        resp = httpx.get(url, timeout=timeout)
+    except Exception as exc:
+        raise BackendError(f"get_agent_card {agent_id!r} on port {port} failed: {exc}") from exc
+    if resp.status_code == 404:
+        return None
+    if resp.status_code >= 400:
+        raise BackendError(
+            f"get_agent_card {agent_id!r} on port {port} HTTP {resp.status_code}: {resp.text!r}"
+        )
+    data = resp.json()
+    if not isinstance(data, dict):
+        raise BackendError(f"get_agent_card {agent_id!r} on port {port} returned non-object.")
+    return dict(data)
+
+
+def require_agent(
+    port: int,
+    agent_id: str,
+    timeout: float = 3.0,
+) -> dict[str, Any]:
+    """Return AgentCard for *agent_id*, raising if the target is not registered."""
+    card = get_agent_card(port, agent_id, timeout=timeout)
+    if card is None:
+        raise BackendError(
+            f"Cannot send project-local EACN message on port {port}: "
+            f"target agent {agent_id!r} is not registered."
+        )
+    return card
+
+
+def _post_message_raw(
     port: int,
     to_agent_id: str,
     from_agent_id: str,
     content: Any,
     timeout: float = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
-    """Send a direct message via ``POST /api/messages``."""
+    """Send a direct message via ``POST /api/messages`` without local validation."""
     url = f"{base_url(port)}/api/messages"
     payload = {
         "to": {"agent_id": to_agent_id, "server_id": "", "network_id": ""},
@@ -244,6 +380,93 @@ def post_message(
         return dict(resp.json())
     except Exception as exc:
         raise BackendError(f"post_message to {to_agent_id!r} on port {port} failed: {exc}") from exc
+
+
+def _mirror_message_to_noter(
+    port: int,
+    to_agent_id: str,
+    from_agent_id: str,
+    content: Any,
+) -> None:
+    """Best-effort MinionsOS audit mirror for direct EACN messages.
+
+    EACN3 direct messages are intentionally per-agent queues. MinionsOS adds
+    this optional mirror so the project-local Noter can observe direct
+    communications sent through this adapter without changing EACN3 itself.
+    """
+    if to_agent_id == "noter":
+        return
+    try:
+        if get_agent_card(port, "noter", timeout=1.0) is None:
+            return
+        _post_message_raw(
+            port=port,
+            to_agent_id="noter",
+            from_agent_id="network-audit",
+            content={
+                "type": "network_audit_message",
+                "source": "minionsos.eacn_client.send_message",
+                "from_agent_id": from_agent_id,
+                "to_agent_id": to_agent_id,
+                "content": content,
+            },
+            timeout=1.0,
+        )
+    except Exception as exc:
+        logger.debug("Noter audit mirror failed port=%d target=%s: %s", port, to_agent_id, exc)
+
+
+def send_message(
+    port: int,
+    to_agent_id: str,
+    from_agent_id: str,
+    content: Any,
+    timeout: float = DEFAULT_TIMEOUT,
+    *,
+    validate_target: bool = True,
+    audit_to_noter: bool = True,
+) -> dict[str, Any]:
+    """Send a direct project-local EACN message.
+
+    EACN3 queues messages for any ``to_agent_id``. MinionsOS wraps that API
+    with target AgentCard validation so typoed role names fail before they
+    become ghost queues. A best-effort copy is also sent to Noter when present
+    to provide a project-level audit stream for direct messages.
+    """
+    if validate_target:
+        require_agent(port, to_agent_id, timeout=min(timeout, 3.0))
+    result = _post_message_raw(
+        port=port,
+        to_agent_id=to_agent_id,
+        from_agent_id=from_agent_id,
+        content=content,
+        timeout=timeout,
+    )
+    if audit_to_noter:
+        _mirror_message_to_noter(port, to_agent_id, from_agent_id, content)
+    return result
+
+
+def post_message(
+    port: int,
+    to_agent_id: str,
+    from_agent_id: str,
+    content: Any,
+    timeout: float = DEFAULT_TIMEOUT,
+    *,
+    validate_target: bool = True,
+    audit_to_noter: bool = True,
+) -> dict[str, Any]:
+    """Backward-compatible alias for :func:`send_message`."""
+    return send_message(
+        port=port,
+        to_agent_id=to_agent_id,
+        from_agent_id=from_agent_id,
+        content=content,
+        timeout=timeout,
+        validate_target=validate_target,
+        audit_to_noter=audit_to_noter,
+    )
 
 
 def poll_events(

@@ -51,6 +51,8 @@ def _install_patches(
     monkeypatch.setattr(proj_mod, "_stop_backend", lambda port, pid=None: None)
     monkeypatch.setattr(proj_mod, "_git_tag", lambda port, tag: None)
     monkeypatch.setattr(proj_mod, "_register_server", lambda port: (server_id, server_token))
+    monkeypatch.setattr(proj_mod, "upsert_agent_identity", lambda *args, **kwargs: {})
+    monkeypatch.setattr(proj_mod, "identity_map_for_meta", lambda port: {})
 
     def _fake_register_agent(**kwargs: Any) -> tuple[str, list[str]]:
         return gru_token, []

@@ -52,7 +52,11 @@ class TestRoleSpawnEnvPropagation:
         assert '"EACN3_NETWORK_URL"' in text
         assert '"EACN3_STATE_DIR"' in text
         # Per-role dir to avoid token collisions across roles.
-        assert "plugin-" in text
+        assert "plugin_state_dir" in text
+        identity_text = (ROOT / "minions" / "lifecycle" / "eacn_identity.py").read_text(
+            encoding="utf-8"
+        )
+        assert "plugin-" in identity_text
 
 
 class TestDoctorEacn3Checks:

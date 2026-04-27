@@ -34,6 +34,18 @@ class TestGruSystemInvariants:
         assert "gru_inbox_poll" in t
         assert "Passive-mailbox inbox" in t
 
+    def test_uses_project_eacn_adapters_not_old_gru_protocol(self) -> None:
+        t = _text()
+        assert "project_eacn_send_message" in t
+        assert "project_eacn_create_task" in t
+        assert "gru_send_message" not in t
+        assert "gru_publish_task" not in t
+
+    def test_forbids_periodic_idle_self_thinking(self) -> None:
+        t = _text()
+        assert "must not implement periodic idle self-thinking" in t
+        assert "event-backed" in t
+
     def test_references_repair_command(self) -> None:
         # Operators must be told how to recover when the agent is missing.
         assert "mos project repair" in _text()

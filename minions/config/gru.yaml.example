@@ -17,6 +17,13 @@ log_level: info
 # Every Role installs a polling loop that calls eacn3_events_poll on this cadence.
 poll_interval_default: 1m
 
+# Noter periodic report cadence. Noter still wakes immediately for EACN events;
+# this timer gives each project a regular summary even when the bus is quiet.
+noter_report_interval: 30m
+
+# Minimum seconds between any two dispatches for the same role.
+role_cooldown_seconds: 30
+
 # EACN agent_id used when system components (e.g. the Python-side wakeup
 # dispatcher posting scratchpad-veto warnings) address Gru. Change only if
 # you have renamed the Gru agent on the EACN bus.

@@ -1,16 +1,16 @@
-"""Per-role on-disk veto buffer.
+"""Per-role on-disk wakeup buffer.
 
-When the scratchpad-veto gate in :mod:`minions.lifecycle.wakeup` blocks a
-wake-up, the events the scheduler already drained from EACN3 must NOT be
-dropped: the server-side poll is destructive (EACN3 does not re-queue),
-so anything we fetched and don't dispatch needs to be re-delivered by us.
+When a wake-up cannot be dispatched immediately, the events the scheduler
+already drained from EACN3 must NOT be dropped: the server-side poll is
+destructive (EACN3 does not re-queue), so anything we fetched and don't
+dispatch needs to be re-delivered by us.
 
 This module mirrors the :mod:`minions.lifecycle.gru_inbox` pattern but is
-keyed per (port, role): each buffered event batch is appended to a small
-jsonl file that the next tick drains *before* polling EACN3 again.
+keyed per (port, role): each buffered event batch is stored in a small jsonl
+file that the next tick reads *before* polling EACN3 again.
 
 Format: each line is a JSON object ``{"event": <raw event>}``. No seq /
-cursor — the file is fully consumed and truncated on drain.
+cursor.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ def buffer_path(port: int, role: str) -> Path:
 
 
 def append_events(port: int, role: str, events: list[dict[str, Any]]) -> int:
-    """Append *events* to the per-role veto buffer. Returns count written."""
+    """Append *events* to the per-role wakeup buffer. Returns count written."""
     if not events:
         return 0
     p = buffer_path(port, role)
@@ -44,8 +44,8 @@ def append_events(port: int, role: str, events: list[dict[str, Any]]) -> int:
     return len(events)
 
 
-def drain(port: int, role: str) -> list[dict[str, Any]]:
-    """Read and remove all buffered events for (*port*, *role*).
+def read_events(port: int, role: str) -> list[dict[str, Any]]:
+    """Read all buffered events for (*port*, *role*) without removing them.
 
     Returns an empty list if the buffer does not exist.
     """
@@ -67,11 +67,37 @@ def drain(port: int, role: str) -> list[dict[str, Any]]:
                 if isinstance(ev, dict):
                     out.append(ev)
     except Exception as exc:
-        logger.warning("role_inbox drain failed port=%d role=%s: %s", port, role, exc)
+        logger.warning("role_inbox read failed port=%d role=%s: %s", port, role, exc)
         return []
-    with contextlib.suppress(OSError):
-        os.remove(p)
     return out
+
+
+def replace_events(port: int, role: str, events: list[dict[str, Any]]) -> int:
+    """Atomically replace the per-role wakeup buffer with *events*."""
+    p = buffer_path(port, role)
+    if not events:
+        clear(port, role)
+        return 0
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(".tmp")
+    with tmp.open("w", encoding="utf-8") as fh:
+        for ev in events:
+            fh.write(json.dumps({"event": ev}, default=str) + "\n")
+    os.replace(tmp, p)
+    return len(events)
+
+
+def clear(port: int, role: str) -> None:
+    """Remove the per-role wakeup buffer if it exists."""
+    with contextlib.suppress(OSError):
+        os.remove(buffer_path(port, role))
+
+
+def drain(port: int, role: str) -> list[dict[str, Any]]:
+    """Read and remove all buffered events for (*port*, *role*)."""
+    events = read_events(port, role)
+    clear(port, role)
+    return events
 
 
 def count(port: int, role: str) -> int:

@@ -18,10 +18,12 @@ existing MCP tool callers and tests keep working.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import logging
 import os
 import subprocess
+import tempfile
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
@@ -31,15 +33,19 @@ from minions.config import (
     ROLE_CLASSIFICATION,
     ROLE_WRITE_BOUNDARIES,
     RoleType,
+    load_gru_config,
+    parse_duration,
     slugify,
     whitelist_csv,
 )
 from minions.errors import AlreadyActive, BackendError, RoleError
-from minions.lifecycle.agent_registry import register_project_role_agent
+from minions.lifecycle import eacn_client
+from minions.lifecycle.agent_registry import register_project_role_agent, role_agent_domains
+from minions.lifecycle.eacn_identity import plugin_state_dir, resolve_agent_id
 from minions.lifecycle.skills import list_skills
 from minions.paths import (
     MINIONS_ROOT,
-    project_dir,
+    common_role_system_md,
     project_memory_dir,
     project_role_log,
     project_scratchpad,
@@ -125,11 +131,36 @@ def _now_iso() -> str:
 
 
 def _build_system_prompt(role: str) -> Path | None:
-    base = role_system_md(role if not role.startswith("expert") else "expert")
-    if not base.exists():
-        logger.debug("SYSTEM.md not found for role %r at %s", role, base)
+    role_path = role_system_md(role if not role.startswith("expert") else "expert")
+    common_path = common_role_system_md()
+    paths = [path for path in (common_path, role_path) if path.exists()]
+    if not paths:
+        logger.debug("SYSTEM.md not found for role %r at %s", role, role_path)
         return None
-    return base
+    if paths == [role_path]:
+        return role_path
+
+    parts: list[str] = []
+    for path in paths:
+        label = "Common Role System" if path == common_path else f"{role} Role System"
+        try:
+            text = path.read_text(encoding="utf-8")
+        except Exception as exc:
+            logger.debug("SYSTEM.md read failed for role %r at %s: %s", role, path, exc)
+            continue
+        parts.append(f"# {label}\n\n{text.strip()}\n")
+    if not parts:
+        return None
+
+    combined = "\n\n---\n\n".join(parts) + "\n"
+    digest = hashlib.sha256(combined.encode("utf-8")).hexdigest()[:12]
+    safe_role = role.replace("/", "_").replace("..", "_")
+    out_dir = Path(tempfile.gettempdir()) / "minionsos-role-prompts"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{safe_role}-{digest}.md"
+    if not out_path.exists() or out_path.read_text(encoding="utf-8") != combined:
+        out_path.write_text(combined, encoding="utf-8")
+    return out_path
 
 
 def _resolve_poll_interval(poll_interval: str | None) -> str:
@@ -145,6 +176,28 @@ def _resolve_poll_interval(poll_interval: str | None) -> str:
     if poll_interval not in {"1m", "3m", "5m"}:
         raise RoleError(f"Invalid poll_interval {poll_interval!r}; allowed values: 1m / 3m / 5m.")
     return poll_interval
+
+
+def _resolve_time_trigger_interval(role_name: str, interval: str | None) -> str | None:
+    """Resolve optional periodic wakeups for a role.
+
+    Noter gets a default timer because status summaries are part of its core
+    contract. Other roles remain event-driven unless explicitly configured.
+    """
+    if interval is None and role_name == "noter":
+        try:
+            interval = load_gru_config().noter_report_interval
+        except Exception:
+            interval = "30m"
+    if not interval:
+        return None
+    try:
+        seconds = parse_duration(interval)
+    except Exception as exc:
+        raise RoleError(f"Invalid time_trigger_interval {interval!r}: {exc}") from exc
+    if seconds <= 0:
+        return None
+    return interval
 
 
 _BOUNDARY_TEXT: dict[str, str] = {
@@ -227,14 +280,15 @@ def register_role(
     init_brief: str | None = None,
     store: StateStore | None = None,
     poll_interval: str | None = None,
+    time_trigger_interval: str | None = None,
 ) -> dict[str, object]:
     """Register a fixed role for event-driven invocation.
 
     Does NOT launch a Claude subprocess. The Python-level WakeupScheduler
     polls EACN for this role and invokes it ephemerally when events arrive.
 
-    If *init_brief* is given, it is dispatched as a one-shot invocation
-    immediately so the role can do its first action (e.g. Expert's survey).
+    If *init_brief* is given, it is published as a targeted EACN task so the
+    role's first action uses the same bus as every later handoff.
     """
     if role not in FIXED_ROLES:
         raise RoleError(
@@ -247,6 +301,7 @@ def register_role(
         init_brief=init_brief,
         store=store or StateStore(),
         poll_interval=poll_interval,
+        time_trigger_interval=time_trigger_interval,
     )
 
 
@@ -257,6 +312,7 @@ def register_expert(
     init_brief: str | None = None,
     store: StateStore | None = None,
     poll_interval: str | None = None,
+    time_trigger_interval: str | None = None,
 ) -> dict[str, object]:
     """Register an expert role for event-driven invocation."""
     slug = slugify(domain)
@@ -270,6 +326,7 @@ def register_expert(
         init_brief=brief,
         store=store or StateStore(),
         poll_interval=poll_interval,
+        time_trigger_interval=time_trigger_interval,
     )
 
 
@@ -279,6 +336,7 @@ def _do_register(
     init_brief: str | None,
     store: StateStore,
     poll_interval: str | None,
+    time_trigger_interval: str | None,
 ) -> dict[str, object]:
     entry = store.get_project(project_port)
     if entry is None:
@@ -289,6 +347,8 @@ def _do_register(
         raise AlreadyActive(f"Role {role_name!r} is already active on port {project_port}.")
 
     interval = _resolve_poll_interval(poll_interval)
+    resolved_time_trigger = _resolve_time_trigger_interval(role_name, time_trigger_interval)
+    wake_policy = "any" if resolved_time_trigger else "event"
 
     try:
         agent_token, _seeds = register_project_role_agent(project_port, role_name)
@@ -305,33 +365,37 @@ def _do_register(
         pid=None,
         spawned_at=now,
         poll_interval=interval,
-        eacn_agent_id=role_name,
+        wake_policy=wake_policy,
+        time_trigger_interval=resolved_time_trigger,
+        eacn_agent_id=resolve_agent_id(project_port, role_name),
         eacn_agent_token=agent_token,
         eacn_registered_at=now,
     )
 
     if init_brief:
-        # Post the kickoff as a real EACN direct message (gru → role). The
-        # WakeupScheduler will then deliver it on the next tick. This is the
-        # authoritative path: it leaves an audit trail on the bus and matches
-        # the "dispatch via EACN only" convention. We deliberately do NOT
-        # spawn a local ephemeral Claude here — that would be invisible to
-        # EACN and race with the scheduler.
-        from minions.lifecycle import eacn_client
-
+        target_agent_id = resolve_agent_id(project_port, role_name)
+        initiator_id = resolve_agent_id(project_port, "gru")
         try:
-            eacn_client.post_message(
+            eacn_client.create_task(
                 port=project_port,
-                to_agent_id=role_name,
-                from_agent_id="gru",
-                content={"type": "init_brief", "text": init_brief},
+                description=init_brief,
+                domains=role_agent_domains(role_name),
+                initiator_id=initiator_id,
+                budget=0.0,
+                expected_output={
+                    "type": "status_or_artifact",
+                    "description": (
+                        "Handle the initial role brief and report progress through EACN."
+                    ),
+                },
+                invited_agent_ids=[target_agent_id],
             )
         except BackendError as exc:
             raise RoleError(
                 f"Role {role_name!r} joined project-local EACN3 on port {project_port}, "
-                f"but the init_brief could not be queued through EACN3: {exc}"
+                f"but the init_brief task could not be queued through EACN3: {exc}"
             ) from exc
-        logger.info("init_brief posted via EACN: role=%r port=%d", role_name, project_port)
+        logger.info("init_brief task published via EACN: role=%r port=%d", role_name, project_port)
 
     store.upsert_role(project_port, role_entry)
     logger.info("register_role: role=%r port=%d poll=%s", role_name, project_port, interval)
@@ -339,8 +403,10 @@ def _do_register(
     return {
         "name": role_name,
         "poll_interval": interval,
+        "wake_policy": wake_policy,
+        "time_trigger_interval": resolved_time_trigger,
         "ephemeral": True,
-        "eacn_agent_id": role_name,
+        "eacn_agent_id": role_entry.eacn_agent_id,
     }
 
 
@@ -449,7 +515,7 @@ def invoke_role_ephemeral(
         # Per-role state dir so the EACN3 MCP plugin's on-disk agent-token
         # cache does not collide between roles sharing the same host.
         "EACN3_STATE_DIR": str(
-            (project_dir(project_port) / "eacn3_data" / f"plugin-{role_name}").resolve()
+            plugin_state_dir(project_port, resolve_agent_id(project_port, role_name)).resolve()
         ),
         "MINIONS_EPHEMERAL": "1",
         "MINIONS_SCRATCHPAD_PATH": str(scratchpad_path),
@@ -495,6 +561,8 @@ def invoke_role_ephemeral(
                     project_port,
                     role.model_copy(update={"pid": proc.pid, "spawned_at": _now_iso()}),
                 )
+                with contextlib.suppress(Exception):
+                    _store.touch_role_last_seen(project_port, role_name)
     except Exception as exc:
         logger.debug("invoke_role_ephemeral: pid persist failed: %s", exc)
 
@@ -526,10 +594,11 @@ def _format_event_message(
         )
         preamble = (
             f"[Scratchpad] {rel}  (status: {scratchpad_status})\n"
-            "Read it first to recover your working memory. Before exit, update it:\n"
+            "Read it first to recover only the durable working memory you need. "
+            "Before exit, update it:\n"
             "keep only what future-you needs (in-flight tasks, tentative hypotheses,\n"
             "unresolved questions, decisions not yet written elsewhere). Remove stale\n"
-            "entries. Do not dump transcripts.\n"
+            "entries. Do not dump transcripts or preserve completed-task context.\n"
         )
         if scratchpad_status == "hard":
             preamble += (
@@ -542,22 +611,28 @@ def _format_event_message(
         skills = list_skills(role_name)
         if skills:
             base = "expert" if role_name.startswith("expert") else role_name
+            skill_path_pattern = (
+                MINIONS_ROOT / "minions" / "roles" / base / "skills" / "{slug}.md"
+            ).resolve()
             lines = [f"- {slug}: {summary}" if summary else f"- {slug}" for slug, summary in skills]
             skills_block = (
                 "[Skills]\n"
                 + "\n".join(lines)
                 + "\n"
-                + f"Consult these skills at `minions/roles/{base}/skills/{{slug}}.md` "
+                + f"Read full skill files at `{skill_path_pattern}` "
                 + "when relevant; they are reasoning/procedure disciplines, not rituals.\n\n"
             )
             preamble += skills_block
     if role_name and project_port:
+        agent_id = resolve_agent_id(project_port, role_name)
         preamble += (
             "[EACN identity]\n"
             f"You are already registered on this project's Local EACN3 network as "
-            f"agent_id `{role_name}` at `http://127.0.0.1:{project_port}`. "
+            f"agent_id `{agent_id}` at `http://127.0.0.1:{project_port}`. "
+            "If the EACN3 plugin reports no active session, call `eacn3_connect` "
+            "with that network endpoint and claim this agent id if prompted. "
             "When an EACN tool accepts `agent_id`, `sender_id`, or `initiator_id`, "
-            f"pass `{role_name}` explicitly. Do not create or use a different "
+            f"pass `{agent_id}` explicitly. Do not create or use a different "
             "project identity.\n\n"
         )
         preamble += _boundary_context(role_name, project_port) + "\n"
@@ -565,7 +640,12 @@ def _format_event_message(
         "You have been invoked to process the following EACN event batch.\n"
         "Act on these events, emit any necessary EACN responses via `eacn3_*` "
         "tools, then exit (this is an ephemeral session — do not start a "
-        "polling loop).\n\n"
+        "polling loop). If accepted work belongs to your Role, dispatch your "
+        "own focused subagent(s) for the substantive execution and keep this "
+        "main session focused on coordination, review, checkpointing, and EACN "
+        "communication. Treat this as fresh execution context; after the task "
+        "is handled or checkpointed, leave only compressed durable state in the "
+        "scratchpad.\n\n"
     )
     try:
         body = json.dumps(events, indent=2, default=str)

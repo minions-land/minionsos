@@ -62,7 +62,7 @@ def format_relay_message(
     return body
 
 
-def _post_message(port: int, to_agent_id: str, from_agent_id: str, content: str) -> None:
+def _send_eacn_message(port: int, to_agent_id: str, from_agent_id: str, content: str) -> None:
     """POST a direct message to the EACN backend on *port* via ``POST /api/messages``.
 
     Uses the three-layer MessageAddress schema:
@@ -158,6 +158,6 @@ def gru_relay(
     to_agent_id = _get_gru_agent_id(to_port) or "gru"
     from_agent_id = f"gru-relay-{from_port}"
 
-    _post_message(to_port, to_agent_id, from_agent_id, message)
+    _send_eacn_message(to_port, to_agent_id, from_agent_id, message)
     logger.debug("gru_relay delivered to port %d agent %s.", to_port, to_agent_id)
     return {"ok": True}
