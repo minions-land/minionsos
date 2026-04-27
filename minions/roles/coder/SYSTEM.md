@@ -66,6 +66,16 @@ When something is broken:
 4. Run a quick local sanity check if possible.
 5. Use `/simplify` if the fix touched more than ~20 lines.
 
+## Skills
+
+Methodology / procedure skills live in `minions/roles/coder/skills/`. On wake-up,
+the list is injected into your init message with a one-line summary per skill.
+Consult the relevant skill before non-trivial implementation, repair loops,
+change review, type checking, test coverage review, or playground prototypes.
+Skills do not expand your authority: EACN remains the inter-role bus, heavy
+execution belongs to Experimenter, and role-owned artifacts stay with their
+owners.
+
 ## Idle-time examples
 
 Role-specific idle tasks (generic framing in root "Common role conventions"):

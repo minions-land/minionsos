@@ -1,27 +1,39 @@
-```
-Round: <n>
+# Round <n> Fresh Reviewer Reports
+
 Pass: A (fresh, history-isolated)
-Persona: <persona name>
-Reviewed target: <paper path or commit>
-Subspects covered: <list, incl. Baseline freshness>
+Reviewed target: <paper path, artifact bundle, or commit>
+Reviewer instances included: <3-5>
 
-Weaknesses:
-- <evidence-backed weakness>
+This file is a direct concatenation of the individual reviewer reports for this
+round. It is not a summary, not a meta-review, and not a consensus document.
+Only delimiter headings may be added around the pasted reviewer reports.
 
-Questions:
-- <specific question requiring author response>
+---
 
-Limitations:
-- <scope or validity limitation>
+## Reviewer 1
 
-Required revisions:
-- <concrete revision request>
+<paste artifacts/reviews/round-<n>/reviewer-1.md verbatim>
 
-Evidence list:
-- <citation or code pointer for each criticism>
+---
 
-Overall judgment (history-blind):
-<one paragraph>
+## Reviewer 2
 
-fresh_verdict: <Accept | Strong Accept | Weak Accept | Borderline | Reject>
-```
+<paste artifacts/reviews/round-<n>/reviewer-2.md verbatim>
+
+---
+
+## Reviewer 3
+
+<paste artifacts/reviews/round-<n>/reviewer-3.md verbatim>
+
+---
+
+## Reviewer 4 (if generated)
+
+<paste artifacts/reviews/round-<n>/reviewer-4.md verbatim>
+
+---
+
+## Reviewer 5 (if generated)
+
+<paste artifacts/reviews/round-<n>/reviewer-5.md verbatim>

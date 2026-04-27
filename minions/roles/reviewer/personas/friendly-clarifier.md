@@ -5,7 +5,7 @@
 ## Focus (what this persona foregrounds)
 
 - Structure and narrative flow; does the paper lead the reader logically?
-- Figure and table readability: captions, axis labels, legends, colour choices.
+- Figure and table readability: captions, axis labels, legends, color choices.
 - Notation introduction — every symbol defined before first use.
 - Jargon accessibility for a strong ML engineer outside the sub-area.
 - Abstract/introduction accuracy vs. the actual contribution.

@@ -41,3 +41,9 @@ class TestReviewerSystemInvariants:
         assert "Pass A is intentionally blind to prior review history" in t
         assert "artifacts/reviews/summaries/round-<n-1>.md" in t
         assert "only during Pass B / Pass C" in t
+
+    def test_reviewer_idle_work_is_event_backed(self) -> None:
+        t = _text()
+        assert "must not implement periodic idle self-thinking" in t
+        assert "event-backed review work or recovery work" in t
+        assert "stay silent" in t
