@@ -213,7 +213,20 @@ ensure_build() {
         die "minions-viz is not built and node/npm are missing."
     fi
     info "Building minions-viz (first-time)..."
-    (cd "$VIZ_DIR" && npm install && npm run build) || die "minions-viz build failed."
+    (
+        cd "$VIZ_DIR"
+        if [ -f package-lock.json ]; then
+            install_cmd="ci"
+        else
+            install_cmd="install"
+        fi
+        NPM_CONFIG_AUDIT=false \
+            NPM_CONFIG_FUND=false \
+            NPM_CONFIG_PROGRESS=false \
+            NPM_CONFIG_UPDATE_NOTIFIER=false \
+            npm "$install_cmd" --loglevel=warn
+        npm run build
+    ) || die "minions-viz build failed."
     ok "minions-viz built."
 }
 

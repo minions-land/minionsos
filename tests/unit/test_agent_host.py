@@ -54,6 +54,11 @@ def test_codex_role_invocation_uses_exec_stdin_and_embeds_system(
     assert invocation.host_name == "codex"
     assert invocation.command[:2] == ["codex", "exec"]
     assert invocation.command[-1] == "-"
+    assert "--ask-for-approval" not in invocation.command
+    assert "--sandbox" not in invocation.command
+    assert "--dangerously-bypass-approvals-and-sandbox" in invocation.command
+    assert "-c" in invocation.command
+    assert 'model_reasoning_effort="xhigh"' in invocation.command
     assert "--model" in invocation.command
     assert "gpt-test" in invocation.command
     assert "--append-system-prompt" not in invocation.command

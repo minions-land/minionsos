@@ -351,6 +351,17 @@ class GruConfig(BaseModel):
         default="never",
         description="Codex approval policy for non-interactive role wakeups.",
     )
+    codex_reasoning_effort: Literal["low", "medium", "high", "xhigh"] = Field(
+        default="xhigh",
+        description="Codex reasoning effort for Gru and role wakeups.",
+    )
+    codex_bypass_approvals_and_sandbox: bool = Field(
+        default=True,
+        description=(
+            "Use Codex --dangerously-bypass-approvals-and-sandbox for role wakeups. "
+            "Only disable on machines that are not externally sandboxed."
+        ),
+    )
 
     _KNOWN_MODELS: frozenset[str] = frozenset(
         {
@@ -369,7 +380,7 @@ class GruConfig(BaseModel):
         """
         if self.effective_agent_host() == "codex":
             model = self.codex_model or "<codex CLI default>"
-            return True, f"codex host selected; model={model}"
+            return True, f"codex host selected; model={model}; effort={self.codex_reasoning_effort}"
         if self.claude_model in self._KNOWN_MODELS:
             return True, f"{self.claude_model} is a known model"
         known = ", ".join(sorted(self._KNOWN_MODELS))

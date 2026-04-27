@@ -113,7 +113,10 @@ class TestRoleWakeupLauncherRegression:
         bindir = _install_fake_claude(tmp_path)
         log_path = tmp_path / f"role-{role}.log"
 
-        env_patch = {"PATH": f"{bindir}:{os.environ.get('PATH', '')}"}
+        env_patch = {
+            "PATH": f"{bindir}:{os.environ.get('PATH', '')}",
+            "MINIONS_AGENT_HOST": "claude",
+        }
         with (
             patch.dict(os.environ, env_patch, clear=False),
             patch("minions.lifecycle.role.project_workspace", return_value=tmp_path),
@@ -183,7 +186,10 @@ class TestGruCanLaunchRole:
         bindir = _install_fake_claude(tmp_path)
         log_path = tmp_path / "role-noter.log"
 
-        env_patch = {"PATH": f"{bindir}:{os.environ.get('PATH', '')}"}
+        env_patch = {
+            "PATH": f"{bindir}:{os.environ.get('PATH', '')}",
+            "MINIONS_AGENT_HOST": "claude",
+        }
         with (
             patch.dict(os.environ, env_patch, clear=False),
             patch("minions.lifecycle.role.project_workspace", return_value=tmp_path),

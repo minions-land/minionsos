@@ -20,10 +20,12 @@ fi
 has_stdin=0
 for a in "${ARGS[@]}"; do
   if [[ "$a" == "-" ]]; then has_stdin=1; fi
-  if [[ "$a" == "--append-system-prompt" || "$a" == "--allowed-tools" ]]; then
-    echo "fake-codex: Claude-only flag $a leaked into codex argv" >&2
-    exit 3
-  fi
+  case "$a" in
+    --append-system-prompt|--allowed-tools|--ask-for-approval)
+      echo "fake-codex: Claude-only flag $a leaked into codex argv" >&2
+      exit 3
+      ;;
+  esac
 done
 if [[ "$has_stdin" -ne 1 ]]; then
   echo "fake-codex: missing stdin prompt marker '-'" >&2
@@ -87,6 +89,8 @@ def test_codex_launcher_uses_exec_stdin_pipeline(tmp_path: Path) -> None:
     assert out["events"] == 1
     log = _wait_for_log(log_path, "FAKE_CODEX_STDIN_END")
     assert "FAKE_CODEX_ARGV" in log
+    assert "--dangerously-bypass-approvals-and-sandbox" in log
+    assert 'model_reasoning_effort="xhigh"' in log
     assert "Claude-only flag" not in log
     assert "MinionsOS Codex Role Invocation" in log
     assert "hello codex" in log

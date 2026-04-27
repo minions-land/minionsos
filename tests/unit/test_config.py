@@ -198,3 +198,8 @@ class TestGruConfigModel:
         ok, detail = cfg.model_registry_valid()
         assert ok is True
         assert "codex host selected" in detail
+
+    def test_codex_defaults_to_xhigh_bypass(self, tmp_path: Path) -> None:
+        cfg = load_gru_config(tmp_path / "nonexistent.yaml")
+        assert cfg.codex_reasoning_effort == "xhigh"
+        assert cfg.codex_bypass_approvals_and_sandbox is True

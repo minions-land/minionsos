@@ -16,6 +16,30 @@ die()   { echo -e "${RED}[error]${RESET} $*" >&2; exit 1; }
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
+uv_project() {
+    if [ -n "${VIRTUAL_ENV:-}" ] && [ "$VIRTUAL_ENV" != "$ROOT/.venv" ]; then
+        env -u VIRTUAL_ENV uv "$@"
+    else
+        uv "$@"
+    fi
+}
+
+npm_project_install() {
+    local dir="$1"
+    local install_cmd="install"
+    if [ -f "$dir/package-lock.json" ]; then
+        install_cmd="ci"
+    fi
+    (
+        cd "$dir"
+        NPM_CONFIG_AUDIT=false \
+            NPM_CONFIG_FUND=false \
+            NPM_CONFIG_PROGRESS=false \
+            NPM_CONFIG_UPDATE_NOTIFIER=false \
+            npm "$install_cmd" --loglevel=warn
+    )
+}
+
 # ── 0. Launcher permissions first ────────────────────────────────────────────
 # Do this before dependency/build steps so a partially failed install still
 # leaves ./gru, ./mos, ./noter, and ./viz usable for diagnostics.
@@ -75,12 +99,16 @@ fi
 
 # ── 3. uv sync (creates .venv, installs MinionsOS editable) ──────────────────
 info "Running uv sync..."
-uv sync
+uv_project sync
+PROJECT_PYTHON="$ROOT/.venv/bin/python"
+if [ ! -x "$PROJECT_PYTHON" ]; then
+    die "uv sync completed, but project Python was not found at $PROJECT_PYTHON"
+fi
 ok "uv sync complete"
 
 # ── 4. Install EACN3 editable ─────────────────────────────────────────────────
 info "Installing EACN3 (editable)..."
-uv pip install -e ./EACN3
+uv_project pip install --python "$PROJECT_PYTHON" -e ./EACN3
 ok "EACN3 installed"
 
 # ── 5. Build EACN3 MCP plugin ─────────────────────────────────────────────────
@@ -109,8 +137,8 @@ else
         die "Node $(node --version) is below the required >= 16.\n       Upgrade Node, then re-run ./install.sh."
     fi
 
-    info "Building EACN3 MCP plugin (npm install + build)..."
-    if ! (cd "$ROOT/EACN3/plugin" && npm install && npm run build); then
+    info "Building EACN3 MCP plugin (npm dependency install + build)..."
+    if ! (npm_project_install "$ROOT/EACN3/plugin" && cd "$ROOT/EACN3/plugin" && npm run build); then
         die "EACN3 plugin build failed.\n       Inspect the output above; fix the error, then re-run ./install.sh."
     fi
     PLUGIN_DIST="$ROOT/EACN3/plugin/dist/server.js"
@@ -130,8 +158,9 @@ else
             fi
         fi
         if [ "$need_build" = "1" ]; then
-            info "Building minions-viz Observatory (npm install + build)..."
-            (cd "$VIZ_DIR" && npm install && npm run build)
+            info "Building minions-viz Observatory (npm dependency install + build)..."
+            npm_project_install "$VIZ_DIR"
+            (cd "$VIZ_DIR" && npm run build)
             ok "minions-viz built"
         else
             ok "minions-viz already built (set MINIONS_VIZ_REBUILD=1 to force)"

@@ -276,11 +276,20 @@ def doctor(
     except Exception as exc:
         _check("codex-mcp-config-mounts-eacn3", False, str(exc))
 
-    # Port range probe
-    from minions.state.store import _bind_probe
+    # Port range probe. The allocator can skip an occupied first port, so
+    # doctor should only fail when the whole configured range is exhausted.
+    from minions.errors import PortError
+    from minions.state.port_allocator import PORT_MAX, PORT_MIN, PortAllocator
 
-    probe_port = 37596
-    _check("port-probe", _bind_probe(probe_port), f"port {probe_port}")
+    try:
+        available_port = PortAllocator(PORT_MIN, PORT_MAX).allocate(set())
+        _check(
+            "port-probe",
+            True,
+            f"available port {available_port} in range {PORT_MIN}-{PORT_MAX}",
+        )
+    except PortError as exc:
+        _check("port-probe", False, str(exc))
 
     # Model registry consistency
     try:
@@ -437,6 +446,8 @@ def config_cmd(
         data["AGENT_HOST"] = cfg.effective_agent_host()
         data["CLAUDE_MODEL"] = cfg.claude_model
         data["CODEX_MODEL"] = cfg.codex_model
+        data["CODEX_REASONING_EFFORT"] = cfg.codex_reasoning_effort
+        data["CODEX_BYPASS_APPROVALS_AND_SANDBOX"] = cfg.codex_bypass_approvals_and_sandbox
     except Exception as exc:
         data["AGENT_HOST_ERROR"] = str(exc)
     if json_flag:

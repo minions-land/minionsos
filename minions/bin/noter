@@ -13,5 +13,8 @@ while [ -L "$SOURCE" ]; do
 done
 SCRIPT_DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+if [ -n "${VIRTUAL_ENV:-}" ] && [ "$VIRTUAL_ENV" != "$ROOT/.venv" ]; then
+    unset VIRTUAL_ENV
+fi
 
 exec uv run --project "$ROOT" mos noter "$@"

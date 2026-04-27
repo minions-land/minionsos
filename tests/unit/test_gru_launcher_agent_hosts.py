@@ -74,6 +74,8 @@ def test_gru_launcher_codex_branch(tmp_path: Path) -> None:
     assert "FAKE_GRU_CODEX_ARGV:" in result.stderr
     assert "--cd" in result.stderr
     assert str(ROOT) in result.stderr
+    assert "--dangerously-bypass-approvals-and-sandbox" in result.stderr
+    assert 'model_reasoning_effort="xhigh"' in result.stderr
     assert "Initial user request: hello codex" in result.stderr
     assert "--append-system-prompt" not in result.stderr
 

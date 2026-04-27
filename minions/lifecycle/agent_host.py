@@ -114,10 +114,19 @@ def _build_codex_role_invocation(
         str(MINIONS_ROOT),
         "--add-dir",
         str(project_dir(project_port)),
-        "--sandbox",
-        cfg.codex_sandbox,
-        "--ask-for-approval",
-        cfg.codex_approval_policy,
+    ]
+    if cfg.codex_bypass_approvals_and_sandbox:
+        cmd.append("--dangerously-bypass-approvals-and-sandbox")
+    else:
+        cmd += [
+            "--sandbox",
+            cfg.codex_sandbox,
+            "-c",
+            f'approval_policy="{cfg.codex_approval_policy}"',
+        ]
+    cmd += [
+        "-c",
+        f'model_reasoning_effort="{cfg.codex_reasoning_effort}"',
         "--ephemeral",
     ]
     if cfg.codex_model:
