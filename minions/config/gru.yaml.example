@@ -13,6 +13,16 @@ allow_web_search: true
 # Logging verbosity: debug | info | warning | error
 log_level: info
 
+# Optional git repository used as the source for project worktrees.
+# Defaults to the directory containing MinionsOS_V4 when that directory is a
+# git repo; otherwise falls back to the MinionsOS_V4 checkout itself if it is a
+# git repo. Set this when your research repo is somewhere else.
+project_parent_repo:
+
+# Optional directory that contains project_<port>/ runtime trees.
+# Defaults to the directory containing MinionsOS_V4.
+projects_root:
+
 # Default Python-side scheduler poll interval for Roles (allowed: 1m / 3m / 5m).
 # Roles do not install in-agent polling loops; WakeupScheduler polls for them.
 poll_interval_default: 1m
@@ -25,6 +35,11 @@ noter_report_interval: 10m
 # Role agents. Project-local tasks still default to budget=0; this is a safety
 # margin for explicit nonzero-budget experiments.
 local_eacn_initial_balance: 10000
+
+# Structured backend/role health events are always written to
+# project_<port>/logs/health_events.jsonl. Set this true to also post those
+# events to project-local Gru and Noter over EACN.
+health_event_eacn_notifications: false
 
 # Minimum seconds between any two dispatches for the same role.
 role_cooldown_seconds: 30

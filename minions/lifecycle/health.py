@@ -10,14 +10,19 @@ restart.  The Gru loop (``minions/gru/loop.py``) calls these helpers.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 import httpx
 
 from minions.config import load_gru_config
+from minions.paths import project_logs_dir
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +38,69 @@ def backend_health(port: int, timeout: float = 3.0) -> bool:
         return resp.status_code == 200
     except Exception:
         return False
+
+
+# ---------------------------------------------------------------------------
+# Structured health event log
+# ---------------------------------------------------------------------------
+
+
+def health_events_path(port: int) -> Path:
+    return project_logs_dir(port) / "health_events.jsonl"
+
+
+def append_health_event(
+    *,
+    port: int,
+    kind: str,
+    severity: str,
+    message: str,
+    role_name: str | None = None,
+    pid: int | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Append one structured backend/role health event. Never raises."""
+    event: dict[str, Any] = {
+        "ts": datetime.now(tz=UTC).isoformat(),
+        "port": port,
+        "kind": kind,
+        "severity": severity,
+        "message": message,
+    }
+    if role_name:
+        event["role_name"] = role_name
+    if pid is not None:
+        event["pid"] = pid
+    if metadata:
+        event["metadata"] = metadata
+    try:
+        path = health_events_path(port)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(event, default=str) + "\n")
+    except Exception as exc:
+        logger.debug("append_health_event failed port=%d: %s", port, exc)
+    return event
+
+
+def read_recent_health_events(port: int, limit: int = 20) -> list[dict[str, Any]]:
+    """Return recent structured health events for *port*, newest last."""
+    path = health_events_path(port)
+    if not path.exists():
+        return []
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except Exception:
+        return []
+    out: list[dict[str, Any]] = []
+    for line in lines[-limit:]:
+        try:
+            item = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(item, dict):
+            out.append(item)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -135,11 +203,18 @@ def project_status_snapshot(port: int, project_status: str) -> dict:
     """Return a Phase 1 status dict for one project.
 
     Keys: port, project_status, backend_alive, agents, queue_depth,
-    pending_events, recent_failures.
+    pending_events, gru_inbox_unread, recent_health_events, recent_failures.
     Non-active projects skip the backend probe (backend_alive=None).
     Never raises; errors are captured in recent_failures.
     """
     from minions.lifecycle import eacn_client
+
+    health_events = read_recent_health_events(port, limit=10)
+    recent_health_failures = [
+        str(e.get("message"))
+        for e in health_events
+        if str(e.get("severity", "")).lower() in {"warning", "error", "alert"} and e.get("message")
+    ]
 
     if project_status != "active":
         return {
@@ -149,7 +224,9 @@ def project_status_snapshot(port: int, project_status: str) -> dict:
             "agents": [],
             "queue_depth": 0,
             "pending_events": [],
-            "recent_failures": [],
+            "gru_inbox_unread": 0,
+            "recent_health_events": health_events,
+            "recent_failures": recent_health_failures,
         }
 
     alive = backend_health(port)
@@ -157,6 +234,14 @@ def project_status_snapshot(port: int, project_status: str) -> dict:
     queue_depth = 0
     pending_events: list[dict] = []
     recent_failures: list[str] = []
+    gru_inbox_unread = 0
+
+    try:
+        from minions.lifecycle import gru_inbox
+
+        gru_inbox_unread = gru_inbox.unread_count(port)
+    except Exception as exc:
+        recent_failures.append(f"gru_inbox: {exc}")
 
     if alive:
         try:
@@ -164,9 +249,10 @@ def project_status_snapshot(port: int, project_status: str) -> dict:
             agents = probe.get("agents", [])
             queue_depth = probe.get("queue_depth", 0)
             pending_events = probe.get("pending_events", [])
-            recent_failures = probe.get("errors", [])
+            recent_failures.extend(str(err) for err in probe.get("errors", []))
         except Exception as exc:
             recent_failures.append(str(exc))
+    recent_failures.extend(recent_health_failures)
 
     return {
         "port": port,
@@ -175,5 +261,7 @@ def project_status_snapshot(port: int, project_status: str) -> dict:
         "agents": agents,
         "queue_depth": queue_depth,
         "pending_events": pending_events,
+        "gru_inbox_unread": gru_inbox_unread,
+        "recent_health_events": health_events,
         "recent_failures": recent_failures,
     }

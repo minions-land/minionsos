@@ -71,6 +71,10 @@ def _isolate_wakeup_runtime(tmp_path: Path):
             lambda port: tmp_path / f"project_{port}" / "logs",
         ),
         patch(
+            "minions.lifecycle.health.project_logs_dir",
+            lambda port: tmp_path / f"project_{port}" / "logs",
+        ),
+        patch(
             "minions.lifecycle.wakeup.project_memory_dir",
             lambda port: tmp_path / f"project_{port}" / "memory",
         ),
@@ -130,6 +134,8 @@ def test_crash_three_times_triggers_dismissal(tmp_path: Path, monkeypatch) -> No
     # Should have flipped state to dismissed.
     dismissed = [u for u in store.upserts if u.state == "dismissed"]
     assert dismissed, f"expected dismissal, got upserts={store.upserts}"
+    events_path = tmp_path / "project_37596" / "logs" / "health_events.jsonl"
+    assert "role_crash" in events_path.read_text(encoding="utf-8")
 
 
 def test_second_wakeup_while_inflight_is_deferred_not_dropped() -> None:

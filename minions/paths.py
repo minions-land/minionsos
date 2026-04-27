@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Root resolution
@@ -44,16 +45,55 @@ GRU_LOG: Path = LOGS_DIR / "gru.log"
 # ---------------------------------------------------------------------------
 
 
+def _resolve_path_setting(value: str) -> Path:
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = MINIONS_ROOT / path
+    return path.resolve()
+
+
+def _gru_yaml_value(key: str) -> Any | None:
+    path = CONFIG_DIR / "gru.yaml"
+    if not path.exists():
+        return None
+    try:
+        import yaml
+
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+    return data.get(key)
+
+
+def _configured_path(key: str, env_name: str) -> Path | None:
+    env_value = os.environ.get(env_name, "").strip()
+    if env_value:
+        return _resolve_path_setting(env_value)
+    value = _gru_yaml_value(key)
+    if isinstance(value, str) and value.strip():
+        return _resolve_path_setting(value.strip())
+    return None
+
+
+def projects_root() -> Path:
+    """Return the directory that contains ``project_<port>/`` trees."""
+    return _configured_path("projects_root", "MINIONS_PROJECTS_ROOT") or MINIONS_ROOT.parent
+
+
+def configured_project_parent_repo() -> Path | None:
+    """Return the configured source git repo for project worktrees, if any."""
+    return _configured_path("project_parent_repo", "MINIONS_PROJECT_PARENT_REPO")
+
+
 def project_dir(port: int) -> Path:
     """Return the top-level directory for a project running on *port*.
 
-    The directory lives **inside the parent repo** (the author's research
-    repo), which is the parent of ``MINIONS_ROOT``.  Per the spec, MinionsOS
-    itself only tracks ``minions/``, ``EACN3/``, and root scripts; the
-    ``project_*/`` trees live in the parent repo's working tree.
+    By default this is beside ``MINIONS_ROOT``. It can be overridden with
+    ``MINIONS_PROJECTS_ROOT`` or ``gru.yaml:projects_root``.
     """
-    parent_repo: Path = MINIONS_ROOT.parent
-    return parent_repo / f"project_{port}"
+    return projects_root() / f"project_{port}"
 
 
 def project_workspace(port: int) -> Path:

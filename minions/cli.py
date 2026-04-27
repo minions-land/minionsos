@@ -27,7 +27,7 @@ from rich.table import Table
 
 from minions.errors import MinionsError
 from minions.logging_setup import configure_logging
-from minions.paths import CONFIG_DIR, GRU_LOG, MINIONS_ROOT, STATE_DIR, project_dir
+from minions.paths import CONFIG_DIR, GRU_LOG, MINIONS_ROOT, STATE_DIR, project_dir, projects_root
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -66,6 +66,28 @@ def _fail(msg: str, code: int = 1) -> typer.Exit:
     return typer.Exit(code)
 
 
+def _project_port_from_dir(path: Path) -> int | None:
+    if not path.name.startswith("project_"):
+        return None
+    try:
+        return int(path.name.removeprefix("project_"))
+    except ValueError:
+        return None
+
+
+def _find_orphan_project_dirs(root: Path, known_ports: set[int]) -> list[Path]:
+    if not root.exists():
+        return []
+    out: list[Path] = []
+    for path in sorted(root.glob("project_*")):
+        if not path.is_dir():
+            continue
+        port = _project_port_from_dir(path)
+        if port is None or port not in known_ports or not (path / "meta.json").exists():
+            out.append(path)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # status
 # ---------------------------------------------------------------------------
@@ -99,6 +121,8 @@ def status(
                     "agents": snap["agents"],
                     "queue_depth": snap["queue_depth"],
                     "pending_events": snap["pending_events"],
+                    "gru_inbox_unread": snap["gru_inbox_unread"],
+                    "recent_health_events": snap["recent_health_events"],
                     "recent_failures": snap["recent_failures"],
                 }
             )
@@ -111,18 +135,25 @@ def status(
     table.add_column("Status")
     table.add_column("Venue")
     table.add_column("Health")
+    table.add_column("EACN Q")
+    table.add_column("Gru Inbox")
+    table.add_column("Failures")
     table.add_column("Roles")
 
     for p in projects:
         snap = project_status_snapshot(p.port, p.status)
         alive = snap["backend_alive"]
         health_str = "✓" if alive else ("✗" if alive is False else "—")
+        failures = snap.get("recent_failures", [])
         table.add_row(
             str(p.port),
             p.real_name,
             p.status,
             p.venue or "—",
             health_str,
+            str(snap.get("queue_depth", 0)),
+            str(snap.get("gru_inbox_unread", 0)),
+            str(len(failures)) if failures else "—",
             str(len(p.active_roles)),
         )
 
@@ -195,22 +226,48 @@ def doctor(
     r = subprocess.run(["git", "--version"], capture_output=True, text=True)
     _check("git", r.returncode == 0, r.stdout.strip())
 
-    # Parent directory is a git repo (required for project_create worktree).
-    from minions.paths import MINIONS_ROOT
+    # Project parent repo is a git repo (required for project_create worktree).
+    from minions.lifecycle.project import project_parent_repo
 
-    parent = MINIONS_ROOT.parent
-    pr = subprocess.run(
-        ["git", "rev-parse", "--is-inside-work-tree"],
-        cwd=str(parent),
-        capture_output=True,
-        text=True,
-    )
-    parent_is_repo = pr.returncode == 0 and pr.stdout.strip() == "true"
+    parent = project_parent_repo()
+    try:
+        pr = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=str(parent),
+            capture_output=True,
+            text=True,
+        )
+        parent_is_repo = pr.returncode == 0 and pr.stdout.strip() == "true"
+    except FileNotFoundError:
+        parent_is_repo = False
     _check(
         "parent-dir-is-git-repo",
         parent_is_repo,
-        str(parent) if parent_is_repo else f"{parent} — run: git init && git add -A && git commit",
+        str(parent)
+        if parent_is_repo
+        else (
+            f"{parent} — run: git init && git add -A && git commit, or set "
+            "gru.yaml:project_parent_repo"
+        ),
     )
+
+    # Orphan project directories: present on disk but absent from projects.json,
+    # or missing meta.json. They confuse humans and dashboards.
+    try:
+        from minions.state.store import StateStore
+
+        known_ports = {p.port for p in StateStore().list_projects(filter="all")}
+        root = projects_root()
+        orphans = _find_orphan_project_dirs(root, known_ports)
+        _check(
+            "project-dir-orphans",
+            not orphans,
+            f"none under {root}"
+            if not orphans
+            else "orphan project dirs: " + ", ".join(str(p) for p in orphans[:5]),
+        )
+    except Exception as exc:
+        _check("project-dir-orphans", False, str(exc))
 
     # EACN3 importable
     try:
@@ -448,6 +505,9 @@ def config_cmd(
         data["CODEX_MODEL"] = cfg.codex_model
         data["CODEX_REASONING_EFFORT"] = cfg.codex_reasoning_effort
         data["CODEX_BYPASS_APPROVALS_AND_SANDBOX"] = cfg.codex_bypass_approvals_and_sandbox
+        data["PROJECT_PARENT_REPO"] = cfg.project_parent_repo
+        data["PROJECTS_ROOT"] = str(projects_root())
+        data["HEALTH_EVENT_EACN_NOTIFICATIONS"] = cfg.health_event_eacn_notifications
     except Exception as exc:
         data["AGENT_HOST_ERROR"] = str(exc)
     if json_flag:

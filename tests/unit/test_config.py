@@ -65,6 +65,22 @@ class TestLoadGruConfig:
         cfg = load_gru_config(p)
         assert cfg.allow_web_search is False
 
+    def test_project_path_and_health_notification_config(self, tmp_path: Path) -> None:
+        p = tmp_path / "gru.yaml"
+        p.write_text(
+            yaml.dump(
+                {
+                    "project_parent_repo": "/tmp/research-repo",
+                    "projects_root": "/tmp/minions-projects",
+                    "health_event_eacn_notifications": True,
+                }
+            )
+        )
+        cfg = load_gru_config(p)
+        assert cfg.project_parent_repo == "/tmp/research-repo"
+        assert cfg.projects_root == "/tmp/minions-projects"
+        assert cfg.health_event_eacn_notifications is True
+
 
 # ── Slugify ────────────────────────────────────────────────────────────────────
 

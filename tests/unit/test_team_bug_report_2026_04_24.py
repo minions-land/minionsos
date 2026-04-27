@@ -54,6 +54,20 @@ class TestParentGitPrecheck:
             # Should not raise.
             project_mod._ensure_parent_is_git_repo()
 
+    def test_falls_back_to_minions_root_when_parent_not_git(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        import subprocess
+
+        parent = tmp_path / "parent"
+        parent.mkdir()
+        fake_root = parent / "MinionsOS_V4"
+        fake_root.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=fake_root, check=True)
+        with patch.object(project_mod, "MINIONS_ROOT", fake_root):
+            project_mod._ensure_parent_is_git_repo()
+            assert project_mod.project_parent_repo() == fake_root
+
 
 # ---------------------------------------------------------------------------
 # #7 init_brief routes via EACN task

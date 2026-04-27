@@ -23,7 +23,7 @@ import time
 from datetime import UTC, datetime
 
 from minions.config import load_gru_config
-from minions.lifecycle.health import CrashCounter, backend_health
+from minions.lifecycle.health import CrashCounter, append_health_event, backend_health
 from minions.logging_setup import configure_logging
 from minions.state.store import StateStore
 
@@ -147,10 +147,24 @@ class GruLoop:
                         f"[ALERT] Backend on port {port} ({project.real_name}) has crashed "
                         f"≥3 times in 1h. Auto-restart disabled. Manual intervention required."
                     )
+                    self._emit_health_event(
+                        port=port,
+                        kind="backend_unhealthy",
+                        severity="alert",
+                        message=msg,
+                        metadata={"project_name": project.real_name},
+                    )
                     logger.error(msg)
                     events.append(msg)
                 else:
                     msg = f"[WARN] Backend on port {port} ({project.real_name}) is unhealthy."
+                    self._emit_health_event(
+                        port=port,
+                        kind="backend_unhealthy",
+                        severity="warning",
+                        message=msg,
+                        metadata={"project_name": project.real_name},
+                    )
                     logger.warning(msg)
                     events.append(msg)
             else:
@@ -175,6 +189,14 @@ class GruLoop:
                             f"[ALERT] Role {role.name!r} on port {port} has crashed "
                             f"≥3 times in 1h. Marking dismissed."
                         )
+                        self._emit_health_event(
+                            port=port,
+                            kind="role_crash",
+                            severity="alert",
+                            message=msg,
+                            role_name=role.name,
+                            pid=role.pid,
+                        )
                         logger.error(msg)
                         events.append(msg)
                         try:
@@ -189,6 +211,14 @@ class GruLoop:
                             f"[WARN] Role {role.name!r} on port {port}"
                             f" (PID {role.pid}) is not running."
                         )
+                        self._emit_health_event(
+                            port=port,
+                            kind="role_crash",
+                            severity="warning",
+                            message=msg,
+                            role_name=role.name,
+                            pid=role.pid,
+                        )
                         logger.warning(msg)
                         events.append(msg)
 
@@ -202,6 +232,55 @@ class GruLoop:
             else:
                 logger.debug("Gru heartbeat [%s]: all systems nominal.", ts)
             self._last_report_ts = now
+
+    def _emit_health_event(
+        self,
+        *,
+        port: int,
+        kind: str,
+        severity: str,
+        message: str,
+        role_name: str | None = None,
+        pid: int | None = None,
+        metadata: dict[str, object] | None = None,
+    ) -> None:
+        event = append_health_event(
+            port=port,
+            kind=kind,
+            severity=severity,
+            message=message,
+            role_name=role_name,
+            pid=pid,
+            metadata=metadata,
+        )
+        try:
+            cfg = load_gru_config()
+        except Exception:
+            return
+        if not cfg.health_event_eacn_notifications:
+            return
+        try:
+            from minions.lifecycle import eacn_client
+
+            for target in ("gru", "noter"):
+                try:
+                    eacn_client.send_message(
+                        port=port,
+                        to_agent_id=target,
+                        from_agent_id="health-monitor",
+                        content={"type": "health_event", **event},
+                        timeout=1.0,
+                        audit_to_noter=False,
+                    )
+                except Exception as exc:
+                    logger.debug(
+                        "health event EACN notify failed port=%d target=%s: %s",
+                        port,
+                        target,
+                        exc,
+                    )
+        except Exception as exc:
+            logger.debug("health event EACN notify setup failed port=%d: %s", port, exc)
 
 
 # ---------------------------------------------------------------------------

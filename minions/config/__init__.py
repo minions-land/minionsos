@@ -293,6 +293,21 @@ class GruConfig(BaseModel):
         default="HEAD",
         description="Default git base branch for new project worktrees.",
     )
+    project_parent_repo: str | None = Field(
+        default=None,
+        description=(
+            "Optional git repository used as the source for project worktrees. "
+            "When unset, MinionsOS uses MINIONS_ROOT.parent if it is a git repo, "
+            "otherwise MINIONS_ROOT if that is a git repo."
+        ),
+    )
+    projects_root: str | None = Field(
+        default=None,
+        description=(
+            "Optional directory that contains project_<port>/ runtime trees. "
+            "When unset, project directories live beside MINIONS_ROOT."
+        ),
+    )
     backend_crash_threshold: int = Field(
         default=3,
         description="Max backend crashes within crash_window_seconds before auto-restart stops.",
@@ -322,6 +337,14 @@ class GruConfig(BaseModel):
         description=(
             "Minimum local EACN credit balance ensured for Gru and registered project roles. "
             "MinionsOS still defaults project-local tasks to budget=0."
+        ),
+    )
+    health_event_eacn_notifications: bool = Field(
+        default=False,
+        description=(
+            "When true, Gru's health monitor also posts backend/role health events "
+            "to project-local Gru and Noter queues. Structured health events are "
+            "always written to project logs regardless of this flag."
         ),
     )
     gru_eacn_agent_id: str = Field(

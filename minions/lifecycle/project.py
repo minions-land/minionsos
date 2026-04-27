@@ -24,6 +24,7 @@ from minions.lifecycle import eacn_client
 from minions.lifecycle.eacn_identity import identity_map_for_meta, upsert_agent_identity
 from minions.paths import (
     MINIONS_ROOT,
+    configured_project_parent_repo,
     project_backend_log,
     project_dir,
     project_eacn_db,
@@ -114,6 +115,31 @@ def _port_is_free(port: int) -> bool:
         return True
     except OSError:
         return False
+
+
+def _is_git_work_tree(path: Path) -> bool:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=str(path),
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0 and result.stdout.strip() == "true"
+    except FileNotFoundError:
+        return False
+
+
+def project_parent_repo() -> Path:
+    """Return the git repository used as the source for project worktrees."""
+    configured = configured_project_parent_repo()
+    if configured is not None:
+        return configured
+    if _is_git_work_tree(MINIONS_ROOT.parent):
+        return MINIONS_ROOT.parent
+    if _is_git_work_tree(MINIONS_ROOT):
+        return MINIONS_ROOT
+    return MINIONS_ROOT.parent
 
 
 def _start_backend(port: int) -> subprocess.Popen:  # type: ignore[type-arg]
@@ -298,28 +324,28 @@ def _stop_backend(port: int, pid: int | None) -> None:
 def _ensure_parent_is_git_repo() -> None:
     """Verify that MINIONS_ROOT.parent is a git repository.
 
-    The worktree mechanism needs a containing git repo to branch off of. If
-    the parent is not a git repo we fail fast with an actionable message
+    The worktree mechanism needs a git repo to branch off of. If no configured
+    or inferred project parent repo is usable, we fail fast with an actionable
+    message
     instead of letting ``git worktree add`` emit a cryptic
     ``fatal: not a git repository`` error.
     """
-    parent_repo = MINIONS_ROOT.parent
-    result = subprocess.run(
-        ["git", "rev-parse", "--is-inside-work-tree"],
-        cwd=str(parent_repo),
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0 or result.stdout.strip() != "true":
+    parent_repo = project_parent_repo()
+    if not _is_git_work_tree(parent_repo):
+        configured = configured_project_parent_repo()
+        config_hint = (
+            "Check MINIONS_PROJECT_PARENT_REPO or gru.yaml:project_parent_repo.\n"
+            if configured is not None
+            else "Set gru.yaml:project_parent_repo if your research repo lives elsewhere.\n"
+        )
         raise ProjectError(
-            f"The directory containing MinionsOS_V4 ({parent_repo}) is not a git "
+            f"The project parent repo ({parent_repo}) is not a git "
             "repository. MinionsOS creates project worktrees branched from this "
-            "parent repo, so it must be git-initialized before project_create.\n"
+            "repo, so it must be git-initialized before project_create.\n"
             "Fix with:\n"
             f"    cd {parent_repo} && git init && git add -A && "
             "git commit -m 'init'\n"
-            "Also make sure MinionsOS_V4/.git is absent (or added as a "
-            "submodule) so the parent does not treat it as an embedded repo."
+            f"{config_hint}"
         )
 
 
@@ -332,8 +358,7 @@ def _create_worktree(port: int, base_branch: str) -> str:
     workspace = project_workspace(port)
     workspace.parent.mkdir(parents=True, exist_ok=True)
 
-    # The parent repo is the directory that contains MinionsOS_V4.
-    parent_repo = MINIONS_ROOT.parent
+    parent_repo = project_parent_repo()
 
     # Resolve base_branch: "HEAD" means the current HEAD of the parent repo.
     resolved_base = base_branch if base_branch != "HEAD" else "HEAD"
@@ -361,7 +386,7 @@ def _create_worktree(port: int, base_branch: str) -> str:
 
 def _git_tag(port: int, tag: str) -> None:
     """Create a git tag in the parent repo."""
-    parent_repo = MINIONS_ROOT.parent
+    parent_repo = project_parent_repo()
     result = subprocess.run(
         ["git", "tag", tag],
         cwd=str(parent_repo),

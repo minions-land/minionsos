@@ -85,9 +85,30 @@ class TestStatusJson:
                 "backend_alive",
                 "agents",
                 "queue_depth",
+                "gru_inbox_unread",
+                "recent_health_events",
                 "recent_failures",
             ):
                 assert key in row, f"Missing key {key!r} in status row"
+
+
+class TestProjectDirOrphans:
+    def test_orphan_detection_flags_unknown_or_missing_meta(self, tmp_path: Path) -> None:
+        from minions import cli
+
+        known = tmp_path / "project_37596"
+        known.mkdir()
+        (known / "meta.json").write_text("{}", encoding="utf-8")
+        missing_meta = tmp_path / "project_37597"
+        missing_meta.mkdir()
+        unknown = tmp_path / "project_37598"
+        unknown.mkdir()
+        (unknown / "meta.json").write_text("{}", encoding="utf-8")
+
+        orphans = cli._find_orphan_project_dirs(tmp_path, {37596, 37597})
+        assert missing_meta in orphans
+        assert unknown in orphans
+        assert known not in orphans
 
 
 class TestGruLoopDebugFlag:
