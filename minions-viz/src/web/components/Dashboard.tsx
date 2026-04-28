@@ -215,7 +215,7 @@ export default function Dashboard({ store, onSelectAgent, onSelectTask }: Props)
       <div className="panel-card p-5">
         <h3 className="text-xs font-mono text-[#0f766e] tracking-[0.12em] uppercase mb-3">{t("dash.recentActivity")}</h3>
         <div className="space-y-1 max-h-[300px] overflow-y-auto">
-          {logs.slice(0, 30).map((log, i) => (
+          {logs.slice(0, 30).reverse().map((log, i) => (
             <div key={i} className="flex items-center gap-2 text-xs py-1">
               <span className="text-[#5f5a52]/60 w-16 shrink-0 font-mono">
                 {timeAgo(log.timestamp, locale)}

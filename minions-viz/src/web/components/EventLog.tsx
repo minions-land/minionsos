@@ -14,12 +14,13 @@ export default function EventLog({ logs }: Props) {
   const [taskFilter, setTaskFilter] = useState("");
 
   const filtered = useMemo(() => {
-    return logs.filter((l) => {
+    const f = logs.filter((l) => {
       if (fnFilter && !l.fn_name.toLowerCase().includes(fnFilter.toLowerCase())) return false;
       if (agentFilter && l.agent_id !== agentFilter && !l.agent_id?.includes(agentFilter)) return false;
       if (taskFilter && l.task_id !== taskFilter && !l.task_id?.includes(taskFilter)) return false;
       return true;
     });
+    return f.reverse();
   }, [logs, fnFilter, agentFilter, taskFilter]);
 
   return (

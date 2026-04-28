@@ -35,7 +35,7 @@ export function getSavedEndpoint(): string { return ""; }
 export function reconnectWithEndpoint(_ep: string): void { /* no-op */ }
 
 const empty: NetworkSnapshot = {
-  tasks: [], agents: [], cluster: null, logs: [],
+  tasks: [], agents: [], cluster: null, logs: [], messages: [],
   connected: false, eacnEndpoint: "", lastUpdate: 0,
   selectedPort: null, selectedGruId: null, grus: [],
 };
@@ -53,6 +53,7 @@ function applyMessage(msg: WsMessage) {
     case "agents:update": snapshot = { ...snapshot, agents: msg.data, lastUpdate: Date.now() }; break;
     case "cluster:update": snapshot = { ...snapshot, cluster: msg.data, lastUpdate: Date.now() }; break;
     case "logs:update": snapshot = { ...snapshot, logs: msg.data, lastUpdate: Date.now() }; break;
+    case "messages:update": snapshot = { ...snapshot, messages: msg.data, lastUpdate: Date.now() }; break;
     case "connection:status": snapshot = { ...snapshot, connected: msg.data.connected }; break;
     case "grus:update": snapshot = { ...snapshot, grus: msg.data }; break;
     case "selected":
@@ -97,7 +98,7 @@ export function select(gruId: string | null, port: number | null) {
   snapshot = {
     ...snapshot, selectedGruId: gruId, selectedPort: port,
     eacnEndpoint: port != null ? `http://127.0.0.1:${port}` : "",
-    tasks: [], agents: [], cluster: null, logs: [], connected: false,
+    tasks: [], agents: [], cluster: null, logs: [], messages: [], connected: false,
   };
   notify();
 }

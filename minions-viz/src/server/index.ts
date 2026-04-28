@@ -12,11 +12,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 import {
   checkHealth, fetchTasks, fetchCluster, fetchLogs, fetchAgents,
-  enrichAgents, collectDomains, endpointForPort,
+  enrichAgents, collectDomains, endpointForPort, fetchMessages,
 } from "./poller.js";
 import {
   addClient, removeClient, setConnected, updateTasks, updateAgents,
-  updateCluster, updateLogs, snapshotFor, ensurePair, setSelection,
+  updateCluster, updateLogs, updateMessages, snapshotFor, ensurePair, setSelection,
   getSelection, setGrus, activePairs,
 } from "./state.js";
 import { loadGrus, getGru, getProjectFor, registryPath } from "./grus.js";
@@ -196,6 +196,13 @@ async function pollLogsAll() {
   }
 }
 
+async function pollMessages() {
+  for (const { gruId, port } of activePairs()) {
+    const messages = await fetchMessages(endpointForPort(port));
+    if (messages.length > 0) updateMessages(gruId, port, messages);
+  }
+}
+
 function startPolling() {
   pollRegistry();
   setInterval(pollRegistry, 5_000);
@@ -204,6 +211,7 @@ function startPolling() {
   setInterval(pollAgents, 10_000);
   setInterval(pollCluster, 30_000);
   setInterval(pollLogsAll, 3_000);
+  setInterval(pollMessages, 5_000);
 }
 
 server.listen(PORT, () => {

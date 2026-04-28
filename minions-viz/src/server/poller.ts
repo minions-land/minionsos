@@ -3,7 +3,7 @@
  * EACN3 backend at http://127.0.0.1:{port}. All functions take the endpoint
  * explicitly so the scheduler can switch projects at runtime.
  */
-import type { Task, AgentCard, AgentInfo, ClusterStatus, LogEntry } from "../shared/types.js";
+import type { Task, AgentCard, AgentInfo, ClusterStatus, LogEntry, Message } from "../shared/types.js";
 
 async function fetchJson<T>(endpoint: string, p: string): Promise<T | null> {
   try {
@@ -78,4 +78,22 @@ export function collectDomains(tasks: Task[], cluster: ClusterStatus | null): Se
     for (const m of cluster.members) for (const d of m.domains) domains.add(d);
   }
   return domains;
+}
+
+export async function fetchMessages(endpoint: string, limit = 500): Promise<Message[]> {
+  const logs = await fetchLogs(endpoint, limit);
+  const messages: Message[] = [];
+  for (const log of logs) {
+    if (log.fn_name === "relay_message" && log.agent_id && log.args.to_agent_id) {
+      messages.push({
+        id: `${log.timestamp}-${log.agent_id}`,
+        from_agent_id: log.agent_id,
+        to_agent_id: String(log.args.to_agent_id),
+        task_id: log.task_id,
+        content: log.args.content,
+        timestamp: log.timestamp,
+      });
+    }
+  }
+  return messages;
 }

@@ -8,7 +8,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import dagre from "dagre";
-import type { Task, AgentInfo } from "@shared/types";
+import type { Task, AgentInfo, Message } from "@shared/types";
 import AgentNode from "./AgentNode";
 import TaskNode from "./TaskNode";
 import { useI18n } from "../i18n";
@@ -16,13 +16,14 @@ import { useI18n } from "../i18n";
 interface Props {
   tasks: Task[];
   agents: AgentInfo[];
+  messages: Message[];
   onSelectAgent: (id: string) => void;
   onSelectTask: (id: string) => void;
 }
 
 const nodeTypes = { agent: AgentNode, task: TaskNode };
 
-const MAX_TASKS = 60;
+const MAX_TASKS = 500;
 
 function layoutGraph(nodes: Node[], edges: Edge[]): { nodes: Node[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph();
@@ -45,22 +46,43 @@ function layoutGraph(nodes: Node[], edges: Edge[]): { nodes: Node[]; edges: Edge
 }
 
 /** Build a stable fingerprint of the node/edge set so we can skip re-layout when data hasn't meaningfully changed */
-function graphFingerprint(taskIds: string[], agentIds: string[], edgeCount: number): string {
-  return `${taskIds.length}:${agentIds.length}:${edgeCount}:${taskIds.join(",")}`;
+function graphFingerprint(
+  taskIds: string[],
+  agentIds: string[],
+  edgeCount: number,
+  messageCount: number,
+  showMessages: boolean,
+  focusAgent: string | null,
+  hopDistance: number,
+): string {
+  return [
+    taskIds.length,
+    agentIds.length,
+    edgeCount,
+    messageCount,
+    showMessages ? "messages" : "tasks",
+    focusAgent ?? "",
+    hopDistance,
+    agentIds.join(","),
+    taskIds.join(","),
+  ].join(":");
 }
 
-export default function NetworkGraph({ tasks, agents, onSelectAgent, onSelectTask }: Props) {
+export default function NetworkGraph({ tasks, agents, messages, onSelectAgent, onSelectTask }: Props) {
   const { t, locale } = useI18n();
   const [hideCompleted, setHideCompleted] = useState(false);
   const [hideAdj, setHideAdj] = useState(true);
   const [domainFilter, setDomainFilter] = useState("");
+  const [showMessages, setShowMessages] = useState(false);
+  const [focusAgent, setFocusAgent] = useState<string | null>(null);
+  const [hopDistance, setHopDistance] = useState(2);
 
   // Cache previous layout to avoid re-running dagre when graph structure hasn't changed
   const layoutCache = useRef<{
     fingerprint: string;
     nodes: Node[];
     edges: Edge[];
-    stats: { agents: number; tasks: number; edges: number; truncated: boolean };
+    stats: { agents: number; tasks: number; edges: number; messages: number; truncated: boolean };
   } | null>(null);
 
   const { nodes, edges, stats } = useMemo(() => {
@@ -99,6 +121,14 @@ export default function NetworkGraph({ tasks, agents, onSelectAgent, onSelectTas
         }
       }
       for (const r of t.results) involvedAgentIds.add(r.agent_id);
+    }
+
+    // Add agents involved in messages if showMessages is enabled
+    if (showMessages) {
+      for (const msg of messages) {
+        involvedAgentIds.add(msg.from_agent_id);
+        involvedAgentIds.add(msg.to_agent_id);
+      }
     }
 
     const involvedAgents = agents.filter((a) => involvedAgentIds.has(a.agent_id));
@@ -158,15 +188,37 @@ export default function NetworkGraph({ tasks, agents, onSelectAgent, onSelectTas
       }
     }
 
+    // Add message edges if enabled
+    if (showMessages) {
+      for (const msg of messages) {
+        if (involvedAgentIds.has(msg.from_agent_id) && involvedAgentIds.has(msg.to_agent_id)) {
+          rawEdges.push({
+            id: `msg-${msg.id}`,
+            source: `a:${msg.from_agent_id}`,
+            target: `a:${msg.to_agent_id}`,
+            style: { stroke: "#9ca3af", strokeWidth: 1, strokeDasharray: "2,2" },
+          });
+        }
+      }
+    }
+
     const emptyResult = {
       nodes: [] as Node[],
       edges: [] as Edge[],
-      stats: { agents: 0, tasks: 0, edges: 0, truncated: false },
+      stats: { agents: 0, tasks: 0, edges: 0, messages: 0, truncated: false },
     };
     if (taskList.length === 0 && involvedAgents.length === 0) return emptyResult;
 
     // Check fingerprint - skip dagre if graph structure unchanged
-    const fp = graphFingerprint(taskIds, agentNodeIds, rawEdges.length);
+    const fp = graphFingerprint(
+      taskIds,
+      agentNodeIds,
+      rawEdges.length,
+      messages.length,
+      showMessages,
+      focusAgent,
+      hopDistance,
+    );
     if (layoutCache.current && layoutCache.current.fingerprint === fp) {
       return layoutCache.current;
     }
@@ -190,20 +242,52 @@ export default function NetworkGraph({ tasks, agents, onSelectAgent, onSelectTas
       });
     }
 
-    const result = layoutGraph(rawNodes, rawEdges);
+    // Apply focus mode if enabled
+    let visibleNodes = rawNodes;
+    let visibleEdges = rawEdges;
+    if (focusAgent) {
+      const visible = new Set<string>([`a:${focusAgent}`]);
+      const queue: Array<[string, number]> = [[`a:${focusAgent}`, 0]];
+
+      while (queue.length > 0) {
+        const [nodeId, dist] = queue.shift()!;
+        if (dist >= hopDistance) continue;
+
+        for (const edge of rawEdges) {
+          if (edge.source === nodeId && !visible.has(edge.target)) {
+            visible.add(edge.target);
+            queue.push([edge.target, dist + 1]);
+          }
+          if (edge.target === nodeId && !visible.has(edge.source)) {
+            visible.add(edge.source);
+            queue.push([edge.source, dist + 1]);
+          }
+        }
+      }
+
+      visibleNodes = rawNodes.filter(n => visible.has(n.id));
+      visibleEdges = rawEdges.filter(e => visible.has(e.source) && visible.has(e.target));
+    }
+
+    const result = layoutGraph(visibleNodes, visibleEdges);
+    const messageCount = showMessages ? messages.filter(m =>
+      involvedAgentIds.has(m.from_agent_id) && involvedAgentIds.has(m.to_agent_id)
+    ).length : 0;
+
     const output = {
       ...result,
       fingerprint: fp,
       stats: {
         agents: involvedAgents.length,
         tasks: taskList.length,
-        edges: rawEdges.length,
+        edges: visibleEdges.length,
+        messages: messageCount,
         truncated,
       },
     };
     layoutCache.current = output;
     return output;
-  }, [tasks, agents, hideCompleted, hideAdj, domainFilter]);
+  }, [tasks, agents, messages, hideCompleted, hideAdj, domainFilter, showMessages, focusAgent, hopDistance]);
 
   return (
     <div className="h-full flex flex-col">
@@ -234,11 +318,42 @@ export default function NetworkGraph({ tasks, agents, onSelectAgent, onSelectTas
           />
           {t("net.hideAdj")}
         </label>
+        <label className="flex items-center gap-1.5 text-xs text-[#5f5a52] cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showMessages}
+            onChange={(e) => setShowMessages(e.target.checked)}
+            className="rounded accent-teal-600"
+          />
+          Show Messages
+        </label>
+
+        {focusAgent && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[#5f5a52]">Focus: {focusAgent.slice(0, 8)}</span>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              value={hopDistance}
+              onChange={(e) => setHopDistance(Number(e.target.value))}
+              className="w-20"
+            />
+            <span className="text-xs text-[#5f5a52]">{hopDistance} hops</span>
+            <button
+              onClick={() => setFocusAgent(null)}
+              className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200"
+            >
+              Clear
+            </button>
+          </div>
+        )}
 
         <div className="ml-auto flex items-center gap-4 text-[10px] text-[#5f5a52] font-mono">
           <span>{stats.agents} {t("topbar.agents")}</span>
           <span>{stats.tasks} {t("topbar.tasks")}</span>
           <span>{stats.edges} {t("net.connections")}</span>
+          {stats.messages > 0 && <span>{stats.messages} messages</span>}
           {stats.truncated && (
             <span className="text-[#df6d2d]">
               ({t("net.truncated", { n: MAX_TASKS })})
@@ -247,6 +362,9 @@ export default function NetworkGraph({ tasks, agents, onSelectAgent, onSelectTas
           <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-teal-600 inline-block" /> {t("net.initiate")}</span>
           <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-[#174066] inline-block" /> {t("net.bid")}</span>
           <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-purple-600 inline-block" style={{ borderBottom: "1px dashed" }} /> {t("net.result")}</span>
+          {showMessages && (
+            <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-gray-400 inline-block" style={{ borderBottom: "1px dotted" }} /> message</span>
+          )}
         </div>
       </div>
 
@@ -262,8 +380,17 @@ export default function NetworkGraph({ tasks, agents, onSelectAgent, onSelectTas
             edges={edges}
             nodeTypes={nodeTypes}
             onNodeClick={(_e, node) => {
-              if (node.id.startsWith("a:")) onSelectAgent(node.id.slice(2));
-              else if (node.id.startsWith("t:")) onSelectTask(node.id.slice(2));
+              if (node.id.startsWith("a:")) {
+                const agentId = node.id.slice(2);
+                if (_e.detail === 2) {
+                  // Double-click to focus
+                  setFocusAgent(agentId);
+                } else {
+                  onSelectAgent(agentId);
+                }
+              } else if (node.id.startsWith("t:")) {
+                onSelectTask(node.id.slice(2));
+              }
             }}
             fitView
             minZoom={0.1}

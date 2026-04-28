@@ -7,6 +7,8 @@ import AgentsView from "./components/AgentsView";
 import TasksBoard from "./components/TasksBoard";
 import TaskTree from "./components/TaskTree";
 import EventLog from "./components/EventLog";
+import NetworkGraph from "./components/NetworkGraph";
+import NoterView from "./components/NoterView";
 import AgentDetail from "./components/AgentDetail";
 import TaskDetail from "./components/TaskDetail";
 import GlobalSearch from "./components/GlobalSearch";
@@ -17,7 +19,7 @@ import OverviewTab from "./components/OverviewTab";
 import RolesTab from "./components/RolesTab";
 import ArtifactsTab from "./components/ArtifactsTab";
 
-export type Tab = "overview" | "roles" | "dashboard" | "agents" | "tasks" | "tree" | "artifacts" | "logs";
+export type Tab = "overview" | "roles" | "dashboard" | "network" | "agents" | "tasks" | "tree" | "artifacts" | "logs" | "noter";
 
 function AppInner() {
   const store = useStore();
@@ -57,8 +59,8 @@ function AppInner() {
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setShowSearch((v) => !v); return; }
       const tabMap: Record<string, Tab> = {
-        "1": "overview", "2": "roles", "3": "dashboard", "4": "agents",
-        "5": "tasks", "6": "tree", "7": "artifacts", "8": "logs",
+        "1": "overview", "2": "roles", "3": "dashboard", "4": "network",
+        "5": "agents", "6": "tasks", "7": "tree", "8": "artifacts", "9": "logs", "0": "noter",
       };
       if (tabMap[e.key]) setTab(tabMap[e.key]);
     }
@@ -105,9 +107,19 @@ function AppInner() {
         {currentProject && tab === "overview" && <OverviewTab port={port!} gruId={gruId} />}
         {currentProject && tab === "roles" && <RolesTab port={port!} gruId={gruId} project={currentProject} />}
         {currentProject && tab === "artifacts" && <ArtifactsTab port={port!} gruId={gruId} />}
+        {currentProject && tab === "noter" && <NoterView port={port!} gruId={gruId} project={currentProject} />}
 
         {currentProject && tab === "dashboard" && (
           <Dashboard store={store} onSelectAgent={setSelectedAgent} onSelectTask={setSelectedTask} />
+        )}
+        {currentProject && tab === "network" && (
+          <NetworkGraph
+            tasks={store.tasks}
+            agents={store.agents}
+            messages={store.messages}
+            onSelectAgent={setSelectedAgent}
+            onSelectTask={setSelectedTask}
+          />
         )}
         {currentProject && tab === "agents" && (
           <AgentsView agents={store.agents} tasks={store.tasks} onSelect={setSelectedAgent} />

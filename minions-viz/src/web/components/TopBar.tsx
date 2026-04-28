@@ -23,11 +23,13 @@ const TAB_KEYS: { key: Tab; label: string; shortcut: string }[] = [
   { key: "overview", label: "Overview", shortcut: "1" },
   { key: "roles", label: "Roles", shortcut: "2" },
   { key: "dashboard", label: "Dashboard", shortcut: "3" },
-  { key: "agents", label: "EACN Agents", shortcut: "4" },
-  { key: "tasks", label: "Tasks", shortcut: "5" },
-  { key: "tree", label: "Task Tree", shortcut: "6" },
-  { key: "artifacts", label: "Artifacts", shortcut: "7" },
-  { key: "logs", label: "Event Log", shortcut: "8" },
+  { key: "network", label: "Network", shortcut: "4" },
+  { key: "agents", label: "EACN Agents", shortcut: "5" },
+  { key: "tasks", label: "Tasks", shortcut: "6" },
+  { key: "tree", label: "Task Tree", shortcut: "7" },
+  { key: "artifacts", label: "Artifacts", shortcut: "8" },
+  { key: "logs", label: "Event Log", shortcut: "9" },
+  { key: "noter", label: "Noter", shortcut: "0" },
 ];
 
 export default function TopBar({

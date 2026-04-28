@@ -117,6 +117,15 @@ export interface LogEntry {
   server_id: string | null;
 }
 
+export interface Message {
+  id: string;
+  from_agent_id: string;
+  to_agent_id: string;
+  task_id: string | null;
+  content: unknown;
+  timestamp: string;
+}
+
 // ── MinionsOS types ─────────────────────────────────────────────────
 
 export interface MosRoleEntry {
@@ -187,6 +196,7 @@ export interface NetworkSnapshot {
   agents: AgentInfo[];
   cluster: ClusterStatus | null;
   logs: LogEntry[];
+  messages: Message[];
   connected: boolean;
   eacnEndpoint: string;
   lastUpdate: number;
@@ -202,6 +212,7 @@ export type WsMessage =
   | { type: "agents:update"; data: AgentInfo[] }
   | { type: "cluster:update"; data: ClusterStatus | null }
   | { type: "logs:update"; data: LogEntry[] }
+  | { type: "messages:update"; data: Message[] }
   | { type: "connection:status"; data: { connected: boolean } }
   | { type: "grus:update"; data: GruInfo[] }
   | { type: "selected"; data: { gruId: string | null; port: number | null } }

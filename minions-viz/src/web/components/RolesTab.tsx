@@ -56,13 +56,27 @@ export default function RolesTab({ port, gruId, project }: Props) {
 
   const rolesByName = new Map((project?.active_roles ?? []).map((r) => [r.name, r]));
 
+  // Add gru role if it has a scratchpad but isn't in active_roles
+  const allRoles = new Map(rolesByName);
+  for (const pad of pads) {
+    if (!allRoles.has(pad.role) && pad.exists) {
+      allRoles.set(pad.role, {
+        name: pad.role,
+        state: "active",
+        pid: null,
+        spawned_at: null,
+        poll_interval: null,
+      });
+    }
+  }
+
   return (
     <div className="absolute inset-0 overflow-auto p-6 bg-[#fbf8f2]">
       <div className="max-w-6xl mx-auto">
         <h2 className="text-sm font-mono uppercase tracking-widest text-indigo-600 mb-3">Roles</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {pads.map((pad) => {
-            const role = rolesByName.get(pad.role);
+            const role = allRoles.get(pad.role);
             const pct = Math.min(100, (pad.approx_tokens / 200_000) * 100);
             return (
               <button

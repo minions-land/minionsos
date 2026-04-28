@@ -3,7 +3,7 @@
  */
 import type { WebSocket } from "ws";
 import type {
-  NetworkSnapshot, Task, AgentInfo, ClusterStatus, LogEntry, WsMessage, GruInfo,
+  NetworkSnapshot, Task, AgentInfo, ClusterStatus, LogEntry, Message, WsMessage, GruInfo,
 } from "../shared/types.js";
 
 interface ProjectSnapshot {
@@ -11,6 +11,7 @@ interface ProjectSnapshot {
   agents: AgentInfo[];
   cluster: ClusterStatus | null;
   logs: LogEntry[];
+  messages: Message[];
   connected: boolean;
   lastUpdate: number;
 }
@@ -25,7 +26,7 @@ const perPair = new Map<string, ProjectSnapshot>();
 let grus: GruInfo[] = [];
 
 function blank(): ProjectSnapshot {
-  return { tasks: [], agents: [], cluster: null, logs: [], connected: false, lastUpdate: 0 };
+  return { tasks: [], agents: [], cluster: null, logs: [], messages: [], connected: false, lastUpdate: 0 };
 }
 
 export function ensurePair(gruId: string, port: number): ProjectSnapshot {
@@ -121,6 +122,12 @@ export function updateLogs(gruId: string, port: number, logs: LogEntry[]) {
   const s = ensurePair(gruId, port);
   s.logs = logs; s.lastUpdate = Date.now();
   broadcastPair(gruId, port, { type: "logs:update", data: logs });
+}
+
+export function updateMessages(gruId: string, port: number, messages: Message[]) {
+  const s = ensurePair(gruId, port);
+  s.messages = messages; s.lastUpdate = Date.now();
+  broadcastPair(gruId, port, { type: "messages:update", data: messages });
 }
 
 export function allClients(): Set<WebSocket> { return clients; }
