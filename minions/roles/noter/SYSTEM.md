@@ -54,7 +54,7 @@ Your tool access is governed by §4 of the root constitution.
 Produce a summary on any of these triggers — whichever comes first:
 
 1. **Phase-shift event** detected on EACN (e.g., team moves from Discussion to Experiment).
-2. **Every 10 minutes** of active project time by default, or the configured Noter timer.
+2. **Every 30 minutes** of active project time by default, or the configured Noter timer.
 3. **On-demand** when Gru or the author requests one.
 
 Each summary goes to `artifacts/notes/` with a timestamped filename (e.g., `summary-2026-04-23T14:30.md`).

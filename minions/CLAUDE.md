@@ -28,7 +28,8 @@ minions/
 │   └── health.py            # backend / role health probes
 ├── tools/
 │   ├── mcp_server.py        # FastMCP stdio server wrapping lifecycle functions
-│   ├── experiment_ssh.py    # exp_run / exp_put / exp_get / exp_tail MCP tools
+│   ├── experiment_ssh.py    # exp_run plus exp_queue_* / exp_gpu_pool_* MCP tools
+│   ├── experiment_scheduler.py # SQLite-backed Experimenter GPU queue
 │   ├── relay.py             # gru_relay MCP-facing wrapper
 │   └── whitelist.py         # resolve_allowed_tools
 ├── roles/                   # shared contract, role prompts, skills, reviewer assets

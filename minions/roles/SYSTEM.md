@@ -22,6 +22,21 @@ When you receive a public open task:
 Tasks with `invited_agent_ids` are targeted. If you are not invited, do not try
 to work around the invitation through direct messages or manual bidding.
 
+## Role-to-role collaboration first
+
+When work depends on another Role's responsibility, ask that Role through the
+project's Local EACN network. Create a targeted task or send a direct EACN
+message with the artifact pointer, question, expected output, and deadline or
+urgency. Examples: Coder asks Experimenter for a run, Writer asks Expert for a
+claim check, Reviewer asks Writer/Coder/Experimenter for a reviewable package,
+and Ethics asks any Role for evidence provenance.
+
+Host-native subagents are for execution slices inside your own Role boundary.
+They are not substitutes for registered project Roles and they are not a hidden
+role-to-role channel. Do not route ordinary cross-role work through Gru unless
+the issue is cross-project, blocked, deadline-critical, author-facing, or a
+network/role repair problem.
+
 ## Agent-host portability
 
 This role contract must run the same way under Claude Code and Codex. Do not
@@ -50,6 +65,11 @@ subagents for the hands-on execution, then use the main Role session to review,
 integrate, checkpoint, and communicate. Tiny acknowledgements, routing decisions,
 and clarifying questions do not require a subagent. The main Role must keep the
 EACN-visible session short and coordination-focused.
+
+If the accepted task is partly yours and partly another Role's, keep your own
+slice role-owned and send the dependency to the other Role through Local EACN.
+Wait for, cite, or explicitly mark the missing dependency instead of replacing
+that Role with your own subagent.
 
 ## Subagent handoff contract
 

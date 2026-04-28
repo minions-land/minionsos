@@ -89,6 +89,12 @@ class TestBoundaryContext:
         ctx = _boundary_context("coder", 37596)
         assert "workspace" in ctx.lower()
 
+    def test_coder_boundary_allows_assigned_system_maintenance(self) -> None:
+        ctx = _boundary_context("coder", 37596)
+        assert "system-maintenance" in ctx
+        assert "MinionsOS repository runtime code" in ctx
+        assert "explicitly assigns" in ctx
+
     def test_unknown_role_returns_generic(self) -> None:
         ctx = _boundary_context("unknown-role", 37596)
         assert len(ctx) > 0
@@ -109,6 +115,14 @@ class TestCommonRolePrompt:
         assert "Common Role Contract" in text
         assert "Coder" in text
         assert "Subagents do not reliably inherit" in text
+
+    def test_coder_system_prompt_mentions_assigned_system_maintenance(self) -> None:
+        path = _build_system_prompt("coder")
+        assert path is not None
+        text = path.read_text(encoding="utf-8")
+        assert "system-maintenance code changes" in text
+        assert "explicitly assigns" in text
+        assert "report it to Gru through EACN" in text
 
 
 class TestReviewerWhitelistIsolation:

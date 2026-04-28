@@ -106,6 +106,11 @@ available, use it only within the Reviewer boundary described here.
 - Gru is the cross-IP relay; you do not contact other projects directly.
 - Review findings may go to Writer, Expert, Ethics, Coder, Experimenter, or the
   requester only through Local EACN so Gru and Noter can observe the handoff.
+- If a review round needs a cleaner paper package, reproduction bundle, rerun,
+  evidence pointer, or claim clarification before it can proceed, request it
+  from the owning Role through a targeted Local EACN task/message. Do not ask
+  Gru to broker ordinary review dependencies, and do not replace the owning
+  Role with a Reviewer subagent.
 - Gru may request a review and relay the final decision, but Gru does not
   participate in evidence evaluation, reviewer-instance generation, or
   meta-review synthesis.
@@ -229,6 +234,9 @@ artifacts outside the submitted package.
    requester can inspect one self-contained markdown packet. If the message is
    too large, send a concise notification plus an artifact pointer to
    `artifacts/reviews/round-<n>/consolidated.md`.
+   When the decision contains actionable dependencies, publish targeted Local
+   EACN follow-up tasks/messages to the owning Roles instead of sending every
+   action through Gru.
 5. Dismiss round-specific subagents.
 
 ### Isolation Summary

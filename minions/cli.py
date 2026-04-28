@@ -528,6 +528,8 @@ def noter_cmd(
     interval: int = typer.Option(30, "--interval", "-i", help="Report interval in seconds."),
     once: bool = typer.Option(False, "--once", help="Print one report and exit."),
     max_tasks: int = typer.Option(12, "--max-tasks", help="Maximum recent tasks to show."),
+    task_offset: int = typer.Option(0, "--task-offset", help="Offset into newest-first tasks."),
+    task_status: str | None = typer.Option(None, "--task-status", help="Filter tasks by status."),
 ) -> None:
     """Run a read-only Noter terminal for one project."""
     from minions.lifecycle.noter_terminal import run_noter_terminal
@@ -538,6 +540,8 @@ def noter_cmd(
             interval_seconds=interval,
             once=once,
             max_tasks=max_tasks,
+            task_offset=task_offset,
+            task_status=task_status,
             console=console,
         )
     except MinionsError as e:

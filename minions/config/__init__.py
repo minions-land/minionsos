@@ -138,6 +138,8 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "exp_get",
         "exp_tail",
         "query_gpus",
+        "exp_queue_*",
+        "exp_gpu_pool_*",
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -155,6 +157,8 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "exp_get",
         "exp_tail",
         "query_gpus",
+        "exp_queue_*",
+        "exp_gpu_pool_*",
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -328,8 +332,12 @@ class GruConfig(BaseModel):
         default=30,
         description="Minimum seconds between dispatches for the same role (any wakeup class).",
     )
+    experiment_reconcile_interval_seconds: int = Field(
+        default=30,
+        description="Python-side Experimenter queue reconcile cadence in seconds.",
+    )
     noter_report_interval: str = Field(
-        default="10m",
+        default="30m",
         description="Default time-trigger cadence for Noter periodic project summaries.",
     )
     local_eacn_initial_balance: float = Field(
@@ -474,6 +482,7 @@ class GruConfig(BaseModel):
         "backend_crash_threshold",
         "role_crash_threshold",
         "crash_window_seconds",
+        "experiment_reconcile_interval_seconds",
         mode="before",
     )
     @classmethod

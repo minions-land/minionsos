@@ -189,7 +189,7 @@ def _resolve_time_trigger_interval(role_name: str, interval: str | None) -> str 
         try:
             interval = load_gru_config().noter_report_interval
         except Exception:
-            interval = "10m"
+            interval = "30m"
     if not interval:
         return None
     try:
@@ -221,7 +221,10 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "[Role boundary: EACN-visible agent]\n"
         "Communicate state and task handoffs through EACN3. "
         "Delegate complex execution to subagents; summarize and write back results.\n"
-        "Write boundaries: workspace/, memory/.\n"
+        "Write boundaries: workspace/, memory/ by default. Conditional "
+        "system-maintenance boundary: MinionsOS repository runtime code only when "
+        "Gru or the author explicitly assigns that implementation work through EACN "
+        "and names the scope, allowed paths, and verification target.\n"
     ),
     "experimenter": (
         "[Role boundary: EACN-visible agent]\n"

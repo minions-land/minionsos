@@ -82,3 +82,8 @@ class TestFireAndPoll:
         runs = exp_list(ExpListArgs(target_id=local_target))
         run_ids = [r["run_id"] for r in runs]
         assert run["run_id"] in run_ids
+        listed = next(r for r in runs if r["run_id"] == run["run_id"])
+        assert listed["target_id"] == local_target
+        assert "gpu_ids" in listed
+        assert listed["pid"] > 0
+        assert listed["log_path"].endswith(f"{run['run_id']}.log")

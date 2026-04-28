@@ -92,7 +92,8 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/lifecycle/gru_actions.py` keeps deprecated compatibility wrappers for older Gru message/task names; new runtime-visible paths should use `project_eacn_*`.
 - `minions/state/` contains file-backed state management and port allocation.
 - `minions/tools/mcp_server.py` exposes lifecycle operations as FastMCP tools.
-- `minions/tools/experiment_ssh.py` implements Experimenter `exp_*` local/SSH execution tools.
+- `minions/tools/experiment_ssh.py` implements Experimenter `exp_*` local/SSH execution tools, including queue-facing `exp_queue_*` and `exp_gpu_pool_*`.
+- `minions/tools/experiment_scheduler.py` keeps the SQLite-backed project experiment queue and GPU packing logic.
 - `minions/tools/paper_search.py` implements Writer paper-search helpers exposed through MCP.
 - `minions/tools/whitelist.py` resolves allowed tool surfaces for main roles vs. subagents.
 

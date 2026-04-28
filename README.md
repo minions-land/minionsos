@@ -39,9 +39,11 @@ research projects.
   and strict templates to produce 3-5 independent reviewer reports, a
   history-aware revision delta, a consolidated meta-review, and a rolling
   summary.
-- **Experiment execution.** Experimenter can run local or SSH-backed jobs with
-  `exp_run`, `exp_status`, `exp_wait`, `exp_kill`, `exp_list`, `exp_put`,
-  `exp_get`, `exp_tail`, and `query_gpus`.
+- **Experiment execution.** Experimenter can submit work to a Python-side
+  project queue with `exp_queue_submit`, keep GPUs filled via
+  `exp_queue_reconcile`, change the dynamic GPU allow-list with
+  `exp_gpu_pool_set`, and still use direct `exp_run` / `exp_status` /
+  `query_gpus` primitives for one-off debugging.
 - **Read-only observability.** `minions-viz/` provides a machine-wide
   MinionsVIZ dashboard without draining role queues or mutating EACN3.
 
@@ -278,6 +280,11 @@ exp_put
 exp_get
 exp_tail
 query_gpus
+exp_queue_submit
+exp_queue_reconcile
+exp_queue_status
+exp_gpu_pool_set
+exp_gpu_pool_get
 ```
 
 Writer paper-search tools:
@@ -444,9 +451,10 @@ agent host，Codex 可通过同一套 MinionsOS 生命周期和 EACN3 bus 显式
 - **结构化评审轮次。** Reviewer 使用 persona、流程 skill 和严格模板，生成 3-5
   份独立 reviewer 报告、带历史上下文的 revision delta、consolidated
   meta-review 和滚动 summary。
-- **实验执行。** Experimenter 可通过 `exp_run`、`exp_status`、`exp_wait`、
-  `exp_kill`、`exp_list`、`exp_put`、`exp_get`、`exp_tail`、`query_gpus`
-  统一管理本地或 SSH 远端任务。
+- **实验执行。** Experimenter 可通过 Python 侧项目队列
+  `exp_queue_submit` / `exp_queue_reconcile` 填满 GPU，通过
+  `exp_gpu_pool_set` 动态调整可用 GPU 集合，并保留 `exp_run` /
+  `exp_status` / `query_gpus` 等直接调试原语。
 - **只读观察台。** `minions-viz/` 提供机器级单例的 MinionsVIZ 仪表盘，不消耗
   Role 事件队列，也不修改 EACN3。
 
@@ -673,6 +681,11 @@ exp_put
 exp_get
 exp_tail
 query_gpus
+exp_queue_submit
+exp_queue_reconcile
+exp_queue_status
+exp_gpu_pool_set
+exp_gpu_pool_get
 ```
 
 Writer 论文检索工具：

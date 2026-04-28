@@ -43,6 +43,8 @@ def collect_noter_snapshot(
     store: StateStore | None = None,
     max_tasks: int = 12,
     max_notes: int = 6,
+    task_offset: int = 0,
+    task_status: str | None = None,
 ) -> NoterSnapshot:
     """Collect a read-only status snapshot for one project."""
     _store = store or StateStore()
@@ -55,7 +57,13 @@ def collect_noter_snapshot(
     tasks: list[dict[str, Any]] = []
     if health.get("backend_alive"):
         try:
-            tasks = eacn_client.list_tasks(project.port, limit=max_tasks)
+            tasks = eacn_client.list_tasks(
+                project.port,
+                status=task_status,
+                limit=max_tasks,
+                offset=task_offset,
+                order="desc",
+            )
         except Exception as exc:
             errors.append(f"tasks: {exc}")
 
@@ -85,20 +93,27 @@ def run_noter_terminal(
     interval_seconds: int = 30,
     once: bool = False,
     max_tasks: int = 12,
+    task_offset: int = 0,
+    task_status: str | None = None,
     console: Console | None = None,
 ) -> None:
     """Run a periodic read-only Noter terminal for one project."""
     out = console or Console()
     _print_help(out)
     while True:
-        snapshot = collect_noter_snapshot(port, max_tasks=max_tasks)
+        snapshot = collect_noter_snapshot(
+            port,
+            max_tasks=max_tasks,
+            task_offset=task_offset,
+            task_status=task_status,
+        )
         render_snapshot(snapshot, out)
         if once:
             return
         command = _wait_for_command(interval_seconds)
         if command is None:
             continue
-        if not _handle_command(command, port, out, max_tasks):
+        if not _handle_command(command, port, out, max_tasks, task_offset, task_status):
             return
 
 
@@ -123,21 +138,62 @@ def render_snapshot(snapshot: NoterSnapshot, console: Console) -> None:
     console.print("[dim]Commands: status, tasks, roles, notes, wake [message], help, quit[/dim]")
 
 
-def _handle_command(command: str, port: int, console: Console, max_tasks: int) -> bool:
+def _handle_command(
+    command: str,
+    port: int,
+    console: Console,
+    max_tasks: int,
+    task_offset: int = 0,
+    task_status: str | None = None,
+) -> bool:
     cmd, _, rest = command.partition(" ")
     cmd = cmd.strip().lower()
     rest = rest.strip()
     if cmd in {"", "status", "s"}:
-        render_snapshot(collect_noter_snapshot(port, max_tasks=max_tasks), console)
+        render_snapshot(
+            collect_noter_snapshot(
+                port,
+                max_tasks=max_tasks,
+                task_offset=task_offset,
+                task_status=task_status,
+            ),
+            console,
+        )
         return True
     if cmd in {"tasks", "t"}:
-        _render_tasks(collect_noter_snapshot(port, max_tasks=max_tasks), console, force=True)
+        _render_tasks(
+            collect_noter_snapshot(
+                port,
+                max_tasks=max_tasks,
+                task_offset=task_offset,
+                task_status=task_status,
+            ),
+            console,
+            force=True,
+        )
         return True
     if cmd in {"roles", "r"}:
-        _render_roles(collect_noter_snapshot(port, max_tasks=max_tasks), console)
+        _render_roles(
+            collect_noter_snapshot(
+                port,
+                max_tasks=max_tasks,
+                task_offset=task_offset,
+                task_status=task_status,
+            ),
+            console,
+        )
         return True
     if cmd in {"notes", "n"}:
-        _render_notes(collect_noter_snapshot(port, max_tasks=max_tasks), console, force=True)
+        _render_notes(
+            collect_noter_snapshot(
+                port,
+                max_tasks=max_tasks,
+                task_offset=task_offset,
+                task_status=task_status,
+            ),
+            console,
+            force=True,
+        )
         return True
     if cmd == "wake":
         message = rest or "Please produce an on-demand Noter status summary for Gru."
@@ -197,6 +253,7 @@ def _render_tasks(snapshot: NoterSnapshot, console: Console, force: bool = False
         return
     table = Table(title="Recent EACN Tasks", show_lines=False)
     table.add_column("Task")
+    table.add_column("Created")
     table.add_column("Status")
     table.add_column("Initiator")
     table.add_column("Domains")
@@ -205,6 +262,7 @@ def _render_tasks(snapshot: NoterSnapshot, console: Console, force: bool = False
         content = task.get("content") if isinstance(task.get("content"), dict) else {}
         table.add_row(
             str(task.get("id", "-")),
+            _short_created(task.get("created_at")),
             str(task.get("status", "-")),
             str(task.get("initiator_id", "-")),
             ", ".join(str(d) for d in task.get("domains", [])[:3]),
@@ -244,6 +302,13 @@ def _short(text: str, limit: int) -> str:
     if len(clean) <= limit:
         return clean
     return clean[: max(0, limit - 3)] + "..."
+
+
+def _short_created(value: object) -> str:
+    if not value:
+        return "-"
+    text = str(value)
+    return text.replace("+00:00", "Z").replace("T", " ")[:19]
 
 
 def _print_help(console: Console) -> None:

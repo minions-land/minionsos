@@ -8,7 +8,9 @@ server-side authorization.
 All execution is **fire-and-poll**: ``exp_run`` launches the command fully
 detached via ``nohup``/``setsid`` and returns immediately with a ``run_id``.
 Use ``exp_status``/``exp_wait``/``exp_list`` to observe progress and
-``exp_kill`` to terminate.
+``exp_kill`` to terminate. Batch queue tools maintain a project-level
+SQLite-backed pending pool so Experimenter can submit work and let Python keep
+GPUs filled without spending agent tokens on scheduling loops.
 
 Tools:
 - exp_run      — detached launch, returns immediately with run_id + pid + log_path
@@ -20,6 +22,7 @@ Tools:
 - exp_get      — download a file from a target (refuses if > 500 MB)
 - exp_tail     — tail a log file on a target
 - query_gpus   — list free GPU memory on a target
+- exp_queue_*  — project-level fluid GPU scheduler and dynamic GPU pool
 """
 
 from __future__ import annotations
@@ -31,13 +34,14 @@ import subprocess
 import time
 import uuid
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from minions.config import load_experiment_targets
 from minions.errors import ConfigError, ExperimentError
+from minions.tools.experiment_scheduler import ExperimentScheduler, QueueUnit
 
 logger = logging.getLogger(__name__)
 
@@ -240,6 +244,71 @@ class ExpTailArgs(BaseModel):
 
 class QueryGpusArgs(BaseModel):
     target_id: str = Field(description="Target ID to query GPUs on.")
+
+
+class ExpQueueUnitArgs(BaseModel):
+    cmd: str = Field(description="Shell command to run for this experiment unit.")
+    target_id: str = Field(
+        default="auto",
+        description="Target constraint: 'auto' or a configured target id.",
+    )
+    gpu_ids: list[int] | None = Field(
+        default=None,
+        description="Optional explicit physical GPU ids. If set, the unit waits for these GPUs.",
+    )
+    gpus_needed: int = Field(default=1, ge=1, description="Number of GPUs required.")
+    min_free_mb: int = Field(default=0, ge=0, description="Minimum free VRAM required.")
+    reserve_mb: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Soft VRAM reservation used by the scheduler. Defaults to max(min_free_mb, 8192)."
+        ),
+    )
+    priority: int = Field(default=0, description="Higher priority pending units run first.")
+    max_retries: int = Field(default=1, ge=0, description="OOM retry budget.")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ExpQueueSubmitArgs(BaseModel):
+    units: list[ExpQueueUnitArgs] = Field(description="Experiment units to append.")
+    requester: str | None = Field(default=None, description="Logical requester or EACN source.")
+    batch_id: str | None = Field(default=None, description="Optional caller-provided batch id.")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    reconcile: bool = Field(default=True, description="Immediately run Python-side scheduling.")
+    project_port: int | None = Field(
+        default=None,
+        description="Project port. Defaults to MINIONS_PROJECT_PORT.",
+    )
+
+
+class ExpQueueReconcileArgs(BaseModel):
+    batch_id: str | None = Field(default=None, description="Optional batch id filter.")
+    project_port: int | None = Field(default=None)
+
+
+class ExpQueueStatusArgs(BaseModel):
+    batch_id: str | None = Field(default=None, description="Optional batch id filter.")
+    project_port: int | None = Field(default=None)
+
+
+class ExpQueueGpuPoolSetArgs(BaseModel):
+    target_id: str = Field(default="all", description="'all' or one configured target id.")
+    allowed_gpu_ids: list[int] | str = Field(
+        default="all",
+        description="'all' or explicit physical GPU ids available for new runs.",
+    )
+    draining: bool = Field(
+        default=True,
+        description="When shrinking the pool, let already-running jobs finish by default.",
+    )
+    reason: str | None = Field(default=None)
+    reconcile: bool = Field(default=True)
+    project_port: int | None = Field(default=None)
+
+
+class ExpQueueGpuPoolGetArgs(BaseModel):
+    project_port: int | None = Field(default=None)
 
 
 # ---------------------------------------------------------------------------
@@ -488,6 +557,10 @@ def exp_list(args: ExpListArgs) -> list[dict]:
                     "state": state,
                     "started_at": meta.get("started_at"),
                     "cmd": meta.get("cmd"),
+                    "target_id": meta.get("target_id"),
+                    "gpu_ids": meta.get("gpu_ids"),
+                    "pid": meta.get("pid"),
+                    "log_path": str(_local_paths(workdir, run_id)[1]),
                 }
             )
         return runs
@@ -526,6 +599,10 @@ def exp_list(args: ExpListArgs) -> list[dict]:
                 "state": state,
                 "started_at": meta.get("started_at"),
                 "cmd": meta.get("cmd"),
+                "target_id": meta.get("target_id"),
+                "gpu_ids": meta.get("gpu_ids"),
+                "pid": meta.get("pid"),
+                "log_path": _remote_paths(workdir, run_id)[1],
             }
         )
     return runs
@@ -665,12 +742,11 @@ def exp_tail(args: ExpTailArgs) -> dict:
 def query_gpus(args: QueryGpusArgs) -> list[dict]:
     """Query free GPU memory on a target."""
     kind, _workdir, host, key = _resolve_workdir(args.target_id)
-    nvidia_cmd = "nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits"
+    nvidia_cmd = "nvidia-smi --query-gpu=memory.total,memory.free --format=csv,noheader,nounits"
 
     if kind == "local":
         result = subprocess.run(
-            nvidia_cmd,
-            shell=True,
+            nvidia_cmd.split(),
             capture_output=True,
             text=True,
             check=False,
@@ -691,7 +767,97 @@ def query_gpus(args: QueryGpusArgs) -> list[dict]:
         line = raw.strip()
         if line:
             try:
-                gpus.append({"id": i, "free_mb": int(line)})
+                parts = [part.strip() for part in line.split(",")]
+                if len(parts) == 1:
+                    free_mb = int(parts[0])
+                    gpus.append({"id": i, "free_mb": free_mb})
+                else:
+                    total_mb = int(parts[0])
+                    free_mb = int(parts[1])
+                    gpus.append(
+                        {
+                            "id": i,
+                            "total_mb": total_mb,
+                            "free_mb": free_mb,
+                            "used_mb": max(0, total_mb - free_mb),
+                        }
+                    )
             except ValueError:
                 logger.warning("Unexpected nvidia-smi output line: %r", line)
     return gpus
+
+
+# ---------------------------------------------------------------------------
+# Project-level queue scheduler
+# ---------------------------------------------------------------------------
+
+
+def _scheduler(project_port: int | None = None) -> ExperimentScheduler:
+    return ExperimentScheduler(project_port=project_port)
+
+
+def _queue_unit(args: ExpQueueUnitArgs) -> QueueUnit:
+    return QueueUnit(
+        cmd=args.cmd,
+        target_id=args.target_id,
+        gpu_ids=args.gpu_ids,
+        gpus_needed=args.gpus_needed,
+        min_free_mb=args.min_free_mb,
+        reserve_mb=args.reserve_mb,
+        priority=args.priority,
+        max_retries=args.max_retries,
+        metadata=args.metadata,
+    )
+
+
+@mcp.tool()
+def exp_queue_submit(args: ExpQueueSubmitArgs) -> dict:
+    """Append experiment units to the project-global queue and optionally reconcile.
+
+    Batches are labels for reporting only. Pending units from all batches share
+    one fleet-wide pool, so new work merges naturally with already-running
+    batches and flows to any allowed GPU that frees up.
+    """
+    sched = _scheduler(args.project_port)
+    return sched.submit(
+        [_queue_unit(unit) for unit in args.units],
+        requester=args.requester,
+        batch_id=args.batch_id,
+        metadata=args.metadata,
+        reconcile=args.reconcile,
+    )
+
+
+@mcp.tool()
+def exp_queue_reconcile(args: ExpQueueReconcileArgs) -> dict:
+    """Run one Python-side scheduling pass for all active experiment batches."""
+    return _scheduler(args.project_port).reconcile(batch_id=args.batch_id)
+
+
+@mcp.tool()
+def exp_queue_status(args: ExpQueueStatusArgs) -> dict:
+    """Return queue status for one batch or the whole project."""
+    return _scheduler(args.project_port).status(batch_id=args.batch_id)
+
+
+@mcp.tool()
+def exp_gpu_pool_set(args: ExpQueueGpuPoolSetArgs) -> dict:
+    """Change which physical GPUs are available for new scheduled runs.
+
+    By default all GPUs are allowed. Passing a concrete list such as
+    ``[0, 1, 2, 3]`` makes other GPUs drain-only: running jobs may finish, but
+    no new queued units will be placed there.
+    """
+    return _scheduler(args.project_port).set_gpu_pool(
+        target_id=args.target_id,
+        allowed_gpu_ids=args.allowed_gpu_ids,
+        draining=args.draining,
+        reason=args.reason,
+        reconcile=args.reconcile,
+    )
+
+
+@mcp.tool()
+def exp_gpu_pool_get(args: ExpQueueGpuPoolGetArgs) -> dict:
+    """Return dynamic GPU pool overrides for the project scheduler."""
+    return _scheduler(args.project_port).gpu_pool()

@@ -43,6 +43,7 @@ class GruLoop:
     def __init__(self, heartbeat_interval: int | None = None) -> None:
         cfg = load_gru_config()
         self.interval: int = heartbeat_interval or cfg.heartbeat_interval_seconds
+        self.experiment_reconcile_interval: int = cfg.experiment_reconcile_interval_seconds
         self._store = StateStore()
         self._crash_counter = CrashCounter()
         self._last_report_ts: float = 0.0
@@ -73,8 +74,22 @@ class GruLoop:
         def _wakeup_thread() -> None:
             asyncio.run(wakeup.run_async())
 
+        def _experiment_scheduler_thread() -> None:
+            while not self._stopped:
+                self._reconcile_experiment_queues()
+                for _ in range(max(1, self.experiment_reconcile_interval) * 2):
+                    if self._stopped:
+                        break
+                    time.sleep(0.5)
+
         t = threading.Thread(target=_wakeup_thread, daemon=True, name="wakeup-scheduler")
         t.start()
+        exp_t = threading.Thread(
+            target=_experiment_scheduler_thread,
+            daemon=True,
+            name="experiment-scheduler",
+        )
+        exp_t.start()
         logger.info("Gru monitor loop started (interval=%ds).", self.interval)
         try:
             while not self._stopped:
@@ -102,6 +117,7 @@ class GruLoop:
         wakeup = WakeupScheduler(store=self._store)
         logger.info("Gru monitor async loop started (interval=%ds).", self.interval)
         wakeup_task = asyncio.create_task(wakeup.run_async())
+        experiment_task = asyncio.create_task(self._experiment_reconcile_async())
         try:
             while not self._stopped:
                 try:
@@ -112,8 +128,11 @@ class GruLoop:
         finally:
             wakeup.stop()
             wakeup_task.cancel()
+            experiment_task.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await wakeup_task
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await experiment_task
 
     # ------------------------------------------------------------------
     # Internal
@@ -232,6 +251,38 @@ class GruLoop:
             else:
                 logger.debug("Gru heartbeat [%s]: all systems nominal.", ts)
             self._last_report_ts = now
+
+    async def _experiment_reconcile_async(self) -> None:
+        while not self._stopped:
+            self._reconcile_experiment_queues()
+            await asyncio.sleep(max(1, self.experiment_reconcile_interval))
+
+    def _reconcile_experiment_queues(self) -> None:
+        """Run Python-side Experimenter queue scheduling for active projects."""
+        try:
+            from minions.tools.experiment_scheduler import ExperimentScheduler, default_db_path
+        except Exception as exc:
+            logger.debug("Experiment scheduler import failed: %s", exc)
+            return
+        for project in self._store.list_projects(filter="active"):
+            db_path = default_db_path(project.port)
+            if not db_path.exists():
+                continue
+            try:
+                result = ExperimentScheduler(project_port=project.port).reconcile()
+                launched = len(result.get("launched") or [])
+                completed = len(result.get("completed") or [])
+                failed = len(result.get("failed") or [])
+                if launched or completed or failed:
+                    logger.info(
+                        "Experiment queue reconcile port=%d launched=%d completed=%d failed=%d",
+                        project.port,
+                        launched,
+                        completed,
+                        failed,
+                    )
+            except Exception as exc:
+                logger.debug("Experiment queue reconcile skipped port=%d: %s", project.port, exc)
 
     def _emit_health_event(
         self,

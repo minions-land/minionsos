@@ -35,6 +35,8 @@ class TestReviewerSystemInvariants:
         assert "Local EACN" in t
         assert "Reviewer main owns all EACN-facing communication" in t
         assert "Review subagents are EACN-invisible" in t
+        assert "targeted Local EACN task/message" in t
+        assert "do not replace the owning" in t
 
     def test_preserves_pass_a_history_isolation(self) -> None:
         t = _text()

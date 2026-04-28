@@ -265,10 +265,14 @@ class Database:
 
     async def load_task(self, task_id: str) -> dict[str, Any] | None:
         async with self.db.execute(
-            "SELECT data FROM tasks WHERE id = ?", (task_id,)
+            "SELECT data, created_at FROM tasks WHERE id = ?", (task_id,),
         ) as cursor:
             row = await cursor.fetchone()
-            return json.loads(row[0]) if row else None
+            if not row:
+                return None
+            data = json.loads(row[0])
+            data.setdefault("created_at", row[1])
+            return data
 
     async def update_task_status(self, task_id: str, status: str) -> None:
         """Update task status atomically.
@@ -307,11 +311,16 @@ class Database:
         params.extend([limit, offset])
 
         async with self.db.execute(
-            f"SELECT data FROM tasks {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            f"SELECT data, created_at FROM tasks {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
             params,
         ) as cursor:
             rows = await cursor.fetchall()
-            return [json.loads(row[0]) for row in rows]
+            tasks = []
+            for row in rows:
+                data = json.loads(row[0])
+                data.setdefault("created_at", row[1])
+                tasks.append(data)
+            return tasks
 
     async def find_expired_tasks(self, now: str) -> list[dict[str, Any]]:
         async with self.db.execute(

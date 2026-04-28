@@ -26,6 +26,15 @@ def test_common_role_contract_documents_agent_host_portability() -> None:
     assert "self-contained" in text
 
 
+def test_common_role_contract_requires_role_to_role_eacn() -> None:
+    text = (ROOT / "minions" / "roles" / "SYSTEM.md").read_text(encoding="utf-8")
+
+    assert "## Role-to-role collaboration first" in text
+    assert "targeted task" in text
+    assert "direct EACN" in text
+    assert "not substitutes for registered project Roles" in text
+
+
 def test_role_prompts_avoid_claude_only_subagent_and_skill_contracts() -> None:
     disallowed = [
         "/simplify",

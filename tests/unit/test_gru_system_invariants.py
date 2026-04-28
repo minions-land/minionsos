@@ -42,6 +42,20 @@ class TestGruSystemInvariants:
         assert "gru_send_message" not in t
         assert "gru_publish_task" not in t
 
+    def test_gru_does_not_broker_ordinary_role_to_role_work(self) -> None:
+        t = _text()
+        assert "not make Gru the mandatory router for ordinary role-to-role work" in t
+        assert "owning Role" in t
+        assert "task/message" in t
+        assert "visible collaboration graph" in t
+
+    def test_gru_delegates_system_maintenance_code_to_coder(self) -> None:
+        t = _text()
+        assert "Do not patch MinionsOS runtime code yourself" in t
+        assert "System-maintenance delegation" in t
+        assert "targeted `project_eacn_create_task` for Coder" in t
+        assert "instead of patching it yourself" in t
+
     def test_forbids_periodic_idle_self_thinking(self) -> None:
         t = _text()
         assert "must not implement periodic idle self-thinking" in t

@@ -29,7 +29,7 @@ poll_interval_default: 1m
 
 # Noter periodic report cadence. Noter is a local observer: it wakes on this
 # timer, plus explicit EACN direct messages addressed to Noter.
-noter_report_interval: 10m
+noter_report_interval: 30m
 
 # Minimum local EACN credit balance to keep available for Gru and registered
 # Role agents. Project-local tasks still default to budget=0; this is a safety
@@ -43,6 +43,10 @@ health_event_eacn_notifications: false
 
 # Minimum seconds between any two dispatches for the same role.
 role_cooldown_seconds: 30
+
+# Python-side Experimenter queue reconcile cadence. This keeps queued experiment
+# units flowing onto newly-free GPUs without waking Experimenter just to schedule.
+experiment_reconcile_interval_seconds: 30
 
 # EACN agent_id used when system components (e.g. the Python-side wakeup
 # dispatcher posting scratchpad-veto warnings) address Gru. Change only if

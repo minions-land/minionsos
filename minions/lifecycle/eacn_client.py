@@ -254,11 +254,12 @@ def list_tasks(
     initiator_id: str | None = None,
     limit: int = 20,
     offset: int = 0,
+    order: str = "desc",
     timeout: float = DEFAULT_TIMEOUT,
 ) -> list[dict[str, Any]]:
     """Return tasks from a project-local EACN3 backend."""
     url = f"{base_url(port)}/api/tasks"
-    params: dict[str, Any] = {"limit": limit, "offset": offset}
+    params: dict[str, Any] = {"limit": limit, "offset": offset, "order": order}
     if status:
         params["status"] = status
     if initiator_id:
@@ -279,11 +280,12 @@ def list_open_tasks(
     domains: list[str] | None = None,
     limit: int = 50,
     offset: int = 0,
+    order: str = "desc",
     timeout: float = 3.0,
 ) -> list[dict[str, Any]]:
     """Return open EACN3 tasks, optionally filtered by domain overlap."""
     url = f"{base_url(port)}/api/tasks/open"
-    params: dict[str, Any] = {"limit": limit, "offset": offset}
+    params: dict[str, Any] = {"limit": limit, "offset": offset, "order": order}
     if domains:
         params["domains"] = ",".join(domains)
     try:

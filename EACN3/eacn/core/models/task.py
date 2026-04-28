@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -75,6 +76,7 @@ class HumanContact(BaseModel):
 
 class Task(BaseModel):
     id: str
+    created_at: str = Field(default_factory=lambda: datetime.now(tz=UTC).isoformat())
     content: dict[str, Any] = Field(
         default_factory=dict,
         description="description, attachments, expected_output, discussions",

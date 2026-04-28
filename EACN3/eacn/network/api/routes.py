@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from pydantic import ValidationError
@@ -47,10 +49,33 @@ def _net():
     return _network
 
 
-
 def _task_to_response(task) -> TaskResponse:
     return TaskResponse(**task.model_dump())
 
+
+def _task_created_timestamp(task) -> float:
+    value = getattr(task, "created_at", "") or ""
+    if not value:
+        return 0.0
+    text = str(value).replace("Z", "+00:00")
+    if "T" not in text and " " in text:
+        text = text.replace(" ", "T", 1)
+    try:
+        created = datetime.fromisoformat(text)
+    except ValueError:
+        return 0.0
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=UTC)
+    return created.timestamp()
+
+
+def _sort_tasks(tasks, order: str):
+    reverse = order.lower() != "asc"
+    return sorted(
+        tasks,
+        key=_task_created_timestamp,
+        reverse=reverse,
+    )
 
 
 @router.post("/tasks", response_model=TaskResponse, status_code=201)
@@ -89,6 +114,7 @@ async def list_open_tasks(
     domains: str | None = None,
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
+    order: str = Query(default="desc", pattern="^(asc|desc)$"),
 ):
     """List open tasks available for bidding (status=unclaimed or bidding with slots)."""
     tasks = _net().task_manager.list_all()
@@ -99,6 +125,7 @@ async def list_open_tasks(
     if domains:
         domain_set = set(domains.split(","))
         open_tasks = [t for t in open_tasks if set(t.domains) & domain_set]
+    open_tasks = _sort_tasks(open_tasks, order)
     open_tasks = open_tasks[offset: offset + limit]
     return [_task_to_response(t) for t in open_tasks]
 
@@ -147,12 +174,14 @@ async def list_tasks(
     initiator_id: str | None = None,
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
+    order: str = Query(default="desc", pattern="^(asc|desc)$"),
 ):
     tasks = _net().task_manager.list_all()
     if status:
         tasks = [t for t in tasks if t.status.value == status]
     if initiator_id:
         tasks = [t for t in tasks if t.initiator_id == initiator_id]
+    tasks = _sort_tasks(tasks, order)
     tasks = tasks[offset: offset + limit]
     return [_task_to_response(t) for t in tasks]
 

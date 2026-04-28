@@ -34,6 +34,7 @@ class CreateTaskRequest(BaseModel):
 
 class TaskResponse(BaseModel):
     id: str
+    created_at: str | None = None
     status: str
     initiator_id: str
     domains: list[str]

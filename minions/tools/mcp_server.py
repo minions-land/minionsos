@@ -58,6 +58,7 @@ from minions.lifecycle.role import (
 )
 from minions.logging_setup import configure_logging
 from minions.state.store import StateStore
+from minions.tools import experiment_ssh as _exp
 from minions.tools import paper_search as _paper_search
 
 configure_logging()
@@ -404,6 +405,104 @@ def project_eacn_create_task(args: ProjectEacnCreateTaskArgs) -> dict:
         level=args.level,
         task_id=args.task_id,
     )
+
+
+@mcp.tool()
+def exp_run(args: _exp.ExpRunArgs) -> dict:
+    """Launch a detached local or SSH experiment run."""
+    _require_tool_allowed("exp_run")
+    return _exp.exp_run(args)
+
+
+@mcp.tool()
+def exp_status(args: _exp.ExpStatusArgs) -> dict:
+    """Check an experiment run state."""
+    _require_tool_allowed("exp_status")
+    return _exp.exp_status(args)
+
+
+@mcp.tool()
+def exp_wait(args: _exp.ExpWaitArgs) -> dict:
+    """Poll up to timeout seconds for a run to exit."""
+    _require_tool_allowed("exp_wait")
+    return _exp.exp_wait(args)
+
+
+@mcp.tool()
+def exp_kill(args: _exp.ExpKillArgs) -> dict:
+    """Send SIGTERM to a running experiment process."""
+    _require_tool_allowed("exp_kill")
+    return _exp.exp_kill(args)
+
+
+@mcp.tool()
+def exp_list(args: _exp.ExpListArgs) -> list[dict]:
+    """List known experiment runs on a target."""
+    _require_tool_allowed("exp_list")
+    return _exp.exp_list(args)
+
+
+@mcp.tool()
+def exp_put(args: _exp.ExpPutArgs) -> dict:
+    """Upload a local file to a target workdir."""
+    _require_tool_allowed("exp_put")
+    return _exp.exp_put(args)
+
+
+@mcp.tool()
+def exp_get(args: _exp.ExpGetArgs) -> dict:
+    """Download a target file, refusing files over the experiment size limit."""
+    _require_tool_allowed("exp_get")
+    return _exp.exp_get(args)
+
+
+@mcp.tool()
+def exp_tail(args: _exp.ExpTailArgs) -> dict:
+    """Tail a target log file."""
+    _require_tool_allowed("exp_tail")
+    return _exp.exp_tail(args)
+
+
+@mcp.tool()
+def query_gpus(args: _exp.QueryGpusArgs) -> list[dict]:
+    """Query GPU memory on a target."""
+    _require_tool_allowed("query_gpus")
+    return _exp.query_gpus(args)
+
+
+@mcp.tool()
+def exp_queue_submit(args: _exp.ExpQueueSubmitArgs) -> dict:
+    """Append experiment units to the project-global GPU queue."""
+    _require_tool_allowed("exp_queue_submit")
+    return _exp.exp_queue_submit(args)
+
+
+@mcp.tool()
+def exp_queue_reconcile(args: _exp.ExpQueueReconcileArgs) -> dict:
+    """Run one Python-side experiment queue reconcile pass."""
+    _require_tool_allowed("exp_queue_reconcile")
+    return _exp.exp_queue_reconcile(args)
+
+
+@mcp.tool()
+def exp_queue_status(args: _exp.ExpQueueStatusArgs) -> dict:
+    """Return experiment queue status."""
+    _require_tool_allowed("exp_queue_status")
+    return _exp.exp_queue_status(args)
+
+
+@mcp.tool()
+def exp_gpu_pool_set(args: _exp.ExpQueueGpuPoolSetArgs) -> dict:
+    """Set the dynamic GPU allow-list for new experiment runs."""
+    _require_tool_allowed("exp_gpu_pool_set")
+    return _exp.exp_gpu_pool_set(args)
+
+
+@mcp.tool()
+def exp_gpu_pool_get(args: _exp.ExpQueueGpuPoolGetArgs) -> dict:
+    """Return dynamic GPU pool overrides."""
+    _require_tool_allowed("exp_gpu_pool_get")
+    return _exp.exp_gpu_pool_get(args)
 
 
 @mcp.tool()

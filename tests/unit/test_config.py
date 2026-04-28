@@ -152,6 +152,8 @@ class TestWhitelistResolver:
         assert "exp_put" in tools
         assert "exp_get" in tools
         assert "exp_tail" in tools
+        assert "exp_queue_*" in tools
+        assert "exp_gpu_pool_*" in tools
 
     def test_reviewer_no_project_tools(self) -> None:
         tools = resolve_allowed_tools("reviewer")
