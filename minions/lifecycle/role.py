@@ -631,7 +631,10 @@ def _format_event_message(
         skills = list_skills(role_name)
         if skills:
             base = "expert" if role_name.startswith("expert") else role_name
-            skill_path_pattern = (
+            common_skill_path_pattern = (
+                MINIONS_ROOT / "minions" / "roles" / "common" / "skills" / "{slug}.md"
+            ).resolve()
+            role_skill_path_pattern = (
                 MINIONS_ROOT / "minions" / "roles" / base / "skills" / "{slug}.md"
             ).resolve()
             lines = [f"- {slug}: {summary}" if summary else f"- {slug}" for slug, summary in skills]
@@ -639,7 +642,8 @@ def _format_event_message(
                 "[Skills]\n"
                 + "\n".join(lines)
                 + "\n"
-                + f"Read full skill files at `{skill_path_pattern}` "
+                + f"Read shared skill files at `{common_skill_path_pattern}` "
+                + f"and role skill files at `{role_skill_path_pattern}` "
                 + "when relevant; they are reasoning/procedure disciplines, not rituals.\n\n"
             )
             preamble += skills_block
@@ -656,10 +660,17 @@ def _format_event_message(
             "project identity.\n\n"
         )
         preamble += _boundary_context(role_name, project_port) + "\n"
+    if role_name == "gru":
+        response_tools = (
+            "project-scoped EACN adapter tools (`gru_inbox_poll`, "
+            "`project_eacn_send_message`, `project_eacn_create_task`, `gru_relay`)"
+        )
+    else:
+        response_tools = "`eacn3_*` tools"
     header = (
         "You have been invoked to process the following EACN event batch.\n"
-        "Act on these events, emit any necessary EACN responses via `eacn3_*` "
-        "tools, then exit (this is an ephemeral session — do not start a "
+        f"Act on these events, emit any necessary EACN responses via {response_tools}, "
+        "then exit (this is an ephemeral session — do not start a "
         "polling loop). If accepted work belongs to your Role, dispatch your "
         "own focused subagent(s) for the substantive execution and keep this "
         "main session focused on coordination, review, checkpointing, and EACN "

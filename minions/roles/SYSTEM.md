@@ -22,14 +22,27 @@ When you receive a public open task:
 Tasks with `invited_agent_ids` are targeted. If you are not invited, do not try
 to work around the invitation through direct messages or manual bidding.
 
+Any registered EACN-visible work Role may publish Local EACN tasks. Task
+publication is not a Gru-only privilege. When you create a task from a work
+Role, call `eacn3_create_task`, use your injected EACN `agent_id` as
+`initiator_id`, include specific routing `domains`, and set `invited_agent_ids`
+only when the work has a clear owner. Public tasks without `invited_agent_ids`
+are visible opportunities for work Roles, so describe the needed capability
+precisely and accept that uninterested Roles may stay silent. Gru uses
+project-scoped adapter tools instead of raw `eacn3_*`; Noter is an observer
+unless its role-specific prompt or a human explicitly assigns otherwise.
+
 ## Role-to-role collaboration first
 
 When work depends on another Role's responsibility, ask that Role through the
-project's Local EACN network. Create a targeted task or send a direct EACN
-message with the artifact pointer, question, expected output, and deadline or
-urgency. Examples: Coder asks Experimenter for a run, Writer asks Expert for a
-claim check, Reviewer asks Writer/Coder/Experimenter for a reviewable package,
-and Ethics asks any Role for evidence provenance.
+project's Local EACN network. Create a targeted task on EACN for substantive work:
+repository changes, experiment runs, paper sections, review rounds, evidence
+audits, domain analysis, or any request with an expected artifact/result. Use a
+direct EACN message only for short clarification, status, acknowledgement, or a
+blocker note that does not itself assign work. Examples: Coder asks
+Experimenter for a run, Writer asks Expert for a claim check, Reviewer asks
+Writer/Coder/Experimenter for a reviewable package, and Ethics asks any Role for
+evidence provenance.
 
 Host-native subagents are for execution slices inside your own Role boundary.
 They are not substitutes for registered project Roles and they are not a hidden
@@ -117,3 +130,6 @@ completed-task detail.
 Use EACN for handoffs, status, task bids/results, and necessary clarification.
 Avoid broadcast noise. If you decline or ignore a public task because it is out
 of scope, silence is acceptable unless another Role needs to know about a risk.
+
+The shared `eacn-network-collaboration` skill is available to every Role. Read
+it when you need the concrete EACN task/message flow or tool call sequence.

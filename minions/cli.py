@@ -6,7 +6,7 @@ Subcommands:
   doctor          — environment check
   config          — print paths / open config dir
   noter           — read-only project Noter terminal
-  project list|close|revive [PORT]
+  project list|kill|close|revive [PORT]
   role list|dismiss [PORT] [NAME]
   wipe [PORT]     — wipe project data (EACN DB + artifacts)
 
@@ -587,6 +587,23 @@ def project_close_cmd(port: int = typer.Argument(..., help="Project port.")) -> 
     except MinionsError as e:
         raise _fail(str(e)) from e
     console.print(f"[green]Closed project {entry.port}.[/green]")
+
+
+@project_app.command(name="kill")
+def project_kill_cmd(port: int = typer.Argument(..., help="Project port.")) -> None:
+    """Hard-stop a project's runtime while preserving EACN data and port."""
+    from minions.lifecycle.project import project_kill
+
+    try:
+        result = project_kill(port)
+    except MinionsError as e:
+        raise _fail(str(e)) from e
+    roles = result.get("roles", [])
+    role_count = len(roles) if isinstance(roles, list) else 0
+    console.print(
+        f"[green]Killed project {result['port']} runtime.[/green] "
+        f"status={result['status']} roles={role_count}; EACN data preserved."
+    )
 
 
 @project_app.command(name="revive")

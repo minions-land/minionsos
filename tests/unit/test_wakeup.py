@@ -289,6 +289,70 @@ class TestWakeup:
         assert count == 1
         assert calls == ["coder"]
 
+    def test_targeted_open_task_from_role_initiator_wakes_invited_role(self) -> None:
+        project = FakeProject(
+            port=37596,
+            active_roles=[FakeRole("coder"), FakeRole("writer"), FakeRole("experimenter")],
+        )
+        store = FakeStore([project])
+        calls: list[str] = []
+
+        def invoke(role: str, port: int, events: list[dict]) -> None:
+            calls.append(role)
+
+        task = {
+            "id": "t-writer-request",
+            "initiator_id": "coder",
+            "domains": ["writing", "role:writer"],
+            "content": {"description": "write release notes"},
+            "invited_agent_ids": ["writer"],
+        }
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        with (
+            patch("minions.lifecycle.wakeup.poll_events", return_value={"events": []}),
+            patch("minions.lifecycle.wakeup.list_open_tasks", return_value=[task]),
+        ):
+            count = _run(sched.tick_once())
+
+        assert count == 1
+        assert calls == ["writer"]
+
+    def test_public_open_task_from_role_initiator_wakes_work_roles_not_gru_noter(
+        self,
+    ) -> None:
+        project = FakeProject(
+            port=37596,
+            active_roles=[
+                FakeRole("gru"),
+                FakeRole("noter"),
+                FakeRole("coder"),
+                FakeRole("writer"),
+                FakeRole("experimenter"),
+            ],
+        )
+        store = FakeStore([project])
+        calls: list[str] = []
+
+        def invoke(role: str, port: int, events: list[dict]) -> None:
+            calls.append(role)
+
+        task = {
+            "id": "t-public-role-created",
+            "initiator_id": "writer",
+            "domains": ["analysis"],
+            "content": {"description": "any suitable work role may triage"},
+            "invited_agent_ids": [],
+        }
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        with (
+            patch("minions.lifecycle.wakeup.poll_events", return_value={"events": []}),
+            patch("minions.lifecycle.wakeup.list_open_tasks", return_value=[task]),
+        ):
+            count = _run(sched.tick_once())
+
+        assert count == 3
+        assert calls == ["coder", "writer", "experimenter"]
+
     def test_inflight_deferral_survives_scheduler_restart(self) -> None:
         project = FakeProject(port=37596, active_roles=[FakeRole("noter")])
         store = FakeStore([project])

@@ -1,10 +1,11 @@
 """Role skill discovery.
 
 Each Role may ship a ``minions/roles/{role}/skills/`` directory of
-methodology / procedure skill files. This module provides a small helper
-that enumerates them and extracts a one-line summary for each, used by
-``invoke_role_ephemeral`` to seed the Role's wake-up message with a
-``[Skills]`` block.
+methodology / procedure skill files. Shared skills live under
+``minions/roles/common/skills/`` and are discovered for every Role. This
+module provides a small helper that enumerates them and extracts a one-line
+summary for each, used by ``invoke_role_ephemeral`` to seed the Role's
+wake-up message with a ``[Skills]`` block.
 
 Skills are plain markdown. The summary is extracted as follows:
 
@@ -35,6 +36,10 @@ def _resolve_role_skills_dir(role_name: str) -> Path:
     """
     base = "expert" if role_name.startswith("expert") else role_name
     return ROLES_DIR / base / "skills"
+
+
+def _common_skills_dir() -> Path:
+    return ROLES_DIR / "common" / "skills"
 
 
 def _extract_summary(text: str) -> str:
@@ -70,21 +75,26 @@ def _extract_summary(text: str) -> str:
 
 
 def list_skills(role_name: str) -> list[tuple[str, str]]:
-    """Return ``[(slug, summary), ...]`` for *role_name*'s skills directory.
+    """Return ``[(slug, summary), ...]`` for shared and role-specific skills.
 
-    Returns an empty list if the directory does not exist, is empty, or
-    contains no readable ``.md`` files. Slugs are the file stem; results
-    are sorted alphabetically for determinism.
+    Returns an empty list if neither directory exists, both are empty, or no
+    readable ``.md`` files exist. Shared skills are listed before role-specific
+    skills; slugs are the file stem and each directory is sorted
+    alphabetically for determinism.
     """
-    skills_dir = _resolve_role_skills_dir(role_name)
-    if not skills_dir.is_dir():
-        return []
     out: list[tuple[str, str]] = []
-    for path in sorted(skills_dir.glob("*.md")):
-        try:
-            text = path.read_text(encoding="utf-8")
-        except OSError:
+    seen: set[str] = set()
+    for skills_dir in (_common_skills_dir(), _resolve_role_skills_dir(role_name)):
+        if not skills_dir.is_dir():
             continue
-        summary = _extract_summary(text)
-        out.append((path.stem, summary))
+        for path in sorted(skills_dir.glob("*.md")):
+            if path.stem in seen:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            summary = _extract_summary(text)
+            out.append((path.stem, summary))
+            seen.add(path.stem)
     return out

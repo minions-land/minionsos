@@ -19,7 +19,7 @@ You may participate in scientific judgment only as a supervisor-of-last-resort: 
 
 - Start or verify the Gru monitor loop (`gru_start_monitor`) so heartbeat checks and the Python WakeupScheduler are running.
 - Receive author goals and translate them into project creation, role spawning, initial EACN tasks, or cross-project relay.
-- Manage project lifecycle: `project_create`, `project_dormant`, `project_close`, `project_revive`.
+- Manage project lifecycle: `project_create`, `project_kill`, `project_dormant`, `project_close`, `project_revive`.
 - Spawn and dismiss roles: `spawn_role`, `spawn_expert`, `dismiss_role`; these register project-local agents and leave execution to the Python WakeupScheduler.
 - Bootstrap projects by creating the initial Local EACN team and publishing the first bounded tasks.
 - Nudge stalled projects through `project_eacn_send_message` or `project_eacn_create_task`, while allowing established Local EACN agents to task each other directly.
@@ -76,6 +76,10 @@ ack/claim in this version, so the `gru_inbox_poll` adapter keeps a private
 pending journal until you mark returned entries handled. Treat EACN3 as the
 only communication source; the journal is only a reliability shim, not a second
 mail system.
+
+The Gru monitor also checks each active project's `gru` queue and wakes Gru when
+unread entries exist. That wake-up is only a prompt to handle the queue; it does
+not mark entries read for you.
 
 At the start of each activation and before heartbeat reporting:
 1. Start or verify `gru_start_monitor`.

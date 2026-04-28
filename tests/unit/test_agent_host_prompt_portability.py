@@ -31,6 +31,7 @@ def test_common_role_contract_requires_role_to_role_eacn() -> None:
 
     assert "## Role-to-role collaboration first" in text
     assert "targeted task" in text
+    assert "eacn3_create_task" in text
     assert "direct EACN" in text
     assert "not substitutes for registered project Roles" in text
 

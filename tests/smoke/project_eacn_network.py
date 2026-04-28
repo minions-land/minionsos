@@ -8,6 +8,8 @@ registers Noter/Coder/Expert roles, and verifies:
 - Gru, Noter, Coder, and Expert all appear in EACN discovery for that project.
 - Gru -> Noter initial task, Coder -> Gru, Coder -> Expert, and Expert -> Coder
   messages are all delivered through the project's local EACN3 queue.
+- A public task initiated by a Role wakes work Roles through the EACN open-task
+  path without involving Gru or Noter as workers.
 """
 
 from __future__ import annotations
@@ -74,7 +76,7 @@ def main() -> int:
     from minions.lifecycle import eacn_client, gru_inbox
     from minions.lifecycle.project import project_close, project_create, project_meta_json
     from minions.lifecycle.role import list_roles, register_expert, register_role
-    from minions.lifecycle.wakeup import WakeupScheduler
+    from minions.lifecycle.wakeup import WakeupScheduler, _event_task_id
     from minions.paths import MINIONS_ROOT
     from minions.state.store import StateStore
     from minions.tools.mcp_server import GruInboxPollArgs, gru_inbox_poll
@@ -202,6 +204,45 @@ def main() -> int:
             "Expert -> Coder triggers role wakeup from EACN event",
             triggered >= 1 and any(call[0] == "coder" for call in calls),
             f"triggered={triggered} calls={[c[0] for c in calls]}",
+        )
+
+        public_task = eacn_client.create_task(
+            port=port,
+            description="Role-created public task for any useful work Role.",
+            domains=["research", "analysis"],
+            initiator_id="coder",
+            budget=0.0,
+            expected_output={
+                "type": "status",
+                "description": "Brief assessment or explicit skip.",
+            },
+            invited_agent_ids=[],
+        )
+        public_calls: list[tuple[str, int, list[dict[str, Any]]]] = []
+
+        public_scheduler = WakeupScheduler(
+            store=StateStore(),
+            invoke_fn=lambda role_name, project_port, events, **_: public_calls.append(
+                (role_name, project_port, events)
+            ),
+            cooldown_seconds=0,
+        )
+        public_triggered = asyncio.run(public_scheduler.tick_once())
+        public_woken = {call[0] for call in public_calls}
+        public_task_id = str(public_task.get("id") or public_task.get("task_id") or "")
+        public_task_woken = {
+            role_name
+            for role_name, _project_port, events in public_calls
+            if any(_event_task_id(event) == public_task_id for event in events)
+        }
+        step(
+            "Role-created public task wakes work Roles through open-task scan",
+            public_triggered >= 2
+            and {"coder", expert_id} <= public_task_woken
+            and "noter" not in public_task_woken
+            and "gru" not in public_task_woken,
+            f"task={public_task_id} triggered={public_triggered} "
+            f"calls={sorted(public_woken)} task_calls={sorted(public_task_woken)}",
         )
 
         project_close(port)

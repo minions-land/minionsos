@@ -4,7 +4,7 @@ Each tool is a thin wrapper around ``minions/lifecycle/``.  The server is
 started by the ``.mcp.json`` configuration and communicates over stdio.
 
 Tools exposed:
-- project_create / project_close / project_dormant / project_revive / project_list
+- project_create / project_kill / project_close / project_dormant / project_revive / project_list
 - spawn_role / spawn_expert / dismiss_role / list_roles
 - gru_relay
 - project_eacn_send_message / project_eacn_create_task
@@ -33,6 +33,9 @@ from minions.lifecycle.project import (
 )
 from minions.lifecycle.project import (
     project_dormant as _project_dormant,
+)
+from minions.lifecycle.project import (
+    project_kill as _project_kill,
 )
 from minions.lifecycle.project import (
     project_revive as _project_revive,
@@ -283,6 +286,13 @@ def project_dormant(args: ProjectPortArgs) -> dict:
     _require_tool_allowed("project_dormant")
     entry = _project_dormant(port=args.port)
     return {"port": entry.port}
+
+
+@mcp.tool()
+def project_kill(args: ProjectPortArgs) -> dict:
+    """Hard-stop a project runtime without deleting EACN data or retiring its port."""
+    _require_tool_allowed("project_kill")
+    return _project_kill(port=args.port)
 
 
 @mcp.tool()

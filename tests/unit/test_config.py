@@ -122,6 +122,7 @@ class TestWhitelistResolver:
     def test_gru_has_project_tools(self) -> None:
         tools = resolve_allowed_tools("gru")
         assert "project_create" in tools
+        assert "project_kill" in tools
         assert "project_close" in tools
         assert "gru_relay" in tools
         assert "spawn_role" in tools

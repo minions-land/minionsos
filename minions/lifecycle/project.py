@@ -321,6 +321,62 @@ def _stop_backend(port: int, pid: int | None) -> None:
         logger.warning("Error stopping backend PID=%d: %s", pid, exc)
 
 
+def _stop_role_process(port: int, role_name: str, pid: int | None) -> str:
+    """Terminate a recorded ephemeral Role subprocess without touching EACN data."""
+    if pid is None:
+        return "no_pid"
+    try:
+        import signal
+
+        if not _pid_alive(pid):
+            return "already_gone"
+
+        pgid: int | None = None
+        try:
+            pgid = os.getpgid(pid)
+        except ProcessLookupError:
+            return "already_gone"
+        except Exception as exc:
+            logger.debug(
+                "project_kill: could not read pgid port=%d role=%s pid=%d: %s",
+                port,
+                role_name,
+                pid,
+                exc,
+            )
+
+        use_group = bool(pgid and pgid > 0 and pgid != os.getpgrp())
+
+        def _send(sig: int) -> None:
+            if use_group and pgid is not None:
+                os.killpg(pgid, sig)
+            else:
+                os.kill(pid, sig)
+
+        _send(signal.SIGTERM)
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            if not _pid_alive(pid):
+                logger.info("Stopped role PID=%d (role=%s port=%d).", pid, role_name, port)
+                return "terminated"
+            time.sleep(0.1)
+
+        _send(signal.SIGKILL)
+        logger.info("Killed role PID=%d (role=%s port=%d).", pid, role_name, port)
+        return "killed"
+    except ProcessLookupError:
+        return "already_gone"
+    except Exception as exc:
+        logger.warning(
+            "Error stopping role PID=%d (role=%s port=%d): %s",
+            pid,
+            role_name,
+            port,
+            exc,
+        )
+        return f"error:{exc}"
+
+
 def _ensure_parent_is_git_repo() -> None:
     """Verify that MINIONS_ROOT.parent is a git repository.
 
@@ -752,6 +808,67 @@ def project_close(
     _store.retire_port(port)
     logger.info("project_close done: port=%d", port)
     return updated
+
+
+def project_kill(
+    port: int,
+    store: StateStore | None = None,
+) -> dict[str, object]:
+    """Hard-stop one project's runtime without deleting its EACN network data.
+
+    This is intentionally narrower than ``project_close`` and ``wipe``:
+    it stops the recorded backend and Role subprocesses, marks the project
+    dormant so Gru/WakeupScheduler stop polling it, and preserves
+    ``project_<port>/eacn3_data`` plus the port reservation for revive.
+    """
+    _store = store or StateStore()
+    entry = _store.get_project(port)
+    if entry is None:
+        raise ProjectError(f"Project {port} not found.")
+    if entry.status == "closed":
+        raise ProjectError(f"Project {port} is already closed.")
+
+    logger.info("project_kill port=%d", port)
+
+    backend_pid: int | None = None
+    try:
+        raw_dict = _read_meta_raw(port)
+        raw_pid = raw_dict.get("backend_pid")
+        if raw_pid is not None:
+            backend_pid = int(raw_pid)
+    except Exception as exc:
+        logger.debug("project_kill: backend_pid unavailable port=%d: %s", port, exc)
+    _stop_backend(port, backend_pid)
+
+    role_results: list[dict[str, object]] = []
+    for role in entry.active_roles:
+        if role.pid is None:
+            continue
+        status = _stop_role_process(port, role.name, role.pid)
+        role_results.append({"name": role.name, "pid": role.pid, "status": status})
+
+    now = _now_iso()
+    updated = _store.update_project(
+        port,
+        status="dormant",
+        dormant_at=entry.dormant_at or now,
+        active_roles=[
+            r.model_copy(update={"state": "dismissed", "pid": None}) for r in entry.active_roles
+        ],
+    )
+    _write_meta(port, updated, extras={"backend_pid": None})
+    logger.info(
+        "project_kill done: port=%d backend_pid=%s roles=%d",
+        port,
+        backend_pid,
+        len(role_results),
+    )
+    return {
+        "port": updated.port,
+        "status": updated.status,
+        "backend_pid": backend_pid,
+        "roles": role_results,
+    }
 
 
 def project_revive(

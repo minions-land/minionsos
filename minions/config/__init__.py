@@ -97,6 +97,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "gru_inbox_poll",
         "gru_start_monitor",
         "project_create",
+        "project_kill",
         "project_close",
         "project_dormant",
         "project_revive",

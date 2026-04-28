@@ -134,6 +134,31 @@ def test_project_eacn_create_task_allows_untargeted_open_task() -> None:
     assert created["domains"] == ["coding"]
 
 
+def test_project_eacn_create_task_allows_role_initiator_for_public_task() -> None:
+    created: dict[str, Any] = {}
+
+    def fake_create_task(**kwargs: Any) -> dict[str, Any]:
+        created.update(kwargs)
+        return {"id": "task-role-open", "status": "unclaimed"}
+
+    with (
+        patch.object(project_eacn, "resolve_agent_id", side_effect=lambda port, role: role),
+        patch.object(project_eacn.eacn_client, "create_task", side_effect=fake_create_task),
+    ):
+        result = project_eacn.project_eacn_create_task(
+            port=37596,
+            description="Role-created public task",
+            domains=["analysis"],
+            initiator_role="writer",
+        )
+
+    assert result["ok"] is True
+    assert result["initiator_id"] == "writer"
+    assert created["initiator_id"] == "writer"
+    assert created["invited_agent_ids"] == []
+    assert created["domains"] == ["analysis"]
+
+
 def test_project_eacn_send_message_uses_generic_eacn_send() -> None:
     sent: dict[str, Any] = {}
 

@@ -21,6 +21,7 @@ import logging
 import os
 import time
 from datetime import UTC, datetime
+from typing import Any
 
 from minions.config import load_gru_config
 from minions.lifecycle.health import CrashCounter, append_health_event, backend_health
@@ -44,9 +45,12 @@ class GruLoop:
         cfg = load_gru_config()
         self.interval: int = heartbeat_interval or cfg.heartbeat_interval_seconds
         self.experiment_reconcile_interval: int = cfg.experiment_reconcile_interval_seconds
+        self._gru_agent_id: str = cfg.gru_eacn_agent_id
+        self._gru_inbox_wakeup_cooldown_seconds: int = max(5, cfg.role_cooldown_seconds)
         self._store = StateStore()
         self._crash_counter = CrashCounter()
         self._last_report_ts: float = 0.0
+        self._last_gru_inbox_wakeup_ts: dict[int, float] = {}
         self._stopped = False
 
     # ------------------------------------------------------------------
@@ -196,6 +200,15 @@ class GruLoop:
                     project = self._store.get_project(port) or project
                 except Exception as exc:
                     logger.debug("Project EACN repair skipped port=%d: %s", port, exc)
+                polled = self._poll_gru_inbox(port)
+                woke_gru = self._maybe_invoke_gru_for_unread(port, now)
+                if polled or woke_gru:
+                    msg = (
+                        f"[INFO] Gru inbox on port {port} ({project.real_name}) "
+                        f"polled={polled} woke_gru={woke_gru}."
+                    )
+                    logger.info(msg)
+                    events.append(msg)
 
             # Check role processes.
             for role in project.active_roles:
@@ -251,6 +264,88 @@ class GruLoop:
             else:
                 logger.debug("Gru heartbeat [%s]: all systems nominal.", ts)
             self._last_report_ts = now
+
+    def _poll_gru_inbox(self, port: int) -> int:
+        """Drain project-local EACN events for the Gru queue into the journal."""
+        try:
+            from minions.lifecycle import eacn_client, gru_inbox
+
+            payload = eacn_client.poll_events(
+                port,
+                self._gru_agent_id,
+                timeout_secs=0,
+                http_timeout=5.0,
+            )
+            events = payload.get("events") or payload.get("messages") or []
+            if not isinstance(events, list):
+                return 0
+            return gru_inbox.append_events(port, [e for e in events if isinstance(e, dict)])
+        except Exception as exc:
+            logger.debug(
+                "Gru inbox poll failed port=%d agent=%s: %s",
+                port,
+                self._gru_agent_id,
+                exc,
+            )
+            return 0
+
+    def _maybe_invoke_gru_for_unread(self, port: int, now: float) -> bool:
+        """Wake Gru when its EACN journal has pending entries.
+
+        The monitor never marks entries read. The invoked Gru session must call
+        ``gru_inbox_poll(mark_read=false)``, handle the returned entries, then
+        ``gru_inbox_poll(mark_read=true)``.
+        """
+        try:
+            from minions.lifecycle import gru_inbox
+
+            entries = gru_inbox.read_unread(port, max_events=25)
+            unread = gru_inbox.unread_count(port)
+        except Exception as exc:
+            logger.debug("Gru inbox unread check failed port=%d: %s", port, exc)
+            return False
+        if not entries:
+            return False
+
+        last = self._last_gru_inbox_wakeup_ts.get(port)
+        if last is not None and now - last < self._gru_inbox_wakeup_cooldown_seconds:
+            return False
+
+        try:
+            from minions.lifecycle.role import invoke_role_ephemeral, is_inflight
+
+            if is_inflight(port, "gru"):
+                return False
+            max_seq = max(int(entry.get("seq", 0)) for entry in entries)
+            event: dict[str, Any] = {
+                "type": "gru_inbox_unread",
+                "id": f"gru-inbox:{port}:{max_seq}",
+                "payload": {
+                    "port": port,
+                    "unread_count": unread,
+                    "shown_entries": entries,
+                    "instruction": (
+                        "Handle Gru's project-local EACN queue via "
+                        "gru_inbox_poll(mark_read=false), then mark handled "
+                        "entries with gru_inbox_poll(mark_read=true)."
+                    ),
+                },
+            }
+            result = invoke_role_ephemeral(
+                "gru",
+                port,
+                [event],
+                extra_env={"MINIONS_WAKEUP_CLASS": "event"},
+                store=self._store,
+            )
+        except Exception as exc:
+            logger.debug("Gru inbox wakeup failed port=%d: %s", port, exc)
+            return False
+
+        if isinstance(result, dict) and result.get("deferred"):
+            return False
+        self._last_gru_inbox_wakeup_ts[port] = now
+        return True
 
     async def _experiment_reconcile_async(self) -> None:
         while not self._stopped:

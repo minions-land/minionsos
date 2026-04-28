@@ -64,6 +64,23 @@ def test_expert_aliases_resolve_to_expert_dir(fake_roles: Path) -> None:
     ]
 
 
+def test_common_skills_are_listed_before_role_skills(fake_roles: Path) -> None:
+    _write_skill(fake_roles, "common", "eacn-network", "# EACN\n\nUse the network.\n")
+    _write_skill(fake_roles, "writer", "paper-compile", "# Compile\n\nBuild the paper.\n")
+
+    assert skills_mod.list_skills("writer") == [
+        ("eacn-network", "Use the network."),
+        ("paper-compile", "Build the paper."),
+    ]
+
+
+def test_common_skill_slug_wins_over_role_duplicate(fake_roles: Path) -> None:
+    _write_skill(fake_roles, "common", "shared", "# Shared\n\nCommon version.\n")
+    _write_skill(fake_roles, "writer", "shared", "# Shared\n\nWriter version.\n")
+
+    assert skills_mod.list_skills("writer") == [("shared", "Common version.")]
+
+
 def test_sorted_and_skips_non_markdown(fake_roles: Path) -> None:
     _write_skill(fake_roles, "writer", "b-two", "# B\n\nSecond.\n")
     _write_skill(fake_roles, "writer", "a-one", "# A\n\nFirst.\n")
