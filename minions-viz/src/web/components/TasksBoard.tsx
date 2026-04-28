@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import type { Task, AgentInfo, TaskStatus } from "@shared/types";
-import { statusColor, statusLabel, bidStatusColor, bidStatusLabel, truncate, shortId } from "../utils/format";
+import { statusColor, statusBadge, statusLabel, bidStatusColor, bidStatusLabel, truncate, shortId } from "../utils/format";
 import { useI18n } from "../i18n";
+import { useLimitPref } from "../hooks/useLimitPref";
 
 interface Props {
   tasks: Task[];
@@ -10,27 +11,30 @@ interface Props {
 }
 
 const COLUMNS: TaskStatus[] = ["unclaimed", "bidding", "awaiting_retrieval", "completed", "no_one_able"];
+const LIMIT_OPTIONS = [20, 50, 100, 200];
 
 export default function TasksBoard({ tasks, agents, onSelect }: Props) {
   const { t, locale } = useI18n();
   const [domainFilter, setDomainFilter] = useState("");
-  const [hideAdj, setHideAdj] = useState(true);
+  const [hideAdj, setHideAdj]           = useState(true);
+  const [colLimit, setColLimit]         = useLimitPref("viz.limit.tasks.col", 50, LIMIT_OPTIONS);
 
   const filtered = useMemo(() => {
     let list = tasks;
-    if (hideAdj) list = list.filter((t) => t.type !== "adjudication");
+    if (hideAdj) list = list.filter((tk) => tk.type !== "adjudication");
     if (domainFilter) {
       const d = domainFilter.toLowerCase();
-      list = list.filter((t) => t.domains.some((dom) => dom.toLowerCase().includes(d)));
+      list = list.filter((tk) => tk.domains.some((dom) => dom.toLowerCase().includes(d)));
     }
     return list;
   }, [tasks, domainFilter, hideAdj]);
 
+  // newest-first per column (tasks don't have a timestamp field, so we rely on array order which is insertion order)
   const columns = useMemo(() => {
     const map = new Map<TaskStatus, Task[]>();
     for (const s of COLUMNS) map.set(s, []);
-    for (const t of filtered) {
-      map.get(t.status)?.push(t);
+    for (const tk of [...filtered].reverse()) {
+      map.get(tk.status)?.push(tk);
     }
     return map;
   }, [filtered]);
@@ -40,23 +44,23 @@ export default function TasksBoard({ tasks, agents, onSelect }: Props) {
     return a?.name || shortId(id);
   };
 
-  const desc = (t: Task) => {
-    const d = t.content?.description;
-    return typeof d === "string" ? truncate(d, 80) : truncate(JSON.stringify(t.content), 80);
+  const desc = (tk: Task) => {
+    const d = tk.content?.description;
+    return typeof d === "string" ? truncate(d, 80) : truncate(JSON.stringify(tk.content), 80);
   };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Filters */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-[rgba(23,23,23,0.08)] shrink-0 bg-[rgba(249,244,234,0.5)]">
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* Toolbar */}
+      <div className="toolbar shrink-0">
         <input
           type="text"
           placeholder={t("tasks.filterDomain")}
           value={domainFilter}
           onChange={(e) => setDomainFilter(e.target.value)}
-          className="eacn-input w-48 text-xs !py-1.5 !px-3"
+          className="eacn-input w-44"
         />
-        <label className="flex items-center gap-1.5 text-xs text-[#5f5a52] cursor-pointer">
+        <label className="flex items-center gap-1.5 text-[10px] text-[var(--muted)] cursor-pointer">
           <input
             type="checkbox"
             checked={hideAdj}
@@ -65,52 +69,77 @@ export default function TasksBoard({ tasks, agents, onSelect }: Props) {
           />
           {t("tasks.hideAdj")}
         </label>
+        <div className="flex-1" />
+        <label className="flex items-center gap-1.5 text-[10px] text-[var(--muted)]">
+          Per column
+          <select
+            value={colLimit}
+            onChange={(e) => setColLimit(Number(e.target.value))}
+            className="limit-select"
+          >
+            {LIMIT_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </label>
       </div>
 
       {/* Kanban columns */}
-      <div className="flex-1 overflow-x-auto">
-        <div className="flex gap-3 p-4 min-w-max h-full">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden">
+        <div className="flex gap-3 p-4 h-full" style={{ minWidth: `max(1200px, 100%)` }}>
           {COLUMNS.map((status) => {
-            const col = columns.get(status) || [];
+            const col = (columns.get(status) || []).slice(0, colLimit);
+            const total = (columns.get(status) || []).length;
             return (
-              <div key={status} className="w-72 flex flex-col shrink-0">
-                <div className="flex items-center gap-2 mb-2 px-1">
-                  <span className={`w-2.5 h-2.5 rounded-full ${statusColor(status)}`} />
-                  <span className="text-xs font-medium text-[#171717]">{statusLabel(status, locale)}</span>
-                  <span className="text-xs text-[#5f5a52] font-mono ml-auto">{col.length}</span>
+              <div key={status} className="w-56 flex flex-col shrink-0 h-full">
+                {/* Column header */}
+                <div className="flex items-center gap-2 mb-2 px-1 shrink-0">
+                  <span className={`w-2 h-2 rounded-full ${statusColor(status)}`} />
+                  <span className="text-xs font-semibold text-[var(--text)]">{statusLabel(status, locale)}</span>
+                  <span className="text-[10px] text-[var(--muted)] font-mono ml-auto">
+                    {col.length}{total > col.length ? `/${total}` : ""}
+                  </span>
                 </div>
-                <div className="flex-1 overflow-y-auto space-y-2">
-                  {col.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => onSelect(t.id)}
-                      className="w-full panel-card p-3 text-left hover:shadow-lg transition-shadow"
-                    >
-                      <div className="text-xs font-mono text-[#5f5a52] mb-1">{shortId(t.id)}</div>
-                      <div className="text-xs text-[#171717] mb-2 line-clamp-2">{desc(t)}</div>
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {t.domains.map((d) => (
-                          <span key={d} className="pill">{d}</span>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-3 text-[10px] text-[#5f5a52] font-mono">
-                        <span>{t.budget} budget</span>
-                        <span>{t.bids.length} bids</span>
-                        <span>{t.results.length} results</span>
-                      </div>
-                      {t.bids.length > 0 && (
-                        <div className="mt-2 space-y-0.5">
-                          {t.bids.slice(0, 3).map((b) => (
-                            <div key={b.agent_id} className="flex items-center gap-1 text-[10px]">
-                              <span className={bidStatusColor(b.status)}>●</span>
-                              <span className="text-[#5f5a52] truncate">{agentName(b.agent_id)}</span>
-                              <span className="text-[#5f5a52]/60 ml-auto">{bidStatusLabel(b.status, locale)}</span>
-                            </div>
+                {/* Column body */}
+                <div className="flex-1 overflow-y-auto space-y-2 pr-0.5">
+                  {col.length === 0 ? (
+                    <div className="empty-state py-8 rounded-xl border border-dashed border-[var(--line)]">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                      <span>No tasks</span>
+                    </div>
+                  ) : (
+                    col.map((tk) => (
+                      <button
+                        key={tk.id}
+                        onClick={() => onSelect(tk.id)}
+                        className="w-full panel-card p-3 text-left hover:shadow-lg transition-shadow"
+                      >
+                        <div className="text-[10px] font-mono text-[var(--muted)] mb-1">{shortId(tk.id)}</div>
+                        <div className="text-xs text-[var(--text)] mb-2 line-clamp-2 leading-relaxed">{desc(tk)}</div>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {tk.domains.map((d) => (
+                            <span key={d} className="pill">{d}</span>
                           ))}
                         </div>
-                      )}
-                    </button>
-                  ))}
+                        <div className="flex items-center gap-3 text-[10px] text-[var(--muted)] font-mono">
+                          <span>{tk.budget} budget</span>
+                          <span>{tk.bids.length} bids</span>
+                          <span>{tk.results.length} results</span>
+                        </div>
+                        {tk.bids.length > 0 && (
+                          <div className="mt-2 space-y-0.5">
+                            {tk.bids.slice(0, 3).map((b) => (
+                              <div key={b.agent_id} className="flex items-center gap-1 text-[10px]">
+                                <span className={bidStatusColor(b.status)}>●</span>
+                                <span className="text-[var(--muted)] truncate">{agentName(b.agent_id)}</span>
+                                <span className="text-[var(--muted-2)] ml-auto">{bidStatusLabel(b.status, locale)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
             );

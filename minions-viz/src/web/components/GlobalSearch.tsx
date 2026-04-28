@@ -41,15 +41,15 @@ export default function GlobalSearch({ tasks, agents, logs, onSelectAgent, onSel
       if (items.length >= 50) break;
     }
 
-    for (const t of tasks) {
-      const desc = typeof t.content.description === "string" ? t.content.description : "";
+    for (const tk of tasks) {
+      const desc = typeof tk.content.description === "string" ? tk.content.description : "";
       if (
-        t.id.toLowerCase().includes(q) ||
+        tk.id.toLowerCase().includes(q) ||
         desc.toLowerCase().includes(q) ||
-        t.domains.some((d) => d.toLowerCase().includes(q)) ||
-        t.initiator_id.toLowerCase().includes(q)
+        tk.domains.some((d) => d.toLowerCase().includes(q)) ||
+        tk.initiator_id.toLowerCase().includes(q)
       ) {
-        items.push({ kind: "task", task: t });
+        items.push({ kind: "task", task: tk });
       }
       if (items.length >= 80) break;
     }
@@ -80,16 +80,26 @@ export default function GlobalSearch({ tasks, agents, logs, onSelectAgent, onSel
   }
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-start justify-center pt-20" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+    <div
+      className="fixed inset-0 z-[90] flex items-start justify-center pt-20"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Global search"
+    >
+      <div className="absolute inset-0 backdrop-blur-sm" style={{ background: "rgba(0,0,0,0.2)" }} />
       <div
-        className="relative w-full max-w-xl bg-[#fbf8f2] border border-[rgba(23,23,23,0.1)] rounded-3xl overflow-hidden"
-        style={{ boxShadow: "0 30px 90px rgba(38,27,11,0.12)" }}
+        className="relative w-full max-w-xl rounded-3xl overflow-hidden animate-slide-up"
+        style={{
+          background: "var(--bg-soft)",
+          border: "1px solid var(--line)",
+          boxShadow: "var(--shadow-xl)",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-[rgba(23,23,23,0.08)]">
-          <svg className="w-4 h-4 text-[#5f5a52]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: "var(--line)" }}>
+          <svg className="w-4 h-4 shrink-0" style={{ color: "var(--muted)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
@@ -98,18 +108,29 @@ export default function GlobalSearch({ tasks, agents, logs, onSelectAgent, onSel
             placeholder={t("search.placeholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 bg-transparent text-sm text-[#171717] placeholder-[#5f5a52]/50 focus:outline-none"
+            aria-label="Search agents, tasks, and events"
+            className="flex-1 bg-transparent text-sm focus:outline-none"
+            style={{ color: "var(--text)" }}
           />
-          <kbd className="text-[10px] text-[#5f5a52]/60 bg-[rgba(23,23,23,0.05)] px-1.5 py-0.5 rounded-md border border-[rgba(23,23,23,0.08)] font-mono">
-            ESC
-          </kbd>
+          <kbd className="kbd">ESC</kbd>
         </div>
 
         {/* Results */}
-        <div className="max-h-[400px] overflow-y-auto">
+        <div className="max-h-[400px] overflow-y-auto" role="listbox" aria-label="Search results">
           {query.length >= 2 && results.length === 0 && (
-            <div className="p-6 text-center text-sm text-[#5f5a52]">
-              {t("search.noResults")}
+            <div className="p-8 text-center">
+              <div className="empty-state">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span>{t("search.noResults")}</span>
+              </div>
+            </div>
+          )}
+
+          {query.length < 2 && (
+            <div className="p-6 text-center text-xs" style={{ color: "var(--muted)" }}>
+              Type at least 2 characters to search agents, tasks, and events.
             </div>
           )}
 
@@ -120,31 +141,40 @@ export default function GlobalSearch({ tasks, agents, logs, onSelectAgent, onSel
                 <button
                   key={`a-${a.agent_id}`}
                   onClick={() => handleSelect(item)}
-                  className="w-full flex items-center gap-3 px-5 py-3 hover:bg-[rgba(23,23,23,0.04)] text-left border-b border-[rgba(23,23,23,0.05)] transition-colors"
+                  role="option"
+                  className="w-full flex items-center gap-3 px-5 py-3 text-left border-b transition-colors hover:bg-[rgba(23,23,23,0.04)]"
+                  style={{ borderColor: "var(--line-soft)" }}
                 >
-                  <span className="text-[10px] px-2 py-0.5 bg-[#174066] text-white rounded-full font-mono">Agent</span>
-                  <span className="text-sm text-[#171717] truncate">{a.name}</span>
-                  <span className="text-xs text-[#5f5a52] font-mono ml-auto">{shortId(a.agent_id)}</span>
-                  <span className="text-xs text-[#df6d2d] font-mono">{a.reputation.toFixed(2)}</span>
+                  <span
+                    className="text-[10px] px-2 py-0.5 rounded-full font-mono shrink-0"
+                    style={{ background: "var(--accent-3)", color: "#fff" }}
+                  >
+                    Agent
+                  </span>
+                  <span className="text-sm truncate flex-1" style={{ color: "var(--text)" }}>{a.name}</span>
+                  <span className="text-xs font-mono shrink-0" style={{ color: "var(--muted)" }}>{shortId(a.agent_id)}</span>
+                  <span className="text-xs font-mono shrink-0" style={{ color: "var(--accent-2)" }}>{a.reputation.toFixed(2)}</span>
                 </button>
               );
             }
             if (item.kind === "task") {
-              const t = item.task;
-              const desc = typeof t.content.description === "string" ? t.content.description : "";
+              const tk = item.task;
+              const desc = typeof tk.content.description === "string" ? tk.content.description : "";
               return (
                 <button
-                  key={`t-${t.id}`}
+                  key={`t-${tk.id}`}
                   onClick={() => handleSelect(item)}
-                  className="w-full flex items-center gap-3 px-5 py-3 hover:bg-[rgba(23,23,23,0.04)] text-left border-b border-[rgba(23,23,23,0.05)] transition-colors"
+                  role="option"
+                  className="w-full flex items-center gap-3 px-5 py-3 text-left border-b transition-colors hover:bg-[rgba(23,23,23,0.04)]"
+                  style={{ borderColor: "var(--line-soft)" }}
                 >
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full text-white ${statusColor(t.status)}`}>
-                    {statusLabel(t.status, locale)}
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full text-white shrink-0 ${statusColor(tk.status)}`}>
+                    {statusLabel(tk.status, locale)}
                   </span>
-                  <span className="text-sm text-[#171717] truncate flex-1">
-                    {desc || shortId(t.id)}
+                  <span className="text-sm truncate flex-1" style={{ color: "var(--text)" }}>
+                    {desc || shortId(tk.id)}
                   </span>
-                  <span className="text-xs text-[#5f5a52] font-mono">{shortId(t.id)}</span>
+                  <span className="text-xs font-mono shrink-0" style={{ color: "var(--muted)" }}>{shortId(tk.id)}</span>
                 </button>
               );
             }
@@ -154,13 +184,20 @@ export default function GlobalSearch({ tasks, agents, logs, onSelectAgent, onSel
                 <button
                   key={`l-${item.index}`}
                   onClick={() => handleSelect(item)}
-                  className="w-full flex items-center gap-3 px-5 py-3 hover:bg-[rgba(23,23,23,0.04)] text-left border-b border-[rgba(23,23,23,0.05)] transition-colors"
+                  role="option"
+                  className="w-full flex items-center gap-3 px-5 py-3 text-left border-b transition-colors hover:bg-[rgba(23,23,23,0.04)]"
+                  style={{ borderColor: "var(--line-soft)" }}
                 >
-                  <span className="text-[10px] px-2 py-0.5 bg-[rgba(23,23,23,0.08)] text-[#5f5a52] rounded-full font-mono">Log</span>
+                  <span
+                    className="text-[10px] px-2 py-0.5 rounded-full font-mono shrink-0"
+                    style={{ background: "rgba(23,23,23,0.08)", color: "var(--muted)" }}
+                  >
+                    Log
+                  </span>
                   <span className={`text-xs font-medium ${logColor(l.fn_name)}`}>{l.fn_name}</span>
-                  {l.task_id && <span className="text-xs text-[#5f5a52] font-mono">{shortId(l.task_id)}</span>}
-                  {l.agent_id && <span className="text-xs text-[#5f5a52] font-mono">{shortId(l.agent_id)}</span>}
-                  <span className="text-[10px] text-[#5f5a52]/50 ml-auto font-mono">{timeAgo(l.timestamp, locale)}</span>
+                  {l.task_id && <span className="text-xs font-mono" style={{ color: "var(--muted)" }}>{shortId(l.task_id)}</span>}
+                  {l.agent_id && <span className="text-xs font-mono" style={{ color: "var(--muted)" }}>{shortId(l.agent_id)}</span>}
+                  <span className="text-[10px] font-mono ml-auto shrink-0" style={{ color: "var(--muted-2)" }}>{timeAgo(l.timestamp, locale)}</span>
                 </button>
               );
             }
@@ -170,7 +207,7 @@ export default function GlobalSearch({ tasks, agents, logs, onSelectAgent, onSel
 
         {/* Footer */}
         {query.length >= 2 && results.length > 0 && (
-          <div className="px-5 py-2.5 border-t border-[rgba(23,23,23,0.08)] text-[10px] text-[#5f5a52] font-mono">
+          <div className="px-5 py-2.5 border-t text-[10px] font-mono" style={{ borderColor: "var(--line)", color: "var(--muted)" }}>
             {results.length} {t("search.resultsFooter")}
           </div>
         )}

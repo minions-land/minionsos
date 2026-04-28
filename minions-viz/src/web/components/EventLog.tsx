@@ -2,95 +2,120 @@ import { useState, useMemo } from "react";
 import type { LogEntry } from "@shared/types";
 import { logColor, timeAgo, shortId } from "../utils/format";
 import { useI18n } from "../i18n";
+import { useLimitPref } from "../hooks/useLimitPref";
 
-interface Props {
-  logs: LogEntry[];
-}
+interface Props { logs: LogEntry[]; }
+
+const LIMIT_OPTIONS = [50, 100, 200, 500];
 
 export default function EventLog({ logs }: Props) {
   const { t, locale } = useI18n();
-  const [fnFilter, setFnFilter] = useState("");
+  const [fnFilter, setFnFilter]       = useState("");
   const [agentFilter, setAgentFilter] = useState("");
-  const [taskFilter, setTaskFilter] = useState("");
+  const [taskFilter, setTaskFilter]   = useState("");
+  const [limit, setLimit]             = useLimitPref("viz.limit.eventlog", 100, LIMIT_OPTIONS);
 
+  // newest-first, filtered, then limited
   const filtered = useMemo(() => {
-    const f = logs.filter((l) => {
-      if (fnFilter && !l.fn_name.toLowerCase().includes(fnFilter.toLowerCase())) return false;
+    const reversed = [...logs].reverse();
+    return reversed.filter((l) => {
+      if (fnFilter    && !l.fn_name.toLowerCase().includes(fnFilter.toLowerCase()))    return false;
       if (agentFilter && l.agent_id !== agentFilter && !l.agent_id?.includes(agentFilter)) return false;
-      if (taskFilter && l.task_id !== taskFilter && !l.task_id?.includes(taskFilter)) return false;
+      if (taskFilter  && l.task_id  !== taskFilter  && !l.task_id?.includes(taskFilter))   return false;
       return true;
-    });
-    return f.reverse();
-  }, [logs, fnFilter, agentFilter, taskFilter]);
+    }).slice(0, limit);
+  }, [logs, fnFilter, agentFilter, taskFilter, limit]);
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Filters */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-[rgba(23,23,23,0.08)] shrink-0 bg-[rgba(249,244,234,0.5)]">
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* Toolbar */}
+      <div className="toolbar shrink-0">
         <input
           type="text"
           placeholder={t("log.eventType")}
           value={fnFilter}
           onChange={(e) => setFnFilter(e.target.value)}
-          className="eacn-input w-36 text-xs !py-1.5 !px-3"
+          className="eacn-input w-32"
         />
         <input
           type="text"
           placeholder="Agent ID"
           value={agentFilter}
           onChange={(e) => setAgentFilter(e.target.value)}
-          className="eacn-input w-36 text-xs !py-1.5 !px-3"
+          className="eacn-input w-32"
         />
         <input
           type="text"
           placeholder="Task ID"
           value={taskFilter}
           onChange={(e) => setTaskFilter(e.target.value)}
-          className="eacn-input w-36 text-xs !py-1.5 !px-3"
+          className="eacn-input w-32"
         />
-        <span className="text-xs text-[#5f5a52] ml-auto font-mono">{filtered.length} {t("log.entries")}</span>
+        <div className="flex-1" />
+        <span className="text-[10px] text-[var(--muted)] font-mono">{filtered.length} {t("log.entries")}</span>
+        <label className="flex items-center gap-1.5 text-[10px] text-[var(--muted)]">
+          Show
+          <select
+            value={limit}
+            onChange={(e) => setLimit(Number(e.target.value))}
+            className="limit-select"
+          >
+            {LIMIT_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </label>
       </div>
 
-      {/* Log entries */}
-      <div className="flex-1 overflow-y-auto p-4 font-mono text-xs">
-        <table className="w-full">
-          <thead>
-            <tr className="text-[#5f5a52] text-left">
-              <th className="pb-2 pr-3 w-20 font-medium">{t("log.time")}</th>
-              <th className="pb-2 pr-3 w-44 font-medium">{t("log.event")}</th>
-              <th className="pb-2 pr-3 w-36 font-medium">Task</th>
-              <th className="pb-2 pr-3 w-36 font-medium">Agent</th>
-              <th className="pb-2 font-medium">{t("log.details")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((log, i) => (
-              <tr key={i} className="border-t border-[rgba(23,23,23,0.06)] hover:bg-[rgba(23,23,23,0.03)]">
-                <td className="py-1.5 pr-3 text-[#5f5a52]/60 whitespace-nowrap">
-                  {timeAgo(log.timestamp, locale)}
-                </td>
-                <td className={`py-1.5 pr-3 font-medium ${logColor(log.fn_name)}`}>
-                  {log.fn_name}
-                </td>
-                <td className="py-1.5 pr-3 text-[#5f5a52]">
-                  {log.task_id ? shortId(log.task_id) : "—"}
-                </td>
-                <td className="py-1.5 pr-3 text-[#5f5a52]">
-                  {log.agent_id ? shortId(log.agent_id) : "—"}
-                </td>
-                <td className="py-1.5 text-[#5f5a52]/60 truncate max-w-xs">
-                  {log.error ? (
-                    <span className="text-red-500">{log.error}</span>
-                  ) : Object.keys(log.args).length > 0 ? (
-                    JSON.stringify(log.args)
-                  ) : (
-                    "—"
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Log table — scrollable body, sticky header */}
+      <div className="flex-1 overflow-hidden">
+        {filtered.length === 0 ? (
+          <div className="empty-state h-full">
+            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span>No events match your filters</span>
+          </div>
+        ) : (
+          <div className="h-full overflow-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th className="w-20">{t("log.time")}</th>
+                  <th className="w-44">{t("log.event")}</th>
+                  <th className="w-32">Task</th>
+                  <th className="w-32">Agent</th>
+                  <th>{t("log.details")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((log, i) => (
+                  <tr key={i}>
+                    <td className="text-[var(--muted-2)] whitespace-nowrap font-mono text-[10px]">
+                      {timeAgo(log.timestamp, locale)}
+                    </td>
+                    <td className={`font-medium font-mono text-[10px] ${logColor(log.fn_name)}`}>
+                      {log.fn_name}
+                    </td>
+                    <td className="text-[var(--muted)] font-mono text-[10px]">
+                      {log.task_id ? shortId(log.task_id) : <span className="opacity-30">—</span>}
+                    </td>
+                    <td className="text-[var(--muted)] font-mono text-[10px]">
+                      {log.agent_id ? shortId(log.agent_id) : <span className="opacity-30">—</span>}
+                    </td>
+                    <td className="text-[var(--muted-2)] truncate max-w-xs text-[10px]">
+                      {log.error ? (
+                        <span className="text-red-500">{log.error}</span>
+                      ) : Object.keys(log.args).length > 0 ? (
+                        JSON.stringify(log.args)
+                      ) : (
+                        <span className="opacity-30">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

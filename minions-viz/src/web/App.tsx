@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useStore, gruById, projectByPort } from "./hooks/useStore";
+import { useStore, gruById, projectByPort, selectProject } from "./hooks/useStore";
 import { I18nProvider } from "./i18n";
 import TopBar from "./components/TopBar";
 import Dashboard from "./components/Dashboard";
@@ -95,7 +95,33 @@ function AppInner() {
 
       <main className="flex-1 overflow-hidden relative">
         {!currentGru && <GruPicker grus={store.grus} />}
-        {currentGru && !currentProject && <ProjectPicker gru={currentGru} />}
+        {currentGru && !currentProject && store.selectedPort == null && <ProjectPicker gru={currentGru} />}
+        {currentGru && !currentProject && store.selectedPort != null && (
+          <div className="absolute inset-0 overflow-auto p-8" style={{ background: "var(--bg-page)" }}>
+            <div className="max-w-2xl mx-auto mt-12">
+              <div className="surface-card p-8">
+                <div className="empty-state">
+                  <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                  </svg>
+                  <p style={{ color: "var(--text)" }} className="font-semibold">Project unavailable</p>
+                  <p style={{ color: "var(--muted)" }}>
+                    project_{store.selectedPort} is closed or no longer registered with this Gru.
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => selectProject(null)}
+                      className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:border-indigo-400"
+                      style={{ background: "var(--surface)", borderColor: "var(--line)", color: "var(--muted)" }}
+                    >
+                      ← Back to projects
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {currentProject && !store.connected && tab !== "overview" && tab !== "roles" && tab !== "artifacts" && tab !== "logs" && (
           <div className="absolute top-0 left-0 right-0 z-10 bg-amber-100 border-b border-amber-300 px-4 py-2 text-xs text-amber-900">
