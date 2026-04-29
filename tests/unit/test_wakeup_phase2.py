@@ -73,6 +73,7 @@ class TestWakeupClass:
         assert WakeupClass.event.value == "event"
         assert WakeupClass.time.value == "time"
         assert WakeupClass.human.value == "human"
+        assert WakeupClass.maintenance.value == "maintenance"
 
 
 # ── Cooldown ─────────────────────────────────────────────────────────────────

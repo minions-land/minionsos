@@ -41,6 +41,7 @@ _DEDUP_MAX = 2048
 _GENERIC_TASK_DOMAINS = {"minionsos", "project-local"}
 _OPEN_TASK_EXCLUDED_ROLES = {"gru", "noter"}
 _TASK_WAKEUP_TYPES = {"task_broadcast", "adjudication_task"}
+_VETO_COMPACTION_COOLDOWN_SECONDS = 10 * 60
 
 
 class WakeupClass(enum.Enum):
@@ -49,6 +50,7 @@ class WakeupClass(enum.Enum):
     event = "event"
     time = "time"
     human = "human"
+    maintenance = "maintenance"
 
 
 def _estimate_tokens(text: str) -> int:
@@ -362,6 +364,10 @@ class WakeupScheduler:
         # Set of (port, role) for which a veto warning has already been posted
         # to Gru; cleared when the scratchpad drops below the veto threshold.
         self._veto_warned: set[tuple[int, str]] = set()
+        # Tracks best-effort scratchpad compaction attempts while a role is over
+        # the veto threshold. Normal events stay buffered until compaction lowers
+        # the scratchpad below veto.
+        self._last_veto_compaction_ts: dict[tuple[int, str], float] = {}
         # Legacy in-memory view for diagnostics only. Durable deferrals live in
         # role_inbox so scheduler restarts do not drop drained EACN events.
         self._pending: dict[tuple[int, str], list[dict[str, Any]]] = {}
@@ -551,6 +557,8 @@ class WakeupScheduler:
                         role_inbox.clear(project.port, role.name)
                         self._pending.pop((project.port, role.name), None)
                         triggered += 1
+                    elif result == "maintenance_dispatched":
+                        triggered += 1
                     continue
 
                 # Time-triggered wakeup: fire even without EACN events.
@@ -584,6 +592,8 @@ class WakeupScheduler:
                     role_inbox.clear(project.port, role.name)
                     self._pending.pop((project.port, role.name), None)
                     self._last_time_trigger_ts[tt_key] = now
+                    triggered += 1
+                elif result == "maintenance_dispatched":
                     triggered += 1
         return triggered
 
@@ -643,7 +653,7 @@ class WakeupScheduler:
                 self._post_veto_warning(port, role_name, tokens)
                 self._veto_warned.add(key)
             self._buffer_role_events(port, role_name, events)
-            return "blocked"
+            return await self._try_dispatch_veto_compaction(port, role_name, tokens, len(events))
         else:
             self._veto_warned.discard(key)
 
@@ -674,6 +684,64 @@ class WakeupScheduler:
             self._dedup.is_new(port, role_name, _event_id(event))
         self._last_dispatch_ts[key] = _time_mod.monotonic()
         return "dispatched"
+
+    async def _try_dispatch_veto_compaction(
+        self,
+        port: int,
+        role_name: str,
+        tokens: int,
+        buffered_count: int,
+    ) -> str:
+        """Dispatch a maintenance-only compaction wakeup while preserving events."""
+        key = (port, role_name)
+        now = _time_mod.monotonic()
+        last = self._last_veto_compaction_ts.get(key)
+        if last is not None and now - last < _VETO_COMPACTION_COOLDOWN_SECONDS:
+            logger.info(
+                "Wakeup: role=%s port=%d scratchpad veto; compaction cooldown active.",
+                role_name,
+                port,
+            )
+            return "blocked"
+
+        synthetic = [
+            {
+                "type": "scratchpad_compaction_required",
+                "id": f"scratchpad-veto:{port}:{role_name}:{int(now)}",
+                "role": role_name,
+                "tokens": tokens,
+                "veto_tokens": self._scratchpad_thresholds[2],
+                "buffered_events": buffered_count,
+            }
+        ]
+        logger.info(
+            "Wakeup: dispatching scratchpad compaction to role=%s port=%d tokens=%d buffered=%d",
+            role_name,
+            port,
+            tokens,
+            buffered_count,
+        )
+        try:
+            res = await self._dispatch(
+                role_name,
+                port,
+                synthetic,
+                "veto_compact",
+                WakeupClass.maintenance,
+            )
+        except Exception as exc:
+            logger.error(
+                "Wakeup: scratchpad compaction dispatch failed role=%s port=%d: %s",
+                role_name,
+                port,
+                exc,
+            )
+            return "blocked"
+        if isinstance(res, dict) and res.get("deferred"):
+            return "blocked"
+        self._last_veto_compaction_ts[key] = now
+        self._last_dispatch_ts[key] = now
+        return "maintenance_dispatched"
 
     def _buffer_role_events(
         self,

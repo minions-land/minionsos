@@ -73,4 +73,4 @@ codex_approval_policy: never
 model_context_window_tokens: 1000000
 scratchpad_soft_pct: 0.10   # gentle compression hint
 scratchpad_hard_pct: 0.15   # require compression before new events
-scratchpad_veto_pct: 0.20   # refuse to spawn and alert Gru
+scratchpad_veto_pct: 0.20   # block normal work, try maintenance compaction, alert Gru

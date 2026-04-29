@@ -236,6 +236,14 @@ def test_noter_snapshot_is_read_only_and_reports_tasks(tmp_path: Path) -> None:
     )
 
 
+def test_buffer_display_shows_previous_value_only_when_changed() -> None:
+    assert noter_terminal._format_buffer_count("coder", 7, None) == "7"
+    assert noter_terminal._format_buffer_count("coder", 7, {"coder": 7}) == "7"
+    assert noter_terminal._format_buffer_count("coder", 12, {"coder": 7}) == "12 (<- 7)"
+    assert noter_terminal._format_buffer_count("coder", 0, {"coder": 12}) == "0 (<- 12)"
+    assert noter_terminal._format_buffer_count("coder", 12, {"writer": 7}) == "12"
+
+
 def test_noter_snapshot_passes_task_filter_and_offset(tmp_path: Path) -> None:
     project = ProjectEntry(
         port=37596,

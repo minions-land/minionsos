@@ -100,6 +100,7 @@ def run_noter_terminal(
     """Run a periodic read-only Noter terminal for one project."""
     out = console or Console()
     _print_help(out)
+    previous_role_buffers: dict[str, int] | None = None
     while True:
         snapshot = collect_noter_snapshot(
             port,
@@ -107,7 +108,8 @@ def run_noter_terminal(
             task_offset=task_offset,
             task_status=task_status,
         )
-        render_snapshot(snapshot, out)
+        render_snapshot(snapshot, out, previous_role_buffers=previous_role_buffers)
+        previous_role_buffers = dict(snapshot.role_buffers)
         if once:
             return
         command = _wait_for_command(interval_seconds)
@@ -117,7 +119,11 @@ def run_noter_terminal(
             return
 
 
-def render_snapshot(snapshot: NoterSnapshot, console: Console) -> None:
+def render_snapshot(
+    snapshot: NoterSnapshot,
+    console: Console,
+    previous_role_buffers: dict[str, int] | None = None,
+) -> None:
     """Render the default Noter status report."""
     project = snapshot.project
     alive = snapshot.health.get("backend_alive")
@@ -128,7 +134,7 @@ def render_snapshot(snapshot: NoterSnapshot, console: Console) -> None:
         f"backend={backend}  gru_unread={snapshot.gru_unread}  "
         f"tasks={len(snapshot.tasks)}"
     )
-    _render_roles(snapshot, console)
+    _render_roles(snapshot, console, previous_role_buffers=previous_role_buffers)
     _render_tasks(snapshot, console)
     _render_notes(snapshot, console)
     if snapshot.errors:
@@ -226,7 +232,11 @@ def _wait_for_command(interval_seconds: int) -> str | None:
     return sys.stdin.readline().strip()
 
 
-def _render_roles(snapshot: NoterSnapshot, console: Console) -> None:
+def _render_roles(
+    snapshot: NoterSnapshot,
+    console: Console,
+    previous_role_buffers: dict[str, int] | None = None,
+) -> None:
     table = Table(title="Roles", show_lines=False)
     table.add_column("Role")
     table.add_column("State")
@@ -243,9 +253,26 @@ def _render_roles(snapshot: NoterSnapshot, console: Console) -> None:
             role.eacn_agent_id or role.name,
             role.last_seen or "-",
             _short(role.current_task or "-", 38),
-            str(snapshot.role_buffers.get(role.name, 0)),
+            _format_buffer_count(
+                role.name,
+                snapshot.role_buffers.get(role.name, 0),
+                previous_role_buffers,
+            ),
         )
     console.print(table)
+
+
+def _format_buffer_count(
+    role_name: str,
+    current: int,
+    previous_role_buffers: dict[str, int] | None = None,
+) -> str:
+    if previous_role_buffers is None or role_name not in previous_role_buffers:
+        return str(current)
+    previous = previous_role_buffers[role_name]
+    if previous == current:
+        return str(current)
+    return f"{current} (<- {previous})"
 
 
 def _render_tasks(snapshot: NoterSnapshot, console: Console, force: bool = False) -> None:

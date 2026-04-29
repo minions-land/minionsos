@@ -130,7 +130,20 @@ class TestWakeupScratchpad:
         assert "agent_id `noter`" in msg
         assert "pass `noter` explicitly" in msg
 
-    def test_above_veto_no_dispatch_and_dedup_warning(self, tmp_path: Path) -> None:
+    def test_veto_compaction_message_is_maintenance_only(self, tmp_path: Path) -> None:
+        sp = tmp_path / "project_37596" / "memory" / "noter.md"
+        msg = role_mod._format_event_message(
+            [{"type": "scratchpad_compaction_required"}],
+            scratchpad_path=sp,
+            scratchpad_status="veto_compact",
+            project_port=37596,
+            role_name="noter",
+        )
+        assert "maintenance wake-up only" in msg
+        assert "Do not process buffered EACN work" in msg
+        assert "will be redelivered after the scratchpad is below veto" in msg
+
+    def test_above_veto_dispatches_compaction_and_preserves_events(self, tmp_path: Path) -> None:
         sched, calls = self._make(tmp_path)
         sp = tmp_path / "project_37596" / "memory" / "noter.md"
         _write_tokens(sp, VETO + 10)
@@ -145,15 +158,27 @@ class TestWakeupScratchpad:
         with (
             p1,
             p2,
+            patch(
+                "minions.lifecycle.role_inbox.project_logs_dir",
+                lambda port: tmp_path / f"project_{port}" / "logs",
+            ),
             patch.object(wakeup_mod, "poll_events", return_value=payload),
             patch.object(wakeup_mod, "send_message", side_effect=fake_post),
         ):
             _run(sched.tick_once())
-            # Second tick — same over-veto state — must NOT re-post.
+            # Second tick: same over-veto state must not re-post or re-run
+            # compaction while the maintenance cooldown is active.
             sched._last_poll_ts.clear()
             _run(sched.tick_once())
 
-        assert calls == []
+            buffered = wakeup_mod.role_inbox.read_events(37596, "noter")
+
+        assert len(calls) == 1
+        compaction = calls[0]
+        assert compaction[2][0]["type"] == "scratchpad_compaction_required"
+        assert compaction[3]["extra_env"]["MINIONS_SCRATCHPAD_STATUS"] == "veto_compact"
+        assert compaction[3]["extra_env"]["MINIONS_WAKEUP_CLASS"] == "maintenance"
+        assert buffered == [{"id": "e1"}]
         assert len(posted) == 1
         assert "exceeds" in posted[0][2]
 
@@ -168,6 +193,10 @@ class TestWakeupScratchpad:
         with (
             p1,
             p2,
+            patch(
+                "minions.lifecycle.role_inbox.project_logs_dir",
+                lambda port: tmp_path / f"project_{port}" / "logs",
+            ),
             patch.object(wakeup_mod, "poll_events", return_value=payload),
             patch.object(
                 wakeup_mod,

@@ -449,7 +449,10 @@ class GruConfig(BaseModel):
     )
     scratchpad_veto_pct: float = Field(
         default=0.20,
-        description="Veto threshold (refuse to spawn and alert Gru).",
+        description=(
+            "Veto threshold (block normal event handling, attempt maintenance compaction, "
+            "and alert Gru)."
+        ),
     )
 
     @field_validator("poll_interval_default", mode="before")

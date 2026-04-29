@@ -683,6 +683,15 @@ def _format_event_message(
             preamble += (
                 "Compress the scratchpad in place (subagent) BEFORE processing new events.\n"
             )
+        elif scratchpad_status == "veto_compact":
+            preamble += (
+                "This is a maintenance wake-up only: compact the scratchpad in place, "
+                "then exit. Do not process buffered EACN work, bid on tasks, or emit "
+                "project-status responses during this wake-up. Preserve durable open "
+                "state in the main scratchpad; move stale or bulky background notes "
+                "to an `archive/` directory under the project memory directory with "
+                "a short index entry if needed.\n"
+            )
         elif scratchpad_status == "soft":
             preamble += "When convenient, dispatch a subagent to compress.\n"
         preamble += "\n"
@@ -726,17 +735,26 @@ def _format_event_message(
         )
     else:
         response_tools = "`eacn3_*` tools"
-    header = (
-        "You have been invoked to process the following EACN event batch.\n"
-        f"Act on these events, emit any necessary EACN responses via {response_tools}, "
-        "then exit (this is an ephemeral session — do not start a "
-        "polling loop). If accepted work belongs to your Role, dispatch your "
-        "own focused subagent(s) for the substantive execution and keep this "
-        "main session focused on coordination, review, checkpointing, and EACN "
-        "communication. Treat this as fresh execution context; after the task "
-        "is handled or checkpointed, leave only compressed durable state in the "
-        "scratchpad.\n\n"
-    )
+    if scratchpad_status == "veto_compact":
+        header = (
+            "You have been invoked for scratchpad maintenance because the role's "
+            "scratchpad exceeded the veto threshold.\n"
+            "Act only on the maintenance event below: reduce the scratchpad to durable, "
+            "high-signal state and then exit. Buffered EACN events are still held by "
+            "MinionsOS and will be redelivered after the scratchpad is below veto.\n\n"
+        )
+    else:
+        header = (
+            "You have been invoked to process the following EACN event batch.\n"
+            f"Act on these events, emit any necessary EACN responses via {response_tools}, "
+            "then exit (this is an ephemeral session — do not start a "
+            "polling loop). If accepted work belongs to your Role, dispatch your "
+            "own focused subagent(s) for the substantive execution and keep this "
+            "main session focused on coordination, review, checkpointing, and EACN "
+            "communication. Treat this as fresh execution context; after the task "
+            "is handled or checkpointed, leave only compressed durable state in the "
+            "scratchpad.\n\n"
+        )
     try:
         body = json.dumps(events, indent=2, default=str)
     except Exception:
