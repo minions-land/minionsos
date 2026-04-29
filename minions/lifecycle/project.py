@@ -32,7 +32,7 @@ from minions.paths import (
     project_meta_json,
     project_workspace,
 )
-from minions.state.store import ProjectEntry, StateStore
+from minions.state.store import ProjectEntry, RoleEntry, StateStore
 
 logger = logging.getLogger(__name__)
 
@@ -261,6 +261,73 @@ def _clear_stale_role_pids(port: int, entry: ProjectEntry, store: StateStore) ->
     return cleared
 
 
+def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
+    """Best-effort RoleEntry list from raw meta.json."""
+    raw_roles = raw.get("active_roles")
+    if not isinstance(raw_roles, list):
+        return []
+    roles: list[RoleEntry] = []
+    for item in raw_roles:
+        if not isinstance(item, dict):
+            continue
+        try:
+            roles.append(RoleEntry.model_validate(item))
+        except Exception as exc:
+            logger.debug("Skipping invalid role entry from meta.json: %s", exc)
+    return roles
+
+
+def _default_poll_interval() -> str:
+    try:
+        from minions.config import load_gru_config
+
+        return load_gru_config().poll_interval_default
+    except Exception:
+        return "1m"
+
+
+def _default_noter_time_trigger_interval() -> str | None:
+    try:
+        from minions.config import load_gru_config, parse_duration
+
+        interval = load_gru_config().noter_report_interval
+        return interval if parse_duration(interval) > 0 else None
+    except Exception:
+        return "30m"
+
+
+def _normalise_revived_role(role: RoleEntry) -> RoleEntry:
+    """Return a schedulable sleeping role, repairing old Noter records."""
+    time_trigger = role.time_trigger_interval
+    if role.name == "noter" and not time_trigger:
+        time_trigger = _default_noter_time_trigger_interval()
+
+    updates: dict[str, object | None] = {
+        "state": "sleeping",
+        "pid": None,
+        "poll_interval": role.poll_interval or _default_poll_interval(),
+        "time_trigger_interval": time_trigger,
+    }
+    if time_trigger:
+        updates["wake_policy"] = "any"
+    elif role.wake_policy == "time":
+        updates["wake_policy"] = "event"
+    return role.model_copy(update=updates)
+
+
+def _roles_for_revive(entry: ProjectEntry, raw_meta: dict[str, object]) -> list[RoleEntry]:
+    """Choose role records for revive.
+
+    ``projects.json`` is the normal source of truth. ``meta.json`` is kept as a
+    fallback because older lifecycle paths and manual repairs can leave one file
+    ahead of the other.
+    """
+    roles = list(entry.active_roles)
+    if not roles:
+        roles = _role_entries_from_meta(raw_meta)
+    return [_normalise_revived_role(role) for role in roles]
+
+
 def _gru_agent_spec() -> tuple[str, list[str], str]:
     from minions.config import load_gru_config
 
@@ -300,10 +367,55 @@ def _register_gru_eacn_agent(port: int, server_id: str) -> tuple[str, str]:
     return gru_agent_id, gru_agent_token
 
 
-def _stop_backend(port: int, pid: int | None) -> None:
-    """Terminate the backend process for *port* gracefully."""
-    if pid is None:
-        return
+def _backend_listener_pids(port: int) -> list[int]:
+    """Return PIDs listening on *port*, best effort.
+
+    This is used only as a fallback when ``meta.json`` has a missing/stale
+    backend PID. Keep it conservative: callers still verify the command line
+    before killing a discovered process.
+    """
+    try:
+        result = subprocess.run(
+            ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return []
+    if result.returncode not in {0, 1}:
+        return []
+    pids: list[int] = []
+    for line in result.stdout.splitlines():
+        try:
+            pids.append(int(line.strip()))
+        except ValueError:
+            continue
+    return list(dict.fromkeys(pids))
+
+
+def _pid_command(pid: int) -> str:
+    try:
+        result = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "command="],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return ""
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
+def _is_minions_backend_pid(pid: int, port: int) -> bool:
+    """Return True when process metadata matches this project's EACN backend."""
+    command = _pid_command(pid)
+    return "uvicorn" in command and EACN_APP in command and str(port) in command
+
+
+def _terminate_backend_pid(port: int, pid: int) -> None:
     try:
         import signal
 
@@ -322,6 +434,73 @@ def _stop_backend(port: int, pid: int | None) -> None:
         logger.debug("Backend PID=%d already gone.", pid)
     except Exception as exc:
         logger.warning("Error stopping backend PID=%d: %s", pid, exc)
+
+
+def _stop_backend(port: int, pid: int | None) -> bool:
+    """Terminate the backend process for *port* gracefully.
+
+    Returns True if the backend port is free afterwards. If the recorded PID is
+    missing or stale, fall back to the listener on the project port, but only
+    kill a discovered process whose command line matches MinionsOS' uvicorn
+    backend.
+    """
+    if pid is not None:
+        _terminate_backend_pid(port, pid)
+        if _port_is_free(port):
+            return True
+
+    if _port_is_free(port):
+        return True
+
+    fallback_pids = [p for p in _backend_listener_pids(port) if p != pid]
+    for fallback_pid in fallback_pids:
+        if not _is_minions_backend_pid(fallback_pid, port):
+            logger.warning(
+                "Refusing to stop unverified listener PID=%d on port %d; command=%r",
+                fallback_pid,
+                port,
+                _pid_command(fallback_pid),
+            )
+            continue
+        logger.info(
+            "Stopping backend listener PID=%d discovered on port %d after stale/missing meta PID.",
+            fallback_pid,
+            port,
+        )
+        _terminate_backend_pid(port, fallback_pid)
+        if _port_is_free(port):
+            return True
+
+    logger.warning("Backend on port %d is still listening after stop attempt.", port)
+    return False
+
+
+class _AdoptedBackend:
+    """Small proc-like wrapper for a backend already running on the project port."""
+
+    def __init__(self, pid: int) -> None:
+        self.pid = pid
+
+    def terminate(self) -> None:
+        # This process predates revive; leave it running if a later revive step
+        # fails so the operator can inspect/repair without another side effect.
+        return None
+
+
+def _adopt_running_backend(port: int) -> _AdoptedBackend | None:
+    """Return an existing MinionsOS backend for *port*, if safely identifiable."""
+    try:
+        resp = httpx.get(f"http://127.0.0.1:{port}/health", timeout=2.0)
+        if resp.status_code != 200:
+            return None
+    except Exception:
+        return None
+
+    for pid in _backend_listener_pids(port):
+        if _is_minions_backend_pid(pid, port):
+            logger.info("Adopting already-running backend PID=%d on port %d.", pid, port)
+            return _AdoptedBackend(pid)
+    return None
 
 
 def _stop_role_process(port: int, role_name: str, pid: int | None) -> str:
@@ -746,7 +925,8 @@ def project_dormant(
         backend_pid = raw_dict.get("backend_pid")  # type: ignore[assignment]
     except (ProjectError, Exception):
         pass
-    _stop_backend(port, backend_pid)
+    if _stop_backend(port, backend_pid) is False:
+        raise ProjectError(f"Could not stop backend on port {port}; project left active.")
 
     now = _now_iso()
     ts = now.replace(":", "-").replace(".", "-")
@@ -790,7 +970,10 @@ def project_close(
             backend_pid = json.loads(raw).get("backend_pid")
         except Exception:
             backend_pid = None
-        _stop_backend(port, backend_pid)
+        if _stop_backend(port, backend_pid) is False:
+            raise ProjectError(
+                f"Could not stop backend on port {port}; project left {entry.status}."
+            )
 
     now = _now_iso()
     ts = now.replace(":", "-").replace(".", "-")
@@ -841,7 +1024,8 @@ def project_kill(
             backend_pid = int(raw_pid)
     except Exception as exc:
         logger.debug("project_kill: backend_pid unavailable port=%d: %s", port, exc)
-    _stop_backend(port, backend_pid)
+    if _stop_backend(port, backend_pid) is False:
+        raise ProjectError(f"Could not stop backend on port {port}; project left {entry.status}.")
 
     role_results: list[dict[str, object]] = []
     for role in entry.active_roles:
@@ -899,14 +1083,24 @@ def project_revive(
         raise ProjectError(f"project_revive requires dormant status; got {entry.status!r}.")
 
     logger.info("project_revive port=%d", port)
+    raw_meta = _read_meta_raw(port)
 
-    # Re-start backend.
-    proc = _start_backend(port)
+    # Re-start backend. If a previous kill/dormant attempt left the backend
+    # running despite marking the project dormant, safely adopt that backend
+    # instead of failing forever on "port already occupied".
     try:
-        _wait_for_health(port)
+        proc = _start_backend(port)
     except BackendError:
-        proc.terminate()
-        raise
+        adopted = _adopt_running_backend(port)
+        if adopted is None:
+            raise
+        proc = adopted
+    else:
+        try:
+            _wait_for_health(port)
+        except BackendError:
+            proc.terminate()
+            raise
 
     # Re-register server with the fresh EACN3 backend (FATAL on failure).
     try:
@@ -941,20 +1135,19 @@ def project_revive(
 
     # Restore roles to sleeping state and re-register each project-local AgentCard
     # on the fresh EACN3 backend before exposing them in projects.json.
-    revived_roles = []
+    revived_roles: list[RoleEntry] = []
     try:
         from minions.lifecycle.agent_registry import register_project_role_agent
 
-        for r in entry.active_roles:
-            restored = r.model_copy(update={"state": "sleeping", "pid": None})
+        for restored in _roles_for_revive(entry, raw_meta):
             role_token, _role_seeds = register_project_role_agent(
                 port,
-                r.name,
+                restored.name,
                 server_id=server_id,
             )
             restored = restored.model_copy(
                 update={
-                    "eacn_agent_id": r.name,
+                    "eacn_agent_id": restored.name,
                     "eacn_agent_token": role_token,
                     "eacn_registered_at": now,
                 }

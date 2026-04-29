@@ -169,6 +169,120 @@ def test_revive_updates_and_preserves_meta_extras(
     assert meta["template_dir"] == "/tmp/tpl"
 
 
+def test_revive_adopts_running_backend_left_by_failed_kill(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    port = 40112
+    store, entry, pdir = _seed_project(tmp_path, port=port)
+    dormant = entry.model_copy(update={"status": "dormant", "dormant_at": "x"})
+    store.update_project(port, status="dormant", dormant_at="x")
+    (pdir / "meta.json").write_text(
+        json.dumps(
+            {
+                **dormant.model_dump(),
+                "backend_pid": 111,
+                "eacn3_server_id": "srv-old",
+                "eacn3_server_token": "tok-old",
+                "gru_agent_id": "gru",
+                "gru_agent_token": "gru-old",
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    _install_patches(
+        monkeypatch,
+        pdir,
+        backend_pid=99999,
+        server_id="srv-adopted",
+        server_token="tok-adopted",
+        gru_token="gru-adopted",
+    )
+    monkeypatch.setattr(
+        proj_mod,
+        "_start_backend",
+        lambda port: (_ for _ in ()).throw(proj_mod.BackendError("Port occupied")),
+    )
+    monkeypatch.setattr(
+        proj_mod,
+        "_adopt_running_backend",
+        lambda port: proj_mod._AdoptedBackend(777),
+    )
+
+    proj_mod.project_revive(port, store=store)
+
+    meta = json.loads((pdir / "meta.json").read_text(encoding="utf-8"))
+    assert meta["status"] == "active"
+    assert meta["backend_pid"] == 777
+    assert meta["eacn3_server_id"] == "srv-adopted"
+
+
+def test_revive_restores_noter_from_meta_and_repairs_timer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    port = 40113
+    store, entry, pdir = _seed_project(tmp_path, port=port)
+    store.update_project(port, status="dormant", dormant_at="x", active_roles=[])
+    meta_role = RoleEntry(
+        name="noter",
+        state="dismissed",
+        pid=123,
+        poll_interval=None,
+        time_trigger_interval=None,
+    )
+    dormant = entry.model_copy(
+        update={
+            "status": "dormant",
+            "dormant_at": "x",
+            "active_roles": [meta_role],
+        }
+    )
+    (pdir / "meta.json").write_text(
+        json.dumps(
+            {
+                **dormant.model_dump(),
+                "backend_pid": 111,
+                "eacn3_server_id": "srv-old",
+                "eacn3_server_token": "tok-old",
+                "gru_agent_id": "gru",
+                "gru_agent_token": "gru-old",
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    _install_patches(
+        monkeypatch,
+        pdir,
+        backend_pid=4242,
+        server_id="srv-role",
+        server_token="tok-role",
+        gru_token="gru-role",
+    )
+
+    registered: list[tuple[int, str, str]] = []
+
+    def _register_role(port: int, role_name: str, *, server_id: str | None = None):
+        registered.append((port, role_name, server_id or ""))
+        return "noter-token", []
+
+    from minions.lifecycle import agent_registry
+
+    monkeypatch.setattr(agent_registry, "register_project_role_agent", _register_role)
+
+    proj_mod.project_revive(port, store=store)
+
+    role = store.get_project(port).active_roles[0]  # type: ignore[union-attr]
+    assert registered == [(port, "noter", "srv-role")]
+    assert role.name == "noter"
+    assert role.state == "sleeping"
+    assert role.pid is None
+    assert role.poll_interval == "1m"
+    assert role.wake_policy == "any"
+    assert role.time_trigger_interval == "30m"
+    assert role.eacn_agent_token == "noter-token"
+
+
 def test_repair_gru_agent_works_after_dormant_revive(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

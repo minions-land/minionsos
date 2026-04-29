@@ -101,3 +101,49 @@ def test_project_kill_rejects_closed_project(tmp_path: Path) -> None:
 
     with pytest.raises(proj_mod.ProjectError, match="already closed"):
         proj_mod.project_kill(port, store=store)
+
+
+def test_project_kill_keeps_project_active_when_backend_cannot_stop(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    port = 40123
+    pdir = tmp_path / f"project_{port}"
+    pdir.mkdir(parents=True)
+    store = StateStore(path=tmp_path / "projects.json")
+    entry = ProjectEntry(
+        port=port,
+        real_name="Kill Fails",
+        status="active",
+        created="2026-04-28T00:00:00+00:00",
+        current_branch=f"minionsos/project-{port}",
+        active_roles=[RoleEntry(name="noter", state="sleeping")],
+    )
+    store.add_project(entry)
+    (pdir / "meta.json").write_text(
+        json.dumps({**entry.model_dump(), "backend_pid": None}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(proj_mod, "project_meta_json", lambda p: pdir / "meta.json")
+    monkeypatch.setattr(proj_mod, "_stop_backend", lambda port, pid=None: False)
+
+    with pytest.raises(proj_mod.ProjectError, match="Could not stop backend"):
+        proj_mod.project_kill(port, store=store)
+
+    assert store.get_project(port).status == "active"  # type: ignore[union-attr]
+
+
+def test_stop_backend_falls_back_to_verified_port_listener(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    port = 40124
+    calls: list[int] = []
+    free_checks = iter([False, True])
+
+    monkeypatch.setattr(proj_mod, "_port_is_free", lambda p: next(free_checks))
+    monkeypatch.setattr(proj_mod, "_backend_listener_pids", lambda p: [222])
+    monkeypatch.setattr(proj_mod, "_is_minions_backend_pid", lambda pid, p: True)
+    monkeypatch.setattr(proj_mod, "_terminate_backend_pid", lambda p, pid: calls.append(pid))
+
+    assert proj_mod._stop_backend(port, None) is True
+    assert calls == [222]
