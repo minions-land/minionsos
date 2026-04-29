@@ -7,11 +7,11 @@ export interface Toast {
   timestamp: number;
 }
 
-const STYLES: Record<Toast["type"], { border: string; bg: string; text: string; icon: string }> = {
-  info:    { border: "var(--accent-3)",       bg: "rgba(23,64,102,0.08)",   text: "var(--accent-3)",       icon: "ℹ" },
-  success: { border: "var(--status-completed)", bg: "rgba(5,150,105,0.08)",  text: "var(--status-completed)", icon: "✓" },
-  warning: { border: "var(--accent-2)",        bg: "rgba(223,109,45,0.08)", text: "var(--accent-2)",        icon: "!" },
-  error:   { border: "var(--status-error)",    bg: "rgba(220,38,38,0.08)",  text: "var(--status-error)",    icon: "✕" },
+const TYPE_COLORS: Record<Toast["type"], { border: string; accent: string; icon: string }> = {
+  info:    { border: "var(--role-noter)",       accent: "rgba(6,182,212,0.15)",   icon: "i" },
+  success: { border: "var(--status-completed)", accent: "rgba(5,150,105,0.15)",   icon: "✓" },
+  warning: { border: "var(--role-gru)",         accent: "rgba(245,158,11,0.15)",  icon: "!" },
+  error:   { border: "var(--status-error)",     accent: "rgba(220,38,38,0.15)",   icon: "✕" },
 };
 
 let _addToast: ((msg: string, type?: Toast["type"]) => void) | null = null;
@@ -27,10 +27,8 @@ export default function ToastContainer() {
   useEffect(() => {
     _addToast = (message, type = "info") => {
       const id = ++idRef.current;
-      setToasts((prev) => [...prev.slice(-4), { id, message, type, timestamp: Date.now() }]);
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 4000);
+      setToasts((prev) => [...prev.slice(-2), { id, message, type, timestamp: Date.now() }]);
+      setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
     };
     return () => { _addToast = null; };
   }, []);
@@ -39,25 +37,55 @@ export default function ToastContainer() {
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none"
+      className="fixed bottom-20 right-4 flex flex-col gap-2 pointer-events-none"
+      style={{ zIndex: "var(--z-toast)" }}
       aria-live="polite"
       aria-label="Notifications"
     >
       {toasts.map((t) => {
-        const s = STYLES[t.type];
+        const c = TYPE_COLORS[t.type];
         return (
           <div
             key={t.id}
             role="status"
-            className="pointer-events-auto border-l-4 rounded-xl px-4 py-2.5 text-xs font-medium shadow-lg backdrop-blur-sm animate-slide-in flex items-center gap-2"
+            className="pointer-events-auto animate-slide-up"
             style={{
-              borderLeftColor: s.border,
-              background: s.bg,
-              color: s.text,
-              boxShadow: "var(--shadow-lg)",
+              background: "var(--panel-bg)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              borderLeft: `3px solid ${c.border}`,
+              border: `1px solid var(--line)`,
+              borderLeftColor: c.border,
+              borderLeftWidth: 3,
+              borderRadius: "var(--radius-xs)",
+              padding: "10px 14px",
+              fontSize: 12,
+              fontFamily: "var(--font-mono)",
+              color: "var(--text-2)",
+              boxShadow: "var(--shadow-panel)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              maxWidth: 340,
             }}
           >
-            <span className="font-mono text-[11px] shrink-0" aria-hidden="true">{s.icon}</span>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                flexShrink: 0,
+                width: 18,
+                height: 18,
+                borderRadius: "50%",
+                display: "grid",
+                placeItems: "center",
+                background: c.accent,
+                color: c.border,
+              }}
+              aria-hidden="true"
+            >
+              {c.icon}
+            </span>
             {t.message}
           </div>
         );

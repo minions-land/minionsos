@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { MagnifyingGlass, X } from "@phosphor-icons/react";
 import type { Task, AgentInfo, LogEntry } from "@shared/types";
-import { shortId, statusLabel, statusColor, logColor, timeAgo } from "../utils/format";
-import { useI18n } from "../i18n";
+import { shortId, statusLabel, timeAgo } from "../utils/format";
 
 interface Props {
   tasks: Task[];
@@ -18,11 +18,19 @@ type ResultItem =
   | { kind: "log"; log: LogEntry; index: number };
 
 export default function GlobalSearch({ tasks, agents, logs, onSelectAgent, onSelectTask, onClose }: Props) {
-  const { t, locale } = useI18n();
   const [query, setQuery] = useState("");
+  const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
 
   const results = useMemo<ResultItem[]>(() => {
     const q = query.trim().toLowerCase();
@@ -38,7 +46,7 @@ export default function GlobalSearch({ tasks, agents, logs, onSelectAgent, onSel
       ) {
         items.push({ kind: "agent", agent: a });
       }
-      if (items.length >= 50) break;
+      if (items.length >= 30) break;
     }
 
     for (const tk of tasks) {
@@ -46,21 +54,19 @@ export default function GlobalSearch({ tasks, agents, logs, onSelectAgent, onSel
       if (
         tk.id.toLowerCase().includes(q) ||
         desc.toLowerCase().includes(q) ||
-        tk.domains.some((d) => d.toLowerCase().includes(q)) ||
-        tk.initiator_id.toLowerCase().includes(q)
+        tk.domains.some((d) => d.toLowerCase().includes(q))
       ) {
         items.push({ kind: "task", task: tk });
       }
-      if (items.length >= 80) break;
+      if (items.length >= 60) break;
     }
 
-    for (let i = 0; i < logs.length && items.length < 100; i++) {
+    for (let i = 0; i < logs.length && items.length < 80; i++) {
       const l = logs[i];
       if (
         l.fn_name.toLowerCase().includes(q) ||
         l.task_id?.toLowerCase().includes(q) ||
-        l.agent_id?.toLowerCase().includes(q) ||
-        l.error?.toLowerCase().includes(q)
+        l.agent_id?.toLowerCase().includes(q)
       ) {
         items.push({ kind: "log", log: l, index: i });
       }
@@ -68,6 +74,8 @@ export default function GlobalSearch({ tasks, agents, logs, onSelectAgent, onSel
 
     return items;
   }, [query, agents, tasks, logs]);
+
+  useEffect(() => { setActiveIdx(0); }, [results]);
 
   function handleSelect(item: ResultItem) {
     if (item.kind === "agent") onSelectAgent(item.agent.agent_id);
@@ -79,136 +87,269 @@ export default function GlobalSearch({ tasks, agents, logs, onSelectAgent, onSel
     onClose();
   }
 
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((i) => Math.min(i + 1, results.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter" && results[activeIdx]) {
+      e.preventDefault();
+      handleSelect(results[activeIdx]);
+    }
+  }
+
+  // Group results for display
+  const agentResults = results.filter((r): r is Extract<ResultItem, { kind: "agent" }> => r.kind === "agent");
+  const taskResults = results.filter((r): r is Extract<ResultItem, { kind: "task" }> => r.kind === "task");
+  const logResults = results.filter((r): r is Extract<ResultItem, { kind: "log" }> => r.kind === "log");
+
+  let flatIdx = -1;
+
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-start justify-center pt-20"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: "var(--z-modal)",
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        paddingTop: 80,
+      }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label="Global search"
     >
-      <div className="absolute inset-0 backdrop-blur-sm" style={{ background: "rgba(0,0,0,0.2)" }} />
+      {/* Scrim */}
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }} />
+
+      {/* Modal */}
       <div
-        className="relative w-full max-w-xl rounded-3xl overflow-hidden animate-slide-up"
-        style={{
-          background: "var(--bg-soft)",
-          border: "1px solid var(--line)",
-          boxShadow: "var(--shadow-xl)",
-        }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
+        style={{
+          position: "relative",
+          width: "min(540px, 92vw)",
+          background: "var(--panel-bg)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          border: "1px solid var(--line)",
+          borderRadius: "var(--radius)",
+          boxShadow: "var(--shadow-panel)",
+          overflow: "hidden",
+          animation: "modal-in 250ms var(--ease-out)",
+        }}
       >
-        {/* Search input */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: "var(--line)" }}>
-          <svg className="w-4 h-4 shrink-0" style={{ color: "var(--muted)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+        <style>{`
+          @keyframes modal-in {
+            from { opacity: 0; transform: scale(0.95); }
+            to   { opacity: 1; transform: scale(1); }
+          }
+        `}</style>
+
+        {/* Input */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "14px 16px",
+          borderBottom: "1px solid var(--line)",
+        }}>
+          <MagnifyingGlass size={16} style={{ color: "var(--muted)", flexShrink: 0 }} />
           <input
             ref={inputRef}
             type="text"
-            placeholder={t("search.placeholder")}
+            placeholder="Search agents, tasks, messages..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search agents, tasks, and events"
-            className="flex-1 bg-transparent text-sm focus:outline-none"
-            style={{ color: "var(--text)" }}
+            aria-label="Search"
+            style={{
+              flex: 1,
+              background: "transparent",
+              border: "none",
+              outline: "none",
+              color: "var(--text)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 13,
+            }}
           />
-          <kbd className="kbd">ESC</kbd>
+          <span className="kbd">ESC</span>
         </div>
 
         {/* Results */}
-        <div className="max-h-[400px] overflow-y-auto" role="listbox" aria-label="Search results">
-          {query.length >= 2 && results.length === 0 && (
-            <div className="p-8 text-center">
-              <div className="empty-state">
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <span>{t("search.noResults")}</span>
-              </div>
-            </div>
-          )}
-
+        <div style={{ maxHeight: 400, overflowY: "auto" }} role="listbox" aria-label="Search results">
           {query.length < 2 && (
-            <div className="p-6 text-center text-xs" style={{ color: "var(--muted)" }}>
-              Type at least 2 characters to search agents, tasks, and events.
+            <div style={{ padding: 24, textAlign: "center", fontSize: 11, color: "var(--muted)" }}>
+              Type at least 2 characters to search.
             </div>
           )}
 
-          {results.map((item, i) => {
-            if (item.kind === "agent") {
-              const a = item.agent;
-              return (
-                <button
-                  key={`a-${a.agent_id}`}
-                  onClick={() => handleSelect(item)}
-                  role="option"
-                  className="w-full flex items-center gap-3 px-5 py-3 text-left border-b transition-colors hover:bg-[rgba(23,23,23,0.04)]"
-                  style={{ borderColor: "var(--line-soft)" }}
-                >
-                  <span
-                    className="text-[10px] px-2 py-0.5 rounded-full font-mono shrink-0"
-                    style={{ background: "var(--accent-3)", color: "#fff" }}
+          {query.length >= 2 && results.length === 0 && (
+            <div style={{ padding: 32, textAlign: "center" }}>
+              <MagnifyingGlass size={28} weight="thin" style={{ color: "var(--muted)", opacity: 0.4, marginBottom: 8 }} />
+              <div style={{ fontSize: 11, color: "var(--muted)" }}>No results found.</div>
+            </div>
+          )}
+
+          {/* Agents group */}
+          {agentResults.length > 0 && (
+            <div>
+              <div style={{
+                padding: "8px 16px 4px",
+                fontFamily: "var(--font-mono)",
+                fontSize: 9,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "var(--muted)",
+              }}>
+                Agents
+              </div>
+              {agentResults.map((item) => {
+                flatIdx++;
+                const isActive = flatIdx === activeIdx;
+                const a = item.agent;
+                return (
+                  <button
+                    key={`a-${a.agent_id}`}
+                    onClick={() => handleSelect(item)}
+                    role="option"
+                    aria-selected={isActive}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "8px 16px",
+                      border: "none",
+                      background: isActive ? "var(--surface)" : "transparent",
+                      color: "var(--text-2)",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
                   >
-                    Agent
-                  </span>
-                  <span className="text-sm truncate flex-1" style={{ color: "var(--text)" }}>{a.name}</span>
-                  <span className="text-xs font-mono shrink-0" style={{ color: "var(--muted)" }}>{shortId(a.agent_id)}</span>
-                  <span className="text-xs font-mono shrink-0" style={{ color: "var(--accent-2)" }}>{a.reputation.toFixed(2)}</span>
-                </button>
-              );
-            }
-            if (item.kind === "task") {
-              const tk = item.task;
-              const desc = typeof tk.content.description === "string" ? tk.content.description : "";
-              return (
-                <button
-                  key={`t-${tk.id}`}
-                  onClick={() => handleSelect(item)}
-                  role="option"
-                  className="w-full flex items-center gap-3 px-5 py-3 text-left border-b transition-colors hover:bg-[rgba(23,23,23,0.04)]"
-                  style={{ borderColor: "var(--line-soft)" }}
-                >
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full text-white shrink-0 ${statusColor(tk.status)}`}>
-                    {statusLabel(tk.status, locale)}
-                  </span>
-                  <span className="text-sm truncate flex-1" style={{ color: "var(--text)" }}>
-                    {desc || shortId(tk.id)}
-                  </span>
-                  <span className="text-xs font-mono shrink-0" style={{ color: "var(--muted)" }}>{shortId(tk.id)}</span>
-                </button>
-              );
-            }
-            if (item.kind === "log") {
-              const l = item.log;
-              return (
-                <button
-                  key={`l-${item.index}`}
-                  onClick={() => handleSelect(item)}
-                  role="option"
-                  className="w-full flex items-center gap-3 px-5 py-3 text-left border-b transition-colors hover:bg-[rgba(23,23,23,0.04)]"
-                  style={{ borderColor: "var(--line-soft)" }}
-                >
-                  <span
-                    className="text-[10px] px-2 py-0.5 rounded-full font-mono shrink-0"
-                    style={{ background: "rgba(23,23,23,0.08)", color: "var(--muted)" }}
+                    <span className="pill" style={{ fontSize: 9 }}>Agent</span>
+                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)" }}>{shortId(a.agent_id)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Tasks group */}
+          {taskResults.length > 0 && (
+            <div>
+              <div style={{
+                padding: "8px 16px 4px",
+                fontFamily: "var(--font-mono)",
+                fontSize: 9,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "var(--muted)",
+              }}>
+                Tasks
+              </div>
+              {taskResults.map((item) => {
+                flatIdx++;
+                const isActive = flatIdx === activeIdx;
+                const tk = item.task;
+                const desc = typeof tk.content.description === "string" ? tk.content.description : "";
+                return (
+                  <button
+                    key={`t-${tk.id}`}
+                    onClick={() => handleSelect(item)}
+                    role="option"
+                    aria-selected={isActive}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "8px 16px",
+                      border: "none",
+                      background: isActive ? "var(--surface)" : "transparent",
+                      color: "var(--text-2)",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
                   >
-                    Log
-                  </span>
-                  <span className={`text-xs font-medium ${logColor(l.fn_name)}`}>{l.fn_name}</span>
-                  {l.task_id && <span className="text-xs font-mono" style={{ color: "var(--muted)" }}>{shortId(l.task_id)}</span>}
-                  {l.agent_id && <span className="text-xs font-mono" style={{ color: "var(--muted)" }}>{shortId(l.agent_id)}</span>}
-                  <span className="text-[10px] font-mono ml-auto shrink-0" style={{ color: "var(--muted-2)" }}>{timeAgo(l.timestamp, locale)}</span>
-                </button>
-              );
-            }
-            return null;
-          })}
+                    <span className="badge" style={{ background: "var(--status-bidding)", color: "#fff", fontSize: 9 }}>
+                      {statusLabel(tk.status)}
+                    </span>
+                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {desc || shortId(tk.id)}
+                    </span>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)" }}>{shortId(tk.id)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Messages/Logs group */}
+          {logResults.length > 0 && (
+            <div>
+              <div style={{
+                padding: "8px 16px 4px",
+                fontFamily: "var(--font-mono)",
+                fontSize: 9,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "var(--muted)",
+              }}>
+                Messages
+              </div>
+              {logResults.map((item) => {
+                flatIdx++;
+                const isActive = flatIdx === activeIdx;
+                const l = item.log;
+                return (
+                  <button
+                    key={`l-${item.index}`}
+                    onClick={() => handleSelect(item)}
+                    role="option"
+                    aria-selected={isActive}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "8px 16px",
+                      border: "none",
+                      background: isActive ? "var(--surface)" : "transparent",
+                      color: "var(--text-2)",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--role-noter)" }}>{l.fn_name}</span>
+                    {l.task_id && <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)" }}>{shortId(l.task_id)}</span>}
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted-2)", marginLeft: "auto" }}>
+                      {timeAgo(l.timestamp)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         {query.length >= 2 && results.length > 0 && (
-          <div className="px-5 py-2.5 border-t text-[10px] font-mono" style={{ borderColor: "var(--line)", color: "var(--muted)" }}>
-            {results.length} {t("search.resultsFooter")}
+          <div style={{
+            padding: "8px 16px",
+            borderTop: "1px solid var(--line)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            color: "var(--muted)",
+          }}>
+            {results.length} results · ↑↓ navigate · ↵ select
           </div>
         )}
       </div>

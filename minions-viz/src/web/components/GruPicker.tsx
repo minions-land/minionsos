@@ -1,93 +1,149 @@
 import { selectGru } from "../hooks/useStore";
 import type { GruInfo } from "@shared/types";
+import { Crown } from "@phosphor-icons/react";
 
-interface Props { grus: GruInfo[]; }
+interface Props {
+  grus: GruInfo[];
+}
 
-function freshness(lastSeen: string | null): { label: string; dotClass: string; isLive: boolean } {
-  if (!lastSeen) return { label: "never", dotClass: "bg-neutral-400", isLive: false };
+function freshness(lastSeen: string | null): { label: string; isLive: boolean } {
+  if (!lastSeen) return { label: "never", isLive: false };
   const age = Date.now() - new Date(lastSeen).getTime();
-  if (age <= 30_000)  return { label: "live",   dotClass: "bg-emerald-500", isLive: true };
-  if (age <= 120_000) return { label: "recent", dotClass: "bg-amber-500",   isLive: false };
-  return { label: "stale", dotClass: "bg-red-400", isLive: false };
+  if (age <= 30_000) return { label: "live", isLive: true };
+  if (age <= 120_000) return { label: "recent", isLive: false };
+  return { label: "stale", isLive: false };
 }
 
 export default function GruPicker({ grus }: Props) {
-  // Sort: live first, then recent, then stale/never
   const sorted = [...grus].sort((a, b) => {
     const order = (g: GruInfo) => {
       const f = freshness(g.lastSeen);
-      if (f.label === "live")   return 0;
+      if (f.label === "live") return 0;
       if (f.label === "recent") return 1;
-      if (f.label === "stale")  return 2;
-      return 3;
+      return 2;
     };
     return order(a) - order(b);
   });
 
   return (
-    <div className="absolute inset-0 overflow-auto p-8" style={{ background: "var(--bg-page)" }}>
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-8">
-          <div className="font-mono text-[10px] text-indigo-600 tracking-[0.14em] uppercase mb-1">MinionsOS</div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text)" }}>Gru Installations</h1>
-          <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
+    <div style={{
+      position: "absolute",
+      inset: 0,
+      overflow: "auto",
+      padding: 32,
+      background: "var(--bg-space)",
+    }}>
+      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+        {/* Header */}
+        <div style={{ marginBottom: 32 }}>
+          <div className="section-label" style={{ marginBottom: 4 }}>MinionsOS</div>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--text)", margin: 0 }}>
+            Gru Installations
+          </h1>
+          <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
             Each Gru is one MinionsOS checkout on this host. Pick one to view its projects.
           </p>
         </div>
 
         {grus.length === 0 && (
-          <div className="surface-card p-8 text-center">
+          <div className="surface-card" style={{ padding: 40, textAlign: "center" }}>
             <div className="empty-state">
-              <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
+              <Crown size={40} weight="thin" style={{ color: "var(--muted)", opacity: 0.4 }} />
               <p style={{ color: "var(--muted)" }}>
-                No Grus registered yet.{" "}
-                Run <code className="font-mono text-xs bg-neutral-100 px-1.5 py-0.5 rounded">./gru</code> in any
-                MinionsOS checkout to register it.
+                No Grus registered yet. Run <code style={{
+                  fontFamily: "var(--font-mono)", fontSize: 11,
+                  background: "var(--surface)", padding: "2px 6px", borderRadius: 4,
+                }}>./gru</code> in any MinionsOS checkout.
               </p>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {sorted.map((g) => {
-            const active  = g.projects.filter((p) => p.status === "active").length;
-            const dormant = g.projects.filter((p) => p.status === "dormant").length;
-            const closed  = g.projects.filter((p) => p.status === "closed").length;
+        {/* Cards grid */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
+          gap: 16,
+        }}>
+          {sorted.map((g, idx) => {
             const f = freshness(g.lastSeen);
+            const active = g.projects.filter((p) => p.status === "active").length;
+            const dormant = g.projects.filter((p) => p.status === "dormant").length;
+            const closed = g.projects.filter((p) => p.status === "closed").length;
+
             return (
               <button
                 key={g.id}
                 onClick={() => selectGru(g.id)}
-                className={`surface-card text-left p-5 transition-all ${f.isLive ? "ring-2 ring-indigo-500 ring-offset-1" : "opacity-60 hover:opacity-80"}`}
-                style={{ cursor: "pointer" }}
+                className="animate-fade-in"
+                style={{
+                  animationDelay: `${idx * 80}ms`,
+                  animationFillMode: "both",
+                  textAlign: "left",
+                  padding: 20,
+                  borderRadius: "var(--radius-sm)",
+                  border: `1px solid ${f.isLive ? "var(--role-gru)" : "var(--line)"}`,
+                  background: "var(--panel-bg)",
+                  backdropFilter: "blur(16px)",
+                  WebkitBackdropFilter: "blur(16px)",
+                  boxShadow: f.isLive ? "0 0 20px rgba(245,158,11,0.15)" : "var(--shadow-panel)",
+                  opacity: f.isLive ? 1 : 0.6,
+                  cursor: "pointer",
+                  transition: `opacity 200ms var(--ease-out), border-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out)`,
+                }}
+                onMouseEnter={(e) => {
+                  if (!f.isLive) (e.currentTarget as HTMLElement).style.opacity = "0.85";
+                }}
+                onMouseLeave={(e) => {
+                  if (!f.isLive) (e.currentTarget as HTMLElement).style.opacity = "0.6";
+                }}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-mono text-[11px]" style={{ color: "var(--muted)" }}>gru · {g.id}</div>
-                    <div className={`text-base font-semibold truncate mt-0.5 ${f.isLive ? "" : "opacity-70"}`} style={{ color: "var(--text)" }}>{g.label}</div>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)" }}>
+                      gru · {g.id}
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {g.label}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                     {f.isLive && (
-                      <span className="text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-indigo-600 text-white">
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, letterSpacing: "0.08em",
+                        padding: "2px 6px", borderRadius: "var(--radius-pill)",
+                        background: "var(--role-gru)", color: "#000",
+                      }}>
                         LIVE
                       </span>
                     )}
-                    <span
-                      className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase px-2 py-1 rounded-full border"
-                      style={{ background: "var(--surface)", borderColor: "var(--line)", color: "var(--muted)" }}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${f.dotClass}`} />
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: 5,
+                      fontSize: 10, fontFamily: "var(--font-mono)",
+                      padding: "3px 8px", borderRadius: "var(--radius-pill)",
+                      border: "1px solid var(--line)", background: "var(--surface)",
+                      color: "var(--muted)",
+                    }}>
+                      <span style={{
+                        width: 6, height: 6, borderRadius: "50%",
+                        background: f.isLive ? "#10B981" : f.label === "recent" ? "#F59E0B" : "#EF4444",
+                      }} />
                       {f.label}
                     </span>
                   </div>
                 </div>
-                <div className="font-mono text-[10px] truncate mt-1" style={{ color: "var(--muted-2)" }}>{g.rootPath}</div>
-                <div className="mt-3 grid grid-cols-3 gap-x-3 text-xs" style={{ color: "var(--muted)" }}>
-                  <div>Active: <span className="font-semibold" style={{ color: "var(--text)" }}>{active}</span></div>
-                  <div>Dormant: <span className="font-semibold" style={{ color: "var(--text)" }}>{dormant}</span></div>
-                  <div>Closed: <span className="font-semibold" style={{ color: "var(--text)" }}>{closed}</span></div>
+
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted-2)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {g.rootPath}
+                </div>
+
+                <div style={{
+                  display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
+                  gap: 8, marginTop: 14, fontSize: 11, color: "var(--muted)",
+                }}>
+                  <div>Active: <span style={{ color: "var(--text)", fontWeight: 600 }}>{active}</span></div>
+                  <div>Dormant: <span style={{ color: "var(--text)", fontWeight: 600 }}>{dormant}</span></div>
+                  <div>Closed: <span style={{ color: "var(--text)", fontWeight: 600 }}>{closed}</span></div>
                 </div>
               </button>
             );

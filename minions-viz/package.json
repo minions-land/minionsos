@@ -1,24 +1,26 @@
 {
-  "name": "minions-viz",
+  "name": "minions-viz-v2",
   "version": "0.1.0",
-  "description": "MinionsVIZ — read-only Observatory dashboard for MinionsOS V4",
+  "description": "MinionsVIZ V2 — Mission Control Observatory for MinionsOS",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
     "dev:server": "tsx watch src/server/index.ts",
     "dev:web": "vite",
     "build": "vite build && tsc --project tsconfig.server.json",
-    "build:static": "GITHUB_PAGES=true vite build",
     "start": "npx tsx src/server/index.ts"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.0",
     "@xyflow/react": "^12.0.0",
     "cors": "^2.8.5",
     "dagre": "^0.8.5",
     "express": "^4.21.0",
     "ws": "^8.18.0",
     "react": "^18.3.0",
-    "react-dom": "^18.3.0"
+    "react-dom": "^18.3.0",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

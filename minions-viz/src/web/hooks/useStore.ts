@@ -47,6 +47,7 @@ let wsRef: WebSocket | null = null;
 function notify() { listeners.forEach((l) => l()); }
 
 function applyMessage(msg: WsMessage) {
+  console.log("[ws]", msg.type, msg.type === "snapshot" ? `grus=${msg.data.grus?.length} gruId=${msg.data.selectedGruId} port=${msg.data.selectedPort} conn=${msg.data.connected}` : "");
   switch (msg.type) {
     case "snapshot": snapshot = { ...msg.data }; break;
     case "tasks:update": snapshot = { ...snapshot, tasks: msg.data, lastUpdate: Date.now() }; break;
@@ -92,6 +93,7 @@ function sendSelect(sel: Saved) {
 }
 
 export function select(gruId: string | null, port: number | null) {
+  console.log("[select]", "gruId=", gruId, "port=", port, "wsOpen=", wsRef?.readyState === WebSocket.OPEN);
   const sel: Saved = { gruId, port };
   saveSelection(sel);
   sendSelect(sel);
@@ -120,12 +122,13 @@ function startWebSocket(): () => void {
     const ws = new WebSocket(`${proto}//${location.host}/ws`);
     wsRef = ws;
     ws.onopen = () => {
+      console.log("[ws] OPEN");
       const saved = getSavedSelection();
       if (saved.gruId || saved.port != null) sendSelect(saved);
     };
     ws.onmessage = (e) => { try { applyMessage(JSON.parse(e.data)); } catch {} };
-    ws.onclose = () => { if (!cancelled) reconnectTimer = setTimeout(connect, 2000); };
-    ws.onerror = () => ws.close();
+    ws.onclose = () => { console.log("[ws] CLOSE, cancelled=", cancelled); if (!cancelled) reconnectTimer = setTimeout(connect, 2000); };
+    ws.onerror = () => { console.log("[ws] ERROR"); ws.close(); };
   }
   connect();
   return () => {

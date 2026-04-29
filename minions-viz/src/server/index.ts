@@ -24,8 +24,9 @@ import {
   getOverview, getScratchpads, getScratchpad, getArtifactsTree,
   getArtifact, tailLog, listRoleSystemPrompts,
 } from "./mosFs.js";
+import roleLogRouter from "./roleLog.js";
 
-const PORT = Number(process.env.PORT) || 7891;
+const PORT = Number(process.env.PORT) || 7893;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
@@ -43,6 +44,7 @@ wss.on("connection", (ws: WebSocket) => {
         const gruId = typeof msg.gruId === "string" ? msg.gruId : null;
         const port = typeof msg.port === "number" ? msg.port : null;
         setSelection(ws, { gruId, port });
+        if (gruId && port != null) pollPairNow(gruId, port);
       } else if (msg.type === "select_project") {
         // legacy: keep existing gruId if any, else pick first online Gru
         const cur = getSelection(ws);
@@ -62,6 +64,14 @@ wss.on("connection", (ws: WebSocket) => {
 
 // ── HTTP routes ─────────────────────────────────────────────────────
 const webDir = path.resolve(__dirname, "../../dist/web");
+
+app.use(express.static(webDir, {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith(".html")) {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    }
+  },
+}));
 
 function resolveGruAndPort(req: express.Request, res: express.Response): { gruId: string; port: number } | null {
   const gruId = String(req.query.gru ?? "");
@@ -136,6 +146,8 @@ app.get("/api/mos/project/:port/log", (req, res) => {
   res.type("text/plain").send(content);
 });
 
+app.use(roleLogRouter);
+
 app.use(express.static(webDir));
 app.get("*", (_req, res) => res.sendFile(path.join(webDir, "index.html")));
 
@@ -151,6 +163,30 @@ function ctxFor(gruId: string, port: number): PollCtx {
 
 async function pollRegistry() {
   setGrus(loadGrus());
+}
+
+async function pollPairNow(gruId: string, port: number) {
+  const ep = endpointForPort(port);
+  const ok = await checkHealth(ep);
+  setConnected(gruId, port, ok);
+  if (!ok) return;
+  ensurePair(gruId, port);
+  const [tasks, cluster, logs, messages] = await Promise.all([
+    fetchTasks(ep), fetchCluster(ep), fetchLogs(ep), fetchMessages(ep),
+  ]);
+  updateTasks(gruId, port, tasks);
+  updateCluster(gruId, port, cluster);
+  if (logs.length > 0) updateLogs(gruId, port, logs);
+  if (messages.length > 0) updateMessages(gruId, port, messages);
+  const ctx = ctxFor(gruId, port);
+  ctx.domains = collectDomains(tasks, cluster);
+  if (cluster) {
+    for (const d of cluster.local.domains) ctx.domains.add(d);
+    for (const m of cluster.members) for (const d of m.domains) ctx.domains.add(d);
+  }
+  const cards = await fetchAgents(ep, ctx.domains);
+  const agents = await enrichAgents(ep, cards);
+  updateAgents(gruId, port, agents);
 }
 
 async function pollHealth() {

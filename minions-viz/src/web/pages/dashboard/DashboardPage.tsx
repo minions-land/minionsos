@@ -1,16 +1,16 @@
-import { useStore } from "../../hooks/useStore";
+import type { NetworkSnapshot } from "@shared/types";
 import MetricBar from "./MetricBar";
 import AgentsPanel from "./AgentsPanel";
 import TasksPanel from "./TasksPanel";
 import MessagesPanel from "./MessagesPanel";
 
 interface Props {
+  store: NetworkSnapshot;
   onSelectAgent: (id: string) => void;
   onSelectTask: (id: string) => void;
 }
 
-export default function DashboardPage({ onSelectAgent, onSelectTask }: Props) {
-  const store = useStore();
+export default function DashboardPage({ store, onSelectAgent, onSelectTask }: Props) {
   return (
     <div className="page-container">
       <div className="max-w-[1600px] mx-auto space-y-5">

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { WifiSlash, Robot } from "@phosphor-icons/react";
-import { useStore, gruById, projectByPort } from "../../hooks/useStore";
+import { gruById, projectByPort } from "../../hooks/useStore";
+import type { NetworkSnapshot } from "@shared/types";
 import { useAnimationFrame } from "../../hooks/useAnimationFrame";
 import { useOrbitalEngine } from "./useOrbitalEngine";
 import { SolarSystemCanvas } from "./SolarSystemCanvas";
@@ -9,11 +10,11 @@ import { PlanetNode } from "./PlanetNode";
 import EmptyState from "../../components/EmptyState";
 
 interface Props {
+  store: NetworkSnapshot;
   onSelectAgent: (id: string) => void;
 }
 
-export default function SolarSystemPage({ onSelectAgent }: Props) {
-  const store = useStore();
+export default function SolarSystemPage({ store, onSelectAgent }: Props) {
   const gru = gruById(store.grus, store.selectedGruId);
   const project = gru ? projectByPort(gru.projects, store.selectedPort) : null;
   const projectName = project?.real_name ?? "Project";

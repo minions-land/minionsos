@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useStore } from "../../hooks/useStore";
+import type { NetworkSnapshot } from "@shared/types";
 import {
   Terminal as TerminalIcon,
   Rows,
@@ -21,8 +21,9 @@ const MODE_OPTIONS: { mode: Mode; icon: typeof Rows; label: string }[] = [
   { mode: "grid", icon: GridFour, label: "Grid" },
 ];
 
-export default function TerminalPage() {
-  const store = useStore();
+interface Props { store: NetworkSnapshot; }
+
+export default function TerminalPage({ store }: Props) {
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("single");
 

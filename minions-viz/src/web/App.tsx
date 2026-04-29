@@ -1,194 +1,175 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useStore, gruById, projectByPort, selectProject } from "./hooks/useStore";
-import { I18nProvider } from "./i18n";
+import type { Page } from "./components/BottomDock";
 import TopBar from "./components/TopBar";
-import Dashboard from "./components/Dashboard";
-import AgentsView from "./components/AgentsView";
-import TasksBoard from "./components/TasksBoard";
-import TaskTree from "./components/TaskTree";
-import EventLog from "./components/EventLog";
-import NetworkGraph from "./components/NetworkGraph";
-import NoterView from "./components/NoterView";
-import AgentDetail from "./components/AgentDetail";
-import TaskDetail from "./components/TaskDetail";
-import GlobalSearch from "./components/GlobalSearch";
-import ToastContainer, { toast } from "./components/ToastContainer";
+import BottomDock from "./components/BottomDock";
 import GruPicker from "./components/GruPicker";
 import ProjectPicker from "./components/ProjectPicker";
-import OverviewTab from "./components/OverviewTab";
-import RolesTab from "./components/RolesTab";
-import ArtifactsTab from "./components/ArtifactsTab";
+import SlideOutPanel from "./components/SlideOutPanel";
+import TaskDetailModal from "./components/TaskDetailModal";
+import GlobalSearch from "./components/GlobalSearch";
+import ToastContainer from "./components/ToastContainer";
+import SolarSystemPage from "./pages/solar-system/SolarSystemPage";
+import DashboardPage from "./pages/dashboard/DashboardPage";
+import TerminalPage from "./pages/terminal/TerminalPage";
+import { getRoleIdentity } from "./utils/roleIdentity";
 
-export type Tab = "overview" | "roles" | "dashboard" | "network" | "agents" | "tasks" | "tree" | "artifacts" | "logs" | "noter";
-
-function AppInner() {
+export default function App() {
   const store = useStore();
-  const [tab, setTab] = useState<Tab>("overview");
+  const [page, setPage] = useState<Page>("solar");
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
   const [showSearch, setShowSearch] = useState(false);
 
   const currentGru = gruById(store.grus, store.selectedGruId);
-  const currentProject = currentGru ? projectByPort(currentGru.projects, store.selectedPort) : null;
-  const prevRef = useRef({ taskCount: 0, agentCount: 0, connected: false });
+  const currentProject = currentGru
+    ? projectByPort(currentGru.projects, store.selectedPort)
+    : null;
 
+  // Keyboard shortcuts
   useEffect(() => {
-    const prev = prevRef.current;
-    if (prev.taskCount > 0 && store.tasks.length > prev.taskCount) {
-      toast(`${store.tasks.length - prev.taskCount} new task(s)`, "info");
-    }
-    if (prev.connected && !store.connected && store.selectedPort != null) {
-      toast(`EACN3 backend on ${store.selectedPort} disconnected`, "error");
-    } else if (!prev.connected && store.connected) {
-      toast("EACN3 backend connected", "success");
-    }
-    prevRef.current = {
-      taskCount: store.tasks.length,
-      agentCount: store.agents.length,
-      connected: store.connected,
-    };
-  }, [store.tasks.length, store.agents.length, store.connected, store.selectedPort]);
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    function handler(e: KeyboardEvent) {
       if (e.key === "Escape") {
         if (showSearch) { setShowSearch(false); return; }
         if (selectedTask) { setSelectedTask(null); return; }
         if (selectedAgent) { setSelectedAgent(null); return; }
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setShowSearch((v) => !v); return; }
-      const tabMap: Record<string, Tab> = {
-        "1": "overview", "2": "roles", "3": "dashboard", "4": "network",
-        "5": "agents", "6": "tasks", "7": "tree", "8": "artifacts", "9": "logs", "0": "noter",
-      };
-      if (tabMap[e.key]) setTab(tabMap[e.key]);
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setShowSearch((v) => !v);
+      }
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "1") setPage("solar");
+      else if (e.key === "2") setPage("dashboard");
+      else if (e.key === "3") setPage("terminal");
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
   }, [showSearch, selectedTask, selectedAgent]);
 
-  const exportSnapshot = useCallback(() => {
+  const handleExport = useCallback(() => {
     const blob = new Blob([JSON.stringify(store, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `mos-snapshot-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.json`;
+    a.download = `mos-v2-snapshot-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast("Snapshot exported", "success");
   }, [store]);
 
-  const port = store.selectedPort;
-  const gruId = store.selectedGruId ?? "";
+  const accentColor = selectedAgent
+    ? getRoleIdentity(selectedAgent).color
+    : undefined;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-transparent">
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", background: "var(--bg-space)" }}>
       <TopBar
-        tab={tab} setTab={setTab}
-        connected={store.connected} endpoint={store.eacnEndpoint}
-        agentCount={store.agents.length} taskCount={store.tasks.length}
-        lastUpdate={store.lastUpdate}
-        onSearch={() => setShowSearch(true)} onExport={exportSnapshot}
-        grus={store.grus} selectedGruId={store.selectedGruId} selectedPort={store.selectedPort}
+        grus={store.grus}
+        selectedGruId={store.selectedGruId}
+        selectedPort={store.selectedPort}
+        connected={store.connected}
+        agentCount={store.agents.length}
+        taskCount={store.tasks.length}
+        onSearch={() => setShowSearch(true)}
+        onExport={handleExport}
       />
 
-      <main className="flex-1 overflow-hidden relative">
-        {!currentGru && <GruPicker grus={store.grus} />}
-        {currentGru && !currentProject && store.selectedPort == null && <ProjectPicker gru={currentGru} />}
-        {currentGru && !currentProject && store.selectedPort != null && (
-          <div className="absolute inset-0 overflow-auto p-8" style={{ background: "var(--bg-page)" }}>
-            <div className="max-w-2xl mx-auto mt-12">
-              <div className="surface-card p-8">
-                <div className="empty-state">
-                  <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
-                  </svg>
-                  <p style={{ color: "var(--text)" }} className="font-semibold">Project unavailable</p>
-                  <p style={{ color: "var(--muted)" }}>
-                    project_{store.selectedPort} is closed or no longer registered with this Gru.
-                  </p>
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={() => selectProject(null)}
-                      className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:border-indigo-400"
-                      style={{ background: "var(--surface)", borderColor: "var(--line)", color: "var(--muted)" }}
-                    >
-                      ← Back to projects
-                    </button>
-                  </div>
-                </div>
+      <main style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+        {!currentGru ? (
+          <GruPicker grus={store.grus} />
+        ) : !currentProject && store.selectedPort == null ? (
+          <ProjectPicker gru={currentGru} />
+        ) : !currentProject && store.selectedPort != null ? (
+          <div style={{
+            position: "absolute", inset: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "var(--bg-space)",
+          }}>
+            <div style={{
+              padding: 32, borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--line)", background: "var(--panel-bg)",
+              backdropFilter: "blur(16px)", textAlign: "center",
+              maxWidth: 360,
+            }}>
+              <div style={{ fontSize: 13, color: "var(--text)", marginBottom: 8 }}>
+                Project on port {store.selectedPort} is unavailable.
               </div>
+              <button
+                onClick={() => selectProject(null)}
+                style={{
+                  padding: "6px 14px", borderRadius: "var(--radius-pill)",
+                  border: "1px solid var(--line)", background: "var(--surface)",
+                  color: "var(--role-noter)", fontSize: 11, cursor: "pointer",
+                }}
+              >
+                ← Back to projects
+              </button>
             </div>
           </div>
+        ) : (
+          <>
+            <div style={{ display: page === "solar" ? "contents" : "none" }}>
+              <SolarSystemPage store={store} onSelectAgent={setSelectedAgent} />
+            </div>
+            <div style={{ display: page === "dashboard" ? "contents" : "none" }}>
+              <DashboardPage store={store} onSelectAgent={setSelectedAgent} onSelectTask={setSelectedTask} />
+            </div>
+            <div style={{ display: page === "terminal" ? "contents" : "none" }}>
+              <TerminalPage store={store} />
+            </div>
+          </>
         )}
-
-        {currentProject && !store.connected && tab !== "overview" && tab !== "roles" && tab !== "artifacts" && tab !== "logs" && (
-          <div className="absolute top-0 left-0 right-0 z-10 bg-amber-100 border-b border-amber-300 px-4 py-2 text-xs text-amber-900">
-            EACN3 backend for project_{port} is not running at 127.0.0.1:{port}.
-            Filesystem views (Overview, Roles, Artifacts) still work.
-          </div>
-        )}
-
-        {currentProject && tab === "overview" && <OverviewTab port={port!} gruId={gruId} />}
-        {currentProject && tab === "roles" && <RolesTab port={port!} gruId={gruId} project={currentProject} />}
-        {currentProject && tab === "artifacts" && <ArtifactsTab port={port!} gruId={gruId} />}
-        {currentProject && tab === "noter" && <NoterView port={port!} gruId={gruId} project={currentProject} />}
-
-        {currentProject && tab === "dashboard" && (
-          <Dashboard store={store} onSelectAgent={setSelectedAgent} onSelectTask={setSelectedTask} />
-        )}
-        {currentProject && tab === "network" && (
-          <NetworkGraph
-            tasks={store.tasks}
-            agents={store.agents}
-            messages={store.messages}
-            onSelectAgent={setSelectedAgent}
-            onSelectTask={setSelectedTask}
-          />
-        )}
-        {currentProject && tab === "agents" && (
-          <AgentsView agents={store.agents} tasks={store.tasks} onSelect={setSelectedAgent} />
-        )}
-        {currentProject && tab === "tasks" && (
-          <TasksBoard tasks={store.tasks} agents={store.agents} onSelect={setSelectedTask} />
-        )}
-        {currentProject && tab === "tree" && (
-          <TaskTree tasks={store.tasks} onSelect={setSelectedTask} />
-        )}
-        {currentProject && tab === "logs" && <EventLog logs={store.logs} />}
       </main>
 
-      {selectedAgent && (
-        <AgentDetail
-          agentId={selectedAgent} agents={store.agents} tasks={store.tasks} logs={store.logs}
-          onClose={() => setSelectedAgent(null)} onSelectTask={setSelectedTask}
-        />
+      {currentProject && (
+        <BottomDock page={page} onNavigate={setPage} />
       )}
-      {selectedTask && (
-        <TaskDetail
-          taskId={selectedTask} tasks={store.tasks} agents={store.agents}
-          onClose={() => setSelectedTask(null)} onSelectAgent={setSelectedAgent}
-          onSelectTask={setSelectedTask}
-        />
-      )}
+
+      <SlideOutPanel
+        open={selectedAgent != null}
+        onClose={() => setSelectedAgent(null)}
+        accentColor={accentColor}
+      >
+        <div style={{ padding: 20, fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-2)" }}>
+          {selectedAgent}
+        </div>
+      </SlideOutPanel>
+
+      <TaskDetailModal
+        open={selectedTask != null}
+        taskId={selectedTask}
+        tasks={store.tasks}
+        agents={store.agents}
+        onClose={() => setSelectedTask(null)}
+        onSelectAgent={setSelectedAgent}
+      />
+
       {showSearch && (
         <GlobalSearch
-          tasks={store.tasks} agents={store.agents} logs={store.logs}
+          tasks={store.tasks}
+          agents={store.agents}
+          logs={store.logs}
           onSelectAgent={(id) => { setSelectedAgent(id); setShowSearch(false); }}
           onSelectTask={(id) => { setSelectedTask(id); setShowSearch(false); }}
           onClose={() => setShowSearch(false)}
         />
       )}
-      <ToastContainer />
-    </div>
-  );
-}
 
-export default function App() {
-  return (
-    <I18nProvider>
-      <AppInner />
-    </I18nProvider>
+      <ToastContainer />
+
+      {/* Debug overlay */}
+      <div style={{
+        position: "fixed", bottom: 8, left: 8, zIndex: 99999,
+        background: "rgba(0,0,0,0.85)", color: "#0f0", fontFamily: "monospace",
+        fontSize: 10, padding: "6px 10px", borderRadius: 6, lineHeight: 1.6,
+        pointerEvents: "none", maxWidth: 400,
+      }}>
+        <div>grus: {store.grus.length} | gruId: {store.selectedGruId ?? "null"}</div>
+        <div>port: {store.selectedPort ?? "null"} | connected: {String(store.connected)}</div>
+        <div>currentGru: {currentGru?.id ?? "null"} | currentProject: {currentProject?.port ?? "null"}</div>
+        <div>agents: {store.agents.length} | tasks: {store.tasks.length}</div>
+      </div>
+    </div>
   );
 }
