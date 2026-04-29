@@ -21,6 +21,8 @@ minions/state/projects.json
 minions/state/*.db
 minions/state/*.db-shm
 minions/state/*.db-wal
+minions/state/*.pid
+minions/state/*.lock
 
 # Config files with secrets/local paths — only .example files are committed
 minions/config/*.yaml
@@ -46,6 +48,8 @@ EACN3/plugin/node_modules/
 .vscode/
 *.swp
 *.swo
+.claude/*.local.md
+**/.claude/*.local.md
 
 # EACN3 legacy patterns (from original .gitignore)
 eacn/network/config.toml
@@ -58,6 +62,8 @@ answer/
 
 # minions-viz (Observatory frontend) — commit src + dist, not installed deps
 minions-viz/node_modules/
+minions-viz/.vite/
+minions-viz-v2/.vite/
 
 # Stray dev log
 output.log

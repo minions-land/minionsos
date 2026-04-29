@@ -376,8 +376,12 @@ class GruConfig(BaseModel):
         description="Optional Codex model name. When unset, Codex CLI config/default is used.",
     )
     codex_sandbox: Literal["read-only", "workspace-write", "danger-full-access"] = Field(
-        default="workspace-write",
-        description="Codex sandbox mode for role wakeups.",
+        default="danger-full-access",
+        description=(
+            "Codex sandbox mode for role wakeups when bypass is disabled. "
+            "Default is danger-full-access so non-interactive local automation "
+            "does not depend on platform sandbox support."
+        ),
     )
     codex_approval_policy: Literal["untrusted", "on-request", "never"] = Field(
         default="never",
@@ -388,10 +392,11 @@ class GruConfig(BaseModel):
         description="Codex reasoning effort for Gru and role wakeups.",
     )
     codex_bypass_approvals_and_sandbox: bool = Field(
-        default=False,
+        default=True,
         description=(
             "Use Codex --dangerously-bypass-approvals-and-sandbox for role wakeups. "
-            "Disabled by default; enable only on machines that are externally sandboxed."
+            "Enabled by default for unattended MinionsOS role automation; disable only "
+            "when the local Codex sandbox is known to work reliably."
         ),
     )
 

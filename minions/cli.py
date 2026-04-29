@@ -378,6 +378,21 @@ def doctor(
         _check("model-registry", _ok, _detail)
 
         if _host == "codex":
+            automation_ok = _cfg.codex_bypass_approvals_and_sandbox or (
+                _cfg.codex_sandbox == "danger-full-access" and _cfg.codex_approval_policy == "never"
+            )
+            _check(
+                "codex-automation",
+                automation_ok,
+                (
+                    "bypass approvals+sandbox"
+                    if _cfg.codex_bypass_approvals_and_sandbox
+                    else (
+                        f"sandbox={_cfg.codex_sandbox}, "
+                        f"approval_policy={_cfg.codex_approval_policy}"
+                    )
+                ),
+            )
             codex_path = shutil.which("codex")
             if codex_path:
                 cr = subprocess.run(["codex", "--version"], capture_output=True, text=True)

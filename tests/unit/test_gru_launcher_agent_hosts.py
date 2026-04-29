@@ -79,12 +79,36 @@ def test_gru_launcher_codex_branch(tmp_path: Path) -> None:
     assert "FAKE_GRU_CODEX_ARGV:" in result.stderr
     assert "--cd" in result.stderr
     assert str(ROOT) in result.stderr
-    assert "--dangerously-bypass-approvals-and-sandbox" not in result.stderr
-    assert "--sandbox workspace-write" in result.stderr
-    assert 'approval_policy="never"' in result.stderr
+    assert "--dangerously-bypass-approvals-and-sandbox" in result.stderr
+    assert "--sandbox" not in result.stderr
+    assert 'approval_policy="never"' not in result.stderr
     assert 'model_reasoning_effort="xhigh"' in result.stderr
     assert "Initial user request: hello codex" in result.stderr
     assert "--append-system-prompt" not in result.stderr
+
+
+def test_gru_launcher_codex_can_use_explicit_non_bypass_flags(tmp_path: Path) -> None:
+    bindir = _fake_bin(tmp_path, codex=True)
+    env = {
+        **os.environ,
+        "PATH": f"{bindir}:{os.environ.get('PATH', '')}",
+        "MINIONS_AGENT_HOST": "codex",
+        "CODEX_BYPASS": "0",
+        "GRU_VIZ": "0",
+        "MINIONS_GRU_MONITOR": "0",
+    }
+    result = subprocess.run(
+        [str(GRU), "hello codex"],
+        cwd=str(ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--dangerously-bypass-approvals-and-sandbox" not in result.stderr
+    assert "--sandbox danger-full-access" in result.stderr
+    assert 'approval_policy="never"' in result.stderr
 
 
 def test_gru_launcher_restarts_monitor_when_host_mismatches(tmp_path: Path) -> None:

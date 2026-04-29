@@ -503,3 +503,42 @@ class TestWakeup:
 
         assert count == 0
         assert role_inbox.read_events(37596, "noter") == [{"id": "boom"}]
+
+    def test_dispatch_failure_replays_after_scheduler_restart(self) -> None:
+        project = FakeProject(port=37596, active_roles=[FakeRole("noter")])
+        store = FakeStore([project])
+
+        def failing_invoke(role: str, port: int, events: list[dict]) -> None:
+            raise RuntimeError("spawn failed")
+
+        first = WakeupScheduler(store=store, invoke_fn=failing_invoke, cooldown_seconds=0)
+        with patch(
+            "minions.lifecycle.wakeup.poll_events",
+            return_value={"events": [{"id": "boom"}]},
+        ):
+            count = _run(first.tick_once())
+
+        assert count == 0
+        assert role_inbox.read_events(37596, "noter") == [{"id": "boom"}]
+
+        calls: list[list[str]] = []
+
+        def successful_invoke(role: str, port: int, events: list[dict]) -> None:
+            calls.append([str(e["id"]) for e in events])
+
+        second = WakeupScheduler(store=store, invoke_fn=successful_invoke, cooldown_seconds=0)
+        with patch("minions.lifecycle.wakeup.poll_events", return_value={"events": []}):
+            count = _run(second.tick_once())
+
+        assert count == 1
+        assert calls == [["boom"]]
+        assert role_inbox.read_events(37596, "noter") == []
+
+    def test_role_buffers_are_port_scoped_for_port_changes(self) -> None:
+        role_inbox.replace_events(37596, "coder", [{"id": "old-port"}])
+        role_inbox.replace_events(37597, "coder", [{"id": "new-port"}])
+
+        role_inbox.clear(37596, "coder")
+
+        assert role_inbox.read_events(37596, "coder") == []
+        assert role_inbox.read_events(37597, "coder") == [{"id": "new-port"}]

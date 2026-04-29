@@ -55,11 +55,9 @@ def test_codex_role_invocation_uses_exec_stdin_and_embeds_system(
     assert invocation.command[:2] == ["codex", "exec"]
     assert invocation.command[-1] == "-"
     assert "--ask-for-approval" not in invocation.command
-    assert "--sandbox" in invocation.command
-    assert "workspace-write" in invocation.command
-    assert "--dangerously-bypass-approvals-and-sandbox" not in invocation.command
+    assert "--sandbox" not in invocation.command
+    assert "--dangerously-bypass-approvals-and-sandbox" in invocation.command
     assert "-c" in invocation.command
-    assert 'approval_policy="never"' in invocation.command
     assert 'model_reasoning_effort="xhigh"' in invocation.command
     assert "--model" in invocation.command
     assert "gpt-test" in invocation.command
@@ -72,3 +70,27 @@ def test_codex_role_invocation_uses_exec_stdin_and_embeds_system(
     assert "`Task` means the current host's native subagent/delegation capability" in (
         invocation.stdin_text
     )
+
+
+def test_codex_role_invocation_can_disable_bypass_with_danger_full_access(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("MINIONS_AGENT_HOST", raising=False)
+    invocation = build_role_invocation(
+        cfg=GruConfig(
+            agent_host="codex",
+            codex_bypass_approvals_and_sandbox=False,
+            codex_sandbox="danger-full-access",
+            codex_approval_policy="never",
+        ),
+        role_name="coder",
+        project_port=37596,
+        system_path=None,
+        allowed_tools="Read,Write",
+        message="event payload",
+        workspace=tmp_path,
+    )
+    assert "--dangerously-bypass-approvals-and-sandbox" not in invocation.command
+    assert "--sandbox" in invocation.command
+    assert "danger-full-access" in invocation.command
+    assert 'approval_policy="never"' in invocation.command

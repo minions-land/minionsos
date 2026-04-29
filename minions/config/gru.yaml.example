@@ -61,8 +61,11 @@ agent_host: codex
 # Optional Codex model. Leave null to use the Codex CLI profile/default.
 codex_model:
 codex_reasoning_effort: xhigh
-codex_bypass_approvals_and_sandbox: false
-codex_sandbox: workspace-write  # used only when bypass is disabled
+# MinionsOS launches Codex non-interactively. Bypass keeps role wakeups fully
+# automated and avoids platform sandbox/bwrap failures on machines where Codex's
+# local sandbox cannot initialize.
+codex_bypass_approvals_and_sandbox: true
+codex_sandbox: danger-full-access  # used only when bypass is disabled
 codex_approval_policy: never
 
 # Scratchpad size thresholds, expressed as a fraction of the model context

@@ -81,6 +81,13 @@ class TestLoadGruConfig:
         assert cfg.projects_root == "/tmp/minions-projects"
         assert cfg.health_event_eacn_notifications is True
 
+    def test_codex_defaults_are_unattended_and_unsandboxed(self, tmp_path: Path) -> None:
+        cfg = load_gru_config(tmp_path / "missing.yaml")
+        assert cfg.agent_host == "codex"
+        assert cfg.codex_bypass_approvals_and_sandbox is True
+        assert cfg.codex_sandbox == "danger-full-access"
+        assert cfg.codex_approval_policy == "never"
+
 
 # ── Slugify ────────────────────────────────────────────────────────────────────
 
@@ -220,7 +227,9 @@ class TestGruConfigModel:
         assert ok is True
         assert "codex host selected" in detail
 
-    def test_codex_defaults_to_xhigh_without_dangerous_bypass(self, tmp_path: Path) -> None:
+    def test_codex_defaults_to_xhigh_with_unattended_bypass(self, tmp_path: Path) -> None:
         cfg = load_gru_config(tmp_path / "nonexistent.yaml")
         assert cfg.codex_reasoning_effort == "xhigh"
-        assert cfg.codex_bypass_approvals_and_sandbox is False
+        assert cfg.codex_bypass_approvals_and_sandbox is True
+        assert cfg.codex_sandbox == "danger-full-access"
+        assert cfg.codex_approval_policy == "never"

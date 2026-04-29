@@ -170,8 +170,8 @@ or set in `minions/config/gru.yaml`:
 agent_host: codex
 codex_model:        # optional; leave empty to use Codex CLI defaults
 codex_reasoning_effort: xhigh
-codex_bypass_approvals_and_sandbox: false
-codex_sandbox: workspace-write
+codex_bypass_approvals_and_sandbox: true
+codex_sandbox: danger-full-access
 codex_approval_policy: never
 ```
 
@@ -570,8 +570,8 @@ Codex 使用的 `.codex/config.toml` 存在。
 Agent host 选择：
 
 ```bash
-./gru                              # 默认 Claude Code
-MINIONS_AGENT_HOST=codex ./gru     # 单次使用 Codex
+./gru                              # 默认 Codex
+MINIONS_AGENT_HOST=claude ./gru    # 单次使用 Claude Code
 ```
 
 也可以写入 `minions/config/gru.yaml`：
@@ -579,7 +579,9 @@ MINIONS_AGENT_HOST=codex ./gru     # 单次使用 Codex
 ```yaml
 agent_host: codex
 codex_model:        # 可选；留空则使用 Codex CLI 默认值
-codex_sandbox: workspace-write
+codex_reasoning_effort: xhigh
+codex_bypass_approvals_and_sandbox: true
+codex_sandbox: danger-full-access
 codex_approval_policy: never
 ```
 

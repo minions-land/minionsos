@@ -77,3 +77,37 @@ class TestProjectStatusSnapshot:
             snap = project_status_snapshot(port=37596, project_status="active")
         assert snap["recent_health_events"][0]["message"] == "backend down"
         assert "backend down" in snap["recent_failures"]
+
+    def test_recovered_backend_does_not_surface_old_health_warning_as_current_failure(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        from minions.lifecycle import health
+
+        monkeypatch.setattr(
+            health,
+            "project_logs_dir",
+            lambda port: tmp_path / f"project_{port}" / "logs",
+        )
+        health.append_health_event(
+            port=37596,
+            kind="backend_unhealthy",
+            severity="warning",
+            message="[WARN] Backend on port 37596 is unhealthy.",
+        )
+        fake_probe = {
+            "health": True,
+            "agents": [],
+            "errors": [],
+            "queue_depth": 0,
+            "pending_events": [],
+        }
+        with (
+            patch("minions.lifecycle.health.backend_health", return_value=True),
+            patch("minions.lifecycle.eacn_client.probe_backend", return_value=fake_probe),
+        ):
+            snap = project_status_snapshot(port=37596, project_status="active")
+        assert snap["backend_alive"] is True
+        assert snap["recent_health_events"][0]["message"] == (
+            "[WARN] Backend on port 37596 is unhealthy."
+        )
+        assert snap["recent_failures"] == []

@@ -141,9 +141,9 @@ fi
 #   GRU_EFFORT=...       (default: max)
 #   GRU_SANDBOX=0        (unset IS_SANDBOX; default: 1)
 #   GRU_SKIP_PERMS=0     (omit --dangerously-skip-permissions; default: 1)
-#   CODEX_BYPASS=1       (enable Codex dangerous bypass; default: 0)
+#   CODEX_BYPASS=0       (use Codex sandbox flags instead of bypass; default: 1)
 #   CODEX_REASONING_EFFORT=... (default: xhigh)
-#   CODEX_SANDBOX=...    (used when CODEX_BYPASS=0; default: workspace-write)
+#   CODEX_SANDBOX=...    (used when CODEX_BYPASS=0; default: danger-full-access)
 #   CODEX_APPROVAL_POLICY=... (used when CODEX_BYPASS=0; default: never)
 #   GRU_VIZ=0            (disable Observatory auto-start; default: 1)
 #   GRU_VIZ_OPEN=0       (do not open browser on interactive launch; default: 1)
@@ -158,14 +158,14 @@ if [ "$GRU_SANDBOX" = "1" ]; then
 fi
 
 if [ "$MINIONS_AGENT_HOST" = "codex" ]; then
-    : "${CODEX_BYPASS:=0}"
+    : "${CODEX_BYPASS:=1}"
     : "${CODEX_REASONING_EFFORT:=xhigh}"
     CODEX_FLAGS=(--cd "$ROOT" -c "model_reasoning_effort=\"$CODEX_REASONING_EFFORT\"")
     if [ "$CODEX_BYPASS" = "1" ]; then
         CODEX_FLAGS+=(--dangerously-bypass-approvals-and-sandbox)
     else
         CODEX_FLAGS+=(
-            --sandbox "${CODEX_SANDBOX:-workspace-write}"
+            --sandbox "${CODEX_SANDBOX:-danger-full-access}"
             -c "approval_policy=\"${CODEX_APPROVAL_POLICY:-never}\""
         )
     fi

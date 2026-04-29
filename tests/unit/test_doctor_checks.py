@@ -50,12 +50,15 @@ class TestDoctorAgentHost:
         checks = _doctor_checks({"MINIONS_AGENT_HOST": "codex"})
         names = {c["name"] for c in checks}
         assert "codex-cli" in names
+        assert "codex-automation" in names
         assert "codex-mcp-config-mounts-eacn3" in names
         assert "codex-mcp-profiles" in names
         host = next(c for c in checks if c["name"] == "agent-host")
         assert host["detail"] == "codex"
         profiles = next(c for c in checks if c["name"] == "codex-mcp-profiles")
         assert profiles["ok"] is True
+        automation = next(c for c in checks if c["name"] == "codex-automation")
+        assert automation["ok"] is True
 
 
 class TestDoctorDebugFlag:

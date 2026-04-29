@@ -71,6 +71,7 @@ FIXED_ROLES = {"noter", "coder", "experimenter", "writer", "reviewer", "ethics"}
 _INFLIGHT: dict[tuple[int, str], tuple[subprocess.Popen[bytes], IO[Any]]] = {}
 _STARTING: set[tuple[int, str]] = set()
 _INFLIGHT_LOCK = threading.Lock()
+_CODEX_STARTUP_FAILURE_GRACE_SECONDS = 1.0
 
 
 def _clear_persisted_pid_if_matches(
@@ -125,6 +126,7 @@ def reap_finished(store: StateStore | None = None) -> list[tuple[int, str, int]]
     for the processes that were reaped in this call.
     """
     reaped: list[tuple[int, str, int]] = []
+    reaped_details: list[tuple[int, str, int, int]] = []
     with _INFLIGHT_LOCK:
         keys = list(_INFLIGHT.keys())
         for key in keys:
@@ -132,14 +134,16 @@ def reap_finished(store: StateStore | None = None) -> list[tuple[int, str, int]]
             rc = proc.poll()
             if rc is None:
                 continue
+            pid = proc.pid
             with contextlib.suppress(Exception):
                 log_fp.close()
             del _INFLIGHT[key]
             reaped.append((key[0], key[1], rc))
+            reaped_details.append((key[0], key[1], pid, rc))
 
     if reaped:
         _store = store or StateStore()
-        for port, role_name, _rc in reaped:
+        for port, role_name, pid, _rc in reaped_details:
             try:
                 entry = _store.get_project(port)
                 if entry is None:
@@ -148,10 +152,30 @@ def reap_finished(store: StateStore | None = None) -> list[tuple[int, str, int]]
                 # schedulable but idle. Clear pid so liveness checks do not
                 # misfire on a reused PID. Match the exact PID so a stale
                 # reaper cannot clear a newer invocation's state.
-                _clear_persisted_pid_if_matches(_store, port, role_name, proc.pid)
+                _clear_persisted_pid_if_matches(_store, port, role_name, pid)
             except Exception as exc:
                 logger.debug("reap: clear pid failed port=%d role=%r: %s", port, role_name, exc)
     return reaped
+
+
+def _tail_log(path: Path, lines: int = 20) -> str:
+    """Return a short best-effort tail for failure diagnostics."""
+    if not path.exists():
+        return ""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return ""
+    return "\n".join(text.splitlines()[-lines:])
+
+
+def _wait_for_immediate_exit(proc: subprocess.Popen[bytes], timeout: float) -> int | None:
+    """Return rc if the process exits within timeout, else None."""
+    try:
+        rc = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return None
+    return rc if isinstance(rc, int) else None
 
 
 # ---------------------------------------------------------------------------
@@ -637,6 +661,34 @@ def invoke_role_ephemeral(
             with contextlib.suppress(Exception):
                 _clear_persisted_pid_if_matches(_store, project_port, role_name, proc.pid)
             raise
+
+        if invocation.host_name == "codex":
+            immediate_rc = _wait_for_immediate_exit(proc, _CODEX_STARTUP_FAILURE_GRACE_SECONDS)
+        else:
+            polled = proc.poll()
+            immediate_rc = polled if isinstance(polled, int) else None
+        if immediate_rc is not None:
+            with contextlib.suppress(Exception):
+                log_fp.flush()
+            with contextlib.suppress(Exception):
+                _clear_persisted_pid_if_matches(_store, project_port, role_name, proc.pid)
+            with contextlib.suppress(Exception):
+                log_fp.close()
+            if immediate_rc != 0:
+                tail = _tail_log(log_path)
+                detail = f" Role log tail:\n{tail}" if tail else f" See role log: {log_path}"
+                raise RoleError(
+                    f"{invocation.host_name} role process exited during startup "
+                    f"(role={role_name!r} port={project_port} rc={immediate_rc}).{detail}"
+                )
+            with _INFLIGHT_LOCK:
+                _STARTING.discard(key)
+            return {
+                "name": role_name,
+                "pid": proc.pid,
+                "events": len(events),
+                "deferred": False,
+            }
     except Exception:
         with _INFLIGHT_LOCK:
             _STARTING.discard(key)

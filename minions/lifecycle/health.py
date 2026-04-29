@@ -226,7 +226,7 @@ def project_status_snapshot(port: int, project_status: str) -> dict:
             "pending_events": [],
             "gru_inbox_unread": 0,
             "recent_health_events": health_events,
-            "recent_failures": recent_health_failures,
+            "recent_failures": [],
         }
 
     alive = backend_health(port)
@@ -252,7 +252,9 @@ def project_status_snapshot(port: int, project_status: str) -> dict:
             recent_failures.extend(str(err) for err in probe.get("errors", []))
         except Exception as exc:
             recent_failures.append(str(exc))
-    recent_failures.extend(recent_health_failures)
+    else:
+        recent_failures.append(f"backend /health failed on port {port}")
+        recent_failures.extend(recent_health_failures)
 
     return {
         "port": port,

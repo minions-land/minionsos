@@ -23,14 +23,15 @@ from minions.state.store import ProjectEntry, RoleEntry
 
 
 class FakeStore:
-    def __init__(self) -> None:
+    def __init__(self, roles: list[RoleEntry] | None = None) -> None:
         self.project = ProjectEntry(
             port=37596,
             real_name="T",
             status="active",
             created="2026-01-01T00:00:00Z",
             current_branch="minionsos/project-37596",
-            active_roles=[
+            active_roles=roles
+            or [
                 RoleEntry(name="noter", state="active", pid=None, spawned_at="x"),
             ],
         )
@@ -133,6 +134,32 @@ def test_reaper_does_not_clear_newer_persisted_pid() -> None:
     role = store.get_project(37596).active_roles[0]  # type: ignore[union-attr]
     assert role.state == "active"
     assert role.pid == 2222
+
+
+def test_reaper_clears_each_reaped_role_with_its_own_pid() -> None:
+    store = FakeStore(
+        roles=[
+            RoleEntry(name="noter", state="active", pid=1111, spawned_at="x"),
+            RoleEntry(name="coder", state="active", pid=2222, spawned_at="x"),
+        ]
+    )
+    noter_proc = _make_proc(pid=1111, rc=0)
+    coder_proc = _make_proc(pid=2222, rc=0)
+    noter_log = MagicMock()
+    coder_log = MagicMock()
+
+    with role_mod._INFLIGHT_LOCK:
+        role_mod._INFLIGHT[(37596, "noter")] = (noter_proc, noter_log)
+        role_mod._INFLIGHT[(37596, "coder")] = (coder_proc, coder_log)
+
+    reaped = role_mod.reap_finished(store=store)
+
+    assert sorted(reaped) == [(37596, "coder", 0), (37596, "noter", 0)]
+    roles = {role.name: role for role in store.get_project(37596).active_roles}  # type: ignore[union-attr]
+    assert roles["noter"].state == "sleeping"
+    assert roles["noter"].pid is None
+    assert roles["coder"].state == "sleeping"
+    assert roles["coder"].pid is None
 
 
 def test_concurrent_invoke_for_same_role_defers_second_launch(tmp_path: Path) -> None:
