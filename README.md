@@ -107,8 +107,8 @@ caches, and `graphify-out/` should not be committed.
 - [`uv`](https://docs.astral.sh/uv/) for Python dependency management
 - `git` 2.x
 - Node **16+** and `npm` for the EACN3 MCP plugin and MinionsVIZ
-- Claude CLI on `PATH` for the default host, or Codex CLI on `PATH` when
-  `agent_host: codex` / `MINIONS_AGENT_HOST=codex` is used
+- Codex CLI on `PATH` for the default host, or Claude CLI on `PATH` when
+  `agent_host: claude` / `MINIONS_AGENT_HOST=claude` is used
 
 MinionsOS creates project worktrees from the directory that contains this
 checkout. That parent directory must be a git repository before you create
@@ -160,8 +160,8 @@ Inspect resolved paths with:
 Agent host selection:
 
 ```bash
-./gru                              # default: Claude Code
-MINIONS_AGENT_HOST=codex ./gru     # one-shot Codex override
+./gru                              # default: Codex
+MINIONS_AGENT_HOST=claude ./gru    # one-shot Claude Code override
 ```
 
 or set in `minions/config/gru.yaml`:
@@ -169,6 +169,8 @@ or set in `minions/config/gru.yaml`:
 ```yaml
 agent_host: codex
 codex_model:        # optional; leave empty to use Codex CLI defaults
+codex_reasoning_effort: xhigh
+codex_bypass_approvals_and_sandbox: false
 codex_sandbox: workspace-write
 codex_approval_policy: never
 ```
@@ -307,6 +309,9 @@ download_medrxiv
 
 EACN3 tools are provided by the EACN3 MCP plugin as `eacn3_*` and are available
 only to role mains that are allowed to use the bus.
+For Codex, `.codex/config.toml` starts a MinionsOS-side MCP proxy that filters
+the advertised EACN3 tool list before Codex sees it; the EACN3 plugin and
+network remain unmodified.
 
 ### Runtime Project Structure
 
@@ -426,8 +431,8 @@ proprietary/internal until a license is added.
 
 **MinionsOS V4** 是一个本地多智能体操作系统，用于运行相互隔离的论文级科研项目。常驻的
 **Gru** 负责总控；每个项目拥有独立的 **EACN3** 协调后端；Role
-由事件触发，短时唤醒、处理任务、完成后退出。Claude Code 仍是默认
-agent host，Codex 可通过同一套 MinionsOS 生命周期和 EACN3 bus 显式启用。
+由事件触发，短时唤醒、处理任务、完成后退出。Codex 是默认
+agent host，Claude Code 可通过同一套 MinionsOS 生命周期和 EACN3 bus 显式启用。
 
 目标很直接：一位作者、一份 checkout、一个 Gru，同时管理多个互不串扰的研究项目。
 
@@ -707,6 +712,8 @@ download_medrxiv
 ```
 
 EACN3 MCP 插件提供 `eacn3_*` 工具，只分配给允许访问总线的 role main。
+Codex 会通过 `.codex/config.toml` 启动 MinionsOS 侧 MCP proxy，在 Codex 看到
+工具列表之前过滤 EACN3 工具；EACN3 插件和网络本身不做修改。
 
 ### 运行时项目结构
 

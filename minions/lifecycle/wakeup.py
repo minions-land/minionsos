@@ -18,12 +18,14 @@ Design notes:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import enum
 import json
 import logging
 import time as _time_mod
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any
 
 from minions.config import GruConfig, load_gru_config, parse_duration
@@ -149,6 +151,64 @@ def _pid_alive(pid: int) -> bool:
     except PermissionError:
         return True
     except Exception:
+        return False
+
+
+def _pid_matches_minions_role(pid: int, port: int, role_name: str) -> bool:
+    """Return True when OS metadata proves this PID is this role invocation.
+
+    Persisted PIDs can be reused across machine restarts. We therefore avoid
+    killing a live ``sleeping + PID`` process unless procfs confirms it carries
+    the exact MinionsOS role environment we set at launch.
+    """
+    environ = Path(f"/proc/{pid}/environ")
+    if not environ.exists():
+        return False
+    try:
+        raw = environ.read_bytes()
+    except Exception:
+        return False
+    values: dict[str, str] = {}
+    for item in raw.split(b"\0"):
+        if not item or b"=" not in item:
+            continue
+        key, value = item.split(b"=", 1)
+        with contextlib.suppress(UnicodeDecodeError):
+            values[key.decode("utf-8")] = value.decode("utf-8")
+    return (
+        values.get("MINIONS_EPHEMERAL") == "1"
+        and values.get("MINIONS_PROJECT_PORT") == str(port)
+        and values.get("MINIONS_ROLE_NAME") == role_name
+    )
+
+
+def _terminate_recorded_orphan_pid(pid: int, port: int, role_name: str) -> bool:
+    """Best-effort stop for a verified live PID recorded on a sleeping role."""
+    if not _pid_matches_minions_role(pid, port, role_name):
+        logger.warning(
+            "Refusing to terminate unverified sleeping role PID %d for role=%s port=%d; "
+            "clearing the stale registry entry only.",
+            pid,
+            role_name,
+            port,
+        )
+        return False
+    try:
+        import os
+        import signal
+
+        os.kill(pid, signal.SIGTERM)
+        deadline = _time_mod.monotonic() + 1.0
+        while _time_mod.monotonic() < deadline:
+            if not _pid_alive(pid):
+                return True
+            _time_mod.sleep(0.05)
+        os.kill(pid, signal.SIGKILL)
+        return True
+    except ProcessLookupError:
+        return True
+    except Exception as exc:
+        logger.warning("Failed to terminate orphan role PID %d: %s", pid, exc)
         return False
 
 
@@ -640,9 +700,36 @@ class WakeupScheduler:
         if not pid:
             return None
         if _pid_alive(int(pid)):
+            if getattr(role, "state", None) == "sleeping":
+                logger.warning(
+                    "Wakeup: role=%s port=%d has invalid sleeping+PID state; "
+                    "terminating orphan PID %d before dispatch.",
+                    role_name,
+                    port,
+                    int(pid),
+                )
+                stopped = _terminate_recorded_orphan_pid(int(pid), port, role_name)
+                try:
+                    self._store.upsert_role(
+                        port,
+                        role.model_copy(update={"state": "sleeping", "pid": None}),
+                    )
+                except Exception as exc:
+                    logger.debug(
+                        "recorded orphan pid clear failed port=%d role=%s pid=%s: %s",
+                        port,
+                        role_name,
+                        pid,
+                        exc,
+                    )
+                verified = _pid_matches_minions_role(int(pid), port, role_name)
+                return None if stopped or not verified else int(pid)
             return int(pid)
         try:
-            self._store.upsert_role(port, role.model_copy(update={"pid": None}))
+            updates: dict[str, object | None] = {"pid": None}
+            if getattr(role, "state", None) == "active":
+                updates["state"] = "sleeping"
+            self._store.upsert_role(port, role.model_copy(update=updates))
         except Exception as exc:
             logger.debug(
                 "recorded pid clear failed port=%d role=%s pid=%s: %s",

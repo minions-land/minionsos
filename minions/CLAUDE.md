@@ -1,6 +1,6 @@
 # CLAUDE.md — minions/ Developer View
 
-This file is shown when you `cd minions/ && claude` to hack MinionsOS itself. It covers the Python package architecture and how to extend it. Runtime role execution is agent-host neutral: Claude Code remains the default, and Codex is supported through the same lifecycle abstractions.
+This file is shown when you `cd minions/ && claude` to hack MinionsOS itself. It covers the Python package architecture and how to extend it. Runtime role execution is agent-host neutral: Codex is the default, and Claude Code remains supported through the same lifecycle abstractions.
 
 ## Package architecture
 

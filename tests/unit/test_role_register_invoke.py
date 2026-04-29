@@ -141,6 +141,7 @@ class TestInvokeEphemeral:
         fake_proc = MagicMock()
         fake_proc.pid = 4321
         with (
+            patch.dict(os.environ, {"MINIONS_AGENT_HOST": "claude"}, clear=False),
             patch("minions.lifecycle.role.subprocess.Popen", return_value=fake_proc) as popen,
             patch("minions.lifecycle.role.project_workspace", return_value=tmp_path),
             patch(
@@ -192,3 +193,31 @@ class TestInvokeEphemeral:
         assert "MinionsOS Codex Role Invocation" in stdin_payload
         assert "Event Batch" in stdin_payload
         assert "e1" in stdin_payload
+
+    def test_invoke_cleans_active_pid_if_stdin_write_fails(self, tmp_path: Path) -> None:
+        store = FakeStore()
+        store.upsert_role(
+            37596,
+            RoleEntry(name="noter", state="sleeping", pid=None, spawned_at=None),
+        )
+        fake_proc = MagicMock()
+        fake_proc.pid = 4323
+        fake_proc.poll.return_value = None
+        fake_proc.stdin.write.side_effect = RuntimeError("stdin failed")
+        with (
+            patch.dict(os.environ, {"MINIONS_AGENT_HOST": "codex"}, clear=False),
+            patch("minions.lifecycle.role.subprocess.Popen", return_value=fake_proc),
+            patch("minions.lifecycle.role.project_workspace", return_value=tmp_path),
+            patch(
+                "minions.lifecycle.role.project_role_log", return_value=tmp_path / "role-noter.log"
+            ),
+            patch("minions.lifecycle.agent_host.project_dir", return_value=tmp_path),
+            pytest.raises(RuntimeError, match="stdin failed"),
+        ):
+            role_mod.invoke_role_ephemeral("noter", 37596, [{"id": "e1"}], store=store)
+
+        fake_proc.terminate.assert_called()
+        fake_proc.kill.assert_called()
+        role = store.get_project(37596).active_roles[0]  # type: ignore[union-attr]
+        assert role.state == "sleeping"
+        assert role.pid is None

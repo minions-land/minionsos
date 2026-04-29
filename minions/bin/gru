@@ -48,6 +48,7 @@ STATE_DIR="$ROOT/minions/state"
 mkdir -p "$STATE_DIR"
 PID_FILE="$STATE_DIR/gru.pid"
 MONITOR_PID_FILE="$STATE_DIR/gru-monitor.pid"
+MONITOR_HOST_FILE="$STATE_DIR/gru-monitor.host"
 LOG_FILE="$STATE_DIR/logs/gru.log"
 MONITOR_LOG_FILE="$STATE_DIR/logs/gru-monitor.log"
 mkdir -p "$STATE_DIR/logs"
@@ -58,7 +59,7 @@ if ! command -v uv &>/dev/null; then
 fi
 
 if [ -z "${MINIONS_AGENT_HOST:-}" ]; then
-    MINIONS_AGENT_HOST="$(uv run --project "$ROOT" python -c 'from minions.config import load_gru_config; print(load_gru_config().effective_agent_host())' 2>/dev/null || echo claude)"
+    MINIONS_AGENT_HOST="$(uv run --project "$ROOT" python -c 'from minions.config import load_gru_config; print(load_gru_config().effective_agent_host())' 2>/dev/null || echo codex)"
 fi
 MINIONS_AGENT_HOST="$(printf '%s' "$MINIONS_AGENT_HOST" | tr '[:upper:]' '[:lower:]')"
 export MINIONS_AGENT_HOST
@@ -135,15 +136,15 @@ else
 fi
 
 # Author's required Gru invocation defaults. Override with env:
-#   MINIONS_AGENT_HOST=claude|codex  (default: gru.yaml, then claude)
+#   MINIONS_AGENT_HOST=claude|codex  (default: gru.yaml, then codex)
 #   GRU_MODEL=...        (Claude default: claude-opus-4-7; Codex default: CLI profile)
 #   GRU_EFFORT=...       (default: max)
 #   GRU_SANDBOX=0        (unset IS_SANDBOX; default: 1)
 #   GRU_SKIP_PERMS=0     (omit --dangerously-skip-permissions; default: 1)
-#   CODEX_BYPASS=0       (disable Codex bypass; default: 1)
+#   CODEX_BYPASS=1       (enable Codex dangerous bypass; default: 0)
 #   CODEX_REASONING_EFFORT=... (default: xhigh)
 #   CODEX_SANDBOX=...    (used when CODEX_BYPASS=0; default: workspace-write)
-#   CODEX_APPROVAL_POLICY=... (used when CODEX_BYPASS=0; default: on-request)
+#   CODEX_APPROVAL_POLICY=... (used when CODEX_BYPASS=0; default: never)
 #   GRU_VIZ=0            (disable Observatory auto-start; default: 1)
 #   GRU_VIZ_OPEN=0       (do not open browser on interactive launch; default: 1)
 #   MINIONS_VIZ_PORT=N   (override default Observatory port 7891)
@@ -157,7 +158,7 @@ if [ "$GRU_SANDBOX" = "1" ]; then
 fi
 
 if [ "$MINIONS_AGENT_HOST" = "codex" ]; then
-    : "${CODEX_BYPASS:=1}"
+    : "${CODEX_BYPASS:=0}"
     : "${CODEX_REASONING_EFFORT:=xhigh}"
     CODEX_FLAGS=(--cd "$ROOT" -c "model_reasoning_effort=\"$CODEX_REASONING_EFFORT\"")
     if [ "$CODEX_BYPASS" = "1" ]; then
@@ -165,9 +166,12 @@ if [ "$MINIONS_AGENT_HOST" = "codex" ]; then
     else
         CODEX_FLAGS+=(
             --sandbox "${CODEX_SANDBOX:-workspace-write}"
-            --ask-for-approval "${CODEX_APPROVAL_POLICY:-on-request}"
+            -c "approval_policy=\"${CODEX_APPROVAL_POLICY:-never}\""
         )
     fi
+    export MINIONS_ROLE_NAME="${MINIONS_ROLE_NAME:-gru}"
+    export MINIONS_MCP_PROFILE="${MINIONS_MCP_PROFILE:-codex}"
+    export EACN3_MCP_PROFILE="${EACN3_MCP_PROFILE:-codex-core}"
     if [ -n "${GRU_MODEL:-}" ]; then
         CODEX_FLAGS+=(--model "$GRU_MODEL")
     fi
@@ -211,9 +215,26 @@ ensure_gru_monitor() {
         local existing_pid
         existing_pid="$(cat "$MONITOR_PID_FILE" 2>/dev/null || echo "")"
         if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
-            return 0
+            local existing_host
+            existing_host="$(cat "$MONITOR_HOST_FILE" 2>/dev/null || echo "")"
+            if [ "$existing_host" = "$MINIONS_AGENT_HOST" ]; then
+                return 0
+            fi
+            warn "Restarting Gru monitor to align host ($existing_host -> $MINIONS_AGENT_HOST)."
+            kill "$existing_pid" 2>/dev/null || true
+            for _ in 1 2 3 4 5 6 7 8 9 10; do
+                if ! kill -0 "$existing_pid" 2>/dev/null; then
+                    break
+                fi
+                sleep 0.2
+            done
+            if kill -0 "$existing_pid" 2>/dev/null; then
+                kill -9 "$existing_pid" 2>/dev/null || true
+            fi
+        elif [ -n "$existing_pid" ]; then
+            rm -f "$MONITOR_PID_FILE" "$MONITOR_HOST_FILE"
         fi
-        rm -f "$MONITOR_PID_FILE"
+        rm -f "$MONITOR_PID_FILE" "$MONITOR_HOST_FILE"
     fi
 
     info "Starting Gru monitor/WakeupScheduler sidecar..."
@@ -229,6 +250,7 @@ ensure_gru_monitor() {
             >> "$MONITOR_LOG_FILE" 2>&1 &
     fi
     echo "$!" > "$MONITOR_PID_FILE"
+    echo "$MINIONS_AGENT_HOST" > "$MONITOR_HOST_FILE"
     info "Gru monitor log: $MONITOR_LOG_FILE"
 }
 

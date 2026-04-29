@@ -403,6 +403,67 @@ class TestWakeup:
         assert calls == []
         assert role_inbox.read_events(37596, "coder") == [{"id": "e1"}]
 
+    def test_sleeping_live_pid_is_treated_as_orphan_and_dispatches(self) -> None:
+        project = FakeProject(
+            port=37596,
+            active_roles=[FakeRole("coder", state="sleeping", pid=12345)],
+        )
+        store = FakeStore([project])
+        calls: list[str] = []
+
+        def invoke(role: str, port: int, events: list[dict]) -> None:
+            calls.append(role)
+
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        with (
+            patch("minions.lifecycle.wakeup.poll_events", return_value={"events": [{"id": "e1"}]}),
+            patch("minions.lifecycle.role.is_inflight", return_value=False),
+            patch("minions.lifecycle.wakeup._pid_alive", return_value=True),
+            patch(
+                "minions.lifecycle.wakeup._terminate_recorded_orphan_pid",
+                return_value=True,
+            ) as terminate,
+        ):
+            count = _run(sched.tick_once())
+
+        assert count == 1
+        assert calls == ["coder"]
+        terminate.assert_called_once_with(12345, 37596, "coder")
+        role = store.get_project(37596).active_roles[0]  # type: ignore[union-attr]
+        assert role.state == "sleeping"
+        assert role.pid is None
+        assert role_inbox.read_events(37596, "coder") == []
+
+    def test_unverified_sleeping_live_pid_is_cleared_without_blocking_dispatch(self) -> None:
+        project = FakeProject(
+            port=37596,
+            active_roles=[FakeRole("coder", state="sleeping", pid=12345)],
+        )
+        store = FakeStore([project])
+        calls: list[str] = []
+
+        def invoke(role: str, port: int, events: list[dict]) -> None:
+            calls.append(role)
+
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        with (
+            patch("minions.lifecycle.wakeup.poll_events", return_value={"events": [{"id": "e1"}]}),
+            patch("minions.lifecycle.role.is_inflight", return_value=False),
+            patch("minions.lifecycle.wakeup._pid_alive", return_value=True),
+            patch("minions.lifecycle.wakeup._pid_matches_minions_role", return_value=False),
+            patch(
+                "minions.lifecycle.wakeup._terminate_recorded_orphan_pid",
+                return_value=False,
+            ),
+        ):
+            count = _run(sched.tick_once())
+
+        assert count == 1
+        assert calls == ["coder"]
+        role = store.get_project(37596).active_roles[0]  # type: ignore[union-attr]
+        assert role.state == "sleeping"
+        assert role.pid is None
+
     def test_recorded_dead_pid_is_cleared_and_dispatches(self) -> None:
         project = FakeProject(port=37596, active_roles=[FakeRole("coder", pid=12345)])
         store = FakeStore([project])
@@ -421,7 +482,9 @@ class TestWakeup:
 
         assert count == 1
         assert calls == ["coder"]
-        assert store.get_project(37596).active_roles[0].pid is None  # type: ignore[union-attr]
+        role = store.get_project(37596).active_roles[0]  # type: ignore[union-attr]
+        assert role.state == "sleeping"
+        assert role.pid is None
         assert role_inbox.read_events(37596, "coder") == []
 
     def test_dispatch_failure_leaves_events_buffered(self) -> None:

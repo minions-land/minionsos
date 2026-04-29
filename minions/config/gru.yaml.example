@@ -53,15 +53,15 @@ experiment_reconcile_interval_seconds: 30
 # you have renamed the Gru agent on the EACN bus.
 gru_eacn_agent_id: gru
 
-# Agent host. Claude remains the default and preserves the original
-# MinionsOS behavior. Set to "codex" to launch Gru/Role processes through
-# Codex instead. You can also override per process with MINIONS_AGENT_HOST.
-agent_host: claude
+# Agent host. Codex is the default for Gru and Role wakeups. Set to "claude"
+# to launch through Claude Code instead. You can also override per process
+# with MINIONS_AGENT_HOST.
+agent_host: codex
 
 # Optional Codex model. Leave null to use the Codex CLI profile/default.
 codex_model:
 codex_reasoning_effort: xhigh
-codex_bypass_approvals_and_sandbox: true
+codex_bypass_approvals_and_sandbox: false
 codex_sandbox: workspace-write  # used only when bypass is disabled
 codex_approval_policy: never
 

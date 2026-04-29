@@ -58,9 +58,11 @@ class FakeStore:
 def _clear_inflight() -> None:
     with role_mod._INFLIGHT_LOCK:
         role_mod._INFLIGHT.clear()
+        role_mod._STARTING.clear()
     yield
     with role_mod._INFLIGHT_LOCK:
         role_mod._INFLIGHT.clear()
+        role_mod._STARTING.clear()
 
 
 @pytest.fixture(autouse=True)
@@ -107,8 +109,67 @@ def test_invoke_persists_pid_and_spawned_at(tmp_path: Path) -> None:
     assert out["deferred"] is False
     # PID persisted.
     persisted = [u for u in store.upserts if u.name == "noter"][-1]
+    assert persisted.state == "active"
     assert persisted.pid == 9999
     assert persisted.spawned_at is not None
+
+
+def test_reaper_does_not_clear_newer_persisted_pid() -> None:
+    store = FakeStore()
+    store.upsert_role(
+        37596,
+        RoleEntry(name="noter", state="active", pid=2222, spawned_at="new"),
+    )
+    old_proc = _make_proc(pid=1111, rc=0)
+    log_fp = MagicMock()
+
+    with role_mod._INFLIGHT_LOCK:
+        role_mod._INFLIGHT[(37596, "noter")] = (old_proc, log_fp)
+
+    reaped = role_mod.reap_finished(store=store)
+
+    assert reaped == [(37596, "noter", 0)]
+    log_fp.close.assert_called_once()
+    role = store.get_project(37596).active_roles[0]  # type: ignore[union-attr]
+    assert role.state == "active"
+    assert role.pid == 2222
+
+
+def test_concurrent_invoke_for_same_role_defers_second_launch(tmp_path: Path) -> None:
+    import threading
+
+    store = FakeStore()
+    proc = _make_proc(pid=9998, rc=None)
+    entered = threading.Event()
+    release = threading.Event()
+
+    def fake_popen(*args, **kwargs):
+        entered.set()
+        assert release.wait(timeout=5)
+        return proc
+
+    first_result: dict[str, object] = {}
+
+    def first_call() -> None:
+        first_result.update(
+            role_mod.invoke_role_ephemeral("noter", 37596, [{"id": "e1"}], store=store)
+        )
+
+    with (
+        patch("minions.lifecycle.role.subprocess.Popen", side_effect=fake_popen) as popen,
+        patch("minions.lifecycle.role.project_workspace", return_value=tmp_path),
+        patch("minions.lifecycle.role.project_role_log", return_value=tmp_path / "role-noter.log"),
+    ):
+        thread = threading.Thread(target=first_call)
+        thread.start()
+        assert entered.wait(timeout=5)
+        second = role_mod.invoke_role_ephemeral("noter", 37596, [{"id": "e2"}], store=store)
+        release.set()
+        thread.join(timeout=5)
+
+    assert first_result["deferred"] is False
+    assert second["deferred"] is True
+    assert popen.call_count == 1
 
 
 def test_crash_three_times_triggers_dismissal(tmp_path: Path, monkeypatch) -> None:
@@ -123,6 +184,10 @@ def test_crash_three_times_triggers_dismissal(tmp_path: Path, monkeypatch) -> No
 
     monkeypatch.setattr("minions.gru.loop._pid_alive", lambda pid: False)
     monkeypatch.setattr("minions.gru.loop.backend_health", lambda port, timeout=3.0: True)
+    monkeypatch.setattr(
+        "minions.lifecycle.project.project_repair_eacn_agents",
+        lambda port, store=None: None,
+    )
 
     loop = GruLoop(heartbeat_interval=1)
     loop._store = store  # inject
@@ -204,6 +269,10 @@ def test_second_wakeup_while_inflight_is_deferred_not_dropped() -> None:
 def test_reap_closes_log_fp_no_resource_warning(tmp_path: Path) -> None:
     """Verify real file handle is closed on reap — no ResourceWarning."""
     store = FakeStore()
+    store.upsert_role(
+        37596,
+        RoleEntry(name="noter", state="active", pid=7777, spawned_at="x"),
+    )
     log_path = tmp_path / "role-noter.log"
     real_fp = log_path.open("a", encoding="utf-8")
 
@@ -217,3 +286,6 @@ def test_reap_closes_log_fp_no_resource_warning(tmp_path: Path) -> None:
 
     assert reaped == [(37596, "noter", 0)]
     assert real_fp.closed
+    persisted = store.project.active_roles[0]
+    assert persisted.state == "sleeping"
+    assert persisted.pid is None

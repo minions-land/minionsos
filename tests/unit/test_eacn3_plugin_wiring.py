@@ -44,8 +44,18 @@ class TestCodexMcpConfigMountsEacn3:
 
         cfg = tomllib.loads((ROOT / ".codex" / "config.toml").read_text(encoding="utf-8"))
         eacn3 = cfg["mcp_servers"]["eacn3"]
-        assert eacn3["command"] == "node"
-        assert any("EACN3/plugin/dist/server.js" in a for a in eacn3["args"])
+        assert eacn3["command"] == "uv"
+        args = eacn3["args"]
+        assert "minions.tools.eacn3_mcp_proxy" in args
+        assert any("EACN3/plugin/dist/server.js" in a for a in args)
+        assert eacn3.get("env", {}).get("EACN3_MCP_PROFILE") == "codex-core"
+
+    def test_codex_minions_entry_uses_codex_profile(self) -> None:
+        import tomllib
+
+        cfg = tomllib.loads((ROOT / ".codex" / "config.toml").read_text(encoding="utf-8"))
+        minionsos = cfg["mcp_servers"]["minionsos"]
+        assert minionsos.get("env", {}).get("MINIONS_MCP_PROFILE") == "codex"
 
 
 class TestInstallShMandatoryPluginBuild:
@@ -85,5 +95,22 @@ class TestDoctorEacn3Checks:
             "node>=16",
             "mcp-config-mounts-eacn3",
             "codex-mcp-config-mounts-eacn3",
+            "codex-mcp-profiles",
         ):
             assert name in text, f"doctor lost check: {name}"
+
+
+class TestCodexMcpProfiles:
+    def test_eacn3_codex_profile_lives_in_minions_proxy_not_eacn3_source(self) -> None:
+        text = (ROOT / "minions" / "tools" / "eacn3_mcp_proxy.py").read_text(encoding="utf-8")
+        assert "EACN3_MCP_PROFILE" in text
+        assert "CODEX_CORE_TOOL_NAMES" in text
+        assert "eacn3_next" in text
+        assert "eacn3_create_task" in text
+        assert (
+            "eacn3_cluster_status"
+            not in text.split("CODEX_CORE_TOOL_NAMES", 1)[1].split(
+                ")",
+                1,
+            )[0]
+        )

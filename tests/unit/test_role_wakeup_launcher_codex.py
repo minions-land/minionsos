@@ -89,7 +89,9 @@ def test_codex_launcher_uses_exec_stdin_pipeline(tmp_path: Path) -> None:
     assert out["events"] == 1
     log = _wait_for_log(log_path, "FAKE_CODEX_STDIN_END")
     assert "FAKE_CODEX_ARGV" in log
-    assert "--dangerously-bypass-approvals-and-sandbox" in log
+    assert "--dangerously-bypass-approvals-and-sandbox" not in log
+    assert "--sandbox workspace-write" in log
+    assert 'approval_policy="never"' in log
     assert 'model_reasoning_effort="xhigh"' in log
     assert "Claude-only flag" not in log
     assert "MinionsOS Codex Role Invocation" in log

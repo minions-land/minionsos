@@ -245,7 +245,10 @@ def _clear_stale_role_pids(port: int, entry: ProjectEntry, store: StateStore) ->
         if _pid_alive(int(role.pid)):
             continue
         try:
-            store.upsert_role(port, role.model_copy(update={"pid": None}))
+            updates: dict[str, object | None] = {"pid": None}
+            if role.state == "active":
+                updates["state"] = "sleeping"
+            store.upsert_role(port, role.model_copy(update=updates))
             cleared.append(role.name)
         except Exception as exc:
             logger.debug(

@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+from contextlib import suppress
 from fnmatch import fnmatchcase
 from typing import Any, Literal
 
@@ -60,6 +61,7 @@ from minions.lifecycle.role import (
     spawn_role as _spawn_role,
 )
 from minions.logging_setup import configure_logging
+from minions.paths import STATE_DIR
 from minions.state.store import StateStore
 from minions.tools import experiment_ssh as _exp
 from minions.tools import paper_search as _paper_search
@@ -68,6 +70,131 @@ configure_logging()
 logger = logging.getLogger(__name__)
 
 mcp = FastMCP("minions")
+
+_MINIONS_MCP_TOOL_NAMES = {
+    "project_create",
+    "project_close",
+    "project_dormant",
+    "project_kill",
+    "project_revive",
+    "project_list",
+    "spawn_role",
+    "spawn_expert",
+    "dismiss_role",
+    "list_roles",
+    "gru_relay",
+    "project_eacn_send_message",
+    "project_eacn_create_task",
+    "exp_run",
+    "exp_status",
+    "exp_wait",
+    "exp_kill",
+    "exp_list",
+    "exp_put",
+    "exp_get",
+    "exp_tail",
+    "query_gpus",
+    "exp_queue_submit",
+    "exp_queue_reconcile",
+    "exp_queue_status",
+    "exp_gpu_pool_set",
+    "exp_gpu_pool_get",
+    "search_arxiv",
+    "search_pubmed",
+    "search_biorxiv",
+    "search_medrxiv",
+    "search_google_scholar",
+    "read_arxiv_paper",
+    "read_pubmed_paper",
+    "read_biorxiv_paper",
+    "read_medrxiv_paper",
+    "download_arxiv",
+    "download_pubmed",
+    "download_biorxiv",
+    "download_medrxiv",
+    "gru_inbox_poll",
+    "schedule_poll",
+    "gru_start_monitor",
+}
+
+
+def _csv_names(value: str) -> set[str]:
+    return {part.strip() for part in value.split(",") if part.strip()}
+
+
+def allowed_tool_names_for_profile(
+    *,
+    profile: str | None = None,
+    role: str | None = None,
+    agent_type: str | None = None,
+) -> set[str]:
+    """Return MinionsOS MCP tool names advertised for the current profile.
+
+    This trims the schema surface before the host sees tools. Runtime
+    authorization in ``_require_tool_allowed`` remains the enforcement layer.
+    """
+    custom = os.environ.get("MINIONS_MCP_TOOLS", "").strip()
+    if custom:
+        return _csv_names(custom) & _MINIONS_MCP_TOOL_NAMES
+
+    profile = (profile or os.environ.get("MINIONS_MCP_PROFILE", "full")).strip().lower()
+    if profile in {"", "full", "all"}:
+        return set(_MINIONS_MCP_TOOL_NAMES)
+
+    role = (role or os.environ.get("MINIONS_ROLE_NAME", "")).strip() or "gru"
+    agent_type = (agent_type or os.environ.get("MINIONS_AGENT_TYPE", "main")).strip() or "main"
+    if agent_type not in {"main", "subagent"}:
+        agent_type = "main"
+
+    patterns = resolve_whitelist(role, agent_type)  # type: ignore[arg-type]
+    return {
+        tool_name
+        for tool_name in _MINIONS_MCP_TOOL_NAMES
+        if any(fnmatchcase(tool_name, pattern) for pattern in patterns)
+    }
+
+
+def configure_mcp_tool_profile() -> set[str]:
+    """Disable tools outside the selected profile before serving MCP."""
+    allowed = allowed_tool_names_for_profile()
+    for tool_name in _MINIONS_MCP_TOOL_NAMES - allowed:
+        with suppress(Exception):
+            mcp.remove_tool(tool_name)
+    logger.info(
+        "MinionsOS MCP profile=%s role=%s advertised_tools=%d",
+        os.environ.get("MINIONS_MCP_PROFILE", "full"),
+        os.environ.get("MINIONS_ROLE_NAME", ""),
+        len(allowed),
+    )
+    return allowed
+
+
+def _running_sidecar_monitor() -> dict[str, object] | None:
+    """Return metadata for a live launcher-managed Gru monitor, if present."""
+    pid_path = STATE_DIR / "gru-monitor.pid"
+    host_path = STATE_DIR / "gru-monitor.host"
+    try:
+        pid = int(pid_path.read_text(encoding="utf-8").strip())
+    except Exception:
+        return None
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return None
+    except PermissionError:
+        pass
+    except Exception:
+        return None
+    try:
+        host = host_path.read_text(encoding="utf-8").strip().lower()
+    except Exception:
+        host = ""
+    expected = os.environ.get("MINIONS_AGENT_HOST", "").strip().lower()
+    return {
+        "pid": pid,
+        "host": host,
+        "host_mismatch": bool(expected and host and host != expected),
+    }
 
 
 def _require_tool_allowed(tool_name: str) -> None:
@@ -728,6 +855,16 @@ def gru_start_monitor(heartbeat_interval: int | None = None) -> dict:
             "interval": getattr(gru_start_monitor, "_interval", None),
         }
 
+    sidecar = _running_sidecar_monitor()
+    if sidecar is not None:
+        return {
+            "started": False,
+            "already_running": True,
+            "external": True,
+            "interval": None,
+            **sidecar,
+        }
+
     loop = GruLoop(heartbeat_interval=heartbeat_interval)
     t = threading.Thread(target=loop.run, daemon=True, name="gru-monitor")
     t.start()
@@ -744,6 +881,7 @@ def gru_start_monitor(heartbeat_interval: int | None = None) -> dict:
 
 def main() -> None:
     """Run the MCP server over stdio."""
+    configure_mcp_tool_profile()
     mcp.run()
 
 

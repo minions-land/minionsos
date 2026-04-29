@@ -368,7 +368,7 @@ class GruConfig(BaseModel):
         description="Claude model name passed to the claude CLI (e.g. claude-sonnet-4-6).",
     )
     agent_host: Literal["claude", "codex"] = Field(
-        default="claude",
+        default="codex",
         description="Default agent host for Gru and role wakeups: claude or codex.",
     )
     codex_model: str | None = Field(
@@ -388,10 +388,10 @@ class GruConfig(BaseModel):
         description="Codex reasoning effort for Gru and role wakeups.",
     )
     codex_bypass_approvals_and_sandbox: bool = Field(
-        default=True,
+        default=False,
         description=(
             "Use Codex --dangerously-bypass-approvals-and-sandbox for role wakeups. "
-            "Only disable on machines that are not externally sandboxed."
+            "Disabled by default; enable only on machines that are externally sandboxed."
         ),
     )
 
@@ -406,7 +406,7 @@ class GruConfig(BaseModel):
     def model_registry_valid(self) -> tuple[bool, str]:
         """Return (ok, detail) for the configured model registry.
 
-        Claude remains the default and keeps the historical strict registry.
+        Claude keeps the historical strict registry when explicitly selected.
         Codex model names are intentionally not hardcoded here; Codex CLI can
         use its own profile/config defaults when ``codex_model`` is unset.
         """
@@ -422,8 +422,12 @@ class GruConfig(BaseModel):
         """Return the configured host, allowing a process-local env override."""
         host = os.environ.get("MINIONS_AGENT_HOST", "").strip().lower() or self.agent_host
         if host not in {"claude", "codex"}:
-            logger.warning("Unknown MINIONS_AGENT_HOST=%r; falling back to claude.", host)
-            return "claude"
+            logger.warning(
+                "Unknown MINIONS_AGENT_HOST=%r; falling back to configured agent_host=%s.",
+                host,
+                self.agent_host,
+            )
+            return self.agent_host
         return host  # type: ignore[return-value]
 
     # --- Scratchpad size thresholds (as fractions of the model context window) ---
@@ -570,6 +574,18 @@ def load_gru_config(config_dir: Path | None = None) -> GruConfig:
         return GruConfig(**data)
     except Exception as exc:
         raise ConfigError(f"Invalid gru.yaml: {exc}") from exc
+
+
+def pin_effective_agent_host(config_dir: Path | None = None) -> Literal["claude", "codex"]:
+    """Resolve the current host once and pin it in the process environment.
+
+    Gru, the monitor sidecar, MCP servers, and role wakeups all inherit process
+    environment. Pinning prevents a long-running process from drifting between
+    Claude and Codex because a config file changed after startup.
+    """
+    host = load_gru_config(config_dir).effective_agent_host()
+    os.environ["MINIONS_AGENT_HOST"] = host
+    return host
 
 
 def load_experiment_targets(config_dir: Path | None = None) -> ExperimentTargetsConfig:

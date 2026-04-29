@@ -23,7 +23,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
-from minions.config import load_gru_config
+from minions.config import load_gru_config, pin_effective_agent_host
 from minions.lifecycle.health import CrashCounter, append_health_event, backend_health
 from minions.logging_setup import configure_logging
 from minions.state.store import StateStore
@@ -42,6 +42,7 @@ class GruLoop:
     """Heartbeat loop that monitors project backends and role health."""
 
     def __init__(self, heartbeat_interval: int | None = None) -> None:
+        self.agent_host = pin_effective_agent_host()
         cfg = load_gru_config()
         self.interval: int = heartbeat_interval or cfg.heartbeat_interval_seconds
         self.experiment_reconcile_interval: int = cfg.experiment_reconcile_interval_seconds

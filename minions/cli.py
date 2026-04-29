@@ -330,8 +330,27 @@ def doctor(
             not missing,
             f"present: {sorted(servers)}" if not missing else f"missing: {sorted(missing)}",
         )
+        minionsos = (codex_cfg.get("mcp_servers") or {}).get("minionsos") or {}
+        eacn3 = (codex_cfg.get("mcp_servers") or {}).get("eacn3") or {}
+        minions_profile_ok = (minionsos.get("env") or {}).get("MINIONS_MCP_PROFILE") == "codex"
+        eacn_profile_ok = (eacn3.get("env") or {}).get("EACN3_MCP_PROFILE") == "codex-core"
+        eacn_args = eacn3.get("args") or []
+        eacn_proxy_ok = any("minions.tools.eacn3_mcp_proxy" in str(arg) for arg in eacn_args)
+        _check(
+            "codex-mcp-profiles",
+            minions_profile_ok and eacn_profile_ok and eacn_proxy_ok,
+            (
+                "minions=codex, eacn3=codex-core via MinionsOS proxy"
+                if minions_profile_ok and eacn_profile_ok and eacn_proxy_ok
+                else (
+                    f"minions_profile={minions_profile_ok}, "
+                    f"eacn3_profile={eacn_profile_ok}, eacn3_proxy={eacn_proxy_ok}"
+                )
+            ),
+        )
     except Exception as exc:
         _check("codex-mcp-config-mounts-eacn3", False, str(exc))
+        _check("codex-mcp-profiles", False, str(exc))
 
     # Port range probe. The allocator can skip an occupied first port, so
     # doctor should only fail when the whole configured range is exhausted.

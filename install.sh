@@ -197,11 +197,13 @@ if [ ! -f "$CODEX_CONFIG" ]; then
 command = "uv"
 args = ["run", "--project", ".", "python", "-m", "minions.tools.mcp_server"]
 enabled = true
+env = { MINIONS_MCP_PROFILE = "codex" }
 
 [mcp_servers.eacn3]
-command = "node"
-args = ["EACN3/plugin/dist/server.js"]
+command = "uv"
+args = ["run", "--project", ".", "python", "-m", "minions.tools.eacn3_mcp_proxy", "--", "node", "EACN3/plugin/dist/server.js"]
 enabled = true
+env = { EACN3_MCP_PROFILE = "codex-core" }
 EOF
     ok "Created Codex MCP config: .codex/config.toml"
 else

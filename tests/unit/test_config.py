@@ -192,23 +192,25 @@ class TestGruConfigModel:
         assert cfg.claude_model == "claude-opus-4-7"
 
     def test_model_registry_valid_known(self, tmp_path: Path) -> None:
-        cfg = load_gru_config(tmp_path / "nonexistent.yaml")
+        p = tmp_path / "gru.yaml"
+        p.write_text(yaml.dump({"agent_host": "claude"}))
+        cfg = load_gru_config(p)
         ok, detail = cfg.model_registry_valid()
         assert ok is True
         assert cfg.claude_model in detail
 
     def test_model_registry_valid_unknown(self, tmp_path: Path) -> None:
         p = tmp_path / "gru.yaml"
-        p.write_text(yaml.dump({"claude_model": "claude-fake-99"}))
+        p.write_text(yaml.dump({"agent_host": "claude", "claude_model": "claude-fake-99"}))
         cfg = load_gru_config(p)
         ok, detail = cfg.model_registry_valid()
         assert ok is False
         assert "claude-fake-99" in detail
 
-    def test_default_agent_host_is_claude(self, tmp_path: Path) -> None:
+    def test_default_agent_host_is_codex(self, tmp_path: Path) -> None:
         cfg = load_gru_config(tmp_path / "nonexistent.yaml")
-        assert cfg.agent_host == "claude"
-        assert cfg.effective_agent_host() == "claude"
+        assert cfg.agent_host == "codex"
+        assert cfg.effective_agent_host() == "codex"
 
     def test_codex_agent_host_skips_static_claude_registry(self, tmp_path: Path) -> None:
         p = tmp_path / "gru.yaml"
@@ -218,7 +220,7 @@ class TestGruConfigModel:
         assert ok is True
         assert "codex host selected" in detail
 
-    def test_codex_defaults_to_xhigh_bypass(self, tmp_path: Path) -> None:
+    def test_codex_defaults_to_xhigh_without_dangerous_bypass(self, tmp_path: Path) -> None:
         cfg = load_gru_config(tmp_path / "nonexistent.yaml")
         assert cfg.codex_reasoning_effort == "xhigh"
-        assert cfg.codex_bypass_approvals_and_sandbox is True
+        assert cfg.codex_bypass_approvals_and_sandbox is False
