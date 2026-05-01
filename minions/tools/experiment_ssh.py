@@ -63,7 +63,7 @@ def _expand_workdir(workdir: str) -> str:
 
     Supported tokens:
     - ``{project_workspace}`` → absolute path of the current project's git
-      worktree (``project_{port}/workspace``), resolved from the
+      main worktree (``project_{port}/workspace/main``), resolved from the
       ``MINIONS_PROJECT_PORT`` env var. Falls back to the literal token
       if the env var is absent (e.g. standalone CLI use).
     """

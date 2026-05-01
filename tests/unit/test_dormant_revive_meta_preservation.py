@@ -38,6 +38,14 @@ def _install_patches(
     monkeypatch.setattr(proj_mod, "project_workspace", lambda p: pdir / "workspace")
     monkeypatch.setattr(proj_mod, "project_eacn_db", lambda p: pdir / "eacn3_data" / "eacn3.db")
     monkeypatch.setattr(proj_mod, "project_backend_log", lambda p: pdir / "logs" / "backend.log")
+    monkeypatch.setattr(
+        proj_mod,
+        "ensure_role_workspace",
+        lambda p, role_name, base_branch=None: (
+            f"minionsos/project-{p}/{role_name}",
+            pdir / "workspace" / "roles" / role_name,
+        ),
+    )
 
     class _FakeProc:
         def __init__(self, pid: int) -> None:

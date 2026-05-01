@@ -52,6 +52,12 @@ def _resolve_path_setting(value: str) -> Path:
     return path.resolve()
 
 
+def _safe_component(value: str) -> str:
+    """Return a filesystem-safe path component."""
+    cleaned = "".join(c if c.isalnum() or c in {"-", "_", "."} else "_" for c in value)
+    return cleaned.strip("._") or "default"
+
+
 def _gru_yaml_value(key: str) -> Any | None:
     path = CONFIG_DIR / "gru.yaml"
     if not path.exists():
@@ -96,9 +102,59 @@ def project_dir(port: int) -> Path:
     return projects_root() / f"project_{port}"
 
 
-def project_workspace(port: int) -> Path:
-    """Return the ``workspace/`` git-worktree path for *port*."""
+def project_workspace_root(port: int) -> Path:
+    """Return the workspace container for *port*."""
     return project_dir(port) / "workspace"
+
+
+def project_main_workspace(port: int) -> Path:
+    """Return the canonical main worktree for *port*."""
+    return project_workspace_root(port) / "main"
+
+
+def project_roles_workspace_dir(port: int) -> Path:
+    """Return the directory that contains per-role worktrees for *port*."""
+    return project_workspace_root(port) / "roles"
+
+
+def project_shared_workspace(port: int) -> Path:
+    """Return the shared cross-role workspace for *port*."""
+    return project_workspace_root(port) / "shared"
+
+
+def project_role_workspace(port: int, role_name: str) -> Path:
+    """Return the canonical workspace for *role_name* in *port*."""
+    if role_name == "gru":
+        return project_main_workspace(port)
+    return project_roles_workspace_dir(port) / _safe_component(role_name)
+
+
+def project_workspace(port: int) -> Path:
+    """Backward-compatible alias for the canonical main workspace."""
+    return project_main_workspace(port)
+
+
+def project_state_dir(port: int) -> Path:
+    """Return the runtime state directory for *port*."""
+    return project_dir(port) / "state"
+
+
+def project_session_ledger(port: int) -> Path:
+    """Return the session ledger file for *port*."""
+    return project_state_dir(port) / "session-ledger.json"
+
+
+def project_session_name(port: int, role_name: str) -> str:
+    """Return a stable session name for *role_name* in *port*."""
+    return f"p{port}/{_safe_component(role_name)}"
+
+
+def project_branch_name(port: int, role_name: str | None = None) -> str:
+    """Return the canonical git branch name for *port* and optional role."""
+    base = f"minionsos/project-{port}"
+    if role_name is None or role_name == "main":
+        return base
+    return f"{base}/{_safe_component(role_name)}"
 
 
 def project_eacn_db(port: int) -> Path:

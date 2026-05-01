@@ -313,6 +313,17 @@ class GruConfig(BaseModel):
             "When unset, project directories live beside MINIONS_ROOT."
         ),
     )
+    github_push_target: str | None = Field(
+        default=None,
+        description=(
+            "Optional git remote URL or remote name used for durable workspace "
+            "checkpoints. When unset, MinionsOS keeps commits local and skips git push."
+        ),
+    )
+    github_push_branch_prefix: str = Field(
+        default="minionsos",
+        description="Branch prefix used when pushing durable checkpoints to github_push_target.",
+    )
     backend_crash_threshold: int = Field(
         default=3,
         description="Max backend crashes within crash_window_seconds before auto-restart stops.",

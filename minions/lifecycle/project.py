@@ -26,11 +26,18 @@ from minions.paths import (
     MINIONS_ROOT,
     configured_project_parent_repo,
     project_backend_log,
+    project_branch_name,
     project_dir,
     project_eacn_db,
     project_logs_dir,
+    project_main_workspace,
     project_meta_json,
-    project_workspace,
+    project_role_workspace,
+    project_roles_workspace_dir,
+    project_session_name,
+    project_shared_workspace,
+    project_state_dir,
+    project_workspace_root,
 )
 from minions.state.store import ProjectEntry, RoleEntry, StateStore
 
@@ -593,7 +600,7 @@ def _create_worktree(port: int, base_branch: str) -> str:
     Returns the branch name ``minionsos/project-{port}``.
     """
     branch = f"minionsos/project-{port}"
-    workspace = project_workspace(port)
+    workspace = project_main_workspace(port)
     workspace.parent.mkdir(parents=True, exist_ok=True)
 
     parent_repo = project_parent_repo()
@@ -633,6 +640,73 @@ def _git_tag(port: int, tag: str) -> None:
     )
     if result.returncode != 0:
         logger.warning("git tag %s failed: %s", tag, result.stderr.strip())
+
+
+def _ensure_workspace_layout(port: int) -> None:
+    """Create the non-worktree workspace containers for *port*."""
+    project_workspace_root(port).mkdir(parents=True, exist_ok=True)
+    project_roles_workspace_dir(port).mkdir(parents=True, exist_ok=True)
+    project_shared_workspace(port).mkdir(parents=True, exist_ok=True)
+    project_state_dir(port).mkdir(parents=True, exist_ok=True)
+
+
+def project_workspace(port: int) -> Path:
+    """Backward-compatible alias for the canonical main workspace."""
+    return project_main_workspace(port)
+
+
+def _create_role_worktree(
+    port: int,
+    role_name: str,
+    base_branch: str | None = None,
+) -> tuple[str, Path]:
+    """Create or verify the git worktree for one role."""
+    branch = project_branch_name(port, role_name)
+    workspace = project_role_workspace(port, role_name)
+    if role_name == "gru":
+        workspace.mkdir(parents=True, exist_ok=True)
+        return branch, workspace
+    if workspace.exists():
+        if _is_git_work_tree(workspace):
+            return branch, workspace
+        raise ProjectError(
+            f"Role workspace already exists but is not a git worktree: {workspace}"
+        )
+
+    workspace.parent.mkdir(parents=True, exist_ok=True)
+    parent_repo = project_parent_repo()
+    resolved_base = base_branch if base_branch not in {None, ""} else project_branch_name(port)
+    cmd = [
+        "git",
+        "worktree",
+        "add",
+        "-b",
+        branch,
+        str(workspace),
+        resolved_base,
+    ]
+    logger.info("Creating role worktree: %s", " ".join(cmd))
+    result = subprocess.run(
+        cmd,
+        cwd=str(parent_repo),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise ProjectError(
+            f"git worktree add failed for role {role_name!r} on port {port}: "
+            f"{result.stderr.strip()}"
+        )
+    return branch, workspace
+
+
+def ensure_role_workspace(
+    port: int,
+    role_name: str,
+    base_branch: str | None = None,
+) -> tuple[str, Path]:
+    """Public wrapper that returns the role branch and workspace path."""
+    return _create_role_worktree(port, role_name, base_branch=base_branch)
 
 
 _PROJECT_GITIGNORE = """\
@@ -707,7 +781,9 @@ def _render_project_claude_md(
     lines.append("")
     lines.append("- All inter-Role communication goes through EACN3 on this port.")
     lines.append(
-        "- Workspace edits happen on branch above; Noter / Reviewer are read-only on `workspace/`."
+        "- Workspace container: `workspace/main/` is the primary integration tree; "
+        "role worktrees live under `workspace/roles/<role>/`; shared handoffs live under "
+        "`workspace/shared/`."
     )
     lines.append(
         "- Root constitution at repo `CLAUDE.md` always wins on conflicts (see Hard rules)."
@@ -759,9 +835,20 @@ def project_create(
     port = _store.find_next_port()
     logger.info("project_create name=%r port=%d venue=%r", real_name, port, venue)
 
+    try:
+        from minions.config import load_gru_config
+
+        cfg = load_gru_config()
+        github_push_target = cfg.github_push_target
+        github_push_branch_prefix = cfg.github_push_branch_prefix
+    except Exception:
+        github_push_target = None
+        github_push_branch_prefix = None
+
     # Create directory structure.
     pdir = project_dir(port)
     pdir.mkdir(parents=True, exist_ok=True)
+    _ensure_workspace_layout(port)
     project_logs_dir(port).mkdir(parents=True, exist_ok=True)
     (pdir / "artifacts" / "notes").mkdir(parents=True, exist_ok=True)
     (pdir / "artifacts" / "ethics" / "reports").mkdir(parents=True, exist_ok=True)
@@ -835,6 +922,12 @@ def project_create(
         venue=venue,
         upstream_branch=upstream or base_branch,
         current_branch=branch,
+        workspace_root=str(project_workspace_root(port).resolve()),
+        workspace_main=str(project_main_workspace(port).resolve()),
+        workspace_roles_root=str(project_roles_workspace_dir(port).resolve()),
+        workspace_shared=str(project_shared_workspace(port).resolve()),
+        github_push_target=github_push_target,
+        github_push_branch_prefix=github_push_branch_prefix,
         active_roles=[],
     )
     # Store backend PID, server_id, and eacn3_server_token in extra fields.
@@ -845,6 +938,12 @@ def project_create(
     entry_dict["gru_agent_id"] = gru_agent_id
     entry_dict["gru_agent_token"] = gru_agent_token
     entry_dict["eacn_agent_map"] = identity_map_for_meta(port)
+    entry_dict["workspace_root"] = str(project_workspace_root(port).resolve())
+    entry_dict["workspace_main"] = str(project_main_workspace(port).resolve())
+    entry_dict["workspace_roles_root"] = str(project_roles_workspace_dir(port).resolve())
+    entry_dict["workspace_shared"] = str(project_shared_workspace(port).resolve())
+    entry_dict["github_push_target"] = github_push_target
+    entry_dict["github_push_branch_prefix"] = github_push_branch_prefix
     # Persist external resource pointers so revive / downstream tools can see them.
     if topic_doc:
         entry_dict["topic_doc"] = topic_doc
@@ -863,7 +962,7 @@ def project_create(
     # Auto-generate project CLAUDE.md skeleton if not already present.
     claude_md = pdir / "CLAUDE.md"
     agents_md = pdir / "AGENTS.md"
-    workspace_abs = str(project_workspace(port).resolve())
+    workspace_abs = str(project_main_workspace(port).resolve())
     if not claude_md.exists():
         claude_md.write_text(
             _render_project_claude_md(
@@ -883,11 +982,11 @@ def project_create(
         agents_md.write_text(_render_project_agents_md(real_name), encoding="utf-8")
         logger.info("Wrote project AGENTS.md shim: %s", agents_md)
 
-    # Ensure workspace/experiments/ exists so local experiment target resolves.
+    # Ensure workspace/main/experiments/ exists so local experiment target resolves.
     try:
-        (project_workspace(port) / "experiments").mkdir(parents=True, exist_ok=True)
+        (project_main_workspace(port) / "experiments").mkdir(parents=True, exist_ok=True)
     except Exception as exc:  # non-fatal
-        logger.warning("Could not create workspace/experiments/: %s", exc)
+        logger.warning("Could not create workspace/main/experiments/: %s", exc)
 
     # Register in projects.json.
     _store.add_project(entry)
@@ -1140,6 +1239,11 @@ def project_revive(
         from minions.lifecycle.agent_registry import register_project_role_agent
 
         for restored in _roles_for_revive(entry, raw_meta):
+            workspace_branch, workspace_path = ensure_role_workspace(
+                port,
+                restored.name,
+                base_branch=entry.current_branch or None,
+            )
             role_token, _role_seeds = register_project_role_agent(
                 port,
                 restored.name,
@@ -1150,11 +1254,19 @@ def project_revive(
                     "eacn_agent_id": restored.name,
                     "eacn_agent_token": role_token,
                     "eacn_registered_at": now,
+                    "session_name": restored.session_name
+                    or project_session_name(port, restored.name),
+                    "workspace_path": restored.workspace_path
+                    or str(workspace_path.resolve()),
+                    "workspace_branch": restored.workspace_branch or workspace_branch,
+                    "github_push_target": restored.github_push_target
+                    or getattr(entry, "github_push_target", None)
+                    or raw_meta.get("github_push_target"),
                 }
             )
             revived_roles.append(restored)
-    except BackendError as exc:
-        logger.error("Role EACN re-registration failed during revive (fatal): %s", exc)
+    except (BackendError, ProjectError) as exc:
+        logger.error("Role workspace/EACN restore failed during revive (fatal): %s", exc)
         proc.terminate()
         raise
 
@@ -1257,10 +1369,31 @@ def project_repair_eacn_agents(
     for role in refreshed_entry.active_roles:
         if role.state not in {"active", "sleeping"}:
             continue
+        workspace_branch, workspace_path = ensure_role_workspace(
+            port,
+            role.name,
+            base_branch=refreshed_entry.current_branch or None,
+        )
+        role_workspace_updates: dict[str, object | None] = {}
+        if not role.session_name:
+            role_workspace_updates["session_name"] = project_session_name(port, role.name)
+        if not role.workspace_path:
+            role_workspace_updates["workspace_path"] = str(workspace_path.resolve())
+        if not role.workspace_branch:
+            role_workspace_updates["workspace_branch"] = workspace_branch
+        if not role.github_push_target:
+            role_workspace_updates["github_push_target"] = (
+                getattr(refreshed_entry, "github_push_target", None)
+                or raw.get("github_push_target")
+            )
+        if role_workspace_updates:
+            role = role.model_copy(update=role_workspace_updates)
         agent_id = role.eacn_agent_id or role.name
         if agent_id in existing_ids:
             already_roles.append(role.name)
             _ensure_local_balance(port, agent_id)
+            if role_workspace_updates:
+                _store.upsert_role(port, role)
             continue
         role_token, _role_seeds = register_project_role_agent(
             port,
@@ -1277,6 +1410,7 @@ def project_repair_eacn_agents(
                     "eacn_agent_id": role.name,
                     "eacn_agent_token": role_token,
                     "eacn_registered_at": now,
+                    **role_workspace_updates,
                 }
             ),
         )

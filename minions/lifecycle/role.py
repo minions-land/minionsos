@@ -1,13 +1,13 @@
-"""Role lifecycle: register, invoke (ephemeral), dismiss, list.
+"""Role lifecycle: register, wake, dismiss, list.
 
-Event-driven model (replaces the long-running-subprocess model):
+Current V5 transition model:
 
 - ``register_role`` / ``register_expert`` register a project-local EACN3
-  AgentCard and record a Role in ``projects.json`` (name, port, poll cadence).
-  No agent-host subprocess is launched.
-- ``invoke_role_ephemeral`` launches a SHORT-LIVED agent-host subprocess seeded
-  with the Role's SYSTEM.md and a batch of events to act on. The process
-  exits when the Role finishes its response.
+  AgentCard, prepare the Role's workspace, and record a named host session in
+  ``projects.json``. No agent-host subprocess is launched at registration time.
+- ``invoke_role_ephemeral`` is retained as a compatibility name, but wake-ups
+  now run in the Role's canonical workspace and keep host session persistence
+  enabled so later wake-ups can resume the same logical Claude/Codex session.
 - ``dismiss_role`` / ``list_roles`` operate on the registry.
 
 The public ``spawn_role`` / ``spawn_expert`` names are retained as
@@ -43,14 +43,19 @@ from minions.lifecycle import eacn_client
 from minions.lifecycle.agent_host import build_role_invocation
 from minions.lifecycle.agent_registry import register_project_role_agent, role_agent_domains
 from minions.lifecycle.eacn_identity import plugin_state_dir, resolve_agent_id
+from minions.lifecycle.project import ensure_role_workspace
 from minions.lifecycle.skills import list_skills
 from minions.paths import (
     MINIONS_ROOT,
     common_role_system_md,
+    project_branch_name,
     project_memory_dir,
     project_role_log,
+    project_role_workspace,
     project_scratchpad,
+    project_session_name,
     project_workspace,
+    project_workspace_root,
     role_system_md,
 )
 from minions.state.store import RoleEntry, StateStore
@@ -344,8 +349,8 @@ def register_role(
 ) -> dict[str, object]:
     """Register a fixed role for event-driven invocation.
 
-    Does NOT launch an agent-host subprocess. The Python-level WakeupScheduler
-    polls EACN for this role and invokes it ephemerally when events arrive.
+    Does NOT launch an agent-host subprocess. Registration prepares the EACN
+    identity, canonical workspace, and stable host session name for later wakes.
 
     If *init_brief* is given, it is published as a targeted EACN task so the
     role's first action uses the same bus as every later handoff.
@@ -411,6 +416,18 @@ def _do_register(
     wake_policy = "any" if resolved_time_trigger else "event"
 
     try:
+        workspace_branch, workspace_path = ensure_role_workspace(
+            project_port,
+            role_name,
+            base_branch=entry.current_branch or None,
+        )
+    except Exception as exc:
+        raise RoleError(
+            f"Role {role_name!r} could not prepare its workspace on port {project_port}: {exc}"
+        ) from exc
+    session_name = project_session_name(project_port, role_name)
+
+    try:
         agent_token, _seeds = register_project_role_agent(project_port, role_name)
     except BackendError as exc:
         raise RoleError(
@@ -424,6 +441,11 @@ def _do_register(
         state="active",
         pid=None,
         spawned_at=now,
+        session_name=session_name,
+        session_resumable=False,
+        workspace_path=str(workspace_path.resolve()),
+        workspace_branch=workspace_branch,
+        github_push_target=getattr(entry, "github_push_target", None),
         poll_interval=interval,
         wake_policy=wake_policy,
         time_trigger_interval=resolved_time_trigger,
@@ -489,6 +511,9 @@ def _do_register(
 
     return {
         "name": role_name,
+        "session_name": session_name,
+        "workspace_path": str(workspace_path.resolve()),
+        "workspace_branch": workspace_branch,
         "poll_interval": interval,
         "wake_policy": wake_policy,
         "time_trigger_interval": resolved_time_trigger,
@@ -511,11 +536,11 @@ def invoke_role_ephemeral(
     scratchpad_path: Path | None = None,
     store: StateStore | None = None,
 ) -> dict[str, object]:
-    """Launch a short-lived agent-host subprocess for *role_name* to process *events*.
+    """Launch one bounded host wake-up for *role_name* to process *events*.
 
     The subprocess is seeded with the Role's SYSTEM.md and a user message
-    containing the event batch as JSON. It exits when the Role finishes
-    responding.
+    containing the event batch as JSON. Host session persistence remains enabled
+    so later wake-ups can resume the same logical session in the role workspace.
 
     Args:
         role_name: Registered role name.
@@ -536,6 +561,29 @@ def invoke_role_ephemeral(
     # not spuriously block a new wakeup.
     reap_finished(store=store)
     key = (project_port, role_name)
+    _store = store or StateStore()
+    project = _store.get_project(project_port)
+    role_record = None
+    if project is not None:
+        role_record = next((r for r in project.active_roles if r.name == role_name), None)
+    workspace = (
+        Path(role_record.workspace_path)
+        if role_record is not None and role_record.workspace_path
+        else project_role_workspace(project_port, role_name)
+    )
+    if not workspace.exists() and project_workspace(project_port).exists():
+        workspace = project_workspace(project_port)
+    session_name = (
+        role_record.session_name
+        if role_record is not None and role_record.session_name
+        else project_session_name(project_port, role_name)
+    )
+    resume_session = bool(role_record and getattr(role_record, "session_resumable", False))
+    workspace_branch = (
+        role_record.workspace_branch
+        if role_record is not None and role_record.workspace_branch
+        else project_branch_name(project_port, role_name)
+    )
     with _INFLIGHT_LOCK:
         if key in _INFLIGHT or key in _STARTING:
             logger.info(
@@ -552,7 +600,6 @@ def invoke_role_ephemeral(
         _STARTING.add(key)
 
     system_path = _build_system_prompt(role_name)
-    workspace = project_workspace(project_port)
     log_path = project_role_log(project_port, role_name)
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -570,6 +617,10 @@ def invoke_role_ephemeral(
         scratchpad_status=scratchpad_status,
         project_port=project_port,
         role_name=role_name,
+        workspace_path=workspace,
+        workspace_branch=workspace_branch,
+        session_name=session_name,
+        resume_session=resume_session,
     )
 
     cfg = load_gru_config()
@@ -581,6 +632,8 @@ def invoke_role_ephemeral(
         allowed_tools=allowed,
         message=message,
         workspace=workspace,
+        session_name=session_name,
+        resume_session=resume_session,
     )
 
     env = {
@@ -588,11 +641,23 @@ def invoke_role_ephemeral(
         "MINIONS_AGENT_HOST": invocation.host_name,
         "MINIONS_ROLE_NAME": role_name,
         "MINIONS_PROJECT_PORT": str(project_port),
+        "MINIONS_WORKSPACE_ROOT": str(project_workspace_root(project_port)),
+        "MINIONS_WORKSPACE_MAIN": str(project_workspace(project_port)),
+        "MINIONS_ROLE_WORKSPACE": str(workspace),
+        "MINIONS_ROLE_WORKSPACE_BRANCH": workspace_branch,
+        "MINIONS_SESSION_NAME": session_name,
+        "MINIONS_SESSION_MODE": "resume" if resume_session else "fresh",
+        "MINIONS_SESSION_RESUMABLE": "1" if resume_session else "0",
         "EACN3_NETWORK_URL": f"http://127.0.0.1:{project_port}",
         # Per-role state dir so the EACN3 MCP plugin's on-disk agent-token
         # cache does not collide between roles sharing the same host.
         "EACN3_STATE_DIR": str(
             plugin_state_dir(project_port, resolve_agent_id(project_port, role_name)).resolve()
+        ),
+        "MINIONS_GITHUB_PUSH_TARGET": str(
+            getattr(role_record, "github_push_target", None)
+            or getattr(project, "github_push_target", None)
+            or ""
         ),
         "MINIONS_EPHEMERAL": "1",
         "MINIONS_MCP_PROFILE": "codex" if invocation.host_name == "codex" else "full",
@@ -637,6 +702,11 @@ def invoke_role_ephemeral(
                                 "state": "active",
                                 "pid": proc.pid,
                                 "spawned_at": _now_iso(),
+                                "session_name": session_name,
+                                "session_resumable": True,
+                                "workspace_path": str(workspace.resolve()),
+                                "workspace_branch": workspace_branch,
+                                "github_push_target": env["MINIONS_GITHUB_PUSH_TARGET"] or None,
                             }
                         ),
                     )
@@ -714,6 +784,10 @@ def _format_event_message(
     scratchpad_status: str = "ok",
     project_port: int | None = None,
     role_name: str | None = None,
+    workspace_path: Path | None = None,
+    workspace_branch: str | None = None,
+    session_name: str | None = None,
+    resume_session: bool = False,
 ) -> str:
     """Render an event batch as a user message for the ephemeral agent-host process."""
     preamble = ""
@@ -747,6 +821,16 @@ def _format_event_message(
         elif scratchpad_status == "soft":
             preamble += "When convenient, dispatch a subagent to compress.\n"
         preamble += "\n"
+    if workspace_path is not None:
+        preamble += "[Workspace]\n"
+        if project_port is not None:
+            preamble += f"- Main workspace: `{project_workspace(project_port)}`\n"
+        preamble += f"- Role workspace: `{workspace_path}`\n"
+        if workspace_branch:
+            preamble += f"- Git branch: `{workspace_branch}`\n"
+        if session_name:
+            preamble += f"- Session name: `{session_name}`\n"
+        preamble += f"- Resume session: `{str(bool(resume_session)).lower()}`\n\n"
     if role_name:
         skills = list_skills(role_name)
         if skills:
@@ -799,8 +883,8 @@ def _format_event_message(
         header = (
             "You have been invoked to process the following EACN event batch.\n"
             f"Act on these events, emit any necessary EACN responses via {response_tools}, "
-            "then exit (this is an ephemeral session — do not start a "
-            "polling loop). If accepted work belongs to your Role, dispatch your "
+            "then exit this bounded wake window; do not start a polling loop. "
+            "If accepted work belongs to your Role, dispatch your "
             "own focused subagent(s) for the substantive execution and keep this "
             "main session focused on coordination, review, checkpointing, and EACN "
             "communication. Treat this as fresh execution context; after the task "
@@ -875,6 +959,10 @@ def list_roles(
             "state": r.state,
             "pid": r.pid,
             "eacn_agent_id": r.eacn_agent_id or r.name,
+            "session_name": getattr(r, "session_name", None),
+            "session_resumable": getattr(r, "session_resumable", False),
+            "workspace_path": getattr(r, "workspace_path", None),
+            "workspace_branch": getattr(r, "workspace_branch", None),
         }
         for r in entry.active_roles
     ]

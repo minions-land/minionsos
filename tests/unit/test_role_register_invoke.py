@@ -39,6 +39,15 @@ class FakeStore:
         )
 
 
+@pytest.fixture(autouse=True)
+def _fake_role_workspace(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _workspace(port: int, role_name: str, base_branch: str | None = None):
+        branch = f"minionsos/project-{port}/{role_name}"
+        return branch, Path(f"/tmp/minionsos-test-workspaces/{port}/{role_name}")
+
+    monkeypatch.setattr(role_mod, "ensure_role_workspace", _workspace)
+
+
 class TestRegister:
     def test_register_role_no_subprocess(self) -> None:
         store = FakeStore()
@@ -52,11 +61,15 @@ class TestRegister:
         assert inv.call_count == 0
         reg.assert_called_once_with(37596, "noter")
         assert out["name"] == "noter"
+        assert out["session_name"] == "p37596/noter"
+        assert str(out["workspace_path"]).endswith("/37596/noter")
         assert out["poll_interval"] == "1m"
         assert out["ephemeral"] is True
         assert out["eacn_agent_id"] == "noter"
         assert store.upserts[0].state == "active"
         assert store.upserts[0].pid is None
+        assert store.upserts[0].session_name == "p37596/noter"
+        assert store.upserts[0].workspace_branch == "minionsos/project-37596/noter"
         assert store.upserts[0].eacn_agent_id == "noter"
         assert store.upserts[0].eacn_agent_token == "tok"
 
@@ -143,7 +156,7 @@ class TestInvokeEphemeral:
         with (
             patch.dict(os.environ, {"MINIONS_AGENT_HOST": "claude"}, clear=False),
             patch("minions.lifecycle.role.subprocess.Popen", return_value=fake_proc) as popen,
-            patch("minions.lifecycle.role.project_workspace", return_value=tmp_path),
+            patch("minions.lifecycle.role.project_role_workspace", return_value=tmp_path),
             patch(
                 "minions.lifecycle.role.project_role_log", return_value=tmp_path / "role-noter.log"
             ),
@@ -170,16 +183,23 @@ class TestInvokeEphemeral:
     def test_invoke_can_launch_codex_subprocess(self, tmp_path: Path) -> None:
         fake_proc = MagicMock()
         fake_proc.pid = 4322
+        store = FakeStore()
+        store.upsert_role(37596, RoleEntry(name="noter", state="sleeping", pid=None))
         with (
             patch.dict(os.environ, {"MINIONS_AGENT_HOST": "codex"}, clear=False),
             patch("minions.lifecycle.role.subprocess.Popen", return_value=fake_proc) as popen,
-            patch("minions.lifecycle.role.project_workspace", return_value=tmp_path),
+            patch("minions.lifecycle.role.project_role_workspace", return_value=tmp_path),
             patch(
                 "minions.lifecycle.role.project_role_log", return_value=tmp_path / "role-noter.log"
             ),
             patch("minions.lifecycle.agent_host.project_dir", return_value=tmp_path),
         ):
-            out = role_mod.invoke_role_ephemeral("noter", 37596, [{"id": "e1", "content": "hi"}])
+            out = role_mod.invoke_role_ephemeral(
+                "noter",
+                37596,
+                [{"id": "e1", "content": "hi"}],
+                store=store,
+            )
         assert out["name"] == "noter"
         assert out["pid"] == 4322
         cmd = popen.call_args[0][0]
@@ -207,7 +227,7 @@ class TestInvokeEphemeral:
         with (
             patch.dict(os.environ, {"MINIONS_AGENT_HOST": "codex"}, clear=False),
             patch("minions.lifecycle.role.subprocess.Popen", return_value=fake_proc),
-            patch("minions.lifecycle.role.project_workspace", return_value=tmp_path),
+            patch("minions.lifecycle.role.project_role_workspace", return_value=tmp_path),
             patch(
                 "minions.lifecycle.role.project_role_log", return_value=tmp_path / "role-noter.log"
             ),

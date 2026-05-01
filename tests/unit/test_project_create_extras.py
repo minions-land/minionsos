@@ -63,7 +63,7 @@ def test_expand_workdir_with_port_env(monkeypatch) -> None:
     monkeypatch.setenv("MINIONS_PROJECT_PORT", "37596")
     expanded = _expand_workdir("{project_workspace}/experiments")
     assert "{project_workspace}" not in expanded
-    assert expanded.endswith("/project_37596/workspace/experiments")
+    assert expanded.endswith("/project_37596/workspace/main/experiments")
     assert os.path.isabs(expanded)
 
 

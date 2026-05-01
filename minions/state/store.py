@@ -47,6 +47,11 @@ class RoleEntry(BaseModel):
     state: Literal["active", "sleeping", "dismissed"]
     pid: int | None = None
     spawned_at: str | None = None
+    session_name: str | None = None
+    session_resumable: bool = False
+    workspace_path: str | None = None
+    workspace_branch: str | None = None
+    github_push_target: str | None = None
     poll_interval: str | None = None
     eacn_agent_id: str | None = None
     eacn_agent_token: str | None = None
@@ -69,6 +74,12 @@ class ProjectEntry(BaseModel):
     venue: str | None = None
     upstream_branch: str = "main"
     current_branch: str = ""
+    workspace_root: str | None = None
+    workspace_main: str | None = None
+    workspace_roles_root: str | None = None
+    workspace_shared: str | None = None
+    github_push_target: str | None = None
+    github_push_branch_prefix: str | None = None
     active_roles: list[RoleEntry] = Field(default_factory=list)
 
     model_config = {"extra": "allow"}

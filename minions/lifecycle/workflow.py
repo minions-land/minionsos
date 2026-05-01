@@ -76,8 +76,11 @@ def submission_gate_check(project_dir: Path) -> tuple[bool, str]:
     if not project_dir.is_dir():
         return False, f"Project directory does not exist: {project_dir}"
     workspace = project_dir / "workspace"
+    main_workspace = workspace / "main"
     if not workspace.is_dir():
-        return False, "Missing workspace/ directory."
+        return False, "Missing workspace/ container."
+    if not main_workspace.is_dir():
+        return False, "Missing workspace/main/ directory."
     artifacts = project_dir / "artifacts"
     if not artifacts.is_dir():
         return False, "Missing artifacts/ directory."
