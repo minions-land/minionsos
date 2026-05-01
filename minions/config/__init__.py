@@ -101,6 +101,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "project_close",
         "project_dormant",
         "project_revive",
+        "project_set_phase",
         "project_list",
         "spawn_role",
         "spawn_expert",

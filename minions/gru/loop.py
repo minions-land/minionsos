@@ -25,6 +25,7 @@ from typing import Any
 
 from minions.config import load_gru_config, pin_effective_agent_host
 from minions.lifecycle.health import CrashCounter, append_health_event, backend_health
+from minions.lifecycle.wake_signals import direct_message_signal
 from minions.logging_setup import configure_logging
 from minions.state.store import StateStore
 
@@ -74,7 +75,7 @@ class GruLoop:
 
         from minions.lifecycle.wakeup import WakeupScheduler
 
-        wakeup = WakeupScheduler(store=self._store)
+        wakeup = WakeupScheduler(store=self._store, mode="hooks")
 
         def _wakeup_thread() -> None:
             asyncio.run(wakeup.run_async())
@@ -119,7 +120,7 @@ class GruLoop:
         """
         from minions.lifecycle.wakeup import WakeupScheduler
 
-        wakeup = WakeupScheduler(store=self._store)
+        wakeup = WakeupScheduler(store=self._store, mode="hooks")
         logger.info("Gru monitor async loop started (interval=%ds).", self.interval)
         wakeup_task = asyncio.create_task(wakeup.run_async())
         experiment_task = asyncio.create_task(self._experiment_reconcile_async())
@@ -419,6 +420,15 @@ class GruLoop:
                         timeout=1.0,
                         audit_to_noter=False,
                     )
+                    with contextlib.suppress(Exception):
+                        direct_message_signal(
+                            port=port,
+                            to_agent_id=target,
+                            from_agent_id="health-monitor",
+                            content={"type": "health_event", **event},
+                            source="minions.gru.loop._emit_health_event",
+                            store=self._store,
+                        )
                 except Exception as exc:
                     logger.debug(
                         "health event EACN notify failed port=%d target=%s: %s",

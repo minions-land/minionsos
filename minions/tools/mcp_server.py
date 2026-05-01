@@ -5,6 +5,7 @@ started by the ``.mcp.json`` configuration and communicates over stdio.
 
 Tools exposed:
 - project_create / project_kill / project_close / project_dormant / project_revive / project_list
+- project_set_phase
 - spawn_role / spawn_expert / dismiss_role / list_roles
 - gru_relay
 - project_eacn_send_message / project_eacn_create_task
@@ -40,6 +41,9 @@ from minions.lifecycle.project import (
 )
 from minions.lifecycle.project import (
     project_revive as _project_revive,
+)
+from minions.lifecycle.project import (
+    project_set_phase as _project_set_phase,
 )
 from minions.lifecycle.project_eacn import (
     project_eacn_create_task as _project_eacn_create_task,
@@ -77,6 +81,7 @@ _MINIONS_MCP_TOOL_NAMES = {
     "project_dormant",
     "project_kill",
     "project_revive",
+    "project_set_phase",
     "project_list",
     "spawn_role",
     "spawn_expert",
@@ -262,6 +267,19 @@ class ProjectListArgs(BaseModel):
     filter: Literal["all", "active", "dormant", "closed"] = Field(
         default="all", description="Filter projects by status."
     )
+
+
+class ProjectPhaseArgs(BaseModel):
+    port: int = Field(description="Project port.")
+    phase: str | None = Field(
+        default=None,
+        description="Current project phase name, or null to clear phase gating.",
+    )
+    allowed_roles: list[str] = Field(
+        default_factory=list,
+        description="Roles allowed to stay online for the current phase.",
+    )
+    reason: str | None = Field(default=None, description="Optional human-readable reason.")
 
 
 class SpawnRoleArgs(BaseModel):
@@ -451,6 +469,24 @@ def project_list(args: ProjectListArgs) -> list[dict]:
         }
         for p in projects
     ]
+
+
+@mcp.tool()
+def project_set_phase(args: ProjectPhaseArgs) -> dict:
+    """Record the current project phase and wake roles to reconcile."""
+    _require_tool_allowed("project_set_phase")
+    entry = _project_set_phase(
+        port=args.port,
+        phase=args.phase,
+        allowed_roles=args.allowed_roles or None,
+        reason=args.reason,
+    )
+    return {
+        "port": entry.port,
+        "phase": getattr(entry, "current_phase", None),
+        "allowed_roles": list(getattr(entry, "phase_allowed_roles", []) or []),
+        "phase_version": getattr(entry, "phase_version", 0),
+    }
 
 
 @mcp.tool()

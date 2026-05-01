@@ -80,6 +80,11 @@ class ProjectEntry(BaseModel):
     workspace_shared: str | None = None
     github_push_target: str | None = None
     github_push_branch_prefix: str | None = None
+    current_phase: str | None = None
+    phase_version: int = 0
+    phase_allowed_roles: list[str] = Field(default_factory=list)
+    phase_updated_at: str | None = None
+    phase_reason: str | None = None
     active_roles: list[RoleEntry] = Field(default_factory=list)
 
     model_config = {"extra": "allow"}

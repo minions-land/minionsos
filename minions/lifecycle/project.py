@@ -9,6 +9,7 @@ Each function is a thin orchestration layer that:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -707,6 +708,68 @@ def ensure_role_workspace(
 ) -> tuple[str, Path]:
     """Public wrapper that returns the role branch and workspace path."""
     return _create_role_worktree(port, role_name, base_branch=base_branch)
+
+
+def project_phase_allows_role(entry: ProjectEntry, role_name: str) -> bool:
+    """Return True when the current phase allows *role_name* to run.
+
+    If no phase policy has been recorded yet, the project defaults to open
+    scheduling so legacy projects keep working.
+    """
+    allowed = {str(role).strip() for role in getattr(entry, "phase_allowed_roles", []) or []}
+    if not allowed:
+        return True
+    if "*" in allowed or "all" in allowed:
+        return True
+    return role_name in allowed
+
+
+def project_set_phase(
+    port: int,
+    phase: str | None,
+    *,
+    allowed_roles: list[str] | None = None,
+    reason: str | None = None,
+    store: StateStore | None = None,
+) -> ProjectEntry:
+    """Record the current project phase in the registry and meta state."""
+    _store = store or StateStore()
+    entry = _store.get_project(port)
+    if entry is None:
+        raise ProjectError(f"Project {port} not found.")
+
+    now = _now_iso()
+    phase_allowed_roles = [role for role in (allowed_roles or []) if str(role).strip()]
+    updated = _store.update_project(
+        port,
+        current_phase=phase,
+        phase_version=int(getattr(entry, "phase_version", 0) or 0) + 1,
+        phase_allowed_roles=phase_allowed_roles,
+        phase_updated_at=now,
+        phase_reason=reason,
+    )
+    _write_meta(
+        port,
+        updated,
+        extras={
+            "current_phase": phase,
+            "phase_version": updated.phase_version,
+            "phase_allowed_roles": phase_allowed_roles,
+            "phase_updated_at": now,
+            "phase_reason": reason,
+        },
+    )
+    with contextlib.suppress(Exception):
+        from minions.lifecycle.wake_signals import phase_change_signal
+
+        phase_change_signal(port=port, phase=phase, reason=reason, store=_store)
+    logger.info(
+        "project_set_phase done: port=%d phase=%r allowed_roles=%s",
+        port,
+        phase,
+        phase_allowed_roles,
+    )
+    return updated
 
 
 _PROJECT_GITIGNORE = """\

@@ -262,6 +262,45 @@ class TestWakeup:
         assert count == 1
         assert calls == ["noter"]
 
+    def test_hooks_mode_uses_local_wake_signals_without_polling_eacn(self) -> None:
+        project = FakeProject(port=37596, active_roles=[FakeRole("coder")])
+        store = FakeStore([project])
+        calls: list[tuple[str, list[str]]] = []
+
+        from minions.lifecycle import role_inbox
+
+        role_inbox.append_events(
+            37596,
+            "coder",
+            [
+                {
+                    "type": "wake_signal",
+                    "kind": "direct_message",
+                    "id": "dm:37596:coder:1",
+                    "reason": "direct message from gru",
+                }
+            ],
+        )
+
+        def invoke(role: str, port: int, events: list[dict]) -> None:
+            calls.append((role, [str(event.get("kind")) for event in events]))
+
+        sched = WakeupScheduler(
+            store=store,
+            invoke_fn=invoke,
+            mode="hooks",
+            cooldown_seconds=0,
+        )
+        with patch(
+            "minions.lifecycle.wakeup.poll_events",
+            side_effect=AssertionError("hooks mode must not poll EACN"),
+        ):
+            count = _run(sched.tick_once())
+
+        assert count == 1
+        assert calls == [("coder", ["direct_message"])]
+        assert role_inbox.read_events(37596, "coder") == []
+
     def test_invited_open_task_wakes_only_invited_role(self) -> None:
         project = FakeProject(
             port=37596,

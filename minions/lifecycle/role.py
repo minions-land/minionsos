@@ -45,6 +45,12 @@ from minions.lifecycle.agent_registry import register_project_role_agent, role_a
 from minions.lifecycle.eacn_identity import plugin_state_dir, resolve_agent_id
 from minions.lifecycle.project import ensure_role_workspace
 from minions.lifecycle.skills import list_skills
+from minions.lifecycle.wake_signals import (
+    direct_message_signal,
+    is_wake_signal,
+    summarize_signal,
+    task_signal,
+)
 from minions.paths import (
     MINIONS_ROOT,
     common_role_system_md,
@@ -459,7 +465,7 @@ def _do_register(
         initiator_id = resolve_agent_id(project_port, "gru")
         if role_name == "noter":
             try:
-                eacn_client.send_message(
+                result = eacn_client.send_message(
                     port=project_port,
                     to_agent_id=target_agent_id,
                     from_agent_id=initiator_id,
@@ -469,6 +475,20 @@ def _do_register(
                         "role": role_name,
                     },
                 )
+                with contextlib.suppress(Exception):
+                    direct_message_signal(
+                        port=project_port,
+                        to_agent_id=target_agent_id,
+                        from_agent_id=initiator_id,
+                        content={
+                            "type": "init_brief",
+                            "role": role_name,
+                            "delivery": result.get("message_id") or result.get("id"),
+                        },
+                        source="minions.lifecycle.role.register_role",
+                        store=store,
+                        target_role_name=role_name,
+                    )
             except BackendError as exc:
                 raise RoleError(
                     f"Role {role_name!r} joined project-local EACN3 on port {project_port}, "
@@ -481,7 +501,7 @@ def _do_register(
             )
         else:
             try:
-                eacn_client.create_task(
+                task = eacn_client.create_task(
                     port=project_port,
                     description=init_brief,
                     domains=role_agent_domains(role_name),
@@ -495,6 +515,14 @@ def _do_register(
                     },
                     invited_agent_ids=[target_agent_id],
                 )
+                with contextlib.suppress(Exception):
+                    task_signal(
+                        port=project_port,
+                        task=task,
+                        source="minions.lifecycle.role.register_role",
+                        store=store,
+                        target_role_names=[role_name],
+                    )
             except BackendError as exc:
                 raise RoleError(
                     f"Role {role_name!r} joined project-local EACN3 on port {project_port}, "
@@ -871,6 +899,30 @@ def _format_event_message(
         )
     else:
         response_tools = "`eacn3_*` tools"
+    hook_signals = [event for event in events if is_wake_signal(event)]
+    if hook_signals and len(hook_signals) == len(events):
+        lines = [f"- {summarize_signal(signal)}" for signal in hook_signals]
+        kinds = {str(signal.get("kind") or "") for signal in hook_signals}
+        if kinds == {"phase_change"}:
+            header = (
+                "You have been invoked by a MinionsOS phase change signal.\n"
+                "Read the current phase from the project state before doing any work. "
+                "If the signal says this role is no longer allowed, write a compact "
+                "scratchpad summary, checkpoint, and exit; if it is still allowed, "
+                "reconcile your local context with the new phase and then go onto EACN3 "
+                "only after that.\n\n"
+            )
+            return preamble + header + "Wake signals:\n" + "\n".join(lines) + "\n"
+        header = (
+            "You have been invoked by MinionsOS hook wake signal(s), not by a "
+            "pre-drained EACN event batch.\n"
+            f"Go onto this project's EACN3 network using {response_tools}, inspect "
+            "your own queue/open tasks/messages, handle work that belongs to your Role, "
+            "then checkpoint and exit this bounded wake window. The wake signal below "
+            "is only a routing hint; do not treat it as the authoritative task or "
+            "message payload.\n\n"
+        )
+        return preamble + header + "Wake signals:\n" + "\n".join(lines) + "\n"
     if scratchpad_status == "veto_compact":
         header = (
             "You have been invoked for scratchpad maintenance because the role's "

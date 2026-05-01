@@ -1,10 +1,10 @@
-"""Python-level event-driven wakeup scheduler for Roles.
+"""Python-level wakeup scheduler for Roles.
 
-Polls the EACN3 events endpoint on behalf of each registered Role at a
-fixed cadence (from `gru.yaml: poll_interval_default` or a per-role
-override). When events arrive, spawns a SHORT-LIVED agent-host subprocess
-for that Role via ``invoke_role_ephemeral``. When no events arrive,
-nothing is spawned — the Role consumes zero agent-host context on idle.
+V5's primary runtime path is hook-driven: MinionsOS publishes compact wake
+signals when direct messages, routed tasks, or phase changes occur. The
+scheduler reads those local signals and lets the Role go onto EACN3 itself.
+The legacy EACN polling path is retained for compatibility tests and manual
+fallbacks, but Gru uses hook mode.
 
 Design notes:
 - Duplicate events are deduplicated via an in-memory LRU set keyed by
@@ -26,7 +26,7 @@ import time as _time_mod
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from minions.config import GruConfig, load_gru_config, parse_duration
 from minions.lifecycle import role_inbox
@@ -312,7 +312,7 @@ InvokeFn = Callable[[str, int, list[dict[str, Any]]], Awaitable[None] | None]
 
 
 class WakeupScheduler:
-    """Polls EACN on behalf of registered Roles; dispatches ephemeral invocations.
+    """Dispatches role wakeups from hooks or legacy EACN polling.
 
     Args:
         store: StateStore (optional; one is created if omitted).
@@ -331,6 +331,7 @@ class WakeupScheduler:
         *,
         state_store: StateStore | None = None,
         cooldown_seconds: int | None = None,
+        mode: Literal["legacy", "hooks"] = "legacy",
     ) -> None:
         # Accept `state_store=` as an alias for `store=` (the docs and some
         # callers use the longer name). Reject passing both at once.
@@ -339,6 +340,7 @@ class WakeupScheduler:
         self._store = store or state_store or StateStore()
         self._invoke_fn = invoke_fn
         self._default_interval = default_interval
+        self._mode: Literal["legacy", "hooks"] = mode
         self._dedup = _EventDedup()
         self._stopped = False
         self._last_poll_ts: dict[tuple[int, str], float] = {}
@@ -381,7 +383,7 @@ class WakeupScheduler:
 
     async def run_async(self, tick_seconds: float = 1.0) -> None:
         """Run the scheduler until :meth:`stop` is called."""
-        logger.info("WakeupScheduler started (tick=%.1fs).", tick_seconds)
+        logger.info("WakeupScheduler started (mode=%s tick=%.1fs).", self._mode, tick_seconds)
         while not self._stopped:
             try:
                 await self._tick()
@@ -492,6 +494,9 @@ class WakeupScheduler:
     # ------------------------------------------------------------------
 
     async def _tick(self) -> int:
+        if self._mode == "hooks":
+            return await self._tick_hooks()
+
         now = _time_mod.monotonic()
         triggered = 0
         projects = self._store.list_projects(filter="active")
@@ -592,6 +597,81 @@ class WakeupScheduler:
                     role_inbox.clear(project.port, role.name)
                     self._pending.pop((project.port, role.name), None)
                     self._last_time_trigger_ts[tt_key] = now
+                    triggered += 1
+                elif result == "maintenance_dispatched":
+                    triggered += 1
+        return triggered
+
+    async def _tick_hooks(self) -> int:
+        """Process local hook wake signals without polling EACN3."""
+        now = _time_mod.monotonic()
+        triggered = 0
+        projects = self._store.list_projects(filter="active")
+        for project in projects:
+            roles = [role for role in project.active_roles if _role_schedulable(role)]
+            for role in roles:
+                key = (project.port, role.name)
+                signals = [
+                    signal
+                    for signal in await asyncio.to_thread(
+                        role_inbox.read_events, project.port, role.name
+                    )
+                    if isinstance(signal, dict)
+                ]
+                if signals:
+                    unique: list[dict[str, Any]] = []
+                    seen: set[str] = set()
+                    for signal in signals:
+                        signal_id = _event_id(signal)
+                        if signal_id in seen:
+                            continue
+                        seen.add(signal_id)
+                        unique.append(signal)
+                    role_inbox.replace_events(project.port, role.name, unique)
+                    result = await self._try_dispatch(
+                        project.port,
+                        role.name,
+                        unique,
+                        WakeupClass.event,
+                        reason=f"{len(unique)} hook wake signal(s)",
+                    )
+                    if result == "dispatched":
+                        role_inbox.clear(project.port, role.name)
+                        self._pending.pop(key, None)
+                        triggered += 1
+                    elif result == "maintenance_dispatched":
+                        triggered += 1
+                    continue
+
+                time_interval_str = getattr(role, "time_trigger_interval", None)
+                if not time_interval_str:
+                    continue
+                try:
+                    time_interval = max(5, parse_duration(time_interval_str))
+                except Exception:
+                    continue
+                last_tt = self._last_time_trigger_ts.get(key)
+                if last_tt is not None and now - last_tt < time_interval:
+                    continue
+                synthetic = [
+                    {
+                        "type": "time_trigger",
+                        "id": f"time-{now:.0f}",
+                        "interval": time_interval_str,
+                    }
+                ]
+                role_inbox.replace_events(project.port, role.name, synthetic)
+                result = await self._try_dispatch(
+                    project.port,
+                    role.name,
+                    synthetic,
+                    WakeupClass.time,
+                    reason=f"periodic {time_interval_str} timer",
+                )
+                if result == "dispatched":
+                    role_inbox.clear(project.port, role.name)
+                    self._pending.pop(key, None)
+                    self._last_time_trigger_ts[key] = now
                     triggered += 1
                 elif result == "maintenance_dispatched":
                     triggered += 1

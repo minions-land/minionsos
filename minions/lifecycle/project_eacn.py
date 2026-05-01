@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from minions.config import load_gru_config
 from minions.lifecycle import eacn_client
 from minions.lifecycle.agent_registry import role_agent_domains
 from minions.lifecycle.eacn_identity import resolve_agent_id
+from minions.lifecycle.wake_signals import direct_message_signal, task_signal
+from minions.state.store import StateStore
 
 
 def _default_initiator(port: int) -> str:
@@ -56,6 +59,15 @@ def project_eacn_send_message(
         from_agent_id=str(sender),
         content=content,
     )
+    with contextlib.suppress(Exception):
+        direct_message_signal(
+            port=port,
+            to_agent_id=str(target),
+            from_agent_id=str(sender),
+            content=content,
+            source="minions.lifecycle.project_eacn.project_eacn_send_message",
+            store=StateStore(),
+        )
     return {
         "ok": True,
         "port": port,
@@ -107,6 +119,13 @@ def project_eacn_create_task(
         invited_agent_ids=resolved_invites,
         task_id=task_id,
     )
+    with contextlib.suppress(Exception):
+        task_signal(
+            port=port,
+            task=task,
+            source="minions.lifecycle.project_eacn.project_eacn_create_task",
+            store=StateStore(),
+        )
     return {
         "ok": True,
         "port": port,

@@ -1,16 +1,11 @@
-"""Per-role on-disk wakeup buffer.
+"""Per-role on-disk wake signal buffer.
 
-When a wake-up cannot be dispatched immediately, the events the scheduler
-already drained from EACN3 must NOT be dropped: the server-side poll is
-destructive (EACN3 does not re-queue), so anything we fetched and don't
-dispatch needs to be re-delivered by us.
+MinionsOS stores compact wake signals here so resident role sessions can be
+re-awakened without exposing the full EACN payload in the prompt. Legacy
+poll-based wake batches and new hook-driven signals share the same storage
+format: a small jsonl file keyed by ``(port, role)``.
 
-This module mirrors the :mod:`minions.lifecycle.gru_inbox` pattern but is
-keyed per (port, role): each buffered event batch is stored in a small jsonl
-file that the next tick reads *before* polling EACN3 again.
-
-Format: each line is a JSON object ``{"event": <raw event>}``. No seq /
-cursor.
+Format: each line is a JSON object ``{"event": <signal>}``. No seq / cursor.
 """
 
 from __future__ import annotations
