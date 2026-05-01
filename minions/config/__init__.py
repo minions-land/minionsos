@@ -94,6 +94,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "gru_relay",
         "project_eacn_send_message",
         "project_eacn_create_task",
+        "project_checkpoint_workspace",
         "gru_inbox_poll",
         "gru_start_monitor",
         "project_create",
@@ -115,11 +116,15 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("gru", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
-    ("noter", "main"): ["eacn3_*", "Task", "WebSearch", "WebFetch", "Read"],
+    (
+        "noter",
+        "main",
+    ): ["eacn3_*", "Task", "WebSearch", "WebFetch", "Read"],
     ("noter", "subagent"): ["WebSearch", "WebFetch", "Read"],
     ("coder", "main"): [
         "eacn3_*",
         "Task",
+        "project_checkpoint_workspace",
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -131,6 +136,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("experimenter", "main"): [
         "eacn3_*",
         "Task",
+        "project_checkpoint_workspace",
         "exp_run",
         "exp_status",
         "exp_wait",
@@ -172,6 +178,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "eacn3_*",
         *_WRITER_PAPER_SEARCH_TOOLS,
         "Task",
+        "project_checkpoint_workspace",
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -191,6 +198,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("expert", "main"): [
         "eacn3_*",
         "Task",
+        "project_checkpoint_workspace",
         "WebSearch",
         "WebFetch",
         "Bash",

@@ -20,6 +20,7 @@ from pathlib import Path
 
 import httpx
 
+from minions.config import slugify
 from minions.errors import BackendError, ProjectError
 from minions.lifecycle import eacn_client
 from minions.lifecycle.eacn_identity import identity_map_for_meta, upsert_agent_identity
@@ -35,6 +36,7 @@ from minions.paths import (
     project_meta_json,
     project_role_workspace,
     project_roles_workspace_dir,
+    project_session_ledger,
     project_session_name,
     project_shared_workspace,
     project_state_dir,
@@ -643,6 +645,120 @@ def _git_tag(port: int, tag: str) -> None:
         logger.warning("git tag %s failed: %s", tag, result.stderr.strip())
 
 
+def _git_ref_exists(repo: Path, ref: str) -> bool:
+    """Return True if *ref* exists in *repo*."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", ref],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
+def _git_status_porcelain(workspace: Path) -> list[str]:
+    """Return the workspace's porcelain status lines."""
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=str(workspace),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise ProjectError(
+            f"git status failed for workspace {workspace}: {result.stderr.strip()}"
+        )
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def _git_commit_workspace(workspace: Path, message: str) -> str | None:
+    """Commit the workspace if there are staged changes, returning HEAD sha."""
+    add_result = subprocess.run(
+        ["git", "add", "-A"],
+        cwd=str(workspace),
+        capture_output=True,
+        text=True,
+    )
+    if add_result.returncode != 0:
+        raise ProjectError(
+            f"git add failed for workspace {workspace}: {add_result.stderr.strip()}"
+        )
+    commit_result = subprocess.run(
+        ["git", "commit", "-m", message],
+        cwd=str(workspace),
+        capture_output=True,
+        text=True,
+    )
+    output = f"{commit_result.stdout}\n{commit_result.stderr}".lower()
+    if commit_result.returncode != 0:
+        if "nothing to commit" in output or "nothing added to commit" in output:
+            return None
+        raise ProjectError(
+            f"git commit failed for workspace {workspace}: {commit_result.stderr.strip()}"
+        )
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=str(workspace),
+        capture_output=True,
+        text=True,
+    )
+    if head.returncode != 0:
+        raise ProjectError(
+            f"git rev-parse failed for workspace {workspace}: {head.stderr.strip()}"
+        )
+    return head.stdout.strip() or None
+
+
+def _git_push_checkpoint(workspace: Path, target: str, remote_branch: str) -> None:
+    """Push the current HEAD to *target* under *remote_branch*."""
+    result = subprocess.run(
+        ["git", "push", target, f"HEAD:{remote_branch}"],
+        cwd=str(workspace),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise ProjectError(
+            f"git push failed for workspace {workspace} -> {target}:{remote_branch}: "
+            f"{result.stderr.strip()}"
+        )
+
+
+def _checkpoint_remote_branch(
+    port: int,
+    role_name: str | None,
+    prefix: str | None,
+) -> str:
+    role_leaf = "main" if role_name in {None, "", "main"} else slugify(role_name)
+    branch_prefix = (prefix or "minionsos").strip("/") or "minionsos"
+    return f"{branch_prefix}/p{port}/{role_leaf}"
+
+
+def _append_session_ledger(port: int, payload: dict[str, object]) -> None:
+    path = project_session_ledger(port)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    ledger: dict[str, object] = {
+        "version": 1,
+        "project_port": port,
+        "checkpoints": [],
+    }
+    if path.exists():
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                ledger.update(raw)
+        except Exception:
+            pass
+    checkpoints = ledger.get("checkpoints")
+    if not isinstance(checkpoints, list):
+        checkpoints = []
+    checkpoints.append(payload)
+    ledger["checkpoints"] = checkpoints
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(ledger, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def _ensure_workspace_layout(port: int) -> None:
     """Create the non-worktree workspace containers for *port*."""
     project_workspace_root(port).mkdir(parents=True, exist_ok=True)
@@ -654,6 +770,81 @@ def _ensure_workspace_layout(port: int) -> None:
 def project_workspace(port: int) -> Path:
     """Backward-compatible alias for the canonical main workspace."""
     return project_main_workspace(port)
+
+
+def project_checkpoint_workspace(
+    port: int,
+    role_name: str | None = None,
+    message: str | None = None,
+    store: StateStore | None = None,
+) -> dict[str, object]:
+    """Commit one workspace checkpoint locally and optionally push it."""
+    _store = store or StateStore()
+    entry = _store.get_project(port)
+    if entry is None:
+        raise ProjectError(f"Project {port} not found.")
+
+    is_main = role_name in {None, "", "main"}
+    role: RoleEntry | None = None
+    if is_main:
+        workspace = project_main_workspace(port)
+        session_name = project_session_name(port, "main")
+        local_branch = entry.current_branch or project_branch_name(port)
+        push_target = getattr(entry, "github_push_target", None)
+        push_branch_prefix = getattr(entry, "github_push_branch_prefix", None)
+    else:
+        role = next((r for r in entry.active_roles if r.name == role_name), None)
+        if role is None:
+            raise ProjectError(f"Role {role_name!r} not found on port {port}.")
+        workspace = Path(role.workspace_path) if role.workspace_path else project_role_workspace(
+            port,
+            role.name,
+        )
+        session_name = role.session_name or project_session_name(port, role.name)
+        local_branch = role.workspace_branch or project_branch_name(port, role.name)
+        push_target = role.github_push_target or getattr(entry, "github_push_target", None)
+        push_branch_prefix = getattr(entry, "github_push_branch_prefix", None)
+
+    if not workspace.exists():
+        raise ProjectError(f"Workspace does not exist for checkpoint: {workspace}")
+    if not _is_git_work_tree(workspace):
+        raise ProjectError(f"Workspace is not a git worktree: {workspace}")
+
+    dirty_lines = _git_status_porcelain(workspace)
+    dirty = bool(dirty_lines)
+    commit_message = message or f"checkpoint({session_name}): durable workspace checkpoint"
+    commit_sha = _git_commit_workspace(workspace, commit_message) if dirty else None
+    pushed = False
+    remote_branch = None
+    if commit_sha and push_target:
+        remote_branch = _checkpoint_remote_branch(port, role_name, push_branch_prefix)
+        _git_push_checkpoint(workspace, push_target, remote_branch)
+        pushed = True
+
+    payload = {
+        "ts": _now_iso(),
+        "port": port,
+        "role_name": role_name or "main",
+        "session_name": session_name,
+        "workspace": str(workspace.resolve()),
+        "local_branch": local_branch,
+        "dirty": dirty,
+        "commit_sha": commit_sha,
+        "push_target": push_target,
+        "push_branch": remote_branch,
+        "pushed": pushed,
+        "message": commit_message,
+    }
+    _append_session_ledger(port, payload)
+    logger.info(
+        "project_checkpoint_workspace done: port=%d role=%s dirty=%s committed=%s pushed=%s",
+        port,
+        role_name or "main",
+        dirty,
+        bool(commit_sha),
+        pushed,
+    )
+    return payload
 
 
 def _create_role_worktree(
@@ -677,6 +868,13 @@ def _create_role_worktree(
     workspace.parent.mkdir(parents=True, exist_ok=True)
     parent_repo = project_parent_repo()
     resolved_base = base_branch if base_branch not in {None, ""} else project_branch_name(port)
+    if resolved_base != "HEAD" and not _git_ref_exists(parent_repo, resolved_base):
+        logger.debug(
+            "Role base branch %s missing in %s; falling back to HEAD.",
+            resolved_base,
+            parent_repo,
+        )
+        resolved_base = "HEAD"
     cmd = [
         "git",
         "worktree",

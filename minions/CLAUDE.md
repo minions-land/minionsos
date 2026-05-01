@@ -53,6 +53,7 @@ minions/
 Roles are **ephemeral**: no long-running agent-host process per Role, and no in-agent polling loop.
 
 - `minions/lifecycle/role.py` exposes `register_role` / `register_expert` (registers a project-local EACN AgentCard and records the role; no subprocess) and `invoke_role_ephemeral(role, port, events)` which launches a short-lived Claude Code or Codex subprocess seeded with the shared `roles/SYSTEM.md`, the Role's `SYSTEM.md`, discovered skills, scratchpad context, identity/boundary text, and an event batch, then exits.
+- `minions/lifecycle/project.py` now also exposes `project_checkpoint_workspace(...)` for durable local commits and optional GitHub push when `github_push_target` is configured.
 - `minions/lifecycle/agent_host.py` is the only place that should know CLI-specific role invocation details. Preserve the Claude command exactly unless intentionally changing the Claude path; Codex uses `codex exec -` with the role prompt on stdin.
 - `minions/lifecycle/wakeup.py` (`WakeupScheduler`) runs on the Python side, polls EACN3 on each registered Role's cadence, deduplicates events by id, and fires `invoke_role_ephemeral` when events arrive.
 - `minions/gru/loop.py` runs `WakeupScheduler` in parallel with Gru's heartbeat (sibling thread when `run()` is used; sibling task when `run_async()` is used). The MCP `gru_start_monitor` tool starts both.

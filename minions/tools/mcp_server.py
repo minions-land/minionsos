@@ -6,6 +6,7 @@ started by the ``.mcp.json`` configuration and communicates over stdio.
 Tools exposed:
 - project_create / project_kill / project_close / project_dormant / project_revive / project_list
 - project_set_phase
+- project_checkpoint_workspace
 - spawn_role / spawn_expert / dismiss_role / list_roles
 - gru_relay
 - project_eacn_send_message / project_eacn_create_task
@@ -27,6 +28,9 @@ from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from minions.config import resolve_whitelist
+from minions.lifecycle.project import (
+    project_checkpoint_workspace as _project_checkpoint_workspace,
+)
 from minions.lifecycle.project import (
     project_close as _project_close,
 )
@@ -82,6 +86,7 @@ _MINIONS_MCP_TOOL_NAMES = {
     "project_kill",
     "project_revive",
     "project_set_phase",
+    "project_checkpoint_workspace",
     "project_list",
     "spawn_role",
     "spawn_expert",
@@ -280,6 +285,18 @@ class ProjectPhaseArgs(BaseModel):
         description="Roles allowed to stay online for the current phase.",
     )
     reason: str | None = Field(default=None, description="Optional human-readable reason.")
+
+
+class ProjectCheckpointArgs(BaseModel):
+    port: int = Field(description="Project port.")
+    role_name: str | None = Field(
+        default=None,
+        description="Optional role name; defaults to the project's main workspace.",
+    )
+    message: str | None = Field(
+        default=None,
+        description="Optional git commit message for the durable checkpoint.",
+    )
 
 
 class SpawnRoleArgs(BaseModel):
@@ -487,6 +504,17 @@ def project_set_phase(args: ProjectPhaseArgs) -> dict:
         "allowed_roles": list(getattr(entry, "phase_allowed_roles", []) or []),
         "phase_version": getattr(entry, "phase_version", 0),
     }
+
+
+@mcp.tool()
+def project_checkpoint_workspace(args: ProjectCheckpointArgs) -> dict:
+    """Create a durable git checkpoint for the main or role workspace."""
+    _require_tool_allowed("project_checkpoint_workspace")
+    return _project_checkpoint_workspace(
+        args.port,
+        role_name=args.role_name,
+        message=args.message,
+    )
 
 
 @mcp.tool()

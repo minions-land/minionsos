@@ -42,7 +42,7 @@ class FakeStore:
 @pytest.fixture(autouse=True)
 def _fake_role_workspace(monkeypatch: pytest.MonkeyPatch) -> None:
     def _workspace(port: int, role_name: str, base_branch: str | None = None):
-        branch = f"minionsos/project-{port}/{role_name}"
+        branch = f"minionsos/project-{port}-{role_name}"
         return branch, Path(f"/tmp/minionsos-test-workspaces/{port}/{role_name}")
 
     monkeypatch.setattr(role_mod, "ensure_role_workspace", _workspace)
@@ -69,7 +69,7 @@ class TestRegister:
         assert store.upserts[0].state == "active"
         assert store.upserts[0].pid is None
         assert store.upserts[0].session_name == "p37596/noter"
-        assert store.upserts[0].workspace_branch == "minionsos/project-37596/noter"
+        assert store.upserts[0].workspace_branch == "minionsos/project-37596-noter"
         assert store.upserts[0].eacn_agent_id == "noter"
         assert store.upserts[0].eacn_agent_token == "tok"
 

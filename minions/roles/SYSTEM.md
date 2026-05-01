@@ -110,6 +110,11 @@ If a subagent or tool job will continue after this wake-up, write a checkpoint
 before exit: task id or run id, owner, expected artifact/result, and what future
 you should inspect when EACN wakes you again.
 
+When a task reaches a durable stopping point, use the project-local
+`project_checkpoint_workspace` tool if it is available. Commit the current
+workspace state locally first; push only when the project is configured with a
+non-null `github_push_target`.
+
 ## Tool jobs and OS subprocesses
 
 Ordinary subprocesses, scripts, experiment jobs, and remote commands cannot see

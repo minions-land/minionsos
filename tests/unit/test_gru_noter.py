@@ -219,6 +219,7 @@ def test_noter_snapshot_is_read_only_and_reports_tasks(tmp_path: Path) -> None:
             "list_tasks",
             return_value=[{"id": "t1", "status": "unclaimed", "content": {}}],
         ) as list_tasks,
+        patch.object(noter_terminal.role_inbox, "count", return_value=0) as count_buffer,
         patch.object(noter_terminal, "project_artifacts_dir", return_value=tmp_path / "artifacts"),
     ):
         snap = noter_terminal.collect_noter_snapshot(37596, store=FakeStore(project))
@@ -227,6 +228,7 @@ def test_noter_snapshot_is_read_only_and_reports_tasks(tmp_path: Path) -> None:
     assert snap.tasks[0]["id"] == "t1"
     assert snap.notes == [note]
     assert snap.role_buffers["noter"] == 0
+    count_buffer.assert_called_once_with(37596, "noter")
     list_tasks.assert_called_once_with(
         37596,
         status=None,

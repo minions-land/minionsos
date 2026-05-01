@@ -154,7 +154,7 @@ def project_branch_name(port: int, role_name: str | None = None) -> str:
     base = f"minionsos/project-{port}"
     if role_name is None or role_name == "main":
         return base
-    return f"{base}/{_safe_component(role_name)}"
+    return f"{base}-{_safe_component(role_name)}"
 
 
 def project_eacn_db(port: int) -> Path:
