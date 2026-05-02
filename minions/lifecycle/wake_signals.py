@@ -14,7 +14,10 @@ from typing import Any
 
 from minions.lifecycle import role_inbox
 from minions.lifecycle.agent_registry import role_agent_domains
-from minions.lifecycle.project import project_phase_allows_role
+from minions.lifecycle.project import (
+    project_phase_allows_role,
+    project_phase_snapshot,
+)
 from minions.state.store import ProjectEntry, StateStore
 
 logger = logging.getLogger(__name__)
@@ -73,7 +76,19 @@ def _role_task_domains(role_name: str) -> set[str]:
     return set(role_agent_domains(role_name)) - _GENERIC_TASK_DOMAINS
 
 
-def _task_targets(project: ProjectEntry, task: dict[str, Any]) -> list[tuple[str, str]]:
+def _phase_state(project: ProjectEntry | None) -> dict[str, Any]:
+    if project is None:
+        return {
+            "current_phase": None,
+            "phase_version": 0,
+            "phase_allowed_roles": [],
+            "phase_online_roles": [],
+        }
+    return project_phase_snapshot(project)
+
+
+def task_router_targets(project: ProjectEntry, task: dict[str, Any]) -> list[tuple[str, str]]:
+    """Return router-matched candidate roles for *task*."""
     task_id = _task_id(task)
     invited_ids = _task_invited_agent_ids(task)
     invited_roles = _task_invited_roles(task)
@@ -90,7 +105,7 @@ def _task_targets(project: ProjectEntry, task: dict[str, Any]) -> list[tuple[str
             if role.name in invited_roles:
                 matches.append((role.name, "invited_roles"))
                 continue
-            agent_id = role.eacn_agent_id or role.name
+            agent_id = getattr(role, "eacn_agent_id", None) or role.name
             if agent_id in invited_ids or role.name in invited_ids:
                 matches.append((role.name, "invited_agent_ids"))
         return matches
@@ -99,8 +114,6 @@ def _task_targets(project: ProjectEntry, task: dict[str, Any]) -> list[tuple[str
     for role_name in role_names:
         if task_domains & _role_task_domains(role_name):
             matches.append((role_name, "domain"))
-        else:
-            matches.append((role_name, "public_open_task"))
     if matches:
         logger.debug(
             "Task %s matched roles on port %d: %s",
@@ -133,6 +146,7 @@ def direct_message_signal(
     content_type = (
         content.get("type") if isinstance(content, dict) else type(content).__name__
     )
+    phase_state = _phase_state(project)
     signal = {
         "type": "wake_signal",
         "kind": "direct_message",
@@ -144,8 +158,11 @@ def direct_message_signal(
         "to_agent_id": to_agent_id,
         "content_type": content_type,
         "reason": f"direct message from {from_agent_id}",
-        "phase": getattr(project, "current_phase", None),
-        "phase_version": getattr(project, "phase_version", 0),
+        "phase": phase_state["current_phase"],
+        "phase_version": phase_state["phase_version"],
+        "phase_allowed_roles": phase_state["phase_allowed_roles"],
+        "phase_online_roles": phase_state["phase_online_roles"],
+        "phase_allowed": project_phase_allows_role(project, role_name) if project else None,
     }
     _queue_signal(port, role_name, signal)
     return [role_name]
@@ -168,8 +185,9 @@ def task_signal(
     targets = (
         [(role_name, "explicit_target") for role_name in target_role_names]
         if target_role_names
-        else _task_targets(project, task)  # type: ignore[arg-type]
+        else task_router_targets(project, task)  # type: ignore[arg-type]
     )
+    phase_state = _phase_state(project)
     for role_name, matched_by in targets:
         task_key = _now_key(task_id, matched_by, task.get("initiator_id"))
         signal = {
@@ -185,8 +203,11 @@ def task_signal(
             "task_level": task.get("level"),
             "initiator_id": task.get("initiator_id"),
             "reason": f"task {task_id or '<missing>'} matched by {matched_by}",
-            "phase": getattr(project, "current_phase", None) if project is not None else None,
-            "phase_version": getattr(project, "phase_version", 0) if project is not None else 0,
+            "phase": phase_state["current_phase"],
+            "phase_version": phase_state["phase_version"],
+            "phase_allowed_roles": phase_state["phase_allowed_roles"],
+            "phase_online_roles": phase_state["phase_online_roles"],
+            "phase_allowed": project_phase_allows_role(project, role_name) if project else None,
         }
         _queue_signal(port, role_name, signal)
         matched.append(role_name)
@@ -200,13 +221,17 @@ def phase_change_signal(
     reason: str | None,
     store: StateStore | None = None,
 ) -> list[str]:
-    """Wake every active role so it can reconcile against a phase change."""
+    """Wake online-eligible roles so they can reconcile against a phase change."""
     project = _project(port, store=store)
     if project is None:
         return []
     targets: list[str] = []
+    phase_state = _phase_state(project)
     for role in project.active_roles:
         if role.state not in {"active", "sleeping"}:
+            continue
+        phase_allowed = project_phase_allows_role(project, role.name)
+        if not phase_allowed:
             continue
         phase_key = _now_key(phase, reason, getattr(project, "phase_version", 0))
         signal = {
@@ -218,10 +243,11 @@ def phase_change_signal(
             "source": "project_set_phase",
             "phase": phase,
             "reason": reason or "phase update",
-            "current_phase": getattr(project, "current_phase", None),
-            "phase_version": getattr(project, "phase_version", 0),
-            "phase_allowed_roles": list(getattr(project, "phase_allowed_roles", []) or []),
-            "phase_allowed": project_phase_allows_role(project, role.name),
+            "current_phase": phase_state["current_phase"],
+            "phase_version": phase_state["phase_version"],
+            "phase_allowed_roles": phase_state["phase_allowed_roles"],
+            "phase_online_roles": phase_state["phase_online_roles"],
+            "phase_allowed": phase_allowed,
         }
         _queue_signal(port, role.name, signal)
         targets.append(role.name)
@@ -244,7 +270,9 @@ def summarize_signal(signal: dict[str, Any]) -> str:
         allowed = signal.get("phase_allowed")
         if allowed is None:
             return f"phase change -> {phase}"
-        return f"phase change -> {phase} (allowed={str(bool(allowed)).lower()})"
+        online = signal.get("phase_online_roles") or []
+        online_text = f" online={len(online)}" if isinstance(online, list) else ""
+        return f"phase change -> {phase} (allowed={str(bool(allowed)).lower()}{online_text})"
     if kind == "human_trigger":
         return str(signal.get("reason") or "human trigger")
     return str(signal.get("reason") or kind)

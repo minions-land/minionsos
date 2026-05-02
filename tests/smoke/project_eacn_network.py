@@ -236,9 +236,10 @@ def main() -> int:
             if any(_event_task_id(event) == public_task_id for event in events)
         }
         step(
-            "Role-created public task wakes work Roles through open-task scan",
-            public_triggered >= 2
-            and {"coder", expert_id} <= public_task_woken
+            "Role-created public task wakes router-matched work Roles through open-task scan",
+            public_triggered >= 1
+            and {expert_id} <= public_task_woken
+            and "coder" not in public_task_woken
             and "noter" not in public_task_woken
             and "gru" not in public_task_woken,
             f"task={public_task_id} triggered={public_triggered} "

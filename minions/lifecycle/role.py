@@ -43,7 +43,7 @@ from minions.lifecycle import eacn_client
 from minions.lifecycle.agent_host import build_role_invocation
 from minions.lifecycle.agent_registry import register_project_role_agent, role_agent_domains
 from minions.lifecycle.eacn_identity import plugin_state_dir, resolve_agent_id
-from minions.lifecycle.project import ensure_role_workspace
+from minions.lifecycle.project import ensure_role_workspace, project_phase_snapshot
 from minions.lifecycle.skills import list_skills
 from minions.lifecycle.wake_signals import (
     direct_message_signal,
@@ -594,6 +594,7 @@ def invoke_role_ephemeral(
     role_record = None
     if project is not None:
         role_record = next((r for r in project.active_roles if r.name == role_name), None)
+    project_phase = project_phase_snapshot(project) if project is not None else None
     workspace = (
         Path(role_record.workspace_path)
         if role_record is not None and role_record.workspace_path
@@ -649,6 +650,7 @@ def invoke_role_ephemeral(
         workspace_branch=workspace_branch,
         session_name=session_name,
         resume_session=resume_session,
+        project_phase=project_phase,
     )
 
     cfg = load_gru_config()
@@ -816,6 +818,7 @@ def _format_event_message(
     workspace_branch: str | None = None,
     session_name: str | None = None,
     resume_session: bool = False,
+    project_phase: dict[str, Any] | None = None,
 ) -> str:
     """Render an event batch as a user message for the ephemeral agent-host process."""
     preamble = ""
@@ -859,6 +862,39 @@ def _format_event_message(
         if session_name:
             preamble += f"- Session name: `{session_name}`\n"
         preamble += f"- Resume session: `{str(bool(resume_session)).lower()}`\n\n"
+    if project_phase is not None:
+        current_phase = project_phase.get("current_phase") or "unset"
+        phase_version = project_phase.get("phase_version") or 0
+        allowed_roles = [
+            str(role).strip()
+            for role in (project_phase.get("phase_allowed_roles") or [])
+            if str(role).strip()
+        ]
+        online_roles = [
+            str(role).strip()
+            for role in (project_phase.get("phase_online_roles") or [])
+            if str(role).strip()
+        ]
+        preamble += "[Project phase]\n"
+        preamble += f"- Current phase: `{current_phase}`\n"
+        preamble += f"- Phase version: `{phase_version}`\n"
+        preamble += (
+            "- Phase allowed roles: `"
+            + (", ".join(allowed_roles) if allowed_roles else "all active roles")
+            + "`\n"
+        )
+        preamble += (
+            "- Online roles: `"
+            + (", ".join(online_roles) if online_roles else "none")
+            + "`\n"
+        )
+        if role_name:
+            allowed = project_phase.get("phase_allowed_roles") or []
+            role_allowed = (
+                not allowed or "*" in allowed or "all" in allowed or role_name in allowed
+            )
+            preamble += f"- This role allowed now: `{str(bool(role_allowed)).lower()}`\n"
+        preamble += "\n"
     if role_name:
         skills = list_skills(role_name)
         if skills:

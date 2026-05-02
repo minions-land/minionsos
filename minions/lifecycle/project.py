@@ -922,6 +922,30 @@ def project_phase_allows_role(entry: ProjectEntry, role_name: str) -> bool:
     return role_name in allowed
 
 
+def project_phase_online_role_names(entry: ProjectEntry) -> list[str]:
+    """Return schedulable role names that are currently online-eligible."""
+    allowed = {str(role).strip() for role in getattr(entry, "phase_allowed_roles", []) or []}
+    online: list[str] = []
+    for role in entry.active_roles:
+        if role.state not in {"active", "sleeping"}:
+            continue
+        if role.name == "gru":
+            continue
+        if not allowed or "*" in allowed or "all" in allowed or role.name in allowed:
+            online.append(role.name)
+    return online
+
+
+def project_phase_snapshot(entry: ProjectEntry) -> dict[str, object]:
+    """Return a compact snapshot of the project's current phase state."""
+    return {
+        "current_phase": getattr(entry, "current_phase", None),
+        "phase_version": int(getattr(entry, "phase_version", 0) or 0),
+        "phase_allowed_roles": list(getattr(entry, "phase_allowed_roles", []) or []),
+        "phase_online_roles": project_phase_online_role_names(entry),
+    }
+
+
 def project_set_phase(
     port: int,
     phase: str | None,

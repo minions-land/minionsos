@@ -7,7 +7,11 @@ from pathlib import Path
 import pytest
 
 from minions.lifecycle import role_inbox
-from minions.lifecycle.project import project_phase_allows_role, project_set_phase
+from minions.lifecycle.project import (
+    project_phase_allows_role,
+    project_phase_snapshot,
+    project_set_phase,
+)
 from minions.state.store import ProjectEntry, RoleEntry, StateStore
 
 
@@ -57,10 +61,10 @@ def test_project_set_phase_updates_registry_and_meta(tmp_path: Path) -> None:
     assert updated.phase_allowed_roles == ["coder"]
     assert project_phase_allows_role(updated, "coder") is True
     assert project_phase_allows_role(updated, "noter") is False
+    assert project_phase_snapshot(updated)["phase_online_roles"] == ["coder"]
 
     coder_events = role_inbox.read_events(37596, "coder")
     noter_events = role_inbox.read_events(37596, "noter")
     assert coder_events[0]["kind"] == "phase_change"
     assert coder_events[0]["phase_allowed"] is True
-    assert noter_events[0]["kind"] == "phase_change"
-    assert noter_events[0]["phase_allowed"] is False
+    assert noter_events == []

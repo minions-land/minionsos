@@ -200,7 +200,7 @@ class TestWakeup:
         assert by_role["coder"]["payload"]["matched_by"] == "domain"
         assert by_role["coder"]["payload"]["source"] == "tasks_open_scan"
 
-    def test_public_open_task_wakes_work_roles_even_when_noter_present(self) -> None:
+    def test_public_open_task_without_router_match_wakes_nobody(self) -> None:
         project = FakeProject(
             port=37596,
             active_roles=[FakeRole("noter"), FakeRole("coder")],
@@ -223,8 +223,8 @@ class TestWakeup:
         ):
             count = _run(sched.tick_once())
 
-        assert count == 1
-        assert calls == ["coder"]
+        assert count == 0
+        assert calls == []
 
     def test_task_broadcast_does_not_wake_noter(self) -> None:
         project = FakeProject(port=37596, active_roles=[FakeRole("noter")])
@@ -356,7 +356,7 @@ class TestWakeup:
         assert count == 1
         assert calls == ["writer"]
 
-    def test_public_open_task_from_role_initiator_wakes_work_roles_not_gru_noter(
+    def test_public_open_task_from_role_initiator_wakes_router_match_not_gru_noter(
         self,
     ) -> None:
         project = FakeProject(
@@ -378,8 +378,8 @@ class TestWakeup:
         task = {
             "id": "t-public-role-created",
             "initiator_id": "writer",
-            "domains": ["analysis"],
-            "content": {"description": "any suitable work role may triage"},
+            "domains": ["experiments"],
+            "content": {"description": "run a targeted evaluation"},
             "invited_agent_ids": [],
         }
         sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
@@ -389,8 +389,8 @@ class TestWakeup:
         ):
             count = _run(sched.tick_once())
 
-        assert count == 3
-        assert calls == ["coder", "writer", "experimenter"]
+        assert count == 1
+        assert calls == ["experimenter"]
 
     def test_inflight_deferral_survives_scheduler_restart(self) -> None:
         project = FakeProject(port=37596, active_roles=[FakeRole("noter")])

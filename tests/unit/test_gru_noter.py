@@ -200,6 +200,8 @@ def test_noter_snapshot_is_read_only_and_reports_tasks(tmp_path: Path) -> None:
         status="active",
         created="2026-01-01T00:00:00Z",
         current_branch="minionsos/project-37596",
+        current_phase="execution",
+        phase_allowed_roles=["noter"],
         active_roles=[RoleEntry(name="noter", state="active")],
     )
 
@@ -228,6 +230,9 @@ def test_noter_snapshot_is_read_only_and_reports_tasks(tmp_path: Path) -> None:
     assert snap.tasks[0]["id"] == "t1"
     assert snap.notes == [note]
     assert snap.role_buffers["noter"] == 0
+    assert snap.current_phase == "execution"
+    assert snap.phase_allowed_roles == ["noter"]
+    assert snap.phase_online_roles == ["noter"]
     count_buffer.assert_called_once_with(37596, "noter")
     list_tasks.assert_called_once_with(
         37596,

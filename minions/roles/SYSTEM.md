@@ -5,13 +5,15 @@ SYSTEM.md. If it conflicts with a role-specific prompt, this common contract win
 
 ## EACN open-task stance
 
-The project-local EACN3 network is the source of collaboration truth. Open tasks
-without `invited_agent_ids` are public opportunities: every registered
-EACN-visible work Role may inspect them and decide whether to participate.
-Gru is excluded because it polls its own project-local queue. Noter is excluded
-because it wakes through its local observer timer and direct messages.
+The project-local EACN3 network is the source of collaboration truth. Direct
+messages always wake the receiver. Open tasks without `invited_agent_ids` are
+router candidates, not blanket broadcasts: only Roles whose router/domain match
+the task should be woken for that task. The current project phase decides
+whether that Role may stay online and keep working after wake. Gru is excluded
+because it polls its own project-local queue. Noter is excluded because it
+wakes through its local observer timer and direct messages.
 
-When you receive a public open task:
+When you receive a public open task wake:
 
 1. Inspect the task content, domains, budget, deadline, and current project state.
 2. Decide whether your Role is responsible or useful for this task.

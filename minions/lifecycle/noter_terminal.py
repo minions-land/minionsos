@@ -21,6 +21,7 @@ from rich.table import Table
 from minions.errors import ProjectError
 from minions.lifecycle import eacn_client, gru_inbox, role_inbox
 from minions.lifecycle.health import project_status_snapshot
+from minions.lifecycle.project import project_phase_snapshot
 from minions.lifecycle.project_eacn import project_eacn_send_message
 from minions.paths import project_artifacts_dir
 from minions.state.store import ProjectEntry, StateStore
@@ -33,6 +34,9 @@ class NoterSnapshot:
     tasks: list[dict[str, Any]]
     notes: list[Path]
     role_buffers: dict[str, int]
+    current_phase: str | None
+    phase_allowed_roles: list[str]
+    phase_online_roles: list[str]
     gru_unread: int
     errors: list[str]
     captured_at: str
@@ -71,6 +75,7 @@ def collect_noter_snapshot(
     role_buffers = {
         role.name: role_inbox.count(project.port, role.name) for role in project.active_roles
     }
+    phase = project_phase_snapshot(project)
     try:
         gru_unread = gru_inbox.unread_count(project.port)
     except Exception:
@@ -82,6 +87,13 @@ def collect_noter_snapshot(
         tasks=tasks,
         notes=notes,
         role_buffers=role_buffers,
+        current_phase=phase.get("current_phase") if isinstance(phase, dict) else None,
+        phase_allowed_roles=(
+            list(phase.get("phase_allowed_roles", [])) if isinstance(phase, dict) else []
+        ),
+        phase_online_roles=(
+            list(phase.get("phase_online_roles", [])) if isinstance(phase, dict) else []
+        ),
         gru_unread=gru_unread,
         errors=[*health.get("recent_failures", []), *errors],
         captured_at=datetime.now(tz=UTC).isoformat(timespec="seconds"),
@@ -131,7 +143,8 @@ def render_snapshot(
     console.rule(f"Noter project {project.port} | {snapshot.captured_at}")
     console.print(
         f"[bold]{project.real_name}[/bold]  status={project.status}  "
-        f"backend={backend}  gru_unread={snapshot.gru_unread}  "
+        f"backend={backend}  phase={snapshot.current_phase or '-'}  "
+        f"online={len(snapshot.phase_online_roles)}  gru_unread={snapshot.gru_unread}  "
         f"tasks={len(snapshot.tasks)}"
     )
     _render_roles(snapshot, console, previous_role_buffers=previous_role_buffers)

@@ -70,7 +70,29 @@ def test_direct_message_signal_targets_local_role(tmp_path: Path) -> None:
     assert len(events) == 1
     assert events[0]["kind"] == "direct_message"
     assert events[0]["to_agent_id"] == "coder-agent"
+    assert events[0]["phase"] == "analysis"
+    assert events[0]["phase_allowed"] is True
+    assert events[0]["phase_online_roles"] == ["coder"]
     assert role_inbox.read_events(37596, "noter") == []
+
+
+def test_direct_message_wakes_recipient_even_when_phase_disallows_it(tmp_path: Path) -> None:
+    store = _make_store(tmp_path)
+
+    matched = direct_message_signal(
+        port=37596,
+        to_agent_id="noter-agent",
+        from_agent_id="gru-agent",
+        content={"type": "text", "body": "ping"},
+        source="test",
+        store=store,
+    )
+
+    assert matched == ["noter"]
+    events = role_inbox.read_events(37596, "noter")
+    assert len(events) == 1
+    assert events[0]["kind"] == "direct_message"
+    assert events[0]["phase_allowed"] is False
 
 
 def test_task_signal_matches_router_candidate(tmp_path: Path) -> None:
@@ -94,6 +116,27 @@ def test_task_signal_matches_router_candidate(tmp_path: Path) -> None:
     assert events[0]["kind"] == "task_router"
     assert events[0]["matched_by"] == "domain"
     assert events[0]["task_id"] == "t-1"
+    assert events[0]["phase_allowed"] is True
+
+
+def test_task_signal_ignores_unmatched_public_task(tmp_path: Path) -> None:
+    store = _make_store(tmp_path)
+
+    matched = task_signal(
+        port=37596,
+        task={
+            "id": "t-2",
+            "domains": ["unmatched-domain"],
+            "initiator_id": "gru-agent",
+            "content": {"description": "should not wake everyone"},
+        },
+        source="test",
+        store=store,
+    )
+
+    assert matched == []
+    assert role_inbox.read_events(37596, "coder") == []
+    assert role_inbox.read_events(37596, "noter") == []
 
 
 def test_phase_change_signal_summarizes_phase(tmp_path: Path) -> None:
@@ -106,11 +149,11 @@ def test_phase_change_signal_summarizes_phase(tmp_path: Path) -> None:
         store=store,
     )
 
-    assert sorted(targets) == ["coder", "noter"]
+    assert sorted(targets) == ["coder"]
     coder_events = role_inbox.read_events(37596, "coder")
     noter_events = role_inbox.read_events(37596, "noter")
     assert coder_events[0]["kind"] == "phase_change"
     assert coder_events[0]["phase_allowed"] is True
-    assert noter_events[0]["kind"] == "phase_change"
-    assert noter_events[0]["phase_allowed"] is False
+    assert coder_events[0]["phase_online_roles"] == ["coder"]
+    assert noter_events == []
     assert "phase change" in summarize_signal(coder_events[0])

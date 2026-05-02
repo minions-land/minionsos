@@ -30,15 +30,14 @@ from typing import Any, Literal
 
 from minions.config import GruConfig, load_gru_config, parse_duration
 from minions.lifecycle import role_inbox
-from minions.lifecycle.agent_registry import role_agent_domains
 from minions.lifecycle.eacn_client import list_open_tasks, poll_events, send_message
+from minions.lifecycle.wake_signals import task_router_targets
 from minions.paths import project_memory_dir, project_scratchpad
 from minions.state.store import StateStore
 
 logger = logging.getLogger(__name__)
 
 _DEDUP_MAX = 2048
-_GENERIC_TASK_DOMAINS = {"minionsos", "project-local"}
 _OPEN_TASK_EXCLUDED_ROLES = {"gru", "noter"}
 _TASK_WAKEUP_TYPES = {"task_broadcast", "adjudication_task"}
 _VETO_COMPACTION_COOLDOWN_SECONDS = 10 * 60
@@ -226,17 +225,6 @@ def _task_domains(task: dict[str, Any]) -> set[str]:
     return {str(d) for d in domains if str(d).strip()}
 
 
-def _task_invited_agent_ids(task: dict[str, Any]) -> set[str]:
-    invited = task.get("invited_agent_ids") or []
-    if not isinstance(invited, list):
-        return set()
-    return {str(agent_id) for agent_id in invited if str(agent_id).strip()}
-
-
-def _role_task_domains(role_name: str) -> set[str]:
-    return set(role_agent_domains(role_name)) - _GENERIC_TASK_DOMAINS
-
-
 def _role_receives_open_tasks(role_name: str) -> bool:
     """Return True if open-task scans should wake this role."""
     return role_name not in _OPEN_TASK_EXCLUDED_ROLES
@@ -256,15 +244,6 @@ def _is_task_wakeup_event(event: dict[str, Any]) -> bool:
 def _event_allowed_for_role(role_name: str, event: dict[str, Any]) -> bool:
     """Filter task-market wakeups away from local observers/supervisors."""
     return _role_receives_open_tasks(role_name) or not _is_task_wakeup_event(event)
-
-
-def _task_match_reason(task: dict[str, Any], role_name: str) -> str | None:
-    if role_name in _task_invited_agent_ids(task):
-        return "invited_agent_ids"
-    domains = _task_domains(task)
-    if domains & _role_task_domains(role_name):
-        return "domain"
-    return None
 
 
 def _event_task_id(event: dict[str, Any]) -> str:
@@ -502,7 +481,7 @@ class WakeupScheduler:
         projects = self._store.list_projects(filter="active")
         for project in projects:
             roles = [role for role in project.active_roles if _role_schedulable(role)]
-            open_task_events = await self._open_task_events_for_roles(project.port, roles, now)
+            open_task_events = await self._open_task_events_for_roles(project, roles, now)
 
             for role in roles:
                 key = (project.port, role.name)
@@ -890,10 +869,11 @@ class WakeupScheduler:
 
     async def _open_task_events_for_roles(
         self,
-        port: int,
+        project: Any,
         roles: list[Any],
         now: float,
     ) -> dict[str, list[dict[str, Any]]]:
+        port = int(project.port)
         if not roles:
             return {}
         interval = _interval_seconds(self._default_interval or "1m")
@@ -913,24 +893,11 @@ class WakeupScheduler:
             task_id = _task_id(task)
             if not task_id:
                 continue
-            matches: list[tuple[str, str]] = []
-            invited = _task_invited_agent_ids(task)
-            if invited:
-                matches = [
-                    (role_name, "invited_agent_ids")
-                    for role_name in role_names
-                    if role_name in invited
-                ]
-            else:
-                matches = [
-                    (
-                        role_name,
-                        "domain"
-                        if _task_match_reason(task, role_name) == "domain"
-                        else "public_open_task",
-                    )
-                    for role_name in role_names
-                ]
+            matches = [
+                (role_name, reason)
+                for role_name, reason in task_router_targets(project, task)
+                if role_name in by_role
+            ]
             for role_name, reason in matches:
                 by_role.setdefault(role_name, []).append(_open_task_event(task, role_name, reason))
         return by_role

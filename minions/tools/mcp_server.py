@@ -31,24 +31,13 @@ from minions.config import resolve_whitelist
 from minions.lifecycle.project import (
     project_checkpoint_workspace as _project_checkpoint_workspace,
 )
-from minions.lifecycle.project import (
-    project_close as _project_close,
-)
-from minions.lifecycle.project import (
-    project_create as _project_create,
-)
-from minions.lifecycle.project import (
-    project_dormant as _project_dormant,
-)
-from minions.lifecycle.project import (
-    project_kill as _project_kill,
-)
-from minions.lifecycle.project import (
-    project_revive as _project_revive,
-)
-from minions.lifecycle.project import (
-    project_set_phase as _project_set_phase,
-)
+from minions.lifecycle.project import project_close as _project_close
+from minions.lifecycle.project import project_create as _project_create
+from minions.lifecycle.project import project_dormant as _project_dormant
+from minions.lifecycle.project import project_kill as _project_kill
+from minions.lifecycle.project import project_phase_snapshot
+from minions.lifecycle.project import project_revive as _project_revive
+from minions.lifecycle.project import project_set_phase as _project_set_phase
 from minions.lifecycle.project_eacn import (
     project_eacn_create_task as _project_eacn_create_task,
 )
@@ -502,6 +491,7 @@ def project_set_phase(args: ProjectPhaseArgs) -> dict:
         "port": entry.port,
         "phase": getattr(entry, "current_phase", None),
         "allowed_roles": list(getattr(entry, "phase_allowed_roles", []) or []),
+        "online_roles": list(project_phase_snapshot(entry).get("phase_online_roles", [])),
         "phase_version": getattr(entry, "phase_version", 0),
     }
 
