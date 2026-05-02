@@ -25,7 +25,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal, TypedDict, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -88,6 +88,13 @@ class ProjectEntry(BaseModel):
     active_roles: list[RoleEntry] = Field(default_factory=list)
 
     model_config = {"extra": "allow"}
+
+
+class ProjectPhaseSnapshot(TypedDict):
+    current_phase: str | None
+    phase_version: int
+    phase_allowed_roles: list[str]
+    phase_online_roles: list[str]
 
 
 class ProjectsData(BaseModel):

@@ -1,4 +1,4 @@
-# MinionsOS V4 Repository Guidelines
+# MinionsOS V5 Repository Guidelines
 
 ## Project Structure & Module Organization
 
@@ -13,7 +13,10 @@ MinionsOS is a Python 3.11 package with a companion Vite/React dashboard. Core P
 - `uv run pytest tests/unit -q` runs the unit suite used by CI.
 - `MINIONS_FAKE_CLAUDE=1 uv run pytest tests/smoke/` runs smoke coverage without a live Claude CLI.
 - `MINIONS_AGENT_HOST=codex ./gru` launches the same MinionsOS control plane through Codex when `.codex/config.toml` is present.
+- `uv run ty check minions` runs the typed runtime-contract gate for the Python runtime core.
 - `uv run ruff check .` and `uv run ruff format --check .` verify linting and formatting.
+- `cargo test --workspace` runs the Rust runtime-contract tests.
+- `cargo fmt --all --check` verifies Rust formatting.
 - `cd minions-viz && npm install && npm run build` builds the dashboard; `npm run dev` starts live reload.
 
 ## Coding Style & Naming Conventions

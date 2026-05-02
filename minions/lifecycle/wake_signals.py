@@ -15,6 +15,7 @@ from typing import Any
 from minions.lifecycle import role_inbox
 from minions.lifecycle.agent_registry import role_agent_domains
 from minions.lifecycle.project import (
+    ProjectPhaseSnapshot,
     project_phase_allows_role,
     project_phase_snapshot,
 )
@@ -76,14 +77,16 @@ def _role_task_domains(role_name: str) -> set[str]:
     return set(role_agent_domains(role_name)) - _GENERIC_TASK_DOMAINS
 
 
-def _phase_state(project: ProjectEntry | None) -> dict[str, Any]:
+def _phase_state(project: ProjectEntry | None) -> ProjectPhaseSnapshot:
     if project is None:
-        return {
-            "current_phase": None,
-            "phase_version": 0,
-            "phase_allowed_roles": [],
-            "phase_online_roles": [],
-        }
+        return ProjectPhaseSnapshot(
+            {
+                "current_phase": None,
+                "phase_version": 0,
+                "phase_allowed_roles": [],
+                "phase_online_roles": [],
+            }
+        )
     return project_phase_snapshot(project)
 
 
@@ -182,11 +185,12 @@ def task_signal(
         return []
     task_id = _task_id(task)
     matched: list[str] = []
-    targets = (
-        [(role_name, "explicit_target") for role_name in target_role_names]
-        if target_role_names
-        else task_router_targets(project, task)  # type: ignore[arg-type]
-    )
+    if target_role_names:
+        targets = [(role_name, "explicit_target") for role_name in target_role_names]
+    else:
+        if project is None:
+            return matched
+        targets = task_router_targets(project, task)
     phase_state = _phase_state(project)
     for role_name, matched_by in targets:
         task_key = _now_key(task_id, matched_by, task.get("initiator_id"))

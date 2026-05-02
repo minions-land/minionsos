@@ -40,6 +40,9 @@ node_modules/
 EACN3/plugin/dist/
 EACN3/plugin/node_modules/
 
+# Rust
+target/
+
 # macOS
 .DS_Store
 

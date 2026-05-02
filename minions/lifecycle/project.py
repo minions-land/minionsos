@@ -17,6 +17,7 @@ import subprocess
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 import httpx
 
@@ -42,7 +43,12 @@ from minions.paths import (
     project_state_dir,
     project_workspace_root,
 )
-from minions.state.store import ProjectEntry, RoleEntry, StateStore
+from minions.state.store import (
+    ProjectEntry,
+    ProjectPhaseSnapshot,
+    RoleEntry,
+    StateStore,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -749,9 +755,12 @@ def _append_session_ledger(port: int, payload: dict[str, object]) -> None:
                 ledger.update(raw)
         except Exception:
             pass
-    checkpoints = ledger.get("checkpoints")
-    if not isinstance(checkpoints, list):
-        checkpoints = []
+    checkpoints_obj = ledger.get("checkpoints")
+    checkpoints: list[dict[str, object]] = []
+    if isinstance(checkpoints_obj, list):
+        for entry in checkpoints_obj:
+            if isinstance(entry, dict):
+                checkpoints.append(cast(dict[str, object], entry))
     checkpoints.append(payload)
     ledger["checkpoints"] = checkpoints
     tmp = path.with_suffix(".tmp")
@@ -936,14 +945,16 @@ def project_phase_online_role_names(entry: ProjectEntry) -> list[str]:
     return online
 
 
-def project_phase_snapshot(entry: ProjectEntry) -> dict[str, object]:
+def project_phase_snapshot(entry: ProjectEntry) -> ProjectPhaseSnapshot:
     """Return a compact snapshot of the project's current phase state."""
-    return {
-        "current_phase": getattr(entry, "current_phase", None),
-        "phase_version": int(getattr(entry, "phase_version", 0) or 0),
-        "phase_allowed_roles": list(getattr(entry, "phase_allowed_roles", []) or []),
-        "phase_online_roles": project_phase_online_role_names(entry),
-    }
+    return ProjectPhaseSnapshot(
+        {
+            "current_phase": getattr(entry, "current_phase", None),
+            "phase_version": int(getattr(entry, "phase_version", 0) or 0),
+            "phase_allowed_roles": list(getattr(entry, "phase_allowed_roles", []) or []),
+            "phase_online_roles": project_phase_online_role_names(entry),
+        }
+    )
 
 
 def project_set_phase(
@@ -1306,7 +1317,9 @@ def project_dormant(
     backend_pid: int | None = None
     try:
         raw_dict = _read_meta_raw(port)
-        backend_pid = raw_dict.get("backend_pid")  # type: ignore[assignment]
+        raw_pid = raw_dict.get("backend_pid")
+        if isinstance(raw_pid, (int, str)):
+            backend_pid = int(raw_pid)
     except (ProjectError, Exception):
         pass
     if _stop_backend(port, backend_pid) is False:
@@ -1404,7 +1417,7 @@ def project_kill(
     try:
         raw_dict = _read_meta_raw(port)
         raw_pid = raw_dict.get("backend_pid")
-        if raw_pid is not None:
+        if isinstance(raw_pid, (int, str)):
             backend_pid = int(raw_pid)
     except Exception as exc:
         logger.debug("project_kill: backend_pid unavailable port=%d: %s", port, exc)

@@ -64,7 +64,7 @@ from minions.paths import (
     project_workspace_root,
     role_system_md,
 )
-from minions.state.store import RoleEntry, StateStore
+from minions.state.store import ProjectPhaseSnapshot, RoleEntry, StateStore
 
 logger = logging.getLogger(__name__)
 
@@ -745,9 +745,12 @@ def invoke_role_ephemeral(
         except Exception as exc:
             logger.debug("invoke_role_ephemeral: pid persist failed: %s", exc)
 
+        stdin = proc.stdin
+        if stdin is None:
+            raise RoleError("Role process did not expose stdin for prompt delivery.")
         try:
-            proc.stdin.write(invocation.stdin_text.encode("utf-8"))  # type: ignore[union-attr]
-            proc.stdin.close()  # type: ignore[union-attr]
+            stdin.write(invocation.stdin_text.encode("utf-8"))
+            stdin.close()
         except BrokenPipeError:
             logger.warning(
                 "invoke_role_ephemeral: %s closed stdin before message was fully written "
@@ -818,7 +821,7 @@ def _format_event_message(
     workspace_branch: str | None = None,
     session_name: str | None = None,
     resume_session: bool = False,
-    project_phase: dict[str, Any] | None = None,
+    project_phase: ProjectPhaseSnapshot | None = None,
 ) -> str:
     """Render an event batch as a user message for the ephemeral agent-host process."""
     preamble = ""
@@ -863,16 +866,16 @@ def _format_event_message(
             preamble += f"- Session name: `{session_name}`\n"
         preamble += f"- Resume session: `{str(bool(resume_session)).lower()}`\n\n"
     if project_phase is not None:
-        current_phase = project_phase.get("current_phase") or "unset"
-        phase_version = project_phase.get("phase_version") or 0
+        current_phase = project_phase["current_phase"] or "unset"
+        phase_version = project_phase["phase_version"]
         allowed_roles = [
             str(role).strip()
-            for role in (project_phase.get("phase_allowed_roles") or [])
+            for role in project_phase["phase_allowed_roles"]
             if str(role).strip()
         ]
         online_roles = [
             str(role).strip()
-            for role in (project_phase.get("phase_online_roles") or [])
+            for role in project_phase["phase_online_roles"]
             if str(role).strip()
         ]
         preamble += "[Project phase]\n"
@@ -889,7 +892,7 @@ def _format_event_message(
             + "`\n"
         )
         if role_name:
-            allowed = project_phase.get("phase_allowed_roles") or []
+            allowed = project_phase["phase_allowed_roles"]
             role_allowed = (
                 not allowed or "*" in allowed or "all" in allowed or role_name in allowed
             )

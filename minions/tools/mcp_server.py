@@ -22,7 +22,7 @@ import os
 import threading
 from contextlib import suppress
 from fnmatch import fnmatchcase
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
@@ -65,6 +65,9 @@ from minions.tools import paper_search as _paper_search
 
 configure_logging()
 logger = logging.getLogger(__name__)
+
+_GRU_START_MONITOR_THREAD: threading.Thread | None = None
+_GRU_START_MONITOR_INTERVAL: int | None = None
 
 mcp = FastMCP("minions")
 
@@ -145,7 +148,7 @@ def allowed_tool_names_for_profile(
     if agent_type not in {"main", "subagent"}:
         agent_type = "main"
 
-    patterns = resolve_whitelist(role, agent_type)  # type: ignore[arg-type]
+    patterns = resolve_whitelist(role, cast(Literal["main", "subagent"], agent_type))
     return {
         tool_name
         for tool_name in _MINIONS_MCP_TOOL_NAMES
@@ -211,7 +214,7 @@ def _require_tool_allowed(tool_name: str) -> None:
     agent_type = os.environ.get("MINIONS_AGENT_TYPE", "main").strip() or "main"
     if agent_type not in {"main", "subagent"}:
         agent_type = "main"
-    allowed = resolve_whitelist(role, agent_type)  # type: ignore[arg-type]
+    allowed = resolve_whitelist(role, cast(Literal["main", "subagent"], agent_type))
     if any(fnmatchcase(tool_name, pattern) for pattern in allowed):
         return
     raise PermissionError(f"Tool {tool_name!r} is not allowed for role {role!r} ({agent_type}).")
@@ -487,11 +490,12 @@ def project_set_phase(args: ProjectPhaseArgs) -> dict:
         allowed_roles=args.allowed_roles or None,
         reason=args.reason,
     )
+    phase_snapshot = project_phase_snapshot(entry)
     return {
         "port": entry.port,
         "phase": getattr(entry, "current_phase", None),
-        "allowed_roles": list(getattr(entry, "phase_allowed_roles", []) or []),
-        "online_roles": list(project_phase_snapshot(entry).get("phase_online_roles", [])),
+        "allowed_roles": phase_snapshot["phase_allowed_roles"],
+        "online_roles": phase_snapshot["phase_online_roles"],
         "phase_version": getattr(entry, "phase_version", 0),
     }
 
@@ -901,12 +905,14 @@ def gru_start_monitor(heartbeat_interval: int | None = None) -> dict:
     _require_tool_allowed("gru_start_monitor")
     from minions.gru.loop import GruLoop
 
-    existing = getattr(gru_start_monitor, "_thread", None)
+    global _GRU_START_MONITOR_THREAD, _GRU_START_MONITOR_INTERVAL
+
+    existing = _GRU_START_MONITOR_THREAD
     if existing is not None and existing.is_alive():
         return {
             "started": False,
             "already_running": True,
-            "interval": getattr(gru_start_monitor, "_interval", None),
+            "interval": _GRU_START_MONITOR_INTERVAL,
         }
 
     sidecar = _running_sidecar_monitor()
@@ -922,8 +928,8 @@ def gru_start_monitor(heartbeat_interval: int | None = None) -> dict:
     loop = GruLoop(heartbeat_interval=heartbeat_interval)
     t = threading.Thread(target=loop.run, daemon=True, name="gru-monitor")
     t.start()
-    gru_start_monitor._thread = t  # type: ignore[attr-defined]
-    gru_start_monitor._interval = loop.interval  # type: ignore[attr-defined]
+    _GRU_START_MONITOR_THREAD = t
+    _GRU_START_MONITOR_INTERVAL = loop.interval
     logger.info("Gru monitor thread started (interval=%ds).", loop.interval)
     return {"started": True, "already_running": False, "interval": loop.interval}
 

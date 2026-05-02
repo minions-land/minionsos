@@ -14,7 +14,7 @@ import logging
 import os
 import sqlite3
 import uuid
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -477,7 +477,7 @@ class ExperimentScheduler:
         return conn
 
     @contextmanager
-    def _tx(self) -> Iterable[sqlite3.Connection]:
+    def _tx(self) -> Iterator[sqlite3.Connection]:
         conn = self._connect()
         try:
             conn.execute("BEGIN IMMEDIATE")

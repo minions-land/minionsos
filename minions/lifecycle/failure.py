@@ -82,9 +82,8 @@ def with_retry(
             logger.debug("with_retry attempt %d failed: %s", attempt + 1, exc)
             if attempt < max_retries - 1 and delay > 0:
                 time.sleep(delay)
-        except Exception:
-            raise
-    raise last_exc  # type: ignore[misc]
+    assert last_exc is not None
+    raise last_exc
 
 
 class FailureLog:

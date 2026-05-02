@@ -39,7 +39,7 @@ from typing import Any, Literal
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
-from minions.config import load_experiment_targets
+from minions.config import LocalTarget, SSHTarget, load_experiment_targets
 from minions.errors import ConfigError, ExperimentError
 from minions.tools.experiment_scheduler import ExperimentScheduler, QueueUnit
 
@@ -85,9 +85,11 @@ def _resolve_workdir(
     cfg = load_experiment_targets()
     target = cfg.get_target(target_id)
     workdir = _expand_workdir(target.workdir)
-    if target.type == "local":
+    if isinstance(target, LocalTarget):
         return "local", workdir, None, None
-    return "ssh", workdir, target.host, target.key  # type: ignore[return-value]
+    if isinstance(target, SSHTarget):
+        return "ssh", workdir, target.host, target.key
+    raise ConfigError(f"Unsupported target type: {target.type!r}")
 
 
 def _ssh_cmd(host: str, key: str, remote_cmd: str) -> list[str]:
@@ -510,9 +512,10 @@ def exp_kill(args: ExpKillArgs) -> dict:
         except ProcessLookupError:
             return {"killed": False, "pid": pid}
     assert host and key
+    meta_path_str = str(meta_path)
     cmd = (
-        f"if [ -f {shlex.quote(meta_path)} ]; then "  # type: ignore[arg-type]
-        f"  PID=$(python3 -c \"import json;print(json.load(open('{meta_path}'))['pid'])\"); "
+        f"if [ -f {shlex.quote(meta_path_str)} ]; then "
+        f"  PID=$(python3 -c \"import json;print(json.load(open('{meta_path_str}'))['pid'])\"); "
         f"  kill -TERM $PID && echo OK || echo GONE; "
         f"else echo MISSING; fi"
     )

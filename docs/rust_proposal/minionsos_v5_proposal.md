@@ -368,3 +368,40 @@ Rust 解决的是本地操作系统层问题。
 EACN 继续解决 agent collaboration 问题。
 
 Python 继续承载科研能力层。
+
+## V5 的 Rust 划分决策
+
+在 V5 里，Rust 只应该落在那些满足以下条件的地方：
+
+- 规则稳定，变化频率低。
+- 出错代价高，且需要强确定性。
+- 属于本地运行时，不属于科研语义。
+- 能够独立验证，不依赖 EACN3 内部实现。
+
+因此，Rust 最值得承接的是：
+
+- EACN 事件的 journal / lease / retry 这类可靠性内核。
+- wake signal / phase snapshot 这类可验证契约的归一化与校验。
+- process supervision、只读观测、TUI 这些低层操作面。
+
+Rust 不值得承接的是：
+
+- Role prompt、skill、paper workflow、experiment workflow。
+- EACN3 的业务协议本身。
+- 任何经常随研究主题变化的协作语义。
+
+换句话说，V5 的 Rust 价值不是“把一切都重写”，而是把最容易抖动、最容易丢状态、最容易在多进程下出错的底层边界固定住。
+
+## 当前落地状态
+
+第一阶段已经新增 root Rust workspace 和 `crates/minions-runtime-core`。
+
+这个 crate 目前只承接稳定、纯函数、可测试的运行时契约：
+
+- `PhasePolicy`：判断当前 phase 允许哪些 role online。
+- `RoleRecord` / `RoleState`：归一化 role 的可调度状态。
+- `TaskRecord`：抽取 EACN task routing 需要的最小字段。
+- `task_router_targets`：决定 public open task、invited role、invited agent id 应该唤醒哪些 role。
+- `role_task_domains`：过滤 `minionsos`、`project-local` 这类 generic domain，避免 open task 唤醒所有人。
+
+它刻意不访问 EACN3、不启动 daemon、不处理 prompt，也不替代 Python runtime。当前作用是把 V5 已经形成的 phase/router/wake 边界固化成独立可验证的 Rust contract，后续再逐步把 journal、lease、process supervision 等低层可靠性能力迁入 Rust。

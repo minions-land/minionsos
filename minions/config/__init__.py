@@ -16,7 +16,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -453,7 +453,7 @@ class GruConfig(BaseModel):
                 self.agent_host,
             )
             return self.agent_host
-        return host  # type: ignore[return-value]
+        return cast(Literal["claude", "codex"], host)
 
     # --- Scratchpad size thresholds (as fractions of the model context window) ---
     # Rationale: Context Rot / NoLiMa research shows effective context degrades

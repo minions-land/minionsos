@@ -129,12 +129,15 @@ def proxy_stdio(child_cmd: list[str], allowed: set[str] | None) -> int:
     assert proc.stdin is not None
     assert proc.stdout is not None
     assert proc.stderr is not None
+    stdin = proc.stdin
+    stdout = proc.stdout
+    stderr = proc.stderr
 
     pending_tools_list: set[str] = set()
     pending_lock = threading.Lock()
 
     def child_stdout_to_parent() -> None:
-        for raw in proc.stdout:
+        for raw in stdout:
             out = raw
             try:
                 message = json.loads(raw.decode("utf-8"))
@@ -157,7 +160,7 @@ def proxy_stdio(child_cmd: list[str], allowed: set[str] | None) -> int:
             sys.stdout.buffer.flush()
 
     def child_stderr_to_parent() -> None:
-        for raw in proc.stderr:
+        for raw in stderr:
             sys.stderr.buffer.write(raw)
             sys.stderr.buffer.flush()
 
@@ -182,11 +185,11 @@ def proxy_stdio(child_cmd: list[str], allowed: set[str] | None) -> int:
                     continue
             except Exception:
                 pass
-            proc.stdin.write(forward)
-            proc.stdin.flush()
+            stdin.write(forward)
+            stdin.flush()
     finally:
         with contextlib.suppress(Exception):
-            proc.stdin.close()
+            stdin.close()
 
     return proc.wait()
 

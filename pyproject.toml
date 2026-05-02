@@ -30,4 +30,5 @@ eacn3 = { path = "./EACN3", editable = true }
 dev = [
     "pytest>=9.0.3",
     "ruff>=0.15.11",
+    "ty>=0.0.34",
 ]

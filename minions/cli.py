@@ -524,7 +524,7 @@ def config_cmd(
     json_flag: bool = typer.Option(False, "--json"),
 ) -> None:
     """Print MinionsOS path configuration."""
-    data = {
+    data: dict[str, object] = {
         "MINIONS_ROOT": str(MINIONS_ROOT),
         "CONFIG_DIR": str(CONFIG_DIR),
         "STATE_DIR": str(STATE_DIR),
@@ -664,8 +664,12 @@ def project_repair_cmd(port: int = typer.Argument(..., help="Project port.")) ->
     if result["status"] == "already":
         console.print(f"[yellow]Project {port} EACN state already healthy.[/yellow]")
         return
-    roles = ", ".join(result.get("role_agents_registered", []) or []) or "none"
-    cleared = ", ".join(result.get("stale_pids_cleared", []) or []) or "none"
+    roles_raw = result.get("role_agents_registered", [])
+    roles_items = roles_raw if isinstance(roles_raw, list) else []
+    roles = ", ".join(str(item) for item in roles_items) or "none"
+    cleared_raw = result.get("stale_pids_cleared", [])
+    cleared_items = cleared_raw if isinstance(cleared_raw, list) else []
+    cleared = ", ".join(str(item) for item in cleared_items) or "none"
     console.print(
         f"[green]Repaired project {port} EACN state.[/green] "
         f"gru={result.get('gru_status')} roles_registered={roles} stale_pids_cleared={cleared}"

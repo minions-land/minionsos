@@ -87,13 +87,9 @@ def collect_noter_snapshot(
         tasks=tasks,
         notes=notes,
         role_buffers=role_buffers,
-        current_phase=phase.get("current_phase") if isinstance(phase, dict) else None,
-        phase_allowed_roles=(
-            list(phase.get("phase_allowed_roles", [])) if isinstance(phase, dict) else []
-        ),
-        phase_online_roles=(
-            list(phase.get("phase_online_roles", [])) if isinstance(phase, dict) else []
-        ),
+        current_phase=phase["current_phase"],
+        phase_allowed_roles=list(phase["phase_allowed_roles"]),
+        phase_online_roles=list(phase["phase_online_roles"]),
         gru_unread=gru_unread,
         errors=[*health.get("recent_failures", []), *errors],
         captured_at=datetime.now(tz=UTC).isoformat(timespec="seconds"),
@@ -299,7 +295,8 @@ def _render_tasks(snapshot: NoterSnapshot, console: Console, force: bool = False
     table.add_column("Domains")
     table.add_column("Description")
     for task in snapshot.tasks:
-        content = task.get("content") if isinstance(task.get("content"), dict) else {}
+        content_obj = task.get("content")
+        content = content_obj if isinstance(content_obj, dict) else {}
         table.add_row(
             str(task.get("id", "-")),
             _short_created(task.get("created_at")),

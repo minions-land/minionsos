@@ -120,6 +120,13 @@ uv run pytest tests/unit/test_port_allocator.py::test_no_reuse_retired_ports
 # Smoke tests (requires MINIONS_FAKE_CLAUDE=1 to stub Claude CLI)
 MINIONS_FAKE_CLAUDE=1 uv run pytest tests/smoke/
 
+# Type gate for the Python runtime core
+uv run ty check minions
+
+# Rust runtime contracts
+cargo test --workspace
+cargo fmt --all --check
+
 # Ruff lint
 uv run ruff check minions/
 uv run ruff format --check minions/

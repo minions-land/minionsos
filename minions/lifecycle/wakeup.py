@@ -287,7 +287,7 @@ def _open_task_event(task: dict[str, Any], role_name: str, matched_by: str) -> d
     }
 
 
-InvokeFn = Callable[[str, int, list[dict[str, Any]]], Awaitable[None] | None]
+InvokeFn = Callable[..., Awaitable[None] | None]
 
 
 class WakeupScheduler:
@@ -823,7 +823,9 @@ class WakeupScheduler:
         if project is None:
             return None
         role = next((r for r in project.active_roles if r.name == role_name), None)
-        pid = getattr(role, "pid", None) if role is not None else None
+        if role is None:
+            return None
+        pid = getattr(role, "pid", None)
         if not pid:
             return None
         if _pid_alive(int(pid)):

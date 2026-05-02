@@ -319,13 +319,14 @@ def create_task(
     payload: dict[str, Any] = {
         "task_id": task_id or f"t-{uuid.uuid4().hex[:12]}",
         "initiator_id": initiator_id,
-        "content": {"description": description},
         "domains": domains,
         "budget": budget,
         "invited_agent_ids": invited_agent_ids or [],
     }
+    content: dict[str, Any] = {"description": description}
     if expected_output:
-        payload["content"]["expected_output"] = expected_output
+        content["expected_output"] = expected_output
+    payload["content"] = content
     if deadline:
         payload["deadline"] = deadline
     if max_concurrent_bidders is not None:
