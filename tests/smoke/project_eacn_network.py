@@ -8,8 +8,8 @@ registers Noter/Coder/Expert roles, and verifies:
 - Gru, Noter, Coder, and Expert all appear in EACN discovery for that project.
 - Gru -> Noter initial task, Coder -> Gru, Coder -> Expert, and Expert -> Coder
   messages are all delivered through the project's local EACN3 queue.
-- A public task initiated by a Role wakes work Roles through the EACN open-task
-  path without involving Gru or Noter as workers.
+- A public task initiated by a Role is routed by EACN3's native task broadcast
+  mechanism and wakes only agents whose own EACN3 queues received the event.
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ def main() -> int:
     from minions.lifecycle import eacn_client, gru_inbox
     from minions.lifecycle.project import project_close, project_create, project_meta_json
     from minions.lifecycle.role import list_roles, register_expert, register_role
-    from minions.lifecycle.wakeup import WakeupScheduler, _event_task_id
+    from minions.lifecycle.wakeup import WakeupScheduler
     from minions.paths import MINIONS_ROOT
     from minions.state.store import StateStore
     from minions.tools.mcp_server import GruInboxPollArgs, gru_inbox_poll
@@ -218,6 +218,8 @@ def main() -> int:
             },
             invited_agent_ids=[],
         )
+        public_task_id = str(public_task.get("id") or public_task.get("task_id") or "")
+        pending_before = eacn_client.pending_event_counts(port)
         public_calls: list[tuple[str, int, list[dict[str, Any]]]] = []
 
         public_scheduler = WakeupScheduler(
@@ -225,25 +227,36 @@ def main() -> int:
             invoke_fn=lambda role_name, project_port, events, **_: public_calls.append(
                 (role_name, project_port, events)
             ),
+            mode="hooks",
             cooldown_seconds=0,
         )
         public_triggered = asyncio.run(public_scheduler.tick_once())
         public_woken = {call[0] for call in public_calls}
-        public_task_id = str(public_task.get("id") or public_task.get("task_id") or "")
-        public_task_woken = {
+        public_queue_woken = {
             role_name
             for role_name, _project_port, events in public_calls
-            if any(_event_task_id(event) == public_task_id for event in events)
+            if any(event.get("kind") == "eacn_queue_pending" for event in events)
         }
+        expert_public_events = eacn_client.poll_events(port, expert_id, timeout_secs=1)
+        coder_public_events = eacn_client.poll_events(port, "coder", timeout_secs=1)
+        noter_public_events = eacn_client.poll_events(port, "noter", timeout_secs=1)
+        gru_public_events = eacn_client.poll_events(port, "gru", timeout_secs=1)
         step(
-            "Role-created public task wakes router-matched work Roles through open-task scan",
+            "Role-created public task wakes via native EACN3 task broadcast",
             public_triggered >= 1
-            and {expert_id} <= public_task_woken
-            and "coder" not in public_task_woken
-            and "noter" not in public_task_woken
-            and "gru" not in public_task_woken,
+            and pending_before.get(expert_id, 0) >= 1
+            and expert_id in public_queue_woken
+            and "coder" not in public_queue_woken
+            and "noter" not in public_queue_woken
+            and "gru" not in public_queue_woken
+            and int(expert_public_events.get("count") or 0) >= 1,
             f"task={public_task_id} triggered={public_triggered} "
-            f"calls={sorted(public_woken)} task_calls={sorted(public_task_woken)}",
+            f"calls={sorted(public_woken)} queue_calls={sorted(public_queue_woken)} "
+            f"pending_before={pending_before} "
+            f"expert_events={expert_public_events.get('count')} "
+            f"coder_events={coder_public_events.get('count')} "
+            f"noter_events={noter_public_events.get('count')} "
+            f"gru_events={gru_public_events.get('count')}",
         )
 
         project_close(port)

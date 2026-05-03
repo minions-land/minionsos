@@ -1,10 +1,10 @@
 """Python-level wakeup scheduler for Roles.
 
 V5's primary runtime path is hook-driven: MinionsOS publishes compact wake
-signals when direct messages, routed tasks, or phase changes occur. The
-scheduler reads those local signals and lets the Role go onto EACN3 itself.
-The legacy EACN polling path is retained for compatibility tests and manual
-fallbacks, but Gru uses hook mode.
+signals when direct messages, native EACN3 pending queues, or phase changes
+indicate that a Role should go online. The scheduler reads those local wake
+signals and lets the Role go onto EACN3 itself. The legacy EACN polling path is
+retained for compatibility tests and manual fallbacks, but Gru uses hook mode.
 
 Design notes:
 - Duplicate events are deduplicated via an in-memory LRU set keyed by
@@ -30,15 +30,14 @@ from typing import Any, Literal
 
 from minions.config import GruConfig, load_gru_config, parse_duration
 from minions.lifecycle import role_inbox
-from minions.lifecycle.eacn_client import list_open_tasks, poll_events, send_message
-from minions.lifecycle.wake_signals import task_router_targets
+from minions.lifecycle.eacn_client import pending_event_counts, poll_events, send_message
+from minions.lifecycle.wake_signals import eacn_queue_pending_signals
 from minions.paths import project_memory_dir, project_scratchpad
 from minions.state.store import StateStore
 
 logger = logging.getLogger(__name__)
 
 _DEDUP_MAX = 2048
-_OPEN_TASK_EXCLUDED_ROLES = {"gru", "noter"}
 _TASK_WAKEUP_TYPES = {"task_broadcast", "adjudication_task"}
 _VETO_COMPACTION_COOLDOWN_SECONDS = 10 * 60
 
@@ -218,32 +217,21 @@ def _task_id(task: dict[str, Any]) -> str:
     return str(value) if value else ""
 
 
-def _task_domains(task: dict[str, Any]) -> set[str]:
-    domains = task.get("domains") or []
-    if not isinstance(domains, list):
-        return set()
-    return {str(d) for d in domains if str(d).strip()}
-
-
-def _role_receives_open_tasks(role_name: str) -> bool:
-    """Return True if open-task scans should wake this role."""
-    return role_name not in _OPEN_TASK_EXCLUDED_ROLES
-
-
 def _is_task_wakeup_event(event: dict[str, Any]) -> bool:
-    """Return True for EACN task broadcasts or synthetic open-task scan events."""
+    """Return True for native EACN task wakeup events."""
     event_type = str(event.get("type") or "")
-    if event_type in _TASK_WAKEUP_TYPES:
-        return True
-    if str(event.get("id") or "").startswith("open-task:"):
-        return True
-    payload = event.get("payload")
-    return isinstance(payload, dict) and payload.get("source") == "tasks_open_scan"
+    return event_type in _TASK_WAKEUP_TYPES
 
 
 def _event_allowed_for_role(role_name: str, event: dict[str, Any]) -> bool:
-    """Filter task-market wakeups away from local observers/supervisors."""
-    return _role_receives_open_tasks(role_name) or not _is_task_wakeup_event(event)
+    """Keep only per-agent EACN-native events for the receiving role.
+
+    EACN3 owns task routing. If an agent's own queue contains a
+    ``task_broadcast`` or ``adjudication_task``, MinionsOS accepts that routing
+    decision instead of filtering with a second local router.
+    """
+    _ = role_name
+    return True
 
 
 def _event_task_id(event: dict[str, Any]) -> str:
@@ -265,26 +253,6 @@ def _event_task_id(event: dict[str, Any]) -> str:
     if isinstance(content, dict) and content.get("task_id"):
         return str(content["task_id"])
     return ""
-
-
-def _open_task_event(task: dict[str, Any], role_name: str, matched_by: str) -> dict[str, Any]:
-    task_id = _task_id(task)
-    return {
-        "type": "task_broadcast",
-        "id": f"open-task:{task_id}:{role_name}",
-        "task_id": task_id,
-        "payload": {
-            "source": "tasks_open_scan",
-            "matched_by": matched_by,
-            "content": task.get("content") or {},
-            "domains": list(_task_domains(task)),
-            "budget": task.get("budget"),
-            "deadline": task.get("deadline"),
-            "max_concurrent_bidders": task.get("max_concurrent_bidders"),
-            "invited_agent_ids": task.get("invited_agent_ids") or [],
-            "task": task,
-        },
-    }
 
 
 InvokeFn = Callable[..., Awaitable[None] | None]
@@ -481,8 +449,6 @@ class WakeupScheduler:
         projects = self._store.list_projects(filter="active")
         for project in projects:
             roles = [role for role in project.active_roles if _role_schedulable(role)]
-            open_task_events = await self._open_task_events_for_roles(project, roles, now)
-
             for role in roles:
                 key = (project.port, role.name)
                 buffered = await asyncio.to_thread(role_inbox.read_events, project.port, role.name)
@@ -509,19 +475,6 @@ class WakeupScheduler:
                             task_id = _event_task_id(event)
                             if task_id:
                                 known_task_ids.add(task_id)
-
-                for event in open_task_events.get(role.name, []):
-                    task_id = _event_task_id(event)
-                    if task_id and task_id in known_task_ids:
-                        continue
-                    event_id = _event_id(event)
-                    if event_id in event_ids:
-                        continue
-                    if self._dedup.is_new(project.port, role.name, event_id):
-                        events.append(event)
-                        event_ids.add(event_id)
-                        if task_id:
-                            known_task_ids.add(task_id)
 
                 new_events = [e for e in events if isinstance(e, dict)]
 
@@ -587,6 +540,22 @@ class WakeupScheduler:
         triggered = 0
         projects = self._store.list_projects(filter="active")
         for project in projects:
+            try:
+                counts = await asyncio.to_thread(
+                    pending_event_counts,
+                    int(project.port),
+                    1.0,
+                )
+                if counts:
+                    await asyncio.to_thread(
+                        eacn_queue_pending_signals,
+                        port=int(project.port),
+                        counts=counts,
+                        source="minions.lifecycle.wakeup.WakeupScheduler._tick_hooks",
+                        store=self._store,
+                    )
+            except Exception as exc:
+                logger.debug("EACN queue stats wake scan failed port=%s: %s", project.port, exc)
             roles = [role for role in project.active_roles if _role_schedulable(role)]
             for role in roles:
                 key = (project.port, role.name)
@@ -869,41 +838,6 @@ class WakeupScheduler:
             )
         return None
 
-    async def _open_task_events_for_roles(
-        self,
-        project: Any,
-        roles: list[Any],
-        now: float,
-    ) -> dict[str, list[dict[str, Any]]]:
-        port = int(project.port)
-        if not roles:
-            return {}
-        interval = _interval_seconds(self._default_interval or "1m")
-        last = self._last_open_task_scan_ts.get(port)
-        if last is not None and now - last < interval:
-            return {}
-        self._last_open_task_scan_ts[port] = now
-        tasks = await asyncio.to_thread(self._safe_list_open_tasks, port)
-        if not tasks:
-            return {}
-
-        role_names = [role.name for role in roles if _role_receives_open_tasks(role.name)]
-        by_role: dict[str, list[dict[str, Any]]] = {role_name: [] for role_name in role_names}
-        if not role_names:
-            return {}
-        for task in tasks:
-            task_id = _task_id(task)
-            if not task_id:
-                continue
-            matches = [
-                (role_name, reason)
-                for role_name, reason in task_router_targets(project, task)
-                if role_name in by_role
-            ]
-            for role_name, reason in matches:
-                by_role.setdefault(role_name, []).append(_open_task_event(task, role_name, reason))
-        return by_role
-
     def _safe_poll(self, port: int, agent_id: str) -> list[dict[str, Any]]:
         try:
             payload = poll_events(port, agent_id, timeout_secs=0, http_timeout=5.0)
@@ -912,13 +846,6 @@ class WakeupScheduler:
             return []
         events = payload.get("events") or payload.get("messages") or []
         return list(events) if isinstance(events, list) else []
-
-    def _safe_list_open_tasks(self, port: int) -> list[dict[str, Any]]:
-        try:
-            return list_open_tasks(port, limit=100, timeout=1.0)
-        except Exception as exc:
-            logger.debug("list_open_tasks failed port=%d: %s", port, exc)
-            return []
 
     async def _dispatch(
         self,

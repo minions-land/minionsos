@@ -104,6 +104,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "project_revive",
         "project_set_phase",
         "project_list",
+        "eacn3_*",
         "spawn_role",
         "spawn_expert",
         "dismiss_role",
@@ -353,6 +354,24 @@ class GruConfig(BaseModel):
         default=30,
         description="Minimum seconds between dispatches for the same role (any wakeup class).",
     )
+    gru_hard_cooldown_seconds: int = Field(
+        default=180,
+        description="Hard Gru wake cooldown in seconds; Gru cannot be re-woken before this.",
+    )
+    gru_activity_window_seconds: int = Field(
+        default=300,
+        description=(
+            "After hard cooldown and before this window, Gru wakes only when its "
+            "project-local EACN queue has unread events."
+        ),
+    )
+    gru_drive_interval_seconds: int = Field(
+        default=300,
+        description=(
+            "Minimum seconds between autonomous Gru EACN drive wakeups when no "
+            "Gru inbox entries are pending."
+        ),
+    )
     experiment_reconcile_interval_seconds: int = Field(
         default=30,
         description="Python-side Experimenter queue reconcile cadence in seconds.",
@@ -516,6 +535,9 @@ class GruConfig(BaseModel):
         "role_crash_threshold",
         "crash_window_seconds",
         "experiment_reconcile_interval_seconds",
+        "gru_hard_cooldown_seconds",
+        "gru_activity_window_seconds",
+        "gru_drive_interval_seconds",
         mode="before",
     )
     @classmethod

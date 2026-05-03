@@ -48,10 +48,20 @@ class GruLoop:
         self.interval: int = heartbeat_interval or cfg.heartbeat_interval_seconds
         self.experiment_reconcile_interval: int = cfg.experiment_reconcile_interval_seconds
         self._gru_agent_id: str = cfg.gru_eacn_agent_id
-        self._gru_inbox_wakeup_cooldown_seconds: int = max(5, cfg.role_cooldown_seconds)
+        self._gru_hard_cooldown_seconds: int = max(5, cfg.gru_hard_cooldown_seconds)
+        self._gru_activity_window_seconds: int = max(
+            self._gru_hard_cooldown_seconds,
+            cfg.gru_activity_window_seconds,
+        )
+        self._gru_drive_interval_seconds: int = max(
+            self._gru_activity_window_seconds,
+            cfg.gru_drive_interval_seconds,
+        )
+        self._gru_inbox_wakeup_cooldown_seconds: int = self._gru_hard_cooldown_seconds
         self._store = StateStore()
         self._crash_counter = CrashCounter()
         self._last_report_ts: float = 0.0
+        self._gru_monitor_started_ts: float = time.monotonic()
         self._last_gru_inbox_wakeup_ts: dict[int, float] = {}
         self._stopped = False
 
@@ -202,12 +212,11 @@ class GruLoop:
                     project = self._store.get_project(port) or project
                 except Exception as exc:
                     logger.debug("Project EACN repair skipped port=%d: %s", port, exc)
-                polled = self._poll_gru_inbox(port)
                 woke_gru = self._maybe_invoke_gru_for_unread(port, now)
-                if polled or woke_gru:
+                if woke_gru:
                     msg = (
                         f"[INFO] Gru inbox on port {port} ({project.real_name}) "
-                        f"polled={polled} woke_gru={woke_gru}."
+                        f"woke_gru={woke_gru}."
                     )
                     logger.info(msg)
                     events.append(msg)
@@ -267,50 +276,32 @@ class GruLoop:
                 logger.debug("Gru heartbeat [%s]: all systems nominal.", ts)
             self._last_report_ts = now
 
-    def _poll_gru_inbox(self, port: int) -> int:
-        """Drain project-local EACN events for the Gru queue into the journal."""
-        try:
-            from minions.lifecycle import eacn_client, gru_inbox
-
-            payload = eacn_client.poll_events(
-                port,
-                self._gru_agent_id,
-                timeout_secs=0,
-                http_timeout=5.0,
-            )
-            events = payload.get("events") or payload.get("messages") or []
-            if not isinstance(events, list):
-                return 0
-            return gru_inbox.append_events(port, [e for e in events if isinstance(e, dict)])
-        except Exception as exc:
-            logger.debug(
-                "Gru inbox poll failed port=%d agent=%s: %s",
-                port,
-                self._gru_agent_id,
-                exc,
-            )
-            return 0
-
     def _maybe_invoke_gru_for_unread(self, port: int, now: float) -> bool:
-        """Wake Gru when its EACN journal has pending entries.
+        """Wake Gru using a three-band EACN activity policy.
 
-        The monitor never marks entries read. The invoked Gru session must call
-        ``gru_inbox_poll(mark_read=false)``, handle the returned entries, then
-        ``gru_inbox_poll(mark_read=true)``.
+        - < hard cooldown: never wake again.
+        - hard cooldown .. activity window: wake only if Gru has EACN unread.
+        - >= drive interval: wake Gru once to go online and inspect EACN/project
+          state autonomously.
+
+        The monitor does not drain the Gru queue. It reads EACN3's native
+        pending-count endpoint, then wakes Gru so Gru itself can call
+        ``gru_inbox_poll(mark_read=false)``.
         """
         try:
-            from minions.lifecycle import gru_inbox
+            from minions.lifecycle import eacn_client
 
-            entries = gru_inbox.read_unread(port, max_events=25)
-            unread = gru_inbox.unread_count(port)
+            counts = eacn_client.pending_event_counts(port, timeout=1.0)
+            unread = counts.get(self._gru_agent_id, 0)
         except Exception as exc:
-            logger.debug("Gru inbox unread check failed port=%d: %s", port, exc)
-            return False
-        if not entries:
+            logger.debug("Gru EACN pending-count check failed port=%d: %s", port, exc)
             return False
 
         last = self._last_gru_inbox_wakeup_ts.get(port)
-        if last is not None and now - last < self._gru_inbox_wakeup_cooldown_seconds:
+        elapsed = now - self._gru_monitor_started_ts if last is None else now - last
+        if elapsed < self._gru_hard_cooldown_seconds:
+            return False
+        if unread <= 0 and elapsed < self._gru_drive_interval_seconds:
             return False
 
         try:
@@ -318,21 +309,44 @@ class GruLoop:
 
             if is_inflight(port, "gru"):
                 return False
-            max_seq = max(int(entry.get("seq", 0)) for entry in entries)
-            event: dict[str, Any] = {
-                "type": "gru_inbox_unread",
-                "id": f"gru-inbox:{port}:{max_seq}",
-                "payload": {
+            if unread > 0:
+                event: dict[str, Any] = {
+                    "type": "wake_signal",
+                    "kind": "gru_eacn_activity",
+                    "id": f"gru-eacnq:{port}:{unread}:{int(now)}",
                     "port": port,
-                    "unread_count": unread,
-                    "shown_entries": entries,
-                    "instruction": (
-                        "Handle Gru's project-local EACN queue via "
-                        "gru_inbox_poll(mark_read=false), then mark handled "
-                        "entries with gru_inbox_poll(mark_read=true)."
-                    ),
-                },
-            }
+                    "role_name": "gru",
+                    "payload": {
+                        "port": port,
+                        "unread_count": unread,
+                        "instruction": (
+                            "EACN3 reports pending events for the project-local "
+                            "Gru agent queue. Go onto this project's EACN3 "
+                            "network as Gru. Use gru_inbox_poll(mark_read=false) "
+                            "to drain and journal the native EACN events, then "
+                            "mark handled entries "
+                            "with gru_inbox_poll(mark_read=true)."
+                        ),
+                    },
+                    "pending_count": unread,
+                }
+            else:
+                event = {
+                    "type": "wake_signal",
+                    "kind": "gru_autonomous_drive",
+                    "id": f"gru-drive:{port}:{int(now)}",
+                    "port": port,
+                    "role_name": "gru",
+                    "payload": {
+                        "port": port,
+                        "instruction": (
+                            "No Gru inbox entries are pending. Go onto EACN3, "
+                            "inspect project-visible tasks/messages/status, "
+                            "consider phase drift or stalled work, and stay "
+                            "silent if no useful low-risk action exists."
+                        ),
+                    },
+                }
             result = invoke_role_ephemeral(
                 "gru",
                 port,

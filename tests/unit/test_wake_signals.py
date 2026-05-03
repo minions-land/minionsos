@@ -9,6 +9,7 @@ import pytest
 from minions.lifecycle import role_inbox
 from minions.lifecycle.wake_signals import (
     direct_message_signal,
+    eacn_queue_pending_signals,
     phase_change_signal,
     summarize_signal,
     task_signal,
@@ -95,7 +96,7 @@ def test_direct_message_wakes_recipient_even_when_phase_disallows_it(tmp_path: P
     assert events[0]["phase_allowed"] is False
 
 
-def test_task_signal_matches_router_candidate(tmp_path: Path) -> None:
+def test_task_signal_does_not_reproduce_eacn3_domain_router(tmp_path: Path) -> None:
     store = _make_store(tmp_path)
 
     matched = task_signal(
@@ -110,13 +111,8 @@ def test_task_signal_matches_router_candidate(tmp_path: Path) -> None:
         store=store,
     )
 
-    assert matched == ["coder"]
-    events = role_inbox.read_events(37596, "coder")
-    assert len(events) == 1
-    assert events[0]["kind"] == "task_router"
-    assert events[0]["matched_by"] == "domain"
-    assert events[0]["task_id"] == "t-1"
-    assert events[0]["phase_allowed"] is True
+    assert matched == []
+    assert role_inbox.read_events(37596, "coder") == []
 
 
 def test_task_signal_ignores_unmatched_public_task(tmp_path: Path) -> None:
@@ -137,6 +133,47 @@ def test_task_signal_ignores_unmatched_public_task(tmp_path: Path) -> None:
     assert matched == []
     assert role_inbox.read_events(37596, "coder") == []
     assert role_inbox.read_events(37596, "noter") == []
+
+
+def test_task_signal_wakes_explicit_invited_role_only(tmp_path: Path) -> None:
+    store = _make_store(tmp_path)
+
+    matched = task_signal(
+        port=37596,
+        task={
+            "id": "t-3",
+            "domains": ["writing"],
+            "invited_agent_ids": ["coder-agent"],
+            "initiator_id": "gru-agent",
+            "content": {"description": "targeted request"},
+        },
+        source="test",
+        store=store,
+    )
+
+    assert matched == ["coder"]
+    events = role_inbox.read_events(37596, "coder")
+    assert len(events) == 1
+    assert events[0]["kind"] == "task_invitation"
+    assert events[0]["matched_by"] == "invited_agent_ids"
+    assert events[0]["task_id"] == "t-3"
+
+
+def test_eacn_queue_pending_signal_uses_eacn3_queue_state(tmp_path: Path) -> None:
+    store = _make_store(tmp_path)
+
+    matched = eacn_queue_pending_signals(
+        port=37596,
+        counts={"coder-agent": 2},
+        source="test",
+        store=store,
+    )
+
+    assert matched == ["coder"]
+    events = role_inbox.read_events(37596, "coder")
+    assert len(events) == 1
+    assert events[0]["kind"] == "eacn_queue_pending"
+    assert events[0]["pending_count"] == 2
 
 
 def test_phase_change_signal_summarizes_phase(tmp_path: Path) -> None:

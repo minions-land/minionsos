@@ -6,6 +6,11 @@
 
 ## 1. 先给结论
 
+落地说明（当前 V5 实现）：EACN3 是 task/message/adjudication/router 的唯一事实源。
+MinionsOS 不复刻 domain router，不合成 open-task 事件，也不替 role drain EACN3 正文。
+MinionsOS 只使用 EACN3 的非破坏性 pending-count 元数据和本地 lifecycle hook 生成 wake intent；
+被唤醒的 role 必须自己使用原生 `eacn3_*` 工具读取、竞标、回复、提交或裁决。
+
 我建议把 V5 的运行模型再往前推一层：
 
 - `workspace` 不再只是单一编辑目录，而是一个严格的工作区容器。
@@ -192,9 +197,9 @@ workspace_publish_target:
 ### 6.1 允许的 hook 来源
 
 1. `direct_message` 入站。
-2. `task_broadcast` 路由命中。
+2. EACN3 原生队列里出现 `task_broadcast` / `adjudication_task` / 其他 push event。
 3. 当前 `phase` 允许该 role 在线。
-4. role 自己提出需要上网的意图，但必须先过 phase / router 裁决。
+4. role 自己提出需要上网的意图，但必须先过 phase / Gru 裁决。
 5. `project` 本地主动动作，例如创建 task、发消息、phase 切换。
 
 ### 6.2 hook 做什么
@@ -224,7 +229,7 @@ wake 的意思是：
 建议保留 phase allowlist：
 
 - `direct_message`：硬唤醒收信者。
-- `task router match`：硬唤醒候选者。
+- `EACN3 queue pending`：EACN3 已经把 task/message/adjudication event 写入该 agent 队列时硬唤醒。
 - `phase allowlist`：决定该 role 是否有在线资格。
 - 两者都不满足时，不唤醒。
 

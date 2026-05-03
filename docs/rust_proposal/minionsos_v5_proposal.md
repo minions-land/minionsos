@@ -400,8 +400,7 @@ Rust 不值得承接的是：
 
 - `PhasePolicy`：判断当前 phase 允许哪些 role online。
 - `RoleRecord` / `RoleState`：归一化 role 的可调度状态。
-- `TaskRecord`：抽取 EACN task routing 需要的最小字段。
-- `task_router_targets`：决定 public open task、invited role、invited agent id 应该唤醒哪些 role。
-- `role_task_domains`：过滤 `minionsos`、`project-local` 这类 generic domain，避免 open task 唤醒所有人。
+- `TaskRecord`：抽取 EACN task 显式邀请需要的最小字段。
+- `explicit_task_targets`：只解析 `invited_roles` / `invited_agent_ids` 这类显式目标。Public/open task 的 domain routing 完全属于 EACN3，Rust 和 Python 都不复刻。
 
-它刻意不访问 EACN3、不启动 daemon、不处理 prompt，也不替代 Python runtime。当前作用是把 V5 已经形成的 phase/router/wake 边界固化成独立可验证的 Rust contract，后续再逐步把 journal、lease、process supervision 等低层可靠性能力迁入 Rust。
+它刻意不访问 EACN3、不启动 daemon、不处理 prompt，也不替代 Python runtime。当前作用是把 V5 已经形成的 phase / explicit invitation / wake 边界固化成独立可验证的 Rust contract，后续再逐步把 journal、lease、process supervision 等低层可靠性能力迁入 Rust。

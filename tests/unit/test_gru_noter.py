@@ -87,7 +87,7 @@ def test_project_eacn_create_task_invites_target_role() -> None:
     assert result["ok"] is True
     assert created["initiator_id"] == "gru"
     assert created["invited_agent_ids"] == ["coder"]
-    assert "role:coder" in created["domains"]
+    assert created["domains"] == ["coding"]
     assert result["invited_agent_ids"] == ["coder"]
 
 

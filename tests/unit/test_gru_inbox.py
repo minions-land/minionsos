@@ -157,7 +157,9 @@ class TestGruInboxPollAdapter:
 
 
 class TestGruLoopInboxWakeup:
-    def test_monitor_polls_gru_queue_journals_and_wakes_gru(self, tmp_path, monkeypatch) -> None:
+    def test_monitor_uses_eacn3_pending_count_and_wakes_gru_without_draining(
+        self, tmp_path, monkeypatch
+    ) -> None:
         monkeypatch.setattr(
             "minions.lifecycle.gru_inbox.project_logs_dir",
             lambda port: tmp_path / f"p{port}" / "logs",
@@ -165,13 +167,10 @@ class TestGruLoopInboxWakeup:
         project = FakeProject(port=37596, active_roles=[])
         loop = GruLoop(heartbeat_interval=1)
         loop._store = FakeStore([project])
-        loop._gru_inbox_wakeup_cooldown_seconds = 0
+        loop._gru_hard_cooldown_seconds = 0
+        loop._gru_drive_interval_seconds = 999
+        loop._gru_monitor_started_ts = 0
         invocations: list[tuple[str, int, list[dict]]] = []
-
-        def fake_poll(port, agent_id, timeout_secs=0, http_timeout=5.0):
-            assert port == 37596
-            assert agent_id == "gru"
-            return {"events": [{"id": "role-to-gru", "type": "direct_message"}]}
 
         def fake_invoke(role: str, port: int, events: list[dict], **kwargs):
             invocations.append((role, port, events))
@@ -180,20 +179,24 @@ class TestGruLoopInboxWakeup:
         with (
             patch("minions.gru.loop.backend_health", return_value=True),
             patch("minions.lifecycle.project.project_repair_eacn_agents", return_value={}),
-            patch("minions.lifecycle.eacn_client.poll_events", side_effect=fake_poll),
+            patch("minions.lifecycle.eacn_client.pending_event_counts", return_value={"gru": 1}),
+            patch(
+                "minions.lifecycle.eacn_client.poll_events",
+                side_effect=AssertionError("monitor must not drain Gru EACN queue"),
+            ),
             patch("minions.lifecycle.role.is_inflight", return_value=False),
             patch("minions.lifecycle.role.invoke_role_ephemeral", side_effect=fake_invoke),
         ):
             loop._tick()
 
-        assert gru_inbox.unread_count(37596) == 1
+        assert gru_inbox.unread_count(37596) == 0
         assert len(invocations) == 1
         role, port, events = invocations[0]
         assert role == "gru"
         assert port == 37596
-        assert events[0]["type"] == "gru_inbox_unread"
+        assert events[0]["type"] == "wake_signal"
+        assert events[0]["kind"] == "gru_eacn_activity"
         assert events[0]["payload"]["unread_count"] == 1
-        assert events[0]["payload"]["shown_entries"][0]["event"]["id"] == "role-to-gru"
 
     def test_monitor_does_not_mark_gru_entries_read(self, tmp_path, monkeypatch) -> None:
         monkeypatch.setattr(
@@ -204,12 +207,14 @@ class TestGruLoopInboxWakeup:
         project = FakeProject(port=37596, active_roles=[])
         loop = GruLoop(heartbeat_interval=1)
         loop._store = FakeStore([project])
-        loop._gru_inbox_wakeup_cooldown_seconds = 0
+        loop._gru_hard_cooldown_seconds = 0
+        loop._gru_drive_interval_seconds = 999
+        loop._gru_monitor_started_ts = 0
 
         with (
             patch("minions.gru.loop.backend_health", return_value=True),
             patch("minions.lifecycle.project.project_repair_eacn_agents", return_value={}),
-            patch("minions.lifecycle.eacn_client.poll_events", return_value={"events": []}),
+            patch("minions.lifecycle.eacn_client.pending_event_counts", return_value={}),
             patch("minions.lifecycle.role.is_inflight", return_value=False),
             patch(
                 "minions.lifecycle.role.invoke_role_ephemeral",
@@ -232,12 +237,41 @@ class TestGruLoopInboxWakeup:
         with (
             patch("minions.gru.loop.backend_health", return_value=True),
             patch("minions.lifecycle.project.project_repair_eacn_agents", return_value={}),
-            patch("minions.lifecycle.eacn_client.poll_events", return_value={"events": []}),
+            patch("minions.lifecycle.eacn_client.pending_event_counts", return_value={}),
             patch("minions.lifecycle.role.invoke_role_ephemeral") as invoke,
         ):
             loop._tick()
 
         invoke.assert_not_called()
+
+    def test_monitor_autonomous_drive_after_drive_interval(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "minions.lifecycle.gru_inbox.project_logs_dir",
+            lambda port: tmp_path / f"p{port}" / "logs",
+        )
+        project = FakeProject(port=37596, active_roles=[])
+        loop = GruLoop(heartbeat_interval=1)
+        loop._store = FakeStore([project])
+        loop._gru_hard_cooldown_seconds = 0
+        loop._gru_drive_interval_seconds = 0
+        loop._gru_monitor_started_ts = 0
+        invocations: list[list[dict]] = []
+
+        def fake_invoke(role: str, port: int, events: list[dict], **kwargs):
+            invocations.append(events)
+            return {"deferred": False}
+
+        with (
+            patch("minions.gru.loop.backend_health", return_value=True),
+            patch("minions.lifecycle.project.project_repair_eacn_agents", return_value={}),
+            patch("minions.lifecycle.eacn_client.pending_event_counts", return_value={}),
+            patch("minions.lifecycle.role.is_inflight", return_value=False),
+            patch("minions.lifecycle.role.invoke_role_ephemeral", side_effect=fake_invoke),
+        ):
+            loop._tick()
+
+        assert invocations
+        assert invocations[0][0]["kind"] == "gru_autonomous_drive"
 
 
 # ─── register_agent / register_server error reporting ────────────────────────

@@ -47,9 +47,9 @@ from minions.lifecycle.project import ensure_role_workspace, project_phase_snaps
 from minions.lifecycle.skills import list_skills
 from minions.lifecycle.wake_signals import (
     direct_message_signal,
+    eacn_queue_pending_signals,
     is_wake_signal,
     summarize_signal,
-    task_signal,
 )
 from minions.paths import (
     MINIONS_ROOT,
@@ -501,7 +501,7 @@ def _do_register(
             )
         else:
             try:
-                task = eacn_client.create_task(
+                eacn_client.create_task(
                     port=project_port,
                     description=init_brief,
                     domains=role_agent_domains(role_name),
@@ -516,12 +516,11 @@ def _do_register(
                     invited_agent_ids=[target_agent_id],
                 )
                 with contextlib.suppress(Exception):
-                    task_signal(
+                    eacn_queue_pending_signals(
                         port=project_port,
-                        task=task,
+                        counts=eacn_client.pending_event_counts(project_port, timeout=1.0),
                         source="minions.lifecycle.role.register_role",
                         store=store,
-                        target_role_names=[role_name],
                     )
             except BackendError as exc:
                 raise RoleError(
@@ -933,8 +932,10 @@ def _format_event_message(
         preamble += _boundary_context(role_name, project_port) + "\n"
     if role_name == "gru":
         response_tools = (
-            "project-scoped EACN adapter tools (`gru_inbox_poll`, "
-            "`project_eacn_send_message`, `project_eacn_create_task`, `gru_relay`)"
+            "native `eacn3_*` tools after connecting to the correct project "
+            "endpoint, or project-scoped EACN adapter tools (`gru_inbox_poll`, "
+            "`project_eacn_send_message`, `project_eacn_create_task`, `gru_relay`) "
+            "when their port-aware wrapper is safer"
         )
     else:
         response_tools = "`eacn3_*` tools"

@@ -299,6 +299,48 @@ def list_open_tasks(
     return [dict(item) for item in data if isinstance(item, dict)]
 
 
+def offline_stats(
+    port: int,
+    timeout: float = 1.0,
+) -> dict[str, Any]:
+    """Return EACN3's native pending-event queue stats.
+
+    This calls EACN3's read-only ``/api/admin/offline-stats`` endpoint. It does
+    not drain agent queues, so MinionsOS can decide that a role should wake
+    without becoming a second task/message router.
+    """
+    url = f"{base_url(port)}/api/admin/offline-stats"
+    try:
+        resp = httpx.get(url, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        raise BackendError(f"offline_stats on port {port} failed: {exc}") from exc
+    if not isinstance(data, dict):
+        raise BackendError(f"offline_stats on port {port} returned non-object payload.")
+    return dict(data)
+
+
+def pending_event_counts(
+    port: int,
+    timeout: float = 1.0,
+) -> dict[str, int]:
+    """Return pending EACN3 event counts keyed by agent_id without draining."""
+    data = offline_stats(port, timeout=timeout)
+    agents = data.get("agents") or {}
+    if not isinstance(agents, dict):
+        return {}
+    counts: dict[str, int] = {}
+    for agent_id, count in agents.items():
+        try:
+            n = int(count)
+        except Exception:
+            continue
+        if n > 0:
+            counts[str(agent_id)] = n
+    return counts
+
+
 def create_task(
     port: int,
     description: str,

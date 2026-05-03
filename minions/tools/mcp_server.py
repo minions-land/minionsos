@@ -863,12 +863,13 @@ class SchedulePollArgs(BaseModel):
 
 @mcp.tool()
 def schedule_poll(args: SchedulePollArgs) -> dict:
-    """DEPRECATED no-op — Role polling is now Python-side via WakeupScheduler.
+    """DEPRECATED no-op — Role wakeups are now driven by MinionsOS hooks.
 
-    Roles are ephemeral: they are invoked by the Python-level
-    ``minions.lifecycle.wakeup.WakeupScheduler`` when EACN events arrive.
-    No in-agent polling loop is needed, and this MCP tool has been
-    downgraded to a no-op recorder kept for backward compatibility.
+    Roles are invoked by ``minions.lifecycle.wakeup.WakeupScheduler`` when a
+    local wake signal exists. In hook mode the scheduler may inspect EACN3
+    pending queue counts, but it does not drain EACN3 events for Roles. No
+    in-agent polling loop is needed, and this MCP tool is a no-op recorder kept
+    for backward compatibility.
     """
     _require_tool_allowed("schedule_poll")
     import os as _os
@@ -877,7 +878,7 @@ def schedule_poll(args: SchedulePollArgs) -> dict:
     port = _os.environ.get("MINIONS_PROJECT_PORT", "<unknown>")
     logger.warning(
         "schedule_poll is deprecated (role=%s port=%s interval=%s); "
-        "polling is handled by WakeupScheduler.",
+        "hook wakeup is handled by WakeupScheduler.",
         role,
         port,
         args.interval,

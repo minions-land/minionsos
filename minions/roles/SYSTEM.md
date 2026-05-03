@@ -6,20 +6,21 @@ SYSTEM.md. If it conflicts with a role-specific prompt, this common contract win
 ## EACN open-task stance
 
 The project-local EACN3 network is the source of collaboration truth. Direct
-messages always wake the receiver. Open tasks without `invited_agent_ids` are
-router candidates, not blanket broadcasts: only Roles whose router/domain match
-the task should be woken for that task. The current project phase decides
-whether that Role may stay online and keep working after wake. Gru is excluded
-because it polls its own project-local queue. Noter is excluded because it
-wakes through its local observer timer and direct messages.
+messages always wake the receiver. Task routing belongs to EACN3: open tasks,
+domain matching, invitations, adjudication tasks, and event queues must be read
+through native EACN3 tools. MinionsOS may wake you when EACN3 reports pending
+events for your agent, but it must not replace EACN3's router. The current
+project phase decides whether that Role may stay online and keep working after
+wake.
 
-When you receive a public open task wake:
+When you receive an EACN3 task broadcast or pending-queue wake:
 
 1. Inspect the task content, domains, budget, deadline, and current project state.
 2. Decide whether your Role is responsible or useful for this task.
 3. Bid or respond only when you can make a role-appropriate contribution.
 4. If the task is outside your responsibility, do not perform work just because
-   you were woken. Record nothing unless there is a real coordination risk.
+   EACN3 routed the event to you. Record nothing unless there is a real
+   coordination risk.
 
 Tasks with `invited_agent_ids` are targeted. If you are not invited, do not try
 to work around the invitation through direct messages or manual bidding.
@@ -30,9 +31,10 @@ Role, call `eacn3_create_task`, use your injected EACN `agent_id` as
 `initiator_id`, include specific routing `domains`, and set `invited_agent_ids`
 only when the work has a clear owner. Public tasks without `invited_agent_ids`
 are visible opportunities for work Roles, so describe the needed capability
-precisely and accept that uninterested Roles may stay silent. Gru uses
-project-scoped adapter tools instead of raw `eacn3_*`; Noter is an observer
-unless its role-specific prompt or a human explicitly assigns otherwise.
+precisely and accept that uninterested Roles may stay silent. MinionsOS adapter
+tools are allowed only when they call EACN3 internally; they are convenience
+wrappers, not a second protocol. Noter is an observer unless its role-specific
+prompt or a human explicitly assigns otherwise.
 
 ## Role-to-role collaboration first
 

@@ -4,6 +4,10 @@
 范围：只讨论 MinionsOS V5 的改造提案，不改 EACN3 本体。
 目标：把“唤醒”从“scheduler 代读事件并注入 prompt”改成“允许一个已存在的 Claude/Codex 会话在合适时机自己上 EACN 看网络”。
 
+当前实现注记：后续 v6/v7 hooks 方案和代码实现已经把 public/open task 唤醒收口到
+EACN3 原生队列。本文中 `router match` 指 EACN3 已经完成广播并把事件写入 agent
+队列后的事实，不表示 MinionsOS 可以本地复刻 domain router。
+
 ## 1. 我对当前系统的判断
 
 当前 V5 仍是旧模型：
@@ -343,4 +347,3 @@ V5 已经有一些可复用的骨架。
 - 唤醒后是 online burst，不是重启。
 - 连续 productive wake 5 次后 compact。
 - 连续 compact 或 phase 变化时强制 checkpoint / clear / reconnect。
-

@@ -7,9 +7,11 @@ from typing import Any
 
 from minions.config import load_gru_config
 from minions.lifecycle import eacn_client
-from minions.lifecycle.agent_registry import role_agent_domains
 from minions.lifecycle.eacn_identity import resolve_agent_id
-from minions.lifecycle.wake_signals import direct_message_signal, task_signal
+from minions.lifecycle.wake_signals import (
+    direct_message_signal,
+    eacn_queue_pending_signals,
+)
 from minions.state.store import StateStore
 
 
@@ -21,20 +23,16 @@ def _default_initiator(port: int) -> str:
     return resolve_agent_id(port, configured)
 
 
-def _role_base(role_name: str) -> str:
-    return "expert" if role_name.startswith("expert") else role_name
-
-
 def _merge_domains(base: list[str] | None, invited_roles: list[str]) -> list[str]:
-    domains = list(base or ["minionsos", "project-local", "coordination"])
-    for role_name in invited_roles:
-        for domain in role_agent_domains(role_name):
-            if domain not in domains:
-                domains.append(domain)
-        role_domain = f"role:{_role_base(role_name)}"
-        if role_domain not in domains:
-            domains.append(role_domain)
-    return domains
+    """Return domains for an EACN3 task without reproducing router logic.
+
+    ``invited_roles`` is accepted by the MinionsOS adapter as a convenience for
+    resolving role names to native EACN3 ``invited_agent_ids``. It must not
+    broaden the task's public routing domains; EACN3 owns domain discovery and
+    task broadcasts.
+    """
+    _ = invited_roles
+    return list(base or ["minionsos", "project-local", "coordination"])
 
 
 def project_eacn_send_message(
@@ -120,9 +118,9 @@ def project_eacn_create_task(
         task_id=task_id,
     )
     with contextlib.suppress(Exception):
-        task_signal(
+        eacn_queue_pending_signals(
             port=port,
-            task=task,
+            counts=eacn_client.pending_event_counts(port, timeout=1.0),
             source="minions.lifecycle.project_eacn.project_eacn_create_task",
             store=StateStore(),
         )

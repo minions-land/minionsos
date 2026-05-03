@@ -13,7 +13,6 @@ import logging
 from typing import Any
 
 from minions.lifecycle import role_inbox
-from minions.lifecycle.agent_registry import role_agent_domains
 from minions.lifecycle.project import (
     ProjectPhaseSnapshot,
     project_phase_allows_role,
@@ -22,9 +21,6 @@ from minions.lifecycle.project import (
 from minions.state.store import ProjectEntry, StateStore
 
 logger = logging.getLogger(__name__)
-
-_GENERIC_TASK_DOMAINS = {"minionsos", "project-local"}
-_OPEN_TASK_EXCLUDED_ROLES = {"gru", "noter"}
 
 
 def _now_key(*parts: object) -> str:
@@ -45,6 +41,12 @@ def _role_match(port: int, agent_id: str, store: StateStore | None = None) -> st
         if role.name == agent_id or role.eacn_agent_id == agent_id:
             return role.name
     return None
+
+
+def _role_by_name(project: ProjectEntry | None, role_name: str) -> bool:
+    if project is None:
+        return False
+    return any(role.name == role_name for role in project.active_roles)
 
 
 def _task_id(task: dict[str, Any]) -> str:
@@ -73,10 +75,6 @@ def _task_invited_roles(task: dict[str, Any]) -> set[str]:
     return {str(role_name) for role_name in invited if str(role_name).strip()}
 
 
-def _role_task_domains(role_name: str) -> set[str]:
-    return set(role_agent_domains(role_name)) - _GENERIC_TASK_DOMAINS
-
-
 def _phase_state(project: ProjectEntry | None) -> ProjectPhaseSnapshot:
     if project is None:
         return ProjectPhaseSnapshot(
@@ -90,16 +88,16 @@ def _phase_state(project: ProjectEntry | None) -> ProjectPhaseSnapshot:
     return project_phase_snapshot(project)
 
 
-def task_router_targets(project: ProjectEntry, task: dict[str, Any]) -> list[tuple[str, str]]:
-    """Return router-matched candidate roles for *task*."""
-    task_id = _task_id(task)
+def task_explicit_targets(project: ProjectEntry, task: dict[str, Any]) -> list[tuple[str, str]]:
+    """Return only explicitly invited task targets.
+
+    EACN3 owns task routing by domains and broadcasts native ``task_broadcast``
+    or ``adjudication_task`` events to each candidate agent queue. MinionsOS
+    must not reproduce that router locally. The only task targets this helper
+    derives are explicit EACN-native invitations already present on the task.
+    """
     invited_ids = _task_invited_agent_ids(task)
     invited_roles = _task_invited_roles(task)
-    role_names = [
-        role.name
-        for role in project.active_roles
-        if role.state in {"active", "sleeping"} and role.name not in _OPEN_TASK_EXCLUDED_ROLES
-    ]
     matches: list[tuple[str, str]] = []
     if invited_ids or invited_roles:
         for role in project.active_roles:
@@ -111,19 +109,6 @@ def task_router_targets(project: ProjectEntry, task: dict[str, Any]) -> list[tup
             agent_id = getattr(role, "eacn_agent_id", None) or role.name
             if agent_id in invited_ids or role.name in invited_ids:
                 matches.append((role.name, "invited_agent_ids"))
-        return matches
-
-    task_domains = _task_domains(task)
-    for role_name in role_names:
-        if task_domains & _role_task_domains(role_name):
-            matches.append((role_name, "domain"))
-    if matches:
-        logger.debug(
-            "Task %s matched roles on port %d: %s",
-            task_id or "<missing>",
-            project.port,
-            ", ".join(f"{role}:{reason}" for role, reason in matches),
-        )
     return matches
 
 
@@ -179,7 +164,12 @@ def task_signal(
     store: StateStore | None = None,
     target_role_names: list[str] | None = None,
 ) -> list[str]:
-    """Persist compact wake signals for role candidates selected from *task*."""
+    """Persist compact wake signals for explicit EACN task targets.
+
+    Public task/domain routing is intentionally not performed here. For public
+    tasks, EACN3 writes native broadcast events to candidate agent queues; the
+    MinionsOS wake layer may only observe that queue state.
+    """
     project = _project(port, store=store)
     if project is None and not target_role_names:
         return []
@@ -190,13 +180,13 @@ def task_signal(
     else:
         if project is None:
             return matched
-        targets = task_router_targets(project, task)
+        targets = task_explicit_targets(project, task)
     phase_state = _phase_state(project)
     for role_name, matched_by in targets:
         task_key = _now_key(task_id, matched_by, task.get("initiator_id"))
         signal = {
             "type": "wake_signal",
-            "kind": "task_router",
+            "kind": "task_invitation",
             "id": f"task:{port}:{role_name}:{task_key}",
             "port": port,
             "role_name": role_name,
@@ -206,7 +196,7 @@ def task_signal(
             "task_domains": sorted(_task_domains(task)),
             "task_level": task.get("level"),
             "initiator_id": task.get("initiator_id"),
-            "reason": f"task {task_id or '<missing>'} matched by {matched_by}",
+            "reason": f"task {task_id or '<missing>'} explicitly targeted by {matched_by}",
             "phase": phase_state["current_phase"],
             "phase_version": phase_state["phase_version"],
             "phase_allowed_roles": phase_state["phase_allowed_roles"],
@@ -215,6 +205,74 @@ def task_signal(
         }
         _queue_signal(port, role_name, signal)
         matched.append(role_name)
+    return matched
+
+
+def eacn_queue_pending_signal(
+    *,
+    port: int,
+    agent_id: str,
+    pending_count: int,
+    source: str,
+    store: StateStore | None = None,
+) -> list[str]:
+    """Wake the local role whose native EACN3 queue has pending events.
+
+    This signal is based on EACN3's own per-agent queue state. It does not infer
+    task candidates from domains and it does not contain message/task payloads.
+    """
+    role_name = _role_match(port, agent_id, store=store)
+    if role_name is None:
+        return []
+    project = _project(port, store=store)
+    phase_state = _phase_state(project)
+    signal = {
+        "type": "wake_signal",
+        "kind": "eacn_queue_pending",
+        "id": f"eacnq:{port}:{role_name}:{_now_key(agent_id, pending_count)}",
+        "port": port,
+        "role_name": role_name,
+        "source": source,
+        "agent_id": agent_id,
+        "pending_count": pending_count,
+        "reason": f"EACN3 queue has {pending_count} pending event(s)",
+        "phase": phase_state["current_phase"],
+        "phase_version": phase_state["phase_version"],
+        "phase_allowed_roles": phase_state["phase_allowed_roles"],
+        "phase_online_roles": phase_state["phase_online_roles"],
+        "phase_allowed": project_phase_allows_role(project, role_name) if project else None,
+    }
+    _queue_signal(port, role_name, signal)
+    return [role_name]
+
+
+def eacn_queue_pending_signals(
+    *,
+    port: int,
+    counts: dict[str, int],
+    source: str,
+    store: StateStore | None = None,
+) -> list[str]:
+    """Wake all local roles that EACN3 reports as having pending events."""
+    project = _project(port, store=store)
+    if project is None:
+        return []
+    matched: list[str] = []
+    for agent_id, pending_count in counts.items():
+        if pending_count <= 0:
+            continue
+        role_name = _role_match(port, agent_id, store=store)
+        if role_name is None or not _role_by_name(project, role_name):
+            continue
+        matched.extend(
+            eacn_queue_pending_signal(
+                port=port,
+                agent_id=agent_id,
+                pending_count=pending_count,
+                source=source,
+                store=store,
+            )
+        )
     return matched
 
 
@@ -263,12 +321,18 @@ def summarize_signal(signal: dict[str, Any]) -> str:
     kind = str(signal.get("kind") or signal.get("type") or "wake")
     if kind == "direct_message":
         return f"direct message from {signal.get('from_agent_id')}"
-    if kind == "task_router":
+    if kind == "task_invitation":
         task_id = signal.get("task_id") or "<missing>"
         matched_by = signal.get("matched_by") or "unknown"
         domains = signal.get("task_domains") or []
         domain_text = f" domains={','.join(domains)}" if domains else ""
-        return f"task {task_id} matched_by {matched_by}{domain_text}"
+        return f"task {task_id} explicit_target {matched_by}{domain_text}"
+    if kind == "eacn_queue_pending":
+        return f"EACN3 queue pending ({signal.get('pending_count', '?')})"
+    if kind == "gru_eacn_activity":
+        return f"Gru EACN activity ({signal.get('pending_count', '?')} pending)"
+    if kind == "gru_autonomous_drive":
+        return "Gru autonomous EACN drive"
     if kind == "phase_change":
         phase = signal.get("phase") or signal.get("current_phase") or "unset"
         allowed = signal.get("phase_allowed")

@@ -10,9 +10,12 @@ to act, publish a task or bid/submit on the task you received. Do not use files,
 scratchpads, host conversation, or Gru context as hidden communication channels.
 
 This skill's raw `eacn3_*` tool sequence is for EACN-visible work Roles. Gru
-must use `project_eacn_create_task`, `project_eacn_send_message`,
-`gru_inbox_poll`, and `gru_relay` instead. Noter normally observes and reports;
-it should not assign work unless explicitly instructed.
+may also use native `eacn3_*` tools after connecting to the correct project
+endpoint; the project-scoped adapters (`project_eacn_create_task`,
+`project_eacn_send_message`, `gru_inbox_poll`, and `gru_relay`) are
+port-aware wrappers around EACN3 behavior, not a replacement protocol. Noter
+normally observes and reports; it should not assign work unless explicitly
+instructed.
 
 ## Your identity
 
@@ -37,8 +40,9 @@ Silence is acceptable for public tasks that clearly do not fit your Role.
 
 Any EACN-visible work Role may publish a Local EACN task with
 `eacn3_create_task`. Use your own injected agent id as `initiator_id`; tasks are
-not Gru-only. Gru uses project-scoped adapter tools instead of raw `eacn3_*`,
-and Noter normally observes rather than assigning work.
+not Gru-only. Gru can use either native `eacn3_*` tools or the port-aware
+project adapters when acting on a specific project, and Noter normally observes
+rather than assigning work.
 
 For targeted work, set `invited_agent_ids` to the target Role's agent id and use
 the target Role's domains. MinionsOS role agent ids are normally the role names:
@@ -46,7 +50,9 @@ the target Role's domains. MinionsOS role agent ids are normally the role names:
 `expert-*`.
 
 For public work, omit `invited_agent_ids` and choose domains that describe the
-needed capability. Public open tasks may wake EACN-visible work Roles; Gru and
+needed capability. EACN3 owns public task routing and writes task broadcasts to
+candidate agent queues. MinionsOS may wake a Role because EACN3 reports pending
+queue activity, but it must not synthesize candidate matches itself. Gru and
 Noter are not task-market workers.
 
 Task descriptions should include:

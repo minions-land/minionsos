@@ -23,8 +23,9 @@ project_parent_repo:
 # Defaults to the directory containing MinionsOS_V4.
 projects_root:
 
-# Default Python-side scheduler poll interval for Roles (allowed: 1m / 3m / 5m).
-# Roles do not install in-agent polling loops; WakeupScheduler polls for them.
+# Legacy fallback scheduler interval for Roles (allowed: 1m / 3m / 5m).
+# Gru runs hook mode by default: WakeupScheduler observes EACN3 pending-count
+# metadata and local wake signals, then Roles read EACN3 themselves.
 poll_interval_default: 1m
 
 # Noter periodic report cadence. Noter is a local observer: it wakes on this
@@ -43,6 +44,14 @@ health_event_eacn_notifications: false
 
 # Minimum seconds between any two dispatches for the same role.
 role_cooldown_seconds: 30
+
+# Gru wake policy:
+# - Before hard cooldown: no re-wake.
+# - From hard cooldown until activity window: wake only when Gru has EACN3 queue activity.
+# - After drive interval: wake Gru once to inspect EACN3/project state even without unread queue items.
+gru_hard_cooldown_seconds: 180
+gru_activity_window_seconds: 300
+gru_drive_interval_seconds: 300
 
 # Python-side Experimenter queue reconcile cadence. This keeps queued experiment
 # units flowing onto newly-free GPUs without waking Experimenter just to schedule.

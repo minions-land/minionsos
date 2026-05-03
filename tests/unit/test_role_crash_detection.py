@@ -85,7 +85,7 @@ def _isolate_wakeup_runtime(tmp_path: Path):
             "minions.lifecycle.wakeup.project_scratchpad",
             lambda port, role: tmp_path / f"project_{port}" / "memory" / f"{role}.md",
         ),
-        patch("minions.lifecycle.wakeup.list_open_tasks", return_value=[]),
+        patch("minions.lifecycle.wakeup.pending_event_counts", return_value={}),
     ):
         yield
 

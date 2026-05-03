@@ -3,12 +3,9 @@
 //! This crate intentionally does not talk to EACN3 and does not contain prompt,
 //! tool, or research workflow logic. It is a small Rust kernel for decisions
 //! that should be stable across the Python runtime: phase eligibility and
-//! EACN task-router wake targeting.
+//! explicit EACN task-target wake hints.
 
-use std::collections::{BTreeSet, HashSet};
-
-const GENERIC_TASK_DOMAINS: &[&str] = &["minionsos", "project-local"];
-const OPEN_TASK_EXCLUDED_ROLES: &[&str] = &["gru", "noter"];
+use std::collections::BTreeSet;
 
 /// Runtime state for a registered MinionsOS role.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,7 +33,7 @@ impl RoleState {
     }
 }
 
-/// Minimal role record needed by the runtime router.
+/// Minimal role record needed by runtime contracts.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoleRecord {
     pub name: String,
@@ -93,7 +90,7 @@ impl PhasePolicy {
     }
 }
 
-/// Minimal EACN task metadata needed for wake routing.
+/// Minimal EACN task metadata needed for explicit invitation wake hints.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TaskRecord {
     pub task_id: Option<String>,
@@ -118,10 +115,9 @@ impl TaskRecord {
     }
 }
 
-/// Why a role was selected by the task router.
+/// Why a role was selected for an explicit task wake hint.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MatchReason {
-    Domain,
     InvitedAgentIds,
     InvitedRoles,
 }
@@ -129,74 +125,48 @@ pub enum MatchReason {
 impl MatchReason {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Domain => "domain",
             Self::InvitedAgentIds => "invited_agent_ids",
             Self::InvitedRoles => "invited_roles",
         }
     }
 }
 
-/// A task-router wake target.
+/// An explicit EACN task wake target.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RouterTarget {
     pub role_name: String,
     pub reason: MatchReason,
 }
 
-/// Role domains after removing generic MinionsOS/project-local domains.
-pub fn role_task_domains(role_domains: &BTreeSet<String>) -> BTreeSet<String> {
-    let generic: HashSet<&str> = GENERIC_TASK_DOMAINS.iter().copied().collect();
-    role_domains
-        .iter()
-        .filter(|domain| !generic.contains(domain.as_str()))
-        .cloned()
-        .collect()
-}
-
-/// Return router-matched candidate roles for a task.
+/// Return explicitly invited local role targets for a task.
 ///
 /// This mirrors MinionsOS V5's Python-side contract:
-/// - invited roles / agent ids are explicit and bypass domain matching;
-/// - dismissed roles are ignored;
-/// - public open task routing excludes Gru and Noter;
-/// - generic domains (`minionsos`, `project-local`) do not wake everyone.
-pub fn task_router_targets(roles: &[RoleRecord], task: &TaskRecord) -> Vec<RouterTarget> {
-    if !task.invited_agent_ids.is_empty() || !task.invited_roles.is_empty() {
-        let mut matches = Vec::new();
-        for role in roles {
-            if !role.state.schedulable() {
-                continue;
-            }
-            if task.invited_roles.contains(&role.name) {
-                matches.push(RouterTarget {
-                    role_name: role.name.clone(),
-                    reason: MatchReason::InvitedRoles,
-                });
-                continue;
-            }
-            let agent_id = role.eacn_agent_id.as_deref().unwrap_or(role.name.as_str());
-            if task.invited_agent_ids.contains(agent_id)
-                || task.invited_agent_ids.contains(&role.name)
-            {
-                matches.push(RouterTarget {
-                    role_name: role.name.clone(),
-                    reason: MatchReason::InvitedAgentIds,
-                });
-            }
+/// - EACN3 owns domain routing and writes native task broadcasts to each agent queue;
+/// - MinionsOS may only create wake hints for explicit invitations it can see;
+/// - dismissed roles are ignored.
+pub fn explicit_task_targets(roles: &[RoleRecord], task: &TaskRecord) -> Vec<RouterTarget> {
+    let mut matches = Vec::new();
+    for role in roles {
+        if !role.state.schedulable() {
+            continue;
         }
-        return matches;
+        if task.invited_roles.contains(&role.name) {
+            matches.push(RouterTarget {
+                role_name: role.name.clone(),
+                reason: MatchReason::InvitedRoles,
+            });
+            continue;
+        }
+        let agent_id = role.eacn_agent_id.as_deref().unwrap_or(role.name.as_str());
+        if task.invited_agent_ids.contains(agent_id) || task.invited_agent_ids.contains(&role.name)
+        {
+            matches.push(RouterTarget {
+                role_name: role.name.clone(),
+                reason: MatchReason::InvitedAgentIds,
+            });
+        }
     }
-
-    roles
-        .iter()
-        .filter(|role| role.state.schedulable())
-        .filter(|role| !OPEN_TASK_EXCLUDED_ROLES.contains(&role.name.as_str()))
-        .filter(|role| !task.domains.is_disjoint(&role_task_domains(&role.domains)))
-        .map(|role| RouterTarget {
-            role_name: role.name.clone(),
-            reason: MatchReason::Domain,
-        })
-        .collect()
+    matches
 }
 
 #[cfg(test)]
@@ -241,7 +211,7 @@ mod tests {
     }
 
     #[test]
-    fn generic_task_domains_do_not_wake_all_roles() {
+    fn public_task_domains_do_not_create_minionsos_targets() {
         let roles = vec![
             role(
                 "coder",
@@ -260,11 +230,11 @@ mod tests {
             Vec::<String>::new(),
             Vec::<String>::new(),
         );
-        assert!(task_router_targets(&roles, &task).is_empty());
+        assert!(explicit_task_targets(&roles, &task).is_empty());
     }
 
     #[test]
-    fn public_task_routes_by_domain_and_excludes_noter_and_gru() {
+    fn public_task_domain_routing_is_left_to_eacn3() {
         let roles = vec![
             role("gru", RoleState::Active, &["coordination"]),
             role("noter", RoleState::Active, &["status"]),
@@ -281,13 +251,7 @@ mod tests {
             Vec::<String>::new(),
             Vec::<String>::new(),
         );
-        assert_eq!(
-            task_router_targets(&roles, &task),
-            vec![RouterTarget {
-                role_name: "coder".to_string(),
-                reason: MatchReason::Domain,
-            }]
-        );
+        assert!(explicit_task_targets(&roles, &task).is_empty());
     }
 
     #[test]
@@ -304,7 +268,7 @@ mod tests {
             domains(&["writer", "reviewer"]),
         );
         assert_eq!(
-            task_router_targets(&roles, &task),
+            explicit_task_targets(&roles, &task),
             vec![RouterTarget {
                 role_name: "writer".to_string(),
                 reason: MatchReason::InvitedRoles,
@@ -330,7 +294,7 @@ mod tests {
             Vec::<String>::new(),
         );
         assert_eq!(
-            task_router_targets(&roles, &task),
+            explicit_task_targets(&roles, &task),
             vec![
                 RouterTarget {
                     role_name: "coder".to_string(),

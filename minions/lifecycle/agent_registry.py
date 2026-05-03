@@ -53,7 +53,14 @@ def role_agent_domains(role_name: str) -> list[str]:
         "experimenter": ["experiments", "execution", "evaluation"],
         "writer": ["writing", "paper", "latex"],
         "reviewer": ["review", "critique", "evaluation"],
-        "ethics": ["evidence", "audit", "validation"],
+        "ethics": [
+            "evidence",
+            "audit",
+            "validation",
+            "adjudication",
+            "review",
+            "critique",
+        ],
         "expert": ["expert", "research", "analysis"],
     }.get(base, ["coordination"])
     return ["minionsos", "project-local", f"role:{base}", *specific]
