@@ -21,9 +21,14 @@ def test_codex_gru_profile_exposes_only_gru_minions_tools() -> None:
     assert "spawn_role" in tools
     assert "gru_inbox_poll" in tools
     assert "project_eacn_send_message" in tools
+    assert "mos_await_events" in tools
+    assert "mos_send_message" in tools
+    assert "mos_create_task" in tools
     assert "exp_run" not in tools
     assert "search_arxiv" not in tools
-    assert len(tools) < 20
+    # Sanity ceiling: Gru keeps its lifecycle + project_eacn + mos_* + relay.
+    # Bump when Gru legitimately gains another non-experiment/paper tool.
+    assert len(tools) < 30
 
 
 def test_codex_writer_profile_keeps_paper_tools_not_project_tools() -> None:
