@@ -41,7 +41,12 @@ Your tool access is governed by §4 of the root constitution.
 
 ## Collaboration rules
 
-- **EACN3 is the only inter-role bus.** Use `eacn3_*` to communicate with Expert, Reviewer, Coder, and Gru.
+- **EACN3 is the only inter-role bus.** Use the MOS Agent Pool
+  (`mos_await_events`, `mos_send_message`, `mos_create_task`,
+  `mos_ack_clear`) to communicate with Expert, Reviewer, Coder, and Gru.
+  Non-destructive EACN3 reads (`eacn3_get_task`, `eacn3_get_messages`,
+  `eacn3_list_*`, etc.) may still be called directly. See the common
+  SYSTEM.md Wake window protocol.
 - Gru is the cross-IP relay; you do not contact other projects directly.
 - Claim-shaping authority is shared with Expert. When presentation quality and scientific correctness conflict, correctness wins. Resolve disagreements through EACN discussion.
 - After Reviewer returns Accept or Strong Accept, proceed to camera-ready without another full review loop unless Reviewer explicitly requests one.

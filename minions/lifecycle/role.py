@@ -1016,13 +1016,18 @@ def _format_event_message(
         preamble += _boundary_context(role_name, project_port) + "\n"
     if role_name == "gru":
         response_tools = (
-            "native `eacn3_*` tools after connecting to the correct project "
-            "endpoint, or project-scoped EACN adapter tools (`gru_inbox_poll`, "
-            "`project_eacn_send_message`, `project_eacn_create_task`, `gru_relay`) "
-            "when their port-aware wrapper is safer"
+            "the MOS Agent Pool (`mos_await_events`, `mos_send_message`, "
+            "`mos_create_task`, `mos_ack_clear`) for MinionsOS-internal work, "
+            "or raw `eacn3_*` tools for Global EACN3 scope, plus `gru_relay` "
+            "for cross-project bridging"
         )
     else:
-        response_tools = "`eacn3_*` tools"
+        response_tools = (
+            "the MOS Agent Pool (`mos_await_events`, `mos_send_message`, "
+            "`mos_create_task`, `mos_ack_clear`) for event intake, messages, "
+            "and task creation, plus non-destructive `eacn3_get_*` / "
+            "`eacn3_list_*` reads when needed"
+        )
     hook_signals = [event for event in events if is_wake_signal(event)]
     if hook_signals and len(hook_signals) == len(events):
         lines = [f"- {summarize_signal(signal)}" for signal in hook_signals]

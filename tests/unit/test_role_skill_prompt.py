@@ -39,10 +39,15 @@ def test_skill_block_maps_expert_alias_to_base_expert_dir(tmp_path: Path) -> Non
     assert f"and role skill files at `{expected_role}`" in msg
 
 
-def test_gru_event_message_uses_project_eacn_adapters() -> None:
+def test_gru_event_message_uses_mos_pool_for_internal_and_eacn3_for_global() -> None:
     with patch.object(role_mod, "list_skills", return_value=[]):
         msg = role_mod._format_event_message([{"id": "e1"}], role_name="gru")
 
-    assert "project-scoped EACN adapter tools" in msg
-    assert "project_eacn_create_task" in msg
-    assert "via `eacn3_*` tools" not in msg
+    # Gru's main coordination path is the MOS Agent Pool for internal work,
+    # plus raw eacn3_* for Global EACN3 scope, plus gru_relay for cross-project.
+    assert "MOS Agent Pool" in msg
+    assert "mos_await_events" in msg
+    assert "mos_send_message" in msg
+    assert "mos_create_task" in msg
+    assert "eacn3_*" in msg  # Global EACN3 carve-out must still be named.
+    assert "gru_relay" in msg
