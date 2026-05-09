@@ -53,7 +53,12 @@ def test_ethics_registration() -> None:
 
 def test_ethics_main_whitelist() -> None:
     tools = resolve_whitelist("ethics", "main")
-    assert "eacn3_*" in tools
+    # Ethics uses the MOS Agent Pool for event intake, direct messages, and
+    # task creation. Non-destructive EACN3 reads remain available.
+    assert "mos_await_events" in tools
+    assert "mos_send_message" in tools
+    assert "eacn3_get_messages" in tools
+    assert "eacn3_*" not in tools
     assert "WebSearch" in tools
     assert "WebFetch" in tools
     assert "Read" in tools

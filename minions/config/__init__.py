@@ -193,9 +193,15 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "main",
     ): [
         # Noter is a silent observer. Its EACN surface is intentionally the
-        # non-destructive subset: no event-draining tools, no work submission,
-        # no bidding. Send-message is allowed so Noter can reply to targeted
-        # queries and post short "summary available" notifications.
+        # non-destructive subset: no event-draining tools beyond its own
+        # queue (via MOS Agent Pool), no bidding, no task creation. mos_*
+        # gives it the same crash-shim coverage as other internal roles;
+        # mos_send_message is allowed so Noter can reply to targeted queries
+        # and post short "summary available" notifications.
+        "mos_await_events",
+        "mos_send_message",
+        "mos_ack_clear",
+        "mos_pending_read",
         "eacn3_health",
         "eacn3_server_info",
         "eacn3_connect",
@@ -212,7 +218,6 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "eacn3_get_task_results",
         "eacn3_list_sessions",
         "eacn3_get_messages",
-        "eacn3_send_message",
         "eacn3_get_reputation",
         "eacn3_get_balance",
         "eacn3_cluster_status",
@@ -235,7 +240,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("coder", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
     ("experimenter", "main"): [
-        "eacn3_*",
+        *_INTERNAL_ROLE_EACN_TOOLS,
         "Task",
         "project_checkpoint_workspace",
         "exp_run",
@@ -276,7 +281,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("writer", "main"): [
-        "eacn3_*",
+        *_INTERNAL_ROLE_EACN_TOOLS,
         *_WRITER_PAPER_SEARCH_TOOLS,
         "Task",
         "project_checkpoint_workspace",
@@ -297,7 +302,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("expert", "main"): [
-        "eacn3_*",
+        *_INTERNAL_ROLE_EACN_TOOLS,
         "Task",
         "project_checkpoint_workspace",
         "WebSearch",
@@ -308,9 +313,9 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("expert", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
-    ("reviewer", "main"): ["eacn3_*", "Task", "WebSearch", "WebFetch", "Read"],
+    ("reviewer", "main"): [*_INTERNAL_ROLE_EACN_TOOLS, "Task", "WebSearch", "WebFetch", "Read"],
     ("reviewer", "subagent"): ["WebSearch", "WebFetch", "Read"],
-    ("ethics", "main"): ["eacn3_*", "Task", "WebSearch", "WebFetch", "Read"],
+    ("ethics", "main"): [*_INTERNAL_ROLE_EACN_TOOLS, "Task", "WebSearch", "WebFetch", "Read"],
     ("ethics", "subagent"): ["WebSearch", "WebFetch", "Read"],
 }
 
