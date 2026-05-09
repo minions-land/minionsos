@@ -25,6 +25,7 @@ import os
 import subprocess
 import tempfile
 import threading
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import IO, Any
@@ -80,6 +81,9 @@ FIXED_ROLES = {"noter", "coder", "experimenter", "writer", "reviewer", "ethics"}
 
 # (port, role) -> (Popen, log_fp). Guarded by _INFLIGHT_LOCK.
 _INFLIGHT: dict[tuple[int, str], tuple[subprocess.Popen[bytes], IO[Any]]] = {}
+# (port, role) -> per-wake metadata used by the reaper to archive the host
+# session jsonl after the subprocess exits. Populated alongside _INFLIGHT.
+_WAKE_META: dict[tuple[int, str], dict[str, Any]] = {}
 _STARTING: set[tuple[int, str]] = set()
 _INFLIGHT_LOCK = threading.Lock()
 _CODEX_STARTUP_FAILURE_GRACE_SECONDS = 1.0
@@ -132,12 +136,16 @@ def is_inflight(project_port: int, role_name: str) -> bool:
 def reap_finished(store: StateStore | None = None) -> list[tuple[int, str, int]]:
     """Reap any exited in-flight ephemeral subprocesses.
 
-    Closes their log file handles, clears PID from the registry, and records
-    the exit status. Returns a list of ``(port, role, returncode)`` tuples
-    for the processes that were reaped in this call.
+    Closes their log file handles, clears PID from the registry, archives the
+    host session jsonl into the role's branch, and records the exit status.
+    Returns a list of ``(port, role, returncode)`` tuples for the processes
+    that were reaped in this call.
     """
+    from minions.lifecycle.session_archive import archive_session
+
     reaped: list[tuple[int, str, int]] = []
     reaped_details: list[tuple[int, str, int, int]] = []
+    wake_metas: list[tuple[int, str, dict[str, Any]]] = []
     with _INFLIGHT_LOCK:
         keys = list(_INFLIGHT.keys())
         for key in keys:
@@ -148,9 +156,23 @@ def reap_finished(store: StateStore | None = None) -> list[tuple[int, str, int]]
             pid = proc.pid
             with contextlib.suppress(Exception):
                 log_fp.close()
+            meta = _WAKE_META.pop(key, None)
             del _INFLIGHT[key]
             reaped.append((key[0], key[1], rc))
             reaped_details.append((key[0], key[1], pid, rc))
+            if meta is not None:
+                wake_metas.append((key[0], key[1], meta))
+
+    # Archive host session jsonl outside the inflight lock (does file I/O).
+    for port, role_name, meta in wake_metas:
+        try:
+            archive_session(
+                host=str(meta.get("host") or ""),
+                workspace=meta["workspace"],
+                started_at=float(meta.get("started_at") or 0.0),
+            )
+        except Exception as exc:
+            logger.debug("reap: session archive failed port=%d role=%r: %s", port, role_name, exc)
 
     if reaped:
         _store = store or StateStore()
@@ -770,6 +792,7 @@ def invoke_role_ephemeral(
     )
     proc: subprocess.Popen[bytes] | None = None
     _store = store or StateStore()
+    started_at = time.time()
     try:
         proc = subprocess.Popen(
             invocation.command,
@@ -865,6 +888,11 @@ def invoke_role_ephemeral(
     with _INFLIGHT_LOCK:
         _STARTING.discard(key)
         _INFLIGHT[key] = (proc, log_fp)
+        _WAKE_META[key] = {
+            "host": invocation.host_name,
+            "workspace": workspace,
+            "started_at": started_at,
+        }
 
     if wait:
         try:
