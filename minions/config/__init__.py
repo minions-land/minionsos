@@ -120,7 +120,36 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     (
         "noter",
         "main",
-    ): ["eacn3_*", "Task", "WebSearch", "WebFetch", "Read"],
+    ): [
+        # Noter is a silent observer. Its EACN surface is intentionally the
+        # non-destructive subset: no event-draining tools, no work submission,
+        # no bidding. Send-message is allowed so Noter can reply to targeted
+        # queries and post short "summary available" notifications.
+        "eacn3_health",
+        "eacn3_server_info",
+        "eacn3_connect",
+        "eacn3_disconnect",
+        "eacn3_heartbeat",
+        "eacn3_list_agents",
+        "eacn3_discover_agents",
+        "eacn3_get_agent",
+        "eacn3_list_my_agents",
+        "eacn3_list_tasks",
+        "eacn3_list_open_tasks",
+        "eacn3_get_task",
+        "eacn3_get_task_status",
+        "eacn3_get_task_results",
+        "eacn3_list_sessions",
+        "eacn3_get_messages",
+        "eacn3_send_message",
+        "eacn3_get_reputation",
+        "eacn3_get_balance",
+        "eacn3_cluster_status",
+        "Task",
+        "WebSearch",
+        "WebFetch",
+        "Read",
+    ],
     ("noter", "subagent"): ["WebSearch", "WebFetch", "Read"],
     ("coder", "main"): [
         "eacn3_*",
