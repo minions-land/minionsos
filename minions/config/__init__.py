@@ -50,6 +50,67 @@ _WRITER_PAPER_SEARCH_TOOLS = [
     "read_medrxiv_paper",
 ]
 
+# MOS Agent Pool tools — the unified MinionsOS-internal EACN3 access layer.
+# Internal work roles (Coder, Writer, Experimenter, Reviewer, Ethics, Expert,
+# Noter) should use these for anything that drains a queue, sends a message,
+# or creates a task. They are thin wrappers over EACN3 that add a per-wake
+# local ACK crash-shim; see minions/lifecycle/mos_pool.py.
+_MOS_POOL_TOOLS = [
+    "mos_await_events",
+    "mos_send_message",
+    "mos_create_task",
+    "mos_ack_clear",
+    "mos_pending_read",
+]
+
+# EACN3 non-destructive read tools — safe to call directly because they do
+# not drain any queue. Kept available to all internal roles alongside the
+# MOS Agent Pool so roles can inspect task / message / agent state without
+# going through a redundant wrapper.
+_EACN3_READONLY_TOOLS = [
+    "eacn3_health",
+    "eacn3_server_info",
+    "eacn3_cluster_status",
+    "eacn3_get_agent",
+    "eacn3_list_agents",
+    "eacn3_list_my_agents",
+    "eacn3_discover_agents",
+    "eacn3_get_task",
+    "eacn3_get_task_status",
+    "eacn3_get_task_results",
+    "eacn3_list_tasks",
+    "eacn3_list_open_tasks",
+    "eacn3_get_messages",
+    "eacn3_list_sessions",
+    "eacn3_get_reputation",
+    "eacn3_get_balance",
+    # Non-drain EACN3 writes required for legitimate task-market activity
+    # (submit bid, submit result, reject). These are NOT message sends and
+    # they do not drain the agent's own event queue, so they stay available
+    # to internal roles. Direct messaging / task creation / event draining
+    # still go through MOS Agent Pool.
+    "eacn3_submit_bid",
+    "eacn3_submit_result",
+    "eacn3_reject_task",
+    "eacn3_select_result",
+    "eacn3_close_task",
+    "eacn3_update_deadline",
+    "eacn3_update_discussions",
+    "eacn3_confirm_budget",
+    "eacn3_create_subtask",
+    "eacn3_connect",
+    "eacn3_disconnect",
+    "eacn3_heartbeat",
+    "eacn3_team_setup",
+    "eacn3_team_status",
+    "eacn3_team_retry_ack",
+]
+
+# Standard EACN3 access for an internal work role: MOS Agent Pool for the
+# three destructive / write ops, raw EACN3 for everything read-only or
+# write-but-not-a-queue-drain.
+_INTERNAL_ROLE_EACN_TOOLS = [*_MOS_POOL_TOOLS, *_EACN3_READONLY_TOOLS]
+
 
 def parse_duration(value: str | int) -> int:
     """Parse a duration string like ``"2h"``, ``"30m"``, ``"45s"``, ``"1d"`` or a
@@ -162,7 +223,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("noter", "subagent"): ["WebSearch", "WebFetch", "Read"],
     ("coder", "main"): [
-        "eacn3_*",
+        *_INTERNAL_ROLE_EACN_TOOLS,
         "Task",
         "project_checkpoint_workspace",
         "WebSearch",

@@ -45,7 +45,12 @@ Your tool access is governed by §4 of the root constitution.
 
 ## Collaboration rules
 
-- **EACN3 is the only inter-role bus.** Use `eacn3_*` tools to communicate with other roles.
+- **EACN3 is the only inter-role bus.** Use the MOS Agent Pool
+  (`mos_await_events`, `mos_send_message`, `mos_create_task`, `mos_ack_clear`)
+  for event intake, direct messages, and task creation. Non-destructive
+  EACN3 reads (`eacn3_get_task`, `eacn3_get_messages`, `eacn3_list_*`, etc.)
+  may still be called directly. See the common SYSTEM.md Wake window
+  protocol for the full flow.
 - Gru is the cross-IP relay; if you need something from another project, ask Gru via EACN.
 - When you need heavy execution (GPU training, large eval), publish an EACN task to Experimenter using the free-text template below. Do not try to run it yourself.
 - When you need scientific direction (which baseline to implement, what ablation to add), publish an EACN task to the relevant Expert.
