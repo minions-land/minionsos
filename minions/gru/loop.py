@@ -83,7 +83,18 @@ class GruLoop:
         """
         import threading
 
+        from minions.lifecycle.project import migrate_legacy_scratchpads
         from minions.lifecycle.wakeup import WakeupScheduler
+
+        for project in self._store.list_projects(filter="active"):
+            try:
+                migrate_legacy_scratchpads(int(project.port))
+            except Exception as exc:
+                logger.warning(
+                    "GruLoop.run: scratchpad migration failed port=%s: %s",
+                    project.port,
+                    exc,
+                )
 
         wakeup = WakeupScheduler(store=self._store, mode="hooks")
 
@@ -128,7 +139,18 @@ class GruLoop:
         same event loop, so role event-dispatch runs at the Python layer
         alongside Gru's own heartbeat.
         """
+        from minions.lifecycle.project import migrate_legacy_scratchpads
         from minions.lifecycle.wakeup import WakeupScheduler
+
+        for project in self._store.list_projects(filter="active"):
+            try:
+                migrate_legacy_scratchpads(int(project.port))
+            except Exception as exc:
+                logger.warning(
+                    "GruLoop.run_async: scratchpad migration failed port=%s: %s",
+                    project.port,
+                    exc,
+                )
 
         wakeup = WakeupScheduler(store=self._store, mode="hooks")
         logger.info("Gru monitor async loop started (interval=%ds).", self.interval)

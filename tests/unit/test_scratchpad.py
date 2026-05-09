@@ -87,7 +87,9 @@ class TestWakeupScratchpad:
         def invoke(role, port, events, **kwargs):
             calls.append((role, port, events, kwargs))
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke, config=_TEST_CFG, cooldown_seconds=0)
+        sched = WakeupScheduler(
+            store=store, invoke_fn=invoke, config=_TEST_CFG, cooldown_seconds=0, mode="legacy"
+        )
         return sched, calls
 
     def test_below_soft_dispatches_ok(self, tmp_path: Path) -> None:
@@ -230,11 +232,11 @@ class TestWakeupScratchpad:
 
 
 class TestInvokeEphemeralScratchpad:
-    def test_invoke_creates_memory_dir_and_passes_env(self, tmp_path: Path) -> None:
+    def test_invoke_creates_role_state_dir_and_passes_env(self, tmp_path: Path) -> None:
         fake_proc = MagicMock()
         fake_proc.pid = 1234
-        mem_dir = tmp_path / "memory"
-        sp = mem_dir / "noter.md"
+        state_dir = tmp_path / "branches" / "noter" / ".minionsos"
+        sp = state_dir / "scratchpad.md"
 
         with (
             patch("minions.lifecycle.role.subprocess.Popen", return_value=fake_proc) as popen,
@@ -242,7 +244,6 @@ class TestInvokeEphemeralScratchpad:
             patch(
                 "minions.lifecycle.role.project_role_log", return_value=tmp_path / "role-noter.log"
             ),
-            patch("minions.lifecycle.role.project_memory_dir", return_value=mem_dir),
             patch("minions.lifecycle.role.project_scratchpad", return_value=sp),
         ):
             role_mod.invoke_role_ephemeral(
@@ -251,7 +252,7 @@ class TestInvokeEphemeralScratchpad:
                 [{"id": "e1"}],
                 extra_env={"MINIONS_SCRATCHPAD_STATUS": "soft"},
             )
-        assert mem_dir.is_dir()
+        assert state_dir.is_dir()
         env = popen.call_args.kwargs["env"]
         assert env["MINIONS_SCRATCHPAD_STATUS"] == "soft"
         assert env["MINIONS_SCRATCHPAD_PATH"] == str(sp)

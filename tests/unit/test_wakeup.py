@@ -100,7 +100,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append((role, port, events))
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, mode="legacy")
         with patch("minions.lifecycle.wakeup.poll_events", return_value={"events": []}):
             count = _run(sched.tick_once())
         assert count == 0
@@ -114,7 +114,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append((role, port, [e["id"] for e in events]))
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, mode="legacy")
         payload = {"events": [{"id": "e1", "x": 1}, {"id": "e2", "x": 2}]}
         with patch("minions.lifecycle.wakeup.poll_events", return_value=payload):
             count = _run(sched.tick_once())
@@ -129,7 +129,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append([e["id"] for e in events])
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, mode="legacy")
         payload = {"events": [{"id": "e1", "x": 1}]}
 
         # First tick triggers, second tick (same event) does not.
@@ -159,7 +159,7 @@ class TestWakeup:
             polled.append(agent_id)
             return {"events": []}
 
-        sched = WakeupScheduler(store=store, invoke_fn=lambda *a: None)
+        sched = WakeupScheduler(store=store, invoke_fn=lambda *a: None, mode="legacy")
         with patch("minions.lifecycle.wakeup.poll_events", side_effect=fake_poll):
             _run(sched.tick_once())
         # active/sleeping roles are polled, dismissed roles are skipped.
@@ -179,7 +179,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append((role, events))
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         with patch("minions.lifecycle.wakeup.poll_events", return_value={"events": []}):
             count = _run(sched.tick_once())
 
@@ -197,7 +197,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append(role)
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         with (
             patch("minions.lifecycle.wakeup.poll_events", return_value={"events": []}),
         ):
@@ -214,7 +214,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append(role)
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         with patch(
             "minions.lifecycle.wakeup.poll_events",
             return_value={"events": [{"id": "task-1", "type": "task_broadcast"}]},
@@ -232,7 +232,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append(role)
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         with patch(
             "minions.lifecycle.wakeup.poll_events",
             return_value={"events": [{"id": "dm-1", "type": "direct_message"}]},
@@ -292,7 +292,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append(role)
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         with (
             patch("minions.lifecycle.wakeup.poll_events", return_value={"events": []}),
         ):
@@ -312,7 +312,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append(role)
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         with (
             patch("minions.lifecycle.wakeup.poll_events", return_value={"events": []}),
         ):
@@ -340,7 +340,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append(role)
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         with (
             patch("minions.lifecycle.wakeup.poll_events", return_value={"events": []}),
         ):
@@ -383,7 +383,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append([e["id"] for e in events])
 
-        first = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        first = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         with (
             patch("minions.lifecycle.wakeup.poll_events", return_value={"events": [{"id": "e1"}]}),
             patch("minions.lifecycle.role.is_inflight", return_value=True),
@@ -394,7 +394,7 @@ class TestWakeup:
         assert calls == []
         assert role_inbox.read_events(37596, "noter") == [{"id": "e1"}]
 
-        second = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        second = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         with (
             patch("minions.lifecycle.wakeup.poll_events", return_value={"events": []}),
             patch("minions.lifecycle.role.is_inflight", return_value=False),
@@ -413,7 +413,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append(role)
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         with (
             patch("minions.lifecycle.wakeup.poll_events", return_value={"events": [{"id": "e1"}]}),
             patch("minions.lifecycle.role.is_inflight", return_value=False),
@@ -436,7 +436,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append(role)
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         with (
             patch("minions.lifecycle.wakeup.poll_events", return_value={"events": [{"id": "e1"}]}),
             patch("minions.lifecycle.role.is_inflight", return_value=False),
@@ -467,7 +467,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append(role)
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         with (
             patch("minions.lifecycle.wakeup.poll_events", return_value={"events": [{"id": "e1"}]}),
             patch("minions.lifecycle.role.is_inflight", return_value=False),
@@ -494,7 +494,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append(role)
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         with (
             patch("minions.lifecycle.wakeup.poll_events", return_value={"events": [{"id": "e1"}]}),
             patch("minions.lifecycle.role.is_inflight", return_value=False),
@@ -516,7 +516,7 @@ class TestWakeup:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             raise RuntimeError("spawn failed")
 
-        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0)
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         with patch(
             "minions.lifecycle.wakeup.poll_events",
             return_value={"events": [{"id": "boom"}]},
@@ -533,7 +533,9 @@ class TestWakeup:
         def failing_invoke(role: str, port: int, events: list[dict]) -> None:
             raise RuntimeError("spawn failed")
 
-        first = WakeupScheduler(store=store, invoke_fn=failing_invoke, cooldown_seconds=0)
+        first = WakeupScheduler(
+            store=store, invoke_fn=failing_invoke, cooldown_seconds=0, mode="legacy"
+        )
         with patch(
             "minions.lifecycle.wakeup.poll_events",
             return_value={"events": [{"id": "boom"}]},
@@ -548,7 +550,9 @@ class TestWakeup:
         def successful_invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append([str(e["id"]) for e in events])
 
-        second = WakeupScheduler(store=store, invoke_fn=successful_invoke, cooldown_seconds=0)
+        second = WakeupScheduler(
+            store=store, invoke_fn=successful_invoke, cooldown_seconds=0, mode="legacy"
+        )
         with patch("minions.lifecycle.wakeup.poll_events", return_value={"events": []}):
             count = _run(second.tick_once())
 

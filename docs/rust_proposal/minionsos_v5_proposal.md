@@ -394,9 +394,12 @@ Rust 不值得承接的是：
 
 ## 当前落地状态
 
-第一阶段已经新增 root Rust workspace 和 `crates/minions-runtime-core`。
+**2026-05 更新：** V5 第一阶段的 Rust workspace 已移出活跃树，归档到
+`other/rust-archive/`（原 `crates/minions-runtime-core`、`Cargo.toml`、`Cargo.lock`）。
+MinionsOS V5 目前全量基于 Python 实现；Rust 归档保留为本 proposal 的参考起点，
+若未来重启 `mosd` / Rust adapter / Rust TUI 工作，可从归档恢复。
 
-这个 crate 目前只承接稳定、纯函数、可测试的运行时契约：
+归档时的 crate 曾承接稳定、纯函数、可测试的运行时契约：
 
 - `PhasePolicy`：判断当前 phase 允许哪些 role online。
 - `RoleRecord` / `RoleState`：归一化 role 的可调度状态。

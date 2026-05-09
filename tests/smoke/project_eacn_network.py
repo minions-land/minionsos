@@ -195,9 +195,7 @@ def main() -> int:
             calls.append((role_name, project_port, events))
 
         scheduler = WakeupScheduler(
-            store=StateStore(),
-            invoke_fn=fake_invoke,
-            cooldown_seconds=0,
+            store=StateStore(), invoke_fn=fake_invoke, cooldown_seconds=0, mode="legacy"
         )
         triggered = asyncio.run(scheduler.tick_once())
         step(

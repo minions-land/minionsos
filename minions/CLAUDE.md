@@ -126,10 +126,6 @@ MINIONS_FAKE_CLAUDE=1 uv run pytest tests/smoke/
 # Type gate for the Python runtime core
 uv run ty check minions
 
-# Rust runtime contracts
-cargo test --workspace
-cargo fmt --all --check
-
 # Ruff lint
 uv run ruff check minions/
 uv run ruff format --check minions/

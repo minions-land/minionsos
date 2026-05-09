@@ -9,7 +9,6 @@ Each function is a thin orchestration layer that:
 
 from __future__ import annotations
 
-import contextlib
 import json
 import logging
 import os
@@ -25,6 +24,18 @@ from minions.config import slugify
 from minions.errors import BackendError, ProjectError
 from minions.lifecycle import eacn_client
 from minions.lifecycle.eacn_identity import identity_map_for_meta, upsert_agent_identity
+from minions.lifecycle.git_utils import (
+    git_ref_exists as _gu_git_ref_exists,
+)
+from minions.lifecycle.git_utils import (
+    is_git_dirty as _gu_is_git_dirty,
+)
+from minions.lifecycle.git_utils import (
+    is_git_work_tree as _gu_is_git_work_tree,
+)
+from minions.lifecycle.git_utils import (
+    run_git as _gu_run_git,
+)
 from minions.paths import (
     MINIONS_ROOT,
     configured_project_parent_repo,
@@ -34,9 +45,11 @@ from minions.paths import (
     project_eacn_db,
     project_logs_dir,
     project_main_workspace,
+    project_memory_dir,
     project_meta_json,
     project_role_workspace,
     project_roles_workspace_dir,
+    project_scratchpad,
     project_session_ledger,
     project_session_name,
     project_shared_workspace,
@@ -134,16 +147,7 @@ def _port_is_free(port: int) -> bool:
 
 
 def _is_git_work_tree(path: Path) -> bool:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
-            cwd=str(path),
-            capture_output=True,
-            text=True,
-        )
-        return result.returncode == 0 and result.stdout.strip() == "true"
-    except FileNotFoundError:
-        return False
+    return _gu_is_git_work_tree(path)
 
 
 def project_parent_repo() -> Path:
@@ -640,88 +644,46 @@ def _create_worktree(port: int, base_branch: str) -> str:
 
 def _git_tag(port: int, tag: str) -> None:
     """Create a git tag in the parent repo."""
-    parent_repo = project_parent_repo()
-    result = subprocess.run(
-        ["git", "tag", tag],
-        cwd=str(parent_repo),
-        capture_output=True,
-        text=True,
-    )
+    result = _gu_run_git(["tag", tag], project_parent_repo(), check=False)
     if result.returncode != 0:
         logger.warning("git tag %s failed: %s", tag, result.stderr.strip())
 
 
 def _git_ref_exists(repo: Path, ref: str) -> bool:
-    """Return True if *ref* exists in *repo*."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--verify", "--quiet", ref],
-        cwd=str(repo),
-        capture_output=True,
-        text=True,
-    )
-    return result.returncode == 0
+    return _gu_git_ref_exists(repo, ref)
 
 
 def _git_status_porcelain(workspace: Path) -> list[str]:
     """Return the workspace's porcelain status lines."""
-    result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=str(workspace),
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise ProjectError(
-            f"git status failed for workspace {workspace}: {result.stderr.strip()}"
-        )
+    result = _gu_run_git(["status", "--porcelain"], workspace, action="status")
     return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def _is_git_dirty(workspace: Path) -> bool:
+    return _gu_is_git_dirty(workspace)
 
 
 def _git_commit_workspace(workspace: Path, message: str) -> str | None:
     """Commit the workspace if there are staged changes, returning HEAD sha."""
-    add_result = subprocess.run(
-        ["git", "add", "-A"],
-        cwd=str(workspace),
-        capture_output=True,
-        text=True,
-    )
-    if add_result.returncode != 0:
-        raise ProjectError(
-            f"git add failed for workspace {workspace}: {add_result.stderr.strip()}"
-        )
-    commit_result = subprocess.run(
-        ["git", "commit", "-m", message],
-        cwd=str(workspace),
-        capture_output=True,
-        text=True,
-    )
-    output = f"{commit_result.stdout}\n{commit_result.stderr}".lower()
+    _gu_run_git(["add", "-A"], workspace, action="add")
+    commit_result = _gu_run_git(["commit", "-m", message], workspace, check=False)
     if commit_result.returncode != 0:
+        output = f"{commit_result.stdout}\n{commit_result.stderr}".lower()
         if "nothing to commit" in output or "nothing added to commit" in output:
             return None
         raise ProjectError(
             f"git commit failed for workspace {workspace}: {commit_result.stderr.strip()}"
         )
-    head = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=str(workspace),
-        capture_output=True,
-        text=True,
-    )
-    if head.returncode != 0:
-        raise ProjectError(
-            f"git rev-parse failed for workspace {workspace}: {head.stderr.strip()}"
-        )
+    head = _gu_run_git(["rev-parse", "HEAD"], workspace, action="rev-parse")
     return head.stdout.strip() or None
 
 
 def _git_push_checkpoint(workspace: Path, target: str, remote_branch: str) -> None:
     """Push the current HEAD to *target* under *remote_branch*."""
-    result = subprocess.run(
-        ["git", "push", target, f"HEAD:{remote_branch}"],
-        cwd=str(workspace),
-        capture_output=True,
-        text=True,
+    result = _gu_run_git(
+        ["push", target, f"HEAD:{remote_branch}"],
+        workspace,
+        check=False,
     )
     if result.returncode != 0:
         raise ProjectError(
@@ -738,6 +700,9 @@ def _checkpoint_remote_branch(
     role_leaf = "main" if role_name in {None, "", "main"} else slugify(role_name)
     branch_prefix = (prefix or "minionsos").strip("/") or "minionsos"
     return f"{branch_prefix}/p{port}/{role_leaf}"
+
+
+_SESSION_LEDGER_MAX_CHECKPOINTS = 1000
 
 
 def _append_session_ledger(port: int, payload: dict[str, object]) -> None:
@@ -762,6 +727,8 @@ def _append_session_ledger(port: int, payload: dict[str, object]) -> None:
             if isinstance(entry, dict):
                 checkpoints.append(cast(dict[str, object], entry))
     checkpoints.append(payload)
+    if len(checkpoints) > _SESSION_LEDGER_MAX_CHECKPOINTS:
+        checkpoints = checkpoints[-_SESSION_LEDGER_MAX_CHECKPOINTS:]
     ledger["checkpoints"] = checkpoints
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(ledger, indent=2), encoding="utf-8")
@@ -774,6 +741,59 @@ def _ensure_workspace_layout(port: int) -> None:
     project_roles_workspace_dir(port).mkdir(parents=True, exist_ok=True)
     project_shared_workspace(port).mkdir(parents=True, exist_ok=True)
     project_state_dir(port).mkdir(parents=True, exist_ok=True)
+
+
+def migrate_legacy_scratchpads(port: int) -> list[str]:
+    """Move legacy per-project ``memory/{role}.md`` files into each role's
+    ``branches/<role>/.minionsos/scratchpad.md``.
+
+    Safe-idempotent: returns list of migrated role names. If the role's new
+    branch dir does not exist yet (e.g. role not registered), the legacy file
+    is left in place so a later revive can still find it.
+    """
+    legacy_dir = project_memory_dir(port)
+    if not legacy_dir.exists():
+        return []
+    migrated: list[str] = []
+    for old_path in legacy_dir.glob("*.md"):
+        role_name = old_path.stem
+        if not role_name:
+            continue
+        new_path = project_scratchpad(port, role_name)
+        # Only migrate when the role's branch dir already exists; otherwise
+        # we'd be creating .minionsos/ outside any git worktree.
+        if not new_path.parent.parent.exists():
+            continue
+        if new_path.exists():
+            # New already present; archive the old as .bak to avoid silent loss.
+            backup = old_path.with_suffix(".md.bak")
+            try:
+                old_path.rename(backup)
+            except Exception as exc:
+                logger.warning(
+                    "migrate_legacy_scratchpads: could not archive %s: %s", old_path, exc
+                )
+            continue
+        new_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            text = old_path.read_text(encoding="utf-8")
+        except Exception as exc:
+            logger.warning("migrate_legacy_scratchpads: read %s failed: %s", old_path, exc)
+            continue
+        new_path.write_text(text, encoding="utf-8")
+        try:
+            old_path.unlink()
+        except Exception as exc:
+            logger.warning("migrate_legacy_scratchpads: unlink %s failed: %s", old_path, exc)
+        migrated.append(role_name)
+        logger.info(
+            "migrated legacy scratchpad port=%d role=%s: %s -> %s",
+            port,
+            role_name,
+            old_path,
+            new_path,
+        )
+    return migrated
 
 
 def project_workspace(port: int) -> Path:
@@ -805,9 +825,13 @@ def project_checkpoint_workspace(
         role = next((r for r in entry.active_roles if r.name == role_name), None)
         if role is None:
             raise ProjectError(f"Role {role_name!r} not found on port {port}.")
-        workspace = Path(role.workspace_path) if role.workspace_path else project_role_workspace(
-            port,
-            role.name,
+        workspace = (
+            Path(role.workspace_path)
+            if role.workspace_path
+            else project_role_workspace(
+                port,
+                role.name,
+            )
         )
         session_name = role.session_name or project_session_name(port, role.name)
         local_branch = role.workspace_branch or project_branch_name(port, role.name)
@@ -819,8 +843,7 @@ def project_checkpoint_workspace(
     if not _is_git_work_tree(workspace):
         raise ProjectError(f"Workspace is not a git worktree: {workspace}")
 
-    dirty_lines = _git_status_porcelain(workspace)
-    dirty = bool(dirty_lines)
+    dirty = _is_git_dirty(workspace)
     commit_message = message or f"checkpoint({session_name}): durable workspace checkpoint"
     commit_sha = _git_commit_workspace(workspace, commit_message) if dirty else None
     pushed = False
@@ -861,18 +884,19 @@ def _create_role_worktree(
     role_name: str,
     base_branch: str | None = None,
 ) -> tuple[str, Path]:
-    """Create or verify the git worktree for one role."""
+    """Create or verify the git worktree for one role.
+
+    Gru resolves to the project's main worktree and main branch; this
+    function treats it like any other role so the main worktree is guaranteed
+    to exist before Gru is registered. Any other role gets its own branch
+    ``minionsos/project-{port}-{role}`` rooted at the project main branch.
+    """
     branch = project_branch_name(port, role_name)
     workspace = project_role_workspace(port, role_name)
-    if role_name == "gru":
-        workspace.mkdir(parents=True, exist_ok=True)
-        return branch, workspace
     if workspace.exists():
         if _is_git_work_tree(workspace):
             return branch, workspace
-        raise ProjectError(
-            f"Role workspace already exists but is not a git worktree: {workspace}"
-        )
+        raise ProjectError(f"Role workspace already exists but is not a git worktree: {workspace}")
 
     workspace.parent.mkdir(parents=True, exist_ok=True)
     parent_repo = project_parent_repo()
@@ -973,6 +997,19 @@ def project_set_phase(
 
     now = _now_iso()
     phase_allowed_roles = [role for role in (allowed_roles or []) if str(role).strip()]
+    existing_allowed = [
+        str(role).strip()
+        for role in (getattr(entry, "phase_allowed_roles", []) or [])
+        if str(role).strip()
+    ]
+    if phase == getattr(entry, "current_phase", None) and phase_allowed_roles == existing_allowed:
+        logger.debug(
+            "project_set_phase no-op: port=%d phase=%r allowed_roles=%s",
+            port,
+            phase,
+            phase_allowed_roles,
+        )
+        return entry
     updated = _store.update_project(
         port,
         current_phase=phase,
@@ -992,10 +1029,12 @@ def project_set_phase(
             "phase_reason": reason,
         },
     )
-    with contextlib.suppress(Exception):
-        from minions.lifecycle.wake_signals import phase_change_signal
+    from minions.lifecycle.hooks import LifecycleEvent, fire
 
-        phase_change_signal(port=port, phase=phase, reason=reason, store=_store)
+    fire(
+        LifecycleEvent.wake_phase_change,
+        {"port": port, "phase": phase, "reason": reason, "store": _store},
+    )
     logger.info(
         "project_set_phase done: port=%d phase=%r allowed_roles=%s",
         port,
@@ -1013,8 +1052,8 @@ _PROJECT_GITIGNORE = """\
 !CLAUDE.md
 !AGENTS.md
 !meta.json
-!workspace/
-!workspace/**
+!branches/
+!branches/**
 !artifacts/
 !artifacts/**
 !memory/
@@ -1077,9 +1116,11 @@ def _render_project_claude_md(
     lines.append("")
     lines.append("- All inter-Role communication goes through EACN3 on this port.")
     lines.append(
-        "- Workspace container: `workspace/main/` is the primary integration tree; "
-        "role worktrees live under `workspace/roles/<role>/`; shared handoffs live under "
-        "`workspace/shared/`."
+        "- Branch checkouts live under `branches/`: `branches/main/` is Gru's main "
+        "branch (the primary integration tree); every other role has its own "
+        "branch at `branches/<role>/`; shared handoffs live under `branches/shared/`. "
+        "System-layer files (scratchpad, wake state) live in each role's "
+        "`branches/<role>/.minionsos/` hidden directory."
     )
     lines.append(
         "- Root constitution at repo `CLAUDE.md` always wins on conflicts (see Hard rules)."
@@ -1278,11 +1319,11 @@ def project_create(
         agents_md.write_text(_render_project_agents_md(real_name), encoding="utf-8")
         logger.info("Wrote project AGENTS.md shim: %s", agents_md)
 
-    # Ensure workspace/main/experiments/ exists so local experiment target resolves.
+    # Ensure branches/main/experiments/ exists so local experiment target resolves.
     try:
         (project_main_workspace(port) / "experiments").mkdir(parents=True, exist_ok=True)
     except Exception as exc:  # non-fatal
-        logger.warning("Could not create workspace/main/experiments/: %s", exc)
+        logger.warning("Could not create branches/main/experiments/: %s", exc)
 
     # Register in projects.json.
     _store.add_project(entry)
@@ -1554,8 +1595,7 @@ def project_revive(
                     "eacn_registered_at": now,
                     "session_name": restored.session_name
                     or project_session_name(port, restored.name),
-                    "workspace_path": restored.workspace_path
-                    or str(workspace_path.resolve()),
+                    "workspace_path": restored.workspace_path or str(workspace_path.resolve()),
                     "workspace_branch": restored.workspace_branch or workspace_branch,
                     "github_push_target": restored.github_push_target
                     or getattr(entry, "github_push_target", None)
@@ -1680,10 +1720,9 @@ def project_repair_eacn_agents(
         if not role.workspace_branch:
             role_workspace_updates["workspace_branch"] = workspace_branch
         if not role.github_push_target:
-            role_workspace_updates["github_push_target"] = (
-                getattr(refreshed_entry, "github_push_target", None)
-                or raw.get("github_push_target")
-            )
+            role_workspace_updates["github_push_target"] = getattr(
+                refreshed_entry, "github_push_target", None
+            ) or raw.get("github_push_target")
         if role_workspace_updates:
             role = role.model_copy(update=role_workspace_updates)
         agent_id = role.eacn_agent_id or role.name
@@ -1721,6 +1760,17 @@ def project_repair_eacn_agents(
     tmp = meta_path.with_suffix(".tmp")
     tmp.write_text(json.dumps(raw, indent=2), encoding="utf-8")
     os.replace(tmp, meta_path)
+
+    try:
+        migrated = migrate_legacy_scratchpads(port)
+        if migrated:
+            logger.info(
+                "project_revive: migrated legacy scratchpads port=%d roles=%s",
+                port,
+                migrated,
+            )
+    except Exception as exc:
+        logger.warning("project_revive: scratchpad migration failed port=%d: %s", port, exc)
 
     status = (
         "already"

@@ -29,9 +29,7 @@ def _isolate_runtime_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     )
     monkeypatch.setattr(
         "minions.lifecycle.project.project_role_workspace",
-        lambda port, role_name: (
-            tmp_path / f"project_{port}" / "workspace" / "roles" / role_name
-        ),
+        lambda port, role_name: tmp_path / f"project_{port}" / "workspace" / "roles" / role_name,
     )
     monkeypatch.setattr(
         "minions.lifecycle.project.project_session_ledger",

@@ -43,11 +43,11 @@ from minions.lifecycle import eacn_client
 from minions.lifecycle.agent_host import build_role_invocation
 from minions.lifecycle.agent_registry import register_project_role_agent, role_agent_domains
 from minions.lifecycle.eacn_identity import plugin_state_dir, resolve_agent_id
+from minions.lifecycle.hooks import LifecycleEvent
+from minions.lifecycle.hooks import fire as hooks_fire
 from minions.lifecycle.project import ensure_role_workspace, project_phase_snapshot
 from minions.lifecycle.skills import list_skills
 from minions.lifecycle.wake_signals import (
-    direct_message_signal,
-    eacn_queue_pending_signals,
     is_wake_signal,
     summarize_signal,
 )
@@ -55,7 +55,7 @@ from minions.paths import (
     MINIONS_ROOT,
     common_role_system_md,
     project_branch_name,
-    project_memory_dir,
+    project_memory_dir,  # noqa: F401  # re-exported for test monkeypatch compatibility
     project_role_log,
     project_role_workspace,
     project_scratchpad,
@@ -475,20 +475,22 @@ def _do_register(
                         "role": role_name,
                     },
                 )
-                with contextlib.suppress(Exception):
-                    direct_message_signal(
-                        port=project_port,
-                        to_agent_id=target_agent_id,
-                        from_agent_id=initiator_id,
-                        content={
+                hooks_fire(
+                    LifecycleEvent.wake_direct_message,
+                    {
+                        "port": project_port,
+                        "to_agent_id": target_agent_id,
+                        "from_agent_id": initiator_id,
+                        "content": {
                             "type": "init_brief",
                             "role": role_name,
                             "delivery": result.get("message_id") or result.get("id"),
                         },
-                        source="minions.lifecycle.role.register_role",
-                        store=store,
-                        target_role_name=role_name,
-                    )
+                        "source": "minions.lifecycle.role.register_role",
+                        "store": store,
+                        "target_role_name": role_name,
+                    },
+                )
             except BackendError as exc:
                 raise RoleError(
                     f"Role {role_name!r} joined project-local EACN3 on port {project_port}, "
@@ -515,13 +517,14 @@ def _do_register(
                     },
                     invited_agent_ids=[target_agent_id],
                 )
-                with contextlib.suppress(Exception):
-                    eacn_queue_pending_signals(
-                        port=project_port,
-                        counts=eacn_client.pending_event_counts(project_port, timeout=1.0),
-                        source="minions.lifecycle.role.register_role",
-                        store=store,
-                    )
+                hooks_fire(
+                    LifecycleEvent.wake_eacn_queue_pending,
+                    {
+                        "port": project_port,
+                        "source": "minions.lifecycle.role.register_role",
+                        "store": store,
+                    },
+                )
             except BackendError as exc:
                 raise RoleError(
                     f"Role {role_name!r} joined project-local EACN3 on port {project_port}, "
@@ -631,10 +634,11 @@ def invoke_role_ephemeral(
     log_path = project_role_log(project_port, role_name)
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Ensure memory/ exists and resolve scratchpad path.
-    project_memory_dir(project_port).mkdir(parents=True, exist_ok=True)
+    # Ensure this role's .minionsos/ state dir exists inside its branch and
+    # resolve the scratchpad path (branches/<role>/.minionsos/scratchpad.md).
     if scratchpad_path is None:
         scratchpad_path = project_scratchpad(project_port, role_name)
+    scratchpad_path.parent.mkdir(parents=True, exist_ok=True)
     scratchpad_status = (extra_env or {}).get("MINIONS_SCRATCHPAD_STATUS", "ok")
 
     allowed = whitelist_csv(role_name, "main")
@@ -868,14 +872,10 @@ def _format_event_message(
         current_phase = project_phase["current_phase"] or "unset"
         phase_version = project_phase["phase_version"]
         allowed_roles = [
-            str(role).strip()
-            for role in project_phase["phase_allowed_roles"]
-            if str(role).strip()
+            str(role).strip() for role in project_phase["phase_allowed_roles"] if str(role).strip()
         ]
         online_roles = [
-            str(role).strip()
-            for role in project_phase["phase_online_roles"]
-            if str(role).strip()
+            str(role).strip() for role in project_phase["phase_online_roles"] if str(role).strip()
         ]
         preamble += "[Project phase]\n"
         preamble += f"- Current phase: `{current_phase}`\n"
@@ -886,15 +886,11 @@ def _format_event_message(
             + "`\n"
         )
         preamble += (
-            "- Online roles: `"
-            + (", ".join(online_roles) if online_roles else "none")
-            + "`\n"
+            "- Online roles: `" + (", ".join(online_roles) if online_roles else "none") + "`\n"
         )
         if role_name:
             allowed = project_phase["phase_allowed_roles"]
-            role_allowed = (
-                not allowed or "*" in allowed or "all" in allowed or role_name in allowed
-            )
+            role_allowed = not allowed or "*" in allowed or "all" in allowed or role_name in allowed
             preamble += f"- This role allowed now: `{str(bool(role_allowed)).lower()}`\n"
         preamble += "\n"
     if role_name:

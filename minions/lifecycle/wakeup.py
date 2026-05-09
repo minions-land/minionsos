@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 _DEDUP_MAX = 2048
 _TASK_WAKEUP_TYPES = {"task_broadcast", "adjudication_task"}
 _VETO_COMPACTION_COOLDOWN_SECONDS = 10 * 60
+_PENDING_STATS_THROTTLE_SECONDS = 5.0
 
 
 class WakeupClass(enum.Enum):
@@ -278,7 +279,7 @@ class WakeupScheduler:
         *,
         state_store: StateStore | None = None,
         cooldown_seconds: int | None = None,
-        mode: Literal["legacy", "hooks"] = "legacy",
+        mode: Literal["legacy", "hooks"] = "hooks",
     ) -> None:
         # Accept `state_store=` as an alias for `store=` (the docs and some
         # callers use the longer name). Reject passing both at once.
@@ -292,6 +293,7 @@ class WakeupScheduler:
         self._stopped = False
         self._last_poll_ts: dict[tuple[int, str], float] = {}
         self._last_open_task_scan_ts: dict[int, float] = {}
+        self._last_pending_stats_ts: dict[int, float] = {}
         # Resolve scratchpad thresholds once per scheduler instance from
         # config (percentages of the model context window). Stored as
         # (soft, hard, veto) token counts.
@@ -540,32 +542,32 @@ class WakeupScheduler:
         triggered = 0
         projects = self._store.list_projects(filter="active")
         for project in projects:
-            try:
-                counts = await asyncio.to_thread(
-                    pending_event_counts,
-                    int(project.port),
-                    1.0,
-                )
-                if counts:
-                    await asyncio.to_thread(
-                        eacn_queue_pending_signals,
-                        port=int(project.port),
-                        counts=counts,
-                        source="minions.lifecycle.wakeup.WakeupScheduler._tick_hooks",
-                        store=self._store,
+            last_stats = self._last_pending_stats_ts.get(int(project.port))
+            if last_stats is None or (now - last_stats) >= _PENDING_STATS_THROTTLE_SECONDS:
+                self._last_pending_stats_ts[int(project.port)] = now
+                try:
+                    counts = await asyncio.to_thread(
+                        pending_event_counts,
+                        int(project.port),
+                        1.0,
                     )
-            except Exception as exc:
-                logger.debug("EACN queue stats wake scan failed port=%s: %s", project.port, exc)
+                    if counts:
+                        await asyncio.to_thread(
+                            eacn_queue_pending_signals,
+                            port=int(project.port),
+                            counts=counts,
+                            source="minions.lifecycle.wakeup.WakeupScheduler._tick_hooks",
+                            store=self._store,
+                        )
+                except Exception as exc:
+                    logger.debug("EACN queue stats wake scan failed port=%s: %s", project.port, exc)
             roles = [role for role in project.active_roles if _role_schedulable(role)]
             for role in roles:
                 key = (project.port, role.name)
-                signals = [
-                    signal
-                    for signal in await asyncio.to_thread(
-                        role_inbox.read_events, project.port, role.name
-                    )
-                    if isinstance(signal, dict)
-                ]
+                raw_signals = await asyncio.to_thread(
+                    role_inbox.read_events, project.port, role.name
+                )
+                signals = [s for s in raw_signals if isinstance(s, dict)]
                 if signals:
                     unique: list[dict[str, Any]] = []
                     seen: set[str] = set()
@@ -575,7 +577,8 @@ class WakeupScheduler:
                             continue
                         seen.add(signal_id)
                         unique.append(signal)
-                    role_inbox.replace_events(project.port, role.name, unique)
+                    if unique != raw_signals:
+                        role_inbox.replace_events(project.port, role.name, unique)
                     result = await self._try_dispatch(
                         project.port,
                         role.name,

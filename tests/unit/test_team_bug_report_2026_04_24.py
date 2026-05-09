@@ -167,18 +167,18 @@ class TestInitBriefGoesThroughEacn:
 class TestWakeupSchedulerStateStoreAlias:
     def test_state_store_alias_accepted(self) -> None:
         ss = StateStore()
-        sched = WakeupScheduler(state_store=ss)
+        sched = WakeupScheduler(state_store=ss, mode="legacy")
         assert sched._store is ss
 
     def test_store_still_works(self) -> None:
         ss = StateStore()
-        sched = WakeupScheduler(store=ss)
+        sched = WakeupScheduler(store=ss, mode="legacy")
         assert sched._store is ss
 
     def test_both_raises(self) -> None:
         ss = StateStore()
         with pytest.raises(TypeError, match="not both"):
-            WakeupScheduler(store=ss, state_store=ss)
+            WakeupScheduler(store=ss, state_store=ss, mode="legacy")
 
 
 if __name__ == "__main__":

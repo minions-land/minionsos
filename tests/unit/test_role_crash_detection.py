@@ -257,7 +257,7 @@ def test_second_wakeup_while_inflight_is_deferred_not_dropped() -> None:
     def invoke(role: str, port: int, events: list[dict[str, Any]]) -> None:
         calls.append([e["id"] for e in events])
 
-    sched = WakeupScheduler(store=S(), invoke_fn=invoke, cooldown_seconds=0)
+    sched = WakeupScheduler(store=S(), invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
 
     # Simulate tick 1 events.
     payload1 = {"events": [{"id": "a"}]}

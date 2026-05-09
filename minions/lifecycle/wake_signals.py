@@ -54,25 +54,23 @@ def _task_id(task: dict[str, Any]) -> str:
     return str(value) if value else ""
 
 
-def _task_domains(task: dict[str, Any]) -> set[str]:
-    domains = task.get("domains") or []
-    if not isinstance(domains, list):
+def _str_set_field(task: dict[str, Any], key: str) -> set[str]:
+    values = task.get(key) or []
+    if not isinstance(values, list):
         return set()
-    return {str(d) for d in domains if str(d).strip()}
+    return {str(v) for v in values if str(v).strip()}
+
+
+def _task_domains(task: dict[str, Any]) -> set[str]:
+    return _str_set_field(task, "domains")
 
 
 def _task_invited_agent_ids(task: dict[str, Any]) -> set[str]:
-    invited = task.get("invited_agent_ids") or []
-    if not isinstance(invited, list):
-        return set()
-    return {str(agent_id) for agent_id in invited if str(agent_id).strip()}
+    return _str_set_field(task, "invited_agent_ids")
 
 
 def _task_invited_roles(task: dict[str, Any]) -> set[str]:
-    invited = task.get("invited_roles") or []
-    if not isinstance(invited, list):
-        return set()
-    return {str(role_name) for role_name in invited if str(role_name).strip()}
+    return _str_set_field(task, "invited_roles")
 
 
 def _phase_state(project: ProjectEntry | None) -> ProjectPhaseSnapshot:
@@ -131,9 +129,7 @@ def direct_message_signal(
     if role_name is None:
         return []
     project = _project(port, store=store)
-    content_type = (
-        content.get("type") if isinstance(content, dict) else type(content).__name__
-    )
+    content_type = content.get("type") if isinstance(content, dict) else type(content).__name__
     phase_state = _phase_state(project)
     signal = {
         "type": "wake_signal",
@@ -349,3 +345,72 @@ def summarize_signal(signal: dict[str, Any]) -> str:
 def is_wake_signal(event: dict[str, Any]) -> bool:
     """Return True when *event* is a hook-generated wake signal."""
     return event.get("type") == "wake_signal"
+
+
+# ---------------------------------------------------------------------------
+# Hook handlers
+# ---------------------------------------------------------------------------
+#
+# Register the signal emitters as handlers on the shared hook registry so
+# lifecycle callers can fire an event instead of importing these helpers
+# directly. ``hooks.fire(...)`` swallows-and-logs handler exceptions, so the
+# old ``contextlib.suppress(Exception)`` wrappers around direct calls are no
+# longer needed at the call site.
+
+
+def _handle_wake_direct_message(data: dict[str, Any]) -> None:
+    direct_message_signal(
+        port=int(data["port"]),
+        to_agent_id=str(data["to_agent_id"]),
+        from_agent_id=str(data["from_agent_id"]),
+        content=data.get("content"),
+        source=str(data.get("source") or "hook:wake_direct_message"),
+        store=data.get("store"),
+        target_role_name=data.get("target_role_name"),
+    )
+
+
+def _handle_wake_task_invitation(data: dict[str, Any]) -> None:
+    task_signal(
+        port=int(data["port"]),
+        task=data["task"],
+        source=str(data.get("source") or "hook:wake_task_invitation"),
+        store=data.get("store"),
+        target_role_names=data.get("target_role_names"),
+    )
+
+
+def _handle_wake_eacn_queue_pending(data: dict[str, Any]) -> None:
+    counts = data.get("counts")
+    if counts is None:
+        from minions.lifecycle.eacn_client import pending_event_counts
+
+        counts = pending_event_counts(int(data["port"]), timeout=float(data.get("timeout", 1.0)))
+    eacn_queue_pending_signals(
+        port=int(data["port"]),
+        counts=counts,
+        source=str(data.get("source") or "hook:wake_eacn_queue_pending"),
+        store=data.get("store"),
+    )
+
+
+def _handle_wake_phase_change(data: dict[str, Any]) -> None:
+    phase_change_signal(
+        port=int(data["port"]),
+        phase=data.get("phase"),
+        reason=data.get("reason"),
+        store=data.get("store"),
+    )
+
+
+def install_default_handlers() -> None:
+    """Register wake-signal emitters on the shared hook registry."""
+    from minions.lifecycle.hooks import LifecycleEvent, registry
+
+    registry.register(LifecycleEvent.wake_direct_message, _handle_wake_direct_message)
+    registry.register(LifecycleEvent.wake_task_invitation, _handle_wake_task_invitation)
+    registry.register(LifecycleEvent.wake_eacn_queue_pending, _handle_wake_eacn_queue_pending)
+    registry.register(LifecycleEvent.wake_phase_change, _handle_wake_phase_change)
+
+
+install_default_handlers()

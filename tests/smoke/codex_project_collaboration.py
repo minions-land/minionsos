@@ -225,7 +225,7 @@ def main() -> int:
         )
         step("Gru task created", bool(task.get("task", {}).get("task_id") or task.get("task")))
 
-        scheduler = WakeupScheduler(store=StateStore(), cooldown_seconds=0)
+        scheduler = WakeupScheduler(store=StateStore(), cooldown_seconds=0, mode="legacy")
         first_triggered = asyncio.run(scheduler.tick_once())
         time.sleep(0.5)
         reap_finished(store=StateStore())
@@ -286,7 +286,7 @@ def main() -> int:
             content=ethics_to_gru,
         )
 
-        message_scheduler = WakeupScheduler(store=StateStore(), cooldown_seconds=0)
+        message_scheduler = WakeupScheduler(store=StateStore(), cooldown_seconds=0, mode="legacy")
         second_triggered = asyncio.run(message_scheduler.tick_once())
         time.sleep(0.5)
         reap_finished(store=StateStore())

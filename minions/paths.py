@@ -103,30 +103,55 @@ def project_dir(port: int) -> Path:
 
 
 def project_workspace_root(port: int) -> Path:
-    """Return the workspace container for *port*."""
-    return project_dir(port) / "workspace"
+    """Return the branch-dir container for *port*.
+
+    Layout (V5 post-restructure):
+        project_{port}/branches/
+            main/        # Gru — the main branch checkout
+            coder/       # one checkout per role, one-to-one with a git branch
+            writer/
+            ...
+            shared/      # cross-role handoffs (not a branch)
+
+    The historical name ``project_workspace_root`` is kept so older callers
+    compile; new code should treat the returned directory as "branches".
+    """
+    return project_dir(port) / "branches"
 
 
 def project_main_workspace(port: int) -> Path:
-    """Return the canonical main worktree for *port*."""
+    """Return the main branch checkout (Gru's branch dir) for *port*."""
     return project_workspace_root(port) / "main"
 
 
 def project_roles_workspace_dir(port: int) -> Path:
-    """Return the directory that contains per-role worktrees for *port*."""
-    return project_workspace_root(port) / "roles"
+    """Return the branches container (flat layout: one dir per role)."""
+    return project_workspace_root(port)
 
 
 def project_shared_workspace(port: int) -> Path:
-    """Return the shared cross-role workspace for *port*."""
+    """Return the shared cross-role handoff directory for *port*."""
     return project_workspace_root(port) / "shared"
 
 
-def project_role_workspace(port: int, role_name: str) -> Path:
-    """Return the canonical workspace for *role_name* in *port*."""
+def project_role_branch_leaf(role_name: str) -> str:
+    """Return the leaf folder name under ``branches/`` for *role_name*.
+
+    Gru lives on ``branches/main/``; every other role lives on
+    ``branches/{role}/``.
+    """
     if role_name == "gru":
-        return project_main_workspace(port)
-    return project_roles_workspace_dir(port) / _safe_component(role_name)
+        return "main"
+    return _safe_component(role_name)
+
+
+def project_role_workspace(port: int, role_name: str) -> Path:
+    """Return the branch-dir (git worktree) for *role_name* in *port*.
+
+    ``role_name == "gru"`` resolves to the main branch checkout; all other
+    roles resolve to ``branches/<role>/``.
+    """
+    return project_workspace_root(port) / project_role_branch_leaf(role_name)
 
 
 def project_workspace(port: int) -> Path:
@@ -150,9 +175,13 @@ def project_session_name(port: int, role_name: str) -> str:
 
 
 def project_branch_name(port: int, role_name: str | None = None) -> str:
-    """Return the canonical git branch name for *port* and optional role."""
+    """Return the canonical git branch name for *port* and optional role.
+
+    Gru owns the project's main branch (``minionsos/project-{port}``); every
+    other role gets a derived branch ``minionsos/project-{port}-{role}``.
+    """
     base = f"minionsos/project-{port}"
-    if role_name is None or role_name == "main":
+    if role_name is None or role_name in {"main", "gru"}:
         return base
     return f"{base}-{_safe_component(role_name)}"
 
@@ -193,12 +222,37 @@ def project_artifacts_dir(port: int) -> Path:
 
 
 def project_memory_dir(port: int) -> Path:
-    """Return the per-role scratchpad ``memory/`` directory for *port*."""
+    """Legacy per-project scratchpad directory (pre-branches restructure).
+
+    Kept so one-shot migration code can still find the old ``memory/{role}.md``
+    files. New writes must go through ``project_scratchpad`` which targets
+    ``branches/<role>/.minionsos/scratchpad.md``.
+    """
     return project_dir(port) / "memory"
 
 
+def project_role_state_dir(port: int, role_name: str) -> Path:
+    """Return the per-role MinionsOS state subdir inside the role branch dir.
+
+    Holds hidden, system-layer files that belong to the role's branch:
+    scratchpad (compact memory), local wake intent recovery, etc. The name is
+    lowercase ``.minionsos`` to stay case-safe on Linux/macOS/GitHub.
+    """
+    return project_role_workspace(port, role_name) / ".minionsos"
+
+
 def project_scratchpad(port: int, role_name: str) -> Path:
-    """Return the scratchpad markdown path for *role_name* in *port*."""
+    """Return the scratchpad markdown path for *role_name* in *port*.
+
+    Location: ``project_{port}/branches/<role-branch>/.minionsos/scratchpad.md``.
+    Tracked by git on the role's branch so ``/compact`` snapshots become part
+    of the branch history.
+    """
+    return project_role_state_dir(port, role_name) / "scratchpad.md"
+
+
+def project_legacy_scratchpad(port: int, role_name: str) -> Path:
+    """Return the pre-restructure scratchpad path (used only for migration)."""
     return project_memory_dir(port) / f"{role_name}.md"
 
 

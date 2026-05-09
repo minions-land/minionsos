@@ -15,8 +15,6 @@ MinionsOS is a Python 3.11 package with a companion Vite/React dashboard. Core P
 - `MINIONS_AGENT_HOST=codex ./gru` launches the same MinionsOS control plane through Codex when `.codex/config.toml` is present.
 - `uv run ty check minions` runs the typed runtime-contract gate for the Python runtime core.
 - `uv run ruff check .` and `uv run ruff format --check .` verify linting and formatting.
-- `cargo test --workspace` runs the Rust runtime-contract tests.
-- `cargo fmt --all --check` verifies Rust formatting.
 - `cd minions-viz && npm install && npm run build` builds the dashboard; `npm run dev` starts live reload.
 
 ## Coding Style & Naming Conventions

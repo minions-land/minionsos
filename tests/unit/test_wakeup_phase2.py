@@ -88,11 +88,7 @@ class TestCooldown:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append((role, port))
 
-        sched = WakeupScheduler(
-            store=store,
-            invoke_fn=invoke,
-            cooldown_seconds=60,
-        )
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=60, mode="legacy")
         payload = {"events": [{"id": "e1"}]}
         with patch("minions.lifecycle.wakeup.poll_events", return_value=payload):
             _run(sched.tick_once())
@@ -117,11 +113,7 @@ class TestCooldown:
         def invoke(role: str, port: int, events: list[dict]) -> None:
             calls.append((role, port))
 
-        sched = WakeupScheduler(
-            store=store,
-            invoke_fn=invoke,
-            cooldown_seconds=0,
-        )
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         payload1 = {"events": [{"id": "e1"}]}
         payload2 = {"events": [{"id": "e2"}]}
         with patch("minions.lifecycle.wakeup.poll_events", return_value=payload1):
@@ -144,11 +136,7 @@ class TestHumanTrigger:
         def invoke(role: str, port: int, events: list[dict], **kw: Any) -> None:
             calls.append((role, port, events))
 
-        sched = WakeupScheduler(
-            store=store,
-            invoke_fn=invoke,
-            cooldown_seconds=0,
-        )
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         sched.trigger_role(37596, "noter", reason="user requested review")
         assert len(calls) == 1
         assert calls[0][0] == "noter"
@@ -165,18 +153,14 @@ class TestHumanTrigger:
         def invoke(role: str, port: int, events: list[dict], **kw: Any) -> None:
             calls.append(1)
 
-        sched = WakeupScheduler(
-            store=store,
-            invoke_fn=invoke,
-            cooldown_seconds=9999,
-        )
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=9999, mode="legacy")
         sched.trigger_role(37596, "noter", reason="first")
         sched.trigger_role(37596, "noter", reason="second")
         assert len(calls) == 1
 
     def test_trigger_role_unknown_role_raises(self) -> None:
         store = FakeStore([FakeProject(port=37596, active_roles=[])])
-        sched = WakeupScheduler(store=store, cooldown_seconds=0)
+        sched = WakeupScheduler(store=store, cooldown_seconds=0, mode="legacy")
         with pytest.raises(ValueError, match="not found"):
             sched.trigger_role(37596, "ghost", reason="test")
 
@@ -196,11 +180,7 @@ class TestTimeTrigger:
         def invoke(role: str, port: int, events: list[dict], **kw: Any) -> None:
             calls.append((role, port, events))
 
-        sched = WakeupScheduler(
-            store=store,
-            invoke_fn=invoke,
-            cooldown_seconds=0,
-        )
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         # Simulate that the time trigger interval has elapsed by backdating.
         sched._last_time_trigger_ts[(37596, "noter")] = time.monotonic() - 120
         empty = {"events": []}
@@ -220,11 +200,7 @@ class TestTimeTrigger:
         def invoke(role: str, port: int, events: list[dict], **kw: Any) -> None:
             calls.append(1)
 
-        sched = WakeupScheduler(
-            store=store,
-            invoke_fn=invoke,
-            cooldown_seconds=0,
-        )
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         # Last time trigger was just now — should not fire again.
         sched._last_time_trigger_ts[(37596, "noter")] = time.monotonic()
         empty = {"events": []}
@@ -245,11 +221,7 @@ class TestDispatchLogging:
         def invoke(role: str, port: int, events: list[dict], **kw: Any) -> None:
             pass
 
-        sched = WakeupScheduler(
-            store=store,
-            invoke_fn=invoke,
-            cooldown_seconds=0,
-        )
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         payload = {"events": [{"id": "e1"}]}
         with (
             patch(
@@ -282,11 +254,7 @@ class TestContextEntryControl:
             if extra_env:
                 captured_env.update(extra_env)
 
-        sched = WakeupScheduler(
-            store=store,
-            invoke_fn=invoke,
-            cooldown_seconds=0,
-        )
+        sched = WakeupScheduler(store=store, invoke_fn=invoke, cooldown_seconds=0, mode="legacy")
         payload = {"events": [{"id": "e1"}]}
         with patch("minions.lifecycle.wakeup.poll_events", return_value=payload):
             _run(sched.tick_once())

@@ -147,7 +147,7 @@ class TestGruInboxPollAdapter:
             polled.append(agent_id)
             return {"events": []}
 
-        sched = WakeupScheduler(store=store, invoke_fn=lambda *a, **kw: None)
+        sched = WakeupScheduler(store=store, invoke_fn=lambda *a, **kw: None, mode="legacy")
         with patch("minions.lifecycle.wakeup.poll_events", side_effect=fake_poll):
             asyncio.run(sched.tick_once())
 
