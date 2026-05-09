@@ -104,7 +104,17 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "project_revive",
         "project_set_phase",
         "project_list",
+        # EACN3 native tools: Gru is the only role that may keep them because
+        # Gru also acts as a Global EACN3 agent terminal on the human's behalf.
+        # MinionsOS internal collaboration should still go through mos_*.
         "eacn3_*",
+        # MOS Agent Pool — unified MinionsOS-internal EACN3 access.
+        "mos_await_events",
+        "mos_send_message",
+        "mos_create_task",
+        "mos_pending_read",
+        "mos_pending_wipe",
+        "mos_ack_clear",
         "spawn_role",
         "spawn_expert",
         "dismiss_role",
