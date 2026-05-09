@@ -27,14 +27,14 @@ to work around the invitation through direct messages or manual bidding.
 
 Any registered EACN-visible work Role may publish Local EACN tasks. Task
 publication is not a Gru-only privilege. When you create a task from a work
-Role, call `eacn3_create_task`, use your injected EACN `agent_id` as
+Role, call `mos_create_task`, use your injected EACN `agent_id` as
 `initiator_id`, include specific routing `domains`, and set `invited_agent_ids`
 only when the work has a clear owner. Public tasks without `invited_agent_ids`
 are visible opportunities for work Roles, so describe the needed capability
-precisely and accept that uninterested Roles may stay silent. MinionsOS adapter
-tools are allowed only when they call EACN3 internally; they are convenience
-wrappers, not a second protocol. Noter is an observer unless its role-specific
-prompt or a human explicitly assigns otherwise.
+precisely and accept that uninterested Roles may stay silent. The MOS Agent
+Pool (`mos_*`) is a thin wrapper that calls EACN3 internally and adds a
+local crash-shim; it is not a second protocol. Noter is an observer unless
+its role-specific prompt or a human explicitly assigns otherwise.
 
 ## Role-to-role collaboration first
 
@@ -130,26 +130,70 @@ script, `exp_run`, or remote process.
 ## Wake window protocol
 
 MinionsOS launches you as a bounded wake window. When you start, read this
-file and your role-specific prompt once, then enter the event loop:
+file and your role-specific prompt once, then enter the event loop.
 
-1. Call `eacn3_await_events(timeout_seconds=120)` to fetch pending events for
-   your EACN agent. This is EACN3's long-poll: it returns immediately if any
-   event is waiting, and returns an empty result after ~120 seconds of
-   silence.
-2. If events arrived, handle them one by one using the collaboration rules
-   below (decide responsibility, respond through EACN, spawn subagents for
-   substantive work, update artifacts, record evidence).
-3. If the call returned empty (no events within the timeout), exit the loop.
-4. If events arrived, go back to step 1 immediately — do not sleep, and do
-   not stop until `await_events` comes back empty.
+MinionsOS internal collaboration goes through the MOS Agent Pool — a thin
+wrapper over EACN3 that adds a local ACK crash-shim. Use:
 
-Do not insert arbitrary sleeps between iterations; `await_events` already
-blocks for you. Do not downgrade to `eacn3_get_events` or `eacn3_next` for
-the main loop — those do not long-poll.
+- `mos_await_events(port, role_name, agent_id, timeout_seconds=60)` — drain
+  EACN3 events for your agent with a local copy persisted for crash recovery.
+- `mos_send_message(port, to_agent_id, from_agent_id, content)` — send a
+  direct message.
+- `mos_create_task(port, description, domains, initiator_id, ...)` — publish
+  a task.
+- `mos_ack_clear(port, role_name, event_ids)` — after finishing a batch,
+  clear those event ids from the local pending inbox.
+
+Do **not** call `eacn3_await_events` / `eacn3_get_events` / `eacn3_next`,
+`eacn3_send_message`, or `eacn3_create_task` directly for internal
+collaboration — those bypass the MOS Agent Pool's crash-recovery layer.
+Non-destructive EACN3 reads (`eacn3_get_task`, `eacn3_get_messages`,
+`eacn3_list_tasks`, `eacn3_list_agents`, ...) remain fine to call directly
+since they do not drain any queue.
+
+### Main loop
+
+1. Call `mos_await_events(port, role_name, agent_id, timeout_seconds=60)` to
+   fetch pending events for your EACN agent. This is EACN3's long-poll: it
+   returns immediately if any event is waiting, and returns an empty result
+   after up to ~60 seconds of silence (the backend cap).
+2. **Before acting on any event, think step by step and write a short plan**
+   (3-6 lines): what is this event, am I the responsible role, what will I
+   do and in what order, what dependency or risk must I verify first. Do
+   not skip the plan — it is mandatory, including for seemingly trivial
+   events.
+3. Execute the plan using the collaboration rules below (decide
+   responsibility, respond through EACN, spawn subagents for substantive
+   work, update artifacts, record evidence).
+4. After each event is fully handled, call `mos_ack_clear(port, role_name,
+   [event_id])` so the local pending inbox stays in sync with your progress.
+5. If events arrived, go back to step 1 immediately — do not sleep, and do
+   not stop until `mos_await_events` comes back empty.
+6. If step 1 returned empty (no events within the timeout), exit the loop.
+
+Do not insert arbitrary sleeps between iterations; `mos_await_events`
+already blocks for you.
+
+### Pending-inbox recovery (crash replay)
+
+If your init prompt contains a block titled "Pending from previous wake",
+those are events that a previous wake drained from EACN3 but did not
+finish processing before exiting. For each pending event:
+
+1. Verify it is still relevant by calling `eacn3_get_task(task_id)` or
+   `eacn3_get_messages(...)` — the original task may have been completed,
+   timed out, or re-assigned since then.
+2. If still relevant, handle it (plan first, then act, per main-loop rules).
+   Then call `mos_ack_clear` for its event id.
+3. If no longer relevant, call `mos_ack_clear` for its event id anyway to
+   retire it from the pending inbox.
+
+The pending inbox is MinionsOS-owned disk state. Do not read or write its
+files directly — use `mos_ack_clear` / the init prompt's injected block.
 
 ### Exit sequence
 
-When step 3 exits the loop, before the process terminates:
+When step 6 exits the loop, before the process terminates:
 
 1. Call `eacn3_disconnect` (or the closest available disconnect tool) to
    release this agent's network-side state cleanly. Never leave the queue
