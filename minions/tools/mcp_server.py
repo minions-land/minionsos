@@ -87,6 +87,12 @@ _MINIONS_MCP_TOOL_NAMES = {
     "gru_relay",
     "project_eacn_send_message",
     "project_eacn_create_task",
+    "mos_await_events",
+    "mos_send_message",
+    "mos_create_task",
+    "mos_pending_read",
+    "mos_pending_wipe",
+    "mos_ack_clear",
     "exp_run",
     "exp_status",
     "exp_wait",
@@ -373,6 +379,55 @@ class ProjectEacnCreateTaskArgs(BaseModel):
     task_id: str | None = Field(default=None)
 
 
+class MosAwaitEventsArgs(BaseModel):
+    port: int = Field(description="Project EACN3 backend port.")
+    role_name: str = Field(description="MinionsOS role name (used to locate the pending inbox).")
+    agent_id: str = Field(description="Your EACN agent id. Do not pass another role's id.")
+    timeout_seconds: int = Field(
+        default=60,
+        ge=0,
+        le=60,
+        description="Server-side long-poll timeout (0-60). EACN3 backend caps at 60.",
+    )
+
+
+class MosSendMessageArgs(BaseModel):
+    port: int = Field(description="Project EACN3 backend port.")
+    to_agent_id: str = Field(description="Target EACN agent id.")
+    from_agent_id: str = Field(description="Your EACN agent id.")
+    content: Any = Field(description="Message content.")
+
+
+class MosCreateTaskArgs(BaseModel):
+    port: int = Field(description="Project EACN3 backend port.")
+    description: str = Field(description="Task description.")
+    domains: list[str] = Field(default_factory=list, description="Routing domains.")
+    initiator_id: str = Field(description="Your EACN agent id.")
+    budget: float = Field(default=0.0, ge=0.0)
+    expected_output: dict | None = Field(default=None)
+    deadline: str | None = Field(default=None)
+    level: str | None = Field(default=None)
+    invited_agent_ids: list[str] = Field(default_factory=list)
+    max_concurrent_bidders: int | None = Field(default=None)
+    task_id: str | None = Field(default=None)
+
+
+class MosPendingArgs(BaseModel):
+    port: int = Field(description="Project EACN3 backend port.")
+    role_name: str = Field(description="MinionsOS role name.")
+
+
+class MosAckClearArgs(BaseModel):
+    port: int = Field(description="Project EACN3 backend port.")
+    role_name: str = Field(description="MinionsOS role name.")
+    event_ids: list[str] = Field(
+        description=(
+            "Event IDs already fully processed. Remove them from the role's "
+            "pending inbox so they are not replayed on the next wake."
+        ),
+    )
+
+
 class PaperSearchArgs(BaseModel):
     query: str = Field(description="Academic paper search query.")
     max_results: int = Field(default=10, ge=1, le=50)
@@ -600,6 +655,110 @@ def project_eacn_create_task(args: ProjectEacnCreateTaskArgs) -> dict:
         level=args.level,
         task_id=args.task_id,
     )
+
+
+# ---------------------------------------------------------------------------
+# MOS Agent Pool — the EACN3 access layer used by MinionsOS internal roles.
+# See minions/lifecycle/mos_pool.py for the full rationale.
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def mos_await_events(args: MosAwaitEventsArgs) -> dict:
+    """Drain EACN3 events for your agent, with a local ACK copy to disk.
+
+    MinionsOS internal roles call this instead of ``eacn3_await_events``.
+    The returned event list has the same shape as the native EACN3 tool;
+    additionally, the same events are persisted to the role's
+    ``.minionsos/inbox/pending.jsonl`` as a per-wake crash shim. Call
+    ``mos_ack_clear`` with the event ids you have finished processing so the
+    pending file stays empty during normal operation.
+    """
+    _require_tool_allowed("mos_await_events")
+    from minions.lifecycle import mos_pool
+
+    return mos_pool.mos_await_events(
+        port=args.port,
+        role_name=args.role_name,
+        agent_id=args.agent_id,
+        timeout_seconds=args.timeout_seconds,
+    )
+
+
+@mcp.tool()
+def mos_send_message(args: MosSendMessageArgs) -> dict:
+    """Send a direct EACN3 message through the MOS Agent Pool."""
+    _require_tool_allowed("mos_send_message")
+    from minions.lifecycle import mos_pool
+
+    return mos_pool.mos_send_message(
+        port=args.port,
+        to_agent_id=args.to_agent_id,
+        from_agent_id=args.from_agent_id,
+        content=args.content,
+    )
+
+
+@mcp.tool()
+def mos_create_task(args: MosCreateTaskArgs) -> dict:
+    """Create an EACN3 task through the MOS Agent Pool."""
+    _require_tool_allowed("mos_create_task")
+    from minions.lifecycle import mos_pool
+
+    return mos_pool.mos_create_task(
+        port=args.port,
+        description=args.description,
+        domains=args.domains,
+        initiator_id=args.initiator_id,
+        budget=args.budget,
+        expected_output=args.expected_output,
+        deadline=args.deadline,
+        level=args.level,
+        invited_agent_ids=args.invited_agent_ids or None,
+        max_concurrent_bidders=args.max_concurrent_bidders,
+        task_id=args.task_id,
+    )
+
+
+@mcp.tool()
+def mos_pending_read(args: MosPendingArgs) -> dict:
+    """Return the pending inbox contents. Agents do not normally call this;
+    MinionsOS surfaces pending events in the next wake's init prompt itself.
+    Exposed as a tool primarily for debugging and for Noter-style auditors.
+    """
+    _require_tool_allowed("mos_pending_read")
+    from minions.lifecycle import mos_pool
+
+    events = mos_pool.mos_pending_read(args.port, args.role_name)
+    return {"count": len(events), "events": events}
+
+
+@mcp.tool()
+def mos_pending_wipe(args: MosPendingArgs) -> dict:
+    """Clear the pending inbox file for a role. Intended for operator recovery,
+    not routine role use. Agents should use ``mos_ack_clear`` to drop only the
+    ids they truly handled."""
+    _require_tool_allowed("mos_pending_wipe")
+    from minions.lifecycle import mos_pool
+
+    mos_pool.mos_pending_wipe(args.port, args.role_name)
+    return {"ok": True}
+
+
+@mcp.tool()
+def mos_ack_clear(args: MosAckClearArgs) -> dict:
+    """Remove processed event ids from the role's pending inbox.
+
+    Call this after successfully handling events returned by
+    ``mos_await_events``. The pending inbox only exists to rescue a wake that
+    crashed mid-flight; in the normal happy path ACK-ing each batch keeps the
+    file empty so the next wake starts clean.
+    """
+    _require_tool_allowed("mos_ack_clear")
+    from minions.lifecycle import mos_pool
+
+    removed = mos_pool.mos_ack_clear(args.port, args.role_name, args.event_ids)
+    return {"removed": removed}
 
 
 @mcp.tool()
