@@ -36,7 +36,7 @@ def test_claude_role_invocation_preserves_legacy_flags(
     assert "-p" in invocation.command
 
 
-def test_codex_role_invocation_uses_exec_stdin_and_embeds_system(
+def test_codex_role_invocation_uses_exec_stdin_and_defers_system_to_agents_md(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("MINIONS_AGENT_HOST", raising=False)
@@ -63,13 +63,21 @@ def test_codex_role_invocation_uses_exec_stdin_and_embeds_system(
     assert "gpt-test" in invocation.command
     assert "--append-system-prompt" not in invocation.command
     assert "--allowed-tools" not in invocation.command
-    assert "role system" in invocation.stdin_text
+    # SYSTEM.md must NOT be inlined in stdin; it reaches Codex via
+    # <workspace>/AGENTS.md (auto-discovered) so rules live in the host
+    # instruction layer outside the conversation body.
+    assert "role system" not in invocation.stdin_text
+    assert "# Role System Prompt" not in invocation.stdin_text
+    assert "AGENTS.md" in invocation.stdin_text
     assert "event payload" in invocation.stdin_text
     assert f"Workspace: `{tmp_path}`" in invocation.stdin_text
     assert "MinionsOS contract labels" in invocation.stdin_text
     assert "`Task` means the current host's native subagent/delegation capability" in (
         invocation.stdin_text
     )
+    # Subprocess cwd must be the workspace so Codex auto-discovery finds
+    # AGENTS.md, and resume filters match this role's session.
+    assert invocation.cwd == tmp_path
 
 
 def test_codex_role_invocation_can_disable_bypass_with_danger_full_access(

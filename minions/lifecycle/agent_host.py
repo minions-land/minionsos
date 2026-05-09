@@ -116,12 +116,16 @@ def _build_codex_role_invocation(
 ) -> RoleInvocation:
     """Build a Codex non-interactive role invocation.
 
-    Codex does not expose Claude's ``--append-system-prompt`` or
-    ``--allowed-tools`` flags. We inline the combined system prompt in stdin
-    and rely on MinionsOS MCP server-side authorization for project lifecycle
-    tools. The Codex process still starts from ``MINIONS_ROOT`` so local config
-    can be loaded, while ``--cd`` points the agent at the role workspace and the
-    project directory is added as a writable directory.
+    Codex does not expose Claude's ``--append-system-prompt``. Instead the role
+    SYSTEM.md is written to ``<workspace>/AGENTS.md`` before launch and
+    auto-discovered by Codex when it starts inside ``<workspace>``. The stdin
+    prompt only carries the bounded wake-window brief and the event batch; it
+    must not re-inline SYSTEM.md so the rules stay outside any auto-compact
+    pressure on the conversation body.
+
+    For resume, Codex's ``resume --last`` filters recorded sessions by cwd, so
+    we launch the subprocess with ``cwd=workspace`` (not ``--cd``; resume does
+    not accept it) to pick the right role's session.
     """
     if resume_session:
         cmd = [
@@ -159,7 +163,6 @@ def _build_codex_role_invocation(
     stdin_text = _codex_stdin(
         role_name=role_name,
         project_port=project_port,
-        system_path=system_path,
         allowed_tools=allowed_tools,
         message=message,
         workspace=workspace,
@@ -167,7 +170,7 @@ def _build_codex_role_invocation(
     return RoleInvocation(
         host_name="codex",
         command=cmd,
-        cwd=MINIONS_ROOT,
+        cwd=workspace if workspace.exists() else MINIONS_ROOT,
         stdin_text=stdin_text,
         session_name=session_name,
     )
@@ -177,18 +180,24 @@ def _codex_stdin(
     *,
     role_name: str,
     project_port: int,
-    system_path: Path | None,
     allowed_tools: str,
     message: str,
     workspace: Path,
 ) -> str:
+    """Render the stdin message for a Codex wake window.
+
+    Only carries the bounded wake-window brief and the event batch. The role
+    SYSTEM.md is injected via ``<workspace>/AGENTS.md`` (Codex auto-discovery)
+    so rules stay out of the conversation body that auto-compact targets.
+    """
     pdir = project_dir(project_port)
     parts = [
         "# MinionsOS Codex Role Invocation",
         "",
         f"You are the MinionsOS `{role_name}` role for project `{project_port}`.",
         "This is a bounded role wake window. Complete or checkpoint the work, then exit.",
-        "MinionsOS preserves the host session for later resume unless explicitly disabled.",
+        "Your role contract and boundaries are in `AGENTS.md` in this directory; "
+        "read it if you haven't already this session.",
         "",
         "Paths:",
         f"- MinionsOS root: `{MINIONS_ROOT}`",
@@ -198,7 +207,6 @@ def _codex_stdin(
         f"- Codex MCP config: `{MINIONS_ROOT / '.codex' / 'config.toml'}`",
         "",
         "Codex host notes:",
-        "- Follow the role contract below as system-level instruction.",
         "- Use MCP tools only within the MinionsOS role boundary.",
         "- MinionsOS MCP server enforces project lifecycle tool permissions.",
         f"- Intended role tool allowlist: `{allowed_tools}`.",
@@ -206,25 +214,8 @@ def _codex_stdin(
         "current host's native subagent/delegation capability, not a required "
         "Codex tool with that literal name.",
         "",
+        "# Event Batch",
+        "",
+        message,
     ]
-    if system_path and system_path.exists():
-        try:
-            parts.extend(
-                [
-                    "# Role System Prompt",
-                    "",
-                    system_path.read_text(encoding="utf-8").strip(),
-                    "",
-                ]
-            )
-        except Exception:
-            parts.extend(
-                [
-                    "# Role System Prompt",
-                    "",
-                    f"Read and follow `{system_path}` before handling the event batch.",
-                    "",
-                ]
-            )
-    parts.extend(["# Event Batch", "", message])
     return "\n".join(parts).rstrip() + "\n"
