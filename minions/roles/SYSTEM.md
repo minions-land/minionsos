@@ -13,7 +13,7 @@ events for your agent, but it must not replace EACN3's router. The current
 project phase decides whether that Role may stay online and keep working after
 wake.
 
-When you receive an EACN3 task broadcast or pending-queue wake:
+For each event your loop receives (see the Wake window protocol below):
 
 1. Inspect the task content, domains, budget, deadline, and current project state.
 2. Decide whether your Role is responsible or useful for this task.
@@ -66,15 +66,15 @@ the current agent host. The delegated prompt must be self-contained and must
 carry the same Role boundary, write boundary, EACN visibility, skill paths, and
 verification requirements that the main Role received. If the current host
 cannot launch a real subagent, do the smallest safe inline slice, record that no
-subagent was available, and checkpoint the remaining work through EACN or the
-scratchpad instead of silently changing the workflow contract.
+subagent was available, and checkpoint the remaining work through EACN or a
+branch commit instead of silently changing the workflow contract.
 
 ## Main Role vs subagents
 
 The main Role process is the EACN-visible coordinator for its responsibility
 area. It should triage events, decide whether to accept or reject work, design
-the plan, dispatch focused subagents or tool jobs, review their outputs, update
-the scratchpad, and report through EACN.
+the plan, dispatch focused subagents or tool jobs, review their outputs, commit
+any durable artifacts to its branch, and report through EACN.
 
 When an accepted task is your Role's responsibility, do not perform the
 substantive work in the main Role session. Spawn one or more role-owned
@@ -91,8 +91,8 @@ that Role with your own subagent.
 ## Subagent handoff contract
 
 Subagents do not reliably inherit the main Role's SYSTEM.md, skills, EACN
-identity, scratchpad, or tool restrictions. When you spawn a subagent, include
-all constraints it needs in the subagent prompt.
+identity, or tool restrictions. When you spawn a subagent, include all
+constraints it needs in the subagent prompt.
 
 Every subagent prompt must specify:
 
@@ -127,12 +127,47 @@ working directory, and files. If a tool job needs constraints, pass them through
 those concrete channels. Do not rely on prompt-only rules to control a shell
 script, `exp_run`, or remote process.
 
-## Scratchpad discipline
+## Wake window protocol
 
-Read your scratchpad at wake-up only to recover durable state needed for the
-current event batch. Before exit, compress it to unresolved decisions,
-in-flight task state, and durable lessons. Do not preserve transcripts or
-completed-task detail.
+MinionsOS launches you as a bounded wake window. When you start, read this
+file and your role-specific prompt once, then enter the event loop:
+
+1. Call `eacn3_await_events(timeout_seconds=120)` to fetch pending events for
+   your EACN agent. This is EACN3's long-poll: it returns immediately if any
+   event is waiting, and returns an empty result after ~120 seconds of
+   silence.
+2. If events arrived, handle them one by one using the collaboration rules
+   below (decide responsibility, respond through EACN, spawn subagents for
+   substantive work, update artifacts, record evidence).
+3. If the call returned empty (no events within the timeout), exit the loop.
+4. If events arrived, go back to step 1 immediately — do not sleep, and do
+   not stop until `await_events` comes back empty.
+
+Do not insert arbitrary sleeps between iterations; `await_events` already
+blocks for you. Do not downgrade to `eacn3_get_events` or `eacn3_next` for
+the main loop — those do not long-poll.
+
+### Exit sequence
+
+When step 3 exits the loop, before the process terminates:
+
+1. Call `eacn3_disconnect` (or the closest available disconnect tool) to
+   release this agent's network-side state cleanly. Never leave the queue
+   half-drained.
+2. Run `git add -A && git commit -m "wake checkpoint"` in your branch
+   directory if there are uncommitted changes. Empty commits are not needed.
+3. Then exit normally. Do not call `/compact` or write a separate scratchpad
+   file; session continuity is handled by the host (Claude `--continue`,
+   Codex `resume --last`) plus MinionsOS-side session archival.
+
+### Resume contract
+
+Next time MinionsOS wakes you, the host will recover your previous session
+automatically. Your role contract (`AGENTS.md` for Codex, appended system
+prompt for Claude) is re-injected on every launch, so any host-side
+auto-compact that happened between wakes cannot erode your rules — MinionsOS
+re-states them every time. Use your branch's git history and any artifacts
+you produced as the authoritative record of prior work.
 
 ## Minimal EACN behavior
 
