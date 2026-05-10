@@ -153,6 +153,27 @@ since they do not drain any queue.
 
 ### Main loop
 
+Run the loop with a small idle-tolerance counter. Three back-to-back empty
+polls (~3 minutes of true silence) are needed before you exit — a single
+60-second quiet stretch is not enough, since project-local work often has
+natural pauses between events.
+
+```
+empty_streak = 0
+while True:
+    result = mos_await_events(port, role_name, agent_id, timeout_seconds=60)
+    if result["events"]:
+        empty_streak = 0
+        for event in result["events"]:
+            plan(event)          # step 2 below — mandatory
+            execute(event)       # step 3
+            mos_ack_clear(port, role_name, [event_id])  # step 4
+        continue
+    empty_streak += 1
+    if empty_streak >= 3:
+        break                    # exit after ~3 min of silence
+```
+
 1. Call `mos_await_events(port, role_name, agent_id, timeout_seconds=60)` to
    fetch pending events for your EACN agent. This is EACN3's long-poll: it
    returns immediately if any event is waiting, and returns an empty result
@@ -167,9 +188,11 @@ since they do not drain any queue.
    work, update artifacts, record evidence).
 4. After each event is fully handled, call `mos_ack_clear(port, role_name,
    [event_id])` so the local pending inbox stays in sync with your progress.
-5. If events arrived, go back to step 1 immediately — do not sleep, and do
-   not stop until `mos_await_events` comes back empty.
-6. If step 1 returned empty (no events within the timeout), exit the loop.
+5. If any event arrived in this round, reset the empty-streak counter and
+   go back to step 1 immediately — do not sleep, `mos_await_events`
+   already blocks for you.
+6. If step 1 returned empty, increment the empty-streak counter. Only when
+   it hits 3 (≈3 minutes of true silence) exit the loop.
 
 Do not insert arbitrary sleeps between iterations; `mos_await_events`
 already blocks for you.
@@ -193,7 +216,8 @@ files directly — use `mos_ack_clear` / the init prompt's injected block.
 
 ### Exit sequence
 
-When step 6 exits the loop, before the process terminates:
+When the empty-streak counter trips the loop exit, before the process
+terminates:
 
 1. Call `eacn3_disconnect` (or the closest available disconnect tool) to
    release this agent's network-side state cleanly. Never leave the queue
