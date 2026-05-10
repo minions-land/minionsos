@@ -220,6 +220,55 @@ def _now_iso() -> str:
     return datetime.now(tz=UTC).isoformat()
 
 
+def _read_pending_safely(project_port: int, role_name: str) -> list[dict[str, Any]]:
+    """Return the pending inbox contents, swallowing any error.
+
+    The pending inbox is the per-role crash-shim managed by
+    ``minions.lifecycle.mos_pool``. Reading it must never fail a wake:
+    if the file is corrupt or the module is temporarily unavailable we
+    log and act as if there is nothing pending.
+    """
+    try:
+        from minions.lifecycle import mos_pool
+
+        return mos_pool.mos_pending_read(project_port, role_name)
+    except Exception as exc:
+        logger.debug(
+            "wake: reading pending inbox failed (port=%d role=%s): %s",
+            project_port,
+            role_name,
+            exc,
+        )
+        return []
+
+
+def _summarize_pending_entry(entry: dict[str, Any]) -> str:
+    """Render a single pending-inbox event as a one-line preamble bullet.
+
+    Keeps the prompt short: agent is expected to go look up full details
+    via non-destructive EACN3 reads (eacn3_get_task / eacn3_get_messages)
+    before acting. We only surface the identifier and a minimal routing
+    hint so the agent knows which queue position this entry represents.
+    """
+    event_id = ""
+    for key in ("msg_id", "id", "event_id", "task_id"):
+        val = entry.get(key)
+        if isinstance(val, str) and val:
+            event_id = val
+            break
+    event_type = str(entry.get("type") or "unknown")
+    task_id = str(entry.get("task_id") or "")
+    parts = [f"event_id=`{event_id or '<missing>'}`", f"type=`{event_type}`"]
+    if task_id and task_id != event_id:
+        parts.append(f"task_id=`{task_id}`")
+    payload = entry.get("payload")
+    if isinstance(payload, dict):
+        src = payload.get("from") or payload.get("initiator_id")
+        if isinstance(src, str) and src:
+            parts.append(f"from=`{src}`")
+    return ", ".join(parts)
+
+
 def _build_system_prompt(role: str) -> Path | None:
     role_path = role_system_md(role if not role.startswith("expert") else "expert")
     common_path = common_role_system_md()
@@ -956,6 +1005,32 @@ def _format_event_message(
         if session_name:
             preamble += f"- Session name: `{session_name}`\n"
         preamble += f"- Resume session: `{str(bool(resume_session)).lower()}`\n\n"
+
+    # Surface un-ACK'd events from the previous wake's crash-shim, if any.
+    # The common SYSTEM.md Wake window protocol already tells the role how
+    # to handle a "Pending from previous wake" block: verify each is still
+    # relevant (eacn3_get_task / eacn3_get_messages), handle if so, then
+    # call mos_ack_clear with the event id either way so it retires from
+    # pending.jsonl. A healthy wake cycle leaves the file empty, and this
+    # block is then omitted entirely.
+    if project_port is not None and role_name:
+        pending = _read_pending_safely(project_port, role_name)
+        if pending:
+            preamble += "[Pending from previous wake]\n"
+            preamble += (
+                f"The previous wake drained {len(pending)} event(s) from EACN3 "
+                "but did not finish ACK'ing them before exiting. Each entry "
+                "below is already off EACN3's server-side queue, so you must "
+                "handle or retire it here. See the common SYSTEM.md "
+                "Pending-inbox recovery section for the exact flow.\n\n"
+            )
+            for entry in pending:
+                preamble += f"- {_summarize_pending_entry(entry)}\n"
+            preamble += (
+                "\nAfter you handle or decide to retire each entry, call "
+                "`mos_ack_clear(port, role_name, [event_id])` so it is "
+                "removed from `.minionsos/inbox/pending.jsonl`.\n\n"
+            )
     if project_phase is not None:
         current_phase = project_phase["current_phase"] or "unset"
         phase_version = project_phase["phase_version"]
