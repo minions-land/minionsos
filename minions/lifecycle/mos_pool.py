@@ -50,12 +50,16 @@ from minions.paths import project_role_workspace
 logger = logging.getLogger(__name__)
 
 
-# EACN3 backend caps GET /api/events/{agent_id}?timeout at 60s (see
-# EACN3/eacn/network/api/routes.py: Query(default=0, ge=0, le=60)).
-# MinionsOS internal callers pass up to this ceiling; callers that want a
-# longer wait should loop.
-MOS_AWAIT_TIMEOUT_MAX_SEC = 60
-MOS_AWAIT_TIMEOUT_DEFAULT_SEC = 60
+# EACN3 backend caps each GET /api/events/{agent_id}?timeout at 60s (see
+# EACN3/eacn/network/api/routes.py: Query(default=0, ge=0, le=60)). That's
+# a protocol constraint we intentionally do not modify.
+# MinionsOS-side we hide it from agents: mos_await_events does N chunked
+# 60s polls inside one tool call, returning as soon as any chunk produces
+# events. Agents see a single long-poll call that lasts up to
+# MOS_AWAIT_TIMEOUT_DEFAULT_SEC.
+EACN3_POLL_CHUNK_SEC = 60
+MOS_AWAIT_TIMEOUT_DEFAULT_SEC = 3600  # 1 hour wake-window patience
+MOS_AWAIT_TIMEOUT_MAX_SEC = 86400  # hard ceiling: 24 hours per tool call
 
 
 # ---------------------------------------------------------------------------
@@ -208,7 +212,15 @@ def mos_await_events(
     timeout_seconds: int = MOS_AWAIT_TIMEOUT_DEFAULT_SEC,
     http_timeout: float = 10.0,
 ) -> dict[str, Any]:
-    """Drain events for *agent_id* with a local ACK copy to pending.jsonl.
+    """Long-poll EACN3 events for *agent_id* — one tool call, ≤ *timeout_seconds* wait.
+
+    From the caller's perspective this is a single tool invocation. Internally
+    it chunks the wait into EACN3's 60-second-capped HTTP long-polls. It
+    returns as soon as ANY chunk yields events; it only returns an empty
+    result after the full *timeout_seconds* of silence has elapsed with no
+    events. Either way the caller pays the token cost of exactly one tool
+    call, which is the whole point of this wrapper — agents do not see the
+    underlying chunk loop and must never be asked to implement it in prompts.
 
     Parameters
     ----------
@@ -222,34 +234,46 @@ def mos_await_events(
         agent id; passing someone else's id would drain their queue, which
         only Gru-as-Gru on its own id should ever do.
     timeout_seconds:
-        Server-side long-poll timeout (0..60). Values above 60 are clamped.
+        Total wait budget in seconds (0 to :data:`MOS_AWAIT_TIMEOUT_MAX_SEC`).
+        Default is 1 hour. The value is clamped to the allowed range.
     http_timeout:
-        Client-side HTTP socket timeout safety margin.
+        Per-chunk HTTP socket timeout safety margin.
 
     Returns
     -------
-    ``{"events": [...], "count": int, "timeout": bool, "pending_count": int}``
-    where ``timeout`` is True when EACN3 returned an empty list after waiting
-    out the full ``timeout_seconds`` and ``pending_count`` is the number of
-    entries now on disk (normally == ``count``, higher if previous wakes left
-    leftover entries).
+    ``{"events": [...], "count": int, "timeout": bool, "pending_count": int}``.
+    ``timeout`` is True only when the full *timeout_seconds* elapsed with no
+    events.
     """
     if timeout_seconds < 0:
         timeout_seconds = 0
     if timeout_seconds > MOS_AWAIT_TIMEOUT_MAX_SEC:
         timeout_seconds = MOS_AWAIT_TIMEOUT_MAX_SEC
 
-    try:
-        payload = eacn_client.poll_events(
-            port=port,
-            agent_id=agent_id,
-            timeout_secs=timeout_seconds,
-            http_timeout=http_timeout,
-        )
-    except BackendError:
-        raise
-    events_raw = payload.get("events") or payload.get("messages") or []
-    events: list[dict[str, Any]] = [e for e in events_raw if isinstance(e, dict)]
+    # Python-side chunked long-poll. Each chunk is a normal EACN3 long-poll
+    # respecting the backend's 60s cap; the chunk boundaries are invisible
+    # to the caller. We return early the moment any chunk yields events.
+    remaining = timeout_seconds
+    events: list[dict[str, Any]] = []
+    while True:
+        this_chunk = min(EACN3_POLL_CHUNK_SEC, remaining) if remaining > 0 else 0
+        try:
+            payload = eacn_client.poll_events(
+                port=port,
+                agent_id=agent_id,
+                timeout_secs=this_chunk,
+                http_timeout=http_timeout + this_chunk,
+            )
+        except BackendError:
+            raise
+        events_raw = payload.get("events") or payload.get("messages") or []
+        events = [e for e in events_raw if isinstance(e, dict)]
+        if events:
+            break
+        remaining -= this_chunk
+        if remaining <= 0:
+            break
+        # EACN3 returned cleanly with no events — keep going.
 
     # Side effect: persist a local ACK copy before returning to the caller.
     # We do this synchronously; if the append fails we still return the events

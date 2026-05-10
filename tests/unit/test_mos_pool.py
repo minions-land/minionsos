@@ -159,21 +159,42 @@ def test_pending_wipe_removes_file(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 def test_await_events_clamps_timeout_above_ceiling(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Values above MOS_AWAIT_TIMEOUT_MAX_SEC are clamped to that ceiling.
+
+    We verify the public contract: the tool should not block for more than
+    MAX seconds total, even if the caller passes something larger. We do
+    NOT assert that EACN3 sees that value directly — internally the loop
+    chops it into 60s chunks.
+    """
     monkeypatch.setattr(
         mos_pool,
         "project_role_workspace",
         lambda port, role: tmp_path / f"p{port}" / role,
     )
-    captured: dict = {}
+
+    chunk_sizes: list[int] = []
 
     def fake_poll(**kwargs):
-        captured.update(kwargs)
+        chunk_sizes.append(int(kwargs["timeout_secs"]))
+        # Immediately return empty so the loop exhausts its budget quickly
+        # via the chunk size, not via real waiting.
         return {"events": [], "count": 0}
 
     monkeypatch.setattr(mos_pool.eacn_client, "poll_events", fake_poll)
 
-    mos_pool.mos_await_events(37596, "coder", "coder-agent", timeout_seconds=9999)
-    assert captured["timeout_secs"] == mos_pool.MOS_AWAIT_TIMEOUT_MAX_SEC
+    # Passing a value far above the ceiling gets clamped. With the ceiling
+    # of 86400 and a 60s chunk, the loop would issue 1440 chunks at most;
+    # every chunk must be <= 60 seconds (EACN3's own hard cap).
+    mos_pool.mos_await_events(
+        37596,
+        "coder",
+        "coder-agent",
+        timeout_seconds=mos_pool.MOS_AWAIT_TIMEOUT_MAX_SEC + 10_000,
+    )
+    assert chunk_sizes  # at least one call made
+    assert all(c <= mos_pool.EACN3_POLL_CHUNK_SEC for c in chunk_sizes)
+    # Total wait must not exceed the ceiling.
+    assert sum(chunk_sizes) <= mos_pool.MOS_AWAIT_TIMEOUT_MAX_SEC
 
 
 def test_await_events_clamps_negative_to_zero(
@@ -193,7 +214,62 @@ def test_await_events_clamps_negative_to_zero(
     monkeypatch.setattr(mos_pool.eacn_client, "poll_events", fake_poll)
 
     mos_pool.mos_await_events(37596, "coder", "coder-agent", timeout_seconds=-5)
+    # Clamped to zero -> one immediate non-blocking poll and exit.
     assert captured["timeout_secs"] == 0
+
+
+def test_await_events_chunks_long_timeouts_into_60s_polls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Python-side loop must respect EACN3's 60s per-call cap."""
+    monkeypatch.setattr(
+        mos_pool,
+        "project_role_workspace",
+        lambda port, role: tmp_path / f"p{port}" / role,
+    )
+
+    chunks: list[int] = []
+
+    def fake_poll(**kwargs):
+        chunks.append(int(kwargs["timeout_secs"]))
+        return {"events": [], "count": 0}
+
+    monkeypatch.setattr(mos_pool.eacn_client, "poll_events", fake_poll)
+
+    # 3 hours should be split into 180 chunks of 60s.
+    mos_pool.mos_await_events(37596, "coder", "coder-agent", timeout_seconds=3 * 3600)
+    assert len(chunks) == 3 * 3600 // 60
+    assert all(c == 60 for c in chunks)
+
+
+def test_await_events_returns_early_on_first_event(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Non-empty chunk returns immediately; no further chunks are issued."""
+    monkeypatch.setattr(
+        mos_pool,
+        "project_role_workspace",
+        lambda port, role: tmp_path / f"p{port}" / role,
+    )
+
+    call_count = {"n": 0}
+
+    def fake_poll(**kwargs):
+        call_count["n"] += 1
+        # First two chunks empty, third chunk yields an event.
+        if call_count["n"] < 3:
+            return {"events": [], "count": 0}
+        return {"events": [{"msg_id": "m-early"}], "count": 1}
+
+    monkeypatch.setattr(mos_pool.eacn_client, "poll_events", fake_poll)
+
+    result = mos_pool.mos_await_events(37596, "coder", "coder-agent", timeout_seconds=3600)
+    assert result["count"] == 1
+    assert result["timeout"] is False
+    assert call_count["n"] == 3  # stopped after the chunk that yielded events
+    # The event was persisted to pending.jsonl.
+    pending = mos_pool.mos_pending_read(37596, "coder")
+    assert [e["msg_id"] for e in pending] == ["m-early"]
 
 
 def test_await_events_persists_events_to_pending_inbox(

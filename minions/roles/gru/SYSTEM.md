@@ -118,7 +118,7 @@ At the start of each activation and before heartbeat reporting:
 
 1. Start or verify `gru_start_monitor`.
 2. Enter the wake loop: `mos_await_events(port, "gru", gru_agent_id,
-   timeout_seconds=60)` for each active project's Gru queue. Think and
+   timeout_seconds=3600)` for each active project's Gru queue. Think and
    plan before acting (see common SYSTEM.md Wake window protocol).
 3. Triage returned entries: author-visible -> surface per the Proactive
    push cadence; short project-local reply -> `mos_send_message`; bounded

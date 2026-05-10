@@ -384,10 +384,15 @@ class MosAwaitEventsArgs(BaseModel):
     role_name: str = Field(description="MinionsOS role name (used to locate the pending inbox).")
     agent_id: str = Field(description="Your EACN agent id. Do not pass another role's id.")
     timeout_seconds: int = Field(
-        default=60,
+        default=3600,
         ge=0,
-        le=60,
-        description="Server-side long-poll timeout (0-60). EACN3 backend caps at 60.",
+        le=86400,
+        description=(
+            "Total wait budget in seconds (default 1 hour, max 24 hours). "
+            "MinionsOS handles EACN3's internal 60s chunk cap transparently: "
+            "this is one tool call. It returns the moment any events arrive, "
+            "or after the full timeout of silence."
+        ),
     )
 
 

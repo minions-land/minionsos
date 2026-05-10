@@ -203,8 +203,14 @@ file and your role-specific prompt once, then enter the event loop.
 MinionsOS internal collaboration goes through the MOS Agent Pool — a thin
 wrapper over EACN3 that adds a local ACK crash-shim. Use:
 
-- `mos_await_events(port, role_name, agent_id, timeout_seconds=60)` — drain
-  EACN3 events for your agent with a local copy persisted for crash recovery.
+- `mos_await_events(port, role_name, agent_id, timeout_seconds=3600)` —
+  long-poll EACN3 for events. From your perspective this is **one tool
+  call** that waits up to an hour (default) or longer. MinionsOS hides
+  EACN3's internal 60-second chunk cap: the Python side loops
+  transparently, so you only pay the token cost of one call. The tool
+  returns the moment any events arrive, or after the full timeout of
+  silence. **Never ask MinionsOS to make you call this tool in a tight
+  loop**; one call already waits.
 - `mos_send_message(port, to_agent_id, from_agent_id, content)` — send a
   direct message.
 - `mos_create_task(port, description, domains, initiator_id, ...)` — publish
@@ -221,49 +227,45 @@ since they do not drain any queue.
 
 ### Main loop
 
-Run the loop with a small idle-tolerance counter. Three back-to-back empty
-polls (~3 minutes of true silence) are needed before you exit — a single
-60-second quiet stretch is not enough, since project-local work often has
-natural pauses between events.
+Each loop iteration is one call to `mos_await_events` followed (when
+events arrive) by handling them. The call itself already waits up to an
+hour for events — you do not need a counter, a sleep, or any idle budget
+logic of your own. Keep looping forever; only exit when the process is
+killed by MinionsOS (`project kill` / `dismiss_role`).
 
 ```
-empty_streak = 0
 while True:
-    result = mos_await_events(port, role_name, agent_id, timeout_seconds=60)
-    if result["events"]:
-        empty_streak = 0
-        for event in result["events"]:
-            plan(event)          # step 2 below — mandatory
-            execute(event)       # step 3
-            mos_ack_clear(port, role_name, [event_id])  # step 4
+    result = mos_await_events(port, role_name, agent_id, timeout_seconds=3600)
+    if not result["events"]:
+        # One hour of silence — keep waiting. Loop again.
         continue
-    empty_streak += 1
-    if empty_streak >= 3:
-        break                    # exit after ~3 min of silence
+    for event in result["events"]:
+        plan(event)          # step 2 below — mandatory
+        execute(event)       # step 3 — must go through Task subagent
+        mos_ack_clear(port, role_name, [event_id])  # step 4
+    # Loop back to another long-poll.
 ```
 
-1. Call `mos_await_events(port, role_name, agent_id, timeout_seconds=60)` to
-   fetch pending events for your EACN agent. This is EACN3's long-poll: it
-   returns immediately if any event is waiting, and returns an empty result
-   after up to ~60 seconds of silence (the backend cap).
+1. Call `mos_await_events(port, role_name, agent_id, timeout_seconds=3600)`.
+   It will block up to one hour inside MinionsOS and return the moment any
+   event arrives. An empty return means a full hour of network silence —
+   that is normal; loop again.
 2. **Before acting on any event, think step by step and write a short plan**
    (3-6 lines): what is this event, am I the responsible role, what will I
    do and in what order, what dependency or risk must I verify first. Do
    not skip the plan — it is mandatory, including for seemingly trivial
    events.
-3. Execute the plan using the collaboration rules below (decide
-   responsibility, respond through EACN, spawn subagents for substantive
-   work, update artifacts, record evidence).
+3. Execute the plan using the collaboration rules below. Substantive work
+   must be dispatched to a subagent (see §Main Role vs subagents). The
+   main role only reads, plans, verifies, and forwards results.
 4. After each event is fully handled, call `mos_ack_clear(port, role_name,
    [event_id])` so the local pending inbox stays in sync with your progress.
-5. If any event arrived in this round, reset the empty-streak counter and
-   go back to step 1 immediately — do not sleep, `mos_await_events`
-   already blocks for you.
-6. If step 1 returned empty, increment the empty-streak counter. Only when
-   it hits 3 (≈3 minutes of true silence) exit the loop.
+5. Loop back to step 1. The `mos_await_events` call itself is the idle
+   wait; you do not need any additional sleep or timer.
 
 Do not insert arbitrary sleeps between iterations; `mos_await_events`
-already blocks for you.
+already blocks for you. Do not call it more than once per loop iteration —
+one call is one full hour of coverage.
 
 ### Pending-inbox recovery (crash replay)
 
@@ -284,8 +286,11 @@ files directly — use `mos_ack_clear` / the init prompt's injected block.
 
 ### Exit sequence
 
-When the empty-streak counter trips the loop exit, before the process
-terminates:
+The main loop itself does not exit on idle. MinionsOS manages role
+lifetime: the process runs until it receives SIGTERM from
+`project_kill`, `dismiss_role`, or Gru shutdown. When that happens, or
+if you are told explicitly to exit by an operator message, before the
+process terminates:
 
 1. Call `eacn3_disconnect` (or the closest available disconnect tool) to
    release this agent's network-side state cleanly. Never leave the queue
