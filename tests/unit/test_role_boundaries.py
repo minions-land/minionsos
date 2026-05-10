@@ -147,3 +147,39 @@ class TestReviewerWhitelistIsolation:
         assert "Write" not in tools
         assert "Edit" not in tools
         assert "Bash" not in tools
+
+
+class TestSubagentEacnInvisibility:
+    """Subagents must never touch EACN3 — not through MOS Agent Pool, not
+    through native eacn3_* tools. Main roles dispatch, subagents execute,
+    subagents report back to main, main owns every EACN-facing action. This
+    invariant is what lets the main session stay short and token-cheap."""
+
+    _ALL_ROLES = ("gru", "noter", "coder", "experimenter", "writer", "reviewer", "ethics", "expert")
+
+    def test_no_subagent_has_mos_tools(self) -> None:
+        for role in self._ALL_ROLES:
+            tools = resolve_whitelist(role, "subagent")
+            mos_leaks = [t for t in tools if t.startswith("mos_")]
+            assert not mos_leaks, (
+                f"{role} subagent whitelist leaks MOS Agent Pool tools {mos_leaks}; "
+                "subagents must be EACN-invisible."
+            )
+
+    def test_no_subagent_has_eacn3_tools(self) -> None:
+        for role in self._ALL_ROLES:
+            tools = resolve_whitelist(role, "subagent")
+            eacn_leaks = [t for t in tools if t.startswith("eacn3_") or t == "eacn3_*"]
+            assert not eacn_leaks, (
+                f"{role} subagent whitelist leaks raw EACN3 tools {eacn_leaks}; "
+                "subagents must be EACN-invisible."
+            )
+
+    def test_no_subagent_has_project_eacn_tools(self) -> None:
+        for role in self._ALL_ROLES:
+            tools = resolve_whitelist(role, "subagent")
+            leaks = [t for t in tools if t.startswith("project_eacn_") or t == "gru_relay"]
+            assert not leaks, (
+                f"{role} subagent whitelist leaks project-scoped EACN tools {leaks}; "
+                "these are Gru-main coordination tools, not subagent execution tools."
+            )
