@@ -21,7 +21,7 @@ the MinionsOS-side shim does not apply.
   `minions/lifecycle/eacn_client` HTTP wrappers.
 - **`other/`**: zero changes.
 - **`minions-viz/`**: zero changes.
-- **All 389 unit tests green.** Viz smoke tests green (4/4). Other smoke
+- **All 397 unit tests green.** Viz smoke tests green (4/4). Other smoke
   scripts still import-clean.
 - Ruff clean on both `minions/` and `tests/`; ruff format --check clean.
 
@@ -285,7 +285,8 @@ it benefits every internal role automatically. **Listed as a follow-up.**
 
 ## 6. Test surface
 
-- **Unit:** 389 tests (up from 371 at session start; +18 for mos_pool).
+- **Unit:** 397 tests (up from 371 at session start; +18 for mos_pool, +8
+  for pending injection).
 - **Smoke (viz_lifecycle.py):** 4/4 green.
 - **Smoke (script-style):** codex_project_collaboration, project_eacn_network,
   lifecycle — import-clean.
@@ -356,14 +357,17 @@ it benefits every internal role automatically. **Listed as a follow-up.**
   idempotent and best-effort.
 - If a wake dies mid-flight leaving a non-empty
   `branches/<role>/.minionsos/inbox/pending.jsonl`, the next wake's init
-  prompt **will still need to surface that batch** — the prompt-injection
-  path for "Pending from previous wake" is **documented in SYSTEM.md but
-  not yet implemented in `role.py:_format_event_message`**. This is the
-  most important in-flight gap to close next session. The infrastructure
-  (pending.jsonl write + `mos_pending_read`) is in place; the last mile
-  is reading the file at wake start and putting it into the preamble.
-- No runtime processes or project_* directories exist on disk at the end
-  of this session.
+  prompt will surface the leftover events in a `[Pending from previous
+  wake]` block (implemented in `role.py:_format_event_message` via
+  `_read_pending_safely` + `_summarize_pending_entry`). The agent then
+  follows the common SYSTEM.md "Pending-inbox recovery" procedure:
+  verify relevance via non-destructive `eacn3_get_task` /
+  `eacn3_get_messages`, handle if still relevant, and call
+  `mos_ack_clear(port, role, [event_id])` to retire it from the inbox.
+  Normal wake cycles leave `pending.jsonl` empty, so the block is
+  omitted entirely — zero overhead on the happy path.
+- No runtime processes or project_* directories exist on disk at the
+  end of this session.
 
 ---
 
