@@ -1,4 +1,4 @@
-"""Logging configuration for MinionsOS V4.
+"""Logging configuration for MinionsOS.
 
 Call ``configure_logging()`` once at process startup (e.g. from the MCP
 server entry-point or the CLI).  Subsequent ``logging.getLogger(__name__)``

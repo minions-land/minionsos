@@ -1,4 +1,4 @@
-"""``mos`` CLI — MinionsOS V4 command-line interface.
+"""``mos`` CLI — MinionsOS command-line interface.
 
 Subcommands:
   status          — projects dashboard
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 app = typer.Typer(
     name="mos",
-    help="MinionsOS V4 — project and role management CLI.",
+    help="MinionsOS — project and role management CLI.",
     no_args_is_help=True,
 )
 console = Console()

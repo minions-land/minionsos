@@ -1,6 +1,6 @@
 """Role lifecycle: register, wake, dismiss, list.
 
-Current V5 transition model:
+Current MinionsOS transition model:
 
 - ``register_role`` / ``register_expert`` register a project-local EACN3
   AgentCard, prepare the Role's workspace, and record a named host session in

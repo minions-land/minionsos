@@ -1,4 +1,4 @@
-# MinionsOS V4 — Build Completion Report
+# MinionsOS — Build Completion Report
 
 _Date: 2026-04-23_
 
@@ -18,17 +18,17 @@ All final-mile work from the previous partial build is complete:
 
 **Decision:** accept duration strings (`"30s"`, `"5m"`, `"2h"`, `"1d"`) or bare int seconds; `"0"` disables.
 
-Changes in `@/Users/mjm/MinionsOS_V4/minions/config/__init__.py`:
+Changes in `@/Users/mjm/MinionsOS/minions/config/__init__.py`:
 
 - Added `parse_duration()` helper and a `_DURATION_RE`/`_DURATION_UNITS` table.
 - Added Pydantic `field_validator` on `heartbeat_report_interval` that validates format at load time and raises `ConfigError` on bad input.
 - Added `GruConfig.heartbeat_interval_seconds` property that returns parsed seconds.
-- `@/Users/mjm/MinionsOS_V4/minions/gru/loop.py` now uses `cfg.heartbeat_interval_seconds` (was passing the raw string through an `int`-typed field, the bug the previous agent was mid-fix on).
+- `@/Users/mjm/MinionsOS/minions/gru/loop.py` now uses `cfg.heartbeat_interval_seconds` (was passing the raw string through an `int`-typed field, the bug the previous agent was mid-fix on).
 - `gru.yaml.example` value (`"2h"`) is unchanged and remains valid.
 
 ### 2. EACN3 HTTP endpoints — verified, no changes needed
 
-Re-read `EACN3/eacn/network/api/app.py`, `routes.py`, `discovery_routes.py`. The client in `@/Users/mjm/MinionsOS_V4/minions/lifecycle/eacn_client.py` already uses correct paths:
+Re-read `EACN3/eacn/network/api/app.py`, `routes.py`, `discovery_routes.py`. The client in `@/Users/mjm/MinionsOS/minions/lifecycle/eacn_client.py` already uses correct paths:
 
 - `/api/discovery/servers` (POST, DELETE, `{id}/heartbeat`) — matches `discovery_router` prefix `/api/discovery`.
 - `/api/discovery/agents` — same prefix.
@@ -44,11 +44,11 @@ Re-read `EACN3/eacn/network/api/app.py`, `routes.py`, `discovery_routes.py`. The
 
 ### 4. `./mos` launcher symlink resolution
 
-`@/Users/mjm/MinionsOS_V4/minions/bin/gru` used `$(dirname "${BASH_SOURCE[0]}")` without resolving symlinks, so invoking via `./mos` (a symlink) resolved `SCRIPT_DIR` to the repo root and `ROOT="$SCRIPT_DIR/../.."` to `/Users`, causing `mkdir: /Users/minions: Permission denied` on every subcommand. Replaced with a `readlink` loop. `./mos doctor` and `./mos status` now work.
+`@/Users/mjm/MinionsOS/minions/bin/gru` used `$(dirname "${BASH_SOURCE[0]}")` without resolving symlinks, so invoking via `./mos` (a symlink) resolved `SCRIPT_DIR` to the repo root and `ROOT="$SCRIPT_DIR/../.."` to `/Users`, causing `mkdir: /Users/minions: Permission denied` on every subcommand. Replaced with a `readlink` loop. `./mos doctor` and `./mos status` now work.
 
 ### 5. Lifecycle smoke test
 
-New file `@/Users/mjm/MinionsOS_V4/tests/smoke/lifecycle.py`:
+New file `@/Users/mjm/MinionsOS/tests/smoke/lifecycle.py`:
 
 - Creates a temp dir, `git init`/commit, sets `MINIONS_ROOT` env to a `minionsos/` subdir so `project_dir(port)` lands in the temp repo.
 - Flushes `minions.*` modules before re-importing so `MINIONS_ROOT` picks up the env override.

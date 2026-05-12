@@ -117,7 +117,7 @@ def test_role_checkpoint_pushes_to_namespaced_remote(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    store = _make_store(tmp_path, push_target="git@github.com:Minions-Land/MinionsOS_V5")
+    store = _make_store(tmp_path, push_target="git@github.com:Minions-Land/MinionsOS")
     calls: list[list[str]] = []
 
     def fake_run(cmd, cwd=None, capture_output=None, text=None):
@@ -149,7 +149,7 @@ def test_role_checkpoint_pushes_to_namespaced_remote(
     assert calls[-1] == [
         "git",
         "push",
-        "git@github.com:Minions-Land/MinionsOS_V5",
+        "git@github.com:Minions-Land/MinionsOS",
         "HEAD:minionsos/p37596/coder",
     ]
     assert "project_checkpoint_workspace" in resolve_whitelist("coder", "main")

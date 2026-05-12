@@ -1,7 +1,7 @@
-# EACN Online Wake Model for MinionsOS V5
+# EACN Online Wake Model for MinionsOS
 
 版本：v0.1
-范围：只讨论 MinionsOS V5 的改造提案，不改 EACN3 本体。
+范围：只讨论 MinionsOS 的改造提案，不改 EACN3 本体。
 目标：把“唤醒”从“scheduler 代读事件并注入 prompt”改成“允许一个已存在的 Claude/Codex 会话在合适时机自己上 EACN 看网络”。
 
 当前实现注记：后续 v6/v7 hooks 方案和代码实现已经把 public/open task 唤醒收口到
@@ -10,7 +10,7 @@ EACN3 原生队列。本文中 `router match` 指 EACN3 已经完成广播并把
 
 ## 1. 我对当前系统的判断
 
-当前 V5 仍是旧模型：
+当前 MinionsOS 仍是旧模型：
 
 - `WakeupScheduler` 先替 role poll EACN3。
 - 取到的事件被塞进 `invoke_role_ephemeral(...)`。
@@ -87,7 +87,7 @@ EACN3 在发布 task 时按 `domains` 和 `invited_agent_ids` 算出来的候选
 
 ## 4. 现状里哪些东西已经能用
 
-V5 已经有一些可复用的骨架。
+MinionsOS 已经有一些可复用的骨架。
 
 ### 4.1 role 注册已经存在
 
@@ -230,7 +230,7 @@ V5 已经有一些可复用的骨架。
 
 ## 8. `clear/reconnect` 的语义
 
-这个词我建议在 V5 里定义成一个正式动作，而不是口头说法。
+这个词我建议在 MinionsOS 里定义成一个正式动作，而不是口头说法。
 
 含义：
 
@@ -334,7 +334,7 @@ V5 已经有一些可复用的骨架。
 
 ## 12. 我现在的建议
 
-我建议把 V5 的这次改造理解成一句话：
+我建议把 MinionsOS 的这次改造理解成一句话：
 
 **从“scheduler 代 role 读 EACN”升级成“wake broker 只决定谁可以上网，role 自己上 EACN 读网络”。**
 

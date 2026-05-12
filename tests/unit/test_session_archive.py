@@ -28,10 +28,10 @@ def _write_jsonl(path: Path, records: list[dict]) -> None:
 
 def test_claude_project_dir_encodes_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_home(tmp_path, monkeypatch)
-    ws = tmp_path / "workspace" / "MinionsOS_V5"
+    ws = tmp_path / "workspace" / "MinionsOS"
     ws.mkdir(parents=True)
     mangled = sa.claude_project_dir(ws)
-    assert mangled.name.endswith("-workspace-MinionsOS-V5")
+    assert mangled.name.endswith("-workspace-MinionsOS")
     assert mangled.parent.name == "projects"
     assert mangled.parent.parent.name == ".claude"
 

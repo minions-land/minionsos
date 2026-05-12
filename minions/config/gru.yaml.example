@@ -14,13 +14,13 @@ allow_web_search: true
 log_level: info
 
 # Optional git repository used as the source for project worktrees.
-# Defaults to the directory containing MinionsOS_V4 when that directory is a
-# git repo; otherwise falls back to the MinionsOS_V4 checkout itself if it is a
+# Defaults to the directory containing MinionsOS when that directory is a
+# git repo; otherwise falls back to the MinionsOS checkout itself if it is a
 # git repo. Set this when your research repo is somewhere else.
 project_parent_repo:
 
 # Optional directory that contains project_<port>/ runtime trees.
-# Defaults to the directory containing MinionsOS_V4.
+# Defaults to the directory containing MinionsOS.
 projects_root:
 
 # Legacy fallback scheduler interval for Roles (allowed: 1m / 3m / 5m).

@@ -1,4 +1,4 @@
-"""Configuration models and loaders for MinionsOS V4.
+"""Configuration models and loaders for MinionsOS.
 
 Two config files are supported:
 

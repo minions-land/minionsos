@@ -1,4 +1,4 @@
-//! Deterministic runtime contracts for MinionsOS V5.
+//! Deterministic runtime contracts for MinionsOS.
 //!
 //! This crate intentionally does not talk to EACN3 and does not contain prompt,
 //! tool, or research workflow logic. It is a small Rust kernel for decisions
@@ -140,7 +140,7 @@ pub struct RouterTarget {
 
 /// Return explicitly invited local role targets for a task.
 ///
-/// This mirrors MinionsOS V5's Python-side contract:
+/// This mirrors MinionsOS's Python-side contract:
 /// - EACN3 owns domain routing and writes native task broadcasts to each agent queue;
 /// - MinionsOS may only create wake hints for explicit invitations it can see;
 /// - dismissed roles are ignored.

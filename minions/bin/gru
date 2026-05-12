@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# minions/bin/gru — MinionsOS V4 launcher.
+# minions/bin/gru — MinionsOS launcher.
 # Symlinked as ./gru, ./minionsos, ./mos at the repo root.
 #
 # Usage:

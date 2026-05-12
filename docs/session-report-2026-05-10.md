@@ -1,4 +1,4 @@
-# MinionsOS V5 — Session Acceptance Report
+# MinionsOS — Session Acceptance Report
 
 Date: 2026-05-10
 Scope: one autonomous sitting covering batches **C2-step1**, the earlier
@@ -30,23 +30,23 @@ the MinionsOS-side shim does not apply.
 ## 2. Cumulative git log (this session)
 
 ```
-d8767a2 chore(v5): clean up residual eacn3_* references after MOS Agent Pool migration
-708c8dd feat(v5): Gru SYSTEM.md routes internal work through MOS Agent Pool
-179737a feat(v5): migrate Writer / Experimenter / Reviewer / Ethics / Expert / Noter to mos_*
-30d1c16 feat(v5): migrate Coder to mos_* tools + extract shared whitelist constants
-513e685 feat(v5): common role contract switches to mos_* + ultrathink-before-act
+d8767a2 Version 5 Commit: chore: clean up residual eacn3_* references after MOS Agent Pool migration
+708c8dd Version 5 Commit: feat: Gru SYSTEM.md routes internal work through MOS Agent Pool
+179737a Version 5 Commit: feat: migrate Writer / Experimenter / Reviewer / Ethics / Expert / Noter to mos_*
+30d1c16 Version 5 Commit: feat: migrate Coder to mos_* tools + extract shared whitelist constants
+513e685 Version 5 Commit: feat: common role contract switches to mos_* + ultrathink-before-act
 628e6e9 test: update mcp profile ceiling for Gru mos_* additions
-d57fcae feat(v5): grant Gru access to mos_* tools alongside eacn3_*
-38ba64d feat(v5): register mos_* MCP tools (no role wiring yet)
-dcb8541 feat(v5): add mos_pool module — EACN3 wrapper + per-wake local ACK
-e472241 feat(v5): noter reads role session archives non-destructively
-343574d feat(v5): archive host session jsonl into role branch after each wake
-b481ed4 feat(v5): role wake loop is eacn3_await_events(120s) with graceful exit
-a184cf1 feat(v5): inject role SYSTEM.md into Codex via per-branch AGENTS.md
-11eed56 refactor(v5): archive rust, restructure to branches/, wire lifecycle hooks
+d57fcae Version 5 Commit: feat: grant Gru access to mos_* tools alongside eacn3_*
+38ba64d Version 5 Commit: feat: register mos_* MCP tools (no role wiring yet)
+dcb8541 Version 5 Commit: feat: add mos_pool module — EACN3 wrapper + per-wake local ACK
+e472241 Version 5 Commit: feat: noter reads role session archives non-destructively
+343574d Version 5 Commit: feat: archive host session jsonl into role branch after each wake
+b481ed4 Version 5 Commit: feat: role wake loop is eacn3_await_events(120s) with graceful exit
+a184cf1 Version 5 Commit: feat: inject role SYSTEM.md into Codex via per-branch AGENTS.md
+11eed56 Version 5 Commit: refactor: archive rust, restructure to branches/, wire lifecycle hooks
 ```
 
-15 commits since the previous `fix(v5): align wake routing...`. Each is
+15 commits since the previous `Version 5 Commit: fix: align wake routing...`. Each is
 single-purpose and individually revertable.
 
 ---
@@ -58,7 +58,7 @@ single-purpose and individually revertable.
 - `crates/`, `Cargo.toml`, `Cargo.lock` moved to
   `other/rust-archive/`. `.gitignore` `target/` block removed. Docs
   references in `AGENTS.md`, `minions/CLAUDE.md`, and
-  `docs/rust_proposal/minionsos_v5_proposal.md` updated to describe
+  `docs/rust_proposal/minionsos-proposal.md` updated to describe
   archival status. The Rust crate is no longer in the active tree; it can
   be revived by moving the directory back.
 
@@ -302,7 +302,7 @@ it benefits every internal role automatically. **Listed as a follow-up.**
 ```
  AGENTS.md                                                |   3 -
  CLAUDE.md ... (unchanged)
- docs/rust_proposal/minionsos_v5_proposal.md              |  16 +-
+ docs/rust_proposal/minionsos-proposal.md              |  16 +-
  minions/CLAUDE.md                                        |   4 -
  minions/config/__init__.py                               | 119 +++++-
  minions/gru/loop.py                                      |  24 ++
