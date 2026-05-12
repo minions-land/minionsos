@@ -1,6 +1,6 @@
 """Python-level wakeup scheduler for Roles.
 
-V5's primary runtime path is hook-driven: MinionsOS publishes compact wake
+MinionsOS's primary runtime path is hook-driven: MinionsOS publishes compact wake
 signals when direct messages, native EACN3 pending queues, or phase changes
 indicate that a Role should go online. The scheduler reads those local wake
 signals and lets the Role go onto EACN3 itself. The legacy EACN polling path is

@@ -137,7 +137,7 @@ def main() -> int:
                 '"minions.tools.eacn3_mcp_proxy", "--", "node", '
                 '"EACN3/plugin/dist/server.js"]',
                 "enabled = true",
-                'env = { EACN3_MCP_PROFILE = "codex-core" }',
+                'env = { EACN3_MCP_PROFILE = "minions-role" }',
                 "",
             ]
         ),

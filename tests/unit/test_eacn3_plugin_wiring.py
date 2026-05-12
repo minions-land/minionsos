@@ -48,7 +48,10 @@ class TestCodexMcpConfigMountsEacn3:
         args = eacn3["args"]
         assert "minions.tools.eacn3_mcp_proxy" in args
         assert any("EACN3/plugin/dist/server.js" in a for a in args)
-        assert eacn3.get("env", {}).get("EACN3_MCP_PROFILE") == "codex-core"
+        # The proxy now runs in role-scoped mode so it mirrors the per-role
+        # whitelist Claude gets via --allowed-tools. The legacy fixed
+        # codex-core subset is retained as a deprecated compat path.
+        assert eacn3.get("env", {}).get("EACN3_MCP_PROFILE") == "minions-role"
 
     def test_codex_minions_entry_uses_codex_profile(self) -> None:
         import tomllib

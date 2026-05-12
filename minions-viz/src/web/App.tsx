@@ -1,175 +1,190 @@
-import { useState, useEffect, useCallback } from "react";
-import { useStore, gruById, projectByPort, selectProject } from "./hooks/useStore";
-import type { Page } from "./components/BottomDock";
-import TopBar from "./components/TopBar";
-import BottomDock from "./components/BottomDock";
-import GruPicker from "./components/GruPicker";
-import ProjectPicker from "./components/ProjectPicker";
-import SlideOutPanel from "./components/SlideOutPanel";
-import TaskDetailModal from "./components/TaskDetailModal";
-import GlobalSearch from "./components/GlobalSearch";
-import ToastContainer from "./components/ToastContainer";
-import SolarSystemPage from "./pages/solar-system/SolarSystemPage";
-import DashboardPage from "./pages/dashboard/DashboardPage";
-import TerminalPage from "./pages/terminal/TerminalPage";
-import { getRoleIdentity } from "./utils/roleIdentity";
+import { useState, useEffect, useMemo } from "react";
+import type { AgentInfo } from "@shared/types";
+import { useStore, gruById, projectByPort } from "./store";
+import { computeActivity } from "./activity";
+import TopBar from "./TopBar";
+import Picker from "./Picker";
+import UniverseScene, { xrStore } from "./scene/UniverseScene";
+import TaskBoard from "./TaskBoard";
+import TerminalWall from "./TerminalWall";
+import AgentRoster from "./AgentRoster";
+import AgentDetail from "./AgentDetail";
+import MetricHUD from "./MetricHUD";
+import EventLog from "./EventLog";
+import Adjudication from "./Adjudication";
+
+type View = "universe" | "tasks" | "terminals" | "events" | "adjudication";
 
 export default function App() {
   const store = useStore();
-  const [page, setPage] = useState<Page>("solar");
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
-  const [selectedTask, setSelectedTask] = useState<string | null>(null);
-  const [showSearch, setShowSearch] = useState(false);
+  const [view, setView] = useState<View>("universe");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [vrSupported, setVRSupported] = useState<boolean | null>(null);
 
-  const currentGru = gruById(store.grus, store.selectedGruId);
-  const currentProject = currentGru
-    ? projectByPort(currentGru.projects, store.selectedPort)
-    : null;
-
-  // Keyboard shortcuts
   useEffect(() => {
-    function handler(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        if (showSearch) { setShowSearch(false); return; }
-        if (selectedTask) { setSelectedTask(null); return; }
-        if (selectedAgent) { setSelectedAgent(null); return; }
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setShowSearch((v) => !v);
-      }
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.key === "1") setPage("solar");
-      else if (e.key === "2") setPage("dashboard");
-      else if (e.key === "3") setPage("terminal");
+    if (typeof navigator === "undefined" || !(navigator as any).xr) {
+      setVRSupported(false);
+      return;
     }
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [showSearch, selectedTask, selectedAgent]);
+    (navigator as any).xr
+      .isSessionSupported("immersive-vr")
+      .then((ok: boolean) => setVRSupported(!!ok))
+      .catch(() => setVRSupported(false));
+  }, []);
 
-  const handleExport = useCallback(() => {
-    const blob = new Blob([JSON.stringify(store, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `mos-v2-snapshot-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [store]);
+  const gru = gruById(store.grus, store.selectedGruId);
+  const project = gru ? projectByPort(gru.projects, store.selectedPort) : null;
 
-  const accentColor = selectedAgent
-    ? getRoleIdentity(selectedAgent).color
-    : undefined;
+  const selectedAgent: AgentInfo | null = useMemo(
+    () =>
+      selectedId
+        ? (store.agents.find((a) => a.agent_id === selectedId) ?? null)
+        : null,
+    [selectedId, store.agents],
+  );
+
+  useEffect(() => {
+    if (selectedId && !store.agents.some((a) => a.agent_id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [store.agents, selectedId]);
+
+  const activity = useMemo(
+    () =>
+      computeActivity(store.agents, store.tasks, store.messages, project),
+    [store.agents, store.tasks, store.messages, project],
+  );
+
+  const showPicker = !gru || !project;
+
+  const adjCount = useMemo(
+    () => store.tasks.filter((t) => t.type === "adjudication").length,
+    [store.tasks],
+  );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", background: "var(--bg-space)" }}>
+    <div className="app-root">
       <TopBar
         grus={store.grus}
         selectedGruId={store.selectedGruId}
         selectedPort={store.selectedPort}
         connected={store.connected}
-        agentCount={store.agents.length}
-        taskCount={store.tasks.length}
-        onSearch={() => setShowSearch(true)}
-        onExport={handleExport}
+        isVRSupported={vrSupported}
+        onOpenVR={() => xrStore.enterVR()}
       />
 
-      <main style={{ flex: 1, overflow: "hidden", position: "relative" }}>
-        {!currentGru ? (
-          <GruPicker grus={store.grus} />
-        ) : !currentProject && store.selectedPort == null ? (
-          <ProjectPicker gru={currentGru} />
-        ) : !currentProject && store.selectedPort != null ? (
-          <div style={{
-            position: "absolute", inset: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            background: "var(--bg-space)",
-          }}>
-            <div style={{
-              padding: 32, borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--line)", background: "var(--panel-bg)",
-              backdropFilter: "blur(16px)", textAlign: "center",
-              maxWidth: 360,
-            }}>
-              <div style={{ fontSize: 13, color: "var(--text)", marginBottom: 8 }}>
-                Project on port {store.selectedPort} is unavailable.
-              </div>
-              <button
-                onClick={() => selectProject(null)}
-                style={{
-                  padding: "6px 14px", borderRadius: "var(--radius-pill)",
-                  border: "1px solid var(--line)", background: "var(--surface)",
-                  color: "var(--role-noter)", fontSize: 11, cursor: "pointer",
-                }}
-              >
-                ← Back to projects
-              </button>
-            </div>
-          </div>
+      <div className="stage">
+        {showPicker ? (
+          <Picker grus={store.grus} selectedGruId={store.selectedGruId} />
         ) : (
           <>
-            <div style={{ display: page === "solar" ? "contents" : "none" }}>
-              <SolarSystemPage store={store} onSelectAgent={setSelectedAgent} />
-            </div>
-            <div style={{ display: page === "dashboard" ? "contents" : "none" }}>
-              <DashboardPage store={store} onSelectAgent={setSelectedAgent} onSelectTask={setSelectedTask} />
-            </div>
-            <div style={{ display: page === "terminal" ? "contents" : "none" }}>
-              <TerminalPage store={store} />
-            </div>
+            {view === "universe" && (
+              <>
+                <UniverseScene
+                  project={project}
+                  agents={store.agents}
+                  activity={activity}
+                  selectedId={selectedId}
+                  hoveredId={hoveredId}
+                  onSelectAgent={(a) => setSelectedId(a?.agent_id ?? null)}
+                  onHoverAgent={(a) => setHoveredId(a?.agent_id ?? null)}
+                />
+                <AgentRoster
+                  agents={store.agents}
+                  project={project}
+                  tasks={store.tasks}
+                  messages={store.messages}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  onHover={setHoveredId}
+                />
+                <AgentDetail
+                  agent={selectedAgent}
+                  project={project}
+                  tasks={store.tasks}
+                  activity={activity}
+                  onClose={() => setSelectedId(null)}
+                />
+                <MetricHUD
+                  agents={store.agents}
+                  tasks={store.tasks}
+                  messageCount={store.messages.length}
+                  connected={store.connected}
+                />
+                {vrSupported === false && (
+                  <div className="vr-unsupported">
+                    WebXR not available. Desktop: drag to orbit, wheel to zoom.
+                  </div>
+                )}
+                <div
+                  className="read-only-chip"
+                  title="Observatory is read-only; no writes are ever sent to EACN."
+                >
+                  <span className="dot" />
+                  read-only observatory
+                </div>
+              </>
+            )}
+
+            {view === "tasks" && (
+              <TaskBoard tasks={store.tasks} agents={store.agents} />
+            )}
+
+            {view === "terminals" && <TerminalWall agents={store.agents} />}
+
+            {view === "events" && (
+              <EventLog
+                logs={store.logs}
+                messages={store.messages}
+                agents={store.agents}
+              />
+            )}
+
+            {view === "adjudication" && (
+              <Adjudication tasks={store.tasks} agents={store.agents} />
+            )}
           </>
         )}
-      </main>
-
-      {currentProject && (
-        <BottomDock page={page} onNavigate={setPage} />
-      )}
-
-      <SlideOutPanel
-        open={selectedAgent != null}
-        onClose={() => setSelectedAgent(null)}
-        accentColor={accentColor}
-      >
-        <div style={{ padding: 20, fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-2)" }}>
-          {selectedAgent}
-        </div>
-      </SlideOutPanel>
-
-      <TaskDetailModal
-        open={selectedTask != null}
-        taskId={selectedTask}
-        tasks={store.tasks}
-        agents={store.agents}
-        onClose={() => setSelectedTask(null)}
-        onSelectAgent={setSelectedAgent}
-      />
-
-      {showSearch && (
-        <GlobalSearch
-          tasks={store.tasks}
-          agents={store.agents}
-          logs={store.logs}
-          onSelectAgent={(id) => { setSelectedAgent(id); setShowSearch(false); }}
-          onSelectTask={(id) => { setSelectedTask(id); setShowSearch(false); }}
-          onClose={() => setShowSearch(false)}
-        />
-      )}
-
-      <ToastContainer />
-
-      {/* Debug overlay */}
-      <div style={{
-        position: "fixed", bottom: 8, left: 8, zIndex: 99999,
-        background: "rgba(0,0,0,0.85)", color: "#0f0", fontFamily: "monospace",
-        fontSize: 10, padding: "6px 10px", borderRadius: 6, lineHeight: 1.6,
-        pointerEvents: "none", maxWidth: 400,
-      }}>
-        <div>grus: {store.grus.length} | gruId: {store.selectedGruId ?? "null"}</div>
-        <div>port: {store.selectedPort ?? "null"} | connected: {String(store.connected)}</div>
-        <div>currentGru: {currentGru?.id ?? "null"} | currentProject: {currentProject?.port ?? "null"}</div>
-        <div>agents: {store.agents.length} | tasks: {store.tasks.length}</div>
       </div>
+
+      <nav className="bottom-dock">
+        <button
+          className={"tab" + (view === "universe" ? " active" : "")}
+          onClick={() => setView("universe")}
+          disabled={showPicker}
+        >
+          Universe
+        </button>
+        <button
+          className={"tab" + (view === "tasks" ? " active" : "")}
+          onClick={() => setView("tasks")}
+          disabled={showPicker}
+        >
+          Tasks · {store.tasks.length}
+        </button>
+        <button
+          className={"tab" + (view === "terminals" ? " active" : "")}
+          onClick={() => setView("terminals")}
+          disabled={showPicker}
+        >
+          Terminals · {store.agents.length}
+        </button>
+        <button
+          className={"tab" + (view === "events" ? " active" : "")}
+          onClick={() => setView("events")}
+          disabled={showPicker}
+        >
+          Events · {store.logs.length + store.messages.length}
+        </button>
+        <button
+          className={"tab" + (view === "adjudication" ? " active" : "")}
+          onClick={() => setView("adjudication")}
+          disabled={showPicker}
+        >
+          Adjudication · {adjCount}
+        </button>
+      </nav>
     </div>
   );
 }

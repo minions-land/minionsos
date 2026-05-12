@@ -1,7 +1,5 @@
 /**
- * MinionsOS filesystem views (read-only) — CLAUDE.md, meta.json, scratchpads,
- * artifacts tree, log tails. All reads are guarded to stay within the project dir.
- * Every function takes (gruId, port) because multiple Grus may share this viz.
+ * MinionsOS filesystem views (read-only).
  */
 import fs from "fs";
 import path from "path";
@@ -10,7 +8,7 @@ import type {
 } from "../shared/types.js";
 import { getGru, getProjectFor, projectDirFor, gruLogPath } from "./grus.js";
 
-const ROLES = ["gru", "noter", "coder", "experimenter", "writer", "reviewer", "expert", "ethics"];
+export const CANONICAL_ROLES = ["gru", "noter", "coder", "experimenter", "writer", "reviewer", "expert", "ethics"];
 
 const CONTEXT_WINDOW_TOKENS = 1_000_000;
 const SOFT_TOKENS = 0.10 * CONTEXT_WINDOW_TOKENS;
@@ -46,10 +44,7 @@ export function getOverview(gruId: string, port: number): MosOverview | null {
   try { claude_md = fs.readFileSync(path.join(pdir, "CLAUDE.md"), "utf8"); } catch {}
   try { meta = JSON.parse(fs.readFileSync(path.join(pdir, "meta.json"), "utf8")); } catch {}
   return {
-    port,
-    project,
-    claude_md,
-    meta,
+    port, project, claude_md, meta,
     project_dir: pdir,
     workspace_dir: path.join(pdir, "workspace"),
     artifacts_dir: path.join(pdir, "artifacts"),
@@ -60,18 +55,14 @@ export function getScratchpads(gruId: string, port: number): MosScratchpad[] {
   const pdir = resolveProjectDir(gruId, port);
   if (!pdir) return [];
   const memDir = path.join(pdir, "memory");
-  return ROLES.map((role) => {
+  return CANONICAL_ROLES.map((role) => {
     const p = path.join(memDir, `${role}.md`);
     try {
       const st = fs.statSync(p);
       const tokens = Math.round(st.size / 4);
       return {
-        role,
-        path: p,
-        exists: true,
-        bytes: st.size,
-        approx_tokens: tokens,
-        threshold_status: statusFor(tokens),
+        role, path: p, exists: true, bytes: st.size,
+        approx_tokens: tokens, threshold_status: statusFor(tokens),
         mtime: st.mtimeMs,
       };
     } catch {
@@ -84,7 +75,7 @@ export function getScratchpads(gruId: string, port: number): MosScratchpad[] {
 }
 
 export function getScratchpad(gruId: string, port: number, role: string): string | null {
-  if (!ROLES.includes(role)) return null;
+  if (!CANONICAL_ROLES.includes(role)) return null;
   const pdir = resolveProjectDir(gruId, port);
   if (!pdir) return null;
   const p = path.join(pdir, "memory", `${role}.md`);
@@ -145,8 +136,7 @@ export function tailLog(gruId: string, port: number, which: string, tail = 500):
   if (which === "backend") abs = path.join(pdir, "logs", "backend.log");
   else if (which === "gru") abs = gruLogPath(g.rootPath);
   else if (which.startsWith("role:")) {
-    const role = which.slice(5);
-    if (!ROLES.includes(role)) return null;
+    const role = which.slice(5).replace(/[^a-z0-9_-]/gi, "");
     abs = path.join(pdir, "logs", `role-${role}.log`);
   }
   if (!abs) return null;
@@ -157,11 +147,19 @@ export function tailLog(gruId: string, port: number, which: string, tail = 500):
   } catch { return null; }
 }
 
+export function roleLogPath(gruId: string, port: number, role: string): string | null {
+  const g = getGru(gruId);
+  if (!g) return null;
+  const clean = role.replace(/[^a-z0-9_-]/gi, "");
+  if (!clean) return null;
+  return path.join(projectDirFor(g.rootPath, port), "logs", `role-${clean}.log`);
+}
+
 export function listRoleSystemPrompts(gruId: string): { role: string; path: string; exists: boolean }[] {
   const g = getGru(gruId);
   if (!g) return [];
   const base = path.join(g.rootPath, "minions", "roles");
-  return ROLES.map((role) => {
+  return CANONICAL_ROLES.map((role) => {
     const p = path.join(base, role, "SYSTEM.md");
     return { role, path: p, exists: fs.existsSync(p) };
   });

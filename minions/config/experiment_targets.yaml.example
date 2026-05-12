@@ -9,9 +9,9 @@ targets:
     type: local
     # Working directory for local experiments.
     # The literal token `{project_workspace}` is expanded at runtime to the
-    # absolute path of the current project's git worktree, i.e.
-    # project_{port}/workspace/experiments. project_create auto-creates this
-    # directory. Override with an absolute path for a shared scratch area.
+    # absolute path of the current project's main branch worktree, i.e.
+    # project_{port}/branches/main/experiments. project_create auto-creates
+    # this directory. Override with an absolute path for a shared scratch area.
     workdir: "{project_workspace}/experiments"
 
   # Example SSH target — uncomment and fill in to add a remote GPU machine.

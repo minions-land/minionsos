@@ -45,23 +45,36 @@ class TestRoleType:
 
 
 class TestWriteBoundaries:
-    def test_noter_cannot_write_workspace(self) -> None:
+    """MinionsOS role write boundaries live under ``branches/<role>/`` plus each role's
+    artifact subdir. The legacy ``workspace/`` + ``memory/`` layout was retired
+    when projects moved to per-role branch worktrees."""
+
+    def test_noter_cannot_write_branches(self) -> None:
         allowed = ROLE_WRITE_BOUNDARIES["noter"]
-        assert "workspace/" not in allowed
+        # Noter only owns its own branch scratchpad; it never writes to any
+        # other role's branch and does not touch the legacy "workspace/" path.
+        assert not any(p.startswith("branches/coder/") for p in allowed)
+        assert not any(p.startswith("branches/writer/") for p in allowed)
         assert "artifacts/notes/" in allowed
 
-    def test_reviewer_cannot_write_workspace(self) -> None:
+    def test_reviewer_cannot_write_branches(self) -> None:
         allowed = ROLE_WRITE_BOUNDARIES["reviewer"]
-        assert "workspace/" not in allowed
+        assert "artifacts/reviews/" in allowed
+        assert not any(p.startswith("branches/coder/") for p in allowed)
+        assert not any(p.startswith("branches/writer/") for p in allowed)
 
-    def test_coder_can_write_workspace(self) -> None:
+    def test_coder_owns_its_branch(self) -> None:
         allowed = ROLE_WRITE_BOUNDARIES["coder"]
-        assert "workspace/" in allowed
+        assert any(p.startswith("branches/coder/") for p in allowed)
 
     def test_ethics_restricted_to_ethics_artifacts(self) -> None:
         allowed = ROLE_WRITE_BOUNDARIES["ethics"]
         assert "artifacts/ethics/" in allowed
-        assert "workspace/" not in allowed
+        # Ethics must not write into any role's branch worktree.
+        assert not any(
+            p.startswith("branches/") and not p.startswith("branches/ethics/.minionsos/")
+            for p in allowed
+        )
 
 
 class TestBoundaryContext:
@@ -85,9 +98,11 @@ class TestBoundaryContext:
         ctx = _boundary_context("ethics", 37596)
         assert "evidence" in ctx.lower()
 
-    def test_coder_boundary_allows_workspace(self) -> None:
+    def test_coder_boundary_allows_own_branch(self) -> None:
         ctx = _boundary_context("coder", 37596)
-        assert "workspace" in ctx.lower()
+        # Coder's write boundary in MinionsOS is its role branch, not the legacy
+        # "workspace/" path.
+        assert "branches/coder/" in ctx
 
     def test_coder_boundary_allows_assigned_system_maintenance(self) -> None:
         ctx = _boundary_context("coder", 37596)
@@ -136,10 +151,20 @@ class TestReviewerWhitelistIsolation:
         assert "Edit" not in tools
         assert "Bash" not in tools
 
-    def test_reviewer_subagent_has_no_write_tools(self) -> None:
+    def test_reviewer_subagent_can_write_reviews(self) -> None:
+        """Reviewer subagent executes the writes the main session plans.
+
+        Per the common SYSTEM.md Plan → Dispatch → Verify contract, review
+        outputs under artifacts/reviews/ are produced by a subagent, not by
+        Reviewer main. The subagent therefore needs Write/Edit; it remains
+        EACN-invisible because there are no mos_* / eacn3_* / project_eacn_*
+        tools in this whitelist (asserted by TestSubagentEacnInvisibility).
+        """
         tools = resolve_whitelist("reviewer", "subagent")
-        assert "Write" not in tools
-        assert "Edit" not in tools
+        assert "Write" in tools
+        assert "Edit" in tools
+        # Reviewer subagents must NOT get Bash — review is read + write, not
+        # shell execution. They also must not appear on EACN.
         assert "Bash" not in tools
 
     def test_ethics_has_no_write_tools(self) -> None:

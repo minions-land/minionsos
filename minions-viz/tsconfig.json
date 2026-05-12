@@ -11,7 +11,9 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
     "paths": { "@shared/*": ["./src/shared/*"] }
   },
-  "include": ["src"]
+  "include": ["src/web", "src/shared"]
 }

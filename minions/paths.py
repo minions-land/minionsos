@@ -1,4 +1,4 @@
-"""Canonical path constants for MinionsOS V4.
+"""Canonical path constants for MinionsOS.
 
 All runtime code must import paths from here — never construct paths by
 string concatenation or relative ``..`` traversal.
@@ -14,7 +14,7 @@ from typing import Any
 # Root resolution
 # ---------------------------------------------------------------------------
 
-# This file lives at  minions/paths.py  inside the MinionsOS_V4 checkout.
+# This file lives at  minions/paths.py  inside the MinionsOS checkout.
 # MINIONS_ROOT is the repo root (parent of the ``minions/`` package dir).
 MINIONS_ROOT: Path = Path(__file__).parent.parent.resolve()
 
@@ -105,7 +105,7 @@ def project_dir(port: int) -> Path:
 def project_workspace_root(port: int) -> Path:
     """Return the branch-dir container for *port*.
 
-    Layout (V5 post-restructure):
+    Layout (MinionsOS post-restructure):
         project_{port}/branches/
             main/        # Gru — the main branch checkout
             coder/       # one checkout per role, one-to-one with a git branch

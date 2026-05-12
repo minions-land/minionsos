@@ -197,7 +197,7 @@ class TestSubmissionGateCheck:
     def test_valid_submission_passes(self, tmp_path: Path) -> None:
         project = tmp_path / "project_37596"
         project.mkdir()
-        (project / "workspace" / "main").mkdir(parents=True)
+        (project / "branches" / "main").mkdir(parents=True)
         artifacts = project / "artifacts"
         artifacts.mkdir()
         (artifacts / "paper.pdf").write_bytes(b"%PDF-fake")
@@ -207,7 +207,7 @@ class TestSubmissionGateCheck:
     def test_missing_pdf_fails(self, tmp_path: Path) -> None:
         project = tmp_path / "project_37596"
         project.mkdir()
-        (project / "workspace" / "main").mkdir(parents=True)
+        (project / "branches" / "main").mkdir(parents=True)
         (project / "artifacts").mkdir()
         ok, reason = submission_gate_check(project)
         assert ok is False

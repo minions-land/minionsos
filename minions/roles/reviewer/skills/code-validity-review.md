@@ -38,7 +38,7 @@ or claims in the paper.
 - Performing general code review instead of scientific validity review.
 - Inferring a bug from unfamiliar style without tracing execution.
 - Reading historical review context during a fresh Pass A review.
-- Suggesting fixes in `workspace/`; Reviewer is read-only there.
+- Suggesting fixes in any role's branch (e.g. `branches/coder/`, `branches/writer/`); Reviewer is read-only on `branches/` and writes only under `artifacts/reviews/`.
 
 ## Output habit
 

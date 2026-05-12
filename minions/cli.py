@@ -1,4 +1,4 @@
-"""``mos`` CLI — MinionsOS V4 command-line interface.
+"""``mos`` CLI — MinionsOS command-line interface.
 
 Subcommands:
   status          — projects dashboard
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 app = typer.Typer(
     name="mos",
-    help="MinionsOS V4 — project and role management CLI.",
+    help="MinionsOS — project and role management CLI.",
     no_args_is_help=True,
 )
 console = Console()
@@ -333,14 +333,18 @@ def doctor(
         minionsos = (codex_cfg.get("mcp_servers") or {}).get("minionsos") or {}
         eacn3 = (codex_cfg.get("mcp_servers") or {}).get("eacn3") or {}
         minions_profile_ok = (minionsos.get("env") or {}).get("MINIONS_MCP_PROFILE") == "codex"
-        eacn_profile_ok = (eacn3.get("env") or {}).get("EACN3_MCP_PROFILE") == "codex-core"
+        # ``minions-role`` is the current default: per-role EACN3 tool surface
+        # mirrored from minions.config.resolve_whitelist at wake. The legacy
+        # ``codex-core`` subset is accepted as a backward-compat alternative.
+        eacn_profile_raw = (eacn3.get("env") or {}).get("EACN3_MCP_PROFILE")
+        eacn_profile_ok = eacn_profile_raw in {"minions-role", "codex-core"}
         eacn_args = eacn3.get("args") or []
         eacn_proxy_ok = any("minions.tools.eacn3_mcp_proxy" in str(arg) for arg in eacn_args)
         _check(
             "codex-mcp-profiles",
             minions_profile_ok and eacn_profile_ok and eacn_proxy_ok,
             (
-                "minions=codex, eacn3=codex-core via MinionsOS proxy"
+                f"minions=codex, eacn3={eacn_profile_raw} via MinionsOS proxy"
                 if minions_profile_ok and eacn_profile_ok and eacn_proxy_ok
                 else (
                     f"minions_profile={minions_profile_ok}, "

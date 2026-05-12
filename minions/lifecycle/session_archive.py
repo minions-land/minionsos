@@ -7,7 +7,7 @@ branch's ``.minionsos/sessions/`` directory. The archive is committed on the
 role branch alongside any workspace changes, so the branch git history carries
 the full per-wake transcript.
 
-Rationale (V5 design):
+Rationale (MinionsOS design):
 
 - Host compact pressure cannot reshape these files because the role contract
   is re-injected on each wake (``AGENTS.md`` for Codex, ``--append-system-prompt``
@@ -38,12 +38,12 @@ def claude_project_dir(workspace: Path) -> Path:
 
     Claude Code mangles the absolute cwd path by replacing ``/`` with ``-``;
     the result has a leading ``-`` because absolute paths start with ``/``.
-    Example: ``/Users/mjm/MinionsOS_V5`` -> ``-Users-mjm-MinionsOS-V5``.
+    Example: ``/Users/mjm/MinionsOS`` -> ``-Users-mjm-MinionsOS``.
     """
     resolved = str(workspace.resolve())
     # Replace both '/' and the rarer but real-in-this-codebase '_' with '-'
-    # to match the format seen on disk (e.g. ``MinionsOS_V5`` lands as
-    # ``MinionsOS-V5`` under ~/.claude/projects/).
+    # to match the format seen on disk (e.g. ``MinionsOS`` lands as
+    # ``MinionsOS`` under ~/.claude/projects/).
     hashed = resolved.replace("/", "-").replace("_", "-")
     return Path.home() / ".claude" / "projects" / hashed
 

@@ -76,10 +76,13 @@ responsibility area. **It does not do substantive work itself.** Its job
 is to plan, dispatch subagents, verify their output, and emit EACN
 responses. Substantive execution — every file write, every shell command,
 every paper search, every experiment run, every produced artifact — must
-happen inside a host-native subagent spawned via the `Task` tool. This is
-a hard rule, not a suggestion; it is how token cost stays controlled and
-how the main session stays short enough for compact to never erode your
-role contract.
+happen inside a host-native subagent. On Claude Code that is the `Task`
+tool; on Codex it is the host's native subagent/delegation mechanism.
+Throughout this contract the label `Task` refers to that host-native
+subagent capability, not to a literal tool name, so the rule holds
+whatever host you run under. This is a hard rule, not a suggestion; it is
+how token cost stays controlled and how the main session stays short
+enough for compact to never erode your role contract.
 
 ### Plan → Dispatch → Verify
 
@@ -91,11 +94,12 @@ plan time you are in plan-mode: no file writes, no `Bash` that mutates,
 no `Edit` / `Write`, no `eacn3_submit_*`, no `mos_send_message` that
 delivers substantive content. Only reads and thinking.
 
-**Stage 2 — DISPATCH** (main role → subagent via the `Task` tool).
-Spawn one or more subagents to carry out the plan. Each subagent prompt
-must be self-contained (see Subagent handoff contract below). The main
-role waits for subagent returns. While waiting the main role does not
-act on the workspace.
+**Stage 2 — DISPATCH** (main role → host-native subagent).
+Spawn one or more subagents to carry out the plan using the host's native
+subagent mechanism (see §Agent-host portability above). Each subagent
+prompt must be self-contained (see Subagent handoff contract below). The
+main role waits for subagent returns. While waiting the main role does
+not act on the workspace.
 
 **Stage 3 — VERIFY & RESPOND** (main role).
 Read the subagent's return. If it satisfies the plan, commit any durable
@@ -107,7 +111,8 @@ the task initiator via EACN with a concrete blocker note.
 ### What the main role is allowed to do directly
 
 A short, exhaustive list of operations the main session may do **without**
-a subagent. Everything else goes through `Task`:
+a subagent. Everything else goes through the host-native subagent
+mechanism:
 
 - Reading files (`Read`) and non-destructive EACN3 reads
   (`eacn3_get_*`, `eacn3_list_*`, `eacn3_get_messages`).
@@ -132,18 +137,21 @@ ship as an artifact, coding, reviewing, auditing, domain analysis —
 `Edit` / `Write` / `Bash` a mutating command in the main session, stop
 and spawn a subagent instead.
 
-### Exceptions
+### Host fallback when no subagent is available
 
-Some situations are narrow enough that a subagent is overkill. The only
-exceptions:
+If the current agent host genuinely cannot launch a real subagent for
+this wake (see §Agent-host portability), do **not** silently abandon the
+Plan → Dispatch → Verify contract. Instead:
 
-- A one-line typo fix in a file the main role already read, when the
-  whole fix is less than 3 lines and has no dependencies. Even here,
-  prefer a subagent if available.
-- Emergency abort / cleanup on a partial failure, where the point is to
-  leave the workspace consistent before exit.
+1. Do the smallest safe inline slice that leaves the workspace consistent.
+2. In your EACN response, explicitly record that no subagent was
+   available on this host and that the work was done inline.
+3. Checkpoint the remaining work through EACN (a follow-up task with
+   clear scope) or a branch commit so a future wake — possibly on a
+   different host — can pick it up under full Plan → Dispatch → Verify.
 
-In both cases, document in the EACN reply why a subagent was not used.
+This fallback exists for safety, not as a license to skip subagent
+delegation when the host supports it.
 
 ## Subagent handoff contract
 
@@ -241,7 +249,7 @@ while True:
         continue
     for event in result["events"]:
         plan(event)          # step 2 below — mandatory
-        execute(event)       # step 3 — must go through Task subagent
+        execute(event)       # step 3 — must go through host-native subagent
         mos_ack_clear(port, role_name, [event_id])  # step 4
     # Loop back to another long-poll.
 ```

@@ -29,7 +29,7 @@ class TestParentGitPrecheck:
     def test_raises_actionable_error_when_parent_not_git(self, tmp_path: Path) -> None:
         fake_parent = tmp_path / "not-a-repo"
         fake_parent.mkdir()
-        fake_root = fake_parent / "MinionsOS_V4"
+        fake_root = fake_parent / "MinionsOS"
         fake_root.mkdir()
         with (
             patch.object(project_mod, "MINIONS_ROOT", fake_root),
@@ -48,7 +48,7 @@ class TestParentGitPrecheck:
         parent = tmp_path / "parent"
         parent.mkdir()
         subprocess.run(["git", "init", "-q"], cwd=parent, check=True)
-        fake_root = parent / "MinionsOS_V4"
+        fake_root = parent / "MinionsOS"
         fake_root.mkdir()
         with patch.object(project_mod, "MINIONS_ROOT", fake_root):
             # Should not raise.
@@ -61,7 +61,7 @@ class TestParentGitPrecheck:
 
         parent = tmp_path / "parent"
         parent.mkdir()
-        fake_root = parent / "MinionsOS_V4"
+        fake_root = parent / "MinionsOS"
         fake_root.mkdir()
         subprocess.run(["git", "init", "-q"], cwd=fake_root, check=True)
         with patch.object(project_mod, "MINIONS_ROOT", fake_root):

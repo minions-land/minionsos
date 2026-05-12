@@ -1,3 +1,3 @@
-"""State persistence package for MinionsOS V2."""
+"""State persistence package for MinionsOS."""
 
 from __future__ import annotations

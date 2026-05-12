@@ -72,15 +72,20 @@ def camera_ready_eligible(rounds: list[ReviewRound]) -> tuple[bool, str]:
 
 
 def submission_gate_check(project_dir: Path) -> tuple[bool, str]:
-    """Validate that a submission package exists in *project_dir*."""
+    """Validate that a submission package exists in *project_dir*.
+
+    MinionsOS layout: the project's main branch worktree lives at
+    ``project_{port}/branches/main``. A submission package is present when
+    that branch dir exists and ``artifacts/`` contains at least one PDF.
+    """
     if not project_dir.is_dir():
         return False, f"Project directory does not exist: {project_dir}"
-    workspace = project_dir / "workspace"
-    main_workspace = workspace / "main"
-    if not workspace.is_dir():
-        return False, "Missing workspace/ container."
-    if not main_workspace.is_dir():
-        return False, "Missing workspace/main/ directory."
+    branches = project_dir / "branches"
+    main_branch = branches / "main"
+    if not branches.is_dir():
+        return False, "Missing branches/ container."
+    if not main_branch.is_dir():
+        return False, "Missing branches/main/ directory."
     artifacts = project_dir / "artifacts"
     if not artifacts.is_dir():
         return False, "Missing artifacts/ directory."

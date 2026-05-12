@@ -23,6 +23,10 @@ minions/state/*.db-shm
 minions/state/*.db-wal
 minions/state/*.pid
 minions/state/*.lock
+minions/state/*.host
+# Codex Gru role contract file: regenerated from minions/roles/SYSTEM.md +
+# minions/roles/gru/SYSTEM.md on every ./gru (codex) launch. Runtime artifact.
+minions/state/codex-gru.AGENTS.md
 
 # Config files with secrets/local paths — only .example files are committed
 minions/config/*.yaml
