@@ -226,7 +226,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "WebFetch",
         "Read",
     ],
-    ("noter", "subagent"): ["WebSearch", "WebFetch", "Read"],
+    ("noter", "subagent"): ["WebSearch", "WebFetch", "Read", "Write", "Edit"],
     ("coder", "main"): [
         *_INTERNAL_ROLE_EACN_TOOLS,
         "Task",
@@ -314,9 +314,9 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("expert", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
     ("reviewer", "main"): [*_INTERNAL_ROLE_EACN_TOOLS, "Task", "WebSearch", "WebFetch", "Read"],
-    ("reviewer", "subagent"): ["WebSearch", "WebFetch", "Read"],
+    ("reviewer", "subagent"): ["WebSearch", "WebFetch", "Read", "Write", "Edit"],
     ("ethics", "main"): [*_INTERNAL_ROLE_EACN_TOOLS, "Task", "WebSearch", "WebFetch", "Read"],
-    ("ethics", "subagent"): ["WebSearch", "WebFetch", "Read"],
+    ("ethics", "subagent"): ["WebSearch", "WebFetch", "Read", "Write", "Edit"],
 }
 
 
@@ -372,14 +372,18 @@ ROLE_CLASSIFICATION: dict[str, RoleType] = {
 }
 
 ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
-    "gru": ["workspace/", "artifacts/", "memory/"],
-    "noter": ["artifacts/notes/", "memory/"],
-    "coder": ["workspace/", "memory/"],
-    "experimenter": ["workspace/", "artifacts/", "memory/"],
-    "writer": ["workspace/", "memory/"],
-    "reviewer": ["artifacts/reviews/", "memory/"],
-    "ethics": ["artifacts/ethics/", "memory/"],
-    "expert": ["workspace/", "memory/"],
+    "gru": ["branches/main/", "artifacts/", "branches/main/.minionsos/scratchpad.md"],
+    "noter": ["artifacts/notes/", "branches/noter/.minionsos/scratchpad.md"],
+    "coder": ["branches/coder/", "branches/coder/.minionsos/scratchpad.md"],
+    "experimenter": [
+        "branches/experimenter/",
+        "artifacts/exp-*/",
+        "branches/experimenter/.minionsos/scratchpad.md",
+    ],
+    "writer": ["branches/writer/", "branches/writer/.minionsos/scratchpad.md"],
+    "reviewer": ["artifacts/reviews/", "branches/reviewer/.minionsos/scratchpad.md"],
+    "ethics": ["artifacts/ethics/", "branches/ethics/.minionsos/scratchpad.md"],
+    "expert": ["branches/<expert>/", "branches/<expert>/.minionsos/scratchpad.md"],
 }
 
 

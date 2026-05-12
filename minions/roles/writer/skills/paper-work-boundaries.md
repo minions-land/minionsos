@@ -2,7 +2,7 @@
 
 Use these boundaries when Writer delegates focused paper work to subagents.
 
-Include the relevant boundary text in the subagent prompt because subagents do not automatically inherit Writer's full state. All paper work stays under `workspace/paper/`. Template/reference directories such as `template/` or `workspace/template/` are read-only. Existing results are inputs; do not run new experiments or invent missing evidence.
+Include the relevant boundary text in the subagent prompt because subagents do not automatically inherit Writer's full state. All paper work stays under `branches/writer/paper/`. Template/reference directories such as `template/` or `branches/writer/template/` are read-only. Existing results are inputs; do not run new experiments or invent missing evidence.
 
 Required final report sections for every delegated paper subagent:
 
@@ -20,5 +20,5 @@ Boundary map:
 - `paper-closing-writer`: draft conclusion, compact discussion, and optional limitations after method/results are stable.
 - `paper-figure-python`: create result-grounded Python figures, plotting scripts, exports, and captions. Does not reinterpret result meaning.
 - `paper-table-tex`: create result-grounded TeX tables and helper scripts with layout-safe formatting.
-- `paper-template-integrator`: inspect template references, create/update the editable working copy under `workspace/paper/`, integrate sections/assets/bibliography, compile, and fix layout/citation errors.
+- `paper-template-integrator`: inspect template references, create/update the editable working copy under `branches/writer/paper/`, integrate sections/assets/bibliography, compile, and fix layout/citation errors.
 - `paper-qa-auditor`: check final consistency across claims, numbers, citations, structure, references, figures/tables, and compiled PDF readiness. Defaults to a report, not large rewrites.

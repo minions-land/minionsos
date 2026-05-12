@@ -17,7 +17,7 @@ submission still needs static, reproducible figure assets.
    figures only. Do not invent values or reinterpret results beyond Expert's
    evidence.
 3. **Create a prototype path.** Write the explorer under
-   `workspace/paper/figures/prototypes/<slug>.html`.
+   `branches/writer/paper/figures/prototypes/<slug>.html`.
 4. **Expose useful controls.** Let the user or Writer toggle encodings, labels,
    metric views, or caption variants. Keep controls tied to real data.
 5. **Extract the static decision.** Once the layout is chosen, update the static

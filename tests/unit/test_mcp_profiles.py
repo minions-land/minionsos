@@ -9,7 +9,7 @@ from minions.tools import mcp_server
 from minions.tools.eacn3_mcp_proxy import (
     allowed_tool_names_for_profile as allowed_eacn3_tools_for_profile,
 )
-from minions.tools.eacn3_mcp_proxy import filter_tools
+from minions.tools.eacn3_mcp_proxy import allowed_tool_surface, filter_tools
 from minions.tools.mcp_server import allowed_tool_names_for_profile
 
 
@@ -68,6 +68,102 @@ def test_eacn3_proxy_filters_tool_descriptors() -> None:
     )
 
     assert filtered == [{"name": "eacn3_next", "description": "core"}]
+
+
+def test_eacn3_minions_role_profile_filters_by_active_role() -> None:
+    """For a role wake, the proxy mirrors the role's eacn3_* whitelist.
+
+    Internal roles no longer drain queues directly, so ``eacn3_await_events``
+    and ``eacn3_send_message`` must be hidden from them; the role uses
+    ``mos_*`` (provided by the minionsos MCP server) instead. Non-destructive
+    reads and the non-drain writes the whitelist permits stay available.
+    """
+    child_tools = [
+        {"name": name}
+        for name in (
+            "eacn3_await_events",
+            "eacn3_next",
+            "eacn3_get_events",
+            "eacn3_send_message",
+            "eacn3_create_task",
+            "eacn3_get_task",
+            "eacn3_get_messages",
+            "eacn3_list_tasks",
+            "eacn3_submit_bid",
+            "eacn3_submit_result",
+            "eacn3_cluster_status",
+        )
+    ]
+
+    with patch.dict(
+        os.environ,
+        {
+            "EACN3_MCP_PROFILE": "minions-role",
+            "MINIONS_ROLE_NAME": "coder",
+            "MINIONS_AGENT_TYPE": "main",
+        },
+        clear=False,
+    ):
+        exact, patterns = allowed_tool_surface()
+        filtered = filter_tools(child_tools, exact, patterns)
+
+    names = {tool["name"] for tool in filtered}
+    assert "eacn3_await_events" not in names
+    assert "eacn3_next" not in names
+    assert "eacn3_get_events" not in names
+    assert "eacn3_send_message" not in names
+    assert "eacn3_create_task" not in names
+    assert "eacn3_get_task" in names
+    assert "eacn3_get_messages" in names
+    assert "eacn3_list_tasks" in names
+    assert "eacn3_submit_bid" in names
+    assert "eacn3_submit_result" in names
+    assert "eacn3_cluster_status" in names
+
+
+def test_eacn3_minions_role_profile_gru_keeps_full_eacn3_surface() -> None:
+    """Gru's whitelist is ``eacn3_*`` (wildcard). The proxy must honour it."""
+    child_tools = [
+        {"name": "eacn3_await_events"},
+        {"name": "eacn3_send_message"},
+        {"name": "eacn3_create_task"},
+        {"name": "eacn3_cluster_status"},
+    ]
+
+    with patch.dict(
+        os.environ,
+        {
+            "EACN3_MCP_PROFILE": "minions-role",
+            "MINIONS_ROLE_NAME": "gru",
+            "MINIONS_AGENT_TYPE": "main",
+        },
+        clear=False,
+    ):
+        exact, patterns = allowed_tool_surface()
+        filtered = filter_tools(child_tools, exact, patterns)
+
+    names = {tool["name"] for tool in filtered}
+    assert names == {
+        "eacn3_await_events",
+        "eacn3_send_message",
+        "eacn3_create_task",
+        "eacn3_cluster_status",
+    }
+
+
+def test_eacn3_minions_role_profile_falls_back_to_full_without_role_env() -> None:
+    """Running the proxy outside a role wake (dev interactive `codex`)."""
+    child_tools = [
+        {"name": "eacn3_await_events"},
+        {"name": "eacn3_cluster_status"},
+    ]
+
+    with patch.dict(os.environ, {"EACN3_MCP_PROFILE": "minions-role"}, clear=False):
+        os.environ.pop("MINIONS_ROLE_NAME", None)
+        exact, patterns = allowed_tool_surface()
+        filtered = filter_tools(child_tools, exact, patterns)
+
+    assert filtered == child_tools
 
 
 def test_eacn3_unknown_profile_fails_closed() -> None:

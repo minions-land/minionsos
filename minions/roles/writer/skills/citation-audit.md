@@ -9,11 +9,11 @@ For each bib entry, independently check three layers: the work **exists**, the *
 ## Procedure
 
 1. **Gate timing.** Run after the draft is stable and numeric claims have been audited; before final compile for submission. Running too early wastes lookups on placeholder text.
-2. **Extract (key, context) pairs.** For every `\cite{...}` in `workspace/paper/`, record the key, file, line, and the full surrounding sentence. Build the inverse index (bib entry → cite sites).
+2. **Extract (key, context) pairs.** For every `\cite{...}` in `branches/writer/paper/`, record the key, file, line, and the full surrounding sentence. Build the inverse index (bib entry → cite sites).
 3. **Verify existence.** For each entry: resolve the arXiv ID / DOI / venue URL via web search. If it doesn't resolve, flag `MISSING`.
 4. **Verify metadata.** Compare authors, year, title, venue to DBLP / arXiv / ACL Anthology / OpenReview / publisher. Flag `DRIFT` on any mismatch. Watch for arXiv v1 vs conference version title drift and year off-by-one on preprint-to-accepted transitions.
 5. **Verify context.** For each cite site, ask: does the cited paper actually support what our sentence claims it supports? Wrong-context citations (real paper, wrong claim) are the most dangerous class — e.g. citing a method to support the opposite of what it argues. Flag `WRONG_CONTEXT` with a one-line explanation.
-6. **Record verdicts.** Write `workspace/paper/CITATION_AUDIT.md` (human) and `workspace/paper/CITATION_AUDIT.json` (machine): per-entry `{key, status ∈ OK|DRIFT|MISSING|WRONG_CONTEXT, evidence_url, notes}`.
+6. **Record verdicts.** Write `branches/writer/paper/CITATION_AUDIT.md` (human) and `branches/writer/paper/CITATION_AUDIT.json` (machine): per-entry `{key, status ∈ OK|DRIFT|MISSING|WRONG_CONTEXT, evidence_url, notes}`.
 
 ## When to invoke
 

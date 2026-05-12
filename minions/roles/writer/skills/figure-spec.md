@@ -15,7 +15,7 @@ Before generating a diagram, write a FigureSpec: an explicit JSON-like descripti
    - `edges`: list of `{source, target, style, label}` — `style` ∈ `solid` (data flow), `dashed` (control / feedback), `gray` (secondary).
    - `groups`: optional list of `{label, node_ids, fill, stroke}` for named regions.
 3. **Name labels exactly as they appear in the paper.** The spec is also a glossary check — label drift between figure and prose is a common review smell.
-4. **Render deterministically.** Use a JSON → SVG renderer (e.g. `tools/figure_renderer.py` if present in `workspace/`). Commit both the spec and the rendered SVG/PDF.
+4. **Render deterministically.** Use a JSON → SVG renderer (e.g. `tools/figure_renderer.py` if present in `branches/writer/tools/`). Commit both the spec and the rendered SVG/PDF.
 5. **Iterate on the spec, not the SVG.** Never hand-edit the rendered SVG for structural changes; edit the spec and re-render. Hand-editing only for final visual polish that won't regenerate.
 6. **Include a provenance comment** in the spec file: which section of the paper this figure serves, which claim it supports, and the date of last regeneration.
 
@@ -32,4 +32,4 @@ Before generating a diagram, write a FigureSpec: an explicit JSON-like descripti
 
 ## Output habit
 
-Spec and rendered figure live side-by-side under `workspace/paper/figures/` (e.g. `fig_overview.json` + `fig_overview.pdf`). Spec provenance comment cites the supporting section per root §9.
+Spec and rendered figure live side-by-side under `branches/writer/paper/figures/` (e.g. `fig_overview.json` + `fig_overview.pdf`). Spec provenance comment cites the supporting section per root §9.

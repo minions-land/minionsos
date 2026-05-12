@@ -203,7 +203,7 @@ env = { MINIONS_MCP_PROFILE = "codex" }
 command = "uv"
 args = ["run", "--project", ".", "python", "-m", "minions.tools.eacn3_mcp_proxy", "--", "node", "EACN3/plugin/dist/server.js"]
 enabled = true
-env = { EACN3_MCP_PROFILE = "codex-core" }
+env = { EACN3_MCP_PROFILE = "minions-role" }
 EOF
     ok "Created Codex MCP config: .codex/config.toml"
 else
@@ -246,7 +246,7 @@ ok "User dir ready: $HOME/.minionsos"
 
 # ── 8. Parent-directory git preflight (non-fatal) ────────────────────────────
 # MinionsOS creates per-project git worktrees branched off the directory that
-# CONTAINS MinionsOS. If that parent is not a git repo, project_create will
+# contains the MinionsOS checkout. If that parent is not a git repo, project_create will
 # fail with an actionable error at runtime. We warn here so users can fix it
 # before the first ./gru run instead of hitting it mid-flow.
 PARENT="$(cd "$ROOT/.." && pwd)"
@@ -255,7 +255,7 @@ if ! git -C "$PARENT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     warn "MinionsOS needs the parent to be git-initialised so it can create"
     warn "per-project worktrees. Before running ./gru, do:"
     warn "    cd $PARENT && git init && git add -A && git commit -m 'init'"
-    warn "Also make sure MinionsOS/.git is absent (or added as a submodule)"
+    warn "Also make sure the MinionsOS checkout .git is absent (or added as a submodule)"
     warn "so the parent does not treat it as an embedded repo."
 else
     # Parent is a git repo — check the embedded-.git trap too.
@@ -263,12 +263,13 @@ else
         # Is MinionsOS registered as a submodule of the parent? If yes, .git
         # is normally a file (gitlink), not a directory — so a literal .git/
         # directory inside a parent repo is the footgun case.
-        if ! git -C "$PARENT" ls-files --error-unmatch "MinionsOS" >/dev/null 2>&1; then
-            warn "MinionsOS/.git exists inside a parent git repo, and"
-            warn "MinionsOS is not registered as a submodule. The parent"
+        CHECKOUT_NAME="$(basename "$ROOT")"
+        if ! git -C "$PARENT" ls-files --error-unmatch "$CHECKOUT_NAME" >/dev/null 2>&1; then
+            warn "$CHECKOUT_NAME/.git exists inside a parent git repo, and"
+            warn "$CHECKOUT_NAME is not registered as a submodule. The parent"
             warn "repo will treat it as an embedded repo and 'git add' there"
             warn "will misbehave. Either register as a submodule, or remove"
-            warn "MinionsOS/.git before the parent's first commit."
+            warn "$CHECKOUT_NAME/.git before the parent's first commit."
         fi
     fi
     ok "Parent directory git state looks sane: $PARENT"

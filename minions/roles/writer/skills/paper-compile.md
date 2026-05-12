@@ -8,8 +8,8 @@ Run `latexmk` end-to-end, read `compile.log` carefully, auto-fix the small, safe
 
 ## Procedure
 
-1. **Verify prerequisites.** `which pdflatex latexmk bibtex`. Ensure `workspace/paper/main.tex`, `*.bib`, `sections/`, and `figures/` exist. Fail fast with a clear error if not.
-2. **Clean build.** In `workspace/paper/`: `latexmk -C` then `latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex 2>&1 | tee compile.log`.
+1. **Verify prerequisites.** `which pdflatex latexmk bibtex`. Ensure `branches/writer/paper/main.tex`, `*.bib`, `sections/`, and `figures/` exist. Fail fast with a clear error if not.
+2. **Clean build.** In `branches/writer/paper/`: `latexmk -C` then `latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex 2>&1 | tee compile.log`.
 3. **Diagnose from the log, not from guesses.** Common auto-fixable errors: missing `.sty` (install or remove), undefined `\ref`/`\cite` (fix label/key), missing figure files (check extension), BibTeX syntax nits. Do **not** silently delete user content to make errors disappear.
 4. **Iterate at most 3 attempts.** Each attempt must change at least one concrete source line identified from the log; no blind recompiles.
 5. **Scan for overfull hboxes** (`grep "Overfull \\\\hbox" compile.log`). Fix table / equation overflows per `SYSTEM.md` table layout rules (`\resizebox`, orientation pivot, `\small`). Minor paragraph overflows (<5pt) may be ignored.

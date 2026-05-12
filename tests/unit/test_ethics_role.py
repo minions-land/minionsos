@@ -72,8 +72,16 @@ def test_ethics_main_whitelist() -> None:
 
 
 def test_ethics_subagent_whitelist() -> None:
+    """Ethics subagent executes the writes the main session plans.
+
+    Per the common SYSTEM.md Plan → Dispatch → Verify contract, substantive
+    work (flag files, report files under artifacts/ethics/) is produced by a
+    subagent, not the main role. The subagent must therefore be able to
+    Write/Edit inside that scope; it remains EACN-invisible because there are
+    no mos_* / eacn3_* / project_eacn_* tools in this whitelist.
+    """
     tools = resolve_whitelist("ethics", "subagent")
-    assert set(tools) == {"WebSearch", "WebFetch", "Read"}
+    assert set(tools) == {"WebSearch", "WebFetch", "Read", "Write", "Edit"}
 
 
 def test_project_create_makes_ethics_tree(tmp_path: Path, monkeypatch) -> None:

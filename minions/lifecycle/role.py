@@ -57,6 +57,7 @@ from minions.paths import (
     common_role_system_md,
     project_branch_name,
     project_memory_dir,  # noqa: F401  # re-exported for test monkeypatch compatibility
+    project_role_branch_leaf,
     project_role_log,
     project_role_workspace,
     project_scratchpad,
@@ -404,20 +405,26 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "drive project progress, dispatch tasks through EACN3, and inspect health/status. "
         "You do NOT implement code, run experiments, write final paper text, or "
         "participate in Review.\n"
-        "Write boundaries: workspace/, artifacts/, memory/.\n"
+        "Write boundaries: your branch `branches/main/` (this is Gru's own branch), "
+        "`artifacts/` project coordination notes, and your own "
+        "`branches/main/.minionsos/scratchpad.md`. Do NOT edit other roles' branches "
+        "directly; ask the owning role through EACN instead.\n"
     ),
     "noter": (
         "[Role boundary: human-side agent]\n"
         "You provide staged reports so humans can observe the system: periodic summaries, "
         "pending tasks, risks, evidence chains, artifact indexes, concise status. "
         "You reduce Gru context pressure rather than add to it.\n"
-        "Write boundaries: artifacts/notes/, memory/ only. Do NOT write to workspace/.\n"
+        "Write boundaries: `artifacts/notes/` and your own "
+        "`branches/noter/.minionsos/scratchpad.md` only. Do NOT write to any other "
+        "role's branch under `branches/`.\n"
     ),
     "coder": (
         "[Role boundary: EACN-visible agent]\n"
         "Communicate state and task handoffs through EACN3. "
         "Delegate complex execution to subagents; summarize and write back results.\n"
-        "Write boundaries: workspace/, memory/ by default. Conditional "
+        "Write boundaries: your branch `branches/coder/` and your own "
+        "`branches/coder/.minionsos/scratchpad.md` by default. Conditional "
         "system-maintenance boundary: MinionsOS repository runtime code only when "
         "Gru or the author explicitly assigns that implementation work through EACN "
         "and names the scope, allowed paths, and verification target.\n"
@@ -426,7 +433,8 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "[Role boundary: EACN-visible agent]\n"
         "Communicate state and task handoffs through EACN3. "
         "Delegate complex execution to subagents; summarize and write back results.\n"
-        "Write boundaries: workspace/, artifacts/, memory/.\n"
+        "Write boundaries: your branch `branches/experimenter/`, `artifacts/exp-*/` "
+        "result bundles, and your own `branches/experimenter/.minionsos/scratchpad.md`.\n"
     ),
     "writer": (
         "[Role boundary: EACN-visible agent]\n"
@@ -434,7 +442,8 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "experiment results, and competitor positioning. "
         "Claims must be supported by evidence, experiment, derivation, citation, "
         "or explicit speculation markers.\n"
-        "Write boundaries: workspace/, memory/.\n"
+        "Write boundaries: your branch `branches/writer/` (primary: "
+        "`branches/writer/paper/`) and your own `branches/writer/.minionsos/scratchpad.md`.\n"
     ),
     "reviewer": (
         "[Role boundary: EACN-visible agent — ISOLATED]\n"
@@ -444,7 +453,9 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "or unresolved risk lists unless they are visible in the submitted PDF or repository. "
         "Each review round produces at least three independent opinions. "
         "Gru does not participate in Review.\n"
-        "Write boundaries: artifacts/reviews/ only. Do NOT write to workspace/.\n"
+        "Write boundaries: `artifacts/reviews/` and your own "
+        "`branches/reviewer/.minionsos/scratchpad.md` only. Do NOT write to any "
+        "other role's branch under `branches/`.\n"
     ),
     "ethics": (
         "[Role boundary: EACN-visible agent — continuous evidence validation]\n"
@@ -452,13 +463,17 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "and claims have real evidence support. You MAY inspect internal materials: "
         "experiment artifacts, evidence/claim maps, appendix plans, known limitations, "
         "unresolved risks, agent communications, and all claim types.\n"
-        "Write boundaries: artifacts/ethics/ only. Do NOT write to workspace/.\n"
+        "Write boundaries: `artifacts/ethics/` and your own "
+        "`branches/ethics/.minionsos/scratchpad.md` only. Do NOT write to any other "
+        "role's branch under `branches/`. Do NOT read any other role's "
+        "`.minionsos/scratchpad.md` — private working memory must stay private.\n"
     ),
     "expert": (
         "[Role boundary: EACN-visible agent]\n"
         "Communicate state and task handoffs through EACN3. "
-        "Preferably read-mostly; write to workspace/ and memory/ only when necessary.\n"
-        "Write boundaries: workspace/ (sparingly), memory/.\n"
+        "Preferably read-mostly; write to your own branch only when necessary.\n"
+        "Write boundaries: your branch `branches/<expert>/` (sparingly, scientific "
+        "scratch only) and your own `branches/<expert>/.minionsos/scratchpad.md`.\n"
     ),
 }
 
@@ -804,6 +819,7 @@ def invoke_role_ephemeral(
         **os.environ,
         "MINIONS_AGENT_HOST": invocation.host_name,
         "MINIONS_ROLE_NAME": role_name,
+        "MINIONS_AGENT_TYPE": "main",
         "MINIONS_PROJECT_PORT": str(project_port),
         "MINIONS_WORKSPACE_ROOT": str(project_workspace_root(project_port)),
         "MINIONS_WORKSPACE_MAIN": str(project_workspace(project_port)),
@@ -825,7 +841,11 @@ def invoke_role_ephemeral(
         ),
         "MINIONS_EPHEMERAL": "1",
         "MINIONS_MCP_PROFILE": "codex" if invocation.host_name == "codex" else "full",
-        "EACN3_MCP_PROFILE": "codex-core" if invocation.host_name == "codex" else "full",
+        # Codex cannot take an `--allowed-tools` list, so the EACN3 proxy
+        # must enforce the same per-role EACN3 surface Claude gets through
+        # its CLI flag. Use the role-scoped profile so the proxy consults
+        # the active MinionsOS whitelist instead of the legacy fixed subset.
+        "EACN3_MCP_PROFILE": ("minions-role" if invocation.host_name == "codex" else "full"),
         "MINIONS_SCRATCHPAD_PATH": str(scratchpad_path),
         "MINIONS_SCRATCHPAD_STATUS": scratchpad_status,
         **(extra_env or {}),
@@ -966,11 +986,15 @@ def _format_event_message(
     """Render an event batch as a user message for the ephemeral agent-host process."""
     preamble = ""
     if scratchpad_path is not None:
-        rel = (
-            f"project_{project_port}/memory/{role_name}.md"
-            if project_port
-            else str(scratchpad_path)
-        )
+        # The scratchpad lives inside the role's branch dir under
+        # ``.minionsos/scratchpad.md`` (see project_scratchpad). Render the
+        # branch-relative path so the agent finds it regardless of which
+        # workspace it was launched in.
+        if project_port and role_name:
+            leaf = project_role_branch_leaf(role_name)
+            rel = f"project_{project_port}/branches/{leaf}/.minionsos/scratchpad.md"
+        else:
+            rel = str(scratchpad_path)
         preamble = (
             f"[Scratchpad] {rel}  (status: {scratchpad_status})\n"
             "Read it first to recover only the durable working memory you need. "
@@ -1138,14 +1162,17 @@ def _format_event_message(
     else:
         header = (
             "You have been invoked to process the following EACN event batch.\n"
-            f"Act on these events, emit any necessary EACN responses via {response_tools}, "
-            "then exit this bounded wake window; do not start a polling loop. "
-            "If accepted work belongs to your Role, dispatch your "
-            "own focused subagent(s) for the substantive execution and keep this "
-            "main session focused on coordination, review, checkpointing, and EACN "
-            "communication. Treat this as fresh execution context; after the task "
-            "is handled or checkpointed, leave only compressed durable state in the "
-            "scratchpad.\n\n"
+            "Follow the Plan → Dispatch → Verify contract from the common "
+            "SYSTEM.md: (1) plan the response in 3-6 lines before acting, "
+            "(2) dispatch the substantive work to a host-native subagent, "
+            "(3) verify the subagent's return, then (4) emit any necessary "
+            f"EACN responses via {response_tools}, and exit this bounded "
+            "wake window without starting a polling loop. The main session "
+            "is a coordinator — file edits, mutating Bash, `exp_*`, paper "
+            "search, coding/reviewing/auditing/writing all belong to a "
+            "subagent, not the main thread. Treat this as fresh execution "
+            "context; after the task is handled or checkpointed, leave only "
+            "compressed durable state in the scratchpad.\n\n"
         )
     try:
         body = json.dumps(events, indent=2, default=str)

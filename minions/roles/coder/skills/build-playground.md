@@ -15,8 +15,8 @@ substitute for production dashboard work.
    the user or role needs to tune: layout, chart encoding, prompt structure,
    parameter grid, concept map, or document critique workflow.
 2. **Choose a lightweight output path.** Prefer
-   `workspace/playgrounds/<slug>.html` for project-local prototypes. For paper
-   figures, coordinate with Writer and use `workspace/paper/figures/prototypes/`.
+   `branches/coder/playgrounds/<slug>.html` for project-local prototypes. For paper
+   figures, coordinate with Writer and use `branches/writer/paper/figures/prototypes/`.
 3. **Make it self-contained.** Use one HTML file with embedded CSS and JS unless
    the project already has a stronger local pattern.
 4. **Expose real controls.** Include sliders, selects, checkboxes, tabs, or text

@@ -13,4 +13,4 @@ Relevant imported categories:
 - LaTeX and packaging: `make-latex-model`, `paper-compile`, `overleaf-sync`, `package-submission`, `transfer-old-latex-to-new`.
 - Automation loops: `auto-paper-improvement-loop`, `autoresearch`, `researchclaw`, `researchclaw-cn`.
 
-When a user explicitly names one of these imported skill names, first look for an equivalent local Writer skill. If no local skill exists, state the nearest local workflow you will use and keep outputs under `workspace/paper/`.
+When a user explicitly names one of these imported skill names, first look for an equivalent local Writer skill. If no local skill exists, state the nearest local workflow you will use and keep outputs under `branches/writer/paper/`.

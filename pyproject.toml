@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "minionsos"
-version = "0.4.0"
+version = "0.5.0"
 description = "MinionsOS — Towards Fully Autonomous Scientific Discovery on the EACN Protocol."
 requires-python = ">=3.11"
 dependencies = [

@@ -33,4 +33,4 @@ Group review issues, decide which need new evidence vs clarification vs concessi
 
 ## Output habit
 
-Draft under `workspace/paper/rebuttal/` with one file per response block; link the source review point and the supporting evidence. Every evidence cite is marked `[derived: artifacts/exp-<id>/report.md]` or `[derived: section <N>]` per root §9.
+Draft under `branches/writer/paper/rebuttal/` with one file per response block; link the source review point and the supporting evidence. Every evidence cite is marked `[derived: artifacts/exp-<id>/report.md]` or `[derived: section <N>]` per root §9.

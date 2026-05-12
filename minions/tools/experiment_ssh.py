@@ -62,8 +62,8 @@ def _expand_workdir(workdir: str) -> str:
     """Expand template tokens in a target's ``workdir`` string.
 
     Supported tokens:
-    - ``{project_workspace}`` → absolute path of the current project's git
-      main worktree (``project_{port}/workspace/main``), resolved from the
+    - ``{project_workspace}`` → absolute path of the current project's main
+      branch worktree (``project_{port}/branches/main``), resolved from the
       ``MINIONS_PROJECT_PORT`` env var. Falls back to the literal token
       if the env var is absent (e.g. standalone CLI use).
     """

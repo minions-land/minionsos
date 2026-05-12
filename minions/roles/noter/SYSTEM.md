@@ -50,7 +50,7 @@ on-demand status request through EACN, produce the artifact-backed summary here.
 - Do not bid on, execute, or write notes merely because an open/public EACN task
   exists. You are not part of the task-market decision layer.
 
-Your tool access is governed by §4 of the root constitution.
+Your tool access is governed by the runtime whitelist; see the common role contract.
 
 ## Workspace read/write constraints
 

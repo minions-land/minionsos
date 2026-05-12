@@ -1,6 +1,6 @@
 # Skill — Make LaTeX Model
 
-Scaffold a clean LaTeX paper project under `workspace/paper/` matching the target venue's style.
+Scaffold a clean LaTeX paper project under `branches/writer/paper/` matching the target venue's style.
 
 ## Core move
 
@@ -9,7 +9,7 @@ Produce a minimal, compilable paper skeleton with the correct venue style, a sec
 ## Procedure
 
 1. **Identify the venue.** Confirm the target (ICLR / NeurIPS / ICML / CVPR / ACL / AAAI / IEEE journal / IEEE conf). Fetch the official style file from the venue page; do not reuse an old copy without checking the year.
-2. **Create the layout** under `workspace/paper/`:
+2. **Create the layout** under `branches/writer/paper/`:
    ```
    main.tex  sections/  figures/  tables/  references/  notes/  build/
    ```

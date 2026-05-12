@@ -134,6 +134,10 @@ export interface MosRoleEntry {
   pid: number | null;
   spawned_at: string | null;
   poll_interval: string | null;
+  eacn_agent_id?: string | null;
+  last_seen?: string | null;
+  current_task?: string | null;
+  blocked_reason?: string | null;
 }
 
 export interface MosProject {
@@ -216,6 +220,10 @@ export type WsMessage =
   | { type: "connection:status"; data: { connected: boolean } }
   | { type: "grus:update"; data: GruInfo[] }
   | { type: "selected"; data: { gruId: string | null; port: number | null } }
+  | {
+      type: "role-log:append";
+      data: { gruId: string; port: number; role: string; chunk: string };
+    }
   // legacy
   | { type: "projects:update"; data: MosProject[] }
   | { type: "selected_project"; data: { port: number | null } }

@@ -32,4 +32,4 @@ Draft the abstract as a constrained narrative ladder: field introduction, relate
 
 ## Output habit
 
-Keep the abstract in `workspace/paper/` with sentence-level support noted in nearby draft comments or notes when claims are non-obvious, using `[derived: section <N>]`, `[derived: Expert note <id>]`, or `[derived: artifact <path>]` per root §9.
+Keep the abstract in `branches/writer/paper/` with sentence-level support noted in nearby draft comments or notes when claims are non-obvious, using `[derived: section <N>]`, `[derived: Expert note <id>]`, or `[derived: artifact <path>]` per root §9.
