@@ -1,40 +1,55 @@
+---
+slug: evidence-pointer-sweep
+summary: Audit [evidence: ...] / [derived: ...] markers on EACN messages and artifacts — confirm pointers resolve and content matches the claim, sample-based.
+layer: logical
+tools: eacn3_get_task, eacn3_get_messages, eacn3_send_message
+version: 2
+status: active
+supersedes:
+references: citation-authenticity-audit
+provenance: human
+---
+
 # Skill — Evidence Pointer Sweep
 
-Confirm that the `[evidence: <pointer>]` markers on EACN messages and in artifacts actually resolve to something real: the referenced artifact path exists, the commit SHA is reachable, the URL is live, the EACN event id corresponds to a real past event.
-
-## Core move
-
-The evidence-first EACN convention only has bite if pointers are audited. A broken or fabricated pointer is a quiet hallucination — it looks compliant, but an auditor who clicks through finds nothing. Ethics samples pointers periodically and treats broken ones as flags.
-
-## Procedure
-
-1. **Collect pointers in scope.** Pick a window (last N EACN messages per role, last N artifacts under a given Role's write scope, or a specific handoff you were asked to audit). Extract each `[evidence: ...]` and `[derived: ...]` marker together with its enclosing claim and source (Role, event id, file path).
-2. **Classify the pointer type and resolve it.**
-   - Artifact path (`artifacts/exp-<id>/report.md`, `branches/<role>/paper/...`, etc.): check the file exists in the project, commit SHA that introduced it (via `git log --follow`), and — for bundles — that the report file points at real logs/CSVs/checkpoints.
-   - Commit SHA: confirm the SHA exists in the project-worktree history; check what files it touched so the claim is plausibly supported.
-   - URL: HEAD-fetch it to confirm reachability. For academic URLs, confirm title and author match the claim (this overlaps with the citation-authenticity skill; defer to that skill for citation-shaped cases).
-   - EACN event id: confirm via `eacn3_get_task(task_id)` or `eacn3_get_messages(agent_id)` that the referenced event or task exists and carries the claimed content.
-3. **Cross-check the claim.** A resolvable pointer that does not say what the claim says is `wrong_context`, not `verified`. For example, an `exp-<id>/report.md` that reports a different metric than the EACN claim is cited for.
-4. **Tally the sample and decide severity.** Compute broken / wrong-context / verified counts per Role. One broken pointer in a low-stakes discussion message is a soft nudge; a broken pointer under a camera-ready claim is a hard flag.
-5. **Write the report.** `artifacts/ethics/reports/evidence-sweep-<ts>.md` with per-Role counts and a short list of the highest-severity broken pointers. Open a flag file under `artifacts/ethics/flags/open/` for each hard flag.
-6. **Announce on EACN.** Short `mos_send_message` to each affected Role pointing at the flag files. Gru only hears about the sweep if the counts exceed a clear threshold or a Role has repeated offenses.
+The evidence-first EACN convention only has bite if pointers are audited. Sample broken / mismatched pointers and treat them as quiet hallucinations.
 
 ## When to invoke
 
-- Periodically during active research phases (e.g. once per phase or on idle).
+- Once per project phase (e.g. after each successful experiment batch settles).
 - Before Review rounds, so Reviewer does not inherit silently broken pointers.
-- After a round of heavy refactoring or experiment regeneration, where artifact paths may have moved.
+- After heavy refactoring or experiment regeneration — artifact paths may have moved.
 - On request from Gru or the author, especially before a high-stakes decision.
+
+## Structure
+
+Pointer types and how to resolve:
+
+| Pointer kind | Resolution check |
+|---|---|
+| Artifact path | File exists in project worktree; commit SHA via `git log --follow`; bundle reports cite real logs / CSVs / checkpoints |
+| Commit SHA | SHA exists in project-worktree history; touched files are plausibly relevant |
+| URL | HEAD-fetch confirms reachability; for academic URLs, defer citation-shaped cases to `citation-authenticity-audit` |
+| EACN event id | `eacn3_get_task(task_id)` or `eacn3_get_messages(agent_id)` returns the claimed event with matching content |
+
+Classifications: `verified`, `wrong_context` (resolves but does not support the claim), `broken` (does not resolve). Severity scales with claim stakes — one broken pointer in a chat message is a soft nudge; one under a camera-ready claim is a hard flag.
+
+Outputs land at `artifacts/ethics/reports/evidence-sweep-<ts>.md` (per-Role counts + highest-severity broken list); each hard flag opens `artifacts/ethics/flags/open/<slug>.md`.
+
+## Procedure
+
+1. **Collect pointers in scope.** Default sample window: last 50 EACN messages per role, or last 10 artifacts under a Role's write scope. For a specific handoff audit requested by Gru, take the full set of pointers in that handoff. Extract every `[evidence: ...]` and `[derived: ...]` marker with its enclosing claim and source (Role, event id, file path).
+2. **Classify the pointer type and resolve it** per the table above.
+3. **Cross-check the claim.** A resolvable pointer that does not say what the claim says is `wrong_context`, not `verified`.
+4. **Tally and decide severity.** Compute broken / wrong-context / verified counts per Role.
+5. **Write the report.** Per-Role counts plus a short list of the highest-severity broken pointers; open one flag file per hard flag.
+6. **Announce on EACN.** Short `eacn3_send_message` to each affected Role pointing at the flag files. Gru is told only when counts exceed a clear threshold or a Role has repeated offenses.
+
+Every report and flag is marked `[evidence: <pointer>]` so Ethics eats its own dog food.
 
 ## Pitfalls
 
-- Treating a resolvable URL as proof without checking content (overlaps with citation audit; delegate to that skill when the pointer is a citation).
-- Trying to verify every pointer in a large window. Sample, don't exhaustively scan; keep per-Role coverage proportional to claim density.
-- Auditing your own Ethics artifacts. Use a subagent for self-review if needed.
-- Accepting an EACN event id as verified just because `eacn3_get_task` returns success; the event content must also match the claim.
-
-## Output habit
-
-- Sweep reports stay under `artifacts/ethics/reports/`.
-- Each flag file cites the source event/file and the resolution status of the pointer.
-- Every report and flag is marked with `[evidence: <pointer>]` per the Evidence-first EACN communication convention so Ethics eats its own dog food.
+- Treating a resolvable URL as proof without checking content (overlaps with citation audit; defer when the pointer is a citation).
+- Trying to verify every pointer in a large window. Sample, do not exhaustively scan; coverage proportional to claim density.
+- Auditing your own Ethics artifacts without a subagent.
+- Accepting an EACN event id as verified just because `eacn3_get_task` returns success; the content must also match the claim.

@@ -1,96 +1,75 @@
-# Skill - EACN Network Collaboration
+---
+slug: eacn-network-collaboration
+summary: MinionsOS-specific rules for using EACN3 inside a project Role; defers the tool reference to eacn3-network-overview.
+layer: scheduling
+tools:
+version: 2
+status: active
+supersedes:
+references: eacn3-network-overview, eacn3-event-loop, eacn3-task-initiator, eacn3-task-executor, eacn3-messaging
+provenance: human
+---
 
-Use the project Local EACN network as the work bus: tasks for work, direct
-messages for clarification, and explicit results for completed commitments.
+# Skill — EACN Network Collaboration (MinionsOS context)
 
-## Operating rule
+Tells a MinionsOS Role how its host runtime constrains EACN3 usage; the per-tool detail lives in the `eacn3-*` cluster skills.
 
-Substantive collaboration happens as EACN tasks. If another project Role needs
-to act, publish a task or bid/submit on the task you received. Do not use files,
-scratchpads, host conversation, or Gru context as hidden communication channels.
+## When to invoke
 
-Within MinionsOS, you access EACN3 through the **MOS Agent Pool**: the three
-core tools are `mos_await_events`, `mos_send_message`, and `mos_create_task`.
-They are thin wrappers around EACN3 that add a per-wake local ACK crash-shim
-(see the common SYSTEM.md Wake window protocol). You may still call
-**non-destructive** EACN3 tools directly for read-only inspection:
-`eacn3_get_task`, `eacn3_get_messages`, `eacn3_list_tasks`,
-`eacn3_list_agents`, `eacn3_get_task_status`, `eacn3_get_task_results`,
-`eacn3_list_open_tasks`, `eacn3_list_sessions`.
+Open this skill when you are a MinionsOS project Role about to touch EACN3 for the first time in a wake. It tells you which parts of the underlying tool surface apply to you, which parts the runtime handles on your behalf, and where to go for the full reference. For the full, host-neutral EACN3 tool reference, open `eacn3-network-overview` and follow its router.
 
-Do **not** call `eacn3_await_events`, `eacn3_get_events`, `eacn3_next`,
-`eacn3_send_message`, `eacn3_create_task`, `eacn3_submit_bid`, or
-`eacn3_submit_result` directly for internal work — use the MOS tools (or the
-appropriate project-local adapter). Gru is the one exception: Gru keeps raw
-`eacn3_*` tools for Global EACN3 collaboration outside MinionsOS scope.
+## Structure
 
-Noter normally observes and reports; it should not assign work unless
-explicitly instructed.
+MinionsOS changes three things about how a Role relates to EACN3. Everything else is normal EACN3.
 
-## Your identity
+1. **Identity is pre-allocated.** Your `agent_id` has already been registered by `minions.lifecycle.role` before you woke up. Do not register a new one. Use the injected ID whenever a tool accepts `agent_id` / `sender_id` / `initiator_id`.
+2. **Event draining is pre-done.** `minions.lifecycle.wakeup.WakeupScheduler` has already drained your queue and placed the events in your init prompt. Do not call `eacn3_get_events` / `eacn3_await_events` / `eacn3_next` yourself; it double-drains and silently loses events.
+3. **Task market is the collaboration bus.** Substantive Role-to-Role coordination happens as EACN3 tasks. Do not hide work intent in scratchpad files, host conversation, or Gru context; publish a task or bid on the one you received.
 
-You are already registered on this project's Local EACN network. Use the
-injected `agent_id` when a tool accepts `agent_id`, `sender_id`, or
-`initiator_id`. Do not create or register a new project identity.
+## Procedure
 
-## Receiving a task
+### Default tool surface for a normal wake
 
-Your main wake loop uses `mos_await_events`. For each event:
+- Non-destructive reads (always safe): `eacn3_get_task`, `eacn3_get_messages`, `eacn3_list_tasks`, `eacn3_list_agents`, `eacn3_get_task_status`, `eacn3_get_task_results`, `eacn3_list_open_tasks`, `eacn3_list_sessions`. See `eacn3-task-queries`, `eacn3-messaging`.
+- Outgoing work: `eacn3_send_message`, `eacn3_create_task`. See `eacn3-task-initiator`, `eacn3-messaging`.
+- Task-market writes on a task you received: `eacn3_submit_bid`, `eacn3_submit_result`, `eacn3_reject_task`, `eacn3_select_result`, `eacn3_close_task`. See `eacn3-task-executor`, `eacn3-task-initiator`.
+- Connection lifecycle, only if the plugin reports no active session: `eacn3_connect`, `eacn3_disconnect`, `eacn3_heartbeat`. See `eacn3-bootstrap`.
+
+### Receiving a task
+
+For each event MinionsOS delivered in your init prompt:
 
 1. Read the event and extract `task_id`.
-2. Call `eacn3_get_task(task_id)` before deciding (non-destructive read is fine).
-3. Check domains, deadline, expected output, budget, and whether the work fits
-   your Role boundary.
+2. Call `eacn3_get_task(task_id)` before deciding (non-destructive).
+3. Check domains, deadline, expected output, budget, and whether the work fits your Role boundary.
 4. If it fits, call `eacn3_submit_bid(task_id, confidence, price, agent_id)`.
 5. If accepted, do or delegate the work inside your Role boundary.
-6. Call `eacn3_submit_result(task_id, content, agent_id)` with concrete output,
-   artifact pointers, evidence, commands run, and blockers.
-7. After the event is fully resolved, ACK it via
-   `mos_ack_clear(port, role_name, [event_id])` so the local pending inbox
-   stays in sync.
+6. Call `eacn3_submit_result(task_id, content, agent_id)` with concrete output, artifact pointers, evidence, commands run, and blockers.
+7. Exit when the batch is done. MinionsOS wakes you again on the next event; there is no ACK step you perform.
 
-Silence is acceptable for public tasks that clearly do not fit your Role — in
-that case, ACK the event with `mos_ack_clear` so it doesn't linger in the
-pending inbox.
+Silence is acceptable for public tasks that clearly do not fit your Role — just exit when done with the events that do.
 
-## Publishing a task
+### Publishing a task
 
-Any EACN-visible work Role may publish a Local EACN task with `mos_create_task`.
-Use your own injected agent id as `initiator_id`; tasks are not Gru-only. Gru
-can use the same MOS tools for internal collaboration; it only reaches for raw
-`eacn3_*` tools when talking to Global EACN3. Noter normally observes rather
-than assigning work.
+Any EACN-visible work Role may publish a Local EACN task with `eacn3_create_task`. Use your injected `agent_id` as `initiator_id`; tasks are not Gru-only. Noter normally observes rather than assigns.
 
-For targeted work, set `invited_agent_ids` to the target Role's agent id and use
-the target Role's domains. MinionsOS role agent ids are normally the role names:
-`coder`, `experimenter`, `writer`, `reviewer`, `ethics`, `noter`, and
-`expert-*`.
+- For targeted work: set `invited_agent_ids=[peer_role_agent_id]` and use the target Role's domains. Role agent IDs are normally the role names (`coder`, `experimenter`, `writer`, `reviewer`, `ethics`, `noter`, `expert-*`).
+- For public work: omit `invited_agent_ids` and choose domains describing the needed capability.
 
-For public work, omit `invited_agent_ids` and choose domains that describe the
-needed capability. EACN3 owns public task routing and writes task broadcasts to
-candidate agent queues. MinionsOS may wake a Role because EACN3 reports pending
-queue activity, but it must not synthesize candidate matches itself. Gru and
-Noter are not task-market workers.
+Task descriptions should include: goal and why it is needed; inputs and artifact paths; constraints, Role boundary, and deadline; expected output shape; how success will be checked. Use `budget=0` for normal project-local collaboration unless the author or task says otherwise. Full field detail is in `eacn3-task-initiator`.
 
-Task descriptions should include:
+### Direct messages vs. tasks
 
-- Goal and why the work is needed.
-- Inputs and artifact paths.
-- Constraints, role boundary, and deadline.
-- Expected output shape.
-- How success will be checked.
+Use `eacn3_send_message` for short clarification, status, acknowledgements, or blocker notes. Do not ask for repository edits, experiments, paper sections, reviews, or evidence audits by direct message — those deserve a task. See `eacn3-messaging`.
 
-Use `budget=0` for normal project-local collaboration unless the author or task
-explicitly says otherwise.
+### Gru
 
-## Direct messages
+Do not route ordinary in-project dependencies through Gru. Contact Gru only for cross-project relay, author-facing decisions, deadline or risk escalation, deadlock, or system repair.
 
-Use `mos_send_message` for short clarification, status, acknowledgements, or
-blocker notes. Do not ask for repository edits, experiments, paper sections,
-reviews, or evidence audits by direct message when a task would be clearer.
+## Pitfalls
 
-## Gru
-
-Do not route ordinary in-project dependencies through Gru. Contact Gru only for
-cross-project relay, author-facing decisions, deadline or risk escalation,
-deadlock, or system repair.
+- **Double-draining.** Calling `eacn3_get_events` / `eacn3_await_events` / `eacn3_next` from inside a wake duplicates the scheduler's drain and loses events. Trust the init prompt.
+- **Re-registering.** Do not call `eacn3_register_agent`. Your identity is already on the network; a second registration creates a duplicate AgentCard and confuses routing.
+- **Hiding work as side channels.** Scratchpads, host conversation, and shared files are not EACN-visible. If another Role needs to act, publish a task or send a message — do not assume they will "see" your scratchpad change.
+- **Noter publishing work tasks.** Noter observes and reports; it should not assign work unless explicitly instructed.
+- **Treating the `eacn3-*` reference skills as must-read.** They are progressive disclosure: open only the cluster that matches your current action. `eacn3-network-overview` is the router; use it.

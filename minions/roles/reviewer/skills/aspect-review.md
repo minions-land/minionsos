@@ -1,50 +1,46 @@
-# Skill - Aspect Review
+---
+slug: aspect-review
+summary: Open when spawned by simulate-reviewer-instance, or when Reviewer main is asked for one narrow-aspect inspection; produce evidence-backed notes with one assigned stance.
+layer: logical
+tools:
+version: 2
+status: active
+supersedes:
+references: simulate-reviewer-instance
+provenance: human
+---
 
-Instructions for a local aspect subagent inside one reviewer instance.
+# Skill — Aspect Review
 
-## Core Move
+One narrow aspect, one assigned stance, evidence-backed notes for the parent reviewer instance. Local-only and EACN-invisible by design.
 
-Inspect one narrow aspect of the current submission, with one assigned stance,
-and produce evidence-backed notes for the parent reviewer instance.
+## When to invoke
 
-## Aspect Menu
+Called by `simulate-reviewer-instance` when spawning an aspect subagent. Each reviewer instance spawns several of these in parallel. May also be invoked directly when Reviewer main is asked for a single narrow-aspect inspection (e.g. "audit reproducibility for round 3, no full review needed") outside the orchestrated round flow.
 
-- `presentation`: structure, clarity, notation, figures, tables, and readability.
-- `novelty`: originality, related work, overlap, and contribution inflation.
-- `theory`: formal claims, assumptions, proof obligations, algorithms, and method
-  soundness.
-- `experiments`: baselines, controls, metrics, seeds, variance, ablations, and
-  protocol validity.
-- `reproducibility`: code, scripts, environment, datasets, checkpoints, leakage,
-  and command-level reconstruction.
-- `limitations`: claim scope, honest limitations, deployment risks, fairness,
-  safety, and ethics tied to the task.
+## Structure
 
-## Required Boundary
+The aspect subagent is local-only and EACN-invisible. It may not poll EACN, register agents, send messages, open project tasks, or read any review history (`artifacts/reviews/**`, author rebuttals, changelogs, previous summaries during Pass A). It may read only the current submission package and files explicitly named in its prompt. Aspect menu:
 
-The aspect subagent is local-only and EACN-invisible. It must not poll EACN,
-register agents, send messages, open project tasks, or read any review history.
-It may read only the current submission package and the files explicitly named
-in its prompt.
+| Aspect | Scope |
+|---|---|
+| `presentation` | structure, clarity, notation, figures, tables, readability |
+| `novelty` | originality, related work, overlap, contribution inflation |
+| `theory` | formal claims, assumptions, proof obligations, algorithms, method soundness |
+| `experiments` | baselines, controls, metrics, seeds, variance, ablations, protocol validity |
+| `reproducibility` | code, scripts, environment, datasets, checkpoints, leakage, command-level reconstruction |
+| `limitations` | claim scope, honest limitations, deployment risks, fairness, safety, ethics tied to the task |
 
 ## Procedure
 
 1. Read the assigned current submission materials.
-2. Apply the assigned stance/persona, but keep every criticism evidence-backed.
-3. Identify aspect-specific weaknesses, questions, required revisions, and
-   evidence pointers.
+2. Apply the assigned stance / persona, but keep every criticism evidence-backed.
+3. Identify aspect-specific weaknesses, questions, required revisions, evidence pointers.
 4. State decision pressure, not a final reviewer decision.
-5. Write the result using `templates/aspect-note.md`.
+5. Write the result using `templates/aspect-note.md`. Short bullets with evidence attached; prefer specific, actionable revisions over general complaints.
 
 ## Pitfalls
 
 - Making broad final judgments outside the assigned aspect.
-- Criticizing without a concrete citation, section, table, code pointer, or
-  artifact pointer.
-- Reading `artifacts/reviews/**`, author rebuttals, changelogs, or previous
-  summaries during Pass A.
-
-## Output Habit
-
-Use short bullets with evidence attached. Prefer specific, actionable revisions
-over general complaints.
+- Criticizing without a concrete citation, section, table, code pointer, or artifact pointer.
+- Reading `artifacts/reviews/**`, author rebuttals, changelogs, or previous summaries during Pass A.

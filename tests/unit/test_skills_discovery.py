@@ -50,11 +50,11 @@ def test_h1_only_falls_back_to_title(fake_roles: Path) -> None:
 
 
 def test_truncates_long_summary(fake_roles: Path) -> None:
-    long = "x" * 200
+    long = "x" * 400
     _write_skill(fake_roles, "writer", "x", f"# T\n\n{long}\n")
     [(slug, summary)] = skills_mod.list_skills("writer")
     assert slug == "x"
-    assert len(summary) <= 100
+    assert len(summary) <= 200
 
 
 def test_expert_aliases_resolve_to_expert_dir(fake_roles: Path) -> None:
@@ -92,3 +92,61 @@ def test_sorted_and_skips_non_markdown(fake_roles: Path) -> None:
 def test_empty_file_returns_empty_summary(fake_roles: Path) -> None:
     _write_skill(fake_roles, "writer", "x", "")
     assert skills_mod.list_skills("writer") == [("x", "")]
+
+
+def test_frontmatter_summary_overrides_body(fake_roles: Path) -> None:
+    _write_skill(
+        fake_roles,
+        "writer",
+        "x",
+        "---\nslug: x\nsummary: Frontmatter wins.\n---\n\n# Title\n\nBody summary.\n",
+    )
+    assert skills_mod.list_skills("writer") == [("x", "Frontmatter wins.")]
+
+
+def test_frontmatter_without_summary_falls_back_to_body(fake_roles: Path) -> None:
+    _write_skill(
+        fake_roles,
+        "writer",
+        "x",
+        "---\nslug: x\nlayer: scheduling\n---\n\n# Title\n\nBody summary.\n",
+    )
+    assert skills_mod.list_skills("writer") == [("x", "Body summary.")]
+
+
+def test_deprecated_status_hides_skill(fake_roles: Path) -> None:
+    _write_skill(
+        fake_roles,
+        "writer",
+        "old",
+        "---\nslug: old\nsummary: Old.\nstatus: deprecated\n---\n\n# Old\n",
+    )
+    _write_skill(fake_roles, "writer", "new", "# New\n\nReplacement skill.\n")
+    assert skills_mod.list_skills("writer") == [("new", "Replacement skill.")]
+
+
+def test_merged_status_hides_skill(fake_roles: Path) -> None:
+    _write_skill(
+        fake_roles,
+        "writer",
+        "x",
+        "---\nslug: x\nsummary: Hidden.\nstatus: merged\n---\n",
+    )
+    assert skills_mod.list_skills("writer") == []
+
+
+def test_active_status_is_listed(fake_roles: Path) -> None:
+    _write_skill(
+        fake_roles,
+        "writer",
+        "x",
+        "---\nslug: x\nsummary: Visible.\nstatus: active\n---\n",
+    )
+    assert skills_mod.list_skills("writer") == [("x", "Visible.")]
+
+
+def test_malformed_frontmatter_falls_back_to_body(fake_roles: Path) -> None:
+    _write_skill(fake_roles, "writer", "x", "---\nno-closing-fence\n# Title\n\nBody.\n")
+    [(slug, summary)] = skills_mod.list_skills("writer")
+    assert slug == "x"
+    assert summary != ""

@@ -1,22 +1,18 @@
+---
+slug: citation-authenticity-audit
+summary: Verify every .bib entry and Reviewer-cited prior work actually exists and matches the claimed author / year / venue / title; hallucinated citations are the highest-signal Ethics failure.
+layer: logical
+tools: eacn3_send_message
+version: 2
+status: active
+supersedes:
+references: evidence-pointer-sweep
+provenance: human
+---
+
 # Skill — Citation Authenticity Audit
 
-Verify that every `.bib` entry and every Reviewer-cited prior work actually exists and matches the claimed author / year / venue / title.
-
-## Core move
-
-Hallucinated citations are the single highest-signal Ethics failure mode and the easiest to catch with web verification. For every audited batch, pick a sampled subset of citations, confirm each against an authoritative source, and flag mismatches.
-
-## Procedure
-
-1. **Scope the batch.** Decide whether this is a full sweep (e.g. before a submission gate) or a statistical sample (e.g. a periodic audit). For a sample, pick 20-30% of entries randomly, weighted toward: recently added entries, entries cited in high-stakes claims, entries near the abstract / introduction where hallucinations land readers, and entries in areas the project Expert did **not** produce.
-2. **Collect the cite sites.** Build `(bib_key, sentence, file, line)` tuples for each audited entry so the claim context is preserved. For Reviewer-cited prior work that lives in review artifacts rather than a `.bib`, record `(review_round, reviewer_instance, quote)` instead.
-3. **Verify each entry independently.** For each `(bib_key, claimed_title, claimed_authors, claimed_venue, claimed_year)`:
-   - Web-search the exact title plus first author. Prefer the venue's own proceedings, arXiv, or DOI resolvers over aggregator pages.
-   - Record the canonical URL, canonical title, canonical authors, canonical venue, canonical year.
-   - Classify as `verified` (all four match), `drift` (entry exists but one or more fields differ — common for arXiv-vs-published mismatches), `wrong_context` (entry exists but does not say what the cite site claims), or `fabricated` (no such paper found).
-4. **Spot-check the claim, not just the title.** For high-stakes citations, open the source and check whether the sentence that cites it is actually supported by the cited paper's claims. A real paper cited for a false claim is still an Ethics failure.
-5. **Write the output.** For every `drift` / `wrong_context` / `fabricated` entry, write a flag file at `artifacts/ethics/flags/open/<slug>.md` with: bib_key, cite site, claimed vs actual, canonical URL, severity, and a short remediation suggestion (remove, replace, rewrite the sentence). Summarise the batch in `artifacts/ethics/reports/report-<ts>.md` with counts per classification.
-6. **Announce on EACN.** One short `mos_send_message` to the cite site's author Role (Writer for `.bib` entries, Reviewer for review-artifact cites) pointing at the flag files; do not paste the full report into EACN.
+Hallucinated citations are the single highest-signal Ethics failure mode and the easiest to catch with web verification. Sample, verify, flag.
 
 ## When to invoke
 
@@ -25,16 +21,29 @@ Hallucinated citations are the single highest-signal Ethics failure mode and the
 - Periodically during active writing phases so hallucinations do not accumulate.
 - On demand when Gru or the author requests a citation sweep.
 
+## Structure
+
+Each audited entry is classified `verified` (all four fields match), `drift` (entry exists but ≥ 1 field differs — common arXiv-vs-published case), `wrong_context` (entry exists but does not say what the cite site claims), or `fabricated` (no such paper found). Outputs:
+
+- Per-flag file: `artifacts/ethics/flags/open/<slug>.md` — bib_key, cite site, claimed vs actual, canonical URL, severity, remediation.
+- Batch report: `artifacts/ethics/reports/report-<ts>.md` — counts per classification.
+- EACN ping to the cite site's author Role (Writer for `.bib`, Reviewer for review-artifact cites). Do not paste full reports into EACN.
+
+Verification sources: venue proceedings, arXiv, DOI resolvers — never aggregator pages.
+
+## Procedure
+
+1. **Scope the batch.** Full sweep (submission gate) or statistical sample (periodic audit). For a sample, pick 20–30 % of entries weighted toward: recently added entries, entries cited in high-stakes claims, entries near the abstract / introduction, entries in areas the project Expert did **not** produce.
+2. **Collect cite sites.** Tuples of `(bib_key, sentence, file, line)`. For Reviewer-cited prior work in review artifacts, use `(review_round, reviewer_instance, quote)`.
+3. **Verify each entry independently.** For each `(bib_key, claimed_title, claimed_authors, claimed_venue, claimed_year)`: web-search exact title plus first author (prefer venue / arXiv / DOI), record canonical URL / title / authors / venue / year, classify per the four-category scheme.
+4. **Spot-check the claim, not just the title.** For high-stakes citations, open the source and check whether the citing sentence is supported by the cited paper's claims. A real paper cited for a false claim is still an Ethics failure.
+5. **Write the output.** One flag file per `drift` / `wrong_context` / `fabricated` entry; one summary report per batch with counts.
+6. **Announce on EACN.** Short `eacn3_send_message` to the affected author Role pointing at the flag files. Resolved flags move to `artifacts/ethics/flags/resolved/` with a short note. Every report and flag is marked `[evidence: <URL|commit|EACN event id>]`.
+
 ## Pitfalls
 
 - Verifying only the title and skipping the venue. Hallucinated venues are common.
 - Accepting aggregator pages (ResearchGate, academic-mirror sites) as canonical. Use the venue or arXiv directly.
 - Flagging `drift` as `fabricated`. Reserve `fabricated` for entries with no real paper behind them.
-- Auditing entries the project Expert produced without independent verification: the Expert may share the same hallucination. Always verify independently.
-- Letting the report grow into a narrative. Keep reports operational: classification counts, flag pointers, remediation.
-
-## Output habit
-
-- Each flag file cites the canonical URL and the claim it fails to support. Resolved flags move to `artifacts/ethics/flags/resolved/` with a short note on what fixed it.
-- Report files are dated and stay under `artifacts/ethics/reports/`.
-- Every report and flag is marked with `[evidence: <URL|commit|EACN event id>]` per the Evidence-first EACN communication convention.
+- Auditing entries the project Expert produced without independent verification: the Expert may share the same hallucination.
+- Letting the report grow into a narrative. Keep reports operational.

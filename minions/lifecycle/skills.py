@@ -7,7 +7,12 @@ module provides a small helper that enumerates them and extracts a one-line
 summary for each, used by ``invoke_role_ephemeral`` to seed the Role's
 wake-up message with a ``[Skills]`` block.
 
-Skills are plain markdown. The summary is extracted as follows:
+Skills are plain markdown. They MAY begin with a YAML frontmatter block
+delimited by ``---`` lines; when present, a ``summary:`` field overrides
+all other heuristics, and a ``status: deprecated`` or ``status: merged``
+field hides the skill from discovery so deletions stay safe.
+
+When no frontmatter summary is given, the body summary is extracted as:
 
 1. Find the first non-blank line. If it starts with ``# ``, it is the H1
    title. Otherwise treat it as the summary directly.
@@ -25,7 +30,41 @@ from pathlib import Path
 
 from minions.paths import ROLES_DIR
 
-_MAX_SUMMARY_LEN = 100
+_MAX_SUMMARY_LEN = 200
+_HIDDEN_STATUSES = frozenset({"deprecated", "merged"})
+
+
+def _split_frontmatter(text: str) -> tuple[dict[str, str], str]:
+    """Return ``(fields, body)``. ``fields`` is empty when no frontmatter.
+
+    Recognises a leading ``---`` fence terminated by another ``---``. Only
+    flat ``key: value`` lines are parsed; nested YAML or list values are
+    intentionally ignored — frontmatter here is for discovery metadata,
+    not arbitrary structured data.
+    """
+    if not text.startswith("---"):
+        return {}, text
+    lines = text.splitlines(keepends=True)
+    if not lines or lines[0].rstrip() != "---":
+        return {}, text
+    end = -1
+    for i in range(1, len(lines)):
+        if lines[i].rstrip() == "---":
+            end = i
+            break
+    if end == -1:
+        return {}, text
+    fields: dict[str, str] = {}
+    for raw in lines[1:end]:
+        line = raw.rstrip("\n")
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        fields[key.strip()] = value.strip()
+    body = "".join(lines[end + 1 :])
+    return fields, body
 
 
 def _resolve_role_skills_dir(role_name: str) -> Path:
@@ -43,6 +82,22 @@ def _common_skills_dir() -> Path:
 
 
 def _extract_summary(text: str) -> str:
+    fields, body = _split_frontmatter(text)
+    fm_summary = fields.get("summary", "").strip().strip('"').strip("'")
+    if fm_summary:
+        chosen = fm_summary
+    else:
+        chosen = _summary_from_body(body)
+    chosen = chosen.lstrip("> ").strip()
+    for ch in ("**", "__", "*", "_", "`"):
+        chosen = chosen.replace(ch, "")
+    chosen = " ".join(chosen.split())
+    if len(chosen) > _MAX_SUMMARY_LEN:
+        chosen = chosen[: _MAX_SUMMARY_LEN - 1].rstrip() + "…"
+    return chosen
+
+
+def _summary_from_body(text: str) -> str:
     lines = [ln.rstrip() for ln in text.splitlines()]
     non_blank = [ln for ln in lines if ln.strip()]
     if not non_blank:
@@ -63,15 +118,7 @@ def _extract_summary(text: str) -> str:
     else:
         summary = first
 
-    chosen = summary or title or ""
-    # Strip blockquote markers and light markdown emphasis.
-    chosen = chosen.lstrip("> ").strip()
-    for ch in ("**", "__", "*", "_", "`"):
-        chosen = chosen.replace(ch, "")
-    chosen = " ".join(chosen.split())
-    if len(chosen) > _MAX_SUMMARY_LEN:
-        chosen = chosen[: _MAX_SUMMARY_LEN - 1].rstrip() + "…"
-    return chosen
+    return summary or title or ""
 
 
 def list_skills(role_name: str) -> list[tuple[str, str]]:
@@ -93,6 +140,10 @@ def list_skills(role_name: str) -> list[tuple[str, str]]:
             try:
                 text = path.read_text(encoding="utf-8")
             except OSError:
+                continue
+            fields, _ = _split_frontmatter(text)
+            if fields.get("status", "").strip().strip('"').strip("'") in _HIDDEN_STATUSES:
+                seen.add(path.stem)
                 continue
             summary = _extract_summary(text)
             out.append((path.stem, summary))
