@@ -34,9 +34,11 @@ import sys
 import threading
 from collections.abc import Iterable
 from fnmatch import fnmatchcase
-from typing import Any
+from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
+
+AgentType = Literal["main", "subagent"]
 
 CODEX_CORE_TOOL_NAMES = frozenset(
     {
@@ -84,11 +86,10 @@ def _role_eacn3_patterns() -> list[str] | None:
     checkout. In role wake-ups ``role.py`` always sets both.
     """
     role = os.environ.get("MINIONS_ROLE_NAME", "").strip()
-    agent_type = (os.environ.get("MINIONS_AGENT_TYPE", "main").strip() or "main").lower()
+    raw_agent_type = (os.environ.get("MINIONS_AGENT_TYPE", "main").strip() or "main").lower()
     if not role:
         return None
-    if agent_type not in {"main", "subagent"}:
-        agent_type = "main"
+    agent_type: AgentType = "subagent" if raw_agent_type == "subagent" else "main"
     try:
         from minions.config import resolve_whitelist
     except Exception as exc:
