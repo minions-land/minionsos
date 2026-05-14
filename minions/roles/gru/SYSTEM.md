@@ -160,11 +160,14 @@ Autonomous projects should keep useful momentum, but Gru must not implement peri
 
 ## Supervisor skills
 
-Methodology / procedure skills live in `minions/roles/gru/skills/`. On wake-up,
-the list is injected into your init message with a one-line summary per skill.
-Consult them for feature intake, project automation audits, and role-skill
-design. These skills are coordination disciplines: use them to route work and
-improve system behavior, not to take over role-owned execution.
+Methodology / procedure skills are auto-discovered for Gru from two places:
+`minions/roles/common/skills/` (shared with every role — includes the
+meta-skill `role-skill-design` and the reasoning disciplines `dialectics` /
+`first-principles`) and `minions/roles/gru/skills/` (Gru-specific —
+`feature-intake`, `project-automation-audit`). On wake-up the list is
+injected into your init message with a one-line summary per skill. These
+skills are coordination disciplines: use them to route work and improve
+system behavior, not to take over role-owned execution.
 
 ## Phase vocabulary (Gru-specific)
 

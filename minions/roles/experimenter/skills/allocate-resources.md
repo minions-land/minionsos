@@ -1,6 +1,6 @@
 ---
 slug: allocate-resources
-summary: Translate an accepted experiment request into queue-ready unit specs and resource policy — decide unit boundaries, constraints, and estimates, then hand the spec to dispatch-runner; this skill never calls exp_queue_submit.
+summary: Translate an accepted experiment request into queue-ready unit specs — decide unit boundaries, constraints, and estimates, then hand the spec to dispatch-runner. Never calls exp_queue_submit.
 layer: logical
 tools: exp_gpu_pool_set
 version: 3

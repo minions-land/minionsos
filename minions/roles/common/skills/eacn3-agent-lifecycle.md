@@ -1,6 +1,6 @@
 ---
 slug: eacn3-agent-lifecycle
-summary: Open to inspect an Agent identity before messaging or bidding, or to check that reverse control is wired correctly; in MinionsOS registration is pre-done — only eacn3_get_agent and eacn3_list_my_agents are typically needed.
+summary: Open to inspect an Agent identity before messaging or bidding, or to check reverse-control wiring; in MinionsOS registration is pre-done — only eacn3_get_agent / eacn3_list_my_agents are typical.
 layer: logical
 tools: eacn3_register_agent, eacn3_get_agent, eacn3_update_agent, eacn3_unregister_agent, eacn3_list_my_agents, eacn3_reverse_control_status
 version: 2

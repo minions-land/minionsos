@@ -1,6 +1,6 @@
 ---
 slug: dispatch-runner
-summary: Submit allocate-resources's plan to the Python queue — stage inputs, call exp_queue_submit once, persist the batch id, broadcast the handoff, and exit. This skill is the only place exp_queue_submit is called.
+summary: Submit allocate-resources's plan to the Python queue — stage inputs, call exp_queue_submit once, persist the batch id, broadcast handoff, exit. The only place exp_queue_submit is called.
 layer: logical
 tools: exp_queue_submit, exp_put
 version: 3

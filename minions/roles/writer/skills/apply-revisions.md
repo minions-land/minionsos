@@ -1,6 +1,6 @@
 ---
 slug: apply-revisions
-summary: Open after rebuttal acceptance or when Reviewer publishes a Weak Accept / Borderline decision requiring revisions — incorporate reviewer-requested changes into the manuscript before package-submission.
+summary: Open after rebuttal acceptance or a Reviewer Weak Accept / Borderline decision requiring revisions — incorporate reviewer-requested changes into the manuscript before package-submission.
 layer: logical
 tools:
 version: 1

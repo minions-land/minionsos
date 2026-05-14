@@ -1,7 +1,7 @@
 ---
 slug: delegate-heavy-task
 summary: Delegate complex coding tasks to Codex GPT-5.5 via codex-bridge MCP; falls back to Claude subagent if Codex unavailable.
-layer: execution
+layer: logical
 tools: codex
 version: 3
 status: active

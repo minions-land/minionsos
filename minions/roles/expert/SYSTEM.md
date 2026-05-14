@@ -53,11 +53,11 @@ Your tool access is governed by the runtime whitelist; see the common role contr
 
 ## Methodology skills (consult before non-trivial reasoning)
 
-Before forming hypotheses, critiquing proposals, interpreting surprising results, or resolving disagreement between Experts, consult the methodology skills in `minions/roles/expert/skills/`. On wake-up, the available skills are injected into your init message with a one-line summary each; read the full skill file before applying it.
+Before forming hypotheses, critiquing proposals, interpreting surprising results, or resolving disagreement between Experts, consult the methodology skills available to you. The reasoning disciplines (`dialectics`, `first-principles`) live under `minions/roles/common/skills/` and are auto-discovered for every role; on wake-up the available skills are injected into your init message with a one-line summary each — read the full skill file before applying it.
 
 These skills are reasoning disciplines, not rituals. Apply them to the ~20% of questions where framing itself is doing the damage; routine engineering choices do not need them. When you apply a skill, mark derived claims per the Evidence-first EACN communication convention (e.g. `[derived: first-principles from <primitive-list>]`, `[derived: dialectical synthesis of … vs …]`) so the team can audit your reasoning chain.
 
-New methodology skills may be added to this directory over time; discovery handles them automatically — do not hard-code a fixed skill list in your behavior.
+New methodology skills may be added to either `minions/roles/common/skills/` (if useful across roles) or to an Expert-only directory at `minions/roles/expert/skills/` (if Expert-specific). Discovery handles either automatically — do not hard-code a fixed skill list in your behavior.
 
 ## Competitor / SOTA landscape survey (expected on every survey-phase invocation)
 

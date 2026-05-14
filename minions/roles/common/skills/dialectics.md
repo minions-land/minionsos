@@ -1,6 +1,6 @@
 ---
 slug: dialectics
-summary: Open before publishing a confident claim, or when two Experts disagree with evidence — thesis/antithesis/synthesis discipline that forces new predictions, not bland trade-offs.
+summary: Open before publishing a confident claim, or when two roles disagree with evidence — thesis/antithesis/synthesis discipline that forces new predictions, not bland trade-offs.
 layer: logical
 tools:
 version: 2
@@ -16,8 +16,8 @@ Every strong position contains its own limitation. Surfacing the limitation befo
 
 ## When to invoke
 
-- About to publish a confident claim.
-- Two Experts (or Expert and Reviewer) disagree and both have evidence.
+- About to publish a confident claim — Expert defending a result, Writer drafting an abstract, Gru endorsing a feature decision, Reviewer recommending accept/reject, Ethics declaring a flag.
+- Two roles (or two Experts, or Expert and Reviewer) disagree and both have evidence.
 - Evaluating an experimental result that "just works" on your data — what regime would break it?
 - Interpreting a surprising outcome: one frame overfits to the finding; the opposing frame guards against that.
 - Shaping paper claims: a dialectically tested claim survives review better.

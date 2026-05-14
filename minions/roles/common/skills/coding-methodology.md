@@ -1,6 +1,6 @@
 ---
 slug: coding-methodology
-summary: Three-phase coding pipeline — Plan → Review → Simplify — each gated by a fixed smoke test. Open before any change that touches shared state, public APIs, lifecycle, or ≥2 files, or adds any new public function or class.
+summary: Three-phase coding pipeline — Plan → Review → Simplify — each gated by a fixed smoke test. Open for changes touching shared state, public APIs, lifecycle, ≥2 files, or adding a public function/class.
 layer: logical
 tools:
 version: 2

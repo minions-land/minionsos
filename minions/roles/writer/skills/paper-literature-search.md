@@ -1,6 +1,6 @@
 ---
 slug: paper-literature-search
-summary: Run focused literature search for paper writing — claim-first queries via the MinionsOS paper-search MCP tools (arxiv / pubmed / biorxiv / medrxiv / google_scholar), with explicit verify-before-cite and no-fabrication discipline.
+summary: Focused literature search for paper writing — claim-first queries via the MinionsOS paper-search MCP tools (arxiv / pubmed / biorxiv / medrxiv / scholar), with verify-before-cite discipline.
 layer: logical
 tools: search_arxiv, search_pubmed, search_biorxiv, search_medrxiv, search_google_scholar, read_arxiv_paper, read_pubmed_paper, read_biorxiv_paper, read_medrxiv_paper, download_arxiv, download_pubmed, download_biorxiv, download_medrxiv
 version: 3

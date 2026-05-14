@@ -1,6 +1,6 @@
 ---
 slug: code-validity-review
-summary: Deep-trace zoom of the experiments / reproducibility aspects — open only when an aspect-review needs to walk actual code paths to decide whether implementation details invalidate a paper claim. Not a parallel review type.
+summary: Deep-trace zoom of the experiments / reproducibility aspects — open when aspect-review must walk code paths to decide whether implementation invalidates a paper claim. Not a parallel review type.
 layer: logical
 tools:
 version: 3
