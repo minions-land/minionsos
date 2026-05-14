@@ -131,7 +131,7 @@ def main() -> int:
         if agent_id:
             print("[smoke] step 6: post_message + poll_events")
             try:
-                eacn_client.post_message(
+                eacn_client.send_message(
                     port=port,
                     to_agent_id=agent_id,
                     from_agent_id=agent_id,

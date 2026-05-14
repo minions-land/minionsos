@@ -52,14 +52,12 @@ class RoleEntry(BaseModel):
     workspace_path: str | None = None
     workspace_branch: str | None = None
     github_push_target: str | None = None
-    poll_interval: str | None = None
     eacn_agent_id: str | None = None
     eacn_agent_token: str | None = None
     eacn_registered_at: str | None = None
     last_seen: str | None = None
     current_task: str | None = None
     blocked_reason: str | None = None
-    wake_policy: Literal["event", "time", "human", "any"] = "event"
     time_trigger_interval: str | None = None
     artifact_pointers: list[str] = Field(default_factory=list)
 

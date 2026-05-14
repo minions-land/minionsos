@@ -17,14 +17,11 @@ minions/
 │   ├── agent_host.py        # Claude Code / Codex invocation builders
 │   ├── eacn_identity.py     # stable per-project role agent ids and plugin state
 │   ├── project.py           # project_create/close/dormant/revive/repair helpers
-│   ├── project_eacn.py      # Gru-facing project-local EACN adapters
 │   ├── role.py              # register_role / register_expert / invoke_role_ephemeral / dismiss
 │   ├── skills.py            # role skill discovery and one-line summaries
-│   ├── wakeup.py            # Python-level event-driven Role dispatcher (see below)
+│   ├── wakeup.py            # per-(project, role) EACN3 long-poll scheduler
 │   ├── relay.py             # gru_relay implementation
-│   ├── eacn_client.py       # thin EACN3 HTTP client (used by wakeup)
-│   ├── gru_inbox.py         # Gru EACN pending journal for drain-only queues
-│   ├── role_inbox.py        # role event queue helpers
+│   ├── eacn_client.py       # thin EACN3 HTTP client (registration / bootstrap / health)
 │   └── health.py            # backend / role health probes
 ├── tools/
 │   ├── mcp_server.py        # FastMCP stdio server wrapping lifecycle functions
@@ -48,19 +45,22 @@ minions/
     └── logs/gru.log
 ```
 
-## Hook-driven Role lifecycle
+## Scheduler-driven Role lifecycle
 
-Roles use bounded wake windows with stable session/workspace metadata. The
-current implementation still starts a local Claude/Codex process per wake, but
-the process runs in the role's canonical workspace and records a resumable
-session name so later wakes can continue the same logical role session.
+MinionsOS's only wrapper around EACN3 is the per-(project, role) scheduler in
+`minions/lifecycle/wakeup.py`. For each registered role it chains 60-second
+`GET /api/events/{agent_id}` long-polls (EACN3's server-side cap) and, when
+events arrive, launches a short-lived agent-host subprocess for the role with
+those events baked into the init prompt. The subprocess responds via raw
+`eacn3_*` tools and exits; the scheduler then resumes the long-poll. Time
+triggers (Noter periodic summaries) fire as synthetic events when the chunked
+long-poll completes with no EACN events.
 
 - `minions/lifecycle/role.py` exposes `register_role` / `register_expert` (registers a project-local EACN AgentCard and records the role; no subprocess) and `invoke_role_ephemeral(role, port, events)` which launches a short-lived Claude Code or Codex subprocess seeded with the shared `roles/SYSTEM.md`, the Role's `SYSTEM.md`, discovered skills, scratchpad context, identity/boundary text, and an event batch, then exits.
-- `minions/lifecycle/project.py` now also exposes `project_checkpoint_workspace(...)` for durable local commits and optional GitHub push when `github_push_target` is configured.
-- `minions/lifecycle/agent_host.py` is the only place that should know CLI-specific role invocation details. Preserve the Claude command exactly unless intentionally changing the Claude path; Codex uses `codex exec -` with the role prompt on stdin.
-- `minions/lifecycle/wakeup.py` (`WakeupScheduler`) runs on the Python side. In Gru's default `hooks` mode it reads local wake signals and EACN3 pending-count metadata, never drains Role EACN queues; the woken Role uses native `eacn3_*` tools to read and act. The legacy EACN polling mode remains only as a compatibility fallback.
-- `minions/gru/loop.py` runs `WakeupScheduler` in parallel with Gru's heartbeat (sibling thread when `run()` is used; sibling task when `run_async()` is used). The MCP `gru_start_monitor` tool starts both.
-- `schedule_poll` MCP tool is deprecated (no-op that logs a deprecation warning); still present for backward compatibility during migration.
+- `minions/lifecycle/project.py` also exposes `project_checkpoint_workspace(...)` for durable local commits and optional GitHub push when `github_push_target` is configured.
+- `minions/lifecycle/agent_host.py` is the only place that should know CLI-specific role invocation details.
+- `minions/lifecycle/wakeup.py` (`WakeupScheduler`) runs the long-poll loop. It owns the scratchpad soft/hard/veto thresholds (soft=10%, hard=15%, veto=20% of the model context estimate) and the per-role cooldown.
+- `minions/gru/loop.py` runs `WakeupScheduler` in parallel with Gru's heartbeat.
 - Role `SYSTEM.md` files must not describe a polling loop. Shared role/subagent/scratchpad/EACN behavior lives in `minions/roles/SYSTEM.md`; review output formats live under `minions/roles/reviewer/templates/`.
 
 Key design points:

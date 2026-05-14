@@ -235,7 +235,6 @@ def test_revive_restores_noter_from_meta_and_repairs_timer(
         name="noter",
         state="dismissed",
         pid=123,
-        poll_interval=None,
         time_trigger_interval=None,
     )
     dormant = entry.model_copy(
@@ -285,8 +284,6 @@ def test_revive_restores_noter_from_meta_and_repairs_timer(
     assert role.name == "noter"
     assert role.state == "sleeping"
     assert role.pid is None
-    assert role.poll_interval == "1m"
-    assert role.wake_policy == "any"
     assert role.time_trigger_interval == "30m"
     assert role.eacn_agent_token == "noter-token"
 

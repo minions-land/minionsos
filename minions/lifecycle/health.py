@@ -203,7 +203,7 @@ def project_status_snapshot(port: int, project_status: str) -> dict:
     """Return a Phase 1 status dict for one project.
 
     Keys: port, project_status, backend_alive, agents, queue_depth,
-    pending_events, gru_inbox_unread, recent_health_events, recent_failures.
+    pending_events, recent_health_events, recent_failures.
     Non-active projects skip the backend probe (backend_alive=None).
     Never raises; errors are captured in recent_failures.
     """
@@ -224,7 +224,6 @@ def project_status_snapshot(port: int, project_status: str) -> dict:
             "agents": [],
             "queue_depth": 0,
             "pending_events": [],
-            "gru_inbox_unread": 0,
             "recent_health_events": health_events,
             "recent_failures": [],
         }
@@ -234,14 +233,6 @@ def project_status_snapshot(port: int, project_status: str) -> dict:
     queue_depth = 0
     pending_events: list[dict] = []
     recent_failures: list[str] = []
-    gru_inbox_unread = 0
-
-    try:
-        from minions.lifecycle import gru_inbox
-
-        gru_inbox_unread = gru_inbox.unread_count(port)
-    except Exception as exc:
-        recent_failures.append(f"gru_inbox: {exc}")
 
     if alive:
         try:
@@ -263,7 +254,6 @@ def project_status_snapshot(port: int, project_status: str) -> dict:
         "agents": agents,
         "queue_depth": queue_depth,
         "pending_events": pending_events,
-        "gru_inbox_unread": gru_inbox_unread,
         "recent_health_events": health_events,
         "recent_failures": recent_failures,
     }

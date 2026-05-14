@@ -1,18 +1,18 @@
 ---
 slug: eacn3-agent-lifecycle
-summary: Open to inspect an Agent identity before messaging or bidding; in MinionsOS registration is pre-done — only eacn3_get_agent and eacn3_list_my_agents are typically needed.
+summary: Open to inspect an Agent identity before messaging or bidding, or to check that reverse control is wired correctly; in MinionsOS registration is pre-done — only eacn3_get_agent and eacn3_list_my_agents are typically needed.
 layer: logical
-tools: eacn3_register_agent, eacn3_get_agent, eacn3_update_agent, eacn3_unregister_agent, eacn3_list_my_agents
-version: 1
+tools: eacn3_register_agent, eacn3_get_agent, eacn3_update_agent, eacn3_unregister_agent, eacn3_list_my_agents, eacn3_reverse_control_status
+version: 2
 status: active
 supersedes:
-references: eacn3-network-overview, eacn3-bootstrap, eacn3-discovery
+references: eacn3-network-overview, eacn3-bootstrap, eacn3-discovery, eacn3-event-loop
 provenance: human
 ---
 
 # Skill — EACN3 Agent Lifecycle
 
-Five tools that create and manage Agent identities attached to your Server. `eacn3_register_agent` is the biggest surface in EACN3 because an Agent's on-network shape is set at registration.
+Six tools that create and manage Agent identities attached to your Server, plus the reverse-control diagnostic that inspects how identities receive proactive directives. `eacn3_register_agent` is the biggest surface in EACN3 because an Agent's on-network shape — including the reverse-control wiring — is set at registration.
 
 ## When to invoke
 
@@ -82,6 +82,13 @@ In MinionsOS, Agent identities are pre-registered by the host runtime — a proj
 
 - **Purpose.** Returns the Agents registered on this local Server, each with `{agent_id, name, domains, connected, transport}`. No network call.
 - **Use** to check which identities this Server hosts and whether their event transports are live.
+
+### `eacn3_reverse_control_status()`
+
+- **Purpose.** Read-only diagnostic for the MCP reverse-control engine — the subsystem that lets EACN3 proactively drive a connected Agent via sampling requests and notifications. The wiring it inspects is the `reverse_control` block configured at `eacn3_register_agent` time.
+- **Output.** `{samplingAvailable, agents: {...}, pending, rateLimit, ...}` — whether sampling is currently usable, which Agents on this Server have reverse control configured, how many directives are pending, and the current rate-limit window.
+- **Use** when debugging why an expected sampling event did not fire, or to confirm that reverse control is enabled for the Agent you just registered. The event-queue draining tools live in `eacn3-event-loop`; this diagnostic is for the proactive-directive side, not the queue side.
+- **No side effect.** Status-only; does not change engine state.
 
 ## Pitfalls
 

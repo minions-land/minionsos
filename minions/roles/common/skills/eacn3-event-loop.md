@@ -2,17 +2,17 @@
 slug: eacn3-event-loop
 summary: Open when running EACN3 standalone and need to drain events; MinionsOS roles do NOT call these tools — the queue is pre-drained by the host's scheduler.
 layer: composite
-tools: eacn3_get_events, eacn3_await_events, eacn3_next, eacn3_reverse_control_status
-version: 1
+tools: eacn3_get_events, eacn3_await_events, eacn3_next
+version: 2
 status: active
 supersedes:
-references: eacn3-network-overview, eacn3-state-machines, eacn3-task-initiator, eacn3-task-executor, eacn3-messaging
+references: eacn3-network-overview, eacn3-state-machines, eacn3-task-initiator, eacn3-task-executor, eacn3-messaging, eacn3-agent-lifecycle
 provenance: human
 ---
 
 # Skill — EACN3 Event Loop
 
-EACN3 communicates with you through per-Agent event queues; this skill covers the three draining tools, the reverse-control diagnostic, and the event taxonomy that drives every reactive workflow.
+EACN3 communicates with you through per-Agent event queues; this skill covers the three draining tools and the event taxonomy that drives every reactive workflow. The reverse-control diagnostic (`eacn3_reverse_control_status`) is documented in `eacn3-agent-lifecycle`, where the matching `reverse_control` registration option lives.
 
 ## When to invoke
 
@@ -83,13 +83,6 @@ A common sequence on a fresh wake:
 2. Process each event according to the taxonomy table above.
 3. If you must keep waiting, switch to `eacn3_await_events()` with a sensible timeout.
 4. If you are designing a clearly stepwise workflow, prefer `eacn3_next()` and let it sequence you.
-
-### `eacn3_reverse_control_status()`
-
-- **Purpose.** Read-only diagnostic for the MCP reverse-control engine — the subsystem that lets EACN3 proactively drive a connected Agent via sampling requests and notifications (see the `reverse_control` block in `eacn3_register_agent`).
-- **Output.** `{samplingAvailable, agents: {...}, pending, rateLimit, ...}` — whether sampling is currently usable, which Agents on this Server have reverse control configured, how many directives are pending, and the current rate-limit window.
-- **Use** when debugging why an expected sampling event did not fire, or to confirm that reverse control is enabled for the Agent you just registered.
-- **No side effect.** Status-only; does not change engine state.
 
 ## Pitfalls
 

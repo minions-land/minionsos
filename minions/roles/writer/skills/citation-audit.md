@@ -6,7 +6,7 @@ tools:
 version: 2
 status: active
 supersedes:
-references: paper-search-tools, end-to-end-paper-workflow
+references: paper-literature-search, end-to-end-paper-workflow
 provenance: human
 ---
 
@@ -21,6 +21,8 @@ Every bib entry checked at three layers: the work **exists**, the **metadata** m
 - When adding a batch of new citations late in the writing cycle.
 
 Run after the draft is stable and numeric claims have been audited; before final compile for submission. Running too early wastes lookups on placeholder text.
+
+This is the **Writer-side full pre-submission sweep**. Ethics independently runs sampled audits via `ethics/citation-authenticity-audit` over both the `.bib` and Reviewer-cited prior work and pings via EACN — that is oversight, not a substitute for this sweep.
 
 ## Structure
 

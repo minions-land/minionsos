@@ -3,7 +3,7 @@ slug: feature-implementation
 summary: Translate an accepted feature task into a small, integrated implementation that matches the existing codebase; prefer local patterns over new abstractions.
 layer: logical
 tools:
-version: 2
+version: 3
 status: active
 supersedes:
 references: coding-methodology, bounded-repair-loop
@@ -24,7 +24,7 @@ If requirements are still ambiguous, do not start; ask through EACN first.
 
 ## Structure
 
-Smallest viable implementation in Coder-owned paths. Five phases: read the task, explore precedent, choose architecture, implement, verify, simplify, hand off. Adding an abstraction is justified only when it removes real duplication, protects a contract, or matches an existing pattern.
+Smallest viable implementation in Coder-owned paths. Seven phases: read the task, explore precedent, choose architecture, implement, verify, simplify, hand off. Each phase is one numbered step in Procedure.
 
 ## Procedure
 

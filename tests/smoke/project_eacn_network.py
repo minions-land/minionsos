@@ -6,10 +6,10 @@ Usage:
 This creates a temporary parent git repo, creates one fictional MinionsOS project,
 registers Noter/Coder/Expert roles, and verifies:
 - Gru, Noter, Coder, and Expert all appear in EACN discovery for that project.
-- Gru -> Noter initial task, Coder -> Gru, Coder -> Expert, and Expert -> Coder
-  messages are all delivered through the project's local EACN3 queue.
-- A public task initiated by a Role is routed by EACN3's native task broadcast
-  mechanism and wakes only agents whose own EACN3 queues received the event.
+- Gru -> Noter initial task and Coder -> Expert / Expert -> Coder messages are
+  all delivered through the project's local EACN3 queue.
+- An EACN event in a role's queue wakes that role through the long-poll
+  scheduler.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -73,13 +74,12 @@ def main() -> int:
         if mod == "minions" or mod.startswith("minions."):
             del sys.modules[mod]
 
-    from minions.lifecycle import eacn_client, gru_inbox
+    from minions.lifecycle import eacn_client
     from minions.lifecycle.project import project_close, project_create, project_meta_json
     from minions.lifecycle.role import list_roles, register_expert, register_role
     from minions.lifecycle.wakeup import WakeupScheduler
     from minions.paths import MINIONS_ROOT
     from minions.state.store import StateStore
-    from minions.tools.mcp_server import GruInboxPollArgs, gru_inbox_poll
 
     assert root == MINIONS_ROOT, f"MINIONS_ROOT mismatch: {MINIONS_ROOT}"
 
@@ -103,14 +103,12 @@ def main() -> int:
             port,
             "noter",
             init_brief=noter_init_brief,
-            poll_interval="1m",
         )
-        coder = register_role(port, "coder", poll_interval="1m")
+        coder = register_role(port, "coder")
         expert = register_expert(
             port,
             "Deep Learning Architecture",
             init_brief=None,
-            poll_interval="1m",
         )
         role_ids = {noter["eacn_agent_id"], coder["eacn_agent_id"], expert["eacn_agent_id"]}
         expected_agents = {"gru", *role_ids}
@@ -142,28 +140,9 @@ def main() -> int:
             f"count={noter_init.get('count')}",
         )
 
-        eacn_client.post_message(
-            port=port,
-            to_agent_id="gru",
-            from_agent_id="coder",
-            content={"kind": "status", "text": "Coder reports via project-local EACN."},
-        )
-        polled = gru_inbox_poll(GruInboxPollArgs(port=port))
-        drained = polled["polled"]
-        gru_entries = gru_inbox.read_unread(port, max_events=10)
-        step(
-            "Coder -> Gru queue delivered through EACN",
-            drained >= 1
-            and any(
-                entry.get("event", {}).get("payload", {}).get("from") == "coder"
-                for entry in gru_entries
-            ),
-            f"drained={drained} unread={len(gru_entries)}",
-        )
-
         expert_id = str(expert["eacn_agent_id"])
         coder_to_expert = {"kind": "handoff", "text": "Please inspect this fake architecture."}
-        eacn_client.post_message(
+        eacn_client.send_message(
             port=port,
             to_agent_id=expert_id,
             from_agent_id="coder",
@@ -177,7 +156,7 @@ def main() -> int:
         )
 
         expert_to_coder = {"kind": "reply", "text": "Expert reply over the same local EACN."}
-        eacn_client.post_message(
+        eacn_client.send_message(
             port=port,
             to_agent_id="coder",
             from_agent_id=expert_id,
@@ -194,67 +173,22 @@ def main() -> int:
         ) -> None:
             calls.append((role_name, project_port, events))
 
-        scheduler = WakeupScheduler(
-            store=StateStore(), invoke_fn=fake_invoke, cooldown_seconds=0, mode="legacy"
-        )
-        triggered = asyncio.run(scheduler.tick_once())
+        async def _drive(sched: WakeupScheduler, duration: float) -> None:
+            task = asyncio.create_task(sched.run_async())
+            try:
+                await asyncio.sleep(duration)
+            finally:
+                sched.stop()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await asyncio.wait_for(task, timeout=2.0)
+
+        scheduler = WakeupScheduler(store=StateStore(), invoke_fn=fake_invoke, cooldown_seconds=0)
+        asyncio.run(_drive(scheduler, duration=3.0))
+        time.sleep(0.2)
         step(
             "Expert -> Coder triggers role wakeup from EACN event",
-            triggered >= 1 and any(call[0] == "coder" for call in calls),
-            f"triggered={triggered} calls={[c[0] for c in calls]}",
-        )
-
-        public_task = eacn_client.create_task(
-            port=port,
-            description="Role-created public task for any useful work Role.",
-            domains=["research", "analysis"],
-            initiator_id="coder",
-            budget=0.0,
-            expected_output={
-                "type": "status",
-                "description": "Brief assessment or explicit skip.",
-            },
-            invited_agent_ids=[],
-        )
-        public_task_id = str(public_task.get("id") or public_task.get("task_id") or "")
-        pending_before = eacn_client.pending_event_counts(port)
-        public_calls: list[tuple[str, int, list[dict[str, Any]]]] = []
-
-        public_scheduler = WakeupScheduler(
-            store=StateStore(),
-            invoke_fn=lambda role_name, project_port, events, **_: public_calls.append(
-                (role_name, project_port, events)
-            ),
-            mode="hooks",
-            cooldown_seconds=0,
-        )
-        public_triggered = asyncio.run(public_scheduler.tick_once())
-        public_woken = {call[0] for call in public_calls}
-        public_queue_woken = {
-            role_name
-            for role_name, _project_port, events in public_calls
-            if any(event.get("kind") == "eacn_queue_pending" for event in events)
-        }
-        expert_public_events = eacn_client.poll_events(port, expert_id, timeout_secs=1)
-        coder_public_events = eacn_client.poll_events(port, "coder", timeout_secs=1)
-        noter_public_events = eacn_client.poll_events(port, "noter", timeout_secs=1)
-        gru_public_events = eacn_client.poll_events(port, "gru", timeout_secs=1)
-        step(
-            "Role-created public task wakes via native EACN3 task broadcast",
-            public_triggered >= 1
-            and pending_before.get(expert_id, 0) >= 1
-            and expert_id in public_queue_woken
-            and "coder" not in public_queue_woken
-            and "noter" not in public_queue_woken
-            and "gru" not in public_queue_woken
-            and int(expert_public_events.get("count") or 0) >= 1,
-            f"task={public_task_id} triggered={public_triggered} "
-            f"calls={sorted(public_woken)} queue_calls={sorted(public_queue_woken)} "
-            f"pending_before={pending_before} "
-            f"expert_events={expert_public_events.get('count')} "
-            f"coder_events={coder_public_events.get('count')} "
-            f"noter_events={noter_public_events.get('count')} "
-            f"gru_events={gru_public_events.get('count')}",
+            any(call[0] == "coder" for call in calls),
+            f"calls={[c[0] for c in calls]}",
         )
 
         project_close(port)

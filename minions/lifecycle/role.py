@@ -44,14 +44,8 @@ from minions.lifecycle import eacn_client
 from minions.lifecycle.agent_host import build_role_invocation
 from minions.lifecycle.agent_registry import register_project_role_agent, role_agent_domains
 from minions.lifecycle.eacn_identity import plugin_state_dir, resolve_agent_id
-from minions.lifecycle.hooks import LifecycleEvent
-from minions.lifecycle.hooks import fire as hooks_fire
 from minions.lifecycle.project import ensure_role_workspace, project_phase_snapshot
 from minions.lifecycle.skills import list_skills
-from minions.lifecycle.wake_signals import (
-    is_wake_signal,
-    summarize_signal,
-)
 from minions.paths import (
     MINIONS_ROOT,
     common_role_system_md,
@@ -221,55 +215,6 @@ def _now_iso() -> str:
     return datetime.now(tz=UTC).isoformat()
 
 
-def _read_pending_safely(project_port: int, role_name: str) -> list[dict[str, Any]]:
-    """Return the pending inbox contents, swallowing any error.
-
-    The pending inbox is the per-role crash-shim managed by
-    ``minions.lifecycle.mos_pool``. Reading it must never fail a wake:
-    if the file is corrupt or the module is temporarily unavailable we
-    log and act as if there is nothing pending.
-    """
-    try:
-        from minions.lifecycle import mos_pool
-
-        return mos_pool.mos_pending_read(project_port, role_name)
-    except Exception as exc:
-        logger.debug(
-            "wake: reading pending inbox failed (port=%d role=%s): %s",
-            project_port,
-            role_name,
-            exc,
-        )
-        return []
-
-
-def _summarize_pending_entry(entry: dict[str, Any]) -> str:
-    """Render a single pending-inbox event as a one-line preamble bullet.
-
-    Keeps the prompt short: agent is expected to go look up full details
-    via non-destructive EACN3 reads (eacn3_get_task / eacn3_get_messages)
-    before acting. We only surface the identifier and a minimal routing
-    hint so the agent knows which queue position this entry represents.
-    """
-    event_id = ""
-    for key in ("msg_id", "id", "event_id", "task_id"):
-        val = entry.get(key)
-        if isinstance(val, str) and val:
-            event_id = val
-            break
-    event_type = str(entry.get("type") or "unknown")
-    task_id = str(entry.get("task_id") or "")
-    parts = [f"event_id=`{event_id or '<missing>'}`", f"type=`{event_type}`"]
-    if task_id and task_id != event_id:
-        parts.append(f"task_id=`{task_id}`")
-    payload = entry.get("payload")
-    if isinstance(payload, dict):
-        src = payload.get("from") or payload.get("initiator_id")
-        if isinstance(src, str) and src:
-            parts.append(f"from=`{src}`")
-    return ", ".join(parts)
-
-
 def _build_system_prompt(role: str) -> Path | None:
     role_path = role_system_md(role if not role.startswith("expert") else "expert")
     common_path = common_role_system_md()
@@ -359,21 +304,6 @@ def _ensure_role_agents_md(role: str, workspace: Path) -> None:
         os.replace(tmp, out_path)
     except Exception as exc:
         logger.warning("Could not write %s for role %r: %s", out_path, role, exc)
-
-
-def _resolve_poll_interval(poll_interval: str | None) -> str:
-    if poll_interval is None:
-        poll_interval = os.environ.get("MINIONS_POLL_INTERVAL")
-    if poll_interval is None:
-        try:
-            from minions.config import load_gru_config
-
-            poll_interval = load_gru_config().poll_interval_default
-        except Exception:
-            poll_interval = "1m"
-    if poll_interval not in {"1m", "3m", "5m"}:
-        raise RoleError(f"Invalid poll_interval {poll_interval!r}; allowed values: 1m / 3m / 5m.")
-    return poll_interval
 
 
 def _resolve_time_trigger_interval(role_name: str, interval: str | None) -> str | None:
@@ -494,7 +424,6 @@ def register_role(
     role: str,
     init_brief: str | None = None,
     store: StateStore | None = None,
-    poll_interval: str | None = None,
     time_trigger_interval: str | None = None,
 ) -> dict[str, object]:
     """Register a fixed role for event-driven invocation.
@@ -515,7 +444,6 @@ def register_role(
         role_name=role,
         init_brief=init_brief,
         store=store or StateStore(),
-        poll_interval=poll_interval,
         time_trigger_interval=time_trigger_interval,
     )
 
@@ -526,7 +454,6 @@ def register_expert(
     name: str | None = None,
     init_brief: str | None = None,
     store: StateStore | None = None,
-    poll_interval: str | None = None,
     time_trigger_interval: str | None = None,
 ) -> dict[str, object]:
     """Register an expert role for event-driven invocation."""
@@ -540,7 +467,6 @@ def register_expert(
         role_name=role_name,
         init_brief=brief,
         store=store or StateStore(),
-        poll_interval=poll_interval,
         time_trigger_interval=time_trigger_interval,
     )
 
@@ -550,7 +476,6 @@ def _do_register(
     role_name: str,
     init_brief: str | None,
     store: StateStore,
-    poll_interval: str | None,
     time_trigger_interval: str | None,
 ) -> dict[str, object]:
     entry = store.get_project(project_port)
@@ -561,9 +486,7 @@ def _do_register(
     if existing and existing.state == "active":
         raise AlreadyActive(f"Role {role_name!r} is already active on port {project_port}.")
 
-    interval = _resolve_poll_interval(poll_interval)
     resolved_time_trigger = _resolve_time_trigger_interval(role_name, time_trigger_interval)
-    wake_policy = "any" if resolved_time_trigger else "event"
 
     try:
         workspace_branch, workspace_path = ensure_role_workspace(
@@ -596,8 +519,6 @@ def _do_register(
         workspace_path=str(workspace_path.resolve()),
         workspace_branch=workspace_branch,
         github_push_target=getattr(entry, "github_push_target", None),
-        poll_interval=interval,
-        wake_policy=wake_policy,
         time_trigger_interval=resolved_time_trigger,
         eacn_agent_id=resolve_agent_id(project_port, role_name),
         eacn_agent_token=agent_token,
@@ -609,7 +530,7 @@ def _do_register(
         initiator_id = resolve_agent_id(project_port, "gru")
         if role_name == "noter":
             try:
-                result = eacn_client.send_message(
+                eacn_client.send_message(
                     port=project_port,
                     to_agent_id=target_agent_id,
                     from_agent_id=initiator_id,
@@ -617,22 +538,6 @@ def _do_register(
                         "type": "init_brief",
                         "description": init_brief,
                         "role": role_name,
-                    },
-                )
-                hooks_fire(
-                    LifecycleEvent.wake_direct_message,
-                    {
-                        "port": project_port,
-                        "to_agent_id": target_agent_id,
-                        "from_agent_id": initiator_id,
-                        "content": {
-                            "type": "init_brief",
-                            "role": role_name,
-                            "delivery": result.get("message_id") or result.get("id"),
-                        },
-                        "source": "minions.lifecycle.role.register_role",
-                        "store": store,
-                        "target_role_name": role_name,
                     },
                 )
             except BackendError as exc:
@@ -661,14 +566,6 @@ def _do_register(
                     },
                     invited_agent_ids=[target_agent_id],
                 )
-                hooks_fire(
-                    LifecycleEvent.wake_eacn_queue_pending,
-                    {
-                        "port": project_port,
-                        "source": "minions.lifecycle.role.register_role",
-                        "store": store,
-                    },
-                )
             except BackendError as exc:
                 raise RoleError(
                     f"Role {role_name!r} joined project-local EACN3 on port {project_port}, "
@@ -681,15 +578,13 @@ def _do_register(
             )
 
     store.upsert_role(project_port, role_entry)
-    logger.info("register_role: role=%r port=%d poll=%s", role_name, project_port, interval)
+    logger.info("register_role: role=%r port=%d", role_name, project_port)
 
     return {
         "name": role_name,
         "session_name": session_name,
         "workspace_path": str(workspace_path.resolve()),
         "workspace_branch": workspace_branch,
-        "poll_interval": interval,
-        "wake_policy": wake_policy,
         "time_trigger_interval": resolved_time_trigger,
         "ephemeral": True,
         "eacn_agent_id": role_entry.eacn_agent_id,
@@ -840,12 +735,6 @@ def invoke_role_ephemeral(
             or ""
         ),
         "MINIONS_EPHEMERAL": "1",
-        "MINIONS_MCP_PROFILE": "codex" if invocation.host_name == "codex" else "full",
-        # Codex cannot take an `--allowed-tools` list, so the EACN3 proxy
-        # must enforce the same per-role EACN3 surface Claude gets through
-        # its CLI flag. Use the role-scoped profile so the proxy consults
-        # the active MinionsOS whitelist instead of the legacy fixed subset.
-        "EACN3_MCP_PROFILE": ("minions-role" if invocation.host_name == "codex" else "full"),
         "MINIONS_SCRATCHPAD_PATH": str(scratchpad_path),
         "MINIONS_SCRATCHPAD_STATUS": scratchpad_status,
         **(extra_env or {}),
@@ -1030,31 +919,6 @@ def _format_event_message(
             preamble += f"- Session name: `{session_name}`\n"
         preamble += f"- Resume session: `{str(bool(resume_session)).lower()}`\n\n"
 
-    # Surface un-ACK'd events from the previous wake's crash-shim, if any.
-    # The common SYSTEM.md Wake window protocol already tells the role how
-    # to handle a "Pending from previous wake" block: verify each is still
-    # relevant (eacn3_get_task / eacn3_get_messages), handle if so, then
-    # call mos_ack_clear with the event id either way so it retires from
-    # pending.jsonl. A healthy wake cycle leaves the file empty, and this
-    # block is then omitted entirely.
-    if project_port is not None and role_name:
-        pending = _read_pending_safely(project_port, role_name)
-        if pending:
-            preamble += "[Pending from previous wake]\n"
-            preamble += (
-                f"The previous wake drained {len(pending)} event(s) from EACN3 "
-                "but did not finish ACK'ing them before exiting. Each entry "
-                "below is already off EACN3's server-side queue, so you must "
-                "handle or retire it here. See the common SYSTEM.md "
-                "Pending-inbox recovery section for the exact flow.\n\n"
-            )
-            for entry in pending:
-                preamble += f"- {_summarize_pending_entry(entry)}\n"
-            preamble += (
-                "\nAfter you handle or decide to retire each entry, call "
-                "`mos_ack_clear(port, role_name, [event_id])` so it is "
-                "removed from `.minionsos/inbox/pending.jsonl`.\n\n"
-            )
     if project_phase is not None:
         current_phase = project_phase["current_phase"] or "unset"
         phase_version = project_phase["phase_version"]
@@ -1113,44 +977,6 @@ def _format_event_message(
             "project identity.\n\n"
         )
         preamble += _boundary_context(role_name, project_port) + "\n"
-    if role_name == "gru":
-        response_tools = (
-            "the MOS Agent Pool (`mos_await_events`, `mos_send_message`, "
-            "`mos_create_task`, `mos_ack_clear`) for MinionsOS-internal work, "
-            "or raw `eacn3_*` tools for Global EACN3 scope, plus `gru_relay` "
-            "for cross-project bridging"
-        )
-    else:
-        response_tools = (
-            "the MOS Agent Pool (`mos_await_events`, `mos_send_message`, "
-            "`mos_create_task`, `mos_ack_clear`) for event intake, messages, "
-            "and task creation, plus non-destructive `eacn3_get_*` / "
-            "`eacn3_list_*` reads when needed"
-        )
-    hook_signals = [event for event in events if is_wake_signal(event)]
-    if hook_signals and len(hook_signals) == len(events):
-        lines = [f"- {summarize_signal(signal)}" for signal in hook_signals]
-        kinds = {str(signal.get("kind") or "") for signal in hook_signals}
-        if kinds == {"phase_change"}:
-            header = (
-                "You have been invoked by a MinionsOS phase change signal.\n"
-                "Read the current phase from the project state before doing any work. "
-                "If the signal says this role is no longer allowed, write a compact "
-                "scratchpad summary, checkpoint, and exit; if it is still allowed, "
-                "reconcile your local context with the new phase and then go onto EACN3 "
-                "only after that.\n\n"
-            )
-            return preamble + header + "Wake signals:\n" + "\n".join(lines) + "\n"
-        header = (
-            "You have been invoked by MinionsOS hook wake signal(s), not by a "
-            "pre-drained EACN event batch.\n"
-            f"Go onto this project's EACN3 network using {response_tools}, inspect "
-            "your own queue/open tasks/messages, handle work that belongs to your Role, "
-            "then checkpoint and exit this bounded wake window. The wake signal below "
-            "is only a routing hint; do not treat it as the authoritative task or "
-            "message payload.\n\n"
-        )
-        return preamble + header + "Wake signals:\n" + "\n".join(lines) + "\n"
     if scratchpad_status == "veto_compact":
         header = (
             "You have been invoked for scratchpad maintenance because the role's "
@@ -1162,17 +988,21 @@ def _format_event_message(
     else:
         header = (
             "You have been invoked to process the following EACN event batch.\n"
+            "MinionsOS already drained these events from your EACN3 queue and is "
+            "delivering them in this prompt. Do NOT call `eacn3_await_events` / "
+            "`eacn3_next` / `eacn3_get_events` to fetch more — exit when this batch "
+            "is handled and MinionsOS will wake you again on the next event.\n"
             "Follow the Plan → Dispatch → Verify contract from the common "
             "SYSTEM.md: (1) plan the response in 3-6 lines before acting, "
             "(2) dispatch the substantive work to a host-native subagent, "
             "(3) verify the subagent's return, then (4) emit any necessary "
-            f"EACN responses via {response_tools}, and exit this bounded "
-            "wake window without starting a polling loop. The main session "
-            "is a coordinator — file edits, mutating Bash, `exp_*`, paper "
-            "search, coding/reviewing/auditing/writing all belong to a "
-            "subagent, not the main thread. Treat this as fresh execution "
-            "context; after the task is handled or checkpointed, leave only "
-            "compressed durable state in the scratchpad.\n\n"
+            "EACN responses via raw `eacn3_send_message` / `eacn3_create_task` / "
+            "`eacn3_submit_bid` / `eacn3_submit_result`, and exit. The main session "
+            "is a coordinator — file edits, mutating Bash, `exp_*`, paper search, "
+            "coding/reviewing/auditing/writing all belong to a subagent, not the "
+            "main thread. Treat this as fresh execution context; after the task is "
+            "handled or checkpointed, leave only compressed durable state in the "
+            "scratchpad.\n\n"
         )
     try:
         body = json.dumps(events, indent=2, default=str)

@@ -55,15 +55,12 @@ class TestRegister:
             patch.object(role_mod, "invoke_role_ephemeral") as inv,
             patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])) as reg,
         ):
-            out = role_mod.register_role(
-                37596, "noter", init_brief=None, store=store, poll_interval="1m"
-            )
+            out = role_mod.register_role(37596, "noter", init_brief=None, store=store)
         assert inv.call_count == 0
         reg.assert_called_once_with(37596, "noter")
         assert out["name"] == "noter"
         assert out["session_name"] == "p37596/noter"
         assert str(out["workspace_path"]).endswith("/37596/noter")
-        assert out["poll_interval"] == "1m"
         assert out["ephemeral"] is True
         assert out["eacn_agent_id"] == "noter"
         assert store.upserts[0].state == "active"
@@ -79,9 +76,7 @@ class TestRegister:
             patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
             patch("minions.lifecycle.eacn_client.create_task", return_value={}) as create_task,
         ):
-            role_mod.register_role(
-                37596, "coder", init_brief="hello world", store=store, poll_interval="1m"
-            )
+            role_mod.register_role(37596, "coder", init_brief="hello world", store=store)
         assert create_task.call_count == 1
         kwargs = create_task.call_args.kwargs
         assert kwargs["port"] == 37596
@@ -97,9 +92,7 @@ class TestRegister:
             patch("minions.lifecycle.eacn_client.create_task", return_value={}) as create_task,
             patch("minions.lifecycle.eacn_client.send_message", return_value={}) as send_message,
         ):
-            role_mod.register_role(
-                37596, "noter", init_brief="observe quietly", store=store, poll_interval="1m"
-            )
+            role_mod.register_role(37596, "noter", init_brief="observe quietly", store=store)
         assert create_task.call_count == 0
         send_message.assert_called_once()
         kwargs = send_message.call_args.kwargs
@@ -112,9 +105,9 @@ class TestRegister:
     def test_register_rejects_duplicate_active(self) -> None:
         store = FakeStore()
         with patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])):
-            role_mod.register_role(37596, "noter", store=store, poll_interval="1m")
+            role_mod.register_role(37596, "noter", store=store)
         with pytest.raises(Exception):
-            role_mod.register_role(37596, "noter", store=store, poll_interval="1m")
+            role_mod.register_role(37596, "noter", store=store)
 
     def test_register_expert_slugifies(self) -> None:
         store = FakeStore()
@@ -127,7 +120,6 @@ class TestRegister:
                 "Deep Learning Architecture",
                 init_brief=None,
                 store=store,
-                poll_interval="1m",
             )
         assert out["name"].startswith("expert-")
 
@@ -141,7 +133,7 @@ class TestRegister:
             ),
             pytest.raises(role_mod.RoleError),
         ):
-            role_mod.register_role(37596, "noter", store=store, poll_interval="1m")
+            role_mod.register_role(37596, "noter", store=store)
         assert store.upserts == []
 
     def test_spawn_role_alias(self) -> None:

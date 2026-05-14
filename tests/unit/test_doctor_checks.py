@@ -52,11 +52,11 @@ class TestDoctorAgentHost:
         assert "codex-cli" in names
         assert "codex-automation" in names
         assert "codex-mcp-config-mounts-eacn3" in names
-        assert "codex-mcp-profiles" in names
+        assert "codex-mcp-eacn3-direct" in names
         host = next(c for c in checks if c["name"] == "agent-host")
         assert host["detail"] == "codex"
-        profiles = next(c for c in checks if c["name"] == "codex-mcp-profiles")
-        assert profiles["ok"] is True
+        direct = next(c for c in checks if c["name"] == "codex-mcp-eacn3-direct")
+        assert direct["ok"] is True
         automation = next(c for c in checks if c["name"] == "codex-automation")
         assert automation["ok"] is True
 
@@ -82,18 +82,16 @@ class TestStatusJson:
     def test_status_json_parses_and_has_phase1_keys(self, tmp_path: Path) -> None:
         result = _run_mos(["status", "--json"], {"MINIONS_ROOT": str(tmp_path)})
         data = json.loads(result.stdout)
-        assert isinstance(data, list)
-        for row in data:
+        assert isinstance(data, dict)
+        assert "projects" in data and isinstance(data["projects"], list)
+        assert "retired_ports" in data and isinstance(data["retired_ports"], list)
+        for row in data["projects"]:
             for key in (
                 "port",
-                "name",
+                "real_name",
                 "status",
-                "backend_alive",
-                "agents",
-                "queue_depth",
-                "gru_inbox_unread",
-                "recent_health_events",
-                "recent_failures",
+                "current_phase",
+                "active_roles",
             ):
                 assert key in row, f"Missing key {key!r} in status row"
 

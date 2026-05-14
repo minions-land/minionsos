@@ -46,12 +46,7 @@ Your tool access is governed by the runtime whitelist; see the common role contr
 
 ## Collaboration rules
 
-- **EACN3 is the only inter-role bus.** Use the MOS Agent Pool
-  (`mos_await_events`, `mos_send_message`, `mos_create_task`,
-  `mos_ack_clear`) to communicate with all other roles. Non-destructive
-  EACN3 reads (`eacn3_get_task`, `eacn3_get_messages`, `eacn3_list_*`,
-  etc.) may still be called directly. See the common SYSTEM.md Wake
-  window protocol.
+- **EACN3 is the only inter-role bus.** MinionsOS delivers your incoming events in the init prompt; respond with `eacn3_send_message` (direct message) or `eacn3_create_task` (publish a task). Non-destructive EACN3 reads (`eacn3_get_task`, `eacn3_get_messages`, `eacn3_list_*`, etc.) may be called directly. Do not call `eacn3_await_events` / `eacn3_next` / `eacn3_get_events` — the scheduler is your event source.
 - Gru is the cross-IP relay; you do not contact other projects directly.
 - Multiple Expert instances may coexist on the same project with different domain specialties. They do not need to converge immediately; differentiated expert voices are by design.
 - Reviewer remains isolated as formal evaluator — do not attempt to influence the review process directly.

@@ -80,7 +80,7 @@ def test_codex_role_invocation_includes_discovered_skills(tmp_path: Path) -> Non
     stdin_payload = fake_proc.stdin.write.call_args[0][0].decode("utf-8")
     assert "# MinionsOS Codex Role Invocation" in stdin_payload
     assert "[Skills]" in stdin_payload
-    assert "simplify-changes" in stdin_payload
+    assert "coding-methodology" in stdin_payload
     assert "minions/roles/coder/skills/{slug}.md" in stdin_payload
     assert "Intended role tool allowlist" in stdin_payload
     assert "`Task` means the current host's native subagent/delegation capability" in stdin_payload

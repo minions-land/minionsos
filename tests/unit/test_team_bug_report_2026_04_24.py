@@ -107,7 +107,6 @@ class TestInitBriefGoesThroughEacn:
                 "coder",
                 init_brief="kick off please",
                 store=store,
-                poll_interval="1m",
             )
         # init_brief must go through EACN, NOT through a local ephemeral spawn.
         create_task.assert_called_once()
@@ -132,7 +131,6 @@ class TestInitBriefGoesThroughEacn:
                 "deep learning architecture",
                 init_brief=None,  # expert injects a default
                 store=store,
-                poll_interval="1m",
             )
         create_task.assert_called_once()
         invoke.assert_not_called()
@@ -154,7 +152,6 @@ class TestInitBriefGoesThroughEacn:
                 "coder",
                 init_brief="kick",
                 store=store,
-                poll_interval="1m",
             )
         assert store.upserts == []
 
@@ -167,18 +164,18 @@ class TestInitBriefGoesThroughEacn:
 class TestWakeupSchedulerStateStoreAlias:
     def test_state_store_alias_accepted(self) -> None:
         ss = StateStore()
-        sched = WakeupScheduler(state_store=ss, mode="legacy")
+        sched = WakeupScheduler(state_store=ss)
         assert sched._store is ss
 
     def test_store_still_works(self) -> None:
         ss = StateStore()
-        sched = WakeupScheduler(store=ss, mode="legacy")
+        sched = WakeupScheduler(store=ss)
         assert sched._store is ss
 
     def test_both_raises(self) -> None:
         ss = StateStore()
         with pytest.raises(TypeError, match="not both"):
-            WakeupScheduler(store=ss, state_store=ss, mode="legacy")
+            WakeupScheduler(store=ss, state_store=ss)
 
 
 if __name__ == "__main__":

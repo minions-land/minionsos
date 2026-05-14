@@ -10,15 +10,14 @@ on-demand status request through EACN, produce the artifact-backed summary here.
 
 ## Can do
 
-- Drain your own EACN queue through `mos_await_events` (your own
-  `agent_id` only, never anyone else's). This is the single wake-loop
-  intake — do **not** call `eacn3_get_events`, `eacn3_await_events`, or
-  `eacn3_next`, since those would drain the queues of other roles you are
-  supposed to be observing.
+- Receive your own EACN events through MinionsOS (delivered in the init
+  prompt). Do **not** call `eacn3_await_events`, `eacn3_get_events`, or
+  `eacn3_next` — those would drain the queues of other roles you are
+  supposed to be observing, and the scheduler is already your event source.
 - Query other roles' EACN state **non-destructively**: `eacn3_list_tasks`,
   `eacn3_get_task`, `eacn3_get_messages`, `eacn3_list_agents`, etc. These
   are pure reads and safe.
-- Send short notifications or targeted replies with `mos_send_message`.
+- Send short notifications or targeted replies with `eacn3_send_message`.
   Do not publish tasks — you are not part of the task-market layer.
 - Diff each role branch's archived host sessions under
   `project_*/branches/<role>/.minionsos/sessions/*.jsonl` and append factual

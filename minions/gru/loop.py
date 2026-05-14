@@ -9,8 +9,8 @@ The loop:
 - Periodically scans active projects.
 - Probes each backend via ``/health``.
 - Records crashes and checks thresholds.
-- Logs a digest if anything changed since the last report.
-- Stays silent if nothing noteworthy happened (low-freq D behaviour per spec §7).
+- Drives ``WakeupScheduler`` alongside so role event-dispatch proceeds in
+  parallel with Gru's heartbeat.
 """
 
 from __future__ import annotations
@@ -21,11 +21,9 @@ import logging
 import os
 import time
 from datetime import UTC, datetime
-from typing import Any
 
 from minions.config import load_gru_config, pin_effective_agent_host
 from minions.lifecycle.health import CrashCounter, append_health_event, backend_health
-from minions.lifecycle.wake_signals import direct_message_signal
 from minions.logging_setup import configure_logging
 from minions.state.store import StateStore
 
@@ -33,10 +31,6 @@ configure_logging()
 logger = logging.getLogger(__name__)
 
 DEBUG_MODE: bool = bool(os.environ.get("MINIONS_DEBUG", "").strip())
-
-# ---------------------------------------------------------------------------
-# GruLoop
-# ---------------------------------------------------------------------------
 
 
 class GruLoop:
@@ -47,22 +41,9 @@ class GruLoop:
         cfg = load_gru_config()
         self.interval: int = heartbeat_interval or cfg.heartbeat_interval_seconds
         self.experiment_reconcile_interval: int = cfg.experiment_reconcile_interval_seconds
-        self._gru_agent_id: str = cfg.gru_eacn_agent_id
-        self._gru_hard_cooldown_seconds: int = max(5, cfg.gru_hard_cooldown_seconds)
-        self._gru_activity_window_seconds: int = max(
-            self._gru_hard_cooldown_seconds,
-            cfg.gru_activity_window_seconds,
-        )
-        self._gru_drive_interval_seconds: int = max(
-            self._gru_activity_window_seconds,
-            cfg.gru_drive_interval_seconds,
-        )
-        self._gru_inbox_wakeup_cooldown_seconds: int = self._gru_hard_cooldown_seconds
         self._store = StateStore()
         self._crash_counter = CrashCounter()
         self._last_report_ts: float = 0.0
-        self._gru_monitor_started_ts: float = time.monotonic()
-        self._last_gru_inbox_wakeup_ts: dict[int, float] = {}
         self._stopped = False
 
     # ------------------------------------------------------------------
@@ -96,7 +77,7 @@ class GruLoop:
                     exc,
                 )
 
-        wakeup = WakeupScheduler(store=self._store, mode="hooks")
+        wakeup = WakeupScheduler(store=self._store)
 
         def _wakeup_thread() -> None:
             asyncio.run(wakeup.run_async())
@@ -133,12 +114,7 @@ class GruLoop:
         logger.info("Gru monitor loop stopped.")
 
     async def run_async(self) -> None:
-        """Async variant for use inside an existing asyncio event loop.
-
-        Also drives :class:`minions.lifecycle.wakeup.WakeupScheduler` in the
-        same event loop, so role event-dispatch runs at the Python layer
-        alongside Gru's own heartbeat.
-        """
+        """Async variant for use inside an existing asyncio event loop."""
         from minions.lifecycle.project import migrate_legacy_scratchpads
         from minions.lifecycle.wakeup import WakeupScheduler
 
@@ -152,7 +128,7 @@ class GruLoop:
                     exc,
                 )
 
-        wakeup = WakeupScheduler(store=self._store, mode="hooks")
+        wakeup = WakeupScheduler(store=self._store)
         logger.info("Gru monitor async loop started (interval=%ds).", self.interval)
         wakeup_task = asyncio.create_task(wakeup.run_async())
         experiment_task = asyncio.create_task(self._experiment_reconcile_async())
@@ -225,23 +201,13 @@ class GruLoop:
                     logger.warning(msg)
                     events.append(msg)
             else:
-                # Reset crash counter on successful health check.
                 self._crash_counter.reset_backend(port)
                 try:
                     from minions.lifecycle.project import project_repair_eacn_agents
 
                     project_repair_eacn_agents(port, store=self._store)
-                    project = self._store.get_project(port) or project
                 except Exception as exc:
                     logger.debug("Project EACN repair skipped port=%d: %s", port, exc)
-                woke_gru = self._maybe_invoke_gru_for_unread(port, now)
-                if woke_gru:
-                    msg = (
-                        f"[INFO] Gru inbox on port {port} ({project.real_name}) "
-                        f"woke_gru={woke_gru}."
-                    )
-                    logger.info(msg)
-                    events.append(msg)
 
             # Check role processes.
             for role in project.active_roles:
@@ -287,7 +253,6 @@ class GruLoop:
                         logger.warning(msg)
                         events.append(msg)
 
-        # Emit digest if there are events or if the heartbeat interval elapsed.
         if events or (now - self._last_report_ts >= self.interval):
             ts = datetime.now(tz=UTC).isoformat()
             if events:
@@ -297,93 +262,6 @@ class GruLoop:
             else:
                 logger.debug("Gru heartbeat [%s]: all systems nominal.", ts)
             self._last_report_ts = now
-
-    def _maybe_invoke_gru_for_unread(self, port: int, now: float) -> bool:
-        """Wake Gru using a three-band EACN activity policy.
-
-        - < hard cooldown: never wake again.
-        - hard cooldown .. activity window: wake only if Gru has EACN unread.
-        - >= drive interval: wake Gru once to go online and inspect EACN/project
-          state autonomously.
-
-        The monitor does not drain the Gru queue. It reads EACN3's native
-        pending-count endpoint, then wakes Gru so Gru itself can call
-        ``gru_inbox_poll(mark_read=false)``.
-        """
-        try:
-            from minions.lifecycle import eacn_client
-
-            counts = eacn_client.pending_event_counts(port, timeout=1.0)
-            unread = counts.get(self._gru_agent_id, 0)
-        except Exception as exc:
-            logger.debug("Gru EACN pending-count check failed port=%d: %s", port, exc)
-            return False
-
-        last = self._last_gru_inbox_wakeup_ts.get(port)
-        elapsed = now - self._gru_monitor_started_ts if last is None else now - last
-        if elapsed < self._gru_hard_cooldown_seconds:
-            return False
-        if unread <= 0 and elapsed < self._gru_drive_interval_seconds:
-            return False
-
-        try:
-            from minions.lifecycle.role import invoke_role_ephemeral, is_inflight
-
-            if is_inflight(port, "gru"):
-                return False
-            if unread > 0:
-                event: dict[str, Any] = {
-                    "type": "wake_signal",
-                    "kind": "gru_eacn_activity",
-                    "id": f"gru-eacnq:{port}:{unread}:{int(now)}",
-                    "port": port,
-                    "role_name": "gru",
-                    "payload": {
-                        "port": port,
-                        "unread_count": unread,
-                        "instruction": (
-                            "EACN3 reports pending events for the project-local "
-                            "Gru agent queue. Go onto this project's EACN3 "
-                            "network as Gru. Use gru_inbox_poll(mark_read=false) "
-                            "to drain and journal the native EACN events, then "
-                            "mark handled entries "
-                            "with gru_inbox_poll(mark_read=true)."
-                        ),
-                    },
-                    "pending_count": unread,
-                }
-            else:
-                event = {
-                    "type": "wake_signal",
-                    "kind": "gru_autonomous_drive",
-                    "id": f"gru-drive:{port}:{int(now)}",
-                    "port": port,
-                    "role_name": "gru",
-                    "payload": {
-                        "port": port,
-                        "instruction": (
-                            "No Gru inbox entries are pending. Go onto EACN3, "
-                            "inspect project-visible tasks/messages/status, "
-                            "consider phase drift or stalled work, and stay "
-                            "silent if no useful low-risk action exists."
-                        ),
-                    },
-                }
-            result = invoke_role_ephemeral(
-                "gru",
-                port,
-                [event],
-                extra_env={"MINIONS_WAKEUP_CLASS": "event"},
-                store=self._store,
-            )
-        except Exception as exc:
-            logger.debug("Gru inbox wakeup failed port=%d: %s", port, exc)
-            return False
-
-        if isinstance(result, dict) and result.get("deferred"):
-            return False
-        self._last_gru_inbox_wakeup_ts[port] = now
-        return True
 
     async def _experiment_reconcile_async(self) -> None:
         while not self._stopped:
@@ -454,17 +332,7 @@ class GruLoop:
                         from_agent_id="health-monitor",
                         content={"type": "health_event", **event},
                         timeout=1.0,
-                        audit_to_noter=False,
                     )
-                    with contextlib.suppress(Exception):
-                        direct_message_signal(
-                            port=port,
-                            to_agent_id=target,
-                            from_agent_id="health-monitor",
-                            content={"type": "health_event", **event},
-                            source="minions.gru.loop._emit_health_event",
-                            store=self._store,
-                        )
                 except Exception as exc:
                     logger.debug(
                         "health event EACN notify failed port=%d target=%s: %s",
@@ -476,28 +344,15 @@ class GruLoop:
             logger.debug("health event EACN notify setup failed port=%d: %s", port, exc)
 
 
-# ---------------------------------------------------------------------------
-# PID liveness helper
-# ---------------------------------------------------------------------------
-
-
 def _pid_alive(pid: int) -> bool:
     """Return True if *pid* is a running process."""
-    import os
-
     try:
         os.kill(pid, 0)
         return True
     except ProcessLookupError:
         return False
     except PermissionError:
-        # Process exists but we can't signal it.
         return True
-
-
-# ---------------------------------------------------------------------------
-# Standalone entry point
-# ---------------------------------------------------------------------------
 
 
 def main() -> None:

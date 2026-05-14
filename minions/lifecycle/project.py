@@ -297,15 +297,6 @@ def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
     return roles
 
 
-def _default_poll_interval() -> str:
-    try:
-        from minions.config import load_gru_config
-
-        return load_gru_config().poll_interval_default
-    except Exception:
-        return "1m"
-
-
 def _default_noter_time_trigger_interval() -> str | None:
     try:
         from minions.config import load_gru_config, parse_duration
@@ -322,17 +313,13 @@ def _normalise_revived_role(role: RoleEntry) -> RoleEntry:
     if role.name == "noter" and not time_trigger:
         time_trigger = _default_noter_time_trigger_interval()
 
-    updates: dict[str, object | None] = {
-        "state": "sleeping",
-        "pid": None,
-        "poll_interval": role.poll_interval or _default_poll_interval(),
-        "time_trigger_interval": time_trigger,
-    }
-    if time_trigger:
-        updates["wake_policy"] = "any"
-    elif role.wake_policy == "time":
-        updates["wake_policy"] = "event"
-    return role.model_copy(update=updates)
+    return role.model_copy(
+        update={
+            "state": "sleeping",
+            "pid": None,
+            "time_trigger_interval": time_trigger,
+        }
+    )
 
 
 def _roles_for_revive(entry: ProjectEntry, raw_meta: dict[str, object]) -> list[RoleEntry]:
@@ -355,7 +342,7 @@ def _gru_agent_spec() -> tuple[str, list[str], str]:
     gru_domains = ["minionsos", "project-local", "role:gru", "coordination"]
     gru_description = (
         "MinionsOS global coordinator EACN queue on this project. "
-        "Polled by Gru through the MinionsOS gru_inbox_poll adapter."
+        "Drained by the WakeupScheduler and surfaced to Gru on each wake."
     )
     return gru_agent_id, gru_domains, gru_description
 
@@ -1028,12 +1015,6 @@ def project_set_phase(
             "phase_updated_at": now,
             "phase_reason": reason,
         },
-    )
-    from minions.lifecycle.hooks import LifecycleEvent, fire
-
-    fire(
-        LifecycleEvent.wake_phase_change,
-        {"port": port, "phase": phase, "reason": reason, "store": _store},
     )
     logger.info(
         "project_set_phase done: port=%d phase=%r allowed_roles=%s",

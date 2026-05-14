@@ -1,4 +1,4 @@
-"""Tests for project phase recording and hook fanout."""
+"""Tests for project phase recording."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from minions.lifecycle import role_inbox
 from minions.lifecycle.project import (
     project_phase_allows_role,
     project_phase_snapshot,
@@ -17,10 +16,6 @@ from minions.state.store import ProjectEntry, RoleEntry, StateStore
 
 @pytest.fixture(autouse=True)
 def _isolate_runtime_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(
-        "minions.lifecycle.role_inbox.project_logs_dir",
-        lambda port: tmp_path / f"project_{port}" / "logs",
-    )
     monkeypatch.setattr(
         "minions.lifecycle.project.project_meta_json",
         lambda port: tmp_path / f"project_{port}" / "meta.json",
@@ -62,9 +57,3 @@ def test_project_set_phase_updates_registry_and_meta(tmp_path: Path) -> None:
     assert project_phase_allows_role(updated, "coder") is True
     assert project_phase_allows_role(updated, "noter") is False
     assert project_phase_snapshot(updated)["phase_online_roles"] == ["coder"]
-
-    coder_events = role_inbox.read_events(37596, "coder")
-    noter_events = role_inbox.read_events(37596, "noter")
-    assert coder_events[0]["kind"] == "phase_change"
-    assert coder_events[0]["phase_allowed"] is True
-    assert noter_events == []

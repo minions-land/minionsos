@@ -18,7 +18,6 @@ class TestProjectStatusSnapshot:
             "agents",
             "queue_depth",
             "pending_events",
-            "gru_inbox_unread",
             "recent_health_events",
             "recent_failures",
         }

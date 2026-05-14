@@ -264,9 +264,6 @@ spawn_expert
 dismiss_role
 list_roles
 gru_relay
-project_eacn_send_message
-project_eacn_create_task
-gru_inbox_poll
 gru_start_monitor
 ```
 
@@ -670,9 +667,6 @@ spawn_expert
 dismiss_role
 list_roles
 gru_relay
-project_eacn_send_message
-project_eacn_create_task
-gru_inbox_poll
 gru_start_monitor
 ```
 

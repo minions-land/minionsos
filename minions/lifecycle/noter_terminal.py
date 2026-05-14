@@ -19,10 +19,10 @@ from rich.console import Console
 from rich.table import Table
 
 from minions.errors import ProjectError
-from minions.lifecycle import eacn_client, gru_inbox, role_inbox
+from minions.lifecycle import eacn_client
+from minions.lifecycle.eacn_identity import resolve_agent_id
 from minions.lifecycle.health import project_status_snapshot
 from minions.lifecycle.project import project_phase_snapshot
-from minions.lifecycle.project_eacn import project_eacn_send_message
 from minions.paths import project_artifacts_dir
 from minions.state.store import ProjectEntry, StateStore
 
@@ -33,11 +33,9 @@ class NoterSnapshot:
     health: dict[str, Any]
     tasks: list[dict[str, Any]]
     notes: list[Path]
-    role_buffers: dict[str, int]
     current_phase: str | None
     phase_allowed_roles: list[str]
     phase_online_roles: list[str]
-    gru_unread: int
     errors: list[str]
     captured_at: str
 
@@ -72,25 +70,16 @@ def collect_noter_snapshot(
             errors.append(f"tasks: {exc}")
 
     notes = _latest_notes(port, max_notes)
-    role_buffers = {
-        role.name: role_inbox.count(project.port, role.name) for role in project.active_roles
-    }
     phase = project_phase_snapshot(project)
-    try:
-        gru_unread = gru_inbox.unread_count(project.port)
-    except Exception:
-        gru_unread = 0
 
     return NoterSnapshot(
         project=project,
         health=health,
         tasks=tasks,
         notes=notes,
-        role_buffers=role_buffers,
         current_phase=phase["current_phase"],
         phase_allowed_roles=list(phase["phase_allowed_roles"]),
         phase_online_roles=list(phase["phase_online_roles"]),
-        gru_unread=gru_unread,
         errors=[*health.get("recent_failures", []), *errors],
         captured_at=datetime.now(tz=UTC).isoformat(timespec="seconds"),
     )
@@ -108,7 +97,6 @@ def run_noter_terminal(
     """Run a periodic read-only Noter terminal for one project."""
     out = console or Console()
     _print_help(out)
-    previous_role_buffers: dict[str, int] | None = None
     while True:
         snapshot = collect_noter_snapshot(
             port,
@@ -116,8 +104,7 @@ def run_noter_terminal(
             task_offset=task_offset,
             task_status=task_status,
         )
-        render_snapshot(snapshot, out, previous_role_buffers=previous_role_buffers)
-        previous_role_buffers = dict(snapshot.role_buffers)
+        render_snapshot(snapshot, out)
         if once:
             return
         command = _wait_for_command(interval_seconds)
@@ -127,11 +114,7 @@ def run_noter_terminal(
             return
 
 
-def render_snapshot(
-    snapshot: NoterSnapshot,
-    console: Console,
-    previous_role_buffers: dict[str, int] | None = None,
-) -> None:
+def render_snapshot(snapshot: NoterSnapshot, console: Console) -> None:
     """Render the default Noter status report."""
     project = snapshot.project
     alive = snapshot.health.get("backend_alive")
@@ -140,10 +123,10 @@ def render_snapshot(
     console.print(
         f"[bold]{project.real_name}[/bold]  status={project.status}  "
         f"backend={backend}  phase={snapshot.current_phase or '-'}  "
-        f"online={len(snapshot.phase_online_roles)}  gru_unread={snapshot.gru_unread}  "
+        f"online={len(snapshot.phase_online_roles)}  "
         f"tasks={len(snapshot.tasks)}"
     )
-    _render_roles(snapshot, console, previous_role_buffers=previous_role_buffers)
+    _render_roles(snapshot, console)
     _render_tasks(snapshot, console)
     _render_notes(snapshot, console)
     if snapshot.errors:
@@ -212,12 +195,18 @@ def _handle_command(
         return True
     if cmd == "wake":
         message = rest or "Please produce an on-demand Noter status summary for Gru."
-        result = project_eacn_send_message(
-            port=port,
-            content={"type": "noter_status_request", "text": message},
-            to_role="noter",
-        )
-        console.print(f"[green]queued Noter request[/green] {result['to_agent_id']} on {port}")
+        try:
+            target = resolve_agent_id(port, "noter")
+            sender = resolve_agent_id(port, "gru")
+            eacn_client.send_message(
+                port=port,
+                to_agent_id=target,
+                from_agent_id=sender,
+                content={"type": "noter_status_request", "text": message},
+            )
+            console.print(f"[green]queued Noter request[/green] {target} on {port}")
+        except Exception as exc:
+            console.print(f"[red]failed to queue Noter request:[/red] {exc}")
         return True
     if cmd in {"help", "h", "?"}:
         _print_help(console)
@@ -241,11 +230,7 @@ def _wait_for_command(interval_seconds: int) -> str | None:
     return sys.stdin.readline().strip()
 
 
-def _render_roles(
-    snapshot: NoterSnapshot,
-    console: Console,
-    previous_role_buffers: dict[str, int] | None = None,
-) -> None:
+def _render_roles(snapshot: NoterSnapshot, console: Console) -> None:
     table = Table(title="Roles", show_lines=False)
     table.add_column("Role")
     table.add_column("State")
@@ -253,7 +238,6 @@ def _render_roles(
     table.add_column("EACN")
     table.add_column("Last seen")
     table.add_column("Task")
-    table.add_column("Buffered")
     for role in snapshot.project.active_roles:
         table.add_row(
             role.name,
@@ -262,26 +246,8 @@ def _render_roles(
             role.eacn_agent_id or role.name,
             role.last_seen or "-",
             _short(role.current_task or "-", 38),
-            _format_buffer_count(
-                role.name,
-                snapshot.role_buffers.get(role.name, 0),
-                previous_role_buffers,
-            ),
         )
     console.print(table)
-
-
-def _format_buffer_count(
-    role_name: str,
-    current: int,
-    previous_role_buffers: dict[str, int] | None = None,
-) -> str:
-    if previous_role_buffers is None or role_name not in previous_role_buffers:
-        return str(current)
-    previous = previous_role_buffers[role_name]
-    if previous == current:
-        return str(current)
-    return f"{current} (<- {previous})"
 
 
 def _render_tasks(snapshot: NoterSnapshot, console: Console, force: bool = False) -> None:

@@ -104,7 +104,7 @@ def test_post_message_rejects_unknown_target_agent(monkeypatch) -> None:
     monkeypatch.setattr(eacn_client.httpx, "post", fake_post)
 
     with pytest.raises(BackendError, match="target agent 'codre' is not registered"):
-        eacn_client.post_message(
+        eacn_client.send_message(
             port=37596,
             to_agent_id="codre",
             from_agent_id="gru",
@@ -114,7 +114,13 @@ def test_post_message_rejects_unknown_target_agent(monkeypatch) -> None:
     assert posts == []
 
 
-def test_post_message_mirrors_direct_message_to_noter(monkeypatch) -> None:
+def test_post_message_does_not_mirror_to_noter(monkeypatch) -> None:
+    """Direct messages go straight to the recipient — no audit fan-out.
+
+    The old eacn_client used to mirror every message to Noter as a
+    "network_audit_message". That implicit fan-out has been removed; Noter
+    observes its own EACN queue like any other role.
+    """
     gets: list[str] = []
     posts: list[dict] = []
 
@@ -146,7 +152,7 @@ def test_post_message_mirrors_direct_message_to_noter(monkeypatch) -> None:
     monkeypatch.setattr(eacn_client.httpx, "get", fake_get)
     monkeypatch.setattr(eacn_client.httpx, "post", fake_post)
 
-    result = eacn_client.post_message(
+    result = eacn_client.send_message(
         port=37596,
         to_agent_id="coder",
         from_agent_id="writer",
@@ -154,11 +160,5 @@ def test_post_message_mirrors_direct_message_to_noter(monkeypatch) -> None:
     )
 
     assert result == {"ok": True, "delivered": 1}
-    assert len(posts) == 2
+    assert len(posts) == 1
     assert posts[0]["json"]["to"]["agent_id"] == "coder"
-    assert posts[1]["json"]["to"]["agent_id"] == "noter"
-    audit = posts[1]["json"]["content"]
-    assert audit["type"] == "network_audit_message"
-    assert audit["from_agent_id"] == "writer"
-    assert audit["to_agent_id"] == "coder"
-    assert audit["content"]["text"] == "draft ready"

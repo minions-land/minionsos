@@ -1,0 +1,57 @@
+[1] coder/bounded-repair-loop — Iterate on a failing local check in a controlled diagnose-fix-verify loop with a fixed iteration bound; the MinionsOS-safe form of an autonomous repair loop.
+[2] coder/build-playground — Build a self-contained interactive HTML explorer (controls + live preview + generated config) when visual configuration is hard to express in text.
+[3] coder/feature-implementation — Translate an accepted feature task into a small, integrated implementation that matches the existing codebase; prefer local patterns over new abstractions.
+[4] coder/silent-failure-audit — Audit error paths for honesty — find places where errors are swallowed, downgraded, or converted into misleading success.
+[5] coder/static-type-check — Use Python type information to catch contract drift before runtime — coherent public types, honest None handling, structured state/config in sync.
+[6] coder/test-coverage-review — Assess whether recent code changes have enough fast behavioral coverage; prefer one focused behavior test over broad line-coverage chasing.
+[7] coder/type-design-review — Evaluate whether new or changed data types express the invariants they need to protect; review structured data as a contract, not just a container.
+[8] common/delegate-heavy-task — Delegate complex coding tasks to Codex GPT-5.5 via codex-bridge MCP; falls back to Claude subagent if Codex unavailable.
+[9] common/eacn-network-collaboration — MinionsOS-specific rules for using EACN3 inside a project Role; defers the tool reference to eacn3-network-overview.
+[10] common/eacn3-agent-lifecycle — Open to inspect an Agent identity before messaging or bidding; in MinionsOS registration is pre-done — only eacn3_get_agent and eacn3_list_my_agents are typically needed.
+[11] common/eacn3-bootstrap — Open at the start of a standalone EACN3 session or when diagnosing a lost connection; in MinionsOS only eacn3_health is typically needed — the host manages the session.
+[12] common/eacn3-discovery — Open before publishing a task (confirm executors exist for your domains) or before sending a direct message to someone whose agent_id you don't already have.
+[13] common/eacn3-economy — Open before eacn3_create_task or eacn3_confirm_budget to verify available credits cover the budget; executors rarely need this (bids pay from task escrow).
+[14] common/eacn3-error-recovery — Open when an eacn3_* tool returns a non-400 error (timeout, 503, plugin crash) — decide retry / reconnect / escalate without losing in-flight work.
+[15] common/eacn3-event-loop — Open when running EACN3 standalone and need to drain events; MinionsOS roles do NOT call these tools — the queue is pre-drained by the host's scheduler.
+[16] common/eacn3-messaging — Open for short clarifications, acknowledgements, or pre-bid questions between Agents; not for deliverables — use tasks for those.
+[17] common/eacn3-network-overview — Open first when you don't know which eacn3-* skill to use; routes by intent (publish / bid / message / team / drain / etc.) to the right tool cluster.
+[18] common/eacn3-reputation — Open to check a peer's reputation before inviting or bidding; manual event reporting (eacn3_report_event) is for edge cases only — submit/reject auto-report.
+[19] common/eacn3-state-machines — Open before any task-mutating tool call, or when debugging a 400 state-machine error; shows Task and Bid FSM transitions and which recovery step gets you to a legal state.
+[20] common/eacn3-task-executor — Open when a task_broadcast event arrives or you're executing and need to close out (deliver, reject, or split off a subtask); the four bid-FSM transition tools.
+[21] common/eacn3-task-initiator — Open when publishing a task, or when a bid_request_confirmation / task_collected event arrives for a task you initiated; covers publish, steer, and close-out tools.
+[22] common/eacn3-task-queries — Open before any task-mutating call to inspect task state without side effects; four read-only tools (full fetch, status-only, open-tasks browse, any-state filter).
+[23] common/eacn3-team-formation — Open only when multiple Agents need shared git-repo coordination; skip for simple task invitations or direct messages. After team is ready, eacn3_create_task auto-injects team preamble.
+[24] ethics/citation-authenticity-audit — Verify every .bib entry and Reviewer-cited prior work actually exists and matches the claimed author / year / venue / title; hallucinated citations are the highest-signal Ethics failure.
+[25] ethics/evidence-pointer-sweep — Audit [evidence: ...] / [derived: ...] markers on EACN messages and artifacts — confirm pointers resolve and content matches the claim, sample-based.
+[26] experimenter/allocate-resources — Translate an accepted experiment request into queue units for the Python fluid-GPU scheduler; decide unit boundaries, constraints, and resource estimates, then hand them to exp_queue_submit.
+[27] experimenter/archive-execution — Preserve reusable operational knowledge — templates, scheduling lessons, failure patterns — beyond a single run, in a form future Experimenter invocations can find and apply.
+[28] experimenter/collect-report — Turn a completed run's raw outputs into a structured result bundle under artifacts/exp-{id}/ — request, execution facts, metrics, artifacts, failures.
+[29] experimenter/dispatch-runner — Submit launchable work to the Python queue via exp_queue_submit, record the batch id, and exit — no manual polling loop.
+[30] experimenter/track-run — Maintain operational visibility over detached experiments without blocking on them; poll cheaply via exp_queue_status / exp_queue_reconcile, escalate anomalies through EACN.
+[31] experimenter/triage-request — Assess an incoming experiment request for feasibility, priority, and execution shape before touching a GPU — the operational gatekeeper, not a scientific judge.
+[32] expert/dialectics — Open before publishing a confident claim, or when two Experts disagree with evidence — thesis/antithesis/synthesis discipline that forces new predictions, not bland trade-offs.
+[33] expert/first-principles — Open when "everyone does it that way" is the strongest argument, or when a baseline / metric / benchmark may be the wrong proxy — re-derive from primitives, name the smuggled assumption.
+[34] gru/feature-intake — Open when the author requests a feature, repair, dashboard change, or role capability — convert it into bounded role-owned tasks with observable acceptance criteria, then delegate via EACN.
+[35] gru/project-automation-audit — Open after a new project's first workflow stabilizes, or when the author asks "what automation should we add?" — read-only scan that recommends ≤2 low-risk automations per category.
+[36] gru/role-skill-design — Open when adding or revising a MinionsOS role skill, or when a role makes the same mistake in 2+ sessions — author a small Markdown skill at the right ownership layer.
+[37] noter/role-session-diff-timeline — Open on every Noter wake before any other summary work — diff each role branch's archived session jsonl, summarize new ones into artifacts/notes/timeline.md; never drain EACN3 queues.
+[38] reviewer/aspect-review — Open when spawned by simulate-reviewer-instance, or when Reviewer main is asked for one narrow-aspect inspection; produce evidence-backed notes with one assigned stance.
+[39] reviewer/code-validity-review — Assess whether project code and evaluation scripts support the scientific claims under review — code as evidence, not elegance.
+[40] reviewer/publish-review-result — Open after consolidated.md is complete (called by run-review-round) to publish the review packet via Local EACN as one self-contained markdown deliverable.
+[41] reviewer/revision-delta — Run the independent Pass B / Pass C revision check — one dedicated local subagent reads only the previous rolling summary, then checks current submission and rebuttal against it.
+[42] reviewer/run-review-round — Execute one formal review round as Area Chair / journal Editor — 3-5 independent reviewer reports before any history, independent revision-delta pass, meta-review packet, EACN publish.
+[43] reviewer/simulate-reviewer-instance — Open during run-review-round Pass A to build one independent reviewer report by composing aspect subagents with mixed stances; outputs reviewer-i.md with one decision label.
+[44] writer/abstract-writing — Layered scientific abstract from broad context to result, knowledge delta, and significance — every claim traceable to the manuscript or to Expert.
+[45] writer/academic-plotting — Standards for publication-quality figures — matplotlib for numerical axes, diagram tools for structure, venue-standard styling, colorblind-safe palette, vector + raster outputs.
+[46] writer/apply-revisions — Open after rebuttal acceptance or when Reviewer publishes a Weak Accept / Borderline decision requiring revisions — incorporate reviewer-requested changes into the manuscript before package-submission.
+[47] writer/citation-audit — Verify every \cite{...} is a real work, correctly attributed, and used in a context the cited paper actually supports — three-layer check (existence, metadata, context).
+[48] writer/end-to-end-paper-workflow — Open when the user asked for a manuscript (not just section drafts) — seven-phase pipeline from project inputs to compiled PDF, with hard blockers preventing premature "done".
+[49] writer/figure-spec — Structured FigureSpec format for formal architecture / workflow / pipeline figures — JSON description (canvas, nodes, edges, groups) is source of truth, rendered SVG/PDF is byte-stable from the spec.
+[50] writer/imported-paper-skill-catalog — Map imported claude_write paper-writing skill names onto Writer's local workflow — prefer local skills, treat external names as task categories.
+[51] writer/interactive-figure-prototype — Prototype paper figures with a local interactive HTML explorer before committing to a static plot — for figures with many visual degrees of freedom.
+[52] writer/make-latex-model — Scaffold a clean LaTeX paper project under branches/writer/paper/ matching the target venue's style — minimal, compilable skeleton ready for prose.
+[53] writer/package-submission — Assemble the final camera-ready / submission bundle — clean PDF, standalone-compilable source archive, supplementary, reproducible code snapshot, venue-specific checklist.
+[54] writer/paper-compile — Compile the LaTeX paper cleanly — run latexmk, fix the small auto-fixable errors, iterate at most 3 attempts, verify submission-shaped output.
+[55] writer/paper-search-tools — Use MinionsOS paper-search MCP tools for focused scholarly lookup — search_arxiv / search_pubmed / search_biorxiv / search_medrxiv / search_google_scholar, plus read_* and download_*.
+[56] writer/paper-work-boundaries — Open when about to spawn a paper-* subagent — ten-slot boundary map plus required final report sections; subagents do not auto-inherit Writer's state.
+[57] writer/prepare-rebuttal — Turn a batch of reviewer feedback into a clear, evidence-backed, well-packaged response — group issues, classify response type, coordinate evidence via EACN, draft concise blocks.

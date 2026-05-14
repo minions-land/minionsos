@@ -84,10 +84,7 @@ def _common_skills_dir() -> Path:
 def _extract_summary(text: str) -> str:
     fields, body = _split_frontmatter(text)
     fm_summary = fields.get("summary", "").strip().strip('"').strip("'")
-    if fm_summary:
-        chosen = fm_summary
-    else:
-        chosen = _summary_from_body(body)
+    chosen = fm_summary or _summary_from_body(body)
     chosen = chosen.lstrip("> ").strip()
     for ch in ("**", "__", "*", "_", "`"):
         chosen = chosen.replace(ch, "")

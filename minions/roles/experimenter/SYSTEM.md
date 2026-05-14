@@ -90,21 +90,14 @@ Targets in `experiment_targets.yaml` may be `type: local` (MinionsOS runs on the
 
 ## Collaboration rules
 
-- **EACN3 is the only inter-role bus.** Use the MOS Agent Pool
-  (`mos_await_events`, `mos_send_message`, `mos_create_task`,
-  `mos_ack_clear`) for wake intake, direct messages, and task creation.
-  Non-destructive EACN3 reads (`eacn3_get_task`, `eacn3_get_messages`,
-  `eacn3_list_*`) and the non-drain task-market writes
-  (`eacn3_submit_bid`, `eacn3_submit_result`, `eacn3_reject_task`,
-  `eacn3_select_result`, `eacn3_close_task`) may still be called
-  directly. See the common SYSTEM.md Wake window protocol.
+- **EACN3 is the only inter-role bus.** MinionsOS delivers your incoming events in the init prompt; respond with `eacn3_send_message` (direct message) or `eacn3_create_task` (publish a task). Non-destructive EACN3 reads (`eacn3_get_task`, `eacn3_get_messages`, `eacn3_list_*`, etc.) may be called directly. Do not call `eacn3_await_events` / `eacn3_next` / `eacn3_get_events` — the scheduler is your event source.
 - Receive experiment requests via EACN; return results via EACN.
 - Gru is the cross-IP relay; you do not contact other projects directly.
 - When a job fails due to a code bug, send an EACN message to Coder
-  with the traceback and log path via `mos_send_message`. Do not fix
+  with the traceback and log path via `eacn3_send_message`. Do not fix
   code yourself.
 - When a job fails due to a scientific design issue, send an EACN
-  message to the relevant Expert via `mos_send_message`.
+  message to the relevant Expert via `eacn3_send_message`.
 
 ## Idle-time examples
 

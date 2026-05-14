@@ -129,15 +129,11 @@ def main() -> int:
                 'command = "uv"',
                 'args = ["run", "--project", ".", "python", "-m", "minions.tools.mcp_server"]',
                 "enabled = true",
-                'env = { MINIONS_MCP_PROFILE = "codex" }',
                 "",
                 "[mcp_servers.eacn3]",
-                'command = "uv"',
-                'args = ["run", "--project", ".", "python", "-m", '
-                '"minions.tools.eacn3_mcp_proxy", "--", "node", '
-                '"EACN3/plugin/dist/server.js"]',
+                'command = "node"',
+                'args = ["EACN3/plugin/dist/server.js"]',
                 "enabled = true",
-                'env = { EACN3_MCP_PROFILE = "minions-role" }',
                 "",
             ]
         ),
@@ -155,17 +151,12 @@ def main() -> int:
         if mod == "minions" or mod.startswith("minions."):
             del sys.modules[mod]
 
-    from minions.lifecycle import eacn_client, gru_inbox
+    from minions.lifecycle import eacn_client
     from minions.lifecycle.project import project_close, project_create, project_meta_json
-    from minions.lifecycle.project_eacn import (
-        project_eacn_create_task,
-        project_eacn_send_message,
-    )
     from minions.lifecycle.role import list_roles, reap_finished, register_expert, register_role
     from minions.lifecycle.wakeup import WakeupScheduler
     from minions.paths import MINIONS_ROOT, project_dir, project_role_log
     from minions.state.store import StateStore
-    from minions.tools.mcp_server import GruInboxPollArgs, gru_inbox_poll
 
     assert root == MINIONS_ROOT, f"MINIONS_ROOT mismatch: {MINIONS_ROOT}"
 
@@ -195,8 +186,8 @@ def main() -> int:
         print("[codex-collab] register collaboration roles")
         role_names = ["noter", "coder", "experimenter", "writer", "reviewer", "ethics"]
         for role_name in role_names:
-            register_role(port, role_name, poll_interval="1m")
-        expert = register_expert(port, "Optimization", init_brief=None, poll_interval="1m")
+            register_role(port, role_name)
+        expert = register_expert(port, "Optimization", init_brief=None)
         expert_name = str(expert["name"])
         all_roles = {r["name"] for r in list_roles(port)}
         expected_roles = {*role_names, expert_name}
@@ -210,31 +201,34 @@ def main() -> int:
             f"agents={sorted(discovered)}",
         )
 
-        print("[codex-collab] publish Gru task and dispatch Codex-host roles")
-        task = project_eacn_create_task(
+        print("[codex-collab] publish Gru task and let the scheduler dispatch")
+        eacn_client.create_task(
             port=port,
             description=(
                 "Codex-host collaboration smoke: prepare a short implementation plan, "
                 "turn it into a project note, review it, and audit unsupported claims."
             ),
-            invited_roles=["coder", "writer", expert_name],
+            domains=["minionsos", "project-local", "coordination"],
+            initiator_id="gru",
+            invited_agent_ids=["coder", "writer", expert_name],
             expected_output={
                 "type": "collaboration_smoke",
                 "description": "Role status/checkpoint messages and logs.",
             },
         )
-        step("Gru task created", bool(task.get("task", {}).get("task_id") or task.get("task")))
 
-        scheduler = WakeupScheduler(store=StateStore(), cooldown_seconds=0, mode="legacy")
-        first_triggered = asyncio.run(scheduler.tick_once())
-        time.sleep(0.5)
+        async def _drive_scheduler(sched: WakeupScheduler, duration: float) -> None:
+            task = asyncio.create_task(sched.run_async())
+            try:
+                await asyncio.sleep(duration)
+            finally:
+                sched.stop()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await asyncio.wait_for(task, timeout=2.0)
+
+        scheduler = WakeupScheduler(store=StateStore(), cooldown_seconds=0)
+        asyncio.run(_drive_scheduler(scheduler, duration=3.0))
         reap_finished(store=StateStore())
-        step(
-            "WakeupScheduler dispatched Codex-host roles",
-            first_triggered >= 3,
-            f"triggered={first_triggered}",
-        )
-
         for role_name in ("coder", "writer", expert_name):
             log = wait_for_log(project_role_log(port, role_name), "FAKE_CODEX_STDIN_END")
             step(
@@ -250,17 +244,11 @@ def main() -> int:
             "artifact": "workspace/codex-collab-plan.md",
             "summary": "Coder proposes a minimal implementation plan for Writer.",
         }
-        project_eacn_send_message(
+        eacn_client.send_message(
             port=port,
-            from_role="coder",
-            to_role="writer",
+            from_agent_id="coder",
+            to_agent_id="writer",
             content=coder_to_writer,
-        )
-        writer_events = eacn_client.poll_events(port, "writer", timeout_secs=1)
-        step(
-            "Coder -> Writer EACN message delivered",
-            contains_payload(writer_events, coder_to_writer),
-            f"count={writer_events.get('count')}",
         )
 
         writer_to_reviewer = {
@@ -268,10 +256,10 @@ def main() -> int:
             "artifact": "workspace/codex-collab-draft.md",
             "summary": "Writer asks Reviewer for a quick formal check.",
         }
-        project_eacn_send_message(
+        eacn_client.send_message(
             port=port,
-            from_role="writer",
-            to_role="reviewer",
+            from_agent_id="writer",
+            to_agent_id="reviewer",
             content=writer_to_reviewer,
         )
 
@@ -279,33 +267,26 @@ def main() -> int:
             "kind": "evidence_audit",
             "summary": "Ethics notes the smoke artifact has no unsupported live claims.",
         }
-        project_eacn_send_message(
+        eacn_client.send_message(
             port=port,
-            from_role="ethics",
+            from_agent_id="ethics",
             to_agent_id="gru",
             content=ethics_to_gru,
         )
 
-        message_scheduler = WakeupScheduler(store=StateStore(), cooldown_seconds=0, mode="legacy")
-        second_triggered = asyncio.run(message_scheduler.tick_once())
-        time.sleep(0.5)
+        message_scheduler = WakeupScheduler(store=StateStore(), cooldown_seconds=0)
+        asyncio.run(_drive_scheduler(message_scheduler, duration=3.0))
         reap_finished(store=StateStore())
         reviewer_log = wait_for_log(project_role_log(port, "reviewer"), "FAKE_CODEX_STDIN_END")
         step(
             "Writer -> Reviewer triggered Codex Reviewer",
-            second_triggered >= 1 and "FAKE_CODEX_ROLE: reviewer" in reviewer_log,
-            f"triggered={second_triggered}",
+            "FAKE_CODEX_ROLE: reviewer" in reviewer_log,
         )
 
-        gru_poll = gru_inbox_poll(GruInboxPollArgs(port=port))
-        gru_entries = gru_inbox.read_unread(port, max_events=20)
+        gru_log = wait_for_log(project_role_log(port, "gru"), "FAKE_CODEX_STDIN_END")
         step(
-            "Ethics -> Gru queue delivered",
-            any(
-                entry.get("event", {}).get("payload", {}).get("content") == ethics_to_gru
-                for entry in gru_entries
-            ),
-            f"polled={gru_poll['polled']} unread={len(gru_entries)}",
+            "Ethics -> Gru triggered Codex Gru",
+            "FAKE_CODEX_ROLE: gru" in gru_log,
         )
 
         print("[codex-collab] trigger human wakeup through Codex host")

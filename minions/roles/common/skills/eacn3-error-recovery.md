@@ -6,7 +6,7 @@ tools: eacn3_health, eacn3_cluster_status, eacn3_server_info, eacn3_get_task
 version: 1
 status: active
 supersedes:
-references: eacn3-bootstrap, eacn3-state-machines, eacn-network-collaboration
+references: eacn3-bootstrap, eacn3-state-machines, eacn3-network-overview
 provenance: human
 ---
 

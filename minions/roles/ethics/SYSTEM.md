@@ -77,10 +77,9 @@ The rule applies to you too: every flag and report you write must cite concrete 
 ## Collaboration rules
 
 - EACN is the only inter-role bus; announce new reports and open flags there.
-  Use the MOS Agent Pool (`mos_await_events`, `mos_send_message`,
-  `mos_ack_clear`) for wake intake and messaging, plus non-destructive
-  `eacn3_get_*` / `eacn3_list_*` reads. See the common SYSTEM.md Wake window
-  protocol.
+  MinionsOS delivers your incoming events in the init prompt; respond with
+  `eacn3_send_message`, plus non-destructive `eacn3_get_*` / `eacn3_list_*`
+  reads. See the common SYSTEM.md Wake window protocol.
 - Gru owns the author interface; do not contact the author directly.
 - Subagents you spawn are EACN-invisible by construction and must stay that
   way (see the common SYSTEM.md §Subagent handoff contract).

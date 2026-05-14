@@ -299,48 +299,6 @@ def list_open_tasks(
     return [dict(item) for item in data if isinstance(item, dict)]
 
 
-def offline_stats(
-    port: int,
-    timeout: float = 1.0,
-) -> dict[str, Any]:
-    """Return EACN3's native pending-event queue stats.
-
-    This calls EACN3's read-only ``/api/admin/offline-stats`` endpoint. It does
-    not drain agent queues, so MinionsOS can decide that a role should wake
-    without becoming a second task/message router.
-    """
-    url = f"{base_url(port)}/api/admin/offline-stats"
-    try:
-        resp = httpx.get(url, timeout=timeout)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as exc:
-        raise BackendError(f"offline_stats on port {port} failed: {exc}") from exc
-    if not isinstance(data, dict):
-        raise BackendError(f"offline_stats on port {port} returned non-object payload.")
-    return dict(data)
-
-
-def pending_event_counts(
-    port: int,
-    timeout: float = 1.0,
-) -> dict[str, int]:
-    """Return pending EACN3 event counts keyed by agent_id without draining."""
-    data = offline_stats(port, timeout=timeout)
-    agents = data.get("agents") or {}
-    if not isinstance(agents, dict):
-        return {}
-    counts: dict[str, int] = {}
-    for agent_id, count in agents.items():
-        try:
-            n = int(count)
-        except Exception:
-            continue
-        if n > 0:
-            counts[str(agent_id)] = n
-    return counts
-
-
 def create_task(
     port: int,
     description: str,
@@ -518,90 +476,25 @@ def _post_message_raw(
         raise BackendError(f"post_message to {to_agent_id!r} on port {port} failed: {exc}") from exc
 
 
-def _mirror_message_to_noter(
-    port: int,
-    to_agent_id: str,
-    from_agent_id: str,
-    content: Any,
-) -> None:
-    """Best-effort MinionsOS audit mirror for direct EACN messages.
-
-    EACN3 direct messages are intentionally per-agent queues. MinionsOS adds
-    this optional mirror so the project-local Noter can observe direct
-    communications sent through this adapter without changing EACN3 itself.
-    """
-    if to_agent_id == "noter":
-        return
-    try:
-        if get_agent_card(port, "noter", timeout=1.0) is None:
-            return
-        _post_message_raw(
-            port=port,
-            to_agent_id="noter",
-            from_agent_id="network-audit",
-            content={
-                "type": "network_audit_message",
-                "source": "minionsos.eacn_client.send_message",
-                "from_agent_id": from_agent_id,
-                "to_agent_id": to_agent_id,
-                "content": content,
-            },
-            timeout=1.0,
-        )
-    except Exception as exc:
-        logger.debug("Noter audit mirror failed port=%d target=%s: %s", port, to_agent_id, exc)
-
-
 def send_message(
     port: int,
     to_agent_id: str,
     from_agent_id: str,
     content: Any,
     timeout: float = DEFAULT_TIMEOUT,
-    *,
-    validate_target: bool = True,
-    audit_to_noter: bool = True,
 ) -> dict[str, Any]:
     """Send a direct project-local EACN message.
 
-    EACN3 queues messages for any ``to_agent_id``. MinionsOS wraps that API
-    with target AgentCard validation so typoed role names fail before they
-    become ghost queues. A best-effort copy is also sent to Noter when present
-    to provide a project-level audit stream for direct messages.
+    Validates the target AgentCard before posting so a typoed role name fails
+    fast instead of creating a ghost queue.
     """
-    if validate_target:
-        require_agent(port, to_agent_id, timeout=min(timeout, 3.0))
-    result = _post_message_raw(
+    require_agent(port, to_agent_id, timeout=min(timeout, 3.0))
+    return _post_message_raw(
         port=port,
         to_agent_id=to_agent_id,
         from_agent_id=from_agent_id,
         content=content,
         timeout=timeout,
-    )
-    if audit_to_noter:
-        _mirror_message_to_noter(port, to_agent_id, from_agent_id, content)
-    return result
-
-
-def post_message(
-    port: int,
-    to_agent_id: str,
-    from_agent_id: str,
-    content: Any,
-    timeout: float = DEFAULT_TIMEOUT,
-    *,
-    validate_target: bool = True,
-    audit_to_noter: bool = True,
-) -> dict[str, Any]:
-    """Backward-compatible alias for :func:`send_message`."""
-    return send_message(
-        port=port,
-        to_agent_id=to_agent_id,
-        from_agent_id=from_agent_id,
-        content=content,
-        timeout=timeout,
-        validate_target=validate_target,
-        audit_to_noter=audit_to_noter,
     )
 
 

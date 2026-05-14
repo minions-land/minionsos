@@ -9,10 +9,10 @@ Tools exposed:
 - project_checkpoint_workspace
 - spawn_role / spawn_expert / dismiss_role / list_roles
 - gru_relay
-- project_eacn_send_message / project_eacn_create_task
 - search_arxiv / search_pubmed / search_biorxiv / search_medrxiv / search_google_scholar
 - read_*_paper / download_* for supported paper sources
 - gru_start_monitor  (starts the Gru heartbeat loop as a background thread)
+- exp_* / exp_queue_* / exp_gpu_pool_* experiment tools
 """
 
 from __future__ import annotations
@@ -38,12 +38,6 @@ from minions.lifecycle.project import project_kill as _project_kill
 from minions.lifecycle.project import project_phase_snapshot
 from minions.lifecycle.project import project_revive as _project_revive
 from minions.lifecycle.project import project_set_phase as _project_set_phase
-from minions.lifecycle.project_eacn import (
-    project_eacn_create_task as _project_eacn_create_task,
-)
-from minions.lifecycle.project_eacn import (
-    project_eacn_send_message as _project_eacn_send_message,
-)
 from minions.lifecycle.relay import gru_relay as _gru_relay
 from minions.lifecycle.role import (
     dismiss_role as _dismiss_role,
@@ -85,14 +79,6 @@ _MINIONS_MCP_TOOL_NAMES = {
     "dismiss_role",
     "list_roles",
     "gru_relay",
-    "project_eacn_send_message",
-    "project_eacn_create_task",
-    "mos_await_events",
-    "mos_send_message",
-    "mos_create_task",
-    "mos_pending_read",
-    "mos_pending_wipe",
-    "mos_ack_clear",
     "exp_run",
     "exp_status",
     "exp_wait",
@@ -120,8 +106,6 @@ _MINIONS_MCP_TOOL_NAMES = {
     "download_pubmed",
     "download_biorxiv",
     "download_medrxiv",
-    "gru_inbox_poll",
-    "schedule_poll",
     "gru_start_monitor",
 }
 
@@ -136,11 +120,7 @@ def allowed_tool_names_for_profile(
     role: str | None = None,
     agent_type: str | None = None,
 ) -> set[str]:
-    """Return MinionsOS MCP tool names advertised for the current profile.
-
-    This trims the schema surface before the host sees tools. Runtime
-    authorization in ``_require_tool_allowed`` remains the enforcement layer.
-    """
+    """Return MinionsOS MCP tool names advertised for the current profile."""
     custom = os.environ.get("MINIONS_MCP_TOOLS", "").strip()
     if custom:
         return _csv_names(custom) & _MINIONS_MCP_TOOL_NAMES
@@ -206,12 +186,7 @@ def _running_sidecar_monitor() -> dict[str, object] | None:
 
 
 def _require_tool_allowed(tool_name: str) -> None:
-    """Enforce MinionsOS role tool boundaries inside the MCP server.
-
-    Claude Code still receives ``--allowed-tools`` at launch. Codex does not
-    expose that exact launch flag, so this server-side check is the durable
-    authorization layer for project lifecycle tools.
-    """
+    """Enforce MinionsOS role tool boundaries inside the MCP server."""
     if os.environ.get("MINIONS_DISABLE_MCP_AUTHZ", "").strip() == "1":
         return
     role = os.environ.get("MINIONS_ROLE_NAME", "").strip()
@@ -305,10 +280,6 @@ class SpawnRoleArgs(BaseModel):
     init_brief: str | None = Field(
         default=None, description="Initial EACN message to the new role."
     )
-    poll_interval: str | None = Field(
-        default=None,
-        description="Override EACN polling cadence (1m / 3m / 5m). Default: gru.yaml.",
-    )
     time_trigger_interval: str | None = Field(
         default=None,
         description="Optional periodic wakeup cadence. Noter defaults to gru.yaml.",
@@ -321,10 +292,6 @@ class SpawnExpertArgs(BaseModel):
     name: str | None = Field(default=None, description="Override the auto-generated role name.")
     init_brief: str | None = Field(
         default=None, description="Initial EACN message to the new expert."
-    )
-    poll_interval: str | None = Field(
-        default=None,
-        description="Override EACN polling cadence (1m / 3m / 5m). Default: gru.yaml.",
     )
     time_trigger_interval: str | None = Field(
         default=None,
@@ -349,90 +316,6 @@ class GruRelayArgs(BaseModel):
     source_note: str | None = None
 
 
-class ProjectEacnSendMessageArgs(BaseModel):
-    port: int = Field(description="Project port.")
-    content: Any = Field(description="Message content to send through project-local EACN3.")
-    to_agent_id: str | None = Field(default=None, description="Project-local target EACN agent id.")
-    to_role: str | None = Field(default=None, description="Project-local MinionsOS role name.")
-    from_agent_id: str | None = Field(default=None, description="Sender EACN agent id.")
-    from_role: str | None = Field(default=None, description="Sender MinionsOS role name.")
-
-
-class ProjectEacnCreateTaskArgs(BaseModel):
-    port: int = Field(description="Project port.")
-    description: str = Field(description="Task description to publish on project-local EACN3.")
-    domains: list[str] = Field(
-        default_factory=list,
-        description="Routing domains. Defaults to minionsos/project-local/coordination.",
-    )
-    invited_roles: list[str] = Field(default_factory=list)
-    invited_agent_ids: list[str] = Field(default_factory=list)
-    initiator_role: str | None = Field(default=None)
-    initiator_agent_id: str | None = Field(default=None)
-    budget: float = Field(default=0.0, ge=0.0)
-    deadline: str | None = Field(default=None, description="Optional ISO-8601 deadline.")
-    level: str | None = Field(
-        default=None,
-        description="Optional EACN task level: general, expert, expert_general, or tool.",
-    )
-    expected_output: dict | None = Field(default=None)
-    task_id: str | None = Field(default=None)
-
-
-class MosAwaitEventsArgs(BaseModel):
-    port: int = Field(description="Project EACN3 backend port.")
-    role_name: str = Field(description="MinionsOS role name (used to locate the pending inbox).")
-    agent_id: str = Field(description="Your EACN agent id. Do not pass another role's id.")
-    timeout_seconds: int = Field(
-        default=3600,
-        ge=0,
-        le=86400,
-        description=(
-            "Total wait budget in seconds (default 1 hour, max 24 hours). "
-            "MinionsOS handles EACN3's internal 60s chunk cap transparently: "
-            "this is one tool call. It returns the moment any events arrive, "
-            "or after the full timeout of silence."
-        ),
-    )
-
-
-class MosSendMessageArgs(BaseModel):
-    port: int = Field(description="Project EACN3 backend port.")
-    to_agent_id: str = Field(description="Target EACN agent id.")
-    from_agent_id: str = Field(description="Your EACN agent id.")
-    content: Any = Field(description="Message content.")
-
-
-class MosCreateTaskArgs(BaseModel):
-    port: int = Field(description="Project EACN3 backend port.")
-    description: str = Field(description="Task description.")
-    domains: list[str] = Field(default_factory=list, description="Routing domains.")
-    initiator_id: str = Field(description="Your EACN agent id.")
-    budget: float = Field(default=0.0, ge=0.0)
-    expected_output: dict | None = Field(default=None)
-    deadline: str | None = Field(default=None)
-    level: str | None = Field(default=None)
-    invited_agent_ids: list[str] = Field(default_factory=list)
-    max_concurrent_bidders: int | None = Field(default=None)
-    task_id: str | None = Field(default=None)
-
-
-class MosPendingArgs(BaseModel):
-    port: int = Field(description="Project EACN3 backend port.")
-    role_name: str = Field(description="MinionsOS role name.")
-
-
-class MosAckClearArgs(BaseModel):
-    port: int = Field(description="Project EACN3 backend port.")
-    role_name: str = Field(description="MinionsOS role name.")
-    event_ids: list[str] = Field(
-        description=(
-            "Event IDs already fully processed. Remove them from the role's "
-            "pending inbox so they are not replayed on the next wake."
-        ),
-    )
-
-
 class PaperSearchArgs(BaseModel):
     query: str = Field(description="Academic paper search query.")
     max_results: int = Field(default=10, ge=1, le=50)
@@ -453,15 +336,7 @@ class PaperIdArgs(BaseModel):
 
 @mcp.tool()
 def project_create(args: ProjectCreateArgs) -> dict:
-    """Create a new MinionsOS project, start its EACN3 backend, and register it.
-
-    Returns:
-        port: allocated port
-        branch: git branch name (e.g. ``minionsos/project-37596``)
-        workspace_path: absolute filesystem path to the git worktree
-        project_dir: absolute filesystem path to ``project_{port}/``
-        claude_md: absolute filesystem path to the auto-generated project CLAUDE.md
-    """
+    """Create a new MinionsOS project, start its EACN3 backend, and register it."""
     _require_tool_allowed("project_create")
     from minions.paths import project_dir as _pdir
     from minions.paths import project_workspace as _pws
@@ -579,7 +454,6 @@ def spawn_role(args: SpawnRoleArgs) -> dict:
         project_port=args.project_port,
         role=args.role,
         init_brief=args.init_brief,
-        poll_interval=args.poll_interval,
         time_trigger_interval=args.time_trigger_interval,
     )
 
@@ -593,7 +467,6 @@ def spawn_expert(args: SpawnExpertArgs) -> dict:
         domain=args.domain,
         name=args.name,
         init_brief=args.init_brief,
-        poll_interval=args.poll_interval,
         time_trigger_interval=args.time_trigger_interval,
     )
 
@@ -626,144 +499,6 @@ def gru_relay(args: GruRelayArgs) -> dict:
         mode=args.mode,
         source_note=args.source_note,
     )
-
-
-@mcp.tool()
-def project_eacn_send_message(args: ProjectEacnSendMessageArgs) -> dict:
-    """Send a generic direct message on one project's Local EACN3 network."""
-    _require_tool_allowed("project_eacn_send_message")
-    return _project_eacn_send_message(
-        port=args.port,
-        content=args.content,
-        to_agent_id=args.to_agent_id,
-        to_role=args.to_role,
-        from_agent_id=args.from_agent_id,
-        from_role=args.from_role,
-    )
-
-
-@mcp.tool()
-def project_eacn_create_task(args: ProjectEacnCreateTaskArgs) -> dict:
-    """Publish a generic task on one project's Local EACN3 network."""
-    _require_tool_allowed("project_eacn_create_task")
-    return _project_eacn_create_task(
-        port=args.port,
-        description=args.description,
-        domains=args.domains or None,
-        invited_roles=args.invited_roles,
-        invited_agent_ids=args.invited_agent_ids,
-        initiator_role=args.initiator_role,
-        initiator_agent_id=args.initiator_agent_id,
-        budget=args.budget,
-        expected_output=args.expected_output,
-        deadline=args.deadline,
-        level=args.level,
-        task_id=args.task_id,
-    )
-
-
-# ---------------------------------------------------------------------------
-# MOS Agent Pool — the EACN3 access layer used by MinionsOS internal roles.
-# See minions/lifecycle/mos_pool.py for the full rationale.
-# ---------------------------------------------------------------------------
-
-
-@mcp.tool()
-def mos_await_events(args: MosAwaitEventsArgs) -> dict:
-    """Drain EACN3 events for your agent, with a local ACK copy to disk.
-
-    MinionsOS internal roles call this instead of ``eacn3_await_events``.
-    The returned event list has the same shape as the native EACN3 tool;
-    additionally, the same events are persisted to the role's
-    ``.minionsos/inbox/pending.jsonl`` as a per-wake crash shim. Call
-    ``mos_ack_clear`` with the event ids you have finished processing so the
-    pending file stays empty during normal operation.
-    """
-    _require_tool_allowed("mos_await_events")
-    from minions.lifecycle import mos_pool
-
-    return mos_pool.mos_await_events(
-        port=args.port,
-        role_name=args.role_name,
-        agent_id=args.agent_id,
-        timeout_seconds=args.timeout_seconds,
-    )
-
-
-@mcp.tool()
-def mos_send_message(args: MosSendMessageArgs) -> dict:
-    """Send a direct EACN3 message through the MOS Agent Pool."""
-    _require_tool_allowed("mos_send_message")
-    from minions.lifecycle import mos_pool
-
-    return mos_pool.mos_send_message(
-        port=args.port,
-        to_agent_id=args.to_agent_id,
-        from_agent_id=args.from_agent_id,
-        content=args.content,
-    )
-
-
-@mcp.tool()
-def mos_create_task(args: MosCreateTaskArgs) -> dict:
-    """Create an EACN3 task through the MOS Agent Pool."""
-    _require_tool_allowed("mos_create_task")
-    from minions.lifecycle import mos_pool
-
-    return mos_pool.mos_create_task(
-        port=args.port,
-        description=args.description,
-        domains=args.domains,
-        initiator_id=args.initiator_id,
-        budget=args.budget,
-        expected_output=args.expected_output,
-        deadline=args.deadline,
-        level=args.level,
-        invited_agent_ids=args.invited_agent_ids or None,
-        max_concurrent_bidders=args.max_concurrent_bidders,
-        task_id=args.task_id,
-    )
-
-
-@mcp.tool()
-def mos_pending_read(args: MosPendingArgs) -> dict:
-    """Return the pending inbox contents. Agents do not normally call this;
-    MinionsOS surfaces pending events in the next wake's init prompt itself.
-    Exposed as a tool primarily for debugging and for Noter-style auditors.
-    """
-    _require_tool_allowed("mos_pending_read")
-    from minions.lifecycle import mos_pool
-
-    events = mos_pool.mos_pending_read(args.port, args.role_name)
-    return {"count": len(events), "events": events}
-
-
-@mcp.tool()
-def mos_pending_wipe(args: MosPendingArgs) -> dict:
-    """Clear the pending inbox file for a role. Intended for operator recovery,
-    not routine role use. Agents should use ``mos_ack_clear`` to drop only the
-    ids they truly handled."""
-    _require_tool_allowed("mos_pending_wipe")
-    from minions.lifecycle import mos_pool
-
-    mos_pool.mos_pending_wipe(args.port, args.role_name)
-    return {"ok": True}
-
-
-@mcp.tool()
-def mos_ack_clear(args: MosAckClearArgs) -> dict:
-    """Remove processed event ids from the role's pending inbox.
-
-    Call this after successfully handling events returned by
-    ``mos_await_events``. The pending inbox only exists to rescue a wake that
-    crashed mid-flight; in the normal happy path ACK-ing each batch keeps the
-    file empty so the next wake starts clean.
-    """
-    _require_tool_allowed("mos_ack_clear")
-    from minions.lifecycle import mos_pool
-
-    removed = mos_pool.mos_ack_clear(args.port, args.role_name, args.event_ids)
-    return {"removed": removed}
 
 
 @mcp.tool()
@@ -955,117 +690,11 @@ def download_medrxiv(args: PaperIdArgs) -> str:
     return _paper_search.download_medrxiv(args.paper_id, args.save_path)
 
 
-class GruInboxPollArgs(BaseModel):
-    port: int | None = Field(
-        default=None,
-        description="Project port. If None, drain all active projects.",
-    )
-    max_events: int = Field(default=50, ge=1, le=500)
-    mark_read: bool = Field(
-        default=False,
-        description=(
-            "When false, poll the project-local EACN gru queue and return pending events. "
-            "When true, mark currently returned local pending entries handled without polling EACN."
-        ),
-    )
-
-
-@mcp.tool()
-def gru_inbox_poll(args: GruInboxPollArgs) -> dict:
-    """Poll Gru's project-local EACN queue and keep a private pending journal.
-
-    EACN3's event endpoint is drain-on-read and has no message-level ack/claim.
-    This tool is Gru's adapter: when ``mark_read`` is false it polls the
-    project's EACN ``gru`` agent, journals any newly drained events, and returns
-    pending journal entries. After Gru has replied or otherwise handled them,
-    call again with ``mark_read=true`` to advance the local cursor.
-    """
-    _require_tool_allowed("gru_inbox_poll")
-    from minions.config import load_gru_config
-    from minions.lifecycle import eacn_client
-    from minions.lifecycle import gru_inbox as _inbox
-
-    if args.port is None:
-        store = StateStore()
-        ports = [p.port for p in store.list_projects(filter="active")]
-    else:
-        ports = [args.port]
-
-    out: dict[str, list[dict]] = {}
-    total = 0
-    polled = 0
-    try:
-        gru_agent_id = load_gru_config().gru_eacn_agent_id
-    except Exception:
-        gru_agent_id = "gru"
-
-    for p in ports:
-        if not args.mark_read:
-            try:
-                payload = eacn_client.poll_events(p, gru_agent_id, timeout_secs=0, http_timeout=5.0)
-                events = payload.get("events") or payload.get("messages") or []
-                if isinstance(events, list) and events:
-                    polled += _inbox.append_events(p, [e for e in events if isinstance(e, dict)])
-            except Exception as exc:
-                logger.debug("gru EACN poll failed port=%d agent=%s: %s", p, gru_agent_id, exc)
-        entries = _inbox.read_unread(p, max_events=args.max_events)
-        if not entries:
-            continue
-        out[str(p)] = entries
-        total += len(entries)
-        if args.mark_read and entries:
-            max_seq = max(int(e.get("seq", 0)) for e in entries)
-            _inbox.mark_read(p, max_seq)
-    return {"total": total, "polled": polled, "marked_read": args.mark_read, "per_port": out}
-
-
-class SchedulePollArgs(BaseModel):
-    interval: str = Field(
-        description="Poll cadence: one of '1m', '3m', '5m'.",
-    )
-
-
-@mcp.tool()
-def schedule_poll(args: SchedulePollArgs) -> dict:
-    """DEPRECATED no-op — Role wakeups are now driven by MinionsOS hooks.
-
-    Roles are invoked by ``minions.lifecycle.wakeup.WakeupScheduler`` when a
-    local wake signal exists. In hook mode the scheduler may inspect EACN3
-    pending queue counts, but it does not drain EACN3 events for Roles. No
-    in-agent polling loop is needed, and this MCP tool is a no-op recorder kept
-    for backward compatibility.
-    """
-    _require_tool_allowed("schedule_poll")
-    import os as _os
-
-    role = _os.environ.get("MINIONS_ROLE_NAME", "<unknown>")
-    port = _os.environ.get("MINIONS_PROJECT_PORT", "<unknown>")
-    logger.warning(
-        "schedule_poll is deprecated (role=%s port=%s interval=%s); "
-        "hook wakeup is handled by WakeupScheduler.",
-        role,
-        port,
-        args.interval,
-    )
-    return {
-        "role": role,
-        "project_port": port,
-        "interval": args.interval,
-        "ok": True,
-        "deprecated": True,
-    }
-
-
 @mcp.tool()
 def gru_start_monitor(heartbeat_interval: int | None = None) -> dict:
     """Start the Gru heartbeat/health monitor as a background daemon thread.
 
-    Idempotent: a second call while the monitor is still alive is a no-op
-    and returns ``{"started": False, "already_running": True, ...}``. This
-    avoids racing monitors writing to the same ``projects.json``.
-
-    Args:
-        heartbeat_interval: Override the interval in seconds (default from gru.yaml).
+    Idempotent: a second call while the monitor is still alive is a no-op.
     """
     _require_tool_allowed("gru_start_monitor")
     from minions.gru.loop import GruLoop
@@ -1112,3 +741,8 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# Silence a pyflakes warning about the unused BaseModel / Any imports when
+# the file is partially loaded in isolation.
+_ = (BaseModel, Any)

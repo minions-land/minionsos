@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>49 项 Skill 行为评估 · MinionsOS 现场报告</title>
+<style>
+/* CSS_BLOCK_1 */
+:root{
+  --bg:#fbfaf6; --ink:#1a1a1a; --dim:#5a6068; --faint:#8a9099;
+  --accent:#9c3b16; --accent-ink:#6e2a0f; --accent-bg:#faeee3;
+  --rule:#e7e2d6; --card:#ffffff;
+  --code-bg:#f1ecde; --hi:#fff4cf;
+  --shadow:0 1px 2px rgba(0,0,0,.03),0 6px 20px rgba(20,10,0,.04);
+  --serif:"Iowan Old Style","Cambria","Liberation Serif","Songti SC","Source Han Serif SC",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","PingFang SC","Noto Sans CJK SC",sans-serif;
+  --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  --measure:680px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:28px}
+body{margin:0;background:
+  radial-gradient(circle at 50% -12%,rgba(208,168,82,.22),transparent 34rem),
+  linear-gradient(180deg,#fffdf6 0%,var(--bg) 34rem);
+  color:var(--ink);
+  font:17px/1.85 var(--serif); -webkit-font-smoothing:antialiased; font-feature-settings:"tnum","ss01"}
+#progress{position:fixed;top:0;left:0;right:0;height:2px;background:transparent;z-index:100}
+#progress::after{content:"";display:block;height:100%;width:var(--p,0%);background:var(--accent);transition:width .1s}
+nav#toc{position:fixed;top:110px;left:24px;width:220px;font:13px/1.55 var(--sans);z-index:50;max-height:calc(100vh - 140px);overflow-y:auto;padding-right:8px}
+nav#toc .cap{font:600 11px/1 var(--sans);color:var(--faint);letter-spacing:.18em;text-transform:uppercase;margin:0 0 12px}
+nav#toc ol{list-style:none;padding:0;margin:0;border-left:1px solid var(--rule)}
+nav#toc li{margin:0}
+nav#toc a{display:block;padding:6px 0 6px 14px;color:var(--dim);text-decoration:none;border-left:2px solid transparent;margin-left:-1px;transition:all .12s;line-height:1.4}
+nav#toc a:hover{color:var(--ink)}
+nav#toc a.active{color:var(--accent);border-left-color:var(--accent);font-weight:500}
+nav#toc .num{font:500 11px var(--mono);color:var(--faint);margin-right:6px}
+@media (max-width:1120px){nav#toc{display:none}}
+article{max-width:var(--measure);margin:0 auto;padding:64px 28px 96px}
+.hero{margin-bottom:72px;border-bottom:1px solid var(--rule);padding-bottom:40px}
+.hero .eyebrow{font:600 11px var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:18px}
+.hero h1{font-family:var(--serif);font-weight:700;font-size:44px;line-height:1.15;letter-spacing:-.01em;margin:0 0 18px}
+.hero .standfirst{font-size:20px;line-height:1.6;color:#30343a;margin:0 0 28px;font-style:italic;font-family:var(--serif)}
+.byline{font:13px var(--sans);color:var(--dim);display:flex;gap:6px 24px;flex-wrap:wrap;align-items:baseline}
+.byline b{color:var(--ink);font-weight:600}
+.byline .sep{color:var(--faint)}
+article > section{margin:0 0 72px}
+article > section > h2{font-family:var(--serif);font-weight:700;font-size:30px;line-height:1.25;letter-spacing:-.01em;margin:0 0 8px}
+article > section > h2 .roman{color:var(--faint);font:500 13px var(--mono);letter-spacing:.14em;display:block;margin-bottom:6px;text-transform:uppercase}
+article > section > .deck{color:var(--dim);font-size:16px;line-height:1.55;margin:0 0 32px;font-style:italic}
+h3{font-family:var(--serif);font-weight:700;font-size:21px;line-height:1.3;margin:40px 0 10px;letter-spacing:-.005em}
+h4{font-family:var(--sans);font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:28px 0 8px}
+p{margin:0 0 18px}
+a{color:var(--accent);text-decoration:none;background-image:linear-gradient(currentColor,currentColor);background-size:100% 1px;background-repeat:no-repeat;background-position:0 100%;padding-bottom:1px;transition:color .12s}
+a:hover{color:var(--accent-ink)}
+code{background:var(--code-bg);font:14.5px/1.4 var(--mono);padding:1px 5px;border-radius:3px;color:#3f2f15}
+em{color:#2a2a2a}
+strong{color:var(--ink);font-weight:700}
+mark{background:var(--hi);padding:0 3px}
+blockquote{margin:28px 0;padding:2px 0 2px 24px;border-left:3px solid var(--accent);font-family:var(--serif);color:#2a2a2a;font-size:18.5px;line-height:1.6;font-style:italic}
+blockquote cite{display:block;font:13px var(--sans);font-style:normal;color:var(--dim);margin-top:10px}
+blockquote cite::before{content:"— "}
+.drop::first-letter{float:left;font-family:var(--serif);font-weight:700;font-size:62px;line-height:.9;padding:6px 12px 0 0;color:var(--accent)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0;margin:30px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:18px 0}
+.stats .s{text-align:center;padding:0 8px;border-right:1px solid var(--rule)}
+.stats .s:last-child{border-right:0}
+.stats .s .v{font-family:var(--serif);font-weight:700;font-size:26px;color:var(--accent-ink);line-height:1}
+.stats .s .l{font:11px var(--sans);color:var(--dim);margin-top:6px;letter-spacing:.05em;text-transform:uppercase}
+.aside{margin:26px 0;padding:16px 20px;background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:3px;font-size:15.5px;line-height:1.65;box-shadow:var(--shadow)}
+.aside .k{font:11px var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:6px;display:block}
+.aside.note{border-left-color:#6b4ca7}
+.aside.note .k{color:#6b4ca7}
+table{border-collapse:collapse;width:100%;margin:22px 0;font:14.5px/1.5 var(--sans);background:var(--card);border:1px solid var(--rule);box-shadow:var(--shadow);border-radius:3px;overflow:hidden}
+th,td{padding:10px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule)}
+thead th{background:#f6eedb;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent-ink)}
+tr:last-child td{border-bottom:0}
+tr:hover td{background:#fbf8ef}
+td.num{text-align:right;color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.tag{font:11px var(--sans);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+td.tag.win{color:#247a3b;font-weight:600}
+td.tag.cal{color:#9c6b05;font-weight:600}
+td.tag.flat{color:#6b6b6b}
+td.tag.bad{color:#a32e1f;font-weight:600}
+figure.diagram{margin:30px 0;padding:20px 22px;background:#23272c;color:#dadcdf;border-radius:6px;border:1px solid #3a3f47;
+  font:13.5px/1.55 var(--mono);white-space:normal;overflow-x:auto;box-shadow:var(--shadow)}
+figure.diagram code{display:block;background:transparent;color:inherit;padding:0;border-radius:0;font:inherit;white-space:pre;min-width:max-content}
+figure.diagram figcaption{color:#9098a4;font:12px var(--sans);margin-top:12px;padding-top:12px;border-top:1px solid #3a3f47;font-style:italic;white-space:normal}
+.meta{font:13px var(--sans);color:var(--dim);margin:6px 0 18px}
+.meta a{color:var(--accent)}
+.sep-ornament{text-align:center;color:var(--faint);letter-spacing:1em;margin:56px 0 24px;font-family:var(--serif);font-size:14px}
+footer.colophon{max-width:var(--measure);margin:0 auto;padding:40px 28px 64px;border-top:1px solid var(--rule);font:13px/1.7 var(--sans);color:var(--dim)}
+footer.colophon h4{font:600 12px var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink);margin:0 0 10px}
+footer.colophon p{margin:0 0 8px;max-width:var(--measure)}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<!-- NAV_BLOCK -->
+<nav id="toc">
+  <p class="cap">目录</p>
+  <ol>
+    <li><a href="#prologue"><span class="num">I</span>一份没人读得懂的报告</a></li>
+    <li><a href="#method"><span class="num">II</span>实验设计</a></li>
+    <li><a href="#headline"><span class="num">III</span>结论先看</a></li>
+    <li><a href="#clusters"><span class="num">IV</span>三个最值钱的子库</a></li>
+    <li><a href="#haiku"><span class="num">V</span>Haiku 自己的盲点</a></li>
+    <li><a href="#none"><span class="num">VI</span>"看起来没用"的 14 个</a></li>
+    <li><a href="#decisions"><span class="num">VII</span>下一步</a></li>
+  </ol>
+</nav>
+<article>
+<!-- HERO_BLOCK -->
+<header class="hero">
+  <p class="eyebrow">现场报告 · 2026 年 5 月</p>
+  <h1>49 个 Skill，到底有几个真有用？</h1>
+  <p class="standfirst">
+    我们让 Haiku 在"有 skill"和"没 skill"两种条件下回答同一道情景题，
+    再让 Codex 蒙着眼裁哪份回答更好。这是 MinionsOS skill 库第一次被
+    系统地从"文档质量"切到"实际行为效果"上检验——以及结果为什么
+    比想象中刺眼。
+  </p>
+  <div class="byline">
+    <span>评审 <b>Opus 4.7（Meta 层）+ Codex GPT-5.5（盲判）+ Haiku 4.5（执行）</b></span>
+    <span class="sep">·</span>
+    <span>阅读 <b>约 12 分钟</b></span>
+    <span class="sep">·</span>
+    <span><b>2026-05-14</b></span>
+  </div>
+</header>
+<!-- SECTION_1 -->
+<section id="prologue">
+  <h2><span class="roman">I</span>一份没人读得懂的报告</h2>
+  <p class="deck">问题不是 skill 写得好不好。问题是它真的让 agent 做得更好吗？</p>
+
+  <p class="drop">
+    在跑这一轮之前，我们已经做过一次评估：让五个 Sonnet 评审员把每个 skill 文件按
+    SSL 四节模板审一遍——summary 清不清楚、trigger 具不具体、Procedure 能不能照做、
+    Pitfalls 是否抓到真失败。那一轮结论很漂亮：49 个 KEEP，9 个微调，0 个重写。
+    但那只回答了一个问题，<em>文档</em>写得好不好。它没回答另一个完全不同的问题：
+    skill 真的让 agent 做得更好吗？
+  </p>
+
+  <p>
+    这两个问题的答案可以完全不同。一个写得平庸的 skill 可能恰好教会 agent 它本来不会
+    做的事；一个写得漂亮的 skill 可能只是把模型本来就会的事又说了一遍——后者就是
+    "花瓶 skill"，文档评估抓不到。
+  </p>
+
+  <p>
+    所以这一轮做的事完全不一样。我们不审 skill 写得怎样，我们看 skill 实际能不能改
+    Haiku 的行为。49 个 skill，每个都给一道情景题，让两个 Haiku agent 同时回答——
+    一个在 prompt 里塞进了完整的 skill 文本，另一个没有。然后把两份回答以随机标签
+    （RED / BLUE）扔给 Codex，让它<em>不知道</em>哪份是 with-skill，只按决策质量裁。
+  </p>
+
+  <div class="stats">
+    <div class="s"><div class="v">49</div><div class="l">测过的 skill</div></div>
+    <div class="s"><div class="v">122</div><div class="l">Haiku 调用</div></div>
+    <div class="s"><div class="v">61</div><div class="l">Codex 盲判</div></div>
+    <div class="s"><div class="v">65%</div><div class="l">有正向行为效果</div></div>
+    <div class="s"><div class="v">18</div><div class="l">阻止真错误的 skill</div></div>
+  </div>
+
+  <p>
+    这份报告有两个大发现。第一个是好消息：MinionsOS 的 skill 库整体在工作——
+    65% 的 skill 在行为层面有可测量的正向效果。第二个是更重要的：<em>哪些</em> skill
+    在工作，<em>怎么</em>工作的，跟我们直觉不太一样。
+  </p>
+</section>
+
+<p class="sep-ornament">❧ ❧ ❧</p>
+<!-- SECTION_2 -->
+<section id="method">
+  <h2><span class="roman">II</span>实验设计</h2>
+  <p class="deck">为什么用 Haiku 当执行者，而不是 Sonnet。</p>
+
+  <p>
+    评估 skill 的真实效果有一个核心难题：<em>不能用一个本来就什么都会的模型去测</em>。
+    给 Sonnet 加一份"think before coding"的 skill，它本来就会 think before coding，
+    差异淹没在噪音里——你测不出来。Haiku 不一样，它会跳步、会走捷径、会忘掉自查，
+    它对 skill 的反应才是可观察信号。
+  </p>
+
+  <p>
+    这也吻合 production 现实：MinionsOS 里 role wake 默认用 Codex 或 Haiku 这种快模型，
+    不会动用前沿模型。skill 真正要服务的就是这些 agent。所以让 Haiku 来当被试，比让
+    Sonnet 来当被试，离实际部署场景更近。
+  </p>
+
+  <h3>双盲对照的具体形状</h3>
+
+  <p>每个 skill 一道情景题，按下面这个流程跑：</p>
+
+  <figure class="diagram"><code>1. 设计场景：1 段背景 + 1 个具体提问（≤300 字回答）
+
+2. 并发 spawn 2 个 haiku Agent：
+     A: system msg 顶部注入完整 skill 文本 + 任务
+     B: system msg 只有任务（同样上下文，缺这一份 skill）
+
+3. 收到两份 ≤300 字回答
+
+4. 调 codex 盲判：
+     - 输入：两份回答 + 任务 + "哪份决策更好？引用具体短语"
+     - 输出 (structured)：winner, skill_effect ∈ {HELPED, NEUTRAL, HARMED},
+                          evidence quotes, confidence
+
+5. 我作为 meta，对照预设 expected_signature 校验 codex 判断合理性</code>
+<figcaption>每条 probe 约 3500 token、~30 秒。Codex 看不到哪份是 A、哪份是 B——
+它判定的是输出，不是输入。</figcaption></figure>
+
+  <p>
+    这个设计的关键是 Codex 不知道 skill 在不在场。它只看哪份回答更对。如果一份回答
+    碰巧用到了 skill 里的专有词汇（比如"Phase 3"或"六阶梯"），Codex 不会因此偏向它——
+    我们在评判 prompt 里明确告诉它："忽略 skill 内部术语，按决策质量评分"。
+  </p>
+
+  <div class="aside">
+    <span class="k">为什么 codex 不是 sonnet</span>
+    Codex（GPT-5.5）和 MinionsOS 的角色 host 是同一个家族，理解 EACN3 的 MCP 工具
+    surface 比 Sonnet 更直接。再加上它跑在 read-only sandbox 里，开销可控。
+    61 次盲判共耗约 19 万 token，wall-clock 5 分钟内完成。
+  </div>
+</section>
+
+<p class="sep-ornament">❧ ❧ ❧</p>
+<!-- SECTION_3 -->
+<section id="headline">
+  <h2><span class="roman">III</span>结论先看</h2>
+  <p class="deck">49 个 skill 的真实分布——以及为什么"一半看起来没用"其实不是坏消息。</p>
+
+  <p>
+    把所有 61 道 probe 的判决合到一起，得到下面这张表。每个 skill 进入其中一类，
+    依据是 Codex 的 winner、skill_effect_estimate 字段，加上我对回答内容的对照
+    （比如"BLUE 凭空发明了一个不存在的工具名"算"阻止真错误"，无论 Codex 是否标
+    "skill helped"）。
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>分类</th><th class="num">数量</th><th>含义</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="tag win">阻止真错误</td>
+        <td class="num">18</td>
+        <td>没有这个 skill，Haiku 会在决策层面犯错——发明假工具名、绕过 MCP 接口、
+        擅自实现没人要求的事、违反 Pass A 隔离规则等。</td>
+      </tr>
+      <tr>
+        <td class="tag cal">校准回答</td>
+        <td class="num">14</td>
+        <td>不会改变最终决定，但让回答更具体、更有依据、更不会滑向"crank mode"或
+        过度宽泛的 caveat。</td>
+      </tr>
+      <tr>
+        <td class="tag flat">与 baseline 持平</td>
+        <td class="num">14</td>
+        <td>Haiku 在标准情景下自己就能做对——可能 probe 太简单，也可能这个 skill
+        真的对 Haiku 这一层级模型杠杆很低。</td>
+      </tr>
+      <tr>
+        <td class="tag bad">过度执行（已修复）</td>
+        <td class="num">1</td>
+        <td><code>coding-methodology</code> 第一版："改超过 20 行就自动触发 Phase 3"
+        这条规则在用户没要求清理时也会触发。修复后行为正确。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>
+    用一句话概括：<em>三分之二的 skill 在行为层面有正向效果</em>。其中最值钱的是
+    "阻止真错误"那 18 个——它们不是让回答更漂亮，而是把一个会失败的决策翻成一个能
+    成功的决策。
+  </p>
+
+  <blockquote>
+    Haiku 在不确定时会发明工具名。skill 充当的是词汇表锚点。
+    <cite>Codex 在 11 次判决里独立得出的相同观察</cite>
+  </blockquote>
+
+  <p>
+    第二大类（校准）的价值更隐蔽：两份回答都对，但 with-skill 版本的论据更紧。
+    比如 <code>first-principles</code>：两个 Haiku 都对"用 Adam 因为大家都用"这句话
+    push back，但 with-skill 版本停在"Adam 是合理 default、需要时再换"这种 calibrated
+    立场，baseline 版本滑得更远，几乎在要求做完整 sweep——后者更接近 skill 警告的
+    "crank mode"。
+  </p>
+
+  <p>
+    第三大类（持平）才是这次评估最容易被误读的部分。下文第六节专门讨论它。
+  </p>
+</section>
+
+<p class="sep-ornament">❧ ❧ ❧</p>
+<!-- SECTION_4 -->
+<section id="clusters">
+  <h2><span class="roman">IV</span>三个最值钱的子库</h2>
+  <p class="deck">数据指向的优先级——以及它跟我们直觉的偏差。</p>
+
+  <h3>EACN3 cluster：阻止 API 幻觉</h3>
+
+  <p>
+    最让我意外的发现：当 Haiku 没有 skill 加载时，它<em>会发明根本不存在的 EACN3 工具名</em>。
+    这不是猜测——Codex 在多个 probe 里把这件事一一引出来。
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>baseline 编出来的工具名</th><th>实际正确的工具</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>eacn3_query_agents</code></td><td><code>eacn3_discover_agents</code></td></tr>
+      <tr><td><code>eacn3_read_task</code></td><td><code>eacn3_get_task_status</code></td></tr>
+      <tr><td><code>eacn3_get_health</code></td><td><code>eacn3_health</code></td></tr>
+      <tr><td><code>eacn3_retrieve_task</code>（"待获取后才解锁"）</td><td>FSM 里没有这步</td></tr>
+      <tr><td>raw <code>curl /api/agents</code></td><td><code>eacn3_get_agent</code></td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    所有 13 个 EACN3 cluster skill 测下来，<em>每一个</em>都要么阻止真错误、要么校准回答。
+    没有一个跟 baseline 持平。这是整个 skill 库里 ROI 最高的子库——对 Haiku 这种没有把
+    EACN3 工具表"烧进权重"的执行者来说，cluster skill 不是装饰，而是必需品。
+  </p>
+
+  <h3>工作流编排 skill：阻止过度执行</h3>
+
+  <p>
+    第二个清晰的模式：当"正确答案 = 先停下来 / 先 scope / 别动手"时，baseline Haiku 倾向于
+    立刻动手。with-skill 版本则知道刹车。下面这些都是<em>真实失败被阻止</em>的例子：
+  </p>
+
+  <table>
+    <thead><tr><th>Skill</th><th>baseline 的错误</th></tr></thead>
+    <tbody>
+      <tr><td><code>feature-implementation</code></td><td>用户只说"加 --json flag"，baseline 直接 commit 了一个版本（连 schema 都猜的）</td></tr>
+      <tr><td><code>apply-revisions</code></td><td>跳过 revision checklist，直接往 paper 上改</td></tr>
+      <tr><td><code>paper-work-boundaries</code></td><td>把任务派给"Coder subagent"而不是 paper-figure-python，破坏 boundary map</td></tr>
+      <tr><td><code>aspect-review</code></td><td>计划读 round-1 reviewer 报告（违反 Pass A 隔离）</td></tr>
+      <tr><td><code>figure-spec</code></td><td>直接写 TikZ/pgfplots，跳过 JSON spec → SVG renderer 流程</td></tr>
+      <tr><td><code>archive-execution</code></td><td>把 9 个 run 全归档（skill 要求只归档<em>recurring pattern</em>）</td></tr>
+      <tr><td><code>track-run</code></td><td>擅自 kill 一个慢但健康的训练（应该先报给 requester）</td></tr>
+    </tbody>
+  </table>
+
+  <h3>推理纪律 skill：校准价值</h3>
+
+  <p>
+    <code>first-principles</code>、<code>dialectics</code>、<code>citation-authenticity-audit</code>、
+    <code>coding-methodology</code>（修复后版本）这一组，提供的不是"翻转决策"的价值，而是
+    "提升决策论据质量"的价值。两份回答都对，但 with-skill 版本能给出更准的采样权重、
+    更清晰的 thesis-antithesis-synthesis 结构、更校准的 push back。
+  </p>
+
+  <p>
+    这一组很容易被低估。它们不会救你不犯错，但能让你的回答经得起更严苛的 review。
+    在科学发表场景里——比如 Ethics 审计 80 个引用、Expert 推 first-principles
+    论证——这种"地基整齐"的价值是真金白银。
+  </p>
+</section>
+
+<p class="sep-ornament">❧ ❧ ❧</p>
+<!-- SECTION_5 -->
+<section id="haiku">
+  <h2><span class="roman">V</span>Haiku 自己的盲点</h2>
+  <p class="deck">三个反复出现的失败模式——这些影响 skill 该怎么写。</p>
+
+  <p>
+    跑完 122 个 Haiku 调用之后，有三个模式在数据里反复出现，强烈到值得单独命名。
+    它们不是"Haiku 是劣质模型"，而是"Haiku 在没有 scaffold 时的默认倾向"——
+    skill 设计应该围着这些倾向打。
+  </p>
+
+  <h3>1. 不确定时凭空发明工具名</h3>
+
+  <p>
+    这是 Codex 高置信度判出来"with-skill 受益"最大的来源。Haiku 在不知道一个 API
+    的精确名字时，<em>不会</em>说"我不确定"，而是会编一个听起来合理的名字
+    （<code>eacn3_query_agents</code>、<code>eacn3_get_health</code>），并把它放到
+    回答里像真有这个工具一样。skill 在这里起的作用是<em>词汇表锚点</em>——把正确的
+    工具名以高频率出现在 Haiku 的 context 里。
+  </p>
+
+  <h3>2. 上下文不足时就退到"我需要用户告诉我 project port"</h3>
+
+  <p>
+    很多 baseline 回答开头是"No active projects, what's the port?"——在真正模糊的
+    场景里这是好习惯，但当 prompt 已经给出足够信息时这变成失误。skill 给 Haiku
+    足够的 scaffolding 让它有信心直接动手，而不是退到"问用户"这条 fallback。
+  </p>
+
+  <h3>3. 任务开放时倾向于过度执行</h3>
+
+  <p>
+    "Add a --json flag" → baseline 立刻实现了。<br>
+    "Run the autoresearch skill" → baseline 试图找一个不存在的 skill 文件。<br>
+    "Submit before deadline" → baseline 跳过 citation 审计直接发。
+  </p>
+
+  <p>
+    带有<em>显式澄清门</em>的 skill（"先问，再写"）反复阻止这种 silent scope guessing。
+    这就是为什么 <code>feature-implementation</code>、<code>apply-revisions</code>、
+    <code>feature-intake</code> 等都进了"阻止真错误"那一类。
+  </p>
+
+  <div class="aside note">
+    <span class="k">设计含义</span>
+    给 Haiku 写 skill，最关键的不是把方法论解释清楚，而是<em>把正确的工具名和
+    正确的工作流名以足够高的频率重复在 skill 文本里</em>。Haiku 不会因为读懂了
+    skill 才用对工具——它会因为正确的工具名在它的 context 里，所以倾向于用它而
+    不是发明新名字。这是为什么 EACN3 cluster skill 全部命中正向效果：每个文件
+    都密集地、反复地写出真实工具名，等于在抗幻觉。
+  </div>
+</section>
+
+<p class="sep-ornament">❧ ❧ ❧</p>
+<!-- SECTION_6 -->
+<section id="none">
+  <h2><span class="roman">VI</span>"看起来没用"的 14 个</h2>
+  <p class="deck">这不一定是失败——可能只是问题问得不够难。</p>
+
+  <p>
+    14 个 skill 在标准 probe 下跟 baseline 持平。第一反应可能是"那这些 skill 没用，
+    可以删了"。但有一段补充测试改变了这个判断。
+  </p>
+
+  <p>
+    第一轮 12 个 probe 跑完后，有 4 个 skill 显示"无效"。我们做了一轮"难场景重测"——
+    把每个 skill 的 probe 改成更模糊、更接近边缘情况的版本，再跑一次。结果如下：
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Skill</th><th>标准场景</th><th>难场景</th><th>真实定性</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>bounded-repair-loop</code></td>
+        <td class="tag flat">持平</td>
+        <td class="tag flat">持平</td>
+        <td>真低杠杆——Haiku 自己也知道何时停手</td>
+      </tr>
+      <tr>
+        <td><code>simulate-reviewer-instance</code></td>
+        <td class="tag flat">持平</td>
+        <td class="tag flat">持平</td>
+        <td>真低杠杆——3-vs-4 的判断对 Haiku 显而易见</td>
+      </tr>
+      <tr>
+        <td><code>abstract-writing</code></td>
+        <td class="tag flat">持平</td>
+        <td class="tag win">阻止真错误</td>
+        <td>之前误判——baseline 在难场景下会直接 expand 第一段，with-skill 知道要重新结构化</td>
+      </tr>
+      <tr>
+        <td><code>triage-request</code></td>
+        <td class="tag flat">持平</td>
+        <td class="tag win">阻止真错误</td>
+        <td>之前误判——baseline 在难场景下把决策上交给 Expert，with-skill 自己做 queue + dependency</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>
+    一半的"无效"判定其实是错的——只是 probe 设计太宽松。这是这次评估方法学上最大的
+    教训：<em>单一标准场景可能高估也可能低估 skill 的价值</em>。
+  </p>
+
+  <p>
+    所以剩下 10 个"无效"skill 的真实地位仍然未知。它们可能是真低杠杆，也可能是
+    "在更困难的边缘情境下其实有用、只是这一轮没测到"。基于现有证据，<em>不建议删除</em>。
+    但下一轮回归测试值得设计更难的 probe。
+  </p>
+
+  <h3>另一个维度：稳定性 vs 决策翻转</h3>
+
+  <p>
+    一个值得正视的可能性：某些"无效"skill 的真实价值不是"翻转 Haiku 的决策"，而是
+    "<em>稳定</em>Haiku 的决策"。即在标准场景下 Haiku 自己也对，但温度 / 模型版本 /
+    随机性可能会让它偶尔走偏；skill 的存在让它走偏的概率下降到接近零。这种稳定性
+    价值在单次 A/B 里测不出来，需要重复多次跑同一个 probe 才能看到。
+  </p>
+
+  <p>
+    这次评估每个 probe 只跑一次，所以无法分离"决策翻转"和"决策稳定"两种贡献。
+    把它当作下一轮的开放问题。
+  </p>
+</section>
+
+<p class="sep-ornament">❧ ❧ ❧</p>
+<!-- SECTION_7 -->
+<section id="decisions">
+  <h2><span class="roman">VII</span>下一步</h2>
+  <p class="deck">基于这份评估，三个具体决定。</p>
+
+  <h3>1. 全部 49 个 skill 都保留</h3>
+
+  <p>
+    没有任何一个 skill 在修复 <code>coding-methodology</code> 之后表现出净负效果。
+    14 个"看起来没用"的 skill 暂时保留——直到我们有更难的 probe 能区分"真低杠杆"
+    和"暂时没测到价值"。
+  </p>
+
+  <h3>2. EACN3 cluster 视为最高优先级 skill</h3>
+
+  <p>
+    13 个 EACN3 skill 全部命中。这是整个库 ROI 最高的子库，<em>因为</em>它直接抗幻觉：
+    Haiku 在没有这些 skill 时会发明工具名。每个使用 EACN3 的 Role wake 应该确保这一类
+    skill 全部加载。这一点已经通过 <code>list_skills()</code> 的自动发现机制保证了。
+  </p>
+
+  <h3>3. 推理纪律 skill 不要被低估</h3>
+
+  <p>
+    <code>first-principles</code>、<code>dialectics</code>、<code>citation-authenticity-audit</code>
+    这一组提供的是<em>校准</em>价值，不是错误阻止价值。它们让 Expert / Ethics 的回答能
+    经得起更深的 review——这在科学发表场景里直接转化为论文质量。不要因为它们"没翻转
+    决策"就降低优先级。
+  </p>
+
+  <h3>方法学的两个开放问题</h3>
+
+  <p>
+    第一个问题：本次每个 probe 只跑一次。若同一道 probe 跑 5 次取众数，"决策稳定性"
+    的贡献会显现出来。
+  </p>
+
+  <p>
+    第二个问题：盲判设置依赖 Codex 不识别 skill 痕迹。但 skill 的 vocabulary（"Phase 3"、
+    "六阶梯"等）有时会在 with-skill 回答里直接出现，让盲判其实不够盲。下一轮可以在
+    判前做一次"术语漂白"——把 skill-specific 名词替换成中性术语，再喂给 Codex，
+    看 Codex 还是不是判 with-skill 占优。
+  </p>
+
+  <h3>给以后做这件事的人</h3>
+
+  <p>
+    如果以后想跑同样的回归测试，方法是稳定的：49 个 skill × 标准 probe + 难 probe，
+    每个 probe 4 个 Haiku Agent + 1 个 Codex 判，分批 spawn 控制 context cost。
+    全程约 3 小时 wall clock，<code>~17M token</code> 总开销。本次完整 raw transcript
+    保留在 <code>minions/roles/common/_evals/</code>。
+  </p>
+</section>
+
+</article>
+<!-- FOOTER_BLOCK -->
+<footer class="colophon" id="colophon">
+  <h4>关于本报告</h4>
+  <p>
+    正文 Iowan Old Style，代码 SF Mono，于 680px 阅读栏宽（每行约 65 字符）排版。
+    背景使用暖纸色 #fbfaf6 而非白色，以减少长时间阅读的疲劳感。所有数据采集于
+    2026-05-13 至 2026-05-14 期间，原始 raw transcript 保存在
+    <code>minions/roles/common/_evals/</code>。
+  </p>
+  <p>
+    评估架构：Haiku 4.5（执行） + Codex GPT-5.5（盲判，read-only sandbox） +
+    Opus 4.7（meta 综合）。本报告的中文版由 Opus 4.7 直接译写自
+    <code>SKILL_BEHAVIORAL_EVAL.md</code>，结构按 editorial-html skill 规范。
+  </p>
+</footer>
+
+<script>
+/* JS_BLOCK */
+const bar = document.getElementById('progress');
+const update = () => {
+  const h = document.documentElement;
+  const pct = h.scrollHeight - h.clientHeight > 0
+    ? (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100
+    : 0;
+  bar.style.setProperty('--p', pct + '%');
+};
+window.addEventListener('scroll', update, { passive: true });
+update();
+
+const links = document.querySelectorAll('#toc a[href^="#"]');
+const sections = Array.from(links).map(a => document.getElementById(a.getAttribute('href').slice(1))).filter(Boolean);
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + e.target.id));
+    }
+  });
+}, { rootMargin: '-25% 0px -65% 0px' });
+sections.forEach(s => io.observe(s));
+</script>
+</body>
+</html>

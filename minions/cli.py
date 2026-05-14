@@ -102,33 +102,15 @@ def status(
 
     store = _get_store()
     try:
-        projects = store.list_projects()
+        data = store.load()
     except MinionsError as e:
         raise _fail(f"{e}\nHint: back up and remove minions/state/projects.json to reset.") from e
 
     if json_flag:
-        rows = []
-        for p in projects:
-            snap = project_status_snapshot(p.port, p.status)
-            rows.append(
-                {
-                    "port": p.port,
-                    "name": p.real_name,
-                    "status": p.status,
-                    "venue": p.venue,
-                    "roles": [r.model_dump() for r in p.active_roles],
-                    "backend_alive": snap["backend_alive"],
-                    "agents": snap["agents"],
-                    "queue_depth": snap["queue_depth"],
-                    "pending_events": snap["pending_events"],
-                    "gru_inbox_unread": snap["gru_inbox_unread"],
-                    "recent_health_events": snap["recent_health_events"],
-                    "recent_failures": snap["recent_failures"],
-                }
-            )
-        _json_out(rows)
+        _json_out(data.model_dump())
         return
 
+    projects = data.projects
     table = Table(title="MinionsOS Projects", show_lines=True)
     table.add_column("Port", style="cyan")
     table.add_column("Name", style="bold")
@@ -136,7 +118,6 @@ def status(
     table.add_column("Venue")
     table.add_column("Health")
     table.add_column("EACN Q")
-    table.add_column("Gru Inbox")
     table.add_column("Failures")
     table.add_column("Roles")
 
@@ -152,7 +133,6 @@ def status(
             p.venue or "—",
             health_str,
             str(snap.get("queue_depth", 0)),
-            str(snap.get("gru_inbox_unread", 0)),
             str(len(failures)) if failures else "—",
             str(len(p.active_roles)),
         )
@@ -330,31 +310,24 @@ def doctor(
             not missing,
             f"present: {sorted(servers)}" if not missing else f"missing: {sorted(missing)}",
         )
-        minionsos = (codex_cfg.get("mcp_servers") or {}).get("minionsos") or {}
         eacn3 = (codex_cfg.get("mcp_servers") or {}).get("eacn3") or {}
-        minions_profile_ok = (minionsos.get("env") or {}).get("MINIONS_MCP_PROFILE") == "codex"
-        # ``minions-role`` is the current default: per-role EACN3 tool surface
-        # mirrored from minions.config.resolve_whitelist at wake. The legacy
-        # ``codex-core`` subset is accepted as a backward-compat alternative.
-        eacn_profile_raw = (eacn3.get("env") or {}).get("EACN3_MCP_PROFILE")
-        eacn_profile_ok = eacn_profile_raw in {"minions-role", "codex-core"}
+        eacn_cmd = str(eacn3.get("command") or "")
         eacn_args = eacn3.get("args") or []
-        eacn_proxy_ok = any("minions.tools.eacn3_mcp_proxy" in str(arg) for arg in eacn_args)
+        eacn_direct = eacn_cmd == "node" and any(
+            "EACN3/plugin/dist/server.js" in str(arg) for arg in eacn_args
+        )
         _check(
-            "codex-mcp-profiles",
-            minions_profile_ok and eacn_profile_ok and eacn_proxy_ok,
+            "codex-mcp-eacn3-direct",
+            eacn_direct,
             (
-                f"minions=codex, eacn3={eacn_profile_raw} via MinionsOS proxy"
-                if minions_profile_ok and eacn_profile_ok and eacn_proxy_ok
-                else (
-                    f"minions_profile={minions_profile_ok}, "
-                    f"eacn3_profile={eacn_profile_ok}, eacn3_proxy={eacn_proxy_ok}"
-                )
+                "node EACN3/plugin/dist/server.js"
+                if eacn_direct
+                else f"cmd={eacn_cmd!r} args={eacn_args}"
             ),
         )
     except Exception as exc:
         _check("codex-mcp-config-mounts-eacn3", False, str(exc))
-        _check("codex-mcp-profiles", False, str(exc))
+        _check("codex-mcp-eacn3-direct", False, str(exc))
 
     # Port range probe. The allocator can skip an occupied first port, so
     # doctor should only fail when the whole configured range is exhausted.

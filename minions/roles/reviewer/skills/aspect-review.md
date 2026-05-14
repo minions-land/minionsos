@@ -3,10 +3,10 @@ slug: aspect-review
 summary: Open when spawned by simulate-reviewer-instance, or when Reviewer main is asked for one narrow-aspect inspection; produce evidence-backed notes with one assigned stance.
 layer: logical
 tools:
-version: 2
+version: 3
 status: active
 supersedes:
-references: simulate-reviewer-instance
+references: simulate-reviewer-instance, code-validity-review
 provenance: human
 ---
 
@@ -17,6 +17,8 @@ One narrow aspect, one assigned stance, evidence-backed notes for the parent rev
 ## When to invoke
 
 Called by `simulate-reviewer-instance` when spawning an aspect subagent. Each reviewer instance spawns several of these in parallel. May also be invoked directly when Reviewer main is asked for a single narrow-aspect inspection (e.g. "audit reproducibility for round 3, no full review needed") outside the orchestrated round flow.
+
+If an `experiments` or `reproducibility` finding requires walking actual code paths to confirm — script → config → data loader → metric → output — escalate to `code-validity-review` instead of staying inside this skill. Code-validity-review is the deep-trace zoom of those two aspects, not a separate aspect.
 
 ## Structure
 

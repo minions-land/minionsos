@@ -58,9 +58,9 @@ of the authoring pipeline.
   evidence.
 - Do not add praise just to sound balanced.
 - Do not use `exp_*` tools.
-- Do not use Gru/project lifecycle tools such as `gru_relay`, `gru_inbox_poll`,
-  `project_*`, `spawn_*`, or `dismiss_role`. Use only Reviewer-owned local
-  host-native subagents for review subprocesses.
+- Do not use Gru/project lifecycle tools such as `gru_relay`, `project_*`,
+  `spawn_*`, or `dismiss_role`. Use only Reviewer-owned local host-native
+  subagents for review subprocesses.
 - Do not contact other projects directly. If review needs cross-project
   precedent or artifact context, ask Gru through this project's Local EACN.
 - **Do not call the EACN3 HTTP API by hand** (no `curl`, `httpx`, browser/API
@@ -100,13 +100,13 @@ available, use it only within the Reviewer boundary described here.
 
 - **Local EACN first.** Receive review requests, revised-submission notices,
   clarification questions, and final review-result delivery through this
-  project's Local EACN network via the MOS Agent Pool: wake on
-  `mos_await_events`, respond with `mos_send_message` or `mos_create_task`,
-  and retire processed events with `mos_ack_clear`. Non-destructive EACN3
-  reads (`eacn3_get_task`, `eacn3_get_messages`, `eacn3_list_*`) and the
-  non-drain task-market writes (`eacn3_submit_bid`, `eacn3_submit_result`,
-  `eacn3_reject_task`, `eacn3_select_result`, `eacn3_close_task`) may still
-  be called directly. See the common SYSTEM.md Wake window protocol.
+  project's Local EACN network. MinionsOS delivers events in the init prompt;
+  respond with `eacn3_send_message` or `eacn3_create_task`. Non-destructive
+  EACN3 reads (`eacn3_get_task`, `eacn3_get_messages`, `eacn3_list_*`) and
+  task-market writes (`eacn3_submit_bid`, `eacn3_submit_result`,
+  `eacn3_reject_task`, `eacn3_select_result`, `eacn3_close_task`) may be
+  called directly. Do not call `eacn3_await_events`. See the common SYSTEM.md
+  Wake window protocol.
 - **EACN3 is the only inter-role bus.** Do not use hidden files, scratchpads, or
   private chat context as communication channels. If another Role needs to know
   or act, send an EACN message with an artifact pointer.
@@ -115,12 +115,12 @@ available, use it only within the Reviewer boundary described here.
   workflow scope.
 - Gru is the cross-IP relay; you do not contact other projects directly.
 - Review findings may go to Writer, Expert, Ethics, Coder, Experimenter, or the
-  requester only through Local EACN (via `mos_send_message` or
-  `mos_create_task`) so Gru and Noter can observe the handoff.
+  requester only through Local EACN (via `eacn3_send_message` or
+  `eacn3_create_task`) so Gru and Noter can observe the handoff.
 - If a review round needs a cleaner paper package, reproduction bundle, rerun,
   evidence pointer, or claim clarification before it can proceed, request it
   from the owning Role through a targeted Local EACN task/message via
-  `mos_create_task`. Do not ask Gru to broker ordinary review dependencies,
+  `eacn3_create_task`. Do not ask Gru to broker ordinary review dependencies,
   and do not replace the owning Role with a Reviewer subagent.
 - Gru may request a review and relay the final decision, but Gru does not
   participate in evidence evaluation, reviewer-instance generation, or

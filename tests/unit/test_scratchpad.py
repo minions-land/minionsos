@@ -2,54 +2,19 @@
 
 from __future__ import annotations
 
-import asyncio
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from minions.config import GruConfig
 from minions.lifecycle import role as role_mod
-from minions.lifecycle import wakeup as wakeup_mod
-from minions.lifecycle.wakeup import (
-    WakeupScheduler,
-    _estimate_tokens,
-)
+from minions.lifecycle.wakeup import _compute_thresholds, _estimate_tokens, _scratchpad_status
 
-# Small-window config used across tests; with the default percentages this
-# yields soft=100 / hard=150 / veto=200 token thresholds — easy to exercise
-# without writing megabytes to tmp_path.
 _TEST_CFG = GruConfig(model_context_window_tokens=1000)
 SOFT = int(_TEST_CFG.model_context_window_tokens * _TEST_CFG.scratchpad_soft_pct)
 HARD = int(_TEST_CFG.model_context_window_tokens * _TEST_CFG.scratchpad_hard_pct)
 VETO = int(_TEST_CFG.model_context_window_tokens * _TEST_CFG.scratchpad_veto_pct)
-
-
-@dataclass
-class FakeRole:
-    name: str
-    state: str = "active"
-    poll_interval: str = "1m"
-
-
-@dataclass
-class FakeProject:
-    port: int
-    active_roles: list[FakeRole] = field(default_factory=list)
-
-
-class FakeStore:
-    def __init__(self, projects: list[FakeProject]) -> None:
-        self._projects = projects
-
-    def list_projects(self, filter: str = "active") -> list[FakeProject]:
-        return list(self._projects)
-
-
-def _run(coro):
-    return asyncio.run(coro)
 
 
 def _write_tokens(path: Path, n_tokens: int) -> None:
@@ -63,64 +28,51 @@ def test_token_estimator() -> None:
     assert _estimate_tokens("") == 0
 
 
-def _patch_paths(tmp_path: Path):
-    """Patch project_scratchpad/project_memory_dir inside wakeup to tmp."""
+class TestScratchpadStatus:
+    def test_missing_file_is_ok(self, tmp_path: Path) -> None:
+        sp = tmp_path / "memory" / "noter.md"
+        thresholds = _compute_thresholds(_TEST_CFG)
+        with patch("minions.lifecycle.wakeup.project_scratchpad", return_value=sp):
+            status, tokens = _scratchpad_status(37596, "noter", thresholds)
+        assert status == "ok"
+        assert tokens == 0
 
-    def _sp(port: int, role: str) -> Path:
-        return tmp_path / f"project_{port}" / "memory" / f"{role}.md"
+    def test_below_soft_is_ok(self, tmp_path: Path) -> None:
+        sp = tmp_path / "memory" / "noter.md"
+        _write_tokens(sp, SOFT - 1)
+        thresholds = _compute_thresholds(_TEST_CFG)
+        with patch("minions.lifecycle.wakeup.project_scratchpad", return_value=sp):
+            status, _ = _scratchpad_status(37596, "noter", thresholds)
+        assert status == "ok"
 
-    def _md(port: int) -> Path:
-        return tmp_path / f"project_{port}" / "memory"
-
-    return (
-        patch.object(wakeup_mod, "project_scratchpad", side_effect=_sp),
-        patch.object(wakeup_mod, "project_memory_dir", side_effect=_md),
-    )
-
-
-class TestWakeupScratchpad:
-    def _make(self, tmp_path: Path):
-        project = FakeProject(port=37596, active_roles=[FakeRole("noter")])
-        store = FakeStore([project])
-        calls: list[tuple[str, int, list[dict], dict]] = []
-
-        def invoke(role, port, events, **kwargs):
-            calls.append((role, port, events, kwargs))
-
-        sched = WakeupScheduler(
-            store=store, invoke_fn=invoke, config=_TEST_CFG, cooldown_seconds=0, mode="legacy"
-        )
-        return sched, calls
-
-    def test_below_soft_dispatches_ok(self, tmp_path: Path) -> None:
-        sched, calls = self._make(tmp_path)
-        p1, p2 = _patch_paths(tmp_path)
-        payload = {"events": [{"id": "e1"}]}
-        with p1, p2, patch.object(wakeup_mod, "poll_events", return_value=payload):
-            _run(sched.tick_once())
-        assert len(calls) == 1
-        assert calls[0][3]["extra_env"]["MINIONS_SCRATCHPAD_STATUS"] == "ok"
-
-    def test_between_soft_and_hard_dispatches_soft(self, tmp_path: Path) -> None:
-        sched, calls = self._make(tmp_path)
-        sp = tmp_path / "project_37596" / "memory" / "noter.md"
+    def test_between_soft_and_hard_is_soft(self, tmp_path: Path) -> None:
+        sp = tmp_path / "memory" / "noter.md"
         _write_tokens(sp, SOFT + 10)
-        p1, p2 = _patch_paths(tmp_path)
-        payload = {"events": [{"id": "e1"}]}
-        with p1, p2, patch.object(wakeup_mod, "poll_events", return_value=payload):
-            _run(sched.tick_once())
-        assert calls[0][3]["extra_env"]["MINIONS_SCRATCHPAD_STATUS"] == "soft"
+        thresholds = _compute_thresholds(_TEST_CFG)
+        with patch("minions.lifecycle.wakeup.project_scratchpad", return_value=sp):
+            status, _ = _scratchpad_status(37596, "noter", thresholds)
+        assert status == "soft"
 
-    def test_between_hard_and_veto_dispatches_hard_and_message(self, tmp_path: Path) -> None:
-        sched, calls = self._make(tmp_path)
-        sp = tmp_path / "project_37596" / "memory" / "noter.md"
+    def test_between_hard_and_veto_is_hard(self, tmp_path: Path) -> None:
+        sp = tmp_path / "memory" / "noter.md"
         _write_tokens(sp, HARD + 10)
-        p1, p2 = _patch_paths(tmp_path)
-        payload = {"events": [{"id": "e1"}]}
-        with p1, p2, patch.object(wakeup_mod, "poll_events", return_value=payload):
-            _run(sched.tick_once())
-        assert calls[0][3]["extra_env"]["MINIONS_SCRATCHPAD_STATUS"] == "hard"
-        # And check that the init message reflects the hard directive.
+        thresholds = _compute_thresholds(_TEST_CFG)
+        with patch("minions.lifecycle.wakeup.project_scratchpad", return_value=sp):
+            status, _ = _scratchpad_status(37596, "noter", thresholds)
+        assert status == "hard"
+
+    def test_above_veto_is_veto(self, tmp_path: Path) -> None:
+        sp = tmp_path / "memory" / "noter.md"
+        _write_tokens(sp, VETO + 10)
+        thresholds = _compute_thresholds(_TEST_CFG)
+        with patch("minions.lifecycle.wakeup.project_scratchpad", return_value=sp):
+            status, _ = _scratchpad_status(37596, "noter", thresholds)
+        assert status == "veto"
+
+
+class TestScratchpadInitPrompt:
+    def test_hard_status_tells_role_to_compress_first(self, tmp_path: Path) -> None:
+        sp = tmp_path / "project_37596" / "memory" / "noter.md"
         msg = role_mod._format_event_message(
             [{"id": "e1"}],
             scratchpad_path=sp,
@@ -131,6 +83,17 @@ class TestWakeupScratchpad:
         assert "Compress the scratchpad in place (subagent) BEFORE" in msg
         assert "agent_id `noter`" in msg
         assert "pass `noter` explicitly" in msg
+
+    def test_soft_status_is_gentle_hint(self, tmp_path: Path) -> None:
+        sp = tmp_path / "project_37596" / "memory" / "noter.md"
+        msg = role_mod._format_event_message(
+            [{"id": "e1"}],
+            scratchpad_path=sp,
+            scratchpad_status="soft",
+            project_port=37596,
+            role_name="noter",
+        )
+        assert "When convenient, dispatch a subagent to compress." in msg
 
     def test_veto_compaction_message_is_maintenance_only(self, tmp_path: Path) -> None:
         sp = tmp_path / "project_37596" / "memory" / "noter.md"
@@ -144,91 +107,6 @@ class TestWakeupScratchpad:
         assert "maintenance wake-up only" in msg
         assert "Do not process buffered EACN work" in msg
         assert "will be redelivered after the scratchpad is below veto" in msg
-
-    def test_above_veto_dispatches_compaction_and_preserves_events(self, tmp_path: Path) -> None:
-        sched, calls = self._make(tmp_path)
-        sp = tmp_path / "project_37596" / "memory" / "noter.md"
-        _write_tokens(sp, VETO + 10)
-        p1, p2 = _patch_paths(tmp_path)
-        payload = {"events": [{"id": "e1"}]}
-        posted: list[Any] = []
-
-        def fake_post(port, to_agent_id, from_agent_id, content, **_):
-            posted.append((port, to_agent_id, content))
-            return {}
-
-        with (
-            p1,
-            p2,
-            patch(
-                "minions.lifecycle.role_inbox.project_logs_dir",
-                lambda port: tmp_path / f"project_{port}" / "logs",
-            ),
-            patch.object(wakeup_mod, "poll_events", return_value=payload),
-            patch.object(wakeup_mod, "send_message", side_effect=fake_post),
-        ):
-            _run(sched.tick_once())
-            # Second tick: same over-veto state must not re-post or re-run
-            # compaction while the maintenance cooldown is active.
-            sched._last_poll_ts.clear()
-            _run(sched.tick_once())
-
-            buffered = wakeup_mod.role_inbox.read_events(37596, "noter")
-
-        assert len(calls) == 1
-        compaction = calls[0]
-        assert compaction[2][0]["type"] == "scratchpad_compaction_required"
-        assert compaction[3]["extra_env"]["MINIONS_SCRATCHPAD_STATUS"] == "veto_compact"
-        assert compaction[3]["extra_env"]["MINIONS_WAKEUP_CLASS"] == "maintenance"
-        assert buffered == [{"id": "e1"}]
-        assert len(posted) == 1
-        assert "exceeds" in posted[0][2]
-
-    def test_dedup_resets_when_file_drops_below_veto(self, tmp_path: Path) -> None:
-        sched, _calls = self._make(tmp_path)
-        sp = tmp_path / "project_37596" / "memory" / "noter.md"
-        _write_tokens(sp, VETO + 10)
-        p1, p2 = _patch_paths(tmp_path)
-        payload = {"events": [{"id": "e1"}]}
-        posted: list[Any] = []
-
-        with (
-            p1,
-            p2,
-            patch(
-                "minions.lifecycle.role_inbox.project_logs_dir",
-                lambda port: tmp_path / f"project_{port}" / "logs",
-            ),
-            patch.object(wakeup_mod, "poll_events", return_value=payload),
-            patch.object(
-                wakeup_mod,
-                "send_message",
-                side_effect=lambda *a, **k: posted.append(k.get("content") or a[-1]),
-            ),
-        ):
-            _run(sched.tick_once())
-            # Shrink scratchpad below veto — one more dispatch, warning flag reset.
-            _write_tokens(sp, 100)
-            sched._last_poll_ts.clear()
-            _run(sched.tick_once())
-            # Grow again — should re-warn (fresh warning, not deduped).
-            _write_tokens(sp, VETO + 10)
-            sched._last_poll_ts.clear()
-            # Re-deliver events: they were removed from dedup on veto, but now
-            # already processed on the "ok" tick above, so push a new event.
-            payload2 = {"events": [{"id": "e2"}]}
-            with patch.object(wakeup_mod, "poll_events", return_value=payload2):
-                _run(sched.tick_once())
-
-        assert len(posted) == 2
-
-    def test_memory_dir_auto_created(self, tmp_path: Path) -> None:
-        sched, _calls = self._make(tmp_path)
-        p1, p2 = _patch_paths(tmp_path)
-        payload = {"events": [{"id": "e1"}]}
-        with p1, p2, patch.object(wakeup_mod, "poll_events", return_value=payload):
-            _run(sched.tick_once())
-        assert (tmp_path / "project_37596" / "memory").is_dir()
 
 
 class TestInvokeEphemeralScratchpad:
@@ -258,7 +136,6 @@ class TestInvokeEphemeralScratchpad:
         assert env["MINIONS_SCRATCHPAD_PATH"] == str(sp)
         cmd = popen.call_args[0][0]
         assert "--message" not in cmd
-        # The prompt is now delivered via stdin; verify the write carried it.
         written = b"".join(call.args[0] for call in fake_proc.stdin.write.call_args_list).decode(
             "utf-8"
         )

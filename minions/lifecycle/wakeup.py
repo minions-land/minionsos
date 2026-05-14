@@ -1,18 +1,28 @@
-"""Python-level wakeup scheduler for Roles.
+"""Per-(port, role) EACN3 long-poll scheduler.
 
-MinionsOS's primary runtime path is hook-driven: MinionsOS publishes compact wake
-signals when direct messages, native EACN3 pending queues, or phase changes
-indicate that a Role should go online. The scheduler reads those local wake
-signals and lets the Role go onto EACN3 itself. The legacy EACN polling path is
-retained for compatibility tests and manual fallbacks, but Gru uses hook mode.
+This is the only encapsulation MinionsOS puts in front of EACN3. For each
+registered role on each active project, the scheduler runs one asyncio task
+that:
 
-Design notes:
-- Duplicate events are deduplicated via an in-memory LRU set keyed by
-  ``(port, role, event_id)``.
-- The loop is cooperatively cancellable; ``stop()`` sets a flag and
-  ``run_async`` exits at the next sleep boundary.
-- Short-poll only; long-poll support is intentionally not added here
-  (EACN3 is not modified).
+1. Long-polls ``GET /api/events/{agent_id}`` in 60s chunks (EACN3's hard cap).
+2. When events arrive, spawns one role subprocess with those events in its
+   init prompt, then awaits the subprocess exit before looping back.
+3. When the role has a configured time-trigger cadence (e.g. Noter's periodic
+   summary), fires a synthetic ``time_trigger`` event once the interval
+   elapses with no EACN events.
+
+The scheduler does not ACK or journal events. If a role subprocess crashes
+mid-wake, those events are gone — MinionsOS's HTTP path through EACN3 is
+drain-on-read, and we accept that on purpose rather than growing a second
+communication system.
+
+Public surface used by callers (``minions.gru.loop``, tests):
+
+* ``WakeupScheduler(store=..., invoke_fn=..., config=..., cooldown_seconds=...)``
+* ``await sched.run_async()`` — drive the scheduler until ``stop()`` is called.
+* ``sched.stop()`` — cooperative cancellation.
+* ``sched.trigger_role(port, role_name, reason="")`` — synchronous human trigger.
+* ``WakeupClass`` — tag for logging / env propagation.
 """
 
 from __future__ import annotations
@@ -20,31 +30,28 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import enum
-import json
 import logging
 import time as _time_mod
-from collections import OrderedDict
 from collections.abc import Awaitable, Callable
-from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from minions.config import GruConfig, load_gru_config, parse_duration
-from minions.lifecycle import role_inbox
-from minions.lifecycle.eacn_client import pending_event_counts, poll_events, send_message
-from minions.lifecycle.wake_signals import eacn_queue_pending_signals
+from minions.lifecycle.eacn_client import poll_events, send_message
 from minions.paths import project_memory_dir, project_scratchpad
 from minions.state.store import StateStore
 
 logger = logging.getLogger(__name__)
 
-_DEDUP_MAX = 2048
-_TASK_WAKEUP_TYPES = {"task_broadcast", "adjudication_task"}
+# EACN3's /api/events/{agent_id}?timeout=N is capped at 60s server-side.
+EACN3_POLL_CHUNK_SEC = 60
+# If an agent's loop crashes for a transient reason, pause before restarting.
+_LOOP_RESTART_BACKOFF_SEC = 5.0
+# Scratchpad compaction cooldown to avoid hammering the role with maintenance wakes.
 _VETO_COMPACTION_COOLDOWN_SECONDS = 10 * 60
-_PENDING_STATS_THROTTLE_SECONDS = 5.0
 
 
 class WakeupClass(enum.Enum):
-    """Classification of what triggered a role wakeup."""
+    """Classification of what triggered a role wakeup (kept for logging/env tags)."""
 
     event = "event"
     time = "time"
@@ -52,18 +59,16 @@ class WakeupClass(enum.Enum):
     maintenance = "maintenance"
 
 
+InvokeFn = Callable[..., Awaitable[Any] | Any]
+
+
 def _estimate_tokens(text: str) -> int:
-    """Rough token estimate: len/4 (±20% error vs. true BPE tokenizers)."""
+    """Rough token estimate: len/4 (±20% vs true BPE tokenizers)."""
     return len(text) // 4
 
 
 def _compute_thresholds(cfg: GruConfig) -> tuple[int, int, int]:
-    """Compute (soft, hard, veto) scratchpad token thresholds from config.
-
-    Thresholds are percentages of the model context window so they auto-scale
-    when the underlying model's window changes. Defaults (1M window):
-    soft=100k, hard=150k, veto=200k.
-    """
+    """Compute (soft, hard, veto) scratchpad token thresholds from config."""
     win = cfg.model_context_window_tokens
     return (
         int(win * cfg.scratchpad_soft_pct),
@@ -80,7 +85,6 @@ def _scratchpad_status(
     """Return (status, tokens) for the role's scratchpad.
 
     status: ``ok`` | ``soft`` | ``hard`` | ``veto``.
-    *thresholds* is ``(soft, hard, veto)`` in tokens.
     """
     soft, hard, veto = thresholds
     path = project_scratchpad(port, role_name)
@@ -100,228 +104,59 @@ def _scratchpad_status(
     return "ok", tokens
 
 
-class _EventDedup:
-    """Bounded LRU set used to drop duplicate events across polls."""
-
-    def __init__(self, capacity: int = _DEDUP_MAX) -> None:
-        self._seen: OrderedDict[tuple[int, str, str], None] = OrderedDict()
-        self._cap = capacity
-
-    def is_new(self, port: int, role: str, event_id: str) -> bool:
-        key = (port, role, event_id)
-        if key in self._seen:
-            self._seen.move_to_end(key)
-            return False
-        self._seen[key] = None
-        if len(self._seen) > self._cap:
-            self._seen.popitem(last=False)
-        return True
-
-    def forget(self, port: int, role: str, event_id: str) -> None:
-        """Drop a key from the dedup cache so the event may be re-processed."""
-        self._seen.pop((port, role, event_id), None)
-
-
-def _interval_seconds(interval: str | None) -> int:
-    if not interval:
-        try:
-            interval = load_gru_config().poll_interval_default
-        except Exception:
-            interval = "1m"
-    try:
-        return max(5, parse_duration(interval))
-    except Exception:
-        return 60
-
-
 def _role_schedulable(role: Any) -> bool:
-    return (
-        getattr(role, "state", None) in {"active", "sleeping"}
-        and getattr(role, "name", None) != "gru"
-    )
-
-
-def _pid_alive(pid: int) -> bool:
-    try:
-        import os
-
-        os.kill(pid, 0)
-        return True
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    except Exception:
-        return False
-
-
-def _pid_matches_minions_role(pid: int, port: int, role_name: str) -> bool:
-    """Return True when OS metadata proves this PID is this role invocation.
-
-    Persisted PIDs can be reused across machine restarts. We therefore avoid
-    killing a live ``sleeping + PID`` process unless procfs confirms it carries
-    the exact MinionsOS role environment we set at launch.
-    """
-    environ = Path(f"/proc/{pid}/environ")
-    if not environ.exists():
-        return False
-    try:
-        raw = environ.read_bytes()
-    except Exception:
-        return False
-    values: dict[str, str] = {}
-    for item in raw.split(b"\0"):
-        if not item or b"=" not in item:
-            continue
-        key, value = item.split(b"=", 1)
-        with contextlib.suppress(UnicodeDecodeError):
-            values[key.decode("utf-8")] = value.decode("utf-8")
-    return (
-        values.get("MINIONS_EPHEMERAL") == "1"
-        and values.get("MINIONS_PROJECT_PORT") == str(port)
-        and values.get("MINIONS_ROLE_NAME") == role_name
-    )
-
-
-def _terminate_recorded_orphan_pid(pid: int, port: int, role_name: str) -> bool:
-    """Best-effort stop for a verified live PID recorded on a sleeping role."""
-    if not _pid_matches_minions_role(pid, port, role_name):
-        logger.warning(
-            "Refusing to terminate unverified sleeping role PID %d for role=%s port=%d; "
-            "clearing the stale registry entry only.",
-            pid,
-            role_name,
-            port,
-        )
-        return False
-    try:
-        import os
-        import signal
-
-        os.kill(pid, signal.SIGTERM)
-        deadline = _time_mod.monotonic() + 1.0
-        while _time_mod.monotonic() < deadline:
-            if not _pid_alive(pid):
-                return True
-            _time_mod.sleep(0.05)
-        os.kill(pid, signal.SIGKILL)
-        return True
-    except ProcessLookupError:
-        return True
-    except Exception as exc:
-        logger.warning("Failed to terminate orphan role PID %d: %s", pid, exc)
-        return False
-
-
-def _task_id(task: dict[str, Any]) -> str:
-    value = task.get("id") or task.get("task_id")
-    return str(value) if value else ""
-
-
-def _is_task_wakeup_event(event: dict[str, Any]) -> bool:
-    """Return True for native EACN task wakeup events."""
-    event_type = str(event.get("type") or "")
-    return event_type in _TASK_WAKEUP_TYPES
-
-
-def _event_allowed_for_role(role_name: str, event: dict[str, Any]) -> bool:
-    """Keep only per-agent EACN-native events for the receiving role.
-
-    EACN3 owns task routing. If an agent's own queue contains a
-    ``task_broadcast`` or ``adjudication_task``, MinionsOS accepts that routing
-    decision instead of filtering with a second local router.
-    """
-    _ = role_name
-    return True
-
-
-def _event_task_id(event: dict[str, Any]) -> str:
-    direct = event.get("task_id") or event.get("id")
-    if direct and str(direct).startswith(("t-", "gru-")):
-        return str(direct)
-    payload = event.get("payload")
-    if isinstance(payload, dict):
-        task_id = payload.get("task_id")
-        if task_id:
-            return str(task_id)
-        content = payload.get("content")
-        if isinstance(content, dict) and content.get("task_id"):
-            return str(content["task_id"])
-        task = payload.get("task")
-        if isinstance(task, dict):
-            return _task_id(task)
-    content = event.get("content")
-    if isinstance(content, dict) and content.get("task_id"):
-        return str(content["task_id"])
-    return ""
-
-
-InvokeFn = Callable[..., Awaitable[None] | None]
+    return getattr(role, "state", None) in {"active", "sleeping"}
 
 
 class WakeupScheduler:
-    """Dispatches role wakeups from hooks or legacy EACN polling.
+    """Drives one asyncio loop per (port, role) that long-polls EACN3 and wakes the role.
 
     Args:
         store: StateStore (optional; one is created if omitted).
-        invoke_fn: Coroutine or function called as
-            ``invoke_fn(role_name, port, events)`` when events arrive.
-            Defaults to :func:`minions.lifecycle.role.invoke_role_ephemeral`.
-        default_interval: fallback poll cadence string (e.g. ``"1m"``).
+        invoke_fn: Callable invoked as ``invoke_fn(role_name, port, events, extra_env=...)``
+            when events arrive. Defaults to ``invoke_role_ephemeral``. May be
+            sync or async; may return a coroutine. Expected to block until the
+            role subprocess exits (or to return a dispatch handle that we then
+            await via ``wait=True``).
+        config: Optional GruConfig override (mostly for tests).
+        cooldown_seconds: Minimum seconds between dispatches for the same role.
     """
 
     def __init__(
         self,
         store: StateStore | None = None,
         invoke_fn: InvokeFn | None = None,
-        default_interval: str | None = None,
         config: GruConfig | None = None,
         *,
         state_store: StateStore | None = None,
         cooldown_seconds: int | None = None,
-        mode: Literal["legacy", "hooks"] = "hooks",
     ) -> None:
-        # Accept `state_store=` as an alias for `store=` (the docs and some
-        # callers use the longer name). Reject passing both at once.
         if state_store is not None and store is not None:
             raise TypeError("WakeupScheduler: pass either 'store' or 'state_store', not both.")
         self._store = store or state_store or StateStore()
         self._invoke_fn = invoke_fn
-        self._default_interval = default_interval
-        self._mode: Literal["legacy", "hooks"] = mode
-        self._dedup = _EventDedup()
         self._stopped = False
-        self._last_poll_ts: dict[tuple[int, str], float] = {}
-        self._last_open_task_scan_ts: dict[int, float] = {}
-        self._last_pending_stats_ts: dict[int, float] = {}
-        # Resolve scratchpad thresholds once per scheduler instance from
-        # config (percentages of the model context window). Stored as
-        # (soft, hard, veto) token counts.
         cfg = config
         if cfg is None:
             try:
                 cfg = load_gru_config()
             except Exception:
                 cfg = GruConfig()
+        self._cfg = cfg
         self._scratchpad_thresholds: tuple[int, int, int] = _compute_thresholds(cfg)
-        # Per-role cooldown: minimum seconds between any dispatch.
         self._cooldown_seconds: int = (
             cooldown_seconds if cooldown_seconds is not None else cfg.role_cooldown_seconds
         )
-        # Tracks last dispatch time per (port, role) for cooldown enforcement.
         self._last_dispatch_ts: dict[tuple[int, str], float] = {}
-        # Tracks last time-trigger dispatch per (port, role).
-        self._last_time_trigger_ts: dict[tuple[int, str], float] = {}
-        # Set of (port, role) for which a veto warning has already been posted
-        # to Gru; cleared when the scratchpad drops below the veto threshold.
-        self._veto_warned: set[tuple[int, str]] = set()
-        # Tracks best-effort scratchpad compaction attempts while a role is over
-        # the veto threshold. Normal events stay buffered until compaction lowers
-        # the scratchpad below veto.
         self._last_veto_compaction_ts: dict[tuple[int, str], float] = {}
-        # Legacy in-memory view for diagnostics only. Durable deferrals live in
-        # role_inbox so scheduler restarts do not drop drained EACN events.
-        self._pending: dict[tuple[int, str], list[dict[str, Any]]] = {}
+        self._veto_warned: set[tuple[int, str]] = set()
+        # Per-(port, role) async loop tasks. Keyed task is alive as long as
+        # the role is registered. When the role is dismissed or the project
+        # closes, we cancel the task and drop the entry.
+        self._tasks: dict[tuple[int, str], asyncio.Task[None]] = {}
+        # Supervisor scan cadence: how often we refresh the registered-role set
+        # and start / cancel per-role loop tasks accordingly.
+        self._supervisor_interval_sec: float = 2.0
 
     # ------------------------------------------------------------------
     # Public
@@ -330,20 +165,19 @@ class WakeupScheduler:
     def stop(self) -> None:
         self._stopped = True
 
-    async def run_async(self, tick_seconds: float = 1.0) -> None:
-        """Run the scheduler until :meth:`stop` is called."""
-        logger.info("WakeupScheduler started (mode=%s tick=%.1fs).", self._mode, tick_seconds)
-        while not self._stopped:
-            try:
-                await self._tick()
-            except Exception as exc:
-                logger.error("WakeupScheduler tick error: %s", exc, exc_info=True)
-            await asyncio.sleep(tick_seconds)
+    async def run_async(self) -> None:
+        """Supervise per-(port, role) loops until :meth:`stop` is called."""
+        logger.info("WakeupScheduler started.")
+        try:
+            while not self._stopped:
+                try:
+                    self._reconcile_tasks()
+                except Exception as exc:
+                    logger.error("WakeupScheduler reconcile error: %s", exc, exc_info=True)
+                await asyncio.sleep(self._supervisor_interval_sec)
+        finally:
+            await self._cancel_all_tasks()
         logger.info("WakeupScheduler stopped.")
-
-    async def tick_once(self) -> int:
-        """Run one tick; return number of ephemeral invocations triggered."""
-        return await self._tick()
 
     def trigger_role(
         self,
@@ -353,8 +187,7 @@ class WakeupScheduler:
     ) -> dict[str, Any]:
         """Immediately dispatch a human-triggered wakeup for a role.
 
-        Respects cooldown and in-flight guards. Raises ``ValueError`` if the
-        role is not found or not dispatchable.
+        Runs inline (no loop interaction). Respects cooldown and in-flight guards.
         """
         project = self._store.get_project(port)
         if project is None:
@@ -388,6 +221,12 @@ class WakeupScheduler:
         except Exception:
             pass
 
+        project_memory_dir(port).mkdir(parents=True, exist_ok=True)
+        status, _tokens = _scratchpad_status(port, role_name, self._scratchpad_thresholds)
+        if status == "veto":
+            logger.warning("trigger_role: scratchpad veto for role=%s port=%d", role_name, port)
+            return {"triggered": False, "reason": "scratchpad_veto"}
+
         synthetic = [
             {
                 "type": "human_trigger",
@@ -395,27 +234,15 @@ class WakeupScheduler:
                 "reason": reason or "manual trigger",
             }
         ]
-
-        fn = self._invoke_fn
-        if fn is None:
-            from minions.lifecycle.role import invoke_role_ephemeral
-
-            fn = invoke_role_ephemeral  # type: ignore[assignment]
-
-        project_memory_dir(port).mkdir(parents=True, exist_ok=True)
-        status, _tokens = _scratchpad_status(port, role_name, self._scratchpad_thresholds)
-        if status == "veto":
-            logger.warning("trigger_role: scratchpad veto for role=%s port=%d", role_name, port)
-            return {"triggered": False, "reason": "scratchpad_veto"}
-
         logger.info(
             "Wakeup: dispatching role=%s port=%d wakeup_class=human reason=%r",
             role_name,
             port,
             reason,
         )
+        fn = self._resolve_invoke_fn()
         try:
-            fn(  # type: ignore[misc]
+            fn(
                 role_name,
                 port,
                 synthetic,
@@ -425,257 +252,171 @@ class WakeupScheduler:
                 },
             )
         except TypeError:
-            fn(role_name, port, synthetic)  # type: ignore[misc]
+            fn(role_name, port, synthetic)
         self._last_dispatch_ts[key] = _time_mod.monotonic()
         return {"triggered": True, "wakeup_class": "human"}
 
-    def _is_cooled_down(self, key: tuple[int, str]) -> bool:
-        """Return True if enough time has passed since the last dispatch."""
-        if self._cooldown_seconds <= 0:
-            return True
-        last = self._last_dispatch_ts.get(key)
-        if last is None:
-            return True
-        return (_time_mod.monotonic() - last) >= self._cooldown_seconds
-
     # ------------------------------------------------------------------
-    # Internals
+    # Task supervision
     # ------------------------------------------------------------------
 
-    async def _tick(self) -> int:
-        if self._mode == "hooks":
-            return await self._tick_hooks()
-
-        now = _time_mod.monotonic()
-        triggered = 0
+    def _reconcile_tasks(self) -> None:
+        """Start loops for newly registered roles and cancel loops for retired ones."""
         projects = self._store.list_projects(filter="active")
+        live_keys: set[tuple[int, str]] = set()
         for project in projects:
-            roles = [role for role in project.active_roles if _role_schedulable(role)]
-            for role in roles:
-                key = (project.port, role.name)
-                buffered = await asyncio.to_thread(role_inbox.read_events, project.port, role.name)
-                events = [e for e in buffered if _event_allowed_for_role(role.name, e)]
-                if len(events) != len(buffered):
-                    role_inbox.replace_events(project.port, role.name, events)
-                event_ids = {_event_id(e) for e in events}
-                known_task_ids = {_event_task_id(e) for e in events if _event_task_id(e)}
-
-                interval = _interval_seconds(role.poll_interval or self._default_interval)
-                last = self._last_poll_ts.get(key)
-                if last is None or now - last >= interval:
-                    self._last_poll_ts[key] = now
-                    polled = await asyncio.to_thread(self._safe_poll, project.port, role.name)
-                    for event in polled:
-                        if not _event_allowed_for_role(role.name, event):
-                            continue
-                        event_id = _event_id(event)
-                        if event_id in event_ids:
-                            continue
-                        if self._dedup.is_new(project.port, role.name, event_id):
-                            events.append(event)
-                            event_ids.add(event_id)
-                            task_id = _event_task_id(event)
-                            if task_id:
-                                known_task_ids.add(task_id)
-
-                new_events = [e for e in events if isinstance(e, dict)]
-
-                if new_events:
-                    # Persist before dispatch. If the scheduler crashes after
-                    # draining EACN but before launching the role, the next tick
-                    # replays the same batch from disk.
-                    role_inbox.replace_events(project.port, role.name, new_events)
-                    result = await self._try_dispatch(
-                        project.port,
-                        role.name,
-                        new_events,
-                        WakeupClass.event,
-                        reason=f"{len(new_events)} EACN event(s)",
-                    )
-                    if result == "dispatched":
-                        role_inbox.clear(project.port, role.name)
-                        self._pending.pop((project.port, role.name), None)
-                        triggered += 1
-                    elif result == "maintenance_dispatched":
-                        triggered += 1
+            for role in project.active_roles:
+                if not _role_schedulable(role):
                     continue
-
-                # Time-triggered wakeup: fire even without EACN events.
-                time_interval_str = getattr(role, "time_trigger_interval", None)
-                if not time_interval_str:
+                agent_id = getattr(role, "eacn_agent_id", None) or role.name
+                key = (int(project.port), role.name)
+                live_keys.add(key)
+                existing = self._tasks.get(key)
+                if existing is not None and not existing.done():
                     continue
-                try:
-                    time_interval = max(5, parse_duration(time_interval_str))
-                except Exception:
-                    continue
-                tt_key = (project.port, role.name)
-                last_tt = self._last_time_trigger_ts.get(tt_key)
-                if last_tt is not None and now - last_tt < time_interval:
-                    continue
-                synthetic = [
-                    {
-                        "type": "time_trigger",
-                        "id": f"time-{now:.0f}",
-                        "interval": time_interval_str,
-                    }
-                ]
-                role_inbox.replace_events(project.port, role.name, synthetic)
-                result = await self._try_dispatch(
-                    project.port,
-                    role.name,
-                    synthetic,
-                    WakeupClass.time,
-                    reason=f"periodic {time_interval_str} timer",
+                self._tasks[key] = asyncio.create_task(
+                    self._role_loop(
+                        port=int(project.port),
+                        role_name=role.name,
+                        agent_id=str(agent_id),
+                    ),
+                    name=f"wakeup:{project.port}:{role.name}",
                 )
-                if result == "dispatched":
-                    role_inbox.clear(project.port, role.name)
-                    self._pending.pop((project.port, role.name), None)
-                    self._last_time_trigger_ts[tt_key] = now
-                    triggered += 1
-                elif result == "maintenance_dispatched":
-                    triggered += 1
-        return triggered
+        # Cancel any task whose role is no longer present / schedulable.
+        for key in list(self._tasks.keys()):
+            if key in live_keys:
+                continue
+            task = self._tasks.pop(key, None)
+            if task is not None and not task.done():
+                task.cancel()
 
-    async def _tick_hooks(self) -> int:
-        """Process local hook wake signals without polling EACN3."""
-        now = _time_mod.monotonic()
-        triggered = 0
-        projects = self._store.list_projects(filter="active")
-        for project in projects:
-            last_stats = self._last_pending_stats_ts.get(int(project.port))
-            if last_stats is None or (now - last_stats) >= _PENDING_STATS_THROTTLE_SECONDS:
-                self._last_pending_stats_ts[int(project.port)] = now
+    async def _cancel_all_tasks(self) -> None:
+        tasks = list(self._tasks.values())
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        for task in tasks:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
+        self._tasks.clear()
+
+    # ------------------------------------------------------------------
+    # Per-role loop
+    # ------------------------------------------------------------------
+
+    async def _role_loop(self, port: int, role_name: str, agent_id: str) -> None:
+        """Long-poll EACN3 and dispatch wakes until cancelled."""
+        time_interval = self._resolve_time_trigger_interval(port, role_name)
+        time_budget_remaining = time_interval  # None when role has no timer
+        try:
+            while not self._stopped:
                 try:
-                    counts = await asyncio.to_thread(
-                        pending_event_counts,
-                        int(project.port),
-                        1.0,
+                    events = await asyncio.to_thread(
+                        self._safe_poll, port, agent_id, EACN3_POLL_CHUNK_SEC
                     )
-                    if counts:
-                        await asyncio.to_thread(
-                            eacn_queue_pending_signals,
-                            port=int(project.port),
-                            counts=counts,
-                            source="minions.lifecycle.wakeup.WakeupScheduler._tick_hooks",
-                            store=self._store,
-                        )
+                except asyncio.CancelledError:
+                    raise
                 except Exception as exc:
-                    logger.debug("EACN queue stats wake scan failed port=%s: %s", project.port, exc)
-            roles = [role for role in project.active_roles if _role_schedulable(role)]
-            for role in roles:
-                key = (project.port, role.name)
-                raw_signals = await asyncio.to_thread(
-                    role_inbox.read_events, project.port, role.name
-                )
-                signals = [s for s in raw_signals if isinstance(s, dict)]
-                if signals:
-                    unique: list[dict[str, Any]] = []
-                    seen: set[str] = set()
-                    for signal in signals:
-                        signal_id = _event_id(signal)
-                        if signal_id in seen:
-                            continue
-                        seen.add(signal_id)
-                        unique.append(signal)
-                    if unique != raw_signals:
-                        role_inbox.replace_events(project.port, role.name, unique)
-                    result = await self._try_dispatch(
-                        project.port,
-                        role.name,
-                        unique,
-                        WakeupClass.event,
-                        reason=f"{len(unique)} hook wake signal(s)",
+                    logger.warning(
+                        "Wakeup loop: poll failed port=%d role=%s: %s; backing off.",
+                        port,
+                        role_name,
+                        exc,
                     )
-                    if result == "dispatched":
-                        role_inbox.clear(project.port, role.name)
-                        self._pending.pop(key, None)
-                        triggered += 1
-                    elif result == "maintenance_dispatched":
-                        triggered += 1
+                    await asyncio.sleep(_LOOP_RESTART_BACKOFF_SEC)
                     continue
 
-                time_interval_str = getattr(role, "time_trigger_interval", None)
-                if not time_interval_str:
+                if events:
+                    await self._dispatch_wake(
+                        port=port,
+                        role_name=role_name,
+                        events=events,
+                        wakeup_class=WakeupClass.event,
+                        reason=f"{len(events)} EACN event(s)",
+                    )
+                    # After a wake, reset the time trigger budget.
+                    time_budget_remaining = time_interval
                     continue
-                try:
-                    time_interval = max(5, parse_duration(time_interval_str))
-                except Exception:
+
+                # Empty 60s chunk — advance time-trigger budget if configured.
+                if time_interval is None or time_budget_remaining is None:
                     continue
-                last_tt = self._last_time_trigger_ts.get(key)
-                if last_tt is not None and now - last_tt < time_interval:
+                time_budget_remaining -= EACN3_POLL_CHUNK_SEC
+                if time_budget_remaining > 0:
                     continue
                 synthetic = [
                     {
                         "type": "time_trigger",
-                        "id": f"time-{now:.0f}",
-                        "interval": time_interval_str,
+                        "id": f"time-{int(_time_mod.monotonic())}",
+                        "interval_seconds": time_interval,
                     }
                 ]
-                role_inbox.replace_events(project.port, role.name, synthetic)
-                result = await self._try_dispatch(
-                    project.port,
-                    role.name,
-                    synthetic,
-                    WakeupClass.time,
-                    reason=f"periodic {time_interval_str} timer",
+                await self._dispatch_wake(
+                    port=port,
+                    role_name=role_name,
+                    events=synthetic,
+                    wakeup_class=WakeupClass.time,
+                    reason=f"periodic {time_interval}s timer",
                 )
-                if result == "dispatched":
-                    role_inbox.clear(project.port, role.name)
-                    self._pending.pop(key, None)
-                    self._last_time_trigger_ts[key] = now
-                    triggered += 1
-                elif result == "maintenance_dispatched":
-                    triggered += 1
-        return triggered
+                time_budget_remaining = time_interval
+        except asyncio.CancelledError:
+            logger.debug("Wakeup loop cancelled port=%d role=%s", port, role_name)
+            raise
+        except Exception as exc:
+            logger.error(
+                "Wakeup loop crashed port=%d role=%s: %s",
+                port,
+                role_name,
+                exc,
+                exc_info=True,
+            )
 
-    async def _try_dispatch(
+    def _resolve_time_trigger_interval(self, port: int, role_name: str) -> int | None:
+        """Look up the role's time_trigger cadence in seconds, or None."""
+        try:
+            project = self._store.get_project(port)
+        except Exception:
+            return None
+        if project is None:
+            return None
+        role = next((r for r in project.active_roles if r.name == role_name), None)
+        if role is None:
+            return None
+        raw = getattr(role, "time_trigger_interval", None)
+        if not raw:
+            return None
+        try:
+            secs = parse_duration(raw)
+        except Exception:
+            return None
+        return secs if secs > 0 else None
+
+    # ------------------------------------------------------------------
+    # Dispatch
+    # ------------------------------------------------------------------
+
+    async def _dispatch_wake(
         self,
+        *,
         port: int,
         role_name: str,
         events: list[dict[str, Any]],
         wakeup_class: WakeupClass,
-        reason: str = "",
-    ) -> str:
-        """Gate checks then dispatch. Returns 'dispatched', 'deferred', or 'blocked'."""
+        reason: str,
+    ) -> None:
+        """Apply cooldown / scratchpad gates and invoke the role; await subprocess exit."""
         key = (port, role_name)
 
-        try:
-            from minions.lifecycle.role import is_inflight
-
-            if is_inflight(port, role_name):
-                logger.info(
-                    "Wakeup: role=%s port=%d still in flight; deferring %d event(s) to next tick.",
-                    role_name,
-                    port,
-                    len(events),
-                )
-                self._buffer_role_events(port, role_name, events)
-                return "deferred"
-        except Exception as exc:
-            logger.debug("is_inflight check failed: %s", exc)
-
-        recorded_pid = self._recorded_live_pid(port, role_name)
-        if recorded_pid is not None:
-            logger.info(
-                "Wakeup: role=%s port=%d has live recorded PID %d; "
-                "deferring %d event(s) to next tick.",
-                role_name,
-                port,
-                recorded_pid,
-                len(events),
-            )
-            self._buffer_role_events(port, role_name, events)
-            return "deferred"
-
+        # Cooldown. When tripped we drop the event batch; the role will
+        # receive the next EACN event on its next long-poll iteration.
         if not self._is_cooled_down(key):
             logger.info(
-                "Wakeup: role=%s port=%d cooldown active; deferring %d event(s) to next tick.",
+                "Wakeup: role=%s port=%d cooldown active; dropping %d event(s).",
                 role_name,
                 port,
                 len(events),
             )
-            self._buffer_role_events(port, role_name, events)
-            return "deferred"
+            return
 
         project_memory_dir(port).mkdir(parents=True, exist_ok=True)
         status, tokens = _scratchpad_status(port, role_name, self._scratchpad_thresholds)
@@ -683,10 +424,9 @@ class WakeupScheduler:
             if key not in self._veto_warned:
                 self._post_veto_warning(port, role_name, tokens)
                 self._veto_warned.add(key)
-            self._buffer_role_events(port, role_name, events)
-            return await self._try_dispatch_veto_compaction(port, role_name, tokens, len(events))
-        else:
-            self._veto_warned.discard(key)
+            await self._try_dispatch_veto_compaction(port, role_name, tokens)
+            return
+        self._veto_warned.discard(key)
 
         logger.info(
             "Wakeup: dispatching %d event(s) to role=%s port=%d wakeup_class=%s reason=%r",
@@ -696,45 +436,27 @@ class WakeupScheduler:
             wakeup_class.value,
             reason,
         )
-        try:
-            res = await self._dispatch(role_name, port, events, status, wakeup_class)
-        except Exception as exc:
-            logger.error(
-                "Wakeup: dispatch failed role=%s port=%d; buffering %d event(s): %s",
-                role_name,
-                port,
-                len(events),
-                exc,
-            )
-            self._buffer_role_events(port, role_name, events)
-            return "deferred"
-        if isinstance(res, dict) and res.get("deferred"):
-            self._buffer_role_events(port, role_name, events)
-            return "deferred"
-        for event in events:
-            self._dedup.is_new(port, role_name, _event_id(event))
         self._last_dispatch_ts[key] = _time_mod.monotonic()
-        return "dispatched"
+        await self._invoke_and_wait(
+            role_name=role_name,
+            port=port,
+            events=events,
+            scratchpad_status=status,
+            wakeup_class=wakeup_class,
+        )
 
     async def _try_dispatch_veto_compaction(
         self,
         port: int,
         role_name: str,
         tokens: int,
-        buffered_count: int,
-    ) -> str:
-        """Dispatch a maintenance-only compaction wakeup while preserving events."""
+    ) -> None:
+        """Dispatch a maintenance-only compaction wakeup."""
         key = (port, role_name)
         now = _time_mod.monotonic()
         last = self._last_veto_compaction_ts.get(key)
         if last is not None and now - last < _VETO_COMPACTION_COOLDOWN_SECONDS:
-            logger.info(
-                "Wakeup: role=%s port=%d scratchpad veto; compaction cooldown active.",
-                role_name,
-                port,
-            )
-            return "blocked"
-
+            return
         synthetic = [
             {
                 "type": "scratchpad_compaction_required",
@@ -742,144 +464,99 @@ class WakeupScheduler:
                 "role": role_name,
                 "tokens": tokens,
                 "veto_tokens": self._scratchpad_thresholds[2],
-                "buffered_events": buffered_count,
             }
         ]
         logger.info(
-            "Wakeup: dispatching scratchpad compaction to role=%s port=%d tokens=%d buffered=%d",
+            "Wakeup: dispatching scratchpad compaction to role=%s port=%d tokens=%d",
             role_name,
             port,
             tokens,
-            buffered_count,
         )
-        try:
-            res = await self._dispatch(
-                role_name,
-                port,
-                synthetic,
-                "veto_compact",
-                WakeupClass.maintenance,
-            )
-        except Exception as exc:
-            logger.error(
-                "Wakeup: scratchpad compaction dispatch failed role=%s port=%d: %s",
-                role_name,
-                port,
-                exc,
-            )
-            return "blocked"
-        if isinstance(res, dict) and res.get("deferred"):
-            return "blocked"
         self._last_veto_compaction_ts[key] = now
         self._last_dispatch_ts[key] = now
-        return "maintenance_dispatched"
+        await self._invoke_and_wait(
+            role_name=role_name,
+            port=port,
+            events=synthetic,
+            scratchpad_status="veto_compact",
+            wakeup_class=WakeupClass.maintenance,
+        )
 
-    def _buffer_role_events(
+    async def _invoke_and_wait(
         self,
-        port: int,
+        *,
         role_name: str,
+        port: int,
         events: list[dict[str, Any]],
+        scratchpad_status: str,
+        wakeup_class: WakeupClass,
     ) -> None:
-        role_inbox.replace_events(port, role_name, events)
-        self._pending[(port, role_name)] = list(events)
-        for event in events:
-            self._dedup.forget(port, role_name, _event_id(event))
-
-    def _recorded_live_pid(self, port: int, role_name: str) -> int | None:
-        """Return a live persisted role PID, clearing stale PIDs opportunistically."""
-        try:
-            project = self._store.get_project(port)
-        except Exception as exc:
-            logger.debug("recorded pid check failed port=%d role=%s: %s", port, role_name, exc)
-            return None
-        if project is None:
-            return None
-        role = next((r for r in project.active_roles if r.name == role_name), None)
-        if role is None:
-            return None
-        pid = getattr(role, "pid", None)
-        if not pid:
-            return None
-        if _pid_alive(int(pid)):
-            if getattr(role, "state", None) == "sleeping":
-                logger.warning(
-                    "Wakeup: role=%s port=%d has invalid sleeping+PID state; "
-                    "terminating orphan PID %d before dispatch.",
-                    role_name,
-                    port,
-                    int(pid),
-                )
-                stopped = _terminate_recorded_orphan_pid(int(pid), port, role_name)
-                try:
-                    self._store.upsert_role(
-                        port,
-                        role.model_copy(update={"state": "sleeping", "pid": None}),
-                    )
-                except Exception as exc:
-                    logger.debug(
-                        "recorded orphan pid clear failed port=%d role=%s pid=%s: %s",
-                        port,
-                        role_name,
-                        pid,
-                        exc,
-                    )
-                verified = _pid_matches_minions_role(int(pid), port, role_name)
-                return None if stopped or not verified else int(pid)
-            return int(pid)
-        try:
-            updates: dict[str, object | None] = {"pid": None}
-            if getattr(role, "state", None) == "active":
-                updates["state"] = "sleeping"
-            self._store.upsert_role(port, role.model_copy(update=updates))
-        except Exception as exc:
-            logger.debug(
-                "recorded pid clear failed port=%d role=%s pid=%s: %s",
-                port,
-                role_name,
-                pid,
-                exc,
-            )
-        return None
-
-    def _safe_poll(self, port: int, agent_id: str) -> list[dict[str, Any]]:
-        try:
-            payload = poll_events(port, agent_id, timeout_secs=0, http_timeout=5.0)
-        except Exception as exc:
-            logger.debug("poll_events failed role=%s port=%d: %s", agent_id, port, exc)
-            return []
-        events = payload.get("events") or payload.get("messages") or []
-        return list(events) if isinstance(events, list) else []
-
-    async def _dispatch(
-        self,
-        role_name: str,
-        port: int,
-        events: list[dict[str, Any]],
-        scratchpad_status: str = "ok",
-        wakeup_class: WakeupClass = WakeupClass.event,
-    ) -> Any:
-        fn = self._invoke_fn
-        if fn is None:
-            from minions.lifecycle.role import invoke_role_ephemeral
-
-            fn = invoke_role_ephemeral  # type: ignore[assignment]
+        """Invoke the role, block the per-role loop until the subprocess exits."""
+        fn = self._resolve_invoke_fn()
         extra_env = {
             "MINIONS_SCRATCHPAD_STATUS": scratchpad_status,
             "MINIONS_WAKEUP_CLASS": wakeup_class.value,
         }
+        loop = asyncio.get_running_loop()
+
+        def _call() -> Any:
+            try:
+                return fn(role_name, port, events, extra_env=extra_env, wait=True)
+            except TypeError:
+                # Older test doubles may not accept wait= / extra_env=.
+                try:
+                    return fn(role_name, port, events, extra_env=extra_env)
+                except TypeError:
+                    return fn(role_name, port, events)
+
         try:
-            res = fn(  # type: ignore[misc]
+            result = await loop.run_in_executor(None, _call)
+        except Exception as exc:
+            logger.error(
+                "Wakeup: invoke failed role=%s port=%d: %s",
                 role_name,
                 port,
-                events,
-                extra_env=extra_env,
+                exc,
+                exc_info=True,
             )
-        except TypeError:
-            # Backwards-compatible: test doubles may accept only 3 args.
-            res = fn(role_name, port, events)  # type: ignore[misc]
-        if asyncio.iscoroutine(res):
-            return await res
-        return res
+            return
+        if asyncio.iscoroutine(result):
+            with contextlib.suppress(Exception):
+                await result
+
+    def _resolve_invoke_fn(self) -> InvokeFn:
+        fn = self._invoke_fn
+        if fn is not None:
+            return fn
+        from minions.lifecycle.role import invoke_role_ephemeral
+
+        return invoke_role_ephemeral
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _is_cooled_down(self, key: tuple[int, str]) -> bool:
+        if self._cooldown_seconds <= 0:
+            return True
+        last = self._last_dispatch_ts.get(key)
+        if last is None:
+            return True
+        return (_time_mod.monotonic() - last) >= self._cooldown_seconds
+
+    def _safe_poll(self, port: int, agent_id: str, timeout_secs: int) -> list[dict[str, Any]]:
+        try:
+            payload = poll_events(
+                port,
+                agent_id,
+                timeout_secs=timeout_secs,
+                http_timeout=timeout_secs + 10.0,
+            )
+        except Exception as exc:
+            logger.debug("poll_events failed role=%s port=%d: %s", agent_id, port, exc)
+            raise
+        events = payload.get("events") or payload.get("messages") or []
+        return [e for e in events if isinstance(e, dict)] if isinstance(events, list) else []
 
     def _post_veto_warning(self, port: int, role_name: str, tokens: int) -> None:
         veto = self._scratchpad_thresholds[2]
@@ -897,15 +574,3 @@ class WakeupScheduler:
             send_message(port, to_agent_id=gru_agent_id, from_agent_id="wakeup", content=msg)
         except Exception as exc:
             logger.error("Failed to post scratchpad veto warning to Gru: %s", exc)
-
-
-def _event_id(event: dict[str, Any]) -> str:
-    for key in ("id", "event_id", "message_id", "uuid"):
-        v = event.get(key)
-        if v:
-            return str(v)
-    # Fallback: stable hash of the JSON body.
-    try:
-        return str(hash(json.dumps(event, sort_keys=True, default=str)))
-    except Exception:
-        return str(id(event))

@@ -21,6 +21,8 @@ Hallucinated citations are the single highest-signal Ethics failure mode and the
 - Periodically during active writing phases so hallucinations do not accumulate.
 - On demand when Gru or the author requests a citation sweep.
 
+This is **sampled Ethics oversight**, not the full pre-submission sweep — that lives in `writer/citation-audit`, which Writer runs on the entire `.bib` before any submission gate. Both can run in the same window; Ethics samples to catch drift, Writer covers the whole list.
+
 ## Structure
 
 Each audited entry is classified `verified` (all four fields match), `drift` (entry exists but ≥ 1 field differs — common arXiv-vs-published case), `wrong_context` (entry exists but does not say what the cite site claims), or `fabricated` (no such paper found). Outputs:
