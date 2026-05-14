@@ -11,6 +11,12 @@
       "command": "node",
       "args": ["EACN3/plugin/dist/server.js"],
       "env": {}
+    },
+    "codex-bridge": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["tools/codex-bridge/dist/server.js"],
+      "env": {}
     }
   }
 }

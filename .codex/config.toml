@@ -2,19 +2,21 @@
 command = "uv"
 args = ["run", "--project", ".", "python", "-m", "minions.tools.mcp_server"]
 enabled = true
-env = { MINIONS_MCP_PROFILE = "codex" }
 
 [mcp_servers.minionsos.tools.list_roles]
 approval_mode = "approve"
 
+# The EACN3 plugin is mounted directly: MinionsOS exposes the full eacn3_*
+# surface to the role and lets the plugin handle the traffic. Filtering /
+# draining / ACKing used to live in a MinionsOS proxy; that encapsulation
+# has been removed. The only MinionsOS wrapper over EACN3 is the Python-side
+# long-poll scheduler that delivers events to roles in their init prompt.
 [mcp_servers.eacn3]
-command = "uv"
-args = ["run", "--project", ".", "python", "-m", "minions.tools.eacn3_mcp_proxy", "--", "node", "EACN3/plugin/dist/server.js"]
+command = "node"
+args = ["EACN3/plugin/dist/server.js"]
 enabled = true
-# minions-role: the proxy reads MINIONS_ROLE_NAME / MINIONS_AGENT_TYPE (set by
-# role.py on every wake) and advertises only the eacn3_* tools the active
-# role's whitelist allows. Outside a role wake (a dev running `codex` by
-# hand here), those env vars are absent and the proxy falls back to the full
-# EACN3 surface. The legacy `codex-core` profile is kept in the proxy for
-# backward compatibility but should not be used for new role launches.
-env = { EACN3_MCP_PROFILE = "minions-role" }
+
+[mcp_servers.codex-bridge]
+command = "node"
+args = ["tools/codex-bridge/dist/server.js"]
+enabled = true

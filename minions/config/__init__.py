@@ -50,67 +50,6 @@ _WRITER_PAPER_SEARCH_TOOLS = [
     "read_medrxiv_paper",
 ]
 
-# MOS Agent Pool tools — the unified MinionsOS-internal EACN3 access layer.
-# Internal work roles (Coder, Writer, Experimenter, Reviewer, Ethics, Expert,
-# Noter) should use these for anything that drains a queue, sends a message,
-# or creates a task. They are thin wrappers over EACN3 that add a per-wake
-# local ACK crash-shim; see minions/lifecycle/mos_pool.py.
-_MOS_POOL_TOOLS = [
-    "mos_await_events",
-    "mos_send_message",
-    "mos_create_task",
-    "mos_ack_clear",
-    "mos_pending_read",
-]
-
-# EACN3 non-destructive read tools — safe to call directly because they do
-# not drain any queue. Kept available to all internal roles alongside the
-# MOS Agent Pool so roles can inspect task / message / agent state without
-# going through a redundant wrapper.
-_EACN3_READONLY_TOOLS = [
-    "eacn3_health",
-    "eacn3_server_info",
-    "eacn3_cluster_status",
-    "eacn3_get_agent",
-    "eacn3_list_agents",
-    "eacn3_list_my_agents",
-    "eacn3_discover_agents",
-    "eacn3_get_task",
-    "eacn3_get_task_status",
-    "eacn3_get_task_results",
-    "eacn3_list_tasks",
-    "eacn3_list_open_tasks",
-    "eacn3_get_messages",
-    "eacn3_list_sessions",
-    "eacn3_get_reputation",
-    "eacn3_get_balance",
-    # Non-drain EACN3 writes required for legitimate task-market activity
-    # (submit bid, submit result, reject). These are NOT message sends and
-    # they do not drain the agent's own event queue, so they stay available
-    # to internal roles. Direct messaging / task creation / event draining
-    # still go through MOS Agent Pool.
-    "eacn3_submit_bid",
-    "eacn3_submit_result",
-    "eacn3_reject_task",
-    "eacn3_select_result",
-    "eacn3_close_task",
-    "eacn3_update_deadline",
-    "eacn3_update_discussions",
-    "eacn3_confirm_budget",
-    "eacn3_create_subtask",
-    "eacn3_connect",
-    "eacn3_disconnect",
-    "eacn3_heartbeat",
-    "eacn3_team_setup",
-    "eacn3_team_status",
-    "eacn3_team_retry_ack",
-]
-
-# Standard EACN3 access for an internal work role: MOS Agent Pool for the
-# three destructive / write ops, raw EACN3 for everything read-only or
-# write-but-not-a-queue-drain.
-_INTERNAL_ROLE_EACN_TOOLS = [*_MOS_POOL_TOOLS, *_EACN3_READONLY_TOOLS]
-
 
 def parse_duration(value: str | int) -> int:
     """Parse a duration string like ``"2h"``, ``"30m"``, ``"45s"``, ``"1d"`` or a
@@ -148,16 +87,16 @@ def slugify(text: str) -> str:
 # Whitelist resolver
 # ---------------------------------------------------------------------------
 
+_CODEX_BRIDGE_TOOLS = [
+    "codex",
+]
+
 # Maps (role_name, agent_type) → list of allowed tool prefixes / names.
 # "main" = the top-level role agent-host process; "subagent" = spawned sub-processes.
 _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("gru", "main"): [
         "gru_relay",
-        "project_eacn_send_message",
-        "project_eacn_create_task",
         "project_checkpoint_workspace",
-        "gru_inbox_poll",
-        "gru_start_monitor",
         "project_create",
         "project_kill",
         "project_close",
@@ -165,21 +104,16 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "project_revive",
         "project_set_phase",
         "project_list",
-        # EACN3 native tools: Gru is the only role that may keep them because
-        # Gru also acts as a Global EACN3 agent terminal on the human's behalf.
-        # MinionsOS internal collaboration should still go through mos_*.
+        # Raw EACN3 tools: the scheduler delivers events in the init prompt,
+        # so the role does not need to long-poll. All outgoing messages,
+        # tasks, bids, and results go through the native eacn3_* surface.
         "eacn3_*",
-        # MOS Agent Pool — unified MinionsOS-internal EACN3 access.
-        "mos_await_events",
-        "mos_send_message",
-        "mos_create_task",
-        "mos_pending_read",
-        "mos_pending_wipe",
-        "mos_ack_clear",
         "spawn_role",
         "spawn_expert",
         "dismiss_role",
         "list_roles",
+        "gru_start_monitor",
+        *_CODEX_BRIDGE_TOOLS,
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -188,39 +122,8 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("gru", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
-    (
-        "noter",
-        "main",
-    ): [
-        # Noter is a silent observer. Its EACN surface is intentionally the
-        # non-destructive subset: no event-draining tools beyond its own
-        # queue (via MOS Agent Pool), no bidding, no task creation. mos_*
-        # gives it the same crash-shim coverage as other internal roles;
-        # mos_send_message is allowed so Noter can reply to targeted queries
-        # and post short "summary available" notifications.
-        "mos_await_events",
-        "mos_send_message",
-        "mos_ack_clear",
-        "mos_pending_read",
-        "eacn3_health",
-        "eacn3_server_info",
-        "eacn3_connect",
-        "eacn3_disconnect",
-        "eacn3_heartbeat",
-        "eacn3_list_agents",
-        "eacn3_discover_agents",
-        "eacn3_get_agent",
-        "eacn3_list_my_agents",
-        "eacn3_list_tasks",
-        "eacn3_list_open_tasks",
-        "eacn3_get_task",
-        "eacn3_get_task_status",
-        "eacn3_get_task_results",
-        "eacn3_list_sessions",
-        "eacn3_get_messages",
-        "eacn3_get_reputation",
-        "eacn3_get_balance",
-        "eacn3_cluster_status",
+    ("noter", "main"): [
+        "eacn3_*",
         "Task",
         "WebSearch",
         "WebFetch",
@@ -228,9 +131,10 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("noter", "subagent"): ["WebSearch", "WebFetch", "Read", "Write", "Edit"],
     ("coder", "main"): [
-        *_INTERNAL_ROLE_EACN_TOOLS,
+        "eacn3_*",
         "Task",
         "project_checkpoint_workspace",
+        *_CODEX_BRIDGE_TOOLS,
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -238,11 +142,14 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Write",
         "Edit",
     ],
-    ("coder", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
+    ("coder", "subagent"): [
+        *_CODEX_BRIDGE_TOOLS, "WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit",
+    ],
     ("experimenter", "main"): [
-        *_INTERNAL_ROLE_EACN_TOOLS,
+        "eacn3_*",
         "Task",
         "project_checkpoint_workspace",
+        *_CODEX_BRIDGE_TOOLS,
         "exp_run",
         "exp_status",
         "exp_wait",
@@ -262,6 +169,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("experimenter", "subagent"): [
+        *_CODEX_BRIDGE_TOOLS,
         "exp_run",
         "exp_status",
         "exp_wait",
@@ -281,10 +189,11 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("writer", "main"): [
-        *_INTERNAL_ROLE_EACN_TOOLS,
+        "eacn3_*",
         *_WRITER_PAPER_SEARCH_TOOLS,
         "Task",
         "project_checkpoint_workspace",
+        "codex",
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -302,9 +211,10 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("expert", "main"): [
-        *_INTERNAL_ROLE_EACN_TOOLS,
+        "eacn3_*",
         "Task",
         "project_checkpoint_workspace",
+        *_CODEX_BRIDGE_TOOLS,
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -312,11 +222,13 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Write",
         "Edit",
     ],
-    ("expert", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
-    ("reviewer", "main"): [*_INTERNAL_ROLE_EACN_TOOLS, "Task", "WebSearch", "WebFetch", "Read"],
-    ("reviewer", "subagent"): ["WebSearch", "WebFetch", "Read", "Write", "Edit"],
-    ("ethics", "main"): [*_INTERNAL_ROLE_EACN_TOOLS, "Task", "WebSearch", "WebFetch", "Read"],
-    ("ethics", "subagent"): ["WebSearch", "WebFetch", "Read", "Write", "Edit"],
+    ("expert", "subagent"): [
+        *_CODEX_BRIDGE_TOOLS, "WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit",
+    ],
+    ("reviewer", "main"): ["eacn3_*", "Task", "codex", "WebSearch", "WebFetch", "Read"],
+    ("reviewer", "subagent"): ["codex", "WebSearch", "WebFetch", "Read", "Write", "Edit"],
+    ("ethics", "main"): ["eacn3_*", "Task", "codex", "WebSearch", "WebFetch", "Read"],
+    ("ethics", "subagent"): ["codex", "WebSearch", "WebFetch", "Read", "Write", "Edit"],
 }
 
 
@@ -455,31 +367,9 @@ class GruConfig(BaseModel):
         default=3600,
         description="Rolling window (seconds) for crash counting (default 1 h).",
     )
-    poll_interval_default: str = Field(
-        default="1m",
-        description="Default EACN polling cadence for spawned Roles (allowed: 1m / 3m / 5m).",
-    )
     role_cooldown_seconds: int = Field(
         default=30,
         description="Minimum seconds between dispatches for the same role (any wakeup class).",
-    )
-    gru_hard_cooldown_seconds: int = Field(
-        default=180,
-        description="Hard Gru wake cooldown in seconds; Gru cannot be re-woken before this.",
-    )
-    gru_activity_window_seconds: int = Field(
-        default=300,
-        description=(
-            "After hard cooldown and before this window, Gru wakes only when its "
-            "project-local EACN queue has unread events."
-        ),
-    )
-    gru_drive_interval_seconds: int = Field(
-        default=300,
-        description=(
-            "Minimum seconds between autonomous Gru EACN drive wakeups when no "
-            "Gru inbox entries are pending."
-        ),
     )
     experiment_reconcile_interval_seconds: int = Field(
         default=30,
@@ -608,14 +498,6 @@ class GruConfig(BaseModel):
         ),
     )
 
-    @field_validator("poll_interval_default", mode="before")
-    @classmethod
-    def _valid_poll_interval(cls, v: object) -> object:
-        allowed = {"1m", "3m", "5m"}
-        if isinstance(v, str) and v.strip() in allowed:
-            return v.strip()
-        raise ValueError(f"poll_interval_default must be one of {sorted(allowed)}, got {v!r}")
-
     @field_validator("agent_host", mode="before")
     @classmethod
     def _valid_agent_host(cls, v: object) -> object:
@@ -644,9 +526,6 @@ class GruConfig(BaseModel):
         "role_crash_threshold",
         "crash_window_seconds",
         "experiment_reconcile_interval_seconds",
-        "gru_hard_cooldown_seconds",
-        "gru_activity_window_seconds",
-        "gru_drive_interval_seconds",
         mode="before",
     )
     @classmethod

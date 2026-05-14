@@ -84,18 +84,17 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/lifecycle/project.py` implements project create/close/dormant/revive behavior, including project directories, metadata, worktrees, backends, and artifacts.
 - `minions/lifecycle/agent_host.py` builds Claude Code and Codex subprocess invocations.
 - `minions/lifecycle/role.py` registers roles, builds common+role system prompts, injects skills, invokes ephemeral role subprocesses through the selected agent host, and dismisses roles.
-- `minions/lifecycle/wakeup.py` contains `WakeupScheduler`, which polls EACN3 on each role cadence, deduplicates events, and invokes roles only when work arrives.
-- `minions/lifecycle/eacn_client.py` is the thin EACN3 HTTP client used by the scheduler and lifecycle code.
+- `minions/lifecycle/wakeup.py` contains `WakeupScheduler`. It runs one asyncio task per (project, role) that long-polls EACN3 in 60s chunks, invokes the role with any drained events delivered in the init prompt, and awaits the role subprocess before resuming the loop.
+- `minions/lifecycle/eacn_client.py` is the thin EACN3 HTTP client used by the scheduler and lifecycle code (registration, bootstrap messages, health-event notifications).
 - `minions/lifecycle/agent_registry.py` and `eacn_identity.py` keep project-local AgentCard identities stable.
 - `minions/lifecycle/relay.py` implements the Gru-only cross-project relay path.
-- `minions/lifecycle/project_eacn.py` implements the generic project-local EACN adapter used by Gru and bootstrap paths.
-- `minions/lifecycle/gru_actions.py` keeps deprecated compatibility wrappers for older Gru message/task names; new runtime-visible paths should use `project_eacn_*`.
 - `minions/state/` contains file-backed state management and port allocation.
 - `minions/tools/mcp_server.py` exposes lifecycle operations as FastMCP tools.
 - `minions/tools/experiment_ssh.py` implements Experimenter `exp_*` local/SSH execution tools, including queue-facing `exp_queue_*` and `exp_gpu_pool_*`.
 - `minions/tools/experiment_scheduler.py` keeps the SQLite-backed project experiment queue and GPU packing logic.
 - `minions/tools/paper_search.py` implements Writer paper-search helpers exposed through MCP.
 - `minions/tools/whitelist.py` resolves allowed tool surfaces for main roles vs. subagents.
+- `tools/codex-bridge/` is a standalone Node MCP server that bridges Claude Code roles to Codex GPT-5.5 for high-intensity execution (`ask_codex` for read-only analysis, `run_codex_worker` for full-access sub-agent delegation).
 
 ### Runtime project model
 
@@ -117,32 +116,34 @@ The parent directory containing this repository must be a git repository before 
 
 ### Role lifecycle and boundaries
 
-Roles are event-driven and ephemeral. No Role should run a long-lived agent-host process or implement an in-agent polling loop. Every active project agent, including Noter and the per-project Gru queue agent, must be registered as an AgentCard on that project's Local EACN3 network. The Python `WakeupScheduler` polls EACN3 at configured cadences (`1m`, `3m`, or `5m`) and launches short-lived Claude Code or Codex subprocesses seeded with the shared `minions/roles/SYSTEM.md`, the Role `SYSTEM.md`, discovered skills, scratchpad context, identity/boundary context, and the event batch. Gru's own queue is polled by Gru via `gru_inbox_poll`, not by `WakeupScheduler`.
+Roles are event-driven and ephemeral. No Role should run a long-lived agent-host process or implement an in-agent polling loop. Every active project agent, including Noter and the per-project Gru queue agent, must be registered as an AgentCard on that project's Local EACN3 network.
 
-Only Gru may spawn EACN-visible agents or use `project_*`, `spawn_*`, `gru_relay`, `project_eacn_send_message`, and `project_eacn_create_task` tools. Subagents or local teams created inside a Role are EACN-invisible by design: they do not have `eacn3_*` tools and do not appear in `projects.json`.
+The one thing MinionsOS encapsulates around EACN3 is `minions/lifecycle/wakeup.py` — a single per-(project, role) long-poll loop. For each registered role the scheduler chains 60-second `GET /api/events/{agent_id}` calls (EACN3's hard server-side cap), and when events arrive it launches a short-lived Claude Code or Codex subprocess seeded with the shared `minions/roles/SYSTEM.md`, the Role `SYSTEM.md`, discovered skills, scratchpad context, identity / boundary context, and the event batch in the init prompt. Roles do not call `eacn3_await_events` themselves; they respond with raw `eacn3_send_message` / `eacn3_create_task` / `eacn3_submit_bid` / `eacn3_submit_result` and exit when done.
+
+Only Gru may spawn EACN-visible agents or use `project_*`, `spawn_*`, and `gru_relay` tools. Subagents or local teams created inside a Role are EACN-invisible by design: they do not have `eacn3_*` tools and do not appear in `projects.json`.
 
 Claude Code still receives CLI `--allowed-tools`. Codex does not expose the same flag, so MinionsOS MCP server-side authorization in `minions/tools/mcp_server.py` must remain aligned with `minions.config.resolve_whitelist`.
 
 Tool/write boundaries:
 
-| Agent | Project-local EACN access | Experiment tools | Gru/project/spawn tools | Workspace writes |
-|---|---|---|---|---|
-| Gru main | via `project_eacn_*` adapters | no | yes | yes |
-| Gru subagent | no | no | no | yes |
-| Noter main | direct `eacn3_*` | no | no | `artifacts/notes/` only |
-| Noter subagent | no | no | no | no |
-| Coder main | direct `eacn3_*` | no | no | yes |
-| Coder subagent | no | no | no | yes |
-| Experimenter main | direct `eacn3_*` | yes | no | yes |
-| Experimenter subagent | no | yes | no | yes |
-| Writer main | direct `eacn3_*` plus paper-search MCP tools | no | no | yes |
-| Writer subagent | paper-search MCP tools only | no | no | yes |
-| Expert main | direct `eacn3_*` | no | no | yes, but preferably read-mostly |
-| Expert subagent | no | no | no | yes, but preferably read-mostly |
-| Reviewer main | direct `eacn3_*` | no | no | `artifacts/reviews/round-<n>/` only |
-| Reviewer subagent | no | no | no | no |
-| Ethics main | direct `eacn3_*` | no | no | `artifacts/ethics/` only |
-| Ethics subagent | no | no | no | no |
+| Agent | Project-local EACN access | Experiment tools | Codex bridge | Gru/project/spawn tools | Workspace writes |
+|---|---|---|---|---|---|
+| Gru main | `eacn3_*` (events delivered by scheduler) | no | `codex` | yes | yes |
+| Gru subagent | no | no | no | no | yes |
+| Noter main | `eacn3_*` (read-mostly) | no | no | no | `artifacts/notes/` only |
+| Noter subagent | no | no | no | no | no |
+| Coder main | `eacn3_*` | no | `codex` | no | yes |
+| Coder subagent | no | no | `codex` | no | yes |
+| Experimenter main | `eacn3_*` | yes | `codex` | no | yes |
+| Experimenter subagent | no | yes | `codex` | no | yes |
+| Writer main | `eacn3_*` plus paper-search MCP tools | no | `codex` | no | yes |
+| Writer subagent | paper-search MCP tools only | no | no | no | yes |
+| Expert main | `eacn3_*` | no | `codex` | no | yes, but preferably read-mostly |
+| Expert subagent | no | no | `codex` | no | yes, but preferably read-mostly |
+| Reviewer main | `eacn3_*` | no | `codex` | no | `artifacts/reviews/round-<n>/` only |
+| Reviewer subagent | no | no | `codex` | no | no |
+| Ethics main | `eacn3_*` | no | `codex` | no | `artifacts/ethics/` only |
+| Ethics subagent | no | no | `codex` | no | no |
 
 Noter and Reviewer must not write to `workspace/`.
 

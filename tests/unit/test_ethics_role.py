@@ -43,9 +43,7 @@ def test_ethics_registration() -> None:
         patch.object(role_mod, "invoke_role_ephemeral"),
         patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
     ):
-        out = role_mod.register_role(
-            37777, "ethics", init_brief=None, store=store, poll_interval="1m"
-        )
+        out = role_mod.register_role(37777, "ethics", init_brief=None, store=store)
     assert out["name"] == "ethics"
     assert out["ephemeral"] is True
     assert any(r.name == "ethics" for r in store.project.active_roles)
@@ -53,12 +51,8 @@ def test_ethics_registration() -> None:
 
 def test_ethics_main_whitelist() -> None:
     tools = resolve_whitelist("ethics", "main")
-    # Ethics uses the MOS Agent Pool for event intake, direct messages, and
-    # task creation. Non-destructive EACN3 reads remain available.
-    assert "mos_await_events" in tools
-    assert "mos_send_message" in tools
-    assert "eacn3_get_messages" in tools
-    assert "eacn3_*" not in tools
+    # Ethics talks to other roles through native EACN3 tools.
+    assert "eacn3_*" in tools
     assert "WebSearch" in tools
     assert "WebFetch" in tools
     assert "Read" in tools
@@ -78,10 +72,10 @@ def test_ethics_subagent_whitelist() -> None:
     work (flag files, report files under artifacts/ethics/) is produced by a
     subagent, not the main role. The subagent must therefore be able to
     Write/Edit inside that scope; it remains EACN-invisible because there are
-    no mos_* / eacn3_* / project_eacn_* tools in this whitelist.
+    no eacn3_* tools in this whitelist.
     """
     tools = resolve_whitelist("ethics", "subagent")
-    assert set(tools) == {"WebSearch", "WebFetch", "Read", "Write", "Edit"}
+    assert set(tools) == {"codex", "WebSearch", "WebFetch", "Read", "Write", "Edit"}
 
 
 def test_project_create_makes_ethics_tree(tmp_path: Path, monkeypatch) -> None:
