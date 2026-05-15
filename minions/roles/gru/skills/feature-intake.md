@@ -6,7 +6,7 @@ tools: eacn3_create_task
 version: 2
 status: active
 supersedes:
-references: project-automation-audit, role-skill-design, eacn3-task-initiator
+references: project-automation-audit, role-skill-design, eacn3-mcp
 provenance: human
 ---
 

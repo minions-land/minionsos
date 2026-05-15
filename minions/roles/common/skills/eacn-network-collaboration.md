@@ -1,22 +1,22 @@
 ---
 slug: eacn-network-collaboration
-summary: MinionsOS-specific rules for using EACN3 inside a project Role; defers the tool reference to eacn3-network-overview.
+summary: MinionsOS-specific rules for using EACN3 inside a project Role; defers the tool reference to eacn3-mcp.
 layer: scheduling
 tools:
-version: 2
+version: 3
 status: active
 supersedes:
-references: eacn3-network-overview, eacn3-event-loop, eacn3-task-initiator, eacn3-task-executor, eacn3-messaging
+references: eacn3-mcp, eacn3-state-machines, eacn3-error-recovery
 provenance: human
 ---
 
 # Skill — EACN Network Collaboration (MinionsOS context)
 
-Tells a MinionsOS Role how its host runtime constrains EACN3 usage; the per-tool detail lives in the `eacn3-*` cluster skills.
+Tells a MinionsOS Role how its host runtime constrains EACN3 usage. The full per-tool detail lives in `eacn3-mcp` (the entry) and the 12 category files under `minions/roles/common/skills/eacn3/`.
 
 ## When to invoke
 
-Open this skill when you are a MinionsOS project Role about to touch EACN3 for the first time in a wake. It tells you which parts of the underlying tool surface apply to you, which parts the runtime handles on your behalf, and where to go for the full reference. For the full, host-neutral EACN3 tool reference, open `eacn3-network-overview` and follow its router.
+Open this skill when you are a MinionsOS project Role about to touch EACN3 for the first time in a wake. It tells you which parts of the underlying tool surface apply to you, which parts the runtime handles on your behalf, and where to go for the full reference. For the host-neutral EACN3 tool reference, open `eacn3-mcp` and pick the matching category file.
 
 ## Structure
 
@@ -30,10 +30,11 @@ MinionsOS changes three things about how a Role relates to EACN3. Everything els
 
 ### Default tool surface for a normal wake
 
-- Non-destructive reads (always safe): `eacn3_get_task`, `eacn3_get_messages`, `eacn3_list_tasks`, `eacn3_list_agents`, `eacn3_get_task_status`, `eacn3_get_task_results`, `eacn3_list_open_tasks`, `eacn3_list_sessions`. See `eacn3-task-queries`, `eacn3-messaging`.
-- Outgoing work: `eacn3_send_message`, `eacn3_create_task`. See `eacn3-task-initiator`, `eacn3-messaging`.
-- Task-market writes on a task you received: `eacn3_submit_bid`, `eacn3_submit_result`, `eacn3_reject_task`, `eacn3_select_result`, `eacn3_close_task`. See `eacn3-task-executor`, `eacn3-task-initiator`.
-- Connection lifecycle, only if the plugin reports no active session: `eacn3_connect`, `eacn3_disconnect`, `eacn3_heartbeat`. See `eacn3-bootstrap`.
+- **Non-destructive reads (always safe):** `eacn3_get_task`, `eacn3_get_task_status`, `eacn3_list_open_tasks`, `eacn3_list_tasks`, `eacn3_get_messages`, `eacn3_list_sessions`, `eacn3_list_agents`, `eacn3_get_task_results`. Detail in `eacn3/05-task-queries.md` and `eacn3/08-messaging.md`.
+- **Outgoing work:** `eacn3_send_message`, `eacn3_create_task`. Detail in `eacn3/06-task-initiator.md` and `eacn3/08-messaging.md`.
+- **Task-market writes on a task you received:** `eacn3_submit_bid`, `eacn3_submit_result`, `eacn3_reject_task`, `eacn3_create_subtask`. Detail in `eacn3/07-task-executor.md`.
+- **Initiator-only writes on tasks you published:** `eacn3_select_result`, `eacn3_close_task`, `eacn3_update_deadline`, `eacn3_update_discussions`, `eacn3_confirm_budget`, `eacn3_invite_agent`. Detail in `eacn3/06-task-initiator.md`.
+- **Connection lifecycle:** Roles do not call `eacn3_connect` / `eacn3_disconnect` / `eacn3_heartbeat`. The host owns those. Detail in `eacn3/02-server-management.md` only if you are debugging the host.
 
 ### Receiving a task
 
@@ -56,11 +57,11 @@ Any EACN-visible work Role may publish a Local EACN task with `eacn3_create_task
 - For targeted work: set `invited_agent_ids=[peer_role_agent_id]` and use the target Role's domains. Role agent IDs are normally the role names (`coder`, `experimenter`, `writer`, `reviewer`, `ethics`, `noter`, `expert-*`).
 - For public work: omit `invited_agent_ids` and choose domains describing the needed capability.
 
-Task descriptions should include: goal and why it is needed; inputs and artifact paths; constraints, Role boundary, and deadline; expected output shape; how success will be checked. Use `budget=0` for normal project-local collaboration unless the author or task says otherwise. Full field detail is in `eacn3-task-initiator`.
+Task descriptions should include: goal and why it is needed; inputs and artifact paths; constraints, Role boundary, and deadline; expected output shape; how success will be checked. Use `budget=0` for normal project-local collaboration unless the author or task says otherwise. Full field detail is in `eacn3/06-task-initiator.md`.
 
 ### Direct messages vs. tasks
 
-Use `eacn3_send_message` for short clarification, status, acknowledgements, or blocker notes. Do not ask for repository edits, experiments, paper sections, reviews, or evidence audits by direct message — those deserve a task. See `eacn3-messaging`.
+Use `eacn3_send_message` for short clarification, status, acknowledgements, or blocker notes. Do not ask for repository edits, experiments, paper sections, reviews, or evidence audits by direct message — those deserve a task. See `eacn3/08-messaging.md`.
 
 ### Gru
 
@@ -72,4 +73,4 @@ Do not route ordinary in-project dependencies through Gru. Contact Gru only for 
 - **Re-registering.** Do not call `eacn3_register_agent`. Your identity is already on the network; a second registration creates a duplicate AgentCard and confuses routing.
 - **Hiding work as side channels.** Scratchpads, host conversation, and shared files are not EACN-visible. If another Role needs to act, publish a task or send a message — do not assume they will "see" your scratchpad change.
 - **Noter publishing work tasks.** Noter observes and reports; it should not assign work unless explicitly instructed.
-- **Treating the `eacn3-*` reference skills as must-read.** They are progressive disclosure: open only the cluster that matches your current action. `eacn3-network-overview` is the router; use it.
+- **Loading every category file at once.** The `eacn3/` files are progressive disclosure — open only the category that matches your current action. `eacn3-mcp` is the entry; use it.

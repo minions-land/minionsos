@@ -6,7 +6,7 @@ tools: eacn3_create_task, eacn3_send_message
 version: 2
 status: active
 supersedes:
-references: citation-audit, end-to-end-paper-workflow, eacn3-task-initiator
+references: citation-audit, end-to-end-paper-workflow, eacn3-mcp
 provenance: human
 ---
 

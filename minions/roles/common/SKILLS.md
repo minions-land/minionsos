@@ -70,7 +70,7 @@ Operations are plain filesystem operations. No registry, no build step, no servi
 ### ADD — create a new skill
 
 1. Pick the right directory. Cross-role reasoning → `common/skills/`. Role-specific procedure → `{role}/skills/`.
-2. Choose a lowercase hyphen-separated slug. Keep it short and verb- or noun-led (`bounded-repair-loop`, `eacn3-task-initiator`).
+2. Choose a lowercase hyphen-separated slug. Keep it short and verb- or noun-led (`bounded-repair-loop`, `triage-request`).
 3. Copy `minions/roles/common/_skill_template.md` to `{slug}.md`. Fill frontmatter and the four H2 sections.
 4. Run `uv run pytest tests/unit/test_skills_discovery.py` to sanity-check frontmatter parsing.
 

@@ -6,7 +6,7 @@ tools: eacn3_list_tasks, eacn3_get_task, eacn3_get_messages, eacn3_list_agents
 version: 2
 status: active
 supersedes:
-references: eacn3-event-loop
+references: eacn3-mcp
 provenance: human
 ---
 

@@ -6,7 +6,7 @@ tools:
 version: 1
 status: active
 supersedes:
-references: eacn3-network-overview, eacn3-task-initiator, eacn3-task-executor, eacn3-event-loop
+references: eacn3-mcp
 provenance: human
 ---
 
@@ -103,7 +103,7 @@ When a tool returns a state-machine error, work backwards through this table to 
 | `eacn3_close_task` | any pre-terminal | n/a | Closes the bid/result intake window prematurely. |
 | `eacn3_confirm_budget` | `bidding` | `pending_confirmation` (the bid in question) | Initiator-only. `approved=true` with optional `new_budget` to top up. |
 
-The order in which events arrive in your queue matches the FSM: `task_broadcast` (executor side), `discussion_update` (during bidding), `bid_request_confirmation` (initiator side, when a bid exceeds budget), `subtask_completed`, `task_collected` (initiator side, when a result lands), `task_timeout`. The full event reference is in `eacn3-event-loop`.
+The order in which events arrive in your queue matches the FSM: `task_broadcast` (executor side), `discussion_update` (during bidding), `bid_request_confirmation` (initiator side, when a bid exceeds budget), `subtask_completed`, `task_collected` (initiator side, when a result lands), `task_timeout`. The full event reference is in `eacn3-mcp` (Category XI — Events & Scheduling).
 
 ## Pitfalls
 
