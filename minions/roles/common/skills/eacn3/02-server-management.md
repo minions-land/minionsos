@@ -1,60 +1,56 @@
 # Category III — Server Management
 
-**4 tools.** Manage the Server lifecycle — connect, heartbeat, query connection state, disconnect. The Server is the local plugin instance that hosts your Agents and owns the WebSocket / HTTP connection to the network.
+Open this when the local plugin Server, not an Agent, is the object you are managing. The Server owns the network connection and heartbeat; it does not automatically restore an Agent identity. The common failure is skipping from "connected" to "ready to work" without checking `available_agents`.
 
 ## When to invoke
 
-- Starting a session: `eacn3_connect` is always the first call.
-- During a long-running session, if you suspect the connection drifted: `eacn3_heartbeat` or `eacn3_server_info`.
-- Ending a session cleanly: `eacn3_disconnect`.
+- Starting a standalone EACN3 session and needing the first `eacn3_connect`.
+- A session appears stale and you need `eacn3_server_info` or a manual `eacn3_heartbeat`.
+- You are ending a standalone session and need to disconnect deliberately.
+- You need to inspect which Agents are attached to this Server before claiming one.
+- If you are a normal MinionsOS Role, stop here for lifecycle calls; the host owns connect and heartbeat.
 
-In MinionsOS, `eacn3_connect` and the heartbeat are managed by the host runtime — Roles do not call them. `eacn3_server_info` is fine to read directly.
+## The typical flow
 
-## Tools
+1. Decide whether you have a healthy endpoint. If not, open `01-health-cluster.md` first. Then call `eacn3_connect`; the response fields that matter are `connected`, `network_endpoint`, `fallback`, and `available_agents`.
+2. If `available_agents[]` is non-empty, do not register a new Agent. Move to `03-agent-management.md` and call `eacn3_claim_agent` for the intended identity.
+3. If `available_agents[]` is empty, move to `03-agent-management.md` and register exactly one Agent. A Server session expects one active Agent; multiple identities are an explicit management operation, not the default.
+4. During a long run, use `eacn3_server_info` when you need evidence about `server_card`, `agents[]`, `tasks_count`, or `remote_status`. Use `eacn3_heartbeat` only when liveness is suspect; the background timer already fires every 60 seconds.
+5. Call `eacn3_disconnect` only at final shutdown, after active task obligations are settled. Exit when the Server is connected and handed off to Agent management, or disconnected at session end.
 
-### `eacn3_connect`
+## Decisions you'll face
 
-Connect to the EACN3 network. **Must be the first call.** Probes the endpoint, falls back to seed nodes if unreachable, registers the Server, starts a 60-second background heartbeat, and returns `available_agents` (previously registered Agents on this Server).
-
-- **Preconditions.** None — this is the first call.
-- **Side effects.** Registers Server; starts heartbeat timer.
-- **Returns.** `{connected, server_id, network_endpoint, fallback, available_agents[], hint, toolkit{}}`.
-- **Params.**
-  - `network_endpoint` (string, optional) — network URL; defaults to compile-time endpoint.
-  - `seed_nodes` (string[], optional) — extra seed URLs for fallback.
-
-After connect, **check `available_agents`**: if there are previous Agents listed, call `eacn3_claim_agent` to resume one (see `03-agent-management.md`); otherwise call `eacn3_register_agent` to create a new one. **Each session can only have one active Agent.**
-
-### `eacn3_disconnect`
-
-Disconnect from the network. **Use only at session end.**
-
-- **Preconditions.** Already connected.
-- **Side effects.** **Dangerous.** Active tasks will time out and damage your reputation. Server identity is preserved — next `eacn3_connect` can re-claim Agents.
-- **Returns.** `{disconnected: true}`.
-- **Params.** None.
-
-### `eacn3_heartbeat`
-
-Manually send a heartbeat to refresh the Server's liveness timestamp. Usually unnecessary — the background heartbeat fires every 60 s automatically.
-
-- **Preconditions.** Connected.
-- **Side effects.** Refreshes liveness timestamp on the network.
-- **Returns.** Heartbeat acknowledgement.
-- **Params.** None.
-
-### `eacn3_server_info`
-
-Read-only diagnostic. Returns the current Server card, network endpoint, registered Agent IDs, task counts, and remote status.
-
-- **Preconditions.** Connected.
-- **Side effects.** None.
-- **Returns.** `{server_card, network_endpoint, agents_count, agents[], tasks_count, remote_status}`.
-- **Params.** None.
+- **Can I call connect again?** Only if there is no active session. Base the decision on `eacn3_server_info.remote_status` and current runtime ownership.
+- **Claim or register?** Claim whenever `available_agents[]` has the identity you need. Register only when there is no suitable saved Agent.
+- **Manual heartbeat or server info?** Use `server_info` for facts and `heartbeat` for liveness refresh. Heartbeat does not tell you which Agent is active.
+- **Disconnect or leave running?** Disconnect only when work is done. Active tasks can time out and hurt reputation after a disconnect.
 
 ## Pitfalls
 
-- Calling `eacn3_disconnect` mid-task to "clean up". You will time out the task and lose reputation.
-- Calling `eacn3_heartbeat` defensively in every wake-up. The background loop already does this.
-- Re-calling `eacn3_connect` while a session is active. One connection per session — to switch endpoints, disconnect first.
-- Registering a fresh Agent without first checking `available_agents` from `eacn3_connect`. You may already have one on this Server.
+- Treating `eacn3_connect` as Agent recovery. It returns `available_agents`; it does not claim one for you.
+- Calling `eacn3_disconnect` to clean up during active work. The cleanup can become a timeout and a reputation hit.
+- Sending manual heartbeats every wake. That papers over scheduler confusion and adds no useful state.
+- Registering a fresh Agent because it feels simpler than claiming. You fragment reputation, balance, and message history.
+- Debugging MinionsOS Role wakeups by reconnecting. Roles inherit host-managed sessions; reconnecting inside a Role fights the runtime.
+
+## Worked example
+
+```text
+eacn3_connect({
+  network_endpoint: "http://eacn-node-2.local:8080",
+  seed_nodes: ["http://eacn-seed.local:8080"]
+})
+→ connected: true, available_agents: ["agent-coder-7"]
+
+eacn3_claim_agent({
+  agent_id: "agent-coder-7"
+})
+→ claimed: true, domains: ["python-coding"]
+
+eacn3_server_info({})
+→ agents: ["agent-coder-7"], remote_status: "online"; proceed to work
+```
+
+## Tool reference
+
+For full per-tool detail (parameters, preconditions, side effects, return shape), open `references/02-server-management-tools.md`.

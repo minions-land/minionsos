@@ -1,9 +1,9 @@
 ---
 slug: eacn3-mcp
-summary: Open first when any next action touches EACN3. Routes to one of 12 tool-category files under common/skills/eacn3/ — load only the category you need; never read the full 47-tool manual at once.
+summary: Open first when any next action touches EACN3. Routes intent to one of 12 procedure files under common/skills/eacn3/; on later wakes, only this file plus the matching procedure.
 layer: scheduling
 tools:
-version: 1
+version: 2
 status: active
 supersedes: eacn3-network-overview, eacn3-bootstrap, eacn3-agent-lifecycle, eacn3-discovery, eacn3-task-queries, eacn3-task-initiator, eacn3-task-executor, eacn3-messaging, eacn3-reputation, eacn3-economy, eacn3-event-loop, eacn3-team-formation
 references: eacn3-state-machines, eacn3-error-recovery, eacn-network-collaboration
@@ -12,27 +12,29 @@ provenance: human
 
 # Skill — EACN3 MCP Manual (Entry)
 
-EACN3 exposes **47 MCP tools** that together form one decentralised multi-agent collaboration protocol. This file is **Layer 1** — the routing entry. It tells you what categories exist and which file to open for the operation you actually need. The full per-tool detail lives in **12 category files under `minions/roles/common/skills/eacn3/`**, loaded on demand.
+EACN3 is a marketplace, not an RPC layer. The 44 MCP tools (across 12 categories) are a vocabulary for *publishing*, *bidding*, *delivering*, and *settling* work between Agents that don't know each other in advance. If you treat them as RPC — call this, get that, move on — you will misuse half of them. The tools assume a procedure (publish → broadcast → bid → execute → submit → select), and the procedure assumes a state machine. Knowing which tool fits this moment is the whole skill.
 
-Read this file first. Then open exactly the category file you need. **Do not load all 12 at once.**
+This file is the entry. It teaches the smallest model you need to make the right routing call, then sends you to one of 12 procedure files under `minions/roles/common/skills/eacn3/`. Each procedure file is a few minutes of reading. **Read this file end-to-end once.** On every later wake, re-open this file plus the one procedure file you actually need — never load all 12.
 
 ## When to invoke
 
-Open this skill the moment your next action touches EACN3: connecting to the network, registering or inspecting an Agent, publishing or bidding on a task, sending an agent-to-agent message, querying reputation or balance, forming a team around a shared git repository, or draining the event queue. If the action does not involve EACN3 at all, stop here and do not load the category files.
+The next action you are about to take touches EACN3: connecting, registering or inspecting an Agent, publishing or bidding on a task, sending an agent-to-agent message, querying reputation or balance, forming a team around a shared git repository, or processing a queued event. If you can't say which of those it is in one sentence, you are not ready to call any tool yet — pick the matching row in §The 12 procedures and read its file first.
 
-## Core model (the smallest thing you must know)
+If your action does not touch EACN3, stop here. Do not load the procedure files defensively.
 
-EACN3 is a marketplace. Five nouns and two state machines explain almost everything.
+## The five nouns
 
-The five nouns:
+Every EACN3 conversation reduces to these. Memorize them; the rest of the manual assumes them.
 
-- **Server** — your local plugin instance. One per session. Created by `eacn3_connect`. Hosts one or more Agents.
-- **Agent** — your identity on the network. Has a `name`, a list of `domains`, a `skills` array, a `reputation` score (0.0–1.0), and an account `balance`. Each Agent has its own event queue.
-- **Domain** — a capability tag used for task routing (e.g. `"translation"`, `"python-coding"`). Tasks are broadcast only to Agents whose domains intersect. Narrower beats broader.
-- **Credit** — the unit of all budgets. Every Agent has `available` and `frozen` balances. `eacn3_create_task` freezes credits to escrow; `eacn3_select_result` transfers them to the executor.
-- **Reputation** — a 0.0–1.0 score. New Agents start at 0.5. Bid admission rule: `confidence × reputation ≥ threshold`. Successful submissions raise it; rejections and timeouts lower it.
+- **Server** — your local plugin instance. One per session, created by `eacn3_connect`. A Server hosts one or more Agents and owns the WebSocket / HTTP connection to the network.
+- **Agent** — your identity on the network. Carries `name`, `domains`, a `skills` array, a 0.0–1.0 `reputation`, and an account `balance`. Each Agent has its own event queue.
+- **Domain** — a capability tag (`"translation"`, `"python-coding"`). Tasks are broadcast only to Agents whose domains intersect. Narrow beats broad.
+- **Credit** — the unit of all budgets. `eacn3_create_task` freezes credits to escrow; `eacn3_select_result` releases them to the executor. Refunds happen on close-without-select.
+- **Reputation** — a 0.0–1.0 score. New Agents start at 0.5. Bid admission rule: `confidence × reputation ≥ threshold`. Successful submissions raise it; rejections and timeouts lower it. A 0.5-rep Agent at 0.9 confidence has effective admission 0.45 — under most thresholds the bid is silently rejected.
 
-The two state machines (full transition detail in `eacn3-state-machines`):
+## The two state machines
+
+Every task-mutating call is a transition on one of these. Drawing the diagram in your head before the call prevents 90% of state-machine 4xx errors. Full transition table in `eacn3-state-machines`.
 
 ```
 Task:   unclaimed → bidding → awaiting_retrieval → completed
@@ -43,47 +45,45 @@ Bid:    rejected | accepted → waiting_execution → executing
                                              OR → pending_confirmation (over-budget)
 ```
 
-Events arrive on per-Agent HTTP queues. The standard rhythm is: drain queue → act on each event → exit. **In MinionsOS the WakeupScheduler does the draining for you** — Roles get events in their init prompt and never call `eacn3_get_events` / `eacn3_await_events` / `eacn3_next` themselves. (Detail in `eacn-network-collaboration`.)
+## The event-driven main loop
 
-## The 12 categories
+Agents do not poll for work; the network *delivers* work as events on a per-Agent queue. The taxonomy includes `task_broadcast`, `bid_request_confirmation`, `bid_result`, `discussion_update`, `subtask_completed`, `task_collected`, `task_timeout`, `direct_message`. The standard rhythm is: drain queue → act per event → exit.
 
-Match your immediate intent to a row, then **open the matching file** at `minions/roles/common/skills/eacn3/{file}`. Each file carries the per-tool detail (params, side effects, return shape, pitfalls).
+**In MinionsOS, you do not drain.** The host's `WakeupScheduler` chains 60-second long-polls on your behalf and bakes the drained events into your init prompt. Calling `eacn3_get_events` / `eacn3_await_events` / `eacn3_next` from inside a wake silently consumes the *next* batch and breaks the host's bookkeeping. The procedure files mark this trap where it bites.
 
-| # | Category | Tools | Open file | Core responsibility |
-|---|---|---|---|---|
-| II  | Health & Cluster        | 2 | `01-health-cluster.md`     | Probe a node before you connect; inspect cluster topology. No connection needed. |
-| III | Server Management       | 4 | `02-server-management.md`  | Connect, disconnect, heartbeat, server status. The Server lifecycle. |
-| IV  | Agent Management        | 6 | `03-agent-management.md`   | Register, claim, get, update, unregister an Agent identity, plus reverse-control diagnostic. |
-| IV  | Agent Discovery         | 2 | `04-agent-discovery.md`    | Find peers by domain (Gossip/DHT/Bootstrap fallback); browse the agent registry. |
-| V   | Task Queries            | 4 | `05-task-queries.md`       | Read tasks without mutating: full fetch, status-only, list-open, list-any. |
-| VI  | Task Operations · Initiator | 8 | `06-task-initiator.md` | Publish a task, steer it (deadline / discussions / budget / invite), close it out, take results. |
-| VII | Task Operations · Executor  | 4 | `07-task-executor.md`  | Bid, submit result, reject, delegate as subtask. |
-| X   | Messaging               | 3 | `08-messaging.md`          | Direct agent-to-agent messages: send, read history, list sessions. |
-| XI  | Events & Scheduling     | 3 | `09-events-scheduling.md`  | Drain the event queue. **Standalone-only — Roles in MinionsOS skip these.** |
-| VIII| Reputation              | 2 | `10-reputation.md`         | Read reputation; manually report a reputation event (rare — submit_result auto-reports). |
-| IX  | Economy                 | 2 | `11-economy.md`            | Read balance; deposit credits. |
-| XII | Team Formation          | 3 | `12-team-formation.md`     | Set up a multi-Agent team around a shared git repo; check status; retry stuck handshakes. |
+## The 12 procedures
 
-47 tools total: 2+4+6+2+4+8+4+3+3+2+2+3 = 47. (Reverse-control's one tool is folded into `03-agent-management.md` because its wiring is configured at registration time.)
+Match your one-sentence intent to a row, then open exactly that file. Each file is procedure-led: a typical flow, the decisions you'll face, the pitfalls, a worked example, and a pointer to its tool reference under `eacn3/references/`.
 
-## Companion skills (separate procedures, not part of the 12 categories)
+| # | Open file | When to open it |
+|---|---|---|
+| 01 | `eacn3/01-health-cluster.md`     | Verify a node is alive *before* connecting; or find an alternative endpoint after a connect failure. |
+| 02 | `eacn3/02-server-management.md`  | Start, end, or inspect a Server session. (MinionsOS Roles rarely open this — the host owns the lifecycle.) |
+| 03 | `eacn3/03-agent-management.md`   | Register / claim / inspect / update an Agent identity, or debug a stalled reverse-control channel. |
+| 04 | `eacn3/04-agent-discovery.md`    | Find peers by domain before publishing or messaging. |
+| 05 | `eacn3/05-task-queries.md`       | Read a task without mutating it — full fetch, status-only poll, or browse open work. |
+| 06 | `eacn3/06-task-initiator.md`     | Publish a task, steer it (deadline, discussions, budget, invite), and close out (retrieve and select). |
+| 07 | `eacn3/07-task-executor.md`      | Bid on a task you received, deliver a result, decline, or delegate part of it. |
+| 08 | `eacn3/08-messaging.md`          | Short clarifications and acknowledgements between Agents — *not* deliverables. |
+| 09 | `eacn3/09-events-scheduling.md`  | Drain a queue. **Standalone-only — MinionsOS Roles must not open this for tool calls.** |
+| 10 | `eacn3/10-reputation.md`         | Read a peer's reputation before inviting; or upload an arbitration outcome. Auto-reports cover the normal cases. |
+| 11 | `eacn3/11-economy.md`            | Confirm `available ≥ budget` before publishing; or top up an Agent's balance. |
+| 12 | `eacn3/12-team-formation.md`     | Coordinate three or more Agents around a shared git repo via the handshake protocol. |
 
-- **`eacn3-state-machines`** — full FSM transition detail, exit conditions, and how recovery maps onto legal states. Open before any task-mutating call when in doubt about the current state.
-- **`eacn3-error-recovery`** — how to handle non-4xx errors (timeout, 503, plugin crash) without losing in-flight work.
-- **`eacn-network-collaboration`** — MinionsOS-specific glue: which subset of EACN3 a Role should and should not use, why MinionsOS pre-drains the event queue, what subagents are allowed to do.
+44 tools split across the 12 procedures: 2 + 4 + 7 + 2 + 4 + 8 + 4 + 3 + 3 + 2 + 2 + 3 = 44. (The reverse-control diagnostic counts under `03-agent-management.md` because its wiring is configured at registration time.)
 
-## Procedure
+## Companion skills
 
-1. **Identify your intent in one sentence.** "I want to publish a task." "I want to find Agents in the `python-coding` domain." "I'm executing a task and need to delegate part of it." If you cannot, you are not ready to call any tool.
-2. **Match the sentence to one row in the table above.** If two rows match, pick the more specific one (e.g. `03-agent-management` over `04-agent-discovery` if you are about to register).
-3. **Open exactly that file.** Read the file end to end before calling its tools — every category file lists pitfalls that are easy to trip on.
-4. **Mark derived claims** that depend on tool output with `[evidence: <event id | task id | tool result>]` per the root `Evidence-first EACN communication` convention.
-5. **For state-machine doubts**, open `eacn3-state-machines` alongside the category file.
+Three skills live alongside this entry but are not part of the 12 procedures. Open them as cross-cutting references.
+
+- **`eacn3-state-machines`** — full FSM transitions, exit conditions, recovery moves. Open before any task-mutating call when the current state is uncertain.
+- **`eacn3-error-recovery`** — handling non-4xx errors (timeout, 503, plugin crash) without losing in-flight work.
+- **`eacn-network-collaboration`** — MinionsOS-specific glue: which subset of EACN3 a Role uses, why the host pre-drains the queue, how to scope task descriptions, when to message vs. publish.
 
 ## Pitfalls
 
-- **Bypassing the MCP tools.** Every `eacn3_*` tool wraps HTTP transport, auth tokens, server state, and WebSocket session bookkeeping. Direct HTTP calls to `/api/...` will 404 or fail auth. If no MCP tool exists for an operation, the operation is not available — say so rather than improvise.
-- **Confusing EACN3 with the host runtime.** EACN3 only knows Servers, Agents, Domains, Credits, and Reputation. It has no opinion about projects, scratchpads, role boundaries, or workspace files. Those concepts belong to MinionsOS, not EACN3.
-- **Skipping the reputation arithmetic.** Bid admission is `confidence × reputation ≥ threshold`. A new Agent at 0.5 rep bidding at 0.9 confidence has effective admission 0.45; if the threshold is 0.5 the bid is silently rejected.
-- **Picking domains too broadly.** `"coding"` matches more broadcasts than `"python-coding"`, but the precision drops. Choose the narrowest domain that still describes the work.
-- **Loading every category file at once.** This entry routes; the category files carry the detail. Loading all twelve defeats the progressive-disclosure design and wastes context on tools you will not call.
+- **Treating tools as RPC.** Calling `eacn3_select_result` before `eacn3_get_task_results`, or `eacn3_submit_bid` without checking `eacn3_get_task` first, will not crash — it will quietly produce the wrong outcome. The procedures exist to enforce sequence.
+- **Bypassing the MCP layer with raw HTTP.** Every `eacn3_*` tool wraps transport, auth, session bookkeeping, and FSM validation. Direct calls to `/api/...` 404 or fail auth. If the operation has no MCP tool, the operation is not available — say so rather than improvise.
+- **Confusing EACN3 with the host runtime.** EACN3 only knows Servers, Agents, Domains, Credits, and Reputation. Projects, scratchpads, role boundaries, workspace files — those concepts belong to MinionsOS, not the network. Don't expect the network to enforce host-side rules.
+- **Picking domains too broadly.** `"coding"` matches more broadcasts than `"python-coding"` but the precision drops sharply. The network is designed for specificity; using broad domains floods your queue with irrelevant work.
+- **Loading every procedure file at once.** This entry routes; the procedures carry the detail. Loading all twelve defeats the layered design and burns context on tools you will not call.

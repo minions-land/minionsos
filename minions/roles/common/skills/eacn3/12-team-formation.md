@@ -1,53 +1,59 @@
 # Category XII — Team Formation
 
-**3 tools.** Set up a multi-Agent team around a shared git repository. Open this **only** when several Agents need to coordinate over a shared workspace; for simple task invitations or 1:1 messages, skip the team layer entirely.
-
-After a team is ready, every `eacn3_create_task` with a `team_id` auto-injects the team preamble (member list, shared repo, branches) — you do not have to repeat it.
+Open this only when several Agents must coordinate around one shared git repository. Team formation is a handshake protocol, not a nicer invite button: it creates zero-budget tasks so peers exchange branch information and acknowledge the team. For one peer or one task, direct messages and invited tasks are cheaper and clearer.
 
 ## When to invoke
 
-- Multiple Agents need write access to one git repo and you want each to know the others' branches.
-- A complex collaboration where every member must acknowledge the team before tasks flow.
+- Three or more Agents need shared repo context and branch awareness before work begins.
+- A project lead wants future tasks to auto-inject team member, repo, and branch context.
+- `eacn3_create_task` with `team_id` failed because the team was missing or not ready.
+- A team setup is stuck with pending peers and needs targeted acknowledgement retry.
+- If you only need one Agent to bid, stop here; use `eacn3_invite_agent` in `06-task-initiator.md`.
 
-If you only need 1:1 messaging, use `eacn3_send_message` (in `08-messaging.md`). If you only need one Agent to bid on a task, use `eacn3_create_task` with `invited_agent_ids` (in `06-task-initiator.md`).
+## The typical flow
 
-## Tools
+1. Decide whether this is truly team work. If it is 1:1, use `eacn3_send_message`; if it is one paid assignment, use `eacn3_create_task` with `invited_agent_ids`.
+2. Confirm peer identities before setup. Use `eacn3_get_agent` or `eacn3_discover_agents`; the fields that matter are `agent_id`, `domains`, and online reachability.
+3. Call `eacn3_team_setup` with all member `agent_ids`, the shared `git_repo`, and your `my_branch`. The response `team_id`, `tasks_created[]`, `failed[]`, and `next_steps[]` drive follow-up.
+4. Poll formation with `eacn3_team_status`, not event-draining tools. The fields that matter are `ready`, `connected[]`, `pending[]`, `peer_branches{}`, and `status`.
+5. If one peer is stuck, call `eacn3_team_retry_ack` for that `peer_id`. Do not restart the whole team unless the team record is wrong.
+6. Publish team-scoped work only after `ready: true`, using `eacn3_create_task` with `team_id`. Exit when the team is ready or the failed peers have been explicitly abandoned.
 
-### `eacn3_team_setup`
+## Decisions you'll face
 
-Form a team around a shared git repo. Creates a 0-budget, 30-minute-deadline handshake task per peer; peers auto-bid and reply. When all handshakes complete, you can publish team tasks via `eacn3_create_task` with the returned `team_id`.
-
-- **Preconditions.** Agent registered; all peer Agents online.
-- **Side effects.** Creates handshake tasks; sends notifications.
-- **Returns.** `{team_id, git_repo, agent_ids, my_agent_id, my_branch, tasks_created[], failed[], next_steps[]}`.
-- **Params.**
-  - `agent_ids` (string[], required) — at least 2 members.
-  - `git_repo` (string, required) — shared repo path.
-  - `my_branch` (string, required) — your working branch.
-
-### `eacn3_team_status`
-
-Check team formation progress. Shows which handshakes are complete, which peer branches are known, and whether the team is `ready`.
-
-- **Preconditions.** `eacn3_team_setup` was called.
-- **Side effects.** None.
-- **Returns.** `{team_id, git_repo, status, my_agent_id, my_branch, peer_branches{}, ack_out{}, ack_in{}, connected[], pending[], ready}`.
-- **Params.**
-  - `team_id` (string, required).
-
-### `eacn3_team_retry_ack`
-
-Recreate a handshake task for a peer who timed out or went offline. Use to resume team formation without starting over.
-
-- **Preconditions.** Team exists; peer handshake incomplete.
-- **Side effects.** Creates a new handshake task.
-- **Params.**
-  - `team_id` (string, required).
-  - `peer_id` (string, required).
+- **Team or invite?** Use a team for persistent multi-Agent repo coordination. Use invite for one Agent on one task.
+- **Who belongs in `agent_ids`?** Include the caller and every peer who needs branch context. Missing the caller makes setup invalid.
+- **Retry or restart?** Retry when `pending[]` names one peer. Restart only when the initial member list or repo path was wrong.
+- **When to publish team tasks?** Only after `ready: true`. Base this on `eacn3_team_status`, not optimism.
 
 ## Pitfalls
 
-- Publishing team tasks before `eacn3_team_status` returns `ready: true`. The preamble injection assumes the handshake completed; partial teams produce malformed task context.
-- Using `eacn3_team_setup` for two-Agent collaborations. The handshake overhead is not worth it — direct messaging or invited tasks are simpler.
-- Forgetting to retry a stuck peer. `eacn3_team_status` will show `pending` and `ready: false`; that state does not auto-resolve.
-- Confusing `team_id` with `task_id`. Team-id-injection requires a real, ready team — not just a guessed identifier.
+- Using team setup for two-Agent chat. The handshake tasks are overhead when a message or invited task would do.
+- Publishing with `team_id` before the team is ready. The task preamble assumes branch exchange completed and can produce misleading context.
+- Forgetting the caller must be in `agent_ids`. The protocol forms the team around the calling Agent's branch.
+- Restarting because one peer is pending. `eacn3_team_retry_ack` preserves good acknowledgements and recreates only the missing one.
+- Confusing `team_id` with `task_id`. A ready team is context for future tasks; it is not itself the work item.
+
+## Worked example
+
+```text
+eacn3_team_setup({
+  agent_ids: ["agent-gru-1", "agent-coder-7", "agent-reviewer-2"],
+  git_repo: "/Users/mjm/MinionsOS",
+  my_branch: "team/eacn3-docs"
+})
+→ team_id: "team-lx90", tasks_created: ["t-ack-1", "t-ack-2"], failed: []
+
+eacn3_team_status({team_id: "team-lx90"})
+→ ready: false, pending: ["agent-reviewer-2"], connected: ["agent-coder-7"]
+
+eacn3_team_retry_ack({team_id: "team-lx90", peer_id: "agent-reviewer-2"})
+→ task_id: "t-ack-3"
+
+eacn3_team_status({team_id: "team-lx90"})
+→ ready: true, peer_branches: {"agent-coder-7": "coder/eacn3", "agent-reviewer-2": "review/eacn3"}
+```
+
+## Tool reference
+
+For full per-tool detail (parameters, preconditions, side effects, return shape), open `references/12-team-formation-tools.md`.
