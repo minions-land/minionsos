@@ -128,22 +128,22 @@ class TestWhitelistResolver:
 
     def test_gru_has_project_tools(self) -> None:
         tools = resolve_allowed_tools("gru")
-        assert "project_create" in tools
-        assert "project_kill" in tools
-        assert "project_close" in tools
-        assert "gru_relay" in tools
-        assert "spawn_role" in tools
+        assert "mos_project_create" in tools
+        assert "mos_project_kill" in tools
+        assert "mos_project_close" in tools
+        assert "mos_relay" in tools
+        assert "mos_spawn_role" in tools
 
     def test_gru_has_native_eacn3_and_monitor_tools(self) -> None:
         tools = resolve_allowed_tools("gru")
         assert "eacn3_*" in tools
-        assert "gru_start_monitor" in tools
+        assert "mos_start_monitor" in tools
 
     def test_noter_no_project_tools(self) -> None:
         tools = resolve_allowed_tools("noter")
-        assert "project_create" not in tools
-        assert "gru_relay" not in tools
-        assert "spawn_role" not in tools
+        assert "mos_project_create" not in tools
+        assert "mos_relay" not in tools
+        assert "mos_spawn_role" not in tools
 
     def test_noter_has_eacn3_tools(self) -> None:
         tools = resolve_allowed_tools("noter")
@@ -155,28 +155,28 @@ class TestWhitelistResolver:
 
     def test_experimenter_has_exp_tools(self) -> None:
         tools = resolve_allowed_tools("experimenter")
-        assert "exp_run" in tools
-        assert "exp_put" in tools
-        assert "exp_get" in tools
-        assert "exp_tail" in tools
-        assert "exp_queue_*" in tools
-        assert "exp_gpu_pool_*" in tools
+        assert "mos_exp_run" in tools
+        assert "mos_exp_put" in tools
+        assert "mos_exp_get" in tools
+        assert "mos_exp_tail" in tools
+        assert "mos_exp_queue_*" in tools
+        assert "mos_exp_gpu_pool_*" in tools
 
     def test_reviewer_no_project_tools(self) -> None:
         tools = resolve_allowed_tools("reviewer")
-        assert "project_create" not in tools
-        assert "gru_relay" not in tools
+        assert "mos_project_create" not in tools
+        assert "mos_relay" not in tools
 
     def test_writer_has_paper_search_mcp_tools(self) -> None:
         tools = resolve_allowed_tools("writer")
-        assert "search_arxiv" in tools
-        assert "read_arxiv_paper" in tools
-        assert "search_google_scholar" in tools
+        assert "mos_search_arxiv" in tools
+        assert "mos_read_arxiv_paper" in tools
+        assert "mos_search_google_scholar" in tools
 
     def test_coder_does_not_get_writer_paper_search_mcp(self) -> None:
         tools = resolve_allowed_tools("coder")
-        assert "search_arxiv" not in tools
-        assert "search_google_scholar" not in tools
+        assert "mos_search_arxiv" not in tools
+        assert "mos_search_google_scholar" not in tools
 
     def test_unknown_role_raises(self) -> None:
         with pytest.raises(Exception):

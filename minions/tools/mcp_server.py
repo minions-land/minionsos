@@ -69,54 +69,56 @@ _GRU_START_MONITOR_INTERVAL: int | None = None
 mcp = FastMCP("minions")
 
 _MINIONS_MCP_TOOL_NAMES = {
-    "project_create",
-    "project_close",
-    "project_dormant",
-    "project_kill",
-    "project_revive",
-    "project_set_phase",
-    "project_checkpoint_workspace",
-    "project_list",
-    "spawn_role",
-    "spawn_expert",
-    "dismiss_role",
-    "list_roles",
-    "gru_relay",
-    "exp_run",
-    "exp_status",
-    "exp_wait",
-    "exp_kill",
-    "exp_list",
-    "exp_put",
-    "exp_get",
-    "exp_tail",
-    "query_gpus",
-    "exp_queue_submit",
-    "exp_queue_reconcile",
-    "exp_queue_status",
-    "exp_gpu_pool_set",
-    "exp_gpu_pool_get",
-    "search_arxiv",
-    "search_pubmed",
-    "search_biorxiv",
-    "search_medrxiv",
-    "search_google_scholar",
-    "read_arxiv_paper",
-    "read_pubmed_paper",
-    "read_biorxiv_paper",
-    "read_medrxiv_paper",
-    "download_arxiv",
-    "download_pubmed",
-    "download_biorxiv",
-    "download_medrxiv",
-    "gru_start_monitor",
+    "mos_attach_role",
     "mos_await_events",
-    "mos_dag_query",
-    "mos_dag_append",
     "mos_dag_annotate",
+    "mos_dag_append",
     "mos_dag_path",
+    "mos_dag_query",
     "mos_dag_summary",
+    "mos_dismiss_role",
+    "mos_download_arxiv",
+    "mos_download_biorxiv",
+    "mos_download_medrxiv",
+    "mos_download_pubmed",
+    "mos_exp_get",
+    "mos_exp_gpu_pool_get",
+    "mos_exp_gpu_pool_set",
+    "mos_exp_kill",
+    "mos_exp_list",
+    "mos_exp_put",
+    "mos_exp_queue_reconcile",
+    "mos_exp_queue_status",
+    "mos_exp_queue_submit",
+    "mos_exp_run",
+    "mos_exp_status",
+    "mos_exp_tail",
+    "mos_exp_wait",
+    "mos_kill_role",
+    "mos_list_roles",
+    "mos_project_checkpoint_workspace",
+    "mos_project_close",
+    "mos_project_create",
+    "mos_project_dormant",
+    "mos_project_kill",
+    "mos_project_list",
+    "mos_project_revive",
+    "mos_project_set_phase",
+    "mos_query_gpus",
+    "mos_read_arxiv_paper",
+    "mos_read_biorxiv_paper",
+    "mos_read_medrxiv_paper",
+    "mos_read_pubmed_paper",
+    "mos_relay",
     "mos_reset",
+    "mos_search_arxiv",
+    "mos_search_biorxiv",
+    "mos_search_google_scholar",
+    "mos_search_medrxiv",
+    "mos_search_pubmed",
+    "mos_spawn_expert",
+    "mos_spawn_role",
+    "mos_start_monitor",
 }
 
 
@@ -345,9 +347,9 @@ class PaperIdArgs(BaseModel):
 
 
 @mcp.tool()
-def project_create(args: ProjectCreateArgs) -> dict:
+def mos_project_create(args: ProjectCreateArgs) -> dict:
     """Create a new MinionsOS project, start its EACN3 backend, and register it."""
-    _require_tool_allowed("project_create")
+    _require_tool_allowed("mos_project_create")
     from minions.paths import project_dir as _pdir
     from minions.paths import project_workspace as _pws
 
@@ -372,32 +374,32 @@ def project_create(args: ProjectCreateArgs) -> dict:
 
 
 @mcp.tool()
-def project_close(args: ProjectPortArgs) -> dict:
+def mos_project_close(args: ProjectPortArgs) -> dict:
     """Close a project permanently (stops backend, retires port)."""
-    _require_tool_allowed("project_close")
+    _require_tool_allowed("mos_project_close")
     entry = _project_close(port=args.port)
     return {"port": entry.port}
 
 
 @mcp.tool()
-def project_dormant(args: ProjectPortArgs) -> dict:
+def mos_project_dormant(args: ProjectPortArgs) -> dict:
     """Put a project into dormant state (stops backend, dismisses roles)."""
-    _require_tool_allowed("project_dormant")
+    _require_tool_allowed("mos_project_dormant")
     entry = _project_dormant(port=args.port)
     return {"port": entry.port}
 
 
 @mcp.tool()
-def project_kill(args: ProjectPortArgs) -> dict:
+def mos_project_kill(args: ProjectPortArgs) -> dict:
     """Hard-stop a project runtime without deleting EACN data or retiring its port."""
-    _require_tool_allowed("project_kill")
+    _require_tool_allowed("mos_project_kill")
     return _project_kill(port=args.port)
 
 
 @mcp.tool()
-def project_revive(args: ProjectReviveArgs) -> dict:
+def mos_project_revive(args: ProjectReviveArgs) -> dict:
     """Revive a dormant project (restarts backend, restores roles)."""
-    _require_tool_allowed("project_revive")
+    _require_tool_allowed("mos_project_revive")
     entry = _project_revive(
         port=args.port,
         external_feedback=args.external_feedback,
@@ -407,9 +409,9 @@ def project_revive(args: ProjectReviveArgs) -> dict:
 
 
 @mcp.tool()
-def project_list(args: ProjectListArgs) -> list[dict]:
+def mos_project_list(args: ProjectListArgs) -> list[dict]:
     """List projects, optionally filtered by status."""
-    _require_tool_allowed("project_list")
+    _require_tool_allowed("mos_project_list")
     store = StateStore()
     projects = store.list_projects(filter=args.filter)
     return [
@@ -426,9 +428,9 @@ def project_list(args: ProjectListArgs) -> list[dict]:
 
 
 @mcp.tool()
-def project_set_phase(args: ProjectPhaseArgs) -> dict:
+def mos_project_set_phase(args: ProjectPhaseArgs) -> dict:
     """Record the current project phase and wake roles to reconcile."""
-    _require_tool_allowed("project_set_phase")
+    _require_tool_allowed("mos_project_set_phase")
     entry = _project_set_phase(
         port=args.port,
         phase=args.phase,
@@ -446,9 +448,9 @@ def project_set_phase(args: ProjectPhaseArgs) -> dict:
 
 
 @mcp.tool()
-def project_checkpoint_workspace(args: ProjectCheckpointArgs) -> dict:
+def mos_project_checkpoint_workspace(args: ProjectCheckpointArgs) -> dict:
     """Create a durable git checkpoint for the main or role workspace."""
-    _require_tool_allowed("project_checkpoint_workspace")
+    _require_tool_allowed("mos_project_checkpoint_workspace")
     return _project_checkpoint_workspace(
         args.port,
         role_name=args.role_name,
@@ -457,9 +459,9 @@ def project_checkpoint_workspace(args: ProjectCheckpointArgs) -> dict:
 
 
 @mcp.tool()
-def spawn_role(args: SpawnRoleArgs) -> dict:
+def mos_spawn_role(args: SpawnRoleArgs) -> dict:
     """Spawn a fixed role (noter, coder, experimenter, writer, reviewer, ethics)."""
-    _require_tool_allowed("spawn_role")
+    _require_tool_allowed("mos_spawn_role")
     return _spawn_role(
         project_port=args.project_port,
         role=args.role,
@@ -469,9 +471,9 @@ def spawn_role(args: SpawnRoleArgs) -> dict:
 
 
 @mcp.tool()
-def spawn_expert(args: SpawnExpertArgs) -> dict:
+def mos_spawn_expert(args: SpawnExpertArgs) -> dict:
     """Spawn a domain expert role."""
-    _require_tool_allowed("spawn_expert")
+    _require_tool_allowed("mos_spawn_expert")
     return _spawn_expert(
         project_port=args.project_port,
         domain=args.domain,
@@ -482,9 +484,9 @@ def spawn_expert(args: SpawnExpertArgs) -> dict:
 
 
 @mcp.tool()
-def dismiss_role(args: DismissRoleArgs) -> dict:
+def mos_dismiss_role(args: DismissRoleArgs) -> dict:
     """Dismiss (terminate) a role subprocess."""
-    _require_tool_allowed("dismiss_role")
+    _require_tool_allowed("mos_dismiss_role")
     return _dismiss_role(
         project_port=args.project_port,
         role_name=args.role_name,
@@ -492,16 +494,16 @@ def dismiss_role(args: DismissRoleArgs) -> dict:
 
 
 @mcp.tool()
-def list_roles(args: ListRolesArgs) -> list[dict]:
+def mos_list_roles(args: ListRolesArgs) -> list[dict]:
     """List all roles for a project."""
-    _require_tool_allowed("list_roles")
+    _require_tool_allowed("mos_list_roles")
     return _list_roles(project_port=args.project_port)
 
 
 @mcp.tool()
-def gru_relay(args: GruRelayArgs) -> dict:
+def mos_relay(args: GruRelayArgs) -> dict:
     """Relay a message from one project to another via EACN broadcast."""
-    _require_tool_allowed("gru_relay")
+    _require_tool_allowed("mos_relay")
     return _gru_relay(
         from_port=args.from_port,
         to_port=args.to_port,
@@ -512,201 +514,201 @@ def gru_relay(args: GruRelayArgs) -> dict:
 
 
 @mcp.tool()
-def exp_run(args: _exp.ExpRunArgs) -> dict:
+def mos_exp_run(args: _exp.ExpRunArgs) -> dict:
     """Launch a detached local or SSH experiment run."""
-    _require_tool_allowed("exp_run")
+    _require_tool_allowed("mos_exp_run")
     return _exp.exp_run(args)
 
 
 @mcp.tool()
-def exp_status(args: _exp.ExpStatusArgs) -> dict:
+def mos_exp_status(args: _exp.ExpStatusArgs) -> dict:
     """Check an experiment run state."""
-    _require_tool_allowed("exp_status")
+    _require_tool_allowed("mos_exp_status")
     return _exp.exp_status(args)
 
 
 @mcp.tool()
-def exp_wait(args: _exp.ExpWaitArgs) -> dict:
+def mos_exp_wait(args: _exp.ExpWaitArgs) -> dict:
     """Poll up to timeout seconds for a run to exit."""
-    _require_tool_allowed("exp_wait")
+    _require_tool_allowed("mos_exp_wait")
     return _exp.exp_wait(args)
 
 
 @mcp.tool()
-def exp_kill(args: _exp.ExpKillArgs) -> dict:
+def mos_exp_kill(args: _exp.ExpKillArgs) -> dict:
     """Send SIGTERM to a running experiment process."""
-    _require_tool_allowed("exp_kill")
+    _require_tool_allowed("mos_exp_kill")
     return _exp.exp_kill(args)
 
 
 @mcp.tool()
-def exp_list(args: _exp.ExpListArgs) -> list[dict]:
+def mos_exp_list(args: _exp.ExpListArgs) -> list[dict]:
     """List known experiment runs on a target."""
-    _require_tool_allowed("exp_list")
+    _require_tool_allowed("mos_exp_list")
     return _exp.exp_list(args)
 
 
 @mcp.tool()
-def exp_put(args: _exp.ExpPutArgs) -> dict:
+def mos_exp_put(args: _exp.ExpPutArgs) -> dict:
     """Upload a local file to a target workdir."""
-    _require_tool_allowed("exp_put")
+    _require_tool_allowed("mos_exp_put")
     return _exp.exp_put(args)
 
 
 @mcp.tool()
-def exp_get(args: _exp.ExpGetArgs) -> dict:
+def mos_exp_get(args: _exp.ExpGetArgs) -> dict:
     """Download a target file, refusing files over the experiment size limit."""
-    _require_tool_allowed("exp_get")
+    _require_tool_allowed("mos_exp_get")
     return _exp.exp_get(args)
 
 
 @mcp.tool()
-def exp_tail(args: _exp.ExpTailArgs) -> dict:
+def mos_exp_tail(args: _exp.ExpTailArgs) -> dict:
     """Tail a target log file."""
-    _require_tool_allowed("exp_tail")
+    _require_tool_allowed("mos_exp_tail")
     return _exp.exp_tail(args)
 
 
 @mcp.tool()
-def query_gpus(args: _exp.QueryGpusArgs) -> list[dict]:
+def mos_query_gpus(args: _exp.QueryGpusArgs) -> list[dict]:
     """Query GPU memory on a target."""
-    _require_tool_allowed("query_gpus")
+    _require_tool_allowed("mos_query_gpus")
     return _exp.query_gpus(args)
 
 
 @mcp.tool()
-def exp_queue_submit(args: _exp.ExpQueueSubmitArgs) -> dict:
+def mos_exp_queue_submit(args: _exp.ExpQueueSubmitArgs) -> dict:
     """Append experiment units to the project-global GPU queue."""
-    _require_tool_allowed("exp_queue_submit")
+    _require_tool_allowed("mos_exp_queue_submit")
     return _exp.exp_queue_submit(args)
 
 
 @mcp.tool()
-def exp_queue_reconcile(args: _exp.ExpQueueReconcileArgs) -> dict:
+def mos_exp_queue_reconcile(args: _exp.ExpQueueReconcileArgs) -> dict:
     """Run one Python-side experiment queue reconcile pass."""
-    _require_tool_allowed("exp_queue_reconcile")
+    _require_tool_allowed("mos_exp_queue_reconcile")
     return _exp.exp_queue_reconcile(args)
 
 
 @mcp.tool()
-def exp_queue_status(args: _exp.ExpQueueStatusArgs) -> dict:
+def mos_exp_queue_status(args: _exp.ExpQueueStatusArgs) -> dict:
     """Return experiment queue status."""
-    _require_tool_allowed("exp_queue_status")
+    _require_tool_allowed("mos_exp_queue_status")
     return _exp.exp_queue_status(args)
 
 
 @mcp.tool()
-def exp_gpu_pool_set(args: _exp.ExpQueueGpuPoolSetArgs) -> dict:
+def mos_exp_gpu_pool_set(args: _exp.ExpQueueGpuPoolSetArgs) -> dict:
     """Set the dynamic GPU allow-list for new experiment runs."""
-    _require_tool_allowed("exp_gpu_pool_set")
+    _require_tool_allowed("mos_exp_gpu_pool_set")
     return _exp.exp_gpu_pool_set(args)
 
 
 @mcp.tool()
-def exp_gpu_pool_get(args: _exp.ExpQueueGpuPoolGetArgs) -> dict:
+def mos_exp_gpu_pool_get(args: _exp.ExpQueueGpuPoolGetArgs) -> dict:
     """Return dynamic GPU pool overrides."""
-    _require_tool_allowed("exp_gpu_pool_get")
+    _require_tool_allowed("mos_exp_gpu_pool_get")
     return _exp.exp_gpu_pool_get(args)
 
 
 @mcp.tool()
-def search_arxiv(args: PaperSearchArgs) -> list[dict]:
+def mos_search_arxiv(args: PaperSearchArgs) -> list[dict]:
     """Search arXiv papers through the project-local MinionsOS MCP server."""
-    _require_tool_allowed("search_arxiv")
+    _require_tool_allowed("mos_search_arxiv")
     return _paper_search.search_arxiv(args.query, args.max_results)
 
 
 @mcp.tool()
-def search_pubmed(args: PaperSearchArgs) -> list[dict]:
+def mos_search_pubmed(args: PaperSearchArgs) -> list[dict]:
     """Search PubMed papers through the project-local MinionsOS MCP server."""
-    _require_tool_allowed("search_pubmed")
+    _require_tool_allowed("mos_search_pubmed")
     return _paper_search.search_pubmed(args.query, args.max_results)
 
 
 @mcp.tool()
-def search_biorxiv(args: PaperSearchArgs) -> list[dict]:
+def mos_search_biorxiv(args: PaperSearchArgs) -> list[dict]:
     """Search bioRxiv-indexed preprints through Europe PMC."""
-    _require_tool_allowed("search_biorxiv")
+    _require_tool_allowed("mos_search_biorxiv")
     return _paper_search.search_biorxiv(args.query, args.max_results)
 
 
 @mcp.tool()
-def search_medrxiv(args: PaperSearchArgs) -> list[dict]:
+def mos_search_medrxiv(args: PaperSearchArgs) -> list[dict]:
     """Search medRxiv-indexed preprints through Europe PMC."""
-    _require_tool_allowed("search_medrxiv")
+    _require_tool_allowed("mos_search_medrxiv")
     return _paper_search.search_medrxiv(args.query, args.max_results)
 
 
 @mcp.tool()
-def search_google_scholar(args: PaperSearchArgs) -> list[dict]:
+def mos_search_google_scholar(args: PaperSearchArgs) -> list[dict]:
     """Scholar-like broad search using Semantic Scholar metadata."""
-    _require_tool_allowed("search_google_scholar")
+    _require_tool_allowed("mos_search_google_scholar")
     return _paper_search.search_google_scholar(args.query, args.max_results)
 
 
 @mcp.tool()
-def read_arxiv_paper(args: PaperIdArgs) -> str:
+def mos_read_arxiv_paper(args: PaperIdArgs) -> str:
     """Read arXiv metadata and abstract text for a paper id."""
-    _require_tool_allowed("read_arxiv_paper")
+    _require_tool_allowed("mos_read_arxiv_paper")
     return _paper_search.read_arxiv_paper(args.paper_id, args.save_path)
 
 
 @mcp.tool()
-def read_pubmed_paper(args: PaperIdArgs) -> str:
+def mos_read_pubmed_paper(args: PaperIdArgs) -> str:
     """Read PubMed metadata and abstract text for a PMID."""
-    _require_tool_allowed("read_pubmed_paper")
+    _require_tool_allowed("mos_read_pubmed_paper")
     return _paper_search.read_pubmed_paper(args.paper_id, args.save_path)
 
 
 @mcp.tool()
-def read_biorxiv_paper(args: PaperIdArgs) -> str:
+def mos_read_biorxiv_paper(args: PaperIdArgs) -> str:
     """Read bioRxiv metadata pointers for a DOI-like paper id."""
-    _require_tool_allowed("read_biorxiv_paper")
+    _require_tool_allowed("mos_read_biorxiv_paper")
     return _paper_search.read_biorxiv_paper(args.paper_id, args.save_path)
 
 
 @mcp.tool()
-def read_medrxiv_paper(args: PaperIdArgs) -> str:
+def mos_read_medrxiv_paper(args: PaperIdArgs) -> str:
     """Read medRxiv metadata pointers for a DOI-like paper id."""
-    _require_tool_allowed("read_medrxiv_paper")
+    _require_tool_allowed("mos_read_medrxiv_paper")
     return _paper_search.read_medrxiv_paper(args.paper_id, args.save_path)
 
 
 @mcp.tool()
-def download_arxiv(args: PaperIdArgs) -> str:
+def mos_download_arxiv(args: PaperIdArgs) -> str:
     """Download an arXiv PDF to a relative workspace path."""
-    _require_tool_allowed("download_arxiv")
+    _require_tool_allowed("mos_download_arxiv")
     return _paper_search.download_arxiv(args.paper_id, args.save_path)
 
 
 @mcp.tool()
-def download_pubmed(args: PaperIdArgs) -> str:
+def mos_download_pubmed(args: PaperIdArgs) -> str:
     """Save PubMed metadata and abstract text to a relative workspace path."""
-    _require_tool_allowed("download_pubmed")
+    _require_tool_allowed("mos_download_pubmed")
     return _paper_search.download_pubmed(args.paper_id, args.save_path)
 
 
 @mcp.tool()
-def download_biorxiv(args: PaperIdArgs) -> str:
+def mos_download_biorxiv(args: PaperIdArgs) -> str:
     """Download a bioRxiv PDF to a relative workspace path."""
-    _require_tool_allowed("download_biorxiv")
+    _require_tool_allowed("mos_download_biorxiv")
     return _paper_search.download_biorxiv(args.paper_id, args.save_path)
 
 
 @mcp.tool()
-def download_medrxiv(args: PaperIdArgs) -> str:
+def mos_download_medrxiv(args: PaperIdArgs) -> str:
     """Download a medRxiv PDF to a relative workspace path."""
-    _require_tool_allowed("download_medrxiv")
+    _require_tool_allowed("mos_download_medrxiv")
     return _paper_search.download_medrxiv(args.paper_id, args.save_path)
 
 
 @mcp.tool()
-def gru_start_monitor(heartbeat_interval: int | None = None) -> dict:
+def mos_start_monitor(heartbeat_interval: int | None = None) -> dict:
     """Start the Gru heartbeat/health monitor as a background daemon thread.
 
     Idempotent: a second call while the monitor is still alive is a no-op.
     """
-    _require_tool_allowed("gru_start_monitor")
+    _require_tool_allowed("mos_start_monitor")
     from minions.gru.loop import GruLoop
 
     global _GRU_START_MONITOR_THREAD, _GRU_START_MONITOR_INTERVAL
@@ -864,6 +866,59 @@ def mos_reset(args: MosResetArgs) -> dict:
     """
     _require_tool_allowed("mos_reset")
     return _reset.mos_reset(reason=args.reason)
+
+
+# ── Resident-Role tmux helpers ─────────────────────────────────────────
+
+
+class RoleSessionArgs(BaseModel):
+    project_port: int = Field(description="Project port.")
+    role_name: str = Field(description="Role name.")
+
+
+@mcp.tool()
+def mos_attach_role(args: RoleSessionArgs) -> dict:
+    """Return the tmux command to attach to a Role's resident session.
+
+    The launcher itself does not attach. The caller (operator) runs the
+    returned command in their own terminal. Read-only — does not change
+    the session or the registry.
+    """
+    _require_tool_allowed("mos_attach_role")
+    from minions.lifecycle.role_launcher import (
+        attach_command,
+        session_alive,
+    )
+    from minions.lifecycle.role_launcher import (
+        session_name as _session_name,
+    )
+
+    name = _session_name(args.project_port, args.role_name)
+    alive = session_alive(args.project_port, args.role_name)
+    return {
+        "session_name": name,
+        "alive": alive,
+        "attach_cmd": attach_command(args.project_port, args.role_name),
+    }
+
+
+@mcp.tool()
+def mos_kill_role(args: RoleSessionArgs) -> dict:
+    """Kill the tmux session for a Role without dismissing it from the registry.
+
+    Use this when a Role process is wedged and you want the watchdog to
+    relaunch it on the next tick. To permanently retire a role use
+    ``mos_dismiss_role`` instead.
+    """
+    _require_tool_allowed("mos_kill_role")
+    from minions.lifecycle.role_launcher import kill_session
+
+    killed = kill_session(args.project_port, args.role_name)
+    return {
+        "project_port": args.project_port,
+        "role_name": args.role_name,
+        "killed": killed,
+    }
 
 
 def main() -> None:
