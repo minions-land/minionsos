@@ -20,9 +20,10 @@ research projects.
 
 - **Project isolation.** Every project has its own `project_{port}/` directory,
   EACN3 backend, SQLite state, git worktree, logs, artifacts, and role memory.
-- **Event-driven Roles.** Noter, Coder, Experimenter, Writer, Reviewer, Ethics,
-  and Expert are short-lived Claude Code or Codex subprocesses launched by the Python
-  `WakeupScheduler`.
+- **Long-lived Roles.** Noter, Coder, Experimenter, Writer, Reviewer, Ethics,
+  and Expert run as resident `claude` processes inside named tmux sessions
+  (`mos-{port}-{role}`). Each Role drives its own event loop via
+  `mos_await_events()`.
 - **Gru as the control plane.** Gru is the human-facing supervisor and the only
   component allowed to create projects, spawn roles, and relay across projects.
 - **Tool and write boundaries.** Claude roles still receive `--allowed-tools`;
@@ -40,10 +41,10 @@ research projects.
   history-aware revision delta, a consolidated meta-review, and a rolling
   summary.
 - **Experiment execution.** Experimenter can submit work to a Python-side
-  project queue with `exp_queue_submit`, keep GPUs filled via
-  `exp_queue_reconcile`, change the dynamic GPU allow-list with
-  `exp_gpu_pool_set`, and still use direct `exp_run` / `exp_status` /
-  `query_gpus` primitives for one-off debugging.
+  project queue with `mos_exp_queue_submit`, keep GPUs filled via
+  `mos_exp_queue_reconcile`, change the dynamic GPU allow-list with
+  `mos_exp_gpu_pool_set`, and still use direct `mos_exp_run` / `mos_exp_status` /
+  `mos_query_gpus` primitives for one-off debugging.
 - **Read-only observability.** `minions-viz/` provides a machine-wide
   MinionsVIZ dashboard without draining role queues or mutating EACN3.
 
@@ -437,9 +438,9 @@ agent host，Claude Code 可通过同一套 MinionsOS 生命周期和 EACN3 bus 
 
 - **项目隔离。** 每个项目都有独立的 `project_{port}/`、EACN3 后端、SQLite
   状态、git worktree、日志、产物和 Role 记忆。
-- **事件驱动 Role。** Noter、Coder、Experimenter、Writer、Reviewer、Ethics
-  和 Expert 都是由 Python `WakeupScheduler` 拉起的短生命周期 Claude Code 或
-  Codex 子进程。
+- **常驻 Role。** Noter、Coder、Experimenter、Writer、Reviewer、Ethics
+  和 Expert 都以常驻 `claude` 进程运行在各自命名的 tmux 会话
+  （`mos-{port}-{role}`）中，靠 `mos_await_events()` 驱动自己的事件循环。
 - **Gru 作为控制面。** Gru 是唯一人机入口，也是唯一可创建项目、spawn Role、跨项目
   relay 的组件。
 - **工具和写入边界。** Claude Role 继续通过 `--allowed-tools` 限制工具面；
@@ -454,9 +455,9 @@ agent host，Claude Code 可通过同一套 MinionsOS 生命周期和 EACN3 bus 
   份独立 reviewer 报告、带历史上下文的 revision delta、consolidated
   meta-review 和滚动 summary。
 - **实验执行。** Experimenter 可通过 Python 侧项目队列
-  `exp_queue_submit` / `exp_queue_reconcile` 填满 GPU，通过
-  `exp_gpu_pool_set` 动态调整可用 GPU 集合，并保留 `exp_run` /
-  `exp_status` / `query_gpus` 等直接调试原语。
+  `mos_exp_queue_submit` / `mos_exp_queue_reconcile` 填满 GPU，通过
+  `mos_exp_gpu_pool_set` 动态调整可用 GPU 集合，并保留 `mos_exp_run` /
+  `mos_exp_status` / `mos_query_gpus` 等直接调试原语。
 - **只读观察台。** `minions-viz/` 提供机器级单例的 MinionsVIZ 仪表盘，不消耗
   Role 事件队列，也不修改 EACN3。
 

@@ -80,17 +80,17 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 ### Python package responsibilities
 
 - `minions/cli.py` is the `mos` CLI entry point and dispatches project, role, logs, doctor, and viz commands.
-- `minions/gru/loop.py` runs the Gru monitor loop and starts the Python-side wake-up scheduler.
+- `minions/gru/loop.py` runs the Gru monitor loop (backend health probes, resident-Role tmux watchdog, experiment queue reconcile).
 - `minions/lifecycle/project.py` implements project create/close/dormant/revive behavior, including project directories, metadata, worktrees, backends, and artifacts.
-- `minions/lifecycle/agent_host.py` builds Claude Code and Codex subprocess invocations.
-- `minions/lifecycle/role.py` registers roles, builds common+role system prompts, injects skills, invokes ephemeral role subprocesses through the selected agent host, and dismisses roles.
-- `minions/lifecycle/wakeup.py` contains `WakeupScheduler`. It runs one asyncio task per (project, role) that long-polls EACN3 in 60s chunks, invokes the role with any drained events delivered in the init prompt, and awaits the role subprocess before resuming the loop.
-- `minions/lifecycle/eacn_client.py` is the thin EACN3 HTTP client used by the scheduler and lifecycle code (registration, bootstrap messages, health-event notifications).
+- `minions/lifecycle/agent_host.py` builds the long-lived `claude` invocation for each Role and the forever-loop initial prompt.
+- `minions/lifecycle/role.py` registers roles (project-local EACN3 AgentCard, role workspace, host session name) and dismisses them. Resident-Role process startup runs through `role_launcher.py`.
+- `minions/lifecycle/role_launcher.py` starts the long-lived Role process for each (project, role) inside a named tmux session (`mos-{port}-{role}`). The Role drives its own event loop via `mos_await_events()`. The launcher also exposes `session_alive` / `kill_session` / `attach_command` for the watchdog and the operator.
+- `minions/lifecycle/eacn_client.py` is the thin EACN3 HTTP client used by lifecycle code and `mos_await_events` (registration, bootstrap messages, health-event notifications).
 - `minions/lifecycle/agent_registry.py` and `eacn_identity.py` keep project-local AgentCard identities stable.
 - `minions/lifecycle/relay.py` implements the Gru-only cross-project relay path.
 - `minions/state/` contains file-backed state management and port allocation.
 - `minions/tools/mcp_server.py` exposes lifecycle operations as FastMCP tools.
-- `minions/tools/experiment_ssh.py` implements Experimenter `exp_*` local/SSH execution tools, including queue-facing `exp_queue_*` and `exp_gpu_pool_*`.
+- `minions/tools/experiment_ssh.py` implements Experimenter `mos_exp_*` local/SSH execution tools, including queue-facing `exp_queue_*` and `exp_gpu_pool_*`.
 - `minions/tools/experiment_scheduler.py` keeps the SQLite-backed project experiment queue and GPU packing logic.
 - `minions/tools/paper_search.py` implements Writer paper-search helpers exposed through MCP.
 - `minions/tools/whitelist.py` resolves allowed tool surfaces for main roles vs. subagents.
@@ -112,15 +112,15 @@ project_{port}/
 └── logs/                  # backend.log and role-{name}.log
 ```
 
-The parent directory containing this repository must be a git repository before `project_create`, because MinionsOS creates per-project worktrees from the parent repo. `./install.sh` warns about this and `./mos doctor` re-checks it.
+The parent directory containing this repository must be a git repository before `mos_project_create`, because MinionsOS creates per-project worktrees from the parent repo. `./install.sh` warns about this and `./mos doctor` re-checks it.
 
 ### Role lifecycle and boundaries
 
 Roles are event-driven and ephemeral. No Role should run a long-lived agent-host process or implement an in-agent polling loop. Every active project agent, including Noter and the per-project Gru queue agent, must be registered as an AgentCard on that project's Local EACN3 network.
 
-The one thing MinionsOS encapsulates around EACN3 is `minions/lifecycle/wakeup.py` — a single per-(project, role) long-poll loop. For each registered role the scheduler chains 60-second `GET /api/events/{agent_id}` calls (EACN3's hard server-side cap), and when events arrive it launches a short-lived Claude Code or Codex subprocess seeded with the shared `minions/roles/SYSTEM.md`, the Role `SYSTEM.md`, discovered skills, scratchpad context, identity / boundary context, and the event batch in the init prompt. Roles do not call `eacn3_await_events` themselves; they respond with raw `eacn3_send_message` / `eacn3_create_task` / `eacn3_submit_bid` / `eacn3_submit_result` and exit when done.
+Each Role is a long-lived `claude` process running inside its own tmux session named `mos-{port}-{role}`. The Role drives its event loop with `mos_await_events()` (in `minions/tools/await_events.py`), which wraps the project-local 60-second `GET /api/events/{agent_id}` long-poll, drains events on read, runs an idle-check after ~5 minutes of silence, and only returns when there is actionable content. Heartbeat writes happen between polls so the Gru sidecar watchdog can spot a dead session and respawn it. Roles respond with raw `eacn3_send_message` / `eacn3_create_task` / `eacn3_submit_bid` / `eacn3_submit_result` and stay resident across many cycles. They do not call `eacn3_await_events` / `eacn3_next` / `eacn3_get_events` directly — that bypasses the wrapper and drops the suggested-action annotations.
 
-Only Gru may spawn EACN-visible agents or use `project_*`, `spawn_*`, and `gru_relay` tools. Subagents or local teams created inside a Role are EACN-invisible by design: they do not have `eacn3_*` tools and do not appear in `projects.json`.
+Only Gru may spawn EACN-visible agents or use `mos_project_*`, `mos_spawn_*`, and `mos_relay` tools. Subagents or local teams created inside a Role are EACN-invisible by design: they do not have `eacn3_*` tools and do not appear in `projects.json`.
 
 Claude Code still receives CLI `--allowed-tools`. Codex does not expose the same flag, so MinionsOS MCP server-side authorization in `minions/tools/mcp_server.py` must remain aligned with `minions.config.resolve_whitelist`.
 

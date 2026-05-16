@@ -2,7 +2,7 @@
 slug: collect-report
 summary: Turn a completed run's raw outputs into a structured result bundle under artifacts/exp-{id}/ — request, execution facts, metrics, artifacts, failures.
 layer: logical
-tools: exp_get
+tools: mos_exp_get
 version: 2
 status: active
 supersedes:
@@ -16,7 +16,7 @@ Assemble the operational record of one run so Expert, Noter, Writer, and future 
 
 ## When to invoke
 
-- As soon as `exp_status` reports a terminal state (completed / failed / killed) for a tracked run.
+- As soon as `mos_exp_status` reports a terminal state (completed / failed / killed) for a tracked run.
 - Before dispatching any follow-up experiment that depends on this run's outputs.
 
 ## Structure
@@ -25,7 +25,7 @@ Bundle directory `artifacts/exp-{id}/` contains: `report.md`, pulled log excerpt
 
 ## Procedure
 
-1. **Fetch results.** `exp_get` for files ≤ 500 MB (metrics CSVs, small checkpoints, log excerpts). Larger outputs stay on the remote target — record their remote path. Never pull > 500 MB locally.
+1. **Fetch results.** `mos_exp_get` for files ≤ 500 MB (metrics CSVs, small checkpoints, log excerpts). Larger outputs stay on the remote target — record their remote path. Never pull > 500 MB locally.
 2. **Populate the bundle directory.** `artifacts/exp-{id}/` contains `report.md`, pulled log excerpts, metrics files, `remote_paths.txt`.
 3. **Write `report.md`.** Format per `SYSTEM.md`: request, execution plan, run status, wallclock, GPU usage, metrics, artifact list, failures, reproducibility note, pending issues, suggested next actions.
 4. **Separate fact from interpretation.** Operational facts (status, timing, metrics as emitted) in the body. Light interpretation (e.g. "loss plateau suggests LR too low") permitted but flagged and left to Expert.

@@ -1,16 +1,16 @@
 ---
-slug: socratic-inquiry
-summary: Open when a task arrives with unstated constraints, or when the team is about to act on premises nobody examined — expose hidden assumptions before committing to a direction.
+slug: unstated-premises
+summary: Open when a task arrives with unstated constraints, or when the team is about to act on premises nobody examined — inventory premises, classify each as explicit/implicit/smuggled, expose what is NOT said.
 layer: logical
 tools: eacn3_send_message
-version: 1
+version: 2
 status: active
-supersedes:
-references: first-principles, dialectics
+supersedes: socratic-inquiry
+references: first-principles, dialectical-synthesis
 provenance: human+agent
 ---
 
-# Skill — Socratic Inquiry
+# Skill — Unstated Premises
 
 What are we assuming that nobody said out loud? The most expensive mistakes come from premises the team did not know it had.
 
@@ -38,7 +38,7 @@ Three-step exposure: inventory premises → classify each → identify what is N
 4. **Resolve or escalate.** For each `[smuggled]` premise:
    - Can you resolve it by reading an artifact, checking git history, or calling a non-destructive EACN read? → Do so.
    - Cannot resolve locally? → Send a targeted `eacn3_send_message` to the role that owns that knowledge. State the specific question and why it matters. Then exit this wake; MinionsOS re-wakes you on reply.
-5. **Mark the output.** `[evidence: socratic-inquiry — premises verified from <source>]` or `[speculation — premise X unverified, proceeding conditionally]`.
+5. **Mark the output.** `[evidence: unstated-premises — premises verified from <source>]` or `[speculation — premise X unverified, proceeding conditionally]`.
 
 ## Pitfalls
 

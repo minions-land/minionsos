@@ -1,11 +1,11 @@
 ---
 slug: think-then-act
-summary: Think then act — toolkit of four cognitive postures for structured planning. Use any combination of Socratic inquiry, first-principles derivation, dialectical synthesis, and goal-setting before dispatching execution.
+summary: Think then act — toolkit of four cognitive postures for structured planning. Use any combination of unstated-premises audit, first-principles derivation, dialectical synthesis, and goal-setting before dispatching execution.
 layer: logical
 tools: eacn3_send_message, codex
 version: 3
 status: active
-references: socratic-inquiry, first-principles, dialectics, goal-setting
+references: unstated-premises, first-principles, dialectical-synthesis, goal-setting
 provenance: human+agent
 ---
 
@@ -29,9 +29,9 @@ that is all the situation needs.
 
 | Posture | Skill file | Use when... |
 |---|---|---|
-| **Socratic** | `socratic-inquiry.md` | Task has unstated constraints or you are filling in blanks with "obviously" |
+| **Unstated Premises** | `unstated-premises.md` | Task has unstated constraints or you are filling in blanks with "obviously" |
 | **First-Principles** | `first-principles.md` | "Everyone does it this way" is the strongest argument, or you need to derive options from mechanisms |
-| **Dialectics** | `dialectics.md` | Two approaches conflict, or you are about to commit to a confident claim |
+| **Dialectical Synthesis** | `dialectical-synthesis.md` | Two approaches conflict, or you are about to commit to a confident claim |
 | **Goal-Setting** | `goal-setting.md` | You are about to dispatch work and need to define what "done" looks like |
 
 Each posture is an independent skill. Read its file when you decide to use it.
@@ -40,9 +40,9 @@ Each posture is an independent skill. Read its file when you decide to use it.
 
 For complex, ambiguous tasks where you genuinely do not know how to start:
 
-1. **Socratic** — surface what is NOT said
+1. **Unstated Premises** — surface what is NOT said
 2. **First-Principles** — derive options from constraints
-3. **Dialectics** — model tensions between options
+3. **Dialectical Synthesis** — model tensions between options
 4. **Goal-Setting** — define acceptance metrics
 
 Then write a plan and dispatch. But this is ONE way to use the toolkit.
@@ -50,9 +50,9 @@ Then write a plan and dispatch. But this is ONE way to use the toolkit.
 ## Other valid patterns
 
 - **Just Goal-Setting**: Task is clear, you only need to define metrics before dispatch.
-- **Socratic → Goal-Setting**: Premises are unclear but once clarified, the path is obvious.
-- **First-Principles → Dialectics**: You need to derive options and pick between them, but premises are already explicit and metrics are trivial.
-- **Socratic only**: You realize you cannot proceed and need to consult another role via EACN.
+- **Unstated-Premises → Goal-Setting**: Premises are unclear but once clarified, the path is obvious.
+- **First-Principles → Dialectical Synthesis**: You need to derive options and pick between them, but premises are already explicit and metrics are trivial.
+- **Unstated-Premises only**: You realize you cannot proceed and need to consult another role via EACN.
 - **Skip all four**: The task is well-specified, the approach is obvious, and "test passes" is a sufficient goal. Just do it.
 
 The agent decides. The skill does not decide for you.

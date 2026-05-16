@@ -6,7 +6,7 @@ tools:
 version: 2
 status: active
 supersedes:
-references: dialectics
+references: dialectical-synthesis
 provenance: human
 ---
 

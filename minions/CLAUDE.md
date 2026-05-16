@@ -49,10 +49,12 @@ minions/
 Roles are long-lived agent-host processes. Each Role drives its own event loop
 by calling `mos_await_events` on its EACN3 queue. MinionsOS no longer launches
 short-lived per-event subprocesses — the ephemeral invocation machinery
-(`WakeupScheduler`, `invoke_role_ephemeral`) was retired in v6.
+(`WakeupScheduler`, `invoke_role_ephemeral`) was retired in v6, and Roles
+are now started by `minions/lifecycle/role_launcher.py` inside their own
+tmux session driving `mos_await_events()`.
 
-- `minions/lifecycle/role.py` exposes `register_role` / `register_expert` (registers a project-local EACN AgentCard, prepares the role workspace, and records a named host session; no subprocess launch) and `dismiss_role` / `list_roles`.
-- `minions/lifecycle/project.py` also exposes `project_checkpoint_workspace(...)` for durable local commits and optional GitHub push when `github_push_target` is configured.
+- `minions/lifecycle/role.py` exposes `register_role` / `register_expert` (registers a project-local EACN AgentCard, prepares the role workspace, and records a named host session; no subprocess launch) and `mos_dismiss_role` / `mos_list_roles`.
+- `minions/lifecycle/project.py` also exposes `mos_project_checkpoint_workspace(...)` for durable local commits and optional GitHub push when `github_push_target` is configured.
 - `minions/lifecycle/agent_host.py` is the only place that should know CLI-specific role invocation details.
 - `minions/gru/loop.py` runs the Gru heartbeat monitor and experiment queue reconciliation.
 - Role `SYSTEM.md` files must not describe a polling loop. Shared role/subagent/scratchpad/EACN behavior lives in `minions/roles/SYSTEM.md`; review output formats live under `minions/roles/reviewer/templates/`.
@@ -71,7 +73,7 @@ Key design points:
 1. Create `minions/roles/{role}/SYSTEM.md`. Keep it lean: identity and scope, can do, cannot do, workspace constraints, collaboration rules, and role-specific deviations from the common contract. Do **not** redeclare the polling loop, generic subagent handoff rules, or scratchpad rules — those live in `minions/roles/SYSTEM.md`.
 2. Update `minions/config/__init__.py` `_WHITELIST` to add `main` and `subagent` entries for the new role.
 3. Add a row to the tool/write boundary table in root `CLAUDE.md`.
-4. If the new role registers via `spawn_role`, add its name to `FIXED_ROLES` in `minions/lifecycle/role.py`.
+4. If the new role registers via `mos_spawn_role`, add its name to `FIXED_ROLES` in `minions/lifecycle/role.py`.
 5. Write a unit test under `tests/unit/` covering registration and whitelist resolution.
 6. If the new role has a multi-pass workflow (like Reviewer's 3-Pass progressive disclosure), document the pass boundaries and isolation rules explicitly; do not let later passes contaminate earlier ones by accident.
 

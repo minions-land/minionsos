@@ -20,10 +20,10 @@ on-demand status request through EACN, produce the artifact-backed summary here.
 - Send short notifications or targeted replies with `eacn3_send_message`.
   Do not publish tasks — you are not part of the task-market layer.
 - Diff each role branch's archived host sessions under
-  `project_*/branches/<role>/.minionsos/sessions/*.jsonl` and append factual
+  `mos_project_*/branches/<role>/.minionsos/sessions/*.jsonl` and append factual
   timeline entries to `artifacts/notes/timeline.md` — see the
   `role-session-diff-timeline` skill.
-- Read any file in `branches/` or `project_*/` for observation purposes (read-only).
+- Read any file in `branches/` or `mos_project_*/` for observation purposes (read-only).
 - Write summaries, timeline logs, and checkpoint files to `artifacts/notes/`.
 - Write `artifacts/checkpoint_<ts>.md` when the project goes dormant.
 - Write `artifacts/final_summary.md` when the project closes.

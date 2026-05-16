@@ -2,7 +2,7 @@
 slug: paper-literature-search
 summary: Focused literature search for paper writing — claim-first queries via the MinionsOS paper-search MCP tools (arxiv / pubmed / biorxiv / medrxiv / scholar), with verify-before-cite discipline.
 layer: logical
-tools: search_arxiv, search_pubmed, search_biorxiv, search_medrxiv, search_google_scholar, read_arxiv_paper, read_pubmed_paper, read_biorxiv_paper, read_medrxiv_paper, download_arxiv, download_pubmed, download_biorxiv, download_medrxiv
+tools: mos_search_arxiv, mos_search_pubmed, mos_search_biorxiv, mos_search_medrxiv, mos_search_google_scholar, mos_read_arxiv_paper, mos_read_pubmed_paper, mos_read_biorxiv_paper, mos_read_medrxiv_paper, mos_download_arxiv, mos_download_pubmed, mos_download_biorxiv, mos_download_medrxiv
 version: 3
 status: active
 supersedes: paper-search-tools
@@ -24,9 +24,9 @@ This skill does two things on purpose: it names the **MCP tools** to use for sch
 
 Tool families from the `minionsos` MCP server. Use the dedicated tool first; fall back to general web search only if it is unavailable.
 
-- **Search.** `search_arxiv`, `search_pubmed`, `search_biorxiv`, `search_medrxiv`, `search_google_scholar`.
-- **Read.** `read_arxiv_paper`, `read_pubmed_paper`, `read_biorxiv_paper`, `read_medrxiv_paper`.
-- **Download.** `download_arxiv`, `download_pubmed`, `download_biorxiv`, `download_medrxiv`.
+- **Search.** `mos_search_arxiv`, `mos_search_pubmed`, `mos_search_biorxiv`, `mos_search_medrxiv`, `mos_search_google_scholar`.
+- **Read.** `mos_read_arxiv_paper`, `mos_read_pubmed_paper`, `mos_read_biorxiv_paper`, `mos_read_medrxiv_paper`.
+- **Download.** `mos_download_arxiv`, `mos_download_pubmed`, `mos_download_biorxiv`, `mos_download_medrxiv`.
 - **Fallback.** `WebSearch` / `WebFetch` when a dedicated tool is unavailable. Record the lookup source. Do not block the whole paper because one source is down.
 
 Output paths: background / closest-related / dataset-benchmark / methodology / contrasting-work groups under `branches/writer/paper/references/` or `branches/writer/paper/notes/`. Per-paper metadata: title, authors, year, venue / source, URL or ID, DOI / arXiv ID when present, and the specific claim the paper supports.

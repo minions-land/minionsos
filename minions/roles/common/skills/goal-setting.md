@@ -6,7 +6,7 @@ tools: codex
 version: 1
 status: active
 supersedes:
-references: first-principles, dialectics, socratic-inquiry
+references: first-principles, dialectical-synthesis, unstated-premises
 provenance: human+agent
 ---
 
@@ -16,7 +16,7 @@ No task without a way to know it worked. If you cannot say "I will know success 
 
 ## When to invoke
 
-- You have decided WHAT to do (after first-principles + dialectics) and are about to decide HOW to verify it.
+- You have decided WHAT to do (after first-principles + dialectical-synthesis) and are about to decide HOW to verify it.
 - Writing acceptance criteria for a plan, a subagent prompt, or an EACN task.
 - Designing an experiment's success/failure boundary.
 - Any time you are about to dispatch work to a subagent or Codex — the goal is what you hand them as their stopping condition.
@@ -31,7 +31,7 @@ Five-element loop definition: sensor → metric → threshold → feedback perio
 
 1. **Sensor.** What observable thing do you measure? Must be something the executor can actually read (a test output, a file diff, a benchmark number, a response from another role, a log line). Not "code quality" — that's a judgment, not a sensor.
 2. **Metric.** How do you quantify the sensor reading? Binary (pass/fail), numeric (latency in ms, accuracy %), or categorical (accepted/rejected/needs-revision). Pick the simplest metric that distinguishes success from failure.
-3. **Threshold.** What value means success? Be specific: "P95 latency < 500ms", "all 12 tests pass", "reviewer does not flag the claim as unsupported." If you cannot name a threshold, the task is underspecified — return to socratic-inquiry.
+3. **Threshold.** What value means success? Be specific: "P95 latency < 500ms", "all 12 tests pass", "reviewer does not flag the claim as unsupported." If you cannot name a threshold, the task is underspecified — return to unstated-premises.
 4. **Feedback period.** How long until you can read the sensor? Immediately (run tests), minutes (wait for experiment), hours (wait for reviewer wake), days (wait for external response). This determines whether you block or exit the wake.
 5. **Stopping rule.** When does the executor declare done or pivot?
    - **Success**: sensor meets threshold → commit, report result, move on.

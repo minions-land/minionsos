@@ -1,16 +1,16 @@
 ---
-slug: dialectics
-summary: Open before publishing a confident claim, or when two roles disagree with evidence — thesis/antithesis/synthesis discipline that forces new predictions, not bland trade-offs.
+slug: dialectical-synthesis
+summary: Open before publishing a confident claim, or when two positions conflict with evidence — thesis/antithesis/synthesis discipline that forces new predictions, not bland trade-offs.
 layer: logical
 tools:
-version: 2
+version: 3
 status: active
-supersedes:
+supersedes: dialectics
 references: first-principles
 provenance: human
 ---
 
-# Skill — Dialectical Reasoning
+# Skill — Dialectical Synthesis
 
 Every strong position contains its own limitation. Surfacing the limitation before you commit is how you avoid overfitting to a single frame.
 

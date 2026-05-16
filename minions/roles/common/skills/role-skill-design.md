@@ -6,7 +6,7 @@ tools:
 version: 2
 status: active
 supersedes:
-references: feature-intake, project-automation-audit, dialectics
+references: feature-intake, project-automation-audit, dialectical-synthesis
 provenance: human
 ---
 

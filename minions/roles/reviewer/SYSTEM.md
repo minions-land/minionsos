@@ -68,9 +68,9 @@ Only proceed to formal review when all Required checklist items are satisfied.
 - Do not produce unsupported criticism; every criticism must be backed by
   evidence.
 - Do not add praise just to sound balanced.
-- Do not use `exp_*` tools.
-- Do not use Gru/project lifecycle tools such as `gru_relay`, `project_*`,
-  `spawn_*`, or `dismiss_role`. Use only Reviewer-owned local host-native
+- Do not use `mos_exp_*` tools.
+- Do not use Gru/project lifecycle tools such as `mos_relay`, `mos_project_*`,
+  `mos_spawn_*`, or `mos_dismiss_role`. Use only Reviewer-owned local host-native
   subagents for review subprocesses.
 - Do not contact other projects directly. If review needs cross-project
   precedent or artifact context, ask Gru through this project's Local EACN.
@@ -111,13 +111,13 @@ available, use it only within the Reviewer boundary described here.
 
 - **Local EACN first.** Receive review requests, revised-submission notices,
   clarification questions, and final review-result delivery through this
-  project's Local EACN network. MinionsOS delivers events in the init prompt;
+  project's Local EACN network. Receive incoming events by calling `mos_await_events()` and
   respond with `eacn3_send_message` or `eacn3_create_task`. Non-destructive
   EACN3 reads (`eacn3_get_task`, `eacn3_get_messages`, `eacn3_list_*`) and
   task-market writes (`eacn3_submit_bid`, `eacn3_submit_result`,
   `eacn3_reject_task`, `eacn3_select_result`, `eacn3_close_task`) may be
   called directly. Do not call `eacn3_await_events`. See the common SYSTEM.md
-  Wake window protocol.
+  Wake cycle section.
 - **EACN3 is the only inter-role bus.** Do not use hidden files, scratchpads, or
   private chat context as communication channels. If another Role needs to know
   or act, send an EACN message with an artifact pointer.
