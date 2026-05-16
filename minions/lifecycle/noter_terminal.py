@@ -114,17 +114,38 @@ def run_noter_terminal(
             return
 
 
+def _gru_unread(port: int) -> int:
+    """Best-effort read of the project's Gru unread count.
+
+    Returns 0 if the events log does not exist yet (project just spun up)
+    or anything fails — the noter terminal is read-only and never raises.
+    """
+    try:
+        from minions.tools import events_log
+
+        return events_log.unread_count(port, "gru")
+    except Exception:
+        return 0
+
+
 def render_snapshot(snapshot: NoterSnapshot, console: Console) -> None:
     """Render the default Noter status report."""
     project = snapshot.project
     alive = snapshot.health.get("backend_alive")
     backend = "up" if alive else ("down" if alive is False else "n/a")
     console.rule(f"Noter project {project.port} | {snapshot.captured_at}")
+    gru_unread = _gru_unread(project.port)
+    gru_label = (
+        f"[yellow]gru-unread={gru_unread}[/yellow]"
+        if gru_unread > 0
+        else f"gru-unread={gru_unread}"
+    )
     console.print(
         f"[bold]{project.real_name}[/bold]  status={project.status}  "
         f"backend={backend}  phase={snapshot.current_phase or '-'}  "
         f"online={len(snapshot.phase_online_roles)}  "
-        f"tasks={len(snapshot.tasks)}"
+        f"tasks={len(snapshot.tasks)}  "
+        f"{gru_label}"
     )
     _render_roles(snapshot, console)
     _render_tasks(snapshot, console)

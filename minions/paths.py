@@ -271,6 +271,17 @@ def project_exploration_dir(port: int) -> Path:
     return project_dir(port) / "exploration"
 
 
+def project_events_dir(port: int) -> Path:
+    """Return the per-agent EACN event-log directory for *port*.
+
+    Layout: ``project_{port}/events/{agent_id}.jsonl`` plus
+    ``{agent_id}.last_seen`` (Gru's read pointer). Audit trail only — Roles
+    do not read these files in normal operation; they are kept for
+    post-mortem reconstruction of the project's full event flow.
+    """
+    return project_dir(port) / "events"
+
+
 def domain_pack(slug: str) -> Path:
     """Return the domain pack markdown path for *slug*."""
     return DOMAINS_DIR / f"{slug}.md"

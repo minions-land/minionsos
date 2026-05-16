@@ -257,7 +257,7 @@ Never emit a final assistant turn that does not end with another call to
 You stay resident across many cycles. When the current context is no longer
 serving the next task — at a natural boundary between coherent batches —
 checkpoint durable state to the Exploration DAG (`mos_dag_append`,
-`mos_dag_annotate`), then call `mos_reset(reason=...)` to clear conversation
+`mos_dag_annotate`), then call `mos_reset_context(reason=...)` to clear conversation
 context and continue with a fresh start. After reset, call
 `mos_dag_summary()` to re-orient and `mos_await_events()` to receive the
 next event.
@@ -309,7 +309,7 @@ Rules:
      host's native compact, that is fine — it is a safety net, not a failure.
    - **Checkpoint + Reset**: if the next work is a new direction, invoke
      `cognitive-checkpoint` (persist to DAG including pending plans), then
-     call `mos_reset(reason="...")`. Context is cleared. Go back to step 1.
+     call `mos_reset_context(reason="...")`. Context is cleared. Go back to step 1.
 
 The decision to reset is yours. You reset when your current context is no
 longer serving the next task — at a natural boundary between coherent batches.

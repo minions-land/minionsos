@@ -95,8 +95,7 @@ _CODEX_BRIDGE_TOOLS = [
 # "main" = the top-level role agent-host process; "subagent" = spawned sub-processes.
 _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("gru", "main"): [
-        "mos_relay",
-        "mos_await_events",
+        "mos_project_bridge",
         "mos_project_checkpoint_workspace",
         "mos_project_create",
         "mos_project_kill",
@@ -105,12 +104,15 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "mos_project_revive",
         "mos_project_set_phase",
         "mos_project_list",
-        # Raw EACN3 tools: the scheduler delivers events in the init prompt,
-        # so the role does not need to long-poll. All outgoing messages,
-        # tasks, bids, and results go through the native eacn3_* surface.
+        # Pull-mode event surface: Gru reads its queue on demand via
+        # mos_get_events / mos_unread_summary. It does NOT drive
+        # mos_await_events — that is the resident-Role tool. Outgoing
+        # messages, tasks, broadcasts, etc. go through native eacn3_*.
         "eacn3_*",
+        "mos_get_events",
+        "mos_unread_summary",
         "mos_dag_*",
-        "mos_reset",
+        "mos_reset_context",
         "mos_attach_role",
         "mos_kill_role",
         "mos_spawn_role",
@@ -131,7 +133,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "eacn3_*",
         "mos_await_events",
         "mos_dag_*",
-        "mos_reset",
+        "mos_reset_context",
         "Task",
         "WebSearch",
         "WebFetch",
@@ -142,7 +144,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "eacn3_*",
         "mos_await_events",
         "mos_dag_*",
-        "mos_reset",
+        "mos_reset_context",
         "Task",
         "mos_project_checkpoint_workspace",
         *_CODEX_BRIDGE_TOOLS,
@@ -166,7 +168,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "eacn3_*",
         "mos_await_events",
         "mos_dag_*",
-        "mos_reset",
+        "mos_reset_context",
         "Task",
         "mos_project_checkpoint_workspace",
         *_CODEX_BRIDGE_TOOLS,
@@ -212,7 +214,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "eacn3_*",
         "mos_await_events",
         "mos_dag_*",
-        "mos_reset",
+        "mos_reset_context",
         *_WRITER_PAPER_SEARCH_TOOLS,
         "Task",
         "mos_project_checkpoint_workspace",
@@ -237,7 +239,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "eacn3_*",
         "mos_await_events",
         "mos_dag_*",
-        "mos_reset",
+        "mos_reset_context",
         "Task",
         "mos_project_checkpoint_workspace",
         *_CODEX_BRIDGE_TOOLS,
@@ -261,7 +263,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "eacn3_*",
         "mos_await_events",
         "mos_dag_*",
-        "mos_reset",
+        "mos_reset_context",
         "Task",
         "codex",
         "WebSearch",
@@ -273,7 +275,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "eacn3_*",
         "mos_await_events",
         "mos_dag_*",
-        "mos_reset",
+        "mos_reset_context",
         "Task",
         "codex",
         "WebSearch",
@@ -620,6 +622,20 @@ class ExperimentTargetsConfig(BaseModel):
             if t.id == target_id:
                 return t
         raise ConfigError(f"Unknown experiment target: {target_id!r}")
+
+    def active_targets(self) -> list[ExperimentTarget]:
+        """Return targets actually used by the scheduler and ``target_id='auto'``.
+
+        Rule: if any SSH target is configured, only SSH targets are active and
+        local targets are ignored. Otherwise local targets are active. Mixing
+        local and SSH in the same fleet is not supported on purpose — when SSH
+        is configured we assume the local box has no usable GPU.
+        """
+        ssh: list[ExperimentTarget] = [t for t in self.targets if isinstance(t, SSHTarget)]
+        if ssh:
+            return ssh
+        local: list[ExperimentTarget] = [t for t in self.targets if isinstance(t, LocalTarget)]
+        return local
 
 
 # ---------------------------------------------------------------------------

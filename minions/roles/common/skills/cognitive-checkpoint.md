@@ -1,8 +1,8 @@
 ---
 slug: cognitive-checkpoint
-summary: Persist cognitive state to the Exploration DAG before calling mos_reset or when finishing a line of investigation.
+summary: Persist cognitive state to the Exploration DAG before calling mos_reset_context or when finishing a line of investigation.
 layer: logical
-tools: mos_dag_append, mos_dag_annotate, mos_reset
+tools: mos_dag_append, mos_dag_annotate, mos_reset_context
 version: 3
 status: active
 supersedes:
@@ -16,7 +16,7 @@ Persist discoveries and pending plans to the Exploration DAG so your future self
 
 ## When to invoke
 
-- Before calling `mos_reset()` (mandatory — reset without checkpoint = data loss).
+- Before calling `mos_reset_context()` (mandatory — reset without checkpoint = data loss).
 - When finishing a coherent line of investigation.
 - When think-then-act determines the next events require a direction change.
 
@@ -27,15 +27,15 @@ Persist discoveries and pending plans to the Exploration DAG so your future self
 3. **Record dead ends.** Append with type `dead_end` and the abandonment reason.
 4. **Persist pending plans.** If you have planned next steps that you have not yet executed, append them as `unverified` nodes (hypothesis, experiment, or question) so your post-reset self knows what to do next. Add edges connecting them to the current work.
 5. **Add edges.** Connect all new nodes to existing ones with appropriate relations.
-6. **Call `mos_reset()`** with a reason describing why you are resetting.
+6. **Call `mos_reset_context()`** with a reason describing why you are resetting.
 
 ## Pitfalls
 
-- Calling `mos_reset()` without checkpointing first — your future self starts blind.
+- Calling `mos_reset_context()` without checkpointing first — your future self starts blind.
 - Persisting intermediate reasoning as nodes — only persist conclusions and plans.
 - Forgetting pending plans — your post-reset self will not know what was next.
 - Writing vague node text — each node must be self-contained and interpretable without surrounding context.
 
 ## Output habit
 
-`[checkpoint: {node_ids persisted}, pending: {planned_node_ids}] → mos_reset({reason})`
+`[checkpoint: {node_ids persisted}, pending: {planned_node_ids}] → mos_reset_context({reason})`

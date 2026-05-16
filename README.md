@@ -264,7 +264,7 @@ spawn_role
 spawn_expert
 dismiss_role
 list_roles
-gru_relay
+project_bridge
 gru_start_monitor
 ```
 
@@ -667,7 +667,7 @@ spawn_role
 spawn_expert
 dismiss_role
 list_roles
-gru_relay
+project_bridge
 gru_start_monitor
 ```
 

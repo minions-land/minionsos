@@ -35,8 +35,8 @@ class BackendError(MinionsError):
     """EACN3 backend subprocess error."""
 
 
-class RelayError(MinionsError):
-    """gru_relay delivery error."""
+class ProjectBridgeError(MinionsError):
+    """mos_project_bridge delivery error."""
 
 
 class ExperimentError(MinionsError):

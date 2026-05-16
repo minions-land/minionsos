@@ -72,7 +72,7 @@ def test_ethics_main_whitelist() -> None:
     assert "WebFetch" in tools
     assert "Read" in tools
     assert not any(t.startswith("mos_exp_") for t in tools)
-    assert "mos_relay" not in tools
+    assert "mos_project_bridge" not in tools
     assert not any(t.startswith("mos_spawn_") for t in tools)
     assert not any(t.startswith("mos_project_") for t in tools)
     assert "Write" not in tools

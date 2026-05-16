@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. The runtime now supports both Claude Code and Codex as agent hosts; keep this file because Claude Code reads it directly and Codex is pointed at the same operating rules through `AGENTS.md` / prompts.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. **Claude Code is the primary and default agent host** for every Role. Codex is no longer used to host a Role process directly — it is reachable as a sub-agent through the `codex-bridge` MCP server (`tools/codex-bridge/`) when a Role wants to delegate high-intensity execution to GPT-5.5. Keep that delegation path working when refactoring; do not ground new Role behavior in Codex-as-host.
 
 ## Project overview
 
-MinionsOS is a local multi-agent operating system for running autonomous research projects. A persistent Gru process supervises many isolated paper-sized projects; each project has its own EACN3 backend, git worktree, artifacts, logs, role scratchpads, and ephemeral Role subprocesses launched through the configured agent host (`codex` by default, `claude` when explicitly selected).
+MinionsOS is a local multi-agent operating system for running autonomous research projects. A persistent Gru process supervises many isolated paper-sized projects; each project has its own EACN3 backend, git worktree, artifacts, logs, role scratchpads, and long-lived Role processes hosted by Claude Code. Roles may delegate high-intensity execution to Codex GPT-5.5 through the `codex-bridge` MCP, but Codex never hosts a Role process directly.
 
 `EACN3/` is a local editable dependency pinned through `pyproject.toml` and `uv.lock`. Treat it as a dependency boundary during normal MinionsOS work: prefer EACN MCP tools and the MinionsOS adapter modules over hand-written HTTP calls or incidental edits inside `EACN3/`.
 
@@ -17,7 +17,6 @@ uv sync
 
 # Launch Gru / CLI entry points
 ./gru
-MINIONS_AGENT_HOST=codex ./gru
 ./minionsos
 ./mos
 
@@ -87,7 +86,7 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/lifecycle/role_launcher.py` starts the long-lived Role process for each (project, role) inside a named tmux session (`mos-{port}-{role}`). The Role drives its own event loop via `mos_await_events()`. The launcher also exposes `session_alive` / `kill_session` / `attach_command` for the watchdog and the operator.
 - `minions/lifecycle/eacn_client.py` is the thin EACN3 HTTP client used by lifecycle code and `mos_await_events` (registration, bootstrap messages, health-event notifications).
 - `minions/lifecycle/agent_registry.py` and `eacn_identity.py` keep project-local AgentCard identities stable.
-- `minions/lifecycle/relay.py` implements the Gru-only cross-project relay path.
+- `minions/lifecycle/project_bridge.py` implements the Gru-only cross-project bridge (`mos_project_bridge`).
 - `minions/state/` contains file-backed state management and port allocation.
 - `minions/tools/mcp_server.py` exposes lifecycle operations as FastMCP tools.
 - `minions/tools/experiment_ssh.py` implements Experimenter `mos_exp_*` local/SSH execution tools, including queue-facing `exp_queue_*` and `exp_gpu_pool_*`.
@@ -103,7 +102,7 @@ Every project is identified by its EACN3 backend port and lives under `project_{
 ```text
 project_{port}/
 ├── CLAUDE.md              # project narrative; author/Gru write, roles read
-├── AGENTS.md              # Codex-friendly shim pointing to CLAUDE.md
+├── AGENTS.md              # Codex-bridge subagent's view of project context (mirrors CLAUDE.md)
 ├── meta.json              # machine metadata
 ├── workspace/             # git worktree on branch minionsos/project-{port}
 ├── eacn3_data/eacn3.db    # project-local EACN3 SQLite state
@@ -120,9 +119,9 @@ Roles are event-driven and ephemeral. No Role should run a long-lived agent-host
 
 Each Role is a long-lived `claude` process running inside its own tmux session named `mos-{port}-{role}`. The Role drives its event loop with `mos_await_events()` (in `minions/tools/await_events.py`), which wraps the project-local 60-second `GET /api/events/{agent_id}` long-poll, drains events on read, runs an idle-check after ~5 minutes of silence, and only returns when there is actionable content. Heartbeat writes happen between polls so the Gru sidecar watchdog can spot a dead session and respawn it. Roles respond with raw `eacn3_send_message` / `eacn3_create_task` / `eacn3_submit_bid` / `eacn3_submit_result` and stay resident across many cycles. They do not call `eacn3_await_events` / `eacn3_next` / `eacn3_get_events` directly — that bypasses the wrapper and drops the suggested-action annotations.
 
-Only Gru may spawn EACN-visible agents or use `mos_project_*`, `mos_spawn_*`, and `mos_relay` tools. Subagents or local teams created inside a Role are EACN-invisible by design: they do not have `eacn3_*` tools and do not appear in `projects.json`.
+Only Gru may spawn EACN-visible agents or use `mos_project_*`, `mos_spawn_*`, and `mos_project_bridge` tools. Subagents or local teams created inside a Role are EACN-invisible by design: they do not have `eacn3_*` tools and do not appear in `projects.json`.
 
-Claude Code still receives CLI `--allowed-tools`. Codex does not expose the same flag, so MinionsOS MCP server-side authorization in `minions/tools/mcp_server.py` must remain aligned with `minions.config.resolve_whitelist`.
+Claude Code is the only Role host. It honors CLI `--allowed-tools` for tool gating. The `codex-bridge` MCP exposes Codex GPT-5.5 to Roles as a delegation target (`ask_codex` for read-only analysis, `run_codex_worker` for full-access sub-agent delegation); it does not host a Role process. MinionsOS MCP server-side authorization in `minions/tools/mcp_server.py` must remain aligned with `minions.config.resolve_whitelist` so the same boundary applies regardless of which surface a tool call comes through.
 
 Tool/write boundaries:
 

@@ -33,7 +33,7 @@ All experiments run under `nohup setsid` so that closing the SSH session, restar
 
 ## Cannot do
 
-- Do not use `mos_relay` or `mos_project_*` tools.
+- Do not use `mos_project_bridge` or `mos_project_*` tools.
 - Do not make scientific direction decisions (which hypothesis to test, what metric matters).
 - Do not change experiment design or controls without explicit instruction from Expert.
 - Do not download files > 500 MB to local storage — keep large data remote and access via `mos_exp_tail` / `mos_exp_run`.
@@ -117,4 +117,4 @@ Each completed experiment should produce a result bundle at `artifacts/exp-{id}/
 
 ## Skills
 
-Methodology / procedure skills live in `minions/roles/experimenter/skills/`. On wake-up, the list is injected into your init message with a one-line summary per skill. Consult the relevant skill in full before non-trivial execution decisions (triage, allocation, dispatch, tracking, collection, archival). Skills are procedure disciplines, not rituals — apply to the ~20% of decisions where the framing matters. New skills may be added over time; discovery handles them automatically.
+Methodology / procedure skills live in `minions/roles/experimenter/skills/`. On startup the list is injected into your initial system prompt with a one-line summary per skill. Consult the relevant skill in full before non-trivial execution decisions (triage, allocation, dispatch, tracking, collection, archival). Skills are procedure disciplines, not rituals — apply to the ~20% of decisions where the framing matters. New skills may be added over time; discovery handles them automatically.

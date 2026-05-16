@@ -114,7 +114,6 @@ class TestBoundaryContext:
         assert len(ctx) > 0
 
 
-
 class TestReviewerWhitelistIsolation:
     def test_non_gru_main_roles_can_spawn_subagents(self) -> None:
         for role in ("noter", "coder", "experimenter", "writer", "reviewer", "ethics", "expert"):
@@ -169,7 +168,10 @@ class TestSubagentEacnInvisibility:
     def test_no_subagent_has_cross_project_tools(self) -> None:
         for role in self._ALL_ROLES:
             tools = resolve_whitelist(role, "subagent")
-            leaks = [t for t in tools if t == "gru_relay" or t.startswith("project_")]
+            leaks = [
+                t for t in tools
+                if t == "mos_project_bridge" or t.startswith("mos_project_")
+            ]
             assert not leaks, (
                 f"{role} subagent whitelist leaks cross-project coordination tools {leaks}; "
                 "these are Gru-main coordination tools, not subagent execution tools."

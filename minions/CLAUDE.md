@@ -1,32 +1,32 @@
 # CLAUDE.md — minions/ Developer View
 
-This file is shown when you `cd minions/ && claude` to hack MinionsOS itself. It covers the Python package architecture and how to extend it. Runtime role execution is agent-host neutral: Codex is the default, and Claude Code remains supported through the same lifecycle abstractions.
+This file is shown when you `cd minions/ && claude` to hack MinionsOS itself. It covers the Python package architecture and how to extend it. **Claude Code is the primary and default agent host** for every Role process — `agent_host.py` builds the long-lived `claude` invocation. Codex is no longer used to host a Role process; it remains reachable as a sub-agent through the `codex-bridge` MCP for high-intensity execution delegation. Keep that delegation path working; do not reintroduce a Codex Role host.
 
 ## Package architecture
 
 ```
 minions/
 ├── __init__.py              # package root; exports version
-├── bin/gru                  # shell launcher (Claude Code or Codex host)
+├── bin/gru                  # shell launcher (Claude Code host)
 ├── cli.py                   # `mos` CLI entrypoint (argparse); dispatches subcommands
 ├── gru/
 │   ├── __init__.py
 │   └── loop.py              # Gru heartbeat/health loop plus experiment queue reconciliation
 ├── lifecycle/
 │   ├── agent_registry.py    # project-local AgentCard registration and domains
-│   ├── agent_host.py        # Claude Code / Codex invocation builders
+│   ├── agent_host.py        # long-lived `claude` invocation builder
 │   ├── eacn_identity.py     # stable per-project role agent ids and plugin state
 │   ├── project.py           # project_create/close/dormant/revive/repair helpers
 │   ├── role.py              # register_role / register_expert / dismiss / list_roles
 │   ├── skills.py            # role skill discovery and one-line summaries
-│   ├── relay.py             # gru_relay implementation
+│   ├── project_bridge.py    # mos_project_bridge implementation
 │   ├── eacn_client.py       # thin EACN3 HTTP client (registration / bootstrap / health)
 │   └── health.py            # backend / role health probes
 ├── tools/
 │   ├── mcp_server.py        # FastMCP stdio server wrapping lifecycle functions
 │   ├── experiment_ssh.py    # exp_run plus exp_queue_* / exp_gpu_pool_* MCP tools
 │   ├── experiment_scheduler.py # SQLite-backed Experimenter GPU queue
-│   ├── relay.py             # gru_relay MCP-facing wrapper
+│   ├── project_bridge.py    # mos_project_bridge MCP-facing wrapper
 │   └── whitelist.py         # resolve_allowed_tools
 ├── roles/                   # shared contract, role prompts, skills, reviewer assets
 │   ├── SYSTEM.md            # common Role contract injected before role-specific prompts
@@ -55,7 +55,7 @@ tmux session driving `mos_await_events()`.
 
 - `minions/lifecycle/role.py` exposes `register_role` / `register_expert` (registers a project-local EACN AgentCard, prepares the role workspace, and records a named host session; no subprocess launch) and `mos_dismiss_role` / `mos_list_roles`.
 - `minions/lifecycle/project.py` also exposes `mos_project_checkpoint_workspace(...)` for durable local commits and optional GitHub push when `github_push_target` is configured.
-- `minions/lifecycle/agent_host.py` is the only place that should know CLI-specific role invocation details.
+- `minions/lifecycle/agent_host.py` is the only place that should know Claude Code CLI invocation details.
 - `minions/gru/loop.py` runs the Gru heartbeat monitor and experiment queue reconciliation.
 - Role `SYSTEM.md` files must not describe a polling loop. Shared role/subagent/scratchpad/EACN behavior lives in `minions/roles/SYSTEM.md`; review output formats live under `minions/roles/reviewer/templates/`.
 
@@ -100,7 +100,7 @@ Applies to any Role (Expert, Experimenter, Writer, Noter, Coder, Reviewer, Ethic
 1. Add the tool function to the appropriate module in `minions/tools/` (or create a new module).
 2. Decorate with the MCP tool decorator (FastMCP or equivalent).
 3. Accept/return Pydantic models.
-4. Register the tool in the MCP server setup (`.mcp.json`, `.codex/config.toml`, or the server entrypoint).
+4. Register the tool in the MCP server setup (`.mcp.json` for Claude Code, or the server entrypoint).
 5. Update the tool/write boundary table in root `CLAUDE.md` to specify which agents may use it.
 6. Write a unit test in `tests/unit/`.
 

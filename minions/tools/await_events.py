@@ -375,6 +375,14 @@ def await_events() -> dict[str, Any]:
     while True:
         events = _poll_once(port, agent_id)
         _touch_heartbeat(workspace, agent_id)
+        # Sync-write durable copy BEFORE the LLM ever sees the events.
+        # If anything below this point crashes, the events are still on
+        # disk under project_{port}/events/{agent_id}.jsonl, available
+        # for post-mortem reconstruction.
+        if events:
+            from minions.tools import events_log as _events_log
+
+            _events_log.append_events(port, agent_id, events)
 
         if events:
             consecutive_empty = 0

@@ -1,4 +1,4 @@
-"""mos_reset — MinionsOS-specific context reset tool.
+"""mos_reset_context — MinionsOS-specific context reset tool.
 
 Signals the agent harness to clear the conversation context while keeping
 the process alive. The agent MUST have persisted all valuable state to the
@@ -39,7 +39,7 @@ def _env_role() -> str:
     return os.environ.get("MINIONS_ROLE_NAME", "unknown")
 
 
-def mos_reset(reason: str = "") -> dict:
+def mos_reset_context(reason: str = "") -> dict:
     """Signal the harness to clear conversation context.
 
     The agent MUST have persisted all valuable state to the Exploration DAG
@@ -75,7 +75,7 @@ def mos_reset(reason: str = "") -> dict:
         logger.warning("Failed to log reset to journal: %s", exc)
 
     logger.info(
-        "mos_reset called by role=%s port=%d reason=%r",
+        "mos_reset_context called by role=%s port=%d reason=%r",
         role,
         port,
         reason,

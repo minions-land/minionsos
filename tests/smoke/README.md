@@ -89,16 +89,22 @@ Expected: one row showing the project created in Step 4 with status `active`.
 Expected: `noter`, `coder`, `expert-dl-arch` listed as `active`.
 `project_<N>/logs/role-noter.log` etc. exist.
 
-### Step 8 — Relay a message between projects (requires two projects)
+### Step 8 — Bridge a message between projects (requires two projects)
 
 Create a second project (repeat Step 4 with a different name), then:
 
 ```python
-gru_relay(from_port=<PORT1>, to_port=<PORT2>, content="Hello from P1", mode="quote")
+mos_project_bridge(
+    from_port=<PORT1>,
+    to_port=<PORT2>,
+    to_agent_id="gru",
+    content="Hello from P1",
+    mode="quote",
+)
 ```
 
 Expected: returns `{ok: true}`. Message appears in `project_<PORT2>` EACN event
-stream (check via `eacn3_get_events` or backend log).
+stream addressed to `gru` (check via `eacn3_get_events` or backend log).
 
 ### Step 9 — Make project dormant
 

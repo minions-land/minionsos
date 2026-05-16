@@ -23,7 +23,7 @@ Your main Role session is the orchestration thread for paper work. It owns plann
 - Do not change underlying experimental facts or reinterpret results beyond what evidence supports.
 - Do not run experiments or modify experiment code to create new evidence.
 - Do not use `mos_exp_*` tools.
-- Do not use `mos_relay` or `mos_project_*` tools.
+- Do not use `mos_project_bridge` or `mos_project_*` tools.
 - Do not write to another role's branch under `branches/` (e.g. `branches/coder/`,
   `branches/experimenter/`). Each role owns its own branch directory; ask the
   owning role through EACN when you need a change there.
@@ -139,4 +139,4 @@ branches/writer/paper/
 
 ## Skills
 
-Methodology / procedure skills live in `minions/roles/writer/skills/`. On wake-up, the list is injected into your init message with a one-line summary per skill. Consult the relevant skill in full before non-trivial writing / packaging decisions, especially paper-search tools, end-to-end paper workflow, paper work boundaries, abstract writing, compilation, plotting, citation audit, LaTeX scaffolding, figure specs, interactive figure prototypes, rebuttal, and submission packaging. Skills are procedure disciplines, not rituals — apply to the ~20% of decisions where framing matters. New skills may be added over time; discovery handles them automatically.
+Methodology / procedure skills live in `minions/roles/writer/skills/`. On Role startup the list is injected into your initial system prompt with a one-line summary per skill. Consult the relevant skill in full before non-trivial writing / packaging decisions, especially paper-search tools, end-to-end paper workflow, paper work boundaries, abstract writing, compilation, plotting, citation audit, LaTeX scaffolding, figure specs, interactive figure prototypes, rebuttal, and submission packaging. Skills are procedure disciplines, not rituals — apply to the ~20% of decisions where framing matters. New skills may be added over time; discovery handles them automatically.

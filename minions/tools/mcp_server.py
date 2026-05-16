@@ -8,7 +8,7 @@ Tools exposed:
 - project_set_phase
 - project_checkpoint_workspace
 - spawn_role / spawn_expert / dismiss_role / list_roles
-- gru_relay
+- project_bridge
 - search_arxiv / search_pubmed / search_biorxiv / search_medrxiv / search_google_scholar
 - read_*_paper / download_* for supported paper sources
 - gru_start_monitor  (starts the Gru heartbeat loop as a background thread)
@@ -38,7 +38,7 @@ from minions.lifecycle.project import project_kill as _project_kill
 from minions.lifecycle.project import project_phase_snapshot
 from minions.lifecycle.project import project_revive as _project_revive
 from minions.lifecycle.project import project_set_phase as _project_set_phase
-from minions.lifecycle.relay import gru_relay as _gru_relay
+from minions.lifecycle.project_bridge import project_bridge as _project_bridge
 from minions.lifecycle.role import (
     dismiss_role as _dismiss_role,
 )
@@ -69,24 +69,26 @@ _GRU_START_MONITOR_INTERVAL: int | None = None
 mcp = FastMCP("minions")
 
 _MINIONS_MCP_TOOL_NAMES = {
-    "mos_attach_role",
-    "mos_await_events",
+    "mos_reset_context",
     "mos_dag_annotate",
     "mos_dag_append",
     "mos_dag_path",
     "mos_dag_query",
     "mos_dag_summary",
-    "mos_dismiss_role",
     "mos_download_arxiv",
     "mos_download_biorxiv",
     "mos_download_medrxiv",
     "mos_download_pubmed",
+    "mos_await_events",
+    "mos_get_events",
+    "mos_unread_summary",
     "mos_exp_get",
     "mos_exp_gpu_pool_get",
     "mos_exp_gpu_pool_set",
     "mos_exp_kill",
     "mos_exp_list",
     "mos_exp_put",
+    "mos_exp_queue_plan",
     "mos_exp_queue_reconcile",
     "mos_exp_queue_status",
     "mos_exp_queue_submit",
@@ -94,8 +96,9 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_exp_status",
     "mos_exp_tail",
     "mos_exp_wait",
-    "mos_kill_role",
-    "mos_list_roles",
+    "mos_spawn_expert",
+    "mos_query_gpus",
+    "mos_start_monitor",
     "mos_project_checkpoint_workspace",
     "mos_project_close",
     "mos_project_create",
@@ -104,21 +107,21 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_project_list",
     "mos_project_revive",
     "mos_project_set_phase",
-    "mos_query_gpus",
     "mos_read_arxiv_paper",
     "mos_read_biorxiv_paper",
     "mos_read_medrxiv_paper",
     "mos_read_pubmed_paper",
-    "mos_relay",
-    "mos_reset",
+    "mos_project_bridge",
+    "mos_attach_role",
+    "mos_dismiss_role",
+    "mos_kill_role",
+    "mos_list_roles",
+    "mos_spawn_role",
     "mos_search_arxiv",
     "mos_search_biorxiv",
     "mos_search_google_scholar",
     "mos_search_medrxiv",
     "mos_search_pubmed",
-    "mos_spawn_expert",
-    "mos_spawn_role",
-    "mos_start_monitor",
 }
 
 
@@ -320,9 +323,10 @@ class ListRolesArgs(BaseModel):
     project_port: int
 
 
-class GruRelayArgs(BaseModel):
+class ProjectBridgeArgs(BaseModel):
     from_port: int
     to_port: int
+    to_agent_id: str
     content: str
     mode: Literal["auto", "quote", "paraphrase"] = "auto"
     source_note: str | None = None
@@ -501,12 +505,27 @@ def mos_list_roles(args: ListRolesArgs) -> list[dict]:
 
 
 @mcp.tool()
-def mos_relay(args: GruRelayArgs) -> dict:
-    """Relay a message from one project to another via EACN broadcast."""
-    _require_tool_allowed("mos_relay")
-    return _gru_relay(
+def mos_project_bridge(args: ProjectBridgeArgs) -> dict:
+    """Bridge a message from one project to a specific agent on another project.
+
+    Cross-project communication is intentionally Gru-only: only Gru sees
+    every active project's Local EACN, and only Gru is registered as a
+    real ``gru`` agent on each one. This tool performs a single
+    ``POST /api/messages`` to ``to_port``'s backend, with sender = that
+    backend's real ``gru`` and recipient = ``to_agent_id``. A
+    ``[Bridged from project-<from_port>]`` attribution header is prepended
+    to the body for traceability.
+
+    Use this when a Role on project A needs to surface a question, finding,
+    or hand-off to a specific Role on project B. Messages addressed to
+    Gru on the source project are how the request reaches you in the
+    first place — pull them with ``mos_get_events(port=A)``.
+    """
+    _require_tool_allowed("mos_project_bridge")
+    return _project_bridge(
         from_port=args.from_port,
         to_port=args.to_port,
+        to_agent_id=args.to_agent_id,
         content=args.content,
         mode=args.mode,
         source_note=args.source_note,
@@ -595,6 +614,19 @@ def mos_exp_queue_status(args: _exp.ExpQueueStatusArgs) -> dict:
     """Return experiment queue status."""
     _require_tool_allowed("mos_exp_queue_status")
     return _exp.exp_queue_status(args)
+
+
+@mcp.tool()
+def mos_exp_queue_plan(args: _exp.ExpQueuePlanArgs) -> dict:
+    """Dry-run a candidate submission against the live GPU snapshot.
+
+    Returns per-unit placement (target/gpu_ids/reserve_mb) or a block reason
+    plus the fleet snapshot used. Read-only — nothing is queued and no run
+    is launched. Use before ``mos_exp_queue_submit`` when you want to know
+    whether a sweep will actually spread or stall.
+    """
+    _require_tool_allowed("mos_exp_queue_plan")
+    return _exp.exp_queue_plan(args)
 
 
 @mcp.tool()
@@ -847,7 +879,7 @@ def mos_dag_summary() -> dict:
     return _dag.mos_dag_summary()
 
 
-# ── mos_reset ──────────────────────────────────────────────────────────
+# ── mos_reset_context ──────────────────────────────────────────────────────────
 
 
 class MosResetArgs(BaseModel):
@@ -858,14 +890,14 @@ class MosResetArgs(BaseModel):
 
 
 @mcp.tool()
-def mos_reset(args: MosResetArgs) -> dict:
+def mos_reset_context(args: MosResetArgs) -> dict:
     """Clear conversation context and continue with fresh state.
 
     Call AFTER persisting all discoveries to the DAG. After reset,
     call mos_dag_summary() to re-orient, then mos_await_events().
     """
-    _require_tool_allowed("mos_reset")
-    return _reset.mos_reset(reason=args.reason)
+    _require_tool_allowed("mos_reset_context")
+    return _reset.mos_reset_context(reason=args.reason)
 
 
 # ── Resident-Role tmux helpers ─────────────────────────────────────────
@@ -919,6 +951,43 @@ def mos_kill_role(args: RoleSessionArgs) -> dict:
         "role_name": args.role_name,
         "killed": killed,
     }
+
+
+# ── Gru pull-mode event tools ──────────────────────────────────────────
+
+
+class MosGetEventsArgs(BaseModel):
+    port: int = Field(description="Project port whose Gru queue to drain.")
+
+
+@mcp.tool()
+def mos_get_events(args: MosGetEventsArgs) -> dict:
+    """Drain this project's Gru EACN queue once (non-blocking) and mirror to disk.
+
+    Pull-mode counterpart to ``mos_await_events``. Used by Gru to pick up
+    Role-to-Gru messages on demand. Each call appends new events to
+    ``project_{port}/events/gru.jsonl`` and advances ``gru.last_seen``,
+    so the next ``mos_unread_summary`` reflects that this project is
+    caught up.
+    """
+    _require_tool_allowed("mos_get_events")
+    from minions.tools import get_events as _get_events
+
+    return _get_events.get_events(args.port)
+
+
+@mcp.tool()
+def mos_unread_summary() -> dict:
+    """Return per-project Gru unread counts across all active projects.
+
+    Pure read — does not drain or modify any queue. Returns
+    ``{ports: [{port, name, unread}], total_unread}`` so Gru can decide
+    which project to inspect next.
+    """
+    _require_tool_allowed("mos_unread_summary")
+    from minions.tools import get_events as _get_events
+
+    return _get_events.unread_summary()
 
 
 def main() -> None:

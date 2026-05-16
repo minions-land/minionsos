@@ -69,7 +69,7 @@ Only proceed to formal review when all Required checklist items are satisfied.
   evidence.
 - Do not add praise just to sound balanced.
 - Do not use `mos_exp_*` tools.
-- Do not use Gru/project lifecycle tools such as `mos_relay`, `mos_project_*`,
+- Do not use Gru/project lifecycle tools such as `mos_project_bridge`, `mos_project_*`,
   `mos_spawn_*`, or `mos_dismiss_role`. Use only Reviewer-owned local host-native
   subagents for review subprocesses.
 - Do not contact other projects directly. If review needs cross-project
