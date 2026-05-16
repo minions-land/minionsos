@@ -9,8 +9,7 @@ The loop:
 - Periodically scans active projects.
 - Probes each backend via ``/health``.
 - Records crashes and checks thresholds.
-- Drives ``WakeupScheduler`` alongside so role event-dispatch proceeds in
-  parallel with Gru's heartbeat.
+- Drives experiment queue reconciliation in parallel with Gru's heartbeat.
 """
 
 from __future__ import annotations
@@ -57,15 +56,12 @@ class GruLoop:
     def run(self) -> None:
         """Run the monitor loop synchronously (blocking).
 
-        Suitable for use in a daemon thread or as ``__main__``. A
-        :class:`WakeupScheduler` is started in a sibling daemon thread
-        running its own asyncio loop so role event-dispatch proceeds in
-        parallel with Gru's heartbeat.
+        Suitable for use in a daemon thread or as ``__main__``. An experiment
+        scheduler thread runs in parallel with Gru's heartbeat.
         """
         import threading
 
         from minions.lifecycle.project import migrate_legacy_scratchpads
-        from minions.lifecycle.wakeup import WakeupScheduler
 
         for project in self._store.list_projects(filter="active"):
             try:
@@ -77,11 +73,6 @@ class GruLoop:
                     exc,
                 )
 
-        wakeup = WakeupScheduler(store=self._store)
-
-        def _wakeup_thread() -> None:
-            asyncio.run(wakeup.run_async())
-
         def _experiment_scheduler_thread() -> None:
             while not self._stopped:
                 self._reconcile_experiment_queues()
@@ -90,8 +81,6 @@ class GruLoop:
                         break
                     time.sleep(0.5)
 
-        t = threading.Thread(target=_wakeup_thread, daemon=True, name="wakeup-scheduler")
-        t.start()
         exp_t = threading.Thread(
             target=_experiment_scheduler_thread,
             daemon=True,
@@ -110,13 +99,12 @@ class GruLoop:
                         break
                     time.sleep(0.5)
         finally:
-            wakeup.stop()
+            pass
         logger.info("Gru monitor loop stopped.")
 
     async def run_async(self) -> None:
         """Async variant for use inside an existing asyncio event loop."""
         from minions.lifecycle.project import migrate_legacy_scratchpads
-        from minions.lifecycle.wakeup import WakeupScheduler
 
         for project in self._store.list_projects(filter="active"):
             try:
@@ -128,9 +116,7 @@ class GruLoop:
                     exc,
                 )
 
-        wakeup = WakeupScheduler(store=self._store)
         logger.info("Gru monitor async loop started (interval=%ds).", self.interval)
-        wakeup_task = asyncio.create_task(wakeup.run_async())
         experiment_task = asyncio.create_task(self._experiment_reconcile_async())
         try:
             while not self._stopped:
@@ -140,11 +126,7 @@ class GruLoop:
                     logger.error("Gru monitor tick error: %s", exc, exc_info=True)
                 await asyncio.sleep(self.interval)
         finally:
-            wakeup.stop()
-            wakeup_task.cancel()
             experiment_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await wakeup_task
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await experiment_task
 
@@ -154,16 +136,6 @@ class GruLoop:
 
     def _tick(self) -> None:
         """One monitoring cycle."""
-        # Reap any exited ephemeral role subprocesses so their log file
-        # handles are closed and their PIDs in projects.json are cleared
-        # before we run the liveness check below.
-        try:
-            from minions.lifecycle.role import reap_finished
-
-            reap_finished(store=self._store)
-        except Exception as exc:
-            logger.debug("reap_finished failed: %s", exc)
-
         now = time.monotonic()
         projects = self._store.list_projects(filter="active")
 
