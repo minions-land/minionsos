@@ -46,6 +46,20 @@ This is a recommendation, not a rigid schema. Adapt to your project's needs. The
 - During cognitive-checkpoint — ensure new DAG nodes have corresponding workspace files.
 - Skip for scratch work that won't survive the session (use your branch freely for drafts).
 
+## Freedom clause
+
+This skill guides DURABLE outputs (files that survive on main branch). It does NOT constrain:
+- How you think, reason, or explore within your context
+- What you write on your own working branch (drafts, scratch, experiments)
+- What types of DAG nodes you create (any string is valid)
+- Whether you follow this structure at all for intermediate work
+
+Structure is for communication (so others can find your work), not for cognition
+(how you arrive at discoveries). If a discovery doesn't fit any category, write
+it anyway — use a custom type, put it in a new directory, or just dump it as a
+free-form markdown file. The worst outcome is NOT "wrong structure" — it's
+"discovery not recorded at all."
+
 ## Pitfalls
 
 - Writing results without linking to DAG nodes — creates orphan files nobody can find.
