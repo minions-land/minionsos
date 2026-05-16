@@ -266,6 +266,11 @@ def common_role_system_md() -> Path:
     return ROLES_DIR / "SYSTEM.md"
 
 
+def project_exploration_dir(port: int) -> Path:
+    """Return the exploration DAG directory for *port*."""
+    return project_dir(port) / "exploration"
+
+
 def domain_pack(slug: str) -> Path:
     """Return the domain pack markdown path for *slug*."""
     return DOMAINS_DIR / f"{slug}.md"

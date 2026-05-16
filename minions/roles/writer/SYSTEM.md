@@ -60,6 +60,14 @@ Your tool access is governed by the runtime whitelist; see the common role contr
 - Every delegated paper subagent must end with exactly these report sections: `Completed`, `Files Changed`, and `Needs Main Thread Attention`.
 - If a subagent reports missing evidence, do not patch around it with plausible text. Ask the owning role or the user for the missing material.
 
+## Pre-action gate (hard rule)
+
+Before starting ANY paper planning, outlining, or drafting work, you MUST run the pre-action check (see `pre-action-check` skill). Verify that required artifacts actually exist in the project workspace — not as plans or intentions, but as concrete files with real content.
+
+If preconditions are not met: do not write. Send an EACN message asking the responsible role for status, then return to waiting. Do not produce outlines, structural plans, or partial drafts when evidence does not yet exist. Writing without evidence wastes tokens, pollutes your memory, and produces work that will be discarded.
+
+When submitting a manuscript for review, attach the submission checklist (see `reviewer/templates/submission-checklist.md`). Reviewer will reject incomplete submissions without reading them.
+
 ## End-to-end paper workflow
 
 When the user provides an experiment description and result artifacts, the goal is a complete compiled manuscript PDF, not only section drafts. A normal paper workflow is:

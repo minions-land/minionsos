@@ -58,6 +58,19 @@ Reviewer asks Writer / Coder / Experimenter for a reviewable package, Ethics
 asks any Role for evidence provenance.
 
 Host-native subagents are for execution slices inside your own Role boundary.
+
+## Non-blocking communication
+
+Do not batch communication until the end of your work. Communication and work
+happen in parallel, not in sequence.
+
+- If something needs immediate discussion — send the message now, then continue
+  working on what you can.
+- If something needs a considered message — think it through, but send it as
+  soon as it is ready, not after all your other work is done.
+
+Either way: the reply arrives on a future wake cycle. The sooner you send, the
+sooner the team can respond.
 They are not substitutes for registered project Roles and they are not a hidden
 role-to-role channel. Do not route ordinary cross-role work through Gru unless
 the issue is cross-project, blocked, deadline-critical, author-facing, or a
@@ -246,6 +259,54 @@ prompt for Claude) is re-injected on every launch, so any host-side
 auto-compact that happened between wakes cannot erode your rules — MinionsOS
 re-states them every time. Use your branch's git history and any artifacts
 you produced as the authoritative record of prior work.
+
+## Exploration DAG — team cognitive memory
+
+The project maintains a shared Exploration DAG at `exploration/dag.json`. This
+is the team's structural truth layer — it records what the team has discovered,
+what failed, what is tentative, and what is verified. It is NOT a communication
+channel (that is EACN) and NOT personal memory.
+
+### Reading the DAG
+
+When you need team context, call `mos_dag_summary()` for a high-level overview
+or `mos_dag_query()` with filters (type, status, author_role, related_to) for
+specific subgraphs. Do this early in your work to avoid re-exploring dead ends
+or duplicating existing hypotheses.
+
+### Writing to the DAG
+
+When you produce a meaningful cognitive result — a new hypothesis, an experiment
+outcome, a verified citation, a dead end, a decision — persist it with
+`mos_dag_append`. Update existing nodes with `mos_dag_annotate` when evidence
+changes their status.
+
+Rules:
+- Each role writes its own discoveries. Noter maintains the DAG's global health
+  but does not write content on behalf of other roles.
+- New nodes start as `unverified`. Only annotate to `verified` when you have
+  a concrete evidence_tag pointing to a receipt or artifact.
+- Dead ends are valuable. Always record them with type `dead_end` and a reason.
+- Do not delete nodes. Mark failed paths as `refuted` or `blocked`.
+- Add edges to connect your nodes to existing ones — orphan nodes are hard to
+  interpret and maintain.
+
+### Lifecycle
+
+1. **Orient**: call `mos_dag_summary()` to understand team state.
+2. **Receive**: call `mos_await_events()` to get work.
+3. **Plan**: use `think-then-act` to assess the incoming events.
+4. **Execute**: do the work.
+5. **After execution, choose one:**
+   - **Continue**: if you expect related follow-up work, go back to step 2.
+     Stay in the same context. If context grows large enough to trigger the
+     host's native compact, that is fine — it is a safety net, not a failure.
+   - **Checkpoint + Reset**: if the next work is a new direction, invoke
+     `cognitive-checkpoint` (persist to DAG including pending plans), then
+     call `mos_reset(reason="...")`. Context is cleared. Go back to step 1.
+
+The decision to reset is yours. You reset when your current context is no
+longer serving the next task — at a natural boundary between coherent batches.
 
 ## Minimal EACN behavior
 

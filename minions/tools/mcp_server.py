@@ -54,8 +54,11 @@ from minions.lifecycle.role import (
 from minions.logging_setup import configure_logging
 from minions.paths import STATE_DIR
 from minions.state.store import StateStore
+from minions.tools import await_events as _await_events
 from minions.tools import experiment_ssh as _exp
+from minions.tools import exploration_dag as _dag
 from minions.tools import paper_search as _paper_search
+from minions.tools import reset as _reset
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -107,6 +110,13 @@ _MINIONS_MCP_TOOL_NAMES = {
     "download_biorxiv",
     "download_medrxiv",
     "gru_start_monitor",
+    "mos_await_events",
+    "mos_dag_query",
+    "mos_dag_append",
+    "mos_dag_annotate",
+    "mos_dag_path",
+    "mos_dag_summary",
+    "mos_reset",
 }
 
 
@@ -731,6 +741,129 @@ def gru_start_monitor(heartbeat_interval: int | None = None) -> dict:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
+
+# ── mos_await_events ────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def mos_await_events() -> dict:
+    """Block until EACN3 delivers events, then return them annotated.
+
+    Internally loops 60s HTTP long-polls. Writes a heartbeat file to the
+    workspace on every cycle (git-visible liveness signal for external observers).
+    Only returns when events actually arrive — the LLM never sees empty results.
+
+    Returns {count, events: [{event, suggested_action, suggested_tool,
+    suggested_params, urgency}]} where count > 0 always.
+
+    Identity read from env: MINIONS_PROJECT_PORT, MINIONS_AGENT_ID, MINIONS_WORKSPACE.
+    """
+    _require_tool_allowed("mos_await_events")
+    return _await_events.await_events()
+
+
+# ── Exploration DAG tools ──────────────────────────────────────────────
+
+
+class DagQueryArgs(BaseModel):
+    node_type: str | None = Field(default=None, description="Filter by node type.")
+    support_status: str | None = Field(default=None, description="Filter by support status.")
+    author_role: str | None = Field(default=None, description="Filter by author role.")
+    text_contains: str | None = Field(default=None, description="Substring search in node text.")
+    related_to: str | None = Field(
+        default=None, description="Return subgraph connected to this node ID."
+    )
+    limit: int = Field(default=50, description="Max nodes to return.")
+
+
+class DagAppendArgs(BaseModel):
+    nodes: list[dict] | None = Field(
+        default=None, description="Nodes to add (type+text required; id auto-gen)."
+    )
+    edges: list[dict] | None = Field(
+        default=None, description="Edges to add (from_id, to_id, relation required)."
+    )
+
+
+class DagAnnotateArgs(BaseModel):
+    node_id: str = Field(description="ID of the node to annotate.")
+    support_status: str | None = Field(default=None, description="New support status.")
+    evidence_tag: str | None = Field(default=None, description="Evidence reference.")
+    metadata_update: dict | None = Field(default=None, description="Metadata keys to merge.")
+
+
+class DagPathArgs(BaseModel):
+    target_node_id: str = Field(description="Target node ID.")
+    from_node_id: str | None = Field(default=None, description="Start node (default: root).")
+
+
+@mcp.tool()
+def mos_dag_query(args: DagQueryArgs) -> dict:
+    """Query the Exploration DAG. Returns matching nodes and their edges."""
+    _require_tool_allowed("mos_dag_query")
+    return _dag.mos_dag_query(
+        node_type=args.node_type,
+        support_status=args.support_status,
+        author_role=args.author_role,
+        text_contains=args.text_contains,
+        related_to=args.related_to,
+        limit=args.limit,
+    )
+
+
+@mcp.tool()
+def mos_dag_append(args: DagAppendArgs) -> dict:
+    """Add nodes and/or edges to the Exploration DAG. IDs auto-generated if omitted."""
+    _require_tool_allowed("mos_dag_append")
+    return _dag.mos_dag_append(nodes=args.nodes, edges=args.edges)
+
+
+@mcp.tool()
+def mos_dag_annotate(args: DagAnnotateArgs) -> dict:
+    """Update a node's support_status, evidence_tag, or metadata."""
+    _require_tool_allowed("mos_dag_annotate")
+    return _dag.mos_dag_annotate(
+        node_id=args.node_id,
+        support_status=args.support_status,
+        evidence_tag=args.evidence_tag,
+        metadata_update=args.metadata_update,
+    )
+
+
+@mcp.tool()
+def mos_dag_path(args: DagPathArgs) -> dict:
+    """Extract the path from root (or from_node_id) to target_node_id."""
+    _require_tool_allowed("mos_dag_path")
+    return _dag.mos_dag_path(target_node_id=args.target_node_id, from_node_id=args.from_node_id)
+
+
+@mcp.tool()
+def mos_dag_summary() -> dict:
+    """Return a high-level DAG summary: node counts, active hypotheses, blocked paths."""
+    _require_tool_allowed("mos_dag_summary")
+    return _dag.mos_dag_summary()
+
+
+# ── mos_reset ──────────────────────────────────────────────────────────
+
+
+class MosResetArgs(BaseModel):
+    reason: str = Field(
+        default="",
+        description="Why the reset is happening (e.g. task direction change).",
+    )
+
+
+@mcp.tool()
+def mos_reset(args: MosResetArgs) -> dict:
+    """Clear conversation context and continue with fresh state.
+
+    Call AFTER persisting all discoveries to the DAG. After reset,
+    call mos_dag_summary() to re-orient, then mos_await_events().
+    """
+    _require_tool_allowed("mos_reset")
+    return _reset.mos_reset(reason=args.reason)
 
 
 def main() -> None:

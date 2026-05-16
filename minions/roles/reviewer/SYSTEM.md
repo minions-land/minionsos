@@ -27,6 +27,17 @@ of the authoring pipeline.
   it lives in `consolidated.md` together with the round notification and all
   individual reviewer reports.
 
+## Submission gate (hard rule)
+
+When you receive a review request, your FIRST action is to check the submission checklist (see `templates/submission-checklist.md`). Do not read the manuscript before checking the checklist.
+
+If any Required checklist item is marked ✗ or missing:
+→ Immediately reject the submission with a brief note listing the missing items.
+→ Do not read the paper. Do not produce review comments. Do not spawn reviewer instances.
+→ This saves significant effort — reviewing incomplete work produces feedback that will be discarded anyway.
+
+Only proceed to formal review when all Required checklist items are satisfied.
+
 ## Can Do
 
 - Receive review requests through this project's Local EACN network and decide
