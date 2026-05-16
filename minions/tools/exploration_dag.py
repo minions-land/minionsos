@@ -14,9 +14,11 @@ Storage:
 
 from __future__ import annotations
 
+import heapq
 import json
 import logging
 import os
+import random
 from collections import defaultdict, deque
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,6 +32,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
+# Suggested node types. Agents may use any string — these are recommendations.
 NODE_TYPES = (
     "hypothesis",
     "question",
@@ -43,6 +46,7 @@ NODE_TYPES = (
     "method",
 )
 
+# Suggested support statuses. Agents may use any string.
 SUPPORT_STATUSES = (
     "unverified",
     "tentative",
@@ -52,6 +56,7 @@ SUPPORT_STATUSES = (
     "out_of_scope",
 )
 
+# Suggested edge relations. Agents may use any string.
 EDGE_RELATIONS = (
     "refines",
     "tests",
@@ -105,6 +110,11 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
+def _env_role() -> str:
+    """Return the current role name from env, or empty string."""
+    return os.environ.get("MINIONS_ROLE_NAME", "")
+
+
 def _load_dag(port: int) -> dict[str, Any]:
     path = _dag_path(port)
     if not path.exists():
@@ -128,7 +138,7 @@ def _append_journal(port: int, entry: dict[str, Any]) -> None:
 
 
 def _next_id(dag: dict[str, Any], node_type: str) -> str:
-    prefix = TYPE_PREFIX[node_type]
+    prefix = TYPE_PREFIX.get(node_type, node_type[:3].upper())
     existing_nums: list[int] = []
     for node in dag["nodes"]:
         nid: str = node.get("id", "")
@@ -152,6 +162,7 @@ def mos_dag_query(
     text_contains: str | None = None,
     related_to: str | None = None,
     limit: int = 50,
+    max_tokens: int = 2000,
 ) -> dict[str, Any]:
     """Query the DAG. Returns matching nodes and their immediate edges."""
     port = _env_port()
@@ -185,7 +196,19 @@ def mos_dag_query(
         matched_ids = {n["id"] for n in nodes}
         edges = [e for e in edges if e["from_id"] in matched_ids or e["to_id"] in matched_ids]
 
-    return {"nodes": nodes[:limit], "edges": edges, "total_matched": len(nodes)}
+    nodes = nodes[:limit]
+    # Token budget estimation: ~50 tokens/node, ~30 tokens/edge.
+    est_tokens = len(nodes) * 50 + len(edges) * 30
+    truncated = False
+    if est_tokens > max_tokens:
+        # Reduce nodes to fit budget (edges scale with nodes).
+        max_nodes = max(1, (max_tokens - len(edges) * 30) // 50)
+        nodes = nodes[:max_nodes]
+        truncated = True
+    result: dict[str, Any] = {"nodes": nodes, "edges": edges, "total_matched": len(nodes)}
+    if truncated:
+        result["truncated"] = True
+    return result
 
 
 def mos_dag_append(
@@ -202,14 +225,14 @@ def mos_dag_append(
     for node in nodes or []:
         ntype = node.get("type", "hypothesis")
         if ntype not in NODE_TYPES:
-            raise ValueError(f"Invalid node type: {ntype}")
+            logger.info("Custom node type: %s (not in suggested types)", ntype)
         node_id = node.get("id") or _next_id(dag, ntype)
         new_node = {
             "id": node_id,
             "type": ntype,
             "text": node.get("text", ""),
             "support_status": node.get("support_status", "unverified"),
-            "author_role": node.get("author_role", ""),
+            "author_role": node.get("author_role", "") or _env_role(),
             "created_at": node.get("created_at", ts),
             "evidence_tag": node.get("evidence_tag", ""),
             "metadata": node.get("metadata", {}),
@@ -226,16 +249,28 @@ def mos_dag_append(
             },
         )
 
+    # Infer batch author from nodes (fallback for edges without explicit author)
+    batch_author = _env_role()
+    if not batch_author:
+        for node in nodes or []:
+            if node.get("author_role"):
+                batch_author = node["author_role"]
+                break
+
     for edge in edges or []:
-        relation = edge.get("relation", "")
+        relation = edge.get("relation", "related_to")
         if relation not in EDGE_RELATIONS:
-            raise ValueError(f"Invalid edge relation: {relation}")
+            logger.info("Custom edge relation: %s (not in suggested relations)", relation)
+        strength = edge.get("strength", 1.0)
+        if not (0.0 <= strength <= 1.0):
+            raise ValueError(f"Edge strength must be 0.0-1.0, got {strength}")
         new_edge = {
             "from_id": edge["from_id"],
             "to_id": edge["to_id"],
             "relation": relation,
+            "strength": strength,
             "created_at": edge.get("created_at", ts),
-            "author_role": edge.get("author_role", ""),
+            "author_role": edge.get("author_role", "") or batch_author,
         }
         dag["edges"].append(new_edge)
         created_edge_count += 1
@@ -272,11 +307,12 @@ def mos_dag_annotate(
     if target is None:
         raise ValueError(f"Node not found: {node_id}")
 
+    annotator = _env_role() or target.get("author_role", "")
     changes: dict[str, Any] = {}
 
     if support_status is not None:
         if support_status not in SUPPORT_STATUSES:
-            raise ValueError(f"Invalid support_status: {support_status}")
+            logger.info("Custom support_status: %s", support_status)
         old = target.get("support_status", "")
         target["support_status"] = support_status
         changes["support_status"] = {"old": old, "new": support_status}
@@ -290,7 +326,7 @@ def mos_dag_annotate(
                 "new_value": support_status,
                 "evidence_tag": evidence_tag or "",
                 "timestamp": ts,
-                "author_role": "",
+                "author_role": annotator,
             },
         )
 
@@ -307,7 +343,7 @@ def mos_dag_annotate(
                 "old_value": old,
                 "new_value": evidence_tag,
                 "timestamp": ts,
-                "author_role": "",
+                "author_role": annotator,
             },
         )
 
@@ -324,7 +360,7 @@ def mos_dag_annotate(
                 "old_value": old_meta,
                 "new_value": target["metadata"],
                 "timestamp": ts,
-                "author_role": "",
+                "author_role": annotator,
             },
         )
 
@@ -336,7 +372,7 @@ def mos_dag_path(
     target_node_id: str,
     from_node_id: str | None = None,
 ) -> dict[str, Any]:
-    """BFS shortest path from root (or from_node_id) to target_node_id."""
+    """Weighted shortest path (Dijkstra) preferring high-strength edges."""
     port = _env_port()
     dag = _load_dag(port)
     nodes_by_id: dict[str, dict] = {n["id"]: n for n in dag["nodes"]}
@@ -345,17 +381,17 @@ def mos_dag_path(
     if target_node_id not in nodes_by_id:
         return {"error": f"Target node not found: {target_node_id}"}
 
-    # Build adjacency (undirected for path finding).
-    adj: dict[str, list[tuple[str, dict]]] = defaultdict(list)
+    # Build adjacency (undirected). Weight = 1.0 - strength (high strength = low cost).
+    adj: dict[str, list[tuple[float, str, dict]]] = defaultdict(list)
     for edge in edges:
-        adj[edge["from_id"]].append((edge["to_id"], edge))
-        adj[edge["to_id"]].append((edge["from_id"], edge))
+        w = 1.0 - edge.get("strength", 1.0)
+        adj[edge["from_id"]].append((w, edge["to_id"], edge))
+        adj[edge["to_id"]].append((w, edge["from_id"], edge))
 
     # Determine start node.
     if from_node_id:
         start = from_node_id
     else:
-        # Use first node as root if no explicit root marker.
         if not dag["nodes"]:
             return {"error": "DAG is empty"}
         start = dag["nodes"][0]["id"]
@@ -366,30 +402,47 @@ def mos_dag_path(
     if start == target_node_id:
         return {"path_nodes": [nodes_by_id[start]], "path_edges": []}
 
-    # BFS.
-    visited: set[str] = {start}
-    queue: deque[tuple[str, list[str], list[dict]]] = deque()
-    queue.append((start, [start], []))
+    # Dijkstra.
+    dist: dict[str, float] = {start: 0.0}
+    prev: dict[str, tuple[str, dict]] = {}
+    heap: list[tuple[float, str]] = [(0.0, start)]
 
-    while queue:
-        current, path_ids, path_edges = queue.popleft()
-        for neighbor, edge in adj[current]:
-            if neighbor in visited:
-                continue
-            new_path = [*path_ids, neighbor]
-            new_edges = [*path_edges, edge]
-            if neighbor == target_node_id:
-                return {
-                    "path_nodes": [nodes_by_id[nid] for nid in new_path if nid in nodes_by_id],
-                    "path_edges": new_edges,
-                }
-            visited.add(neighbor)
-            queue.append((neighbor, new_path, new_edges))
+    while heap:
+        d, current = heapq.heappop(heap)
+        if current == target_node_id:
+            break
+        if d > dist.get(current, float("inf")):
+            continue
+        for w, neighbor, edge in adj[current]:
+            nd = d + w
+            if nd < dist.get(neighbor, float("inf")):
+                dist[neighbor] = nd
+                prev[neighbor] = (current, edge)
+                heapq.heappush(heap, (nd, neighbor))
+
+    if target_node_id not in prev:
+        return {
+            "error": f"No path from {start} to {target_node_id}",
+            "path_nodes": [],
+            "path_edges": [],
+        }
+
+    # Reconstruct path.
+    path_ids: list[str] = []
+    path_edges: list[dict] = []
+    cur = target_node_id
+    while cur != start:
+        path_ids.append(cur)
+        parent, edge = prev[cur]
+        path_edges.append(edge)
+        cur = parent
+    path_ids.append(start)
+    path_ids.reverse()
+    path_edges.reverse()
 
     return {
-        "error": f"No path from {start} to {target_node_id}",
-        "path_nodes": [],
-        "path_edges": [],
+        "path_nodes": [nodes_by_id[nid] for nid in path_ids if nid in nodes_by_id],
+        "path_edges": path_edges,
     }
 
 
@@ -439,3 +492,322 @@ def mos_dag_summary() -> dict[str, Any]:
         "blocked_count": len(blocked),
         "dead_end_count": len(dead_ends),
     }
+
+
+def mos_dag_relevant(context_text: str, max_nodes: int = 10) -> dict[str, Any]:
+    """Find DAG nodes relevant to a given context (event text, task description).
+
+    This is the PUSH mechanism: instead of the agent deciding what to query,
+    the system finds relevant prior knowledge based on what the agent is
+    currently looking at.
+
+    Uses keyword overlap between context_text and node text/metadata.
+    No vector embeddings needed — simple but effective for structured nodes.
+    """
+    port = _env_port()
+    dag_data = _load_dag(port)
+    nodes = dag_data["nodes"]
+    edges = dag_data["edges"]
+
+    if not nodes or not context_text:
+        return {"relevant_nodes": [], "relevant_edges": []}
+
+    # Build searchable text per node (text + type + metadata values)
+    context_lower = context_text.lower()
+    context_words = {w for w in context_lower.split() if len(w) > 3}
+
+    scored: list[tuple[float, dict]] = []
+    for node in nodes:
+        # Combine all searchable fields
+        parts = [
+            node.get("text", ""),
+            node.get("type", ""),
+            node.get("id", ""),
+        ]
+        # Include metadata values (topic, reason, etc.)
+        meta = node.get("metadata", {})
+        if isinstance(meta, dict):
+            parts.extend(str(v) for v in meta.values())
+        node_searchable = " ".join(parts).lower()
+        node_words = {w for w in node_searchable.split() if len(w) > 3}
+
+        # Score: keyword overlap + substring containment
+        overlap = len(context_words & node_words)
+        # Also check if any context word is a substring of node text
+        for cw in context_words:
+            if cw in node_searchable and cw not in node_words:
+                overlap += 0.5
+
+        if overlap > 0:
+            boost = 1.0
+            if node.get("type") == "dead_end":
+                boost = 2.0
+            elif node.get("type") == "decision":
+                boost = 1.5
+            elif node.get("support_status") == "verified":
+                boost = 1.3
+            scored.append((overlap * boost, node))
+
+    # Sort by relevance, take top N
+    scored.sort(key=lambda x: x[0], reverse=True)
+    relevant_nodes = [node for _, node in scored[:max_nodes]]
+
+    # Get edges connecting relevant nodes
+    relevant_ids = {n["id"] for n in relevant_nodes}
+    relevant_edges = [
+        e for e in edges if e["from_id"] in relevant_ids or e["to_id"] in relevant_ids
+    ]
+
+    # Fallback: if no keyword matches, return top-level nodes as orientation
+    if not scored:
+        # Return hypotheses, decisions, insights as general orientation
+        fallback = [
+            n for n in nodes if n.get("type") in ("hypothesis", "decision", "insight", "result")
+        ]
+        fallback.sort(key=lambda n: n.get("created_at", ""), reverse=True)
+        relevant_nodes = fallback[:max_nodes]
+        relevant_ids = {n["id"] for n in relevant_nodes}
+        relevant_edges = [
+            e for e in edges if e["from_id"] in relevant_ids or e["to_id"] in relevant_ids
+        ]
+        return {
+            "relevant_nodes": relevant_nodes,
+            "relevant_edges": relevant_edges,
+            "match_count": len(fallback),
+            "fallback": True,
+        }
+
+    return {
+        "relevant_nodes": relevant_nodes,
+        "relevant_edges": relevant_edges,
+        "match_count": len(scored),
+    }
+
+
+def mos_dag_topic_index() -> dict[str, Any]:
+    """Return a topic-level index of the DAG.
+
+    Groups nodes by their metadata 'topic' field (if present) or by
+    community membership. Provides a one-line orientation per topic
+    so agents know what prior work exists without querying each topic.
+    """
+    port = _env_port()
+    dag_data = _load_dag(port)
+    nodes = dag_data["nodes"]
+
+    # Group by topic metadata
+    topics: dict[str, list[dict]] = {}
+    for node in nodes:
+        topic = node.get("metadata", {}).get("topic", "")
+        if not topic:
+            # Infer topic from first significant word in text
+            words = node.get("text", "").lower().split()
+            topic = next((w for w in words if len(w) > 4), "general")
+        topics.setdefault(topic, []).append(node)
+
+    # Build index
+    index = []
+    for topic, topic_nodes in sorted(topics.items(), key=lambda x: -len(x[1])):
+        statuses = {}
+        for n in topic_nodes:
+            s = n.get("support_status", "unverified")
+            statuses[s] = statuses.get(s, 0) + 1
+        dead_ends = sum(1 for n in topic_nodes if n.get("type") == "dead_end")
+        latest = max(topic_nodes, key=lambda n: n.get("created_at", ""))
+        index.append(
+            {
+                "topic": topic,
+                "node_count": len(topic_nodes),
+                "latest_node": latest["id"],
+                "status_summary": statuses,
+                "dead_ends": dead_ends,
+            }
+        )
+
+    return {"topics": index, "total_topics": len(index)}
+
+
+def mos_dag_communities() -> dict[str, Any]:
+    """Detect communities using connected components + label propagation.
+
+    Phase 1: Find connected components (handles disconnected subgraphs).
+    Phase 2: Within large components (>10 nodes), use label propagation
+             to find sub-communities.
+
+    Returns clusters of related nodes that form coherent research threads.
+    """
+    port = _env_port()
+    dag_data = _load_dag(port)
+    nodes = dag_data["nodes"]
+    edges = dag_data["edges"]
+
+    if not nodes:
+        return {"communities": [], "total_communities": 0, "cross_community_edges": []}
+
+    node_ids = {n["id"] for n in nodes}
+    nodes_by_id = {n["id"]: n for n in nodes}
+
+    # Build undirected adjacency.
+    adj: dict[str, list[str]] = defaultdict(list)
+    for edge in edges:
+        if edge["from_id"] in node_ids and edge["to_id"] in node_ids:
+            adj[edge["from_id"]].append(edge["to_id"])
+            adj[edge["to_id"]].append(edge["from_id"])
+
+    # Phase 1: Connected components via BFS.
+    visited: set[str] = set()
+    components: list[set[str]] = []
+    for nid in node_ids:
+        if nid in visited:
+            continue
+        # BFS from this node
+        component: set[str] = set()
+        queue = deque([nid])
+        while queue:
+            curr = queue.popleft()
+            if curr in visited:
+                continue
+            visited.add(curr)
+            component.add(curr)
+            for nb in adj.get(curr, []):
+                if nb not in visited and nb in node_ids:
+                    queue.append(nb)
+        components.append(component)
+
+    # Phase 2: For large components, sub-divide with label propagation.
+    final_groups: list[list[str]] = []
+    for comp in components:
+        if len(comp) <= 10:
+            final_groups.append(list(comp))
+            continue
+        # Label propagation within this component
+        labels = {nid: nid for nid in comp}
+        for _ in range(50):
+            changed = False
+            order = list(comp)
+            random.shuffle(order)
+            for nid in order:
+                neighbors = [nb for nb in adj.get(nid, []) if nb in comp]
+                if not neighbors:
+                    continue
+                counts: dict[str, int] = defaultdict(int)
+                for nb in neighbors:
+                    counts[labels[nb]] += 1
+                if not counts:
+                    continue
+                max_count = max(counts.values())
+                candidates = [lbl for lbl, c in counts.items() if c == max_count]
+                best = min(candidates)
+                if labels[nid] != best:
+                    labels[nid] = best
+                    changed = True
+            if not changed:
+                break
+        # Group by label within component
+        sub_groups: dict[str, list[str]] = defaultdict(list)
+        for nid, lbl in labels.items():
+            sub_groups[lbl].append(nid)
+        final_groups.extend(sub_groups.values())
+
+    # Sort by size descending, assign IDs.
+    final_groups.sort(key=len, reverse=True)
+    node_to_community: dict[str, int] = {}
+    communities_out = []
+    for idx, group in enumerate(final_groups):
+        for nid in group:
+            node_to_community[nid] = idx
+        # Determine dominant type
+        type_counts: dict[str, int] = defaultdict(int)
+        for nid in group:
+            if nid in nodes_by_id:
+                type_counts[nodes_by_id[nid].get("type", "unknown")] += 1
+        dominant = max(type_counts, key=type_counts.get) if type_counts else "unknown"
+        communities_out.append(
+            {
+                "id": idx,
+                "size": len(group),
+                "nodes": group,
+                "dominant_type": dominant,
+            }
+        )
+
+    # Cross-community edges.
+    cross = []
+    for edge in edges:
+        f, t = edge["from_id"], edge["to_id"]
+        if f in node_to_community and t in node_to_community:
+            cf, ct = node_to_community[f], node_to_community[t]
+            if cf != ct:
+                cross.append(
+                    {
+                        "from": f,
+                        "to": t,
+                        "relation": edge.get("relation", ""),
+                        "communities": [cf, ct],
+                    }
+                )
+
+    return {
+        "communities": communities_out,
+        "total_communities": len(communities_out),
+        "cross_community_edges": cross,
+    }
+
+
+def mos_dag_god_nodes(top_n: int = 5) -> dict[str, Any]:
+    """Identify hub nodes with highest connectivity (degree centrality).
+
+    These are foundational assumptions or key results that many other
+    nodes depend on. Changing a god node affects the whole graph.
+    """
+    port = _env_port()
+    dag = _load_dag(port)
+    nodes = dag["nodes"]
+    edges = dag["edges"]
+
+    if not nodes:
+        return {"god_nodes": []}
+
+    nodes_by_id: dict[str, dict] = {n["id"]: n for n in nodes}
+    type_of: dict[str, str] = {n["id"]: n.get("type", "unknown") for n in nodes}
+
+    # Degree and cross-type connections.
+    degree: dict[str, int] = defaultdict(int)
+    connected_ids: dict[str, set[str]] = defaultdict(set)
+    connected_types: dict[str, set[str]] = defaultdict(set)
+
+    for edge in edges:
+        fid, tid = edge["from_id"], edge["to_id"]
+        degree[fid] += 1
+        degree[tid] += 1
+        connected_ids[fid].add(tid)
+        connected_ids[tid].add(fid)
+        connected_types[fid].add(type_of.get(tid, "unknown"))
+        connected_types[tid].add(type_of.get(fid, "unknown"))
+
+    # Score = degree * (1 + 0.2 * cross_type_count).
+    scored: list[tuple[float, str]] = []
+    for nid in nodes_by_id:
+        d = degree.get(nid, 0)
+        ct = len(connected_types.get(nid, set()))
+        score = d * (1.0 + 0.2 * ct)
+        scored.append((score, nid))
+
+    scored.sort(key=lambda x: (-x[0], x[1]))
+    top = scored[:top_n]
+
+    god_nodes = []
+    for score, nid in top:
+        node = nodes_by_id[nid]
+        god_nodes.append(
+            {
+                "id": nid,
+                "text": node.get("text", ""),
+                "score": round(score, 2),
+                "degree": degree.get(nid, 0),
+                "cross_type_connections": len(connected_types.get(nid, set())),
+                "connected_to": sorted(connected_ids.get(nid, set())),
+            }
+        )
+
+    return {"god_nodes": god_nodes}

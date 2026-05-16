@@ -61,9 +61,10 @@ class TestMosDagAppend:
         )
         assert result["created_edge_count"] == 1
 
-    def test_append_invalid_type_raises(self):
-        with pytest.raises(ValueError, match="Invalid node type"):
-            dag.mos_dag_append(nodes=[{"type": "invalid", "text": "X"}])
+    def test_append_custom_type_accepted(self):
+        """Custom types are accepted (not rejected) — schema is suggestive."""
+        result = dag.mos_dag_append(nodes=[{"type": "observation", "text": "X"}])
+        assert result["created_node_ids"] == ["OBS-001"]
 
     def test_journal_written(self, _isolated_project: Path):
         dag.mos_dag_append(nodes=[{"type": "question", "text": "Why?"}])
