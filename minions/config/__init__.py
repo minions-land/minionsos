@@ -96,6 +96,7 @@ _CODEX_BRIDGE_TOOLS = [
 _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("gru", "main"): [
         "mos_relay",
+        "mos_await_events",
         "mos_project_checkpoint_workspace",
         "mos_project_create",
         "mos_project_kill",
@@ -128,6 +129,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("gru", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
     ("noter", "main"): [
         "eacn3_*",
+        "mos_await_events",
         "mos_dag_*",
         "mos_reset",
         "Task",
@@ -138,6 +140,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("noter", "subagent"): ["WebSearch", "WebFetch", "Read", "Write", "Edit"],
     ("coder", "main"): [
         "eacn3_*",
+        "mos_await_events",
         "mos_dag_*",
         "mos_reset",
         "Task",
@@ -161,6 +164,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("experimenter", "main"): [
         "eacn3_*",
+        "mos_await_events",
         "mos_dag_*",
         "mos_reset",
         "Task",
@@ -206,6 +210,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("writer", "main"): [
         "eacn3_*",
+        "mos_await_events",
         "mos_dag_*",
         "mos_reset",
         *_WRITER_PAPER_SEARCH_TOOLS,
@@ -230,6 +235,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("expert", "main"): [
         "eacn3_*",
+        "mos_await_events",
         "mos_dag_*",
         "mos_reset",
         "Task",
@@ -253,6 +259,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("reviewer", "main"): [
         "eacn3_*",
+        "mos_await_events",
         "mos_dag_*",
         "mos_reset",
         "Task",
@@ -264,6 +271,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("reviewer", "subagent"): ["codex", "WebSearch", "WebFetch", "Read", "Write", "Edit"],
     ("ethics", "main"): [
         "eacn3_*",
+        "mos_await_events",
         "mos_dag_*",
         "mos_reset",
         "Task",
