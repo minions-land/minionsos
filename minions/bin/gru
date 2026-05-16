@@ -148,7 +148,7 @@ fi
 #   GRU_VIZ=0            (disable Observatory auto-start; default: 1)
 #   GRU_VIZ_OPEN=0       (do not open browser on interactive launch; default: 1)
 #   MINIONS_VIZ_PORT=N   (override default Observatory port 7891)
-#   MINIONS_GRU_MONITOR=0 (disable Python monitor/WakeupScheduler sidecar)
+#   MINIONS_GRU_MONITOR=0 (disable Gru monitor / Role tmux watchdog sidecar)
 : "${GRU_EFFORT:=max}"
 : "${GRU_SANDBOX:=1}"
 : "${GRU_SKIP_PERMS:=1}"
@@ -243,7 +243,7 @@ else
     )
 fi
 
-# ── Auto-start Gru monitor + WakeupScheduler sidecar ────────────────────────
+# ── Auto-start Gru monitor + Role tmux watchdog sidecar ─────────────────────
 ensure_gru_monitor() {
     if [ "${MINIONS_GRU_MONITOR:-1}" = "0" ]; then
         return 0
@@ -274,7 +274,7 @@ ensure_gru_monitor() {
         rm -f "$MONITOR_PID_FILE" "$MONITOR_HOST_FILE"
     fi
 
-    info "Starting Gru monitor/WakeupScheduler sidecar..."
+    info "Starting Gru monitor / Role tmux watchdog sidecar..."
     if command -v setsid >/dev/null 2>&1; then
         nohup setsid uv run --project "$ROOT" python -m minions.gru.loop \
             >> "$MONITOR_LOG_FILE" 2>&1 &

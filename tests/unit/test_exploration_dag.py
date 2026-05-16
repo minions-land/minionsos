@@ -26,17 +26,13 @@ def _isolated_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 class TestMosDagAppend:
     def test_append_single_node(self):
-        result = dag.mos_dag_append(
-            nodes=[{"type": "hypothesis", "text": "Test hypothesis"}]
-        )
+        result = dag.mos_dag_append(nodes=[{"type": "hypothesis", "text": "Test hypothesis"}])
         assert result["created_node_ids"] == ["H-001"]
         assert result["created_edge_count"] == 0
 
     def test_append_auto_increments_ids(self):
         dag.mos_dag_append(nodes=[{"type": "hypothesis", "text": "First"}])
-        result = dag.mos_dag_append(
-            nodes=[{"type": "hypothesis", "text": "Second"}]
-        )
+        result = dag.mos_dag_append(nodes=[{"type": "hypothesis", "text": "Second"}])
         assert result["created_node_ids"] == ["H-002"]
 
     def test_append_multiple_types(self):

@@ -41,9 +41,7 @@ class TestEdgeStrength:
                 {"type": "hypothesis", "text": "H1"},
                 {"type": "experiment", "text": "E1"},
             ],
-            edges=[
-                {"from_id": "H-001", "to_id": "E-001", "relation": "tests", "strength": 0.7}
-            ],
+            edges=[{"from_id": "H-001", "to_id": "E-001", "relation": "tests", "strength": 0.7}],
         )
         result = dag.mos_dag_query(related_to="H-001")
         edge = result["edges"][0]

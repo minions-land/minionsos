@@ -27,12 +27,12 @@ that is all the situation needs.
 
 ## The four postures (your toolkit)
 
-| Posture | Skill file | Use when... |
-|---|---|---|
-| **Unstated Premises** | `unstated-premises.md` | Task has unstated constraints or you are filling in blanks with "obviously" |
-| **First-Principles** | `first-principles.md` | "Everyone does it this way" is the strongest argument, or you need to derive options from mechanisms |
-| **Dialectical Synthesis** | `dialectical-synthesis.md` | Two approaches conflict, or you are about to commit to a confident claim |
-| **Goal-Setting** | `goal-setting.md` | You are about to dispatch work and need to define what "done" looks like |
+| Posture | Skill file | Use when | Skip when |
+|---|---|---|---|
+| **Unstated Premises** | `unstated-premises.md` | Task has unstated constraints, or filling blanks with "obviously" | Spec is concrete and every premise verifiable from artifacts |
+| **First-Principles** | `first-principles.md` | "Everyone does it this way" is the strongest argument | Routine engineering choice (lib, optimizer) where convention is load-bearing |
+| **Dialectical Synthesis** | `dialectical-synthesis.md` | Two approaches conflict, or about to publish a confident claim | No genuine opposing position — manufacturing one is worse |
+| **Goal-Setting** | `goal-setting.md` | About to dispatch work, need acceptance criteria | One-line binary check ("test passes") is sufficient |
 
 Each posture is an independent skill. Read its file when you decide to use it.
 

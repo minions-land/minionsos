@@ -16,29 +16,91 @@ and measures what each mode would have available at each step.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
 from minions.tools import exploration_dag as dag
 
-
 # --- Simulated exploration scenario ---
 # A 10-step scientific workflow where each step produces discoveries,
 # some of which are dead ends that should not be re-explored.
 
 SCENARIO = [
-    {"step": 1, "action": "formulate question", "produces": {"type": "question", "text": "Does attention head pruning preserve model quality?"}},
-    {"step": 2, "action": "propose hypothesis", "produces": {"type": "hypothesis", "text": "Random pruning of 30% heads preserves >95% accuracy"}},
-    {"step": 3, "action": "run experiment", "produces": {"type": "experiment", "text": "Ablation study on BERT-base, random 30% head removal"}},
-    {"step": 4, "action": "record result", "produces": {"type": "result", "text": "Accuracy dropped 12% — hypothesis refuted"}},
-    {"step": 5, "action": "mark dead end", "produces": {"type": "dead_end", "text": "Random pruning fails; need structured selection"}},
-    {"step": 6, "action": "new hypothesis", "produces": {"type": "hypothesis", "text": "Importance-scored pruning preserves >95% accuracy"}},
-    {"step": 7, "action": "run experiment 2", "produces": {"type": "experiment", "text": "Importance-based pruning on BERT-base, top-30% removal"}},
-    {"step": 8, "action": "record result 2", "produces": {"type": "result", "text": "Accuracy preserved at 96.2% — hypothesis supported"}},
-    {"step": 9, "action": "decision", "produces": {"type": "decision", "text": "Adopt importance-based pruning as primary method"}},
-    {"step": 10, "action": "new question", "produces": {"type": "question", "text": "Does importance scoring transfer across model sizes?"}},
+    {
+        "step": 1,
+        "action": "formulate question",
+        "produces": {
+            "type": "question",
+            "text": "Does attention head pruning preserve model quality?",
+        },
+    },
+    {
+        "step": 2,
+        "action": "propose hypothesis",
+        "produces": {
+            "type": "hypothesis",
+            "text": "Random pruning of 30% heads preserves >95% accuracy",
+        },
+    },
+    {
+        "step": 3,
+        "action": "run experiment",
+        "produces": {
+            "type": "experiment",
+            "text": "Ablation study on BERT-base, random 30% head removal",
+        },
+    },
+    {
+        "step": 4,
+        "action": "record result",
+        "produces": {"type": "result", "text": "Accuracy dropped 12% — hypothesis refuted"},
+    },
+    {
+        "step": 5,
+        "action": "mark dead end",
+        "produces": {"type": "dead_end", "text": "Random pruning fails; need structured selection"},
+    },
+    {
+        "step": 6,
+        "action": "new hypothesis",
+        "produces": {
+            "type": "hypothesis",
+            "text": "Importance-scored pruning preserves >95% accuracy",
+        },
+    },
+    {
+        "step": 7,
+        "action": "run experiment 2",
+        "produces": {
+            "type": "experiment",
+            "text": "Importance-based pruning on BERT-base, top-30% removal",
+        },
+    },
+    {
+        "step": 8,
+        "action": "record result 2",
+        "produces": {
+            "type": "result",
+            "text": "Accuracy preserved at 96.2% — hypothesis supported",
+        },
+    },
+    {
+        "step": 9,
+        "action": "decision",
+        "produces": {
+            "type": "decision",
+            "text": "Adopt importance-based pruning as primary method",
+        },
+    },
+    {
+        "step": 10,
+        "action": "new question",
+        "produces": {
+            "type": "question",
+            "text": "Does importance scoring transfer across model sizes?",
+        },
+    },
 ]
 
 # Simulated token costs per step (realistic estimates)
@@ -126,7 +188,10 @@ class TestPerformanceComparison:
         return {
             "mode": "dag_compact",
             "total_tokens_consumed": total_tokens,
-            "peak_context": TOKENS_SYSTEM_PROMPT + TOKENS_SCRATCHPAD + TOKENS_DAG_SUMMARY + TOKENS_PER_STEP_CONTEXT,
+            "peak_context": TOKENS_SYSTEM_PROMPT
+            + TOKENS_SCRATCHPAD
+            + TOKENS_DAG_SUMMARY
+            + TOKENS_PER_STEP_CONTEXT,
             "knowledge_at_step_10": summary["total_nodes"],  # all 10 nodes accessible
             "dead_end_visible_at_step_6": len(dead_ends["nodes"]) > 0,
             "can_recall_step_1_at_step_10": True,  # via dag_query
@@ -198,12 +263,14 @@ class TestPerformanceComparison:
             dag.mos_dag_append(nodes=[step["produces"]])
 
         # Add edges for the successful path
-        dag.mos_dag_append(edges=[
-            {"from_id": "Q-001", "to_id": "H-002", "relation": "refines"},
-            {"from_id": "H-002", "to_id": "E-002", "relation": "tests"},
-            {"from_id": "E-002", "to_id": "R-002", "relation": "supports"},
-            {"from_id": "R-002", "to_id": "D-001", "relation": "derived_from"},
-        ])
+        dag.mos_dag_append(
+            edges=[
+                {"from_id": "Q-001", "to_id": "H-002", "relation": "refines"},
+                {"from_id": "H-002", "to_id": "E-002", "relation": "tests"},
+                {"from_id": "E-002", "to_id": "R-002", "relation": "supports"},
+                {"from_id": "R-002", "to_id": "D-001", "relation": "derived_from"},
+            ]
+        )
 
         # Extract the paper path
         path = dag.mos_dag_path(target_node_id="D-001")
