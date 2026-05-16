@@ -13,13 +13,18 @@ Do the artifacts necessary for a meaningful paper currently exist in the project
 3. If ANY required item is missing → do not start writing. Send an EACN message to the relevant role asking for status, then return to waiting.
 4. If all required items exist → proceed with paper planning and drafting.
 
-## Required preconditions (all must be satisfied)
+## Required preconditions (all applicable items must be satisfied)
 
 - [ ] Main experiment: quantitative results exist in experiment artifacts
 - [ ] Ablation study: at least one ablation with results
 - [ ] Case visualization: qualitative examples or visual analysis exist
 - [ ] Motivation: research motivation is documented with literature support
-- [ ] Mathematical proof or formal derivation (if the contribution is algorithmic/theoretical)
+
+## Conditionally required (check applicability first)
+
+- [ ] Mathematical proof or formal derivation — required ONLY when the contribution is algorithmic or theoretical. If the paper is purely empirical/systems, mark as N/A and proceed.
+
+To determine applicability: check the project brief or Expert's stated contribution type. If no theorem or formal claim is being made, this item does not apply.
 
 ## Optional (incorporate if available, do not block on these)
 

@@ -1,9 +1,9 @@
 """Pin Gru-SYSTEM.md invariants so they survive future edits.
 
 1. Gru is explicitly forbidden from hand-rolling EACN3 HTTP calls.
-2. Gru receives events through MinionsOS (init prompt) and writes to EACN3
-   through native ``eacn3_send_message`` / ``eacn3_create_task``. There is
-   no MinionsOS wrapper around EACN3 (the MOS Agent Pool was removed).
+2. Gru drives its event loop with ``mos_await_events`` and writes to EACN3
+   through native ``eacn3_send_message`` / ``eacn3_create_task``. The legacy
+   MOS Agent Pool send/create wrappers stay out.
 
 If these disappear, the dead-letter class of bugs we fixed can quietly
 return (role -> Gru messages start being invisible again), so we lock them
@@ -34,10 +34,9 @@ class TestGruSystemInvariants:
         t = _text()
         assert "eacn3_send_message" in t
         assert "eacn3_create_task" in t
-        # Removed adapter / wrapper names must not leak back in.
+        # The retired send/create wrappers must not come back.
         assert "gru_send_message" not in t
         assert "gru_publish_task" not in t
-        assert "mos_await_events" not in t
         assert "mos_send_message" not in t
         assert "mos_create_task" not in t
         assert "mos_ack_clear" not in t

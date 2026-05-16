@@ -8,8 +8,7 @@ from minions.config import (
     RoleType,
     resolve_whitelist,
 )
-from minions.lifecycle.role import FIXED_ROLES, _boundary_context, _build_system_prompt
-from minions.paths import common_role_system_md
+from minions.lifecycle.role import FIXED_ROLES, _boundary_context
 
 
 class TestRoleType:
@@ -114,30 +113,6 @@ class TestBoundaryContext:
         ctx = _boundary_context("unknown-role", 37596)
         assert len(ctx) > 0
 
-
-class TestCommonRolePrompt:
-    def test_common_role_system_exists(self) -> None:
-        path = common_role_system_md()
-        assert path.exists()
-        text = path.read_text(encoding="utf-8")
-        assert "Common Role Contract" in text
-        assert "Subagent handoff contract" in text
-
-    def test_role_system_prompt_combines_common_and_role_specific(self) -> None:
-        path = _build_system_prompt("coder")
-        assert path is not None
-        text = path.read_text(encoding="utf-8")
-        assert "Common Role Contract" in text
-        assert "Coder" in text
-        assert "Subagents do not reliably inherit" in text
-
-    def test_coder_system_prompt_mentions_assigned_system_maintenance(self) -> None:
-        path = _build_system_prompt("coder")
-        assert path is not None
-        text = path.read_text(encoding="utf-8")
-        assert "system-maintenance code changes" in text
-        assert "explicitly assigns" in text
-        assert "report it to Gru through EACN" in text
 
 
 class TestReviewerWhitelistIsolation:

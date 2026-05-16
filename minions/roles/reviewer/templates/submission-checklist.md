@@ -10,7 +10,10 @@ Standard checklist that must accompany every paper submission to Reviewer. Revie
 - [ ] Baseline comparison: at least one established baseline with head-to-head numbers
 - [ ] Ablation study: at least one ablation isolating a key design choice
 - [ ] Case visualization: qualitative examples demonstrating behavior
-- [ ] Mathematical formulation: formal problem setup or proof (if contribution is algorithmic/theoretical)
+
+## Conditionally required (mark N/A with justification if not applicable)
+
+- [ ] Mathematical formulation: formal problem setup or proof — required when the contribution is algorithmic/theoretical. Mark N/A for purely empirical/systems papers.
 
 ## Strongly recommended (missing items require brief justification)
 

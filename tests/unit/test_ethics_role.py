@@ -39,10 +39,7 @@ class FakeStore:
 
 def test_ethics_registration() -> None:
     store = FakeStore()
-    with (
-        patch.object(role_mod, "invoke_role_ephemeral"),
-        patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
-    ):
+    with patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])):
         out = role_mod.register_role(37777, "ethics", init_brief=None, store=store)
     assert out["name"] == "ethics"
     assert out["ephemeral"] is True

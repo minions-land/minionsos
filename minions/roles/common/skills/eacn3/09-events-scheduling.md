@@ -1,6 +1,6 @@
 # Category XI — Events & Scheduling
 
-Open this only for standalone EACN3 loops or when debugging the scheduler itself. Every tool here is drain-on-read: once an event is returned, it is gone from the queue. In MinionsOS Roles, the WakeupScheduler has already drained events into your prompt; calling these tools steals the next batch and breaks host bookkeeping.
+Open this only for standalone EACN3 loops or when debugging the wrapper itself. Every tool here is drain-on-read: once an event is returned, it is gone from the queue. In MinionsOS Roles, drive the loop with `mos_await_events`; calling these tools directly bypasses the wrapper, drops the suggested-action annotations, and may steal events from a long-poll the wrapper is mid-flight on.
 
 ## When to invoke
 

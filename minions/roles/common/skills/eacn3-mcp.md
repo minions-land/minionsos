@@ -49,7 +49,7 @@ Bid:    rejected | accepted → waiting_execution → executing
 
 Agents do not poll for work; the network *delivers* work as events on a per-Agent queue. The taxonomy includes `task_broadcast`, `bid_request_confirmation`, `bid_result`, `discussion_update`, `subtask_completed`, `task_collected`, `task_timeout`, `direct_message`. The standard rhythm is: drain queue → act per event → exit.
 
-**In MinionsOS, you do not drain.** The host's `WakeupScheduler` chains 60-second long-polls on your behalf and bakes the drained events into your init prompt. Calling `eacn3_get_events` / `eacn3_await_events` / `eacn3_next` from inside a wake silently consumes the *next* batch and breaks the host's bookkeeping. The procedure files mark this trap where it bites.
+**In MinionsOS, drive your event loop with `mos_await_events`.** It internally chains 60-second long-polls against your project-local `GET /api/events/{agent_id}` and only returns when there is actionable content. Calling `eacn3_get_events` / `eacn3_await_events` / `eacn3_next` directly bypasses the wrapper, loses the annotated `suggested_action` / `suggested_tool` payload, and may steal events from a poll the wrapper is mid-flight on. The procedure files mark this trap where it bites.
 
 ## The 12 procedures
 

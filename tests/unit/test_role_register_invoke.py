@@ -1,10 +1,9 @@
-"""Unit tests for register_role / invoke_role_ephemeral."""
+"""Unit tests for register_role / register_expert."""
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -49,14 +48,12 @@ def _fake_role_workspace(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class TestRegister:
-    def test_register_role_no_subprocess(self) -> None:
+    def test_register_role_records_entry(self) -> None:
         store = FakeStore()
-        with (
-            patch.object(role_mod, "invoke_role_ephemeral") as inv,
-            patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])) as reg,
-        ):
+        with patch.object(
+            role_mod, "register_project_role_agent", return_value=("tok", [])
+        ) as reg:
             out = role_mod.register_role(37596, "noter", init_brief=None, store=store)
-        assert inv.call_count == 0
         reg.assert_called_once_with(37596, "noter")
         assert out["name"] == "noter"
         assert out["session_name"] == "p37596/noter"
@@ -140,96 +137,3 @@ class TestRegister:
         assert role_mod.spawn_role is role_mod.register_role
         assert role_mod.spawn_expert is role_mod.register_expert
 
-
-class TestInvokeEphemeral:
-    def test_invoke_launches_subprocess(self, tmp_path: Path) -> None:
-        fake_proc = MagicMock()
-        fake_proc.pid = 4321
-        with (
-            patch.dict(os.environ, {"MINIONS_AGENT_HOST": "claude"}, clear=False),
-            patch("minions.lifecycle.role.subprocess.Popen", return_value=fake_proc) as popen,
-            patch("minions.lifecycle.role.project_role_workspace", return_value=tmp_path),
-            patch(
-                "minions.lifecycle.role.project_role_log", return_value=tmp_path / "role-noter.log"
-            ),
-        ):
-            out = role_mod.invoke_role_ephemeral("noter", 37596, [{"id": "e1", "content": "hi"}])
-        assert out["name"] == "noter"
-        assert out["pid"] == 4321
-        assert out["events"] == 1
-        assert out["deferred"] is False
-        assert popen.call_count == 1
-        cmd = popen.call_args[0][0]
-        # Prompt is now piped via stdin in -p/--print mode (was --message flag).
-        assert "-p" in cmd or "--print" in cmd
-        assert "--message" not in cmd
-        assert "--permission-mode" in cmd
-        assert "bypassPermissions" in cmd
-        assert "--allowed-tools" in cmd
-        # stdin must be a pipe so the prompt can be written.
-        assert popen.call_args.kwargs.get("stdin") is not None
-        # And the message was actually written to the subprocess stdin.
-        fake_proc.stdin.write.assert_called()
-        fake_proc.stdin.close.assert_called()
-
-    def test_invoke_can_launch_codex_subprocess(self, tmp_path: Path) -> None:
-        fake_proc = MagicMock()
-        fake_proc.pid = 4322
-        store = FakeStore()
-        store.upsert_role(37596, RoleEntry(name="noter", state="sleeping", pid=None))
-        with (
-            patch.dict(os.environ, {"MINIONS_AGENT_HOST": "codex"}, clear=False),
-            patch("minions.lifecycle.role.subprocess.Popen", return_value=fake_proc) as popen,
-            patch("minions.lifecycle.role.project_role_workspace", return_value=tmp_path),
-            patch(
-                "minions.lifecycle.role.project_role_log", return_value=tmp_path / "role-noter.log"
-            ),
-            patch("minions.lifecycle.agent_host.project_dir", return_value=tmp_path),
-        ):
-            out = role_mod.invoke_role_ephemeral(
-                "noter",
-                37596,
-                [{"id": "e1", "content": "hi"}],
-                store=store,
-            )
-        assert out["name"] == "noter"
-        assert out["pid"] == 4322
-        cmd = popen.call_args[0][0]
-        assert cmd[:2] == ["codex", "exec"]
-        assert cmd[-1] == "-"
-        assert "--cd" in cmd
-        assert "--add-dir" in cmd
-        assert "--append-system-prompt" not in cmd
-        assert "--allowed-tools" not in cmd
-        stdin_payload = fake_proc.stdin.write.call_args[0][0].decode("utf-8")
-        assert "MinionsOS Codex Role Invocation" in stdin_payload
-        assert "Event Batch" in stdin_payload
-        assert "e1" in stdin_payload
-
-    def test_invoke_cleans_active_pid_if_stdin_write_fails(self, tmp_path: Path) -> None:
-        store = FakeStore()
-        store.upsert_role(
-            37596,
-            RoleEntry(name="noter", state="sleeping", pid=None, spawned_at=None),
-        )
-        fake_proc = MagicMock()
-        fake_proc.pid = 4323
-        fake_proc.poll.return_value = None
-        fake_proc.stdin.write.side_effect = RuntimeError("stdin failed")
-        with (
-            patch.dict(os.environ, {"MINIONS_AGENT_HOST": "codex"}, clear=False),
-            patch("minions.lifecycle.role.subprocess.Popen", return_value=fake_proc),
-            patch("minions.lifecycle.role.project_role_workspace", return_value=tmp_path),
-            patch(
-                "minions.lifecycle.role.project_role_log", return_value=tmp_path / "role-noter.log"
-            ),
-            patch("minions.lifecycle.agent_host.project_dir", return_value=tmp_path),
-            pytest.raises(RuntimeError, match="stdin failed"),
-        ):
-            role_mod.invoke_role_ephemeral("noter", 37596, [{"id": "e1"}], store=store)
-
-        fake_proc.terminate.assert_called()
-        fake_proc.kill.assert_called()
-        role = store.get_project(37596).active_roles[0]  # type: ignore[union-attr]
-        assert role.state == "sleeping"
-        assert role.pid is None

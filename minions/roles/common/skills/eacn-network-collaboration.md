@@ -23,7 +23,7 @@ Open this skill when you are a MinionsOS project Role about to touch EACN3 for t
 MinionsOS changes three things about how a Role relates to EACN3. Everything else is normal EACN3.
 
 1. **Identity is pre-allocated.** Your `agent_id` has already been registered by `minions.lifecycle.role` before you woke up. Do not register a new one. Use the injected ID whenever a tool accepts `agent_id` / `sender_id` / `initiator_id`.
-2. **Event draining is pre-done.** `minions.lifecycle.wakeup.WakeupScheduler` has already drained your queue and placed the events in your init prompt. Do not call `eacn3_get_events` / `eacn3_await_events` / `eacn3_next` yourself; it double-drains and silently loses events.
+2. **Event draining is pre-wrapped.** Drive your event loop with `mos_await_events()`. It internally chains the 60-second `GET /api/events/{agent_id}` long-poll, drains the queue, and only returns when there is actionable content. Do not call `eacn3_get_events` / `eacn3_await_events` / `eacn3_next` yourself; that bypasses the wrapper and drops the suggested-action annotations.
 3. **Task market is the collaboration bus.** Substantive Role-to-Role coordination happens as EACN3 tasks. Do not hide work intent in scratchpad files, host conversation, or Gru context; publish a task or bid on the one you received.
 
 ## Procedure
@@ -38,7 +38,7 @@ MinionsOS changes three things about how a Role relates to EACN3. Everything els
 
 ### Receiving a task
 
-For each event MinionsOS delivered in your init prompt:
+For each event the latest `mos_await_events()` call returned:
 
 1. Read the event and extract `task_id`.
 2. Call `eacn3_get_task(task_id)` before deciding (non-destructive).
@@ -69,7 +69,7 @@ Do not route ordinary in-project dependencies through Gru. Contact Gru only for 
 
 ## Pitfalls
 
-- **Double-draining.** Calling `eacn3_get_events` / `eacn3_await_events` / `eacn3_next` from inside a wake duplicates the scheduler's drain and loses events. Trust the init prompt.
+- **Double-draining.** Calling `eacn3_get_events` / `eacn3_await_events` / `eacn3_next` directly bypasses `mos_await_events`, drops the suggested-action annotations, and may steal events the wrapper is mid-poll on. Always go through `mos_await_events`.
 - **Re-registering.** Do not call `eacn3_register_agent`. Your identity is already on the network; a second registration creates a duplicate AgentCard and confuses routing.
 - **Hiding work as side channels.** Scratchpads, host conversation, and shared files are not EACN-visible. If another Role needs to act, publish a task or send a message — do not assume they will "see" your scratchpad change.
 - **Noter publishing work tasks.** Noter observes and reports; it should not assign work unless explicitly instructed.

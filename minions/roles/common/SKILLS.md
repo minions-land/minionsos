@@ -1,6 +1,6 @@
 # Skill management — methodology and operations
 
-The `minions/roles/common/skills/` and `minions/roles/{role}/skills/` directories hold procedural skill files, discovered at wake-up by `minions.lifecycle.skills.list_skills` and injected into each Role's init prompt as a `[Skills]` block. This document is the human-facing operating manual for that library: what a skill is, how skills compose, and how to add / query / modify / delete / merge one safely.
+The `minions/roles/common/skills/` and `minions/roles/{role}/skills/` directories hold procedural skill files, discovered at Role startup by `minions.lifecycle.skills.list_skills` and surfaced to the Role as a `[Skills]` block in its initial system prompt. This document is the human-facing operating manual for that library: what a skill is, how skills compose, and how to add / query / modify / delete / merge one safely.
 
 Keep it short. If this file grows beyond a page, the methodology has drifted.
 

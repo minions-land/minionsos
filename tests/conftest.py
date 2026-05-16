@@ -53,10 +53,5 @@ def _stub_ensure_role_workspace(
     def fake_project_scratchpad(port: int, role_name: str) -> Path:
         return tmp_root / f"p{port}" / role_name / ".minionsos" / "scratchpad.md"
 
-    def fake_project_role_log(port: int, role_name: str) -> Path:
-        return tmp_root / f"p{port}" / "logs" / f"role-{role_name}.log"
-
     monkeypatch.setattr(role_mod, "ensure_role_workspace", fake_ensure_role_workspace)
-    monkeypatch.setattr(role_mod, "project_scratchpad", fake_project_scratchpad)
-    monkeypatch.setattr(role_mod, "project_role_log", fake_project_role_log)
     monkeypatch.setattr(paths_mod, "project_scratchpad", fake_project_scratchpad)

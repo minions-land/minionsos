@@ -342,7 +342,7 @@ def _gru_agent_spec() -> tuple[str, list[str], str]:
     gru_domains = ["minionsos", "project-local", "role:gru", "coordination"]
     gru_description = (
         "MinionsOS global coordinator EACN queue on this project. "
-        "Drained by the WakeupScheduler and surfaced to Gru on each wake."
+        "Drained by Gru's resident agent through mos_await_events."
     )
     return gru_agent_id, gru_domains, gru_description
 
@@ -1423,7 +1423,7 @@ def project_kill(
 
     This is intentionally narrower than ``project_close`` and ``wipe``:
     it stops the recorded backend and Role subprocesses, marks the project
-    dormant so Gru/WakeupScheduler stop polling it, and preserves
+    dormant so resident Roles stop polling it, and preserves
     ``project_<port>/eacn3_data`` plus the port reservation for revive.
     """
     _store = store or StateStore()

@@ -57,18 +57,6 @@ class TestInstallShMandatoryPluginBuild:
         assert "dist/server.js" in text
 
 
-class TestRoleSpawnEnvPropagation:
-    def test_role_sets_network_url_and_state_dir(self) -> None:
-        text = (ROOT / "minions" / "lifecycle" / "role.py").read_text(encoding="utf-8")
-        assert '"EACN3_NETWORK_URL"' in text
-        assert '"EACN3_STATE_DIR"' in text
-        assert "plugin_state_dir" in text
-        identity_text = (ROOT / "minions" / "lifecycle" / "eacn_identity.py").read_text(
-            encoding="utf-8"
-        )
-        assert "plugin-" in identity_text
-
-
 class TestDoctorEacn3Checks:
     def test_doctor_has_plugin_and_node_and_mcp_checks(self) -> None:
         text = (ROOT / "minions" / "cli.py").read_text(encoding="utf-8")
