@@ -131,7 +131,7 @@ class TestWhitelistResolver:
         assert "mos_project_create" in tools
         assert "mos_project_kill" in tools
         assert "mos_project_close" in tools
-        assert "mos_relay" in tools
+        assert "mos_project_bridge" in tools
         assert "mos_spawn_role" in tools
 
     def test_gru_has_native_eacn3_and_monitor_tools(self) -> None:
@@ -142,7 +142,7 @@ class TestWhitelistResolver:
     def test_noter_no_project_tools(self) -> None:
         tools = resolve_allowed_tools("noter")
         assert "mos_project_create" not in tools
-        assert "mos_relay" not in tools
+        assert "mos_project_bridge" not in tools
         assert "mos_spawn_role" not in tools
 
     def test_noter_has_eacn3_tools(self) -> None:
@@ -165,7 +165,7 @@ class TestWhitelistResolver:
     def test_reviewer_no_project_tools(self) -> None:
         tools = resolve_allowed_tools("reviewer")
         assert "mos_project_create" not in tools
-        assert "mos_relay" not in tools
+        assert "mos_project_bridge" not in tools
 
     def test_writer_has_paper_search_mcp_tools(self) -> None:
         tools = resolve_allowed_tools("writer")

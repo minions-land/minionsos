@@ -34,7 +34,22 @@ OOM_NEEDLES = (
     "cublas_status_alloc_failed",
     "hip out of memory",
     "oom",
+    "killed",
+    "sigkill",
+    "signal 9",
+    "signal: 9",
+    "core dumped",
 )
+# Exit codes that almost always indicate the OS killed the process before it
+# could write a CUDA/torch traceback. 137 = SIGKILL (OOM-killer), 139 = SIGSEGV
+# (very common when a CUDA allocation fails partway through). Negative values
+# come from subprocess wrappers that pass through the signal directly.
+OOM_EXIT_CODES = frozenset({137, 139, -9, -11})
+# Multiplier used when escalating a unit's reserve_mb after an OOM. We want
+# enough headroom that the retry actually picks a bigger GPU, not the same
+# one with the same nvidia-smi reading.
+OOM_ESCALATION_FACTOR = 1.5
+DEFAULT_MAX_RETRIES = 3
 
 
 @dataclass(frozen=True)
@@ -48,7 +63,7 @@ class QueueUnit:
     min_free_mb: int = 0
     reserve_mb: int | None = None
     priority: int = 0
-    max_retries: int = 1
+    max_retries: int = DEFAULT_MAX_RETRIES
     metadata: dict[str, Any] | None = None
 
 
@@ -62,15 +77,61 @@ class GpuSlot:
     total_mb: int | None = None
     running_reserved_mb: int = 0
     new_reserved_mb: int = 0
+    # Number of pre-existing active runs (running/launching) on this GPU.
+    # Used as the primary spread-first tie-break so an empty card always wins
+    # over a card that already has work.
+    active_run_count: int = 0
+    # Speculative count of placements made within the current reconcile/plan,
+    # so the second small unit doesn't pile back onto the GPU we just chose.
+    new_run_count: int = 0
 
     @property
     def remaining_mb(self) -> int:
         return self.free_mb - self.running_reserved_mb - self.new_reserved_mb
 
+    @property
+    def total_run_count(self) -> int:
+        """Live + speculative run count, used by spread-first tie-break."""
+        return self.active_run_count + self.new_run_count
+
 
 QueryGpusFn = Callable[[str], list[dict[str, Any]]]
 ExpRunFn = Callable[[str, str, list[int] | None], dict[str, Any]]
 ExpStatusFn = Callable[[str, str], dict[str, Any]]
+ExpKillFn = Callable[[str, str], dict[str, Any]]
+
+
+class _UnitRowView:
+    """sqlite3.Row-shaped view over a ``QueueUnit`` for dry-run planning.
+
+    ``_pick_candidate`` and ``_block_reason`` read units via ``unit["field"]``.
+    The plan() entry point feeds them in-memory ``QueueUnit`` objects, so this
+    shim translates field access without forcing a DB round-trip.
+    """
+
+    __slots__ = ("_unit",)
+
+    def __init__(self, unit: QueueUnit) -> None:
+        self._unit = unit
+
+    def __getitem__(self, key: str) -> Any:
+        unit = self._unit
+        if key == "target_id":
+            return unit.target_id
+        if key == "gpu_ids_json":
+            return _json_dumps(unit.gpu_ids) if unit.gpu_ids is not None else None
+        if key == "gpus_needed":
+            return max(1, int(unit.gpus_needed))
+        if key == "min_free_mb":
+            return max(0, int(unit.min_free_mb))
+        if key == "reserve_mb":
+            return unit.reserve_mb
+        raise KeyError(key)
+
+
+# A unit "row" the placement logic can read. Either a real sqlite3.Row (when
+# called from reconcile) or an in-memory view (when called from plan()).
+UnitLike = sqlite3.Row | _UnitRowView
 
 
 def _now_iso() -> str:
@@ -122,6 +183,7 @@ class ExperimentScheduler:
         query_gpus_fn: QueryGpusFn | None = None,
         exp_run_fn: ExpRunFn | None = None,
         exp_status_fn: ExpStatusFn | None = None,
+        exp_kill_fn: ExpKillFn | None = None,
     ) -> None:
         self.project_port = project_port
         self.db_path = db_path or default_db_path(_resolve_project_port(project_port))
@@ -129,6 +191,7 @@ class ExperimentScheduler:
         self._query_gpus_fn = query_gpus_fn
         self._exp_run_fn = exp_run_fn
         self._exp_status_fn = exp_status_fn
+        self._exp_kill_fn = exp_kill_fn
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._ensure_schema()
 
@@ -283,12 +346,14 @@ class ExperimentScheduler:
                 blocked = self._blocked_units(conn)
             else:
                 blocked = self._blocked_units(conn, batch_id=batch_id)
+            placement = self._placement_summary(conn, launched, slots)
 
         return {
             "launched": launched,
             "completed": completed,
             "failed": failed,
             "blocked": blocked,
+            "placement": placement,
             "summary": self.status(batch_id=batch_id)["summary"],
         }
 
@@ -329,7 +394,7 @@ class ExperimentScheduler:
                 for row in conn.execute(
                     f"""
                     SELECT run_id, unit_id, batch_id, target_id, gpu_ids_json, state,
-                           exit_code, log_path, started_at, finished_at
+                           pid, exit_code, log_path, started_at, finished_at
                     FROM runs
                     {where}
                     ORDER BY started_at ASC
@@ -354,13 +419,32 @@ class ExperimentScheduler:
         target_id: str = "all",
         allowed_gpu_ids: list[int] | str = "all",
         draining: bool = True,
+        evict: bool = False,
         reason: str | None = None,
         reconcile: bool = True,
     ) -> dict[str, Any]:
-        """Set the dynamic allow-list of GPUs available for new runs."""
+        """Set the dynamic allow-list of GPUs available for new runs.
+
+        ``evict=False`` (default, "drain" mode): GPUs removed from the allowlist
+        get marked ``draining=1`` so no *new* placements land on them, but any
+        run already on those cards is left alone to finish naturally. Use this
+        when an operator says "I'll need these cards back, but only after
+        what's running there is done."
+
+        ``evict=True`` ("evict" mode): same allowlist update, plus every run
+        currently on a removed GPU receives ``exp_kill`` (SIGTERM) so the
+        process can checkpoint and exit, the run is recorded as ``evicted``
+        with exit code -15, and its unit is reset to ``pending`` (without
+        consuming the OOM retry budget or escalating ``reserve_mb`` — this is
+        an operator-driven move, not a failure). The next reconcile reissues
+        those units onto the remaining allowed GPUs. Caller is responsible
+        for making sure their command traps SIGTERM and writes a checkpoint;
+        this is documented in ``allocate-resources``.
+        """
         targets = self._target_ids_for_pool(target_id)
         now = _now_iso()
         changed: dict[str, Any] = {}
+        evicted_runs: list[dict[str, Any]] = []
         with self._tx() as conn:
             for tid in targets:
                 if allowed_gpu_ids == "all":
@@ -392,16 +476,192 @@ class ExperimentScheduler:
                         ),
                     )
                 changed[tid] = sorted(allowed)
+                if evict:
+                    evicted_runs.extend(
+                        self._evict_runs_off_gpus(conn, tid, removed_gpus=seen_ids - allowed)
+                    )
         result: dict[str, Any] = {"changed": changed}
+        if evict:
+            result["evicted"] = evicted_runs
         if reconcile:
             result["reconcile"] = self.reconcile()
         return result
 
+    def _evict_runs_off_gpus(
+        self,
+        conn: sqlite3.Connection,
+        target_id: str,
+        *,
+        removed_gpus: set[int],
+    ) -> list[dict[str, Any]]:
+        """SIGTERM every run on *removed_gpus* and reset their units to pending.
+
+        Called from ``set_gpu_pool(evict=True)``. Critical contract: this is
+        an operator-driven move, **not a failure**, so we do NOT escalate
+        ``reserve_mb``, do NOT count an attempt, and do NOT mark the unit
+        ``failed``. The run row is recorded with ``state='evicted'`` and
+        ``exit_code=-15`` so ``_refresh_running`` (which only inspects
+        ``running`` / ``launching``) skips it on the next pass.
+        """
+        if not removed_gpus:
+            return []
+        active = conn.execute(
+            """
+            SELECT r.run_id, r.unit_id, r.batch_id, r.gpu_ids_json, r.target_id
+            FROM runs r
+            WHERE r.state IN ('running', 'launching') AND r.target_id=?
+            """,
+            (target_id,),
+        ).fetchall()
+        evicted: list[dict[str, Any]] = []
+        now = _now_iso()
+        for row in active:
+            run_gpus = {int(g) for g in _json_loads(row["gpu_ids_json"], [])}
+            if not (run_gpus & removed_gpus):
+                continue
+            try:
+                self._exp_kill(target_id, str(row["run_id"]))
+                kill_error = None
+            except Exception as exc:
+                kill_error = str(exc)
+                logger.warning("exp_kill failed during evict run_id=%s: %s", row["run_id"], exc)
+            conn.execute(
+                """
+                UPDATE runs
+                SET state='evicted', exit_code=-15, finished_at=?, updated_at=?
+                WHERE run_id=?
+                """,
+                (now, now, row["run_id"]),
+            )
+            # Decrement attempts so the eviction itself doesn't burn retry budget.
+            conn.execute(
+                """
+                UPDATE units
+                SET status='pending',
+                    active_run_id=NULL,
+                    last_error='evicted by gpu_pool change; will be requeued',
+                    attempts=MAX(0, attempts - 1),
+                    updated_at=?
+                WHERE unit_id=?
+                """,
+                (now, row["unit_id"]),
+            )
+            evicted.append(
+                {
+                    "run_id": row["run_id"],
+                    "unit_id": row["unit_id"],
+                    "batch_id": row["batch_id"],
+                    "target_id": target_id,
+                    "evicted_from_gpus": sorted(run_gpus & removed_gpus),
+                    "kill_error": kill_error,
+                }
+            )
+        return evicted
+
     def gpu_pool(self) -> dict[str, Any]:
-        """Return current allowed/draining GPU pool records."""
+        """Return current allowed/draining GPU pool records.
+
+        Also enumerates active runs (``state in {'running','launching'}``)
+        currently sitting on draining GPUs so operators can see how much
+        work still has to clear before a drain is complete.
+        """
         with self._connect() as conn:
-            rows = [dict(row) for row in conn.execute("SELECT * FROM gpu_pool").fetchall()]
-        return {"default": "all GPUs enabled when no row exists for a target", "overrides": rows}
+            overrides = [dict(row) for row in conn.execute("SELECT * FROM gpu_pool").fetchall()]
+            active = conn.execute(
+                """
+                SELECT r.run_id, r.unit_id, r.batch_id, r.target_id, r.gpu_ids_json,
+                       r.state, r.started_at
+                FROM runs r
+                WHERE r.state IN ('running', 'launching')
+                """
+            ).fetchall()
+        draining_keys = {
+            (str(row["target_id"]), int(row["gpu_id"]))
+            for row in overrides
+            if int(row["draining"]) == 1 or int(row["enabled"]) == 0
+        }
+        draining_runs: list[dict[str, Any]] = []
+        for row in active:
+            target_id = str(row["target_id"])
+            for gpu_id in _json_loads(row["gpu_ids_json"], []):
+                if (target_id, int(gpu_id)) in draining_keys:
+                    draining_runs.append(
+                        {
+                            "run_id": row["run_id"],
+                            "unit_id": row["unit_id"],
+                            "batch_id": row["batch_id"],
+                            "target_id": target_id,
+                            "gpu_id": int(gpu_id),
+                            "state": row["state"],
+                            "started_at": row["started_at"],
+                        }
+                    )
+                    break
+        return {
+            "default": "all GPUs enabled when no row exists for a target",
+            "overrides": overrides,
+            "draining_runs": draining_runs,
+        }
+
+    def plan(self, units: list[QueueUnit]) -> dict[str, Any]:
+        """Dry-run: where would these units land if submitted right now?
+
+        Read-only. Does not write to the queue, does not call ``exp_run``, does
+        not touch the unit table. Reuses the live ``_gpu_slots`` snapshot
+        (running-job reserves already deducted) and ``_pick_candidate`` so
+        callers see the same decision the next ``reconcile`` would make.
+
+        Units are simulated **in order**. Each fitting unit's ``reserve_mb`` is
+        speculatively deducted from the snapshot before the next unit is
+        considered, so multi-unit submits are predicted correctly: caller can
+        see, e.g. "submitting 5 units would land 4 and stall 1 for capacity".
+        """
+        with self._connect() as conn:
+            slots = self._gpu_slots(conn)
+
+        fleet_snapshot = [
+            {
+                "target_id": s.target_id,
+                "gpu_id": s.gpu_id,
+                "free_mb": s.free_mb,
+                "total_mb": s.total_mb,
+                "remaining_mb": s.remaining_mb,
+            }
+            for s in slots
+        ]
+
+        placements: list[dict[str, Any]] = []
+        for idx, unit in enumerate(units):
+            view = _UnitRowView(unit)
+            candidate = self._pick_candidate(view, slots)
+            if candidate is None:
+                placements.append(
+                    {
+                        "unit_index": idx,
+                        "status": "blocked",
+                        "reason": self._block_reason(view),
+                    }
+                )
+                continue
+            target_id, gpu_ids, reserve_mb = candidate
+            self._reserve_slots(slots, target_id, gpu_ids, reserve_mb)
+            placements.append(
+                {
+                    "unit_index": idx,
+                    "status": "fits",
+                    "target_id": target_id,
+                    "gpu_ids": gpu_ids,
+                    "reserve_mb": reserve_mb,
+                }
+            )
+
+        fits = sum(1 for p in placements if p["status"] == "fits")
+        blocked = len(placements) - fits
+        return {
+            "placements": placements,
+            "fleet_snapshot": fleet_snapshot,
+            "summary": {"fits": fits, "blocked": blocked, "total": len(placements)},
+        }
 
     # ------------------------------------------------------------------
     # Internals
@@ -493,7 +753,7 @@ class ExperimentScheduler:
         if self._target_ids is not None:
             return list(self._target_ids)
         cfg = load_experiment_targets()
-        return [target.id for target in cfg.targets]
+        return [target.id for target in cfg.active_targets()]
 
     def _target_ids_for_pool(self, target_id: str) -> list[str]:
         if target_id == "all":
@@ -521,12 +781,20 @@ class ExperimentScheduler:
 
         return exp_status(ExpStatusArgs(target_id=target_id, run_id=run_id))
 
+    def _exp_kill(self, target_id: str, run_id: str) -> dict[str, Any]:
+        if self._exp_kill_fn is not None:
+            return self._exp_kill_fn(target_id, run_id)
+        from minions.tools.experiment_ssh import ExpKillArgs, exp_kill
+
+        return exp_kill(ExpKillArgs(target_id=target_id, run_id=run_id))
+
     def _refresh_running(self, conn: sqlite3.Connection) -> tuple[list[dict], list[dict]]:
         completed: list[dict[str, Any]] = []
         failed: list[dict[str, Any]] = []
         rows = conn.execute(
             """
-            SELECT r.run_id, r.unit_id, r.batch_id, r.target_id, u.attempts, u.max_retries
+            SELECT r.run_id, r.unit_id, r.batch_id, r.target_id, u.attempts, u.max_retries,
+                   u.reserve_mb, u.min_free_mb
             FROM runs r
             JOIN units u ON u.unit_id = r.unit_id
             WHERE r.state IN ('running', 'launching')
@@ -563,21 +831,41 @@ class ExperimentScheduler:
                 completed.append({"unit_id": row["unit_id"], "run_id": row["run_id"]})
                 continue
 
-            is_oom = self._is_oom(log_tail)
+            is_oom = self._is_oom(log_tail, exit_code)
             attempts = int(row["attempts"])
             max_retries = int(row["max_retries"])
             next_status = "pending" if is_oom and attempts <= max_retries else "failed"
-            error = "OOM; requeued" if next_status == "pending" else f"exit_code={exit_code}"
-            if is_oom and next_status == "failed":
-                error = "OOM retry budget exhausted"
-            conn.execute(
-                """
-                UPDATE units
-                SET status=?, active_run_id=NULL, last_error=?, updated_at=?
-                WHERE unit_id=?
-                """,
-                (next_status, error, now, row["unit_id"]),
-            )
+            new_reserve = self._escalate_reserve(row) if next_status == "pending" else None
+            if next_status == "pending":
+                error = (
+                    f"OOM (exit={exit_code}); requeued with reserve_mb={new_reserve}"
+                    if new_reserve is not None
+                    else f"OOM (exit={exit_code}); requeued"
+                )
+            else:
+                error = (
+                    f"OOM retry budget exhausted (exit={exit_code})"
+                    if is_oom
+                    else f"exit_code={exit_code}"
+                )
+            if new_reserve is not None:
+                conn.execute(
+                    """
+                    UPDATE units
+                    SET status=?, active_run_id=NULL, last_error=?, reserve_mb=?, updated_at=?
+                    WHERE unit_id=?
+                    """,
+                    (next_status, error, new_reserve, now, row["unit_id"]),
+                )
+            else:
+                conn.execute(
+                    """
+                    UPDATE units
+                    SET status=?, active_run_id=NULL, last_error=?, updated_at=?
+                    WHERE unit_id=?
+                    """,
+                    (next_status, error, now, row["unit_id"]),
+                )
             failed.append(
                 {
                     "unit_id": row["unit_id"],
@@ -585,6 +873,7 @@ class ExperimentScheduler:
                     "exit_code": exit_code,
                     "oom": is_oom,
                     "next_status": next_status,
+                    "reserve_mb": new_reserve,
                 }
             )
         return completed, failed
@@ -595,6 +884,7 @@ class ExperimentScheduler:
             for row in conn.execute("SELECT * FROM gpu_pool").fetchall()
         }
         running_reservations: dict[tuple[str, int], int] = {}
+        running_run_counts: dict[tuple[str, int], int] = {}
         running_rows = conn.execute(
             """
             SELECT r.target_id, r.gpu_ids_json, u.reserve_mb, u.min_free_mb
@@ -608,6 +898,7 @@ class ExperimentScheduler:
             for gpu_id in _json_loads(row["gpu_ids_json"], []):
                 key = (str(row["target_id"]), int(gpu_id))
                 running_reservations[key] = running_reservations.get(key, 0) + reserve_mb
+                running_run_counts[key] = running_run_counts.get(key, 0) + 1
 
         slots: list[GpuSlot] = []
         for target_id in self._configured_target_ids():
@@ -626,6 +917,7 @@ class ExperimentScheduler:
                         free_mb=int(gpu.get("free_mb") or 0),
                         total_mb=int(gpu["total_mb"]) if gpu.get("total_mb") is not None else None,
                         running_reserved_mb=running_reservations.get(key, 0),
+                        active_run_count=running_run_counts.get(key, 0),
                     )
                 )
         return slots
@@ -652,7 +944,7 @@ class ExperimentScheduler:
 
     def _pick_candidate(
         self,
-        unit: sqlite3.Row,
+        unit: UnitLike,
         slots: list[GpuSlot],
     ) -> tuple[str, list[int], int] | None:
         reserve_mb = self._unit_reserve_mb(unit)
@@ -685,21 +977,42 @@ class ExperimentScheduler:
             return None
 
         if gpus_needed == 1:
-            slot = sorted(candidates, key=lambda s: (-s.remaining_mb, s.target_id, s.gpu_id))[0]
+            # Spread-first tie-break: an idle GPU always beats a GPU that
+            # already has live or speculative runs on it; only after run-count
+            # ties do we prefer the GPU with more headroom. Without this the
+            # "fattest GPU first" rule piles every small unit onto whichever
+            # card happens to start with the most free VRAM.
+            slot = sorted(
+                candidates,
+                key=lambda s: (s.total_run_count, -s.remaining_mb, s.target_id, s.gpu_id),
+            )[0]
             return slot.target_id, [slot.gpu_id], reserve_mb
 
         by_target: dict[str, list[GpuSlot]] = {}
         for slot in candidates:
             by_target.setdefault(slot.target_id, []).append(slot)
-        target_options: list[tuple[int, str, list[GpuSlot]]] = []
+        target_options: list[tuple[tuple[int, int], str, list[GpuSlot]]] = []
         for target_id, target_slots in by_target.items():
-            ordered = sorted(target_slots, key=lambda s: (-s.remaining_mb, s.gpu_id))
+            ordered = sorted(
+                target_slots,
+                key=lambda s: (s.total_run_count, -s.remaining_mb, s.gpu_id),
+            )
             if len(ordered) >= gpus_needed:
                 chosen = ordered[:gpus_needed]
-                target_options.append((sum(s.remaining_mb for s in chosen), target_id, chosen))
+                # Score: (sum of run counts ascending, sum of remaining descending)
+                target_options.append(
+                    (
+                        (
+                            sum(s.total_run_count for s in chosen),
+                            -sum(s.remaining_mb for s in chosen),
+                        ),
+                        target_id,
+                        chosen,
+                    )
+                )
         if not target_options:
             return None
-        _score, target_id, chosen = sorted(target_options, key=lambda x: (-x[0], x[1]))[0]
+        _score, target_id, chosen = sorted(target_options, key=lambda x: (x[0], x[1]))[0]
         return target_id, sorted(slot.gpu_id for slot in chosen), reserve_mb
 
     def _reserve_slots(
@@ -713,13 +1026,28 @@ class ExperimentScheduler:
         for slot in slots:
             if slot.target_id == target_id and slot.gpu_id in gpu_set:
                 slot.new_reserved_mb += reserve_mb
+                slot.new_run_count += 1
 
     def _note_no_capacity(self, conn: sqlite3.Connection, unit: sqlite3.Row) -> None:
-        reason = "no allowed GPU currently satisfies target/gpu/memory constraints"
+        reason = self._block_reason(unit)
         conn.execute(
             "UPDATE units SET last_error=?, updated_at=? WHERE unit_id=?",
             (reason, _now_iso(), unit["unit_id"]),
         )
+
+    def _block_reason(self, unit: UnitLike) -> str:
+        """Classify why a pending unit could not be placed this reconcile.
+
+        Returns a short tag that is also stored in ``units.last_error`` so the
+        placement summary and any human reading the queue can see *why* a unit
+        is stuck — not just that it is.
+        """
+        target_constraint = str(unit["target_id"] or "auto")
+        if target_constraint != "auto" and target_constraint not in self._configured_target_ids():
+            return f"target_pin: {target_constraint!r} not in active fleet"
+        if unit["gpu_ids_json"]:
+            return "explicit_gpu: pinned GPUs not available in current pool"
+        return "no_capacity: no allowed GPU has enough free VRAM"
 
     def _blocked_units(
         self,
@@ -738,6 +1066,67 @@ class ExperimentScheduler:
                 params,
             ).fetchall()
         ]
+
+    def _placement_summary(
+        self,
+        conn: sqlite3.Connection,
+        launched: list[dict[str, Any]],
+        slots_at_start: list[GpuSlot],
+    ) -> dict[str, Any]:
+        """Summarize how this reconcile spread work and why pending units stuck.
+
+        - ``by_gpu`` — current physical distribution of all live runs, keyed by
+          ``"<target_id>:<gpu_id>"``. Helps spot pile-ups.
+        - ``blocked_reasons`` — count of pending units grouped by classification
+          tag (``no_capacity`` / ``target_pin`` / ``explicit_gpu``).
+        - ``skew_warning`` — non-empty string if **this** reconcile launched
+          more than one unit but pinned them all to a single GPU while other
+          GPUs in the same target had room. That is the SYSTEM.md "spread-first"
+          rule failing in practice; the skill layer should reflect on it.
+        """
+        by_gpu: dict[str, dict[str, int]] = {}
+        active_rows = conn.execute(
+            """
+            SELECT target_id, gpu_ids_json, state
+            FROM runs
+            WHERE state IN ('running', 'launching')
+            """
+        ).fetchall()
+        for row in active_rows:
+            target_id = str(row["target_id"])
+            state = str(row["state"])
+            for gpu_id in _json_loads(row["gpu_ids_json"], []):
+                key = f"{target_id}:{int(gpu_id)}"
+                bucket = by_gpu.setdefault(key, {"running": 0, "launching": 0})
+                bucket[state] = bucket.get(state, 0) + 1
+
+        blocked_reasons: dict[str, int] = {}
+        pending_rows = conn.execute(
+            "SELECT last_error FROM units WHERE status='pending'"
+        ).fetchall()
+        for row in pending_rows:
+            err = str(row["last_error"] or "")
+            tag = err.split(":", 1)[0].strip() if err else "uninspected"
+            blocked_reasons[tag] = blocked_reasons.get(tag, 0) + 1
+
+        skew_warning = ""
+        if len(launched) >= 2:
+            placements = {(d["target_id"], tuple(d["gpu_ids"])) for d in launched}
+            if len(placements) == 1:
+                target_id, gpu_ids = next(iter(placements))
+                same_target_slots = [s for s in slots_at_start if s.target_id == target_id]
+                if len(same_target_slots) > len(gpu_ids):
+                    skew_warning = (
+                        f"{len(launched)} launches concentrated on "
+                        f"{target_id}:{list(gpu_ids)} while {len(same_target_slots)} "
+                        f"GPUs were available on that target — re-check spread-first"
+                    )
+
+        return {
+            "by_gpu": by_gpu,
+            "blocked_reasons": blocked_reasons,
+            "skew_warning": skew_warning,
+        }
 
     def _refresh_batches(self, conn: sqlite3.Connection) -> None:
         batch_ids = [
@@ -761,13 +1150,57 @@ class ExperimentScheduler:
                 (status, now, batch_id),
             )
 
-    def _unit_reserve_mb(self, unit: sqlite3.Row) -> int:
+    def _unit_reserve_mb(self, unit: UnitLike) -> int:
         reserve = unit["reserve_mb"]
         if reserve is not None:
             return max(0, int(reserve))
         min_free = int(unit["min_free_mb"] or 0)
         return max(min_free, DEFAULT_RESERVE_MB)
 
-    def _is_oom(self, log_tail: str) -> bool:
+    def _is_oom(self, log_tail: str, exit_code: int | None = None) -> bool:
+        """Return True if the run almost certainly died from a memory issue.
+
+        Considers two signals: the log tail (CUDA / torch traceback strings) and
+        the exit code (OS-level OOM-killer is SIGKILL → 137; CUDA allocation
+        faults often produce SIGSEGV → 139). The exit-code branch matters when
+        a process is killed before it has a chance to flush a traceback.
+        """
+        if exit_code is not None and int(exit_code) in OOM_EXIT_CODES:
+            return True
         lowered = log_tail.lower()
         return any(needle in lowered for needle in OOM_NEEDLES)
+
+    def _gpu_capacity_ceiling(self) -> int | None:
+        """Largest single-GPU total VRAM in the active fleet, in MB.
+
+        Used to cap escalated reserves so we never request more memory than
+        any single GPU has. ``None`` means we lack the information and should
+        fall back to a sane absolute cap.
+        """
+        ceiling = 0
+        for target_id in self._configured_target_ids():
+            try:
+                gpus = self._query_gpus(target_id)
+            except Exception as exc:
+                logger.debug("query_gpus failed during reserve cap: %s", exc)
+                continue
+            for gpu in gpus:
+                total = gpu.get("total_mb")
+                if isinstance(total, int) and total > ceiling:
+                    ceiling = total
+        return ceiling or None
+
+    def _escalate_reserve(self, unit_row: sqlite3.Row) -> int:
+        """Bump a unit's ``reserve_mb`` after an OOM so its retry picks a roomier GPU.
+
+        Multiplies the *current effective reserve* by ``OOM_ESCALATION_FACTOR``
+        and clamps to 95% of the largest GPU's total VRAM. The escalation is
+        persisted on the unit row, so the next reconcile's ``_pick_candidate``
+        actually requires the bigger headroom.
+        """
+        current = self._unit_reserve_mb(unit_row)
+        bumped = max(current + 1024, int(current * OOM_ESCALATION_FACTOR))
+        ceiling = self._gpu_capacity_ceiling()
+        if ceiling is not None:
+            bumped = min(bumped, int(ceiling * 0.95))
+        return max(bumped, current)

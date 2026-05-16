@@ -120,9 +120,10 @@ def _resolve_target_id(target_id: str) -> str:
     if target_id != "auto":
         return target_id
     cfg = load_experiment_targets()
-    if not cfg.targets:
+    active = cfg.active_targets()
+    if not active:
         raise ConfigError("No experiment targets configured.")
-    return cfg.targets[0].id
+    return active[0].id
 
 
 def _local_paths(workdir: str, run_id: str) -> tuple[Path, Path, Path, Path]:
@@ -268,7 +269,14 @@ class ExpQueueUnitArgs(BaseModel):
         ),
     )
     priority: int = Field(default=0, description="Higher priority pending units run first.")
-    max_retries: int = Field(default=1, ge=0, description="OOM retry budget.")
+    max_retries: int = Field(
+        default=3,
+        ge=0,
+        description=(
+            "OOM retry budget. Each retry escalates reserve_mb by ~1.5x so the "
+            "scheduler picks a roomier GPU on the next attempt."
+        ),
+    )
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -304,6 +312,16 @@ class ExpQueueGpuPoolSetArgs(BaseModel):
         default=True,
         description="When shrinking the pool, let already-running jobs finish by default.",
     )
+    evict: bool = Field(
+        default=False,
+        description=(
+            "If True, immediately SIGTERM runs on GPUs being removed from the "
+            "allowlist and reset their units to pending so the next reconcile "
+            "places them on remaining allowed GPUs. Use when the operator says "
+            "'I need these cards back NOW'. Caller's command should trap "
+            "SIGTERM to checkpoint weights."
+        ),
+    )
     reason: str | None = Field(default=None)
     reconcile: bool = Field(default=True)
     project_port: int | None = Field(default=None)
@@ -311,6 +329,16 @@ class ExpQueueGpuPoolSetArgs(BaseModel):
 
 class ExpQueueGpuPoolGetArgs(BaseModel):
     project_port: int | None = Field(default=None)
+
+
+class ExpQueuePlanArgs(BaseModel):
+    units: list[ExpQueueUnitArgs] = Field(
+        description="Experiment units to dry-run against the live GPU snapshot."
+    )
+    project_port: int | None = Field(
+        default=None,
+        description="Project port. Defaults to MINIONS_PROJECT_PORT.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -416,6 +444,15 @@ def exp_run(args: ExpRunArgs) -> dict:
 # ---------------------------------------------------------------------------
 
 
+def _read_meta_pid(meta_path: Path) -> int | None:
+    try:
+        meta = json.loads(meta_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    pid = meta.get("pid")
+    return int(pid) if isinstance(pid, int) else None
+
+
 def _local_status(workdir: str, run_id: str) -> dict:
     _logs_dir, log_path, meta_path, exit_path = _local_paths(workdir, run_id)
     if not meta_path.exists():
@@ -427,15 +464,43 @@ def _local_status(workdir: str, run_id: str) -> dict:
         except ValueError:
             exit_code = -1
         return {"state": "exited", "exit_code": exit_code, "log_tail": log_tail}
+    # No .exit file yet — but if the bash wrapper is dead (kill -9, OS reboot,
+    # OOM killer, etc.) the .exit will never be written. Probe the PID so we
+    # don't mark a corpse as 'running' forever.
+    pid = _read_meta_pid(meta_path)
+    if pid is not None:
+        try:
+            import os
+
+            os.kill(pid, 0)  # signal 0 = existence check, doesn't actually signal
+        except ProcessLookupError:
+            return {
+                "state": "exited",
+                "exit_code": -9,  # sentinel: killed before .exit was written
+                "log_tail": log_tail,
+            }
+        except PermissionError:
+            # PID exists but owned by another user — still alive enough for us.
+            pass
     return {"state": "running", "log_tail": log_tail}
 
 
 def _ssh_status(host: str, key: str, workdir: str, run_id: str) -> dict:
     _logs_dir, log_path, meta_path, exit_path = _remote_paths(workdir, run_id)
+    # Combined probe: read pid out of meta, check exit file, check pid alive.
+    # Output is one of:
+    #   MISSING                     — meta gone, run unknown
+    #   EXITED <code>               — .exit file present
+    #   DEAD                        — .exit absent and pid no longer in /proc
+    #   RUNNING                     — .exit absent and pid alive (or unknown pid)
     check = (
         f"if [ ! -f {shlex.quote(meta_path)} ]; then echo MISSING; exit 0; fi; "
         f"if [ -f {shlex.quote(exit_path)} ]; then "
-        f"  echo EXITED; cat {shlex.quote(exit_path)}; "
+        f"  echo EXITED; cat {shlex.quote(exit_path)}; exit 0; "
+        f"fi; "
+        f"PID=$(python3 -c \"import json,sys; print(json.load(open('{meta_path}'))"
+        f".get('pid',''))\" 2>/dev/null); "
+        f'if [ -n "$PID" ] && [ ! -d "/proc/$PID" ]; then echo DEAD; '
         f"else echo RUNNING; fi"
     )
     result = subprocess.run(
@@ -454,6 +519,12 @@ def _ssh_status(host: str, key: str, workdir: str, run_id: str) -> dict:
         except ValueError:
             exit_code = -1
         return {"state": "exited", "exit_code": exit_code, "log_tail": log_tail}
+    if lines[0] == "DEAD":
+        # Wrapper PID gone but no .exit file: process was killed (SIGKILL,
+        # OS reboot, OOM-killer) before it could record an exit code. Treat
+        # as exited with -9 sentinel so the scheduler can fail the run
+        # instead of polling forever.
+        return {"state": "exited", "exit_code": -9, "log_tail": log_tail}
     return {"state": "running", "log_tail": log_tail}
 
 
@@ -507,16 +578,30 @@ def exp_kill(args: ExpKillArgs) -> dict:
             import os
             import signal
 
-            os.kill(pid, signal.SIGTERM)
+            # Prefer killing the whole process group so children (the actual
+            # workload, traps, dataloaders) get the signal — not just the
+            # outer bash wrapper. exp_run uses setsid which makes the launched
+            # PID the group leader. Fall back to single-PID kill if killpg
+            # is unavailable or the group doesn't exist (no-setsid fallback).
+            try:
+                os.killpg(pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                os.kill(pid, signal.SIGTERM)
             return {"killed": True, "pid": pid}
         except ProcessLookupError:
             return {"killed": False, "pid": pid}
     assert host and key
     meta_path_str = str(meta_path)
+    # Same logic remotely: try the process group first (kill -- -PID), fall
+    # back to single PID if the kernel says ESRCH (typically because we ran
+    # in fallback no-setsid mode). The 2 s grace lets the trap handler
+    # write its checkpoint before SIGTERM is delivered to the child.
     cmd = (
         f"if [ -f {shlex.quote(meta_path_str)} ]; then "
         f"  PID=$(python3 -c \"import json;print(json.load(open('{meta_path_str}'))['pid'])\"); "
-        f"  kill -TERM $PID && echo OK || echo GONE; "
+        f"  if kill -TERM -- -$PID 2>/dev/null; then echo OK; "
+        f"  elif kill -TERM $PID 2>/dev/null; then echo OK; "
+        f"  else echo GONE; fi; "
         f"else echo MISSING; fi"
     )
     result = subprocess.run(
@@ -850,11 +935,16 @@ def exp_gpu_pool_set(args: ExpQueueGpuPoolSetArgs) -> dict:
     By default all GPUs are allowed. Passing a concrete list such as
     ``[0, 1, 2, 3]`` makes other GPUs drain-only: running jobs may finish, but
     no new queued units will be placed there.
+
+    Set ``evict=True`` to immediately SIGTERM runs on the removed GPUs and
+    requeue their units onto the remaining allowed GPUs. The user's command
+    should trap SIGTERM to checkpoint weights before exit.
     """
     return _scheduler(args.project_port).set_gpu_pool(
         target_id=args.target_id,
         allowed_gpu_ids=args.allowed_gpu_ids,
         draining=args.draining,
+        evict=args.evict,
         reason=args.reason,
         reconcile=args.reconcile,
     )
@@ -864,3 +954,16 @@ def exp_gpu_pool_set(args: ExpQueueGpuPoolSetArgs) -> dict:
 def exp_gpu_pool_get(args: ExpQueueGpuPoolGetArgs) -> dict:
     """Return dynamic GPU pool overrides for the project scheduler."""
     return _scheduler(args.project_port).gpu_pool()
+
+
+@mcp.tool()
+def exp_queue_plan(args: ExpQueuePlanArgs) -> dict:
+    """Dry-run a candidate submission against the live GPU snapshot.
+
+    Returns the placement decision the scheduler would make right now for
+    each unit, plus the snapshot it used. Read-only: nothing is queued and
+    no run is launched. Use this to sanity-check before
+    ``exp_queue_submit`` — e.g. to confirm 8 sweep units actually spread
+    across the fleet instead of piling on one GPU.
+    """
+    return _scheduler(args.project_port).plan([_queue_unit(u) for u in args.units])
