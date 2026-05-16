@@ -181,49 +181,78 @@ class GruLoop:
                 except Exception as exc:
                     logger.debug("Project EACN repair skipped port=%d: %s", port, exc)
 
-            # Check role processes.
+            # Watchdog: each `active` role should have a live tmux session.
+            # If the session has died, relaunch in place. We do NOT touch
+            # roles in `dismissed` state — the operator killed those on
+            # purpose. Stale `active` entries only relaunch up to the
+            # crash threshold, after which we mark the role dismissed and
+            # alert.
+            from minions.lifecycle.role_launcher import (
+                launch_role_process,
+                session_alive,
+            )
+
             for role in project.active_roles:
-                if role.state != "active" or role.pid is None:
+                if role.state != "active":
                     continue
-                if not _pid_alive(role.pid):
-                    self._crash_counter.record_role_crash(port, role.name)
-                    if self._crash_counter.role_threshold_exceeded(port, role.name):
-                        msg = (
-                            f"[ALERT] Role {role.name!r} on port {port} has crashed "
-                            f"≥3 times in 1h. Marking dismissed."
+                if session_alive(port, role.name):
+                    continue
+                # Session is gone. Try to bring it back.
+                self._crash_counter.record_role_crash(port, role.name)
+                if self._crash_counter.role_threshold_exceeded(port, role.name):
+                    msg = (
+                        f"[ALERT] Role {role.name!r} on port {port} has crashed "
+                        f"≥3 times in 1h. Marking dismissed."
+                    )
+                    self._emit_health_event(
+                        port=port,
+                        kind="role_crash",
+                        severity="alert",
+                        message=msg,
+                        role_name=role.name,
+                        pid=role.pid,
+                    )
+                    logger.error(msg)
+                    events.append(msg)
+                    try:
+                        self._store.upsert_role(
+                            port,
+                            role.model_copy(update={"state": "dismissed", "pid": None}),
                         )
-                        self._emit_health_event(
-                            port=port,
-                            kind="role_crash",
-                            severity="alert",
-                            message=msg,
-                            role_name=role.name,
-                            pid=role.pid,
-                        )
-                        logger.error(msg)
-                        events.append(msg)
-                        try:
-                            self._store.upsert_role(
-                                port,
-                                role.model_copy(update={"state": "dismissed", "pid": None}),
-                            )
-                        except Exception as exc:
-                            logger.error("Failed to mark role dismissed: %s", exc)
-                    else:
-                        msg = (
-                            f"[WARN] Role {role.name!r} on port {port}"
-                            f" (PID {role.pid}) is not running."
-                        )
-                        self._emit_health_event(
-                            port=port,
-                            kind="role_crash",
-                            severity="warning",
-                            message=msg,
-                            role_name=role.name,
-                            pid=role.pid,
-                        )
-                        logger.warning(msg)
-                        events.append(msg)
+                    except Exception as exc:
+                        logger.error("Failed to mark role dismissed: %s", exc)
+                    continue
+                # Below crash threshold — try to respawn.
+                try:
+                    status = launch_role_process(role, port)
+                    msg = (
+                        f"[WARN] Role {role.name!r} on port {port} session was dead; "
+                        f"relaunched (tmux={status.get('session_name')})."
+                    )
+                    self._emit_health_event(
+                        port=port,
+                        kind="role_respawn",
+                        severity="warning",
+                        message=msg,
+                        role_name=role.name,
+                    )
+                    logger.warning(msg)
+                    events.append(msg)
+                except Exception as exc:
+                    msg = (
+                        f"[WARN] Role {role.name!r} on port {port} session "
+                        f"died and respawn failed: {exc}"
+                    )
+                    self._emit_health_event(
+                        port=port,
+                        kind="role_respawn_failed",
+                        severity="warning",
+                        message=msg,
+                        role_name=role.name,
+                    )
+                    logger.warning(msg)
+                    events.append(msg)
+                continue
 
         if events or (now - self._last_report_ts >= self.interval):
             ts = datetime.now(tz=UTC).isoformat()

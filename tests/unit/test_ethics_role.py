@@ -37,12 +37,30 @@ class FakeStore:
         )
 
 
-def test_ethics_registration() -> None:
+def test_ethics_registration(monkeypatch) -> None:
+    """register_role wires up EACN agent + tmux session for ethics."""
+    from minions.lifecycle import role_launcher as launcher_mod
+
+    def _workspace(port: int, role_name: str, base_branch: str | None = None):
+        return f"minionsos/project-{port}-{role_name}", Path(f"/tmp/{port}/{role_name}")
+
+    monkeypatch.setattr(role_mod, "ensure_role_workspace", _workspace)
+    monkeypatch.setattr(launcher_mod, "session_alive", lambda *a, **k: False)
+    monkeypatch.setattr(
+        launcher_mod,
+        "launch_role_process",
+        lambda role_entry, project_port, **k: {
+            "session_name": f"mos-{project_port}-{role_entry.name}",
+            "started": True,
+            "attach_cmd": ["tmux", "attach", "-t", f"mos-{project_port}-{role_entry.name}"],
+        },
+    )
+
     store = FakeStore()
     with patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])):
         out = role_mod.register_role(37777, "ethics", init_brief=None, store=store)
     assert out["name"] == "ethics"
-    assert out["ephemeral"] is True
+    assert out["tmux_session"] == "mos-37777-ethics"
     assert any(r.name == "ethics" for r in store.project.active_roles)
 
 
@@ -53,10 +71,10 @@ def test_ethics_main_whitelist() -> None:
     assert "WebSearch" in tools
     assert "WebFetch" in tools
     assert "Read" in tools
-    assert not any(t.startswith("exp_") for t in tools)
-    assert "gru_relay" not in tools
-    assert not any(t.startswith("spawn_") for t in tools)
-    assert not any(t.startswith("project_") for t in tools)
+    assert not any(t.startswith("mos_exp_") for t in tools)
+    assert "mos_relay" not in tools
+    assert not any(t.startswith("mos_spawn_") for t in tools)
+    assert not any(t.startswith("mos_project_") for t in tools)
     assert "Write" not in tools
     assert "Edit" not in tools
     assert "Bash" not in tools

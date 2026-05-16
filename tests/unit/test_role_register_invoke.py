@@ -47,19 +47,35 @@ def _fake_role_workspace(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(role_mod, "ensure_role_workspace", _workspace)
 
 
+@pytest.fixture(autouse=True)
+def _stub_role_launcher(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Don't actually spawn tmux during unit tests."""
+    from minions.lifecycle import role_launcher as launcher_mod
+
+    def fake_launch(role_entry, project_port, *, cfg=None):
+        return {
+            "session_name": f"mos-{project_port}-{role_entry.name}",
+            "started": True,
+            "attach_cmd": ["tmux", "attach", "-t", f"mos-{project_port}-{role_entry.name}"],
+        }
+
+    monkeypatch.setattr(launcher_mod, "launch_role_process", fake_launch)
+    monkeypatch.setattr(launcher_mod, "session_alive", lambda *a, **k: False)
+    monkeypatch.setattr(launcher_mod, "kill_session", lambda *a, **k: False)
+
+
 class TestRegister:
     def test_register_role_records_entry(self) -> None:
         store = FakeStore()
-        with patch.object(
-            role_mod, "register_project_role_agent", return_value=("tok", [])
-        ) as reg:
+        with patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])) as reg:
             out = role_mod.register_role(37596, "noter", init_brief=None, store=store)
         reg.assert_called_once_with(37596, "noter")
         assert out["name"] == "noter"
         assert out["session_name"] == "p37596/noter"
         assert str(out["workspace_path"]).endswith("/37596/noter")
-        assert out["ephemeral"] is True
         assert out["eacn_agent_id"] == "noter"
+        assert out["tmux_session"] == "mos-37596-noter"
+        assert out["launch_started"] is True
         assert store.upserts[0].state == "active"
         assert store.upserts[0].pid is None
         assert store.upserts[0].session_name == "p37596/noter"
@@ -99,12 +115,31 @@ class TestRegister:
         assert kwargs["content"]["type"] == "init_brief"
         assert kwargs["content"]["description"] == "observe quietly"
 
-    def test_register_rejects_duplicate_active(self) -> None:
+    def test_register_duplicate_active_smart_respawns(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Second register_role on a same-name active role triggers smart respawn,
+        not an error: if the tmux session is alive nothing happens; if it died
+        the launcher relaunches it. The registry-side EACN re-registration is
+        skipped."""
         store = FakeStore()
-        with patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])):
-            role_mod.register_role(37596, "noter", store=store)
-        with pytest.raises(Exception):
-            role_mod.register_role(37596, "noter", store=store)
+        with patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])) as reg:
+            first = role_mod.register_role(37596, "noter", store=store)
+        assert first["launch_started"] is True
+
+        # Now pretend the session is alive — second register_role should no-op.
+        from minions.lifecycle import role_launcher as launcher_mod
+
+        monkeypatch.setattr(launcher_mod, "session_alive", lambda *a, **k: True)
+        with patch.object(
+            role_mod, "register_project_role_agent", return_value=("tok", [])
+        ) as reg2:
+            second = role_mod.register_role(37596, "noter", store=store)
+        assert reg2.call_count == 0  # EACN re-registration is skipped
+        assert second["respawn"] is False
+        assert second["launch_started"] is False
+        # And reg was only called once across both attempts.
+        assert reg.call_count == 1
 
     def test_register_expert_slugifies(self) -> None:
         store = FakeStore()
@@ -136,4 +171,3 @@ class TestRegister:
     def test_spawn_role_alias(self) -> None:
         assert role_mod.spawn_role is role_mod.register_role
         assert role_mod.spawn_expert is role_mod.register_expert
-

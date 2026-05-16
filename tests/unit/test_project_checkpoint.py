@@ -152,7 +152,7 @@ def test_role_checkpoint_pushes_to_namespaced_remote(
         "git@github.com:Minions-Land/MinionsOS",
         "HEAD:minionsos/p37596/coder",
     ]
-    assert "project_checkpoint_workspace" in resolve_whitelist("coder", "main")
+    assert "mos_project_checkpoint_workspace" in resolve_whitelist("coder", "main")
     ledger = json.loads(
         (tmp_path / "project_37596" / "state" / "session-ledger.json").read_text(encoding="utf-8")
     )
@@ -165,7 +165,7 @@ def test_checkpoint_tool_wrapper_delegates_to_lifecycle(monkeypatch: pytest.Monk
 
     monkeypatch.setattr(mcp_server, "_project_checkpoint_workspace", lambda *a, **kw: out)
 
-    result = mcp_server.project_checkpoint_workspace(
+    result = mcp_server.mos_project_checkpoint_workspace(
         mcp_server.ProjectCheckpointArgs(port=37596, role_name="coder", message="hi")
     )
 

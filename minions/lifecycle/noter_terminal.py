@@ -230,19 +230,56 @@ def _wait_for_command(interval_seconds: int) -> str | None:
     return sys.stdin.readline().strip()
 
 
+def _heartbeat_age(workspace_path: str | None) -> str:
+    """Return a humanised "47s ago" string for the workspace heartbeat file."""
+    if not workspace_path:
+        return "-"
+    try:
+        from os import stat
+        from time import time as _now
+
+        hb = Path(workspace_path) / ".minionsos" / "heartbeat"
+        if not hb.exists():
+            return "no-hb"
+        age = max(0.0, _now() - stat(hb).st_mtime)
+    except OSError:
+        return "?"
+    if age < 60:
+        return f"{int(age)}s ago"
+    if age < 3600:
+        return f"{int(age // 60)}m ago"
+    if age < 86400:
+        return f"{int(age // 3600)}h ago"
+    return f"{int(age // 86400)}d ago"
+
+
+def _tmux_alive(port: int, role_name: str) -> str:
+    """Return tmux session liveness string ("yes"/"no"/"?")."""
+    try:
+        from minions.lifecycle.role_launcher import session_alive
+    except Exception:
+        return "?"
+    try:
+        return "yes" if session_alive(port, role_name) else "no"
+    except Exception:
+        return "?"
+
+
 def _render_roles(snapshot: NoterSnapshot, console: Console) -> None:
     table = Table(title="Roles", show_lines=False)
     table.add_column("Role")
     table.add_column("State")
-    table.add_column("PID")
+    table.add_column("Tmux")
+    table.add_column("Heartbeat")
     table.add_column("EACN")
-    table.add_column("Last seen")
+    table.add_column("EACN Last seen")
     table.add_column("Task")
     for role in snapshot.project.active_roles:
         table.add_row(
             role.name,
             role.state,
-            str(role.pid or "-"),
+            _tmux_alive(snapshot.project.port, role.name),
+            _heartbeat_age(role.workspace_path),
             role.eacn_agent_id or role.name,
             role.last_seen or "-",
             _short(role.current_task or "-", 38),

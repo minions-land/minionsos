@@ -1,8 +1,12 @@
-"""Agent-host command builders for Claude Code and Codex.
+"""Agent-host command builder for Claude Code (long-lived Role process).
 
-MinionsOS keeps project lifecycle, EACN routing, and role wake-up logic
-provider-neutral. This module contains the narrow layer that turns a role
-activation into a concrete local agent CLI invocation.
+Each MinionsOS Role is a long-lived ``claude`` process that drives its own
+event loop via ``mos_await_events``. This module produces the concrete
+``claude`` argv plus the initial driver prompt the launcher feeds into the
+session.
+
+Codex is not a Role main host; Codex is reachable through the codex-bridge
+MCP as a subagent. There is therefore no Codex branch here.
 """
 
 from __future__ import annotations
@@ -11,18 +15,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from minions.config import GruConfig
-from minions.paths import MINIONS_ROOT, project_dir
+from minions.paths import MINIONS_ROOT
 
 
 @dataclass(frozen=True)
 class RoleInvocation:
-    """Concrete subprocess invocation for one role wake-up."""
+    """Concrete subprocess invocation for one Role's long-lived process."""
 
     host_name: str
     command: list[str]
     cwd: Path
-    stdin_text: str
-    session_name: str | None = None
+    initial_prompt: str
+    session_name: str
 
 
 def build_role_invocation(
@@ -30,48 +34,22 @@ def build_role_invocation(
     cfg: GruConfig,
     role_name: str,
     project_port: int,
+    project_agent_id: str,
     system_path: Path | None,
     allowed_tools: str,
-    message: str,
     workspace: Path,
-    session_name: str | None = None,
-    resume_session: bool = False,
+    session_name: str,
 ) -> RoleInvocation:
-    """Build the configured agent-host command for a role wake-up."""
-    host = cfg.effective_agent_host()
-    if host == "codex":
-        return _build_codex_role_invocation(
-            cfg=cfg,
-            role_name=role_name,
-            project_port=project_port,
-            system_path=system_path,
-            allowed_tools=allowed_tools,
-            message=message,
-            workspace=workspace,
-            session_name=session_name,
-            resume_session=resume_session,
-        )
-    return _build_claude_role_invocation(
-        system_path=system_path,
-        allowed_tools=allowed_tools,
-        message=message,
-        workspace=workspace,
-        session_name=session_name,
-        resume_session=resume_session,
-    )
+    """Build the ``claude`` invocation for a long-lived Role.
 
-
-def _build_claude_role_invocation(
-    *,
-    system_path: Path | None,
-    allowed_tools: str,
-    message: str,
-    workspace: Path,
-    session_name: str | None,
-    resume_session: bool,
-) -> RoleInvocation:
-    """Preserve the existing Claude Code role invocation exactly."""
-    cmd = [
+    The returned ``command`` is the argv to launch (no shell), ``cwd`` is the
+    Role's branch workspace (Claude reads ``CLAUDE.md`` / files from cwd), and
+    ``initial_prompt`` is the first user message the launcher pipes in. The
+    Role's SYSTEM.md is appended to Claude's system prompt so role rules sit
+    outside the conversation body and survive auto-compact.
+    """
+    del cfg, project_port, project_agent_id  # not used yet; reserved for parity
+    cmd: list[str] = [
         "uv",
         "run",
         "--project",
@@ -80,8 +58,6 @@ def _build_claude_role_invocation(
     ]
     if session_name:
         cmd += ["--name", session_name]
-    if resume_session:
-        cmd.append("--continue")
     if system_path and system_path.exists():
         cmd += ["--append-system-prompt", f"@{system_path}"]
     cmd += [
@@ -91,131 +67,52 @@ def _build_claude_role_invocation(
         allowed_tools,
         "--permission-mode",
         "bypassPermissions",
-        "-p",
     ]
     return RoleInvocation(
         host_name="claude",
         command=cmd,
         cwd=workspace if workspace.exists() else MINIONS_ROOT,
-        stdin_text=message,
+        initial_prompt=build_forever_loop_prompt(role_name=role_name),
         session_name=session_name,
     )
 
 
-def _build_codex_role_invocation(
-    *,
-    cfg: GruConfig,
-    role_name: str,
-    project_port: int,
-    system_path: Path | None,
-    allowed_tools: str,
-    message: str,
-    workspace: Path,
-    session_name: str | None,
-    resume_session: bool,
-) -> RoleInvocation:
-    """Build a Codex non-interactive role invocation.
+def build_forever_loop_prompt(*, role_name: str) -> str:
+    """Compose the first user message that boots the Role into its forever loop.
 
-    Codex does not expose Claude's ``--append-system-prompt``. Instead the role
-    SYSTEM.md is written to ``<workspace>/AGENTS.md`` before launch and
-    auto-discovered by Codex when it starts inside ``<workspace>``. The stdin
-    prompt only carries the bounded wake-window brief and the event batch; it
-    must not re-inline SYSTEM.md so the rules stay outside any auto-compact
-    pressure on the conversation body.
-
-    For resume, Codex's ``resume --last`` filters recorded sessions by cwd, so
-    we launch the subprocess with ``cwd=workspace`` (not ``--cd``; resume does
-    not accept it) to pick the right role's session.
+    The prompt's job is narrow: anchor the Role's identity, name the
+    event-loop tool (``mos_await_events``), and set the supervisor priority
+    rule. All substantive role behavior — boundaries, skills, EACN
+    contract — lives in the appended SYSTEM.md and the role-specific
+    ``SYSTEM.md`` re-injected by Claude on each launch.
     """
-    if resume_session:
-        cmd = [
-            "codex",
-            "exec",
-            "resume",
-            "--last",
-        ]
-    else:
-        cmd = [
-            "codex",
-            "exec",
-            "--cd",
-            str(workspace),
-            "--add-dir",
-            str(project_dir(project_port)),
-        ]
-    if cfg.codex_bypass_approvals_and_sandbox:
-        cmd.append("--dangerously-bypass-approvals-and-sandbox")
-    else:
-        cmd += [
-            "--sandbox",
-            cfg.codex_sandbox,
-            "-c",
-            f'approval_policy="{cfg.codex_approval_policy}"',
-        ]
-    cmd += [
-        "-c",
-        f'model_reasoning_effort="{cfg.codex_reasoning_effort}"',
-    ]
-    if cfg.codex_model:
-        cmd += ["--model", cfg.codex_model]
-    cmd.append("-")
-
-    stdin_text = _codex_stdin(
-        role_name=role_name,
-        project_port=project_port,
-        allowed_tools=allowed_tools,
-        message=message,
-        workspace=workspace,
+    return (
+        f"You are the MinionsOS `{role_name}` role. Your event loop runs forever.\n"
+        "\n"
+        "Loop:\n"
+        "1. Call `mos_await_events()`. It blocks until your project-local EACN3\n"
+        "   queue delivers actionable content (real events, or after ~5 minutes\n"
+        "   of silence a synthetic `idle_check`).\n"
+        "2. When it returns:\n"
+        "   a. Scan first for events involving Gru (sender_id=`gru`,\n"
+        "      initiator_id=`gru`, or events targeting the `gru` queue that\n"
+        "      mention you). Handle Gru-related events FIRST — supervisor\n"
+        "      consistency is non-negotiable, never starve Gru traffic.\n"
+        "   b. Then run think-then-act on the remaining events: Plan in 3-6\n"
+        "      lines, Dispatch substantive work to a host-native subagent\n"
+        "      (Task tool), Verify the subagent's return, emit EACN responses\n"
+        "      with `eacn3_send_message` / `eacn3_create_task` /\n"
+        "      `eacn3_submit_bid` / `eacn3_submit_result`.\n"
+        "3. When the current cycle is done, call `mos_await_events()` again.\n"
+        "\n"
+        "When the current context is no longer serving the next task — at a\n"
+        "natural boundary between coherent batches — checkpoint durable state\n"
+        "to the Exploration DAG (`mos_dag_append` / `mos_dag_annotate`), then\n"
+        "call `mos_reset(reason=...)` to clear conversation context. After\n"
+        "reset call `mos_dag_summary()` to re-orient and `mos_await_events()`\n"
+        "to receive the next event.\n"
+        "\n"
+        "Your output is tool calls. Do not emit a final assistant turn that\n"
+        "does not end with `mos_await_events()` — the process must stay\n"
+        "resident. Begin now: call `mos_await_events()`.\n"
     )
-    return RoleInvocation(
-        host_name="codex",
-        command=cmd,
-        cwd=workspace if workspace.exists() else MINIONS_ROOT,
-        stdin_text=stdin_text,
-        session_name=session_name,
-    )
-
-
-def _codex_stdin(
-    *,
-    role_name: str,
-    project_port: int,
-    allowed_tools: str,
-    message: str,
-    workspace: Path,
-) -> str:
-    """Render the stdin message for a Codex wake window.
-
-    Only carries the bounded wake-window brief and the event batch. The role
-    SYSTEM.md is injected via ``<workspace>/AGENTS.md`` (Codex auto-discovery)
-    so rules stay out of the conversation body that auto-compact targets.
-    """
-    pdir = project_dir(project_port)
-    parts = [
-        "# MinionsOS Codex Role Invocation",
-        "",
-        f"You are the MinionsOS `{role_name}` role for project `{project_port}`.",
-        "This is a bounded role wake window. Complete or checkpoint the work, then exit.",
-        "Your role contract and boundaries are in `AGENTS.md` in this directory; "
-        "read it if you haven't already this session.",
-        "",
-        "Paths:",
-        f"- MinionsOS root: `{MINIONS_ROOT}`",
-        f"- Project directory: `{pdir}`",
-        f"- Workspace root: `{workspace.parent}`",
-        f"- Workspace: `{workspace}`",
-        f"- Codex MCP config: `{MINIONS_ROOT / '.codex' / 'config.toml'}`",
-        "",
-        "Codex host notes:",
-        "- Use MCP tools only within the MinionsOS role boundary.",
-        "- MinionsOS MCP server enforces project lifecycle tool permissions.",
-        f"- Intended role tool allowlist: `{allowed_tools}`.",
-        "- Allowlist names are MinionsOS contract labels. `Task` means the "
-        "current host's native subagent/delegation capability, not a required "
-        "Codex tool with that literal name.",
-        "",
-        "# Event Batch",
-        "",
-        message,
-    ]
-    return "\n".join(parts).rstrip() + "\n"

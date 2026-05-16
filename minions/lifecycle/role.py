@@ -32,7 +32,7 @@ from minions.config import (
     parse_duration,
     slugify,
 )
-from minions.errors import AlreadyActive, BackendError, RoleError
+from minions.errors import BackendError, RoleError
 from minions.lifecycle import eacn_client
 from minions.lifecycle.agent_registry import register_project_role_agent, role_agent_domains
 from minions.lifecycle.eacn_identity import resolve_agent_id
@@ -258,7 +258,52 @@ def _do_register(
 
     existing = next((r for r in entry.active_roles if r.name == role_name), None)
     if existing and existing.state == "active":
-        raise AlreadyActive(f"Role {role_name!r} is already active on port {project_port}.")
+        # Smart re-spawn: if the tmux session is alive, do nothing; if it
+        # has died, relaunch in place. Either way, we do not run the full
+        # registration path again — EACN AgentCard / workspace are already
+        # set up.
+        try:
+            from minions.lifecycle.role_launcher import (
+                attach_command,
+                launch_role_process,
+                session_alive,
+            )
+            from minions.lifecycle.role_launcher import (
+                session_name as _session_name,
+            )
+
+            if session_alive(project_port, role_name):
+                return {
+                    "name": role_name,
+                    "session_name": existing.session_name,
+                    "workspace_path": existing.workspace_path,
+                    "workspace_branch": existing.workspace_branch,
+                    "time_trigger_interval": existing.time_trigger_interval,
+                    "eacn_agent_id": existing.eacn_agent_id,
+                    "tmux_session": _session_name(project_port, role_name),
+                    "attach_cmd": attach_command(project_port, role_name),
+                    "launch_started": False,
+                    "respawn": False,
+                }
+            launch_status = launch_role_process(existing, project_port)
+            return {
+                "name": role_name,
+                "session_name": existing.session_name,
+                "workspace_path": existing.workspace_path,
+                "workspace_branch": existing.workspace_branch,
+                "time_trigger_interval": existing.time_trigger_interval,
+                "eacn_agent_id": existing.eacn_agent_id,
+                "tmux_session": launch_status.get("session_name"),
+                "attach_cmd": launch_status.get("attach_cmd"),
+                "launch_started": launch_status.get("started"),
+                "respawn": True,
+            }
+        except RoleError:
+            raise
+        except Exception as exc:
+            raise RoleError(
+                f"Role {role_name!r} marked active but smart-respawn failed: {exc}"
+            ) from exc
 
     resolved_time_trigger = _resolve_time_trigger_interval(role_name, time_trigger_interval)
 
@@ -354,14 +399,32 @@ def _do_register(
     store.upsert_role(project_port, role_entry)
     logger.info("register_role: role=%r port=%d", role_name, project_port)
 
+    # Launch the long-lived Role process in tmux. If the launcher fails we
+    # leave the role registered so the operator can inspect / retry; the
+    # error is surfaced via RoleError with the original exception chained.
+    launch_status: dict[str, object] = {}
+    try:
+        from minions.lifecycle.role_launcher import launch_role_process
+
+        launch_status = launch_role_process(role_entry, project_port)
+    except RoleError:
+        raise
+    except Exception as exc:
+        raise RoleError(
+            f"Role {role_name!r} registered on port {project_port} but the "
+            f"resident-Role launcher failed: {exc}"
+        ) from exc
+
     return {
         "name": role_name,
         "session_name": session_name,
         "workspace_path": str(workspace_path.resolve()),
         "workspace_branch": workspace_branch,
         "time_trigger_interval": resolved_time_trigger,
-        "ephemeral": True,
         "eacn_agent_id": role_entry.eacn_agent_id,
+        "tmux_session": launch_status.get("session_name"),
+        "attach_cmd": launch_status.get("attach_cmd"),
+        "launch_started": launch_status.get("started"),
     }
 
 
@@ -400,9 +463,27 @@ def dismiss_role(
             exc,
         )
 
+    try:
+        from minions.lifecycle.role_launcher import kill_session
+
+        killed = kill_session(project_port, role_name)
+    except Exception as exc:
+        logger.warning(
+            "dismiss_role: tmux kill failed for role=%r port=%d: %s",
+            role_name,
+            project_port,
+            exc,
+        )
+        killed = False
+
     _store.upsert_role(project_port, role.model_copy(update={"state": "dismissed", "pid": None}))
-    logger.info("dismiss_role done: role=%r port=%d", role_name, project_port)
-    return {"name": role_name}
+    logger.info(
+        "dismiss_role done: role=%r port=%d tmux_killed=%s",
+        role_name,
+        project_port,
+        killed,
+    )
+    return {"name": role_name, "tmux_killed": "1" if killed else "0"}
 
 
 def list_roles(
