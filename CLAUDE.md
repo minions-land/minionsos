@@ -104,6 +104,7 @@ project_{port}/
 ├── CLAUDE.md                    # project narrative; author/Gru write, roles read
 ├── AGENTS.md                    # Codex sub-agent's view of project context (mirrors CLAUDE.md)
 ├── meta.json                    # machine metadata
+├── parent_repo.git/             # per-project bare git repo, seeded from author HEAD
 ├── branches/                    # git worktrees, one per role plus a shared tree
 │   ├── main/                    # Gru — branch minionsos/project-{port}
 │   ├── coder/                   # branch minionsos/project-{port}-coder
@@ -129,7 +130,7 @@ project_{port}/
 
 Cross-role writes go through `mos_publish_to_shared(role, src_path, dst_subpath, commit_message)`, which holds `state/shared.lock`, copies the source file into `branches/shared/<dst_subpath>`, and commits on the shared branch. Per-role subdir policy lives in `minions/tools/publish.py` (`_ROLE_ALLOWED_SHARED_SUBDIRS`). The DAG file is updated in place by `mos_dag_append`/`mos_dag_annotate` and flushed on a timer by Noter through `mos_dag_commit_shared`. The review surface (`reviews/`) is reserved for `mos_review_run`, which writes there directly and commits the round at the end.
 
-The parent directory containing this repository must be a git repository before `mos_project_create`, because MinionsOS creates per-project worktrees from the parent repo. `./install.sh` warns about this and `./mos doctor` re-checks it.
+The parent directory containing this repository is the **author seed repo**: at `mos_project_create` time, MinionsOS imports its current HEAD (excluding `MinionsOS/` itself and any file larger than 500 MB) into a per-project bare git repo at `project_{port}/parent_repo.git/`. All worktrees — main, role, shared — branch off that per-project bare repo, so the author repo is never written to and never gains `minionsos/*` branches. The seed source must be git-initialized; `./install.sh` warns about this and `./mos doctor` re-checks it. To override the seed source, set `gru.yaml:author_repo` (or `MINIONS_AUTHOR_REPO`).
 
 ### Role lifecycle and boundaries
 

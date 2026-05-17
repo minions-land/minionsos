@@ -29,38 +29,33 @@ from minions.tools.publish import (
 
 
 def _git(args: list[str], cwd: Path) -> str:
-    res = subprocess.run(
-        ["git", *args], cwd=str(cwd), capture_output=True, text=True, check=True
-    )
+    res = subprocess.run(["git", *args], cwd=str(cwd), capture_output=True, text=True, check=True)
     return res.stdout
 
 
 def _git_log(workspace: Path) -> list[str]:
-    return [
-        line
-        for line in _git(["log", "--oneline"], workspace).splitlines()
-        if line.strip()
-    ]
+    return [line for line in _git(["log", "--oneline"], workspace).splitlines() if line.strip()]
 
 
 @pytest.fixture
 def shared_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
-    """Create a real parent git repo + an initialised project_{port}/ tree
-    with main and shared worktrees. Returns a dict with the resolved port,
-    parent path, projects-root path, and convenience workspace paths.
+    """Create an author seed repo + an initialised project_{port}/ tree
+    (per-project bare repo + main + shared worktrees). Returns a dict with
+    the resolved port, author path, projects-root path, and convenience
+    workspace paths.
     """
-    parent = tmp_path / "parent"
+    author = tmp_path / "author"
     projects_root = tmp_path / "projects-root"
-    parent.mkdir()
+    author.mkdir()
     projects_root.mkdir()
-    _git(["init", "-q"], parent)
-    _git(["config", "user.email", "t@e.com"], parent)
-    _git(["config", "user.name", "test"], parent)
-    (parent / "README.md").write_text("init\n", encoding="utf-8")
-    _git(["add", "."], parent)
-    _git(["commit", "-qm", "init"], parent)
+    _git(["init", "-q"], author)
+    _git(["config", "user.email", "t@e.com"], author)
+    _git(["config", "user.name", "test"], author)
+    (author / "README.md").write_text("init\n", encoding="utf-8")
+    _git(["add", "."], author)
+    _git(["commit", "-qm", "init"], author)
 
-    monkeypatch.setenv("MINIONS_PROJECT_PARENT_REPO", str(parent))
+    monkeypatch.setenv("MINIONS_AUTHOR_REPO", str(author))
     monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(projects_root))
 
     port = 39901
@@ -70,12 +65,13 @@ def shared_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str,
     project_workspace_root(port).mkdir(parents=True, exist_ok=True)
     project_state_dir(port).mkdir(parents=True, exist_ok=True)
 
+    project_mod._seed_per_project_repo(port)
     project_mod._create_worktree(port, "HEAD")
     project_mod._create_shared_worktree(port)
 
     return {
         "port": port,
-        "parent": parent,
+        "author": author,
         "projects_root": projects_root,
         "shared_workspace": project_shared_workspace(port),
         "shared_branch": project_shared_branch_name(port),
@@ -180,9 +176,7 @@ def test_publish_rejects_anyone_into_reviews(
         )
 
 
-def test_publish_idempotent_when_no_diff(
-    shared_project: dict[str, object], tmp_path: Path
-) -> None:
+def test_publish_idempotent_when_no_diff(shared_project: dict[str, object], tmp_path: Path) -> None:
     src = tmp_path / "same.md"
     src.write_text("static\n", encoding="utf-8")
     r1 = mos_publish_to_shared(
@@ -273,7 +267,7 @@ def test_publish_requires_shared_worktree_present(
     must raise rather than silently create something off-branch."""
     monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path / "p"))
     monkeypatch.setenv("MINIONS_PROJECT_PORT", "39902")
-    monkeypatch.setenv("MINIONS_PROJECT_PARENT_REPO", str(tmp_path / "no-such-repo"))
+    monkeypatch.setenv("MINIONS_AUTHOR_REPO", str(tmp_path / "no-such-repo"))
     src = tmp_path / "x.md"
     src.write_text("x", encoding="utf-8")
     with pytest.raises(ProjectError, match="Shared worktree missing"):
@@ -295,9 +289,7 @@ def test_publish_requires_existing_src(shared_project: dict[str, object]) -> Non
         )
 
 
-def test_publish_requires_absolute_src(
-    shared_project: dict[str, object], tmp_path: Path
-) -> None:
+def test_publish_requires_absolute_src(shared_project: dict[str, object], tmp_path: Path) -> None:
     rel = "relative/path.md"
     with pytest.raises(ProjectError, match="src_path must be absolute"):
         mos_publish_to_shared(

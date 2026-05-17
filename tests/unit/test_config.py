@@ -70,14 +70,14 @@ class TestLoadGruConfig:
         p.write_text(
             yaml.dump(
                 {
-                    "project_parent_repo": "/tmp/research-repo",
+                    "author_repo": "/tmp/research-repo",
                     "projects_root": "/tmp/minions-projects",
                     "health_event_eacn_notifications": True,
                 }
             )
         )
         cfg = load_gru_config(p)
-        assert cfg.project_parent_repo == "/tmp/research-repo"
+        assert cfg.author_repo == "/tmp/research-repo"
         assert cfg.projects_root == "/tmp/minions-projects"
         assert cfg.health_event_eacn_notifications is True
 

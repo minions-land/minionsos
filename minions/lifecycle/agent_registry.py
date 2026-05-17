@@ -52,7 +52,6 @@ def role_agent_domains(role_name: str) -> list[str]:
         "coder": ["coding", "debugging", "implementation"],
         "experimenter": ["experiments", "execution", "evaluation"],
         "writer": ["writing", "paper", "latex"],
-        "reviewer": ["review", "critique", "evaluation"],
         "ethics": [
             "evidence",
             "audit",
@@ -68,7 +67,7 @@ def role_agent_domains(role_name: str) -> list[str]:
 
 def role_agent_tier(role_name: str) -> str:
     base = _normalise_role(role_name)
-    if base in {"expert", "reviewer", "ethics"}:
+    if base in {"expert", "ethics"}:
         return "expert"
     return "general"
 
@@ -86,7 +85,6 @@ def role_agent_description(role_name: str) -> str:
             "and result reporting."
         ),
         "writer": "Project-local Writer role for paper drafting and evidence-grounded revisions.",
-        "reviewer": "Project-local Reviewer role for isolated review rounds and verdict reporting.",
         "ethics": "Project-local Ethics role for evidence validation and claim audit.",
         "expert": "Project-local Expert role for domain analysis and research guidance.",
     }

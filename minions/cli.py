@@ -206,29 +206,27 @@ def doctor(
     r = subprocess.run(["git", "--version"], capture_output=True, text=True)
     _check("git", r.returncode == 0, r.stdout.strip())
 
-    # Project parent repo is a git repo (required for project_create worktree).
-    from minions.lifecycle.project import project_parent_repo
+    # Author seed repo is a git repo (required for project_create — its HEAD
+    # is imported into each project's per-project bare repo).
+    from minions.lifecycle.project import author_repo
 
-    parent = project_parent_repo()
+    src = author_repo()
     try:
         pr = subprocess.run(
             ["git", "rev-parse", "--is-inside-work-tree"],
-            cwd=str(parent),
+            cwd=str(src),
             capture_output=True,
             text=True,
         )
-        parent_is_repo = pr.returncode == 0 and pr.stdout.strip() == "true"
+        author_is_repo = pr.returncode == 0 and pr.stdout.strip() == "true"
     except FileNotFoundError:
-        parent_is_repo = False
+        author_is_repo = False
     _check(
-        "parent-dir-is-git-repo",
-        parent_is_repo,
-        str(parent)
-        if parent_is_repo
-        else (
-            f"{parent} — run: git init && git add -A && git commit, or set "
-            "gru.yaml:project_parent_repo"
-        ),
+        "author-repo-is-git-repo",
+        author_is_repo,
+        str(src)
+        if author_is_repo
+        else (f"{src} — run: git init && git add -A && git commit, or set gru.yaml:author_repo"),
     )
 
     # Orphan project directories: present on disk but absent from projects.json,
@@ -516,7 +514,7 @@ def config_cmd(
         data["CODEX_MODEL"] = cfg.codex_model
         data["CODEX_REASONING_EFFORT"] = cfg.codex_reasoning_effort
         data["CODEX_BYPASS_APPROVALS_AND_SANDBOX"] = cfg.codex_bypass_approvals_and_sandbox
-        data["PROJECT_PARENT_REPO"] = cfg.project_parent_repo
+        data["AUTHOR_REPO"] = cfg.author_repo
         data["PROJECTS_ROOT"] = str(projects_root())
         data["HEALTH_EVENT_EACN_NOTIFICATIONS"] = cfg.health_event_eacn_notifications
     except Exception as exc:

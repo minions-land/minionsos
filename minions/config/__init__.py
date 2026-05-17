@@ -352,6 +352,7 @@ ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
     "noter": [
         "branches/noter/ (drafts)",
         "branches/shared/notes/ (via mos_publish_to_shared)",
+        "branches/shared/handoffs/ (via mos_publish_to_shared)",
         "branches/shared/exploration/dag.json (via mos_dag_commit_shared)",
     ],
     "coder": [
@@ -409,12 +410,15 @@ class GruConfig(BaseModel):
         default="HEAD",
         description="Default git base branch for new project worktrees.",
     )
-    project_parent_repo: str | None = Field(
+    author_repo: str | None = Field(
         default=None,
         description=(
-            "Optional git repository used as the source for project worktrees. "
-            "When unset, MinionsOS uses MINIONS_ROOT.parent if it is a git repo, "
-            "otherwise MINIONS_ROOT if that is a git repo."
+            "Optional path to the author's source git repo, used as the "
+            "*seed* for per-project bare repos at project_create time. "
+            "When unset, MinionsOS uses MINIONS_ROOT.parent (the directory "
+            "MinionsOS was placed inside). After seeding, project branches "
+            "live entirely inside project_{port}/parent_repo.git/ and the "
+            "author repo is never touched again."
         ),
     )
     projects_root: str | None = Field(

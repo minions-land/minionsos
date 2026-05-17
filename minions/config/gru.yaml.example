@@ -13,11 +13,16 @@ allow_web_search: true
 # Logging verbosity: debug | info | warning | error
 log_level: info
 
-# Optional git repository used as the source for project worktrees.
-# Defaults to the directory containing MinionsOS when that directory is a
-# git repo; otherwise falls back to the MinionsOS checkout itself if it is a
-# git repo. Set this when your research repo is somewhere else.
-project_parent_repo:
+# Optional path to the author's source git repo. Used as the *seed* for new
+# per-project bare repos at project_create time: the author's current HEAD
+# (minus MinionsOS/ itself and files larger than 500 MB) is imported into
+# project_<port>/parent_repo.git/ and committed once. After seeding, the
+# author repo is never touched again — project worktrees branch off the
+# per-project bare repo, so author-side `.git` stays untouched.
+# Defaults to the directory containing MinionsOS (typically the user's
+# working repo). Set this when MinionsOS sits somewhere unrelated to the
+# code you want to research over.
+author_repo:
 
 # Optional directory that contains project_<port>/ runtime trees.
 # Defaults to the directory containing MinionsOS.

@@ -28,11 +28,13 @@ research projects.
   component allowed to create projects, spawn roles, and relay across projects.
 - **Tool and write boundaries.** Claude roles still receive `--allowed-tools`;
   MinionsOS also enforces project-lifecycle tool permissions inside its MCP
-  server so Codex roles keep the same role boundaries. Noter and Ethics write
-  only to their artifact areas, while Coder, Experimenter, Writer, and Expert
-  operate in `workspace/`.
+  server so Codex roles keep the same role boundaries. Each Role owns
+  `branches/<role>/`; cross-role artefacts always travel through
+  `branches/shared/<subdir>/` via `mos_publish_to_shared`.
 - **Layered memory.** Role context is reconstructed from the current invocation,
-  per-role scratchpads, artifacts, EACN history, and project `CLAUDE.md`.
+  the Exploration DAG (`branches/shared/exploration/dag.json`), shared
+  artefacts under `branches/shared/<subdir>/`, EACN history, and project
+  `CLAUDE.md`.
 - **Skill discovery and domain assets.** Role skills live in
   `minions/roles/{role}/skills/*.md`; Expert domain-pack assets live in
   `minions/domains/*.md`.
@@ -60,21 +62,23 @@ Gru
   +-- project_37596/
   |     |
   |     +-- EACN3 backend on 127.0.0.1:37596
-  |     |     +-- Noter          -> artifacts/notes/
-  |     |     +-- Coder          -> workspace/
-  |     |     +-- Experimenter   -> workspace/ + exp_* tools
-  |     |     +-- Writer         -> workspace/
-  |     |     +-- Ethics         -> artifacts/ethics/
-  |     |     +-- Expert-*       -> workspace/ + domain pack
+  |     |     +-- Noter          -> branches/noter/   + branches/shared/notes/, exploration/
+  |     |     +-- Coder          -> branches/coder/
+  |     |     +-- Experimenter   -> branches/experimenter/ + branches/shared/exp/ + exp_* tools
+  |     |     +-- Writer         -> branches/writer/
+  |     |     +-- Ethics         -> branches/ethics/  + branches/shared/ethics/
+  |     |     +-- Expert-*       -> branches/expert-<slug>/ + domain pack
   |     |
-  |     +-- workspace/           # git worktree
-  |     +-- memory/{role}.md     # role scratchpads
-  |     +-- artifacts/
+  |     +-- branches/                # one git worktree per role plus shared
+  |     |     +-- main/, noter/, coder/, experimenter/, writer/, ethics/, expert-*/, shared/
+  |     +-- eacn3_data/eacn3.db      # project-local EACN3 SQLite
+  |     +-- events/                  # per-agent EACN event JSONL
+  |     +-- state/                   # runtime control state
   |     +-- logs/
   |
   +-- project_37601/
         |
-        +-- separate backend, worktree, memory, artifacts, and logs
+        +-- separate backend, branches, EACN state, events, and logs
 ```
 
 Cross-project communication is intentionally narrow: roles cannot talk to other
@@ -231,13 +235,13 @@ Logs:
 
 | Role | Responsibility | Primary write scope |
 |---|---|---|
-| Gru | Global supervisor, human interface, project lifecycle, cross-project relay | all project state |
-| Noter | Timeline, checkpoints, summaries | `artifacts/notes/` |
-| Coder | Code maintenance, debugging, implementation | `workspace/` |
-| Experimenter | Job dispatch, remote execution, result collection | `workspace/`, `artifacts/exp-*` |
-| Writer | Paper drafting, packaging, rebuttal, camera-ready work | `workspace/` |
-| Ethics | Evidence audit, unsupported-claim detection | `artifacts/ethics/` |
-| Expert | Domain consultation with optional packs such as `nlp`, `cv`, `theory` | usually read-mostly in `workspace/` |
+| Gru | Global supervisor, human interface, project lifecycle, cross-project relay | `branches/main/`, `branches/shared/<any>/` |
+| Noter | Timeline, checkpoints, summaries, Exploration DAG curation | `branches/noter/`, `branches/shared/notes/`, `branches/shared/exploration/dag.json` |
+| Coder | Code maintenance, debugging, implementation | `branches/coder/`, `branches/shared/handoffs/` |
+| Experimenter | Job dispatch, remote execution, result collection | `branches/experimenter/`, `branches/shared/exp/`, `branches/shared/handoffs/` |
+| Writer | Paper drafting, packaging, rebuttal, camera-ready work | `branches/writer/`, `branches/shared/handoffs/` |
+| Ethics | Evidence audit, unsupported-claim detection | `branches/ethics/`, `branches/shared/ethics/`, `branches/shared/handoffs/` |
+| Expert | Domain consultation with optional packs such as `nlp`, `cv`, `theory` | `branches/expert-<slug>/` (read-mostly), `branches/shared/handoffs/` |
 
 Role prompts are stored at `minions/roles/{role}/SYSTEM.md`.
 
@@ -249,7 +253,7 @@ Paper review is not a Role: review prompt assets (system prompt, skills,
 personas, templates) live under `minions/review/`, and a round is run by
 Gru's `mos_review_run` MCP tool which writes `reviewer-instance.md`,
 `fresh.md`, `revision_delta.md`, `consolidated.md`, and
-`summaries/round-<n>.md` under `artifacts/reviews/`.
+`summaries/round-<n>.md` under `branches/shared/reviews/round-<n>/`.
 
 ### MCP Surface
 
@@ -320,26 +324,32 @@ network remain unmodified.
 
 ```text
 project_{port}/
-  CLAUDE.md                 # project narrative; Gru/author write, roles read
-  AGENTS.md                 # Codex-friendly pointer to the same project context
-  meta.json                 # machine metadata
-  workspace/                # git worktree on minionsos/project-{port}
-  eacn3_data/eacn3.db       # per-project EACN3 SQLite database
-  memory/{role}.md          # L2 role scratchpads
-  artifacts/
-    notes/
-    reviews/round-<n>/
-    ethics/
-    exp-{id}/
-    external_feedback/
+  CLAUDE.md                     # project narrative; Gru/author write, roles read
+  AGENTS.md                     # Codex-friendly pointer to the same project context
+  meta.json                     # machine metadata
+  branches/                     # one git worktree per role plus shared
+    main/                       # Gru — branch minionsos/project-{port}
+    noter/                      # Noter drafts
+    coder/, experimenter/, writer/, ethics/, expert-<slug>/
+    shared/                     # branch minionsos/project-{port}-shared
+      exploration/dag.json      # Noter-curated Exploration DAG
+      notes/                    # Noter staged reports
+      ethics/                   # Ethics published reports
+      exp/exp-<id>/             # Experimenter result bundles
+      reviews/round-<n>/        # mos_review_run output (tool-owned)
+      handoffs/                 # cross-role handoffs (incl. external feedback)
+  eacn3_data/eacn3.db           # per-project EACN3 SQLite database
+  events/                       # per-agent EACN event JSONL audit stream
+  state/                        # runtime control state (shared.lock, .reset_markers/)
   logs/
     backend.log
     role-{name}.log
 ```
 
-Scratchpads are size-policed relative to the configured model context window:
-soft compression hint at 10%, hard compression at 15%, and spawn veto at 20% by
-default.
+The only persistent cross-cycle role memory is the Exploration DAG at
+`branches/shared/exploration/dag.json`. Roles do not keep per-role scratchpad
+files; they reconstruct context at wake-up from the current transcript, the
+DAG, EACN history, shared artefacts, and project `CLAUDE.md`.
 
 ### MinionsVIZ
 
@@ -414,7 +424,7 @@ rules and deeper architecture notes.
 | Role crashed or did not act | `project_{port}/logs/role-{name}.log` |
 | Project metadata looks wrong | `project_{port}/meta.json` |
 | EACN3 state needs inspection | `project_{port}/eacn3_data/eacn3.db` |
-| Experiment failed | `project_{port}/artifacts/exp-{id}/report.md` |
+| Experiment failed | `project_{port}/branches/shared/exp/exp-{id}/report.md` |
 | Viz is not reachable | `./viz status` and `./viz logs` |
 | Doctor fails parent git check | initialize and commit the parent directory |
 
@@ -451,10 +461,11 @@ agent host，Codex 可通过同一套 MinionsOS 生命周期和 EACN3 bus 显式
   relay 的组件。
 - **工具和写入边界。** Claude Role 继续通过 `--allowed-tools` 限制工具面；
   MinionsOS MCP server 也会在服务端执行项目生命周期工具授权，因此 Codex Role
-  具有同样边界。Noter、Ethics 只能写各自 artifact 区域；Coder、
-  Experimenter、Writer、Expert 在 `workspace/` 工作。
-- **分层记忆。** Role 上下文来自当前事件、每 Role scratchpad、artifacts、EACN
-  历史以及项目 `CLAUDE.md`。
+  具有同样边界。每个 Role 拥有自己的 `branches/<role>/`；跨角色产物始终经由
+  `branches/shared/<subdir>/` 通过 `mos_publish_to_shared` 流转。
+- **分层记忆。** Role 上下文来自当前事件、Exploration DAG
+  （`branches/shared/exploration/dag.json`）、`branches/shared/<subdir>/` 的
+  共享产物、EACN 历史以及项目 `CLAUDE.md`。
 - **Skill 发现和领域资产。** Role 技能放在 `minions/roles/{role}/skills/*.md`；
   Expert 领域包资产放在 `minions/domains/*.md`。
 - **结构化评审。** 论文评审通过 Gru 的 `mos_review_run` MCP 工具运行，而不是
@@ -479,21 +490,23 @@ Gru
   +-- project_37596/
   |     |
   |     +-- EACN3 backend on 127.0.0.1:37596
-  |     |     +-- Noter          -> artifacts/notes/
-  |     |     +-- Coder          -> workspace/
-  |     |     +-- Experimenter   -> workspace/ + exp_* tools
-  |     |     +-- Writer         -> workspace/
-  |     |     +-- Ethics         -> artifacts/ethics/
-  |     |     +-- Expert-*       -> workspace/ + domain pack
+  |     |     +-- Noter          -> branches/noter/   + branches/shared/notes/, exploration/
+  |     |     +-- Coder          -> branches/coder/
+  |     |     +-- Experimenter   -> branches/experimenter/ + branches/shared/exp/ + exp_* tools
+  |     |     +-- Writer         -> branches/writer/
+  |     |     +-- Ethics         -> branches/ethics/  + branches/shared/ethics/
+  |     |     +-- Expert-*       -> branches/expert-<slug>/ + 领域包
   |     |
-  |     +-- workspace/           # git worktree
-  |     +-- memory/{role}.md     # Role scratchpad
-  |     +-- artifacts/
+  |     +-- branches/                # 每个 Role 一棵 worktree，加一棵 shared
+  |     |     +-- main/, noter/, coder/, experimenter/, writer/, ethics/, expert-*/, shared/
+  |     +-- eacn3_data/eacn3.db      # 项目独立的 EACN3 SQLite
+  |     +-- events/                  # 每个 agent 的 EACN 事件 JSONL
+  |     +-- state/                   # 运行时控制状态
   |     +-- logs/
   |
   +-- project_37601/
         |
-        +-- 独立后端、worktree、记忆、产物和日志
+        +-- 独立 backend、branches、EACN 状态、events 和日志
 ```
 
 跨项目通信只有一条受控路径：Role 不能直接联系其它项目，只有 Gru 可以通过 relay
@@ -642,13 +655,13 @@ Noter 终端只报告 backend、role、task 和 notes 状态，不会消费 EACN
 
 | Role | 职责 | 主要可写范围 |
 |---|---|---|
-| Gru | 全局主管、人机接口、项目生命周期、跨项目 relay | 全部项目状态 |
-| Noter | 时间线、checkpoint、总结 | `artifacts/notes/` |
-| Coder | 代码维护、调试、实现 | `workspace/` |
-| Experimenter | 任务调度、远端执行、结果收集 | `workspace/`、`artifacts/exp-*` |
-| Writer | 论文撰写、打包、rebuttal、camera-ready | `workspace/` |
-| Ethics | 证据审计、无依据论断检测 | `artifacts/ethics/` |
-| Expert | 结合 `nlp`、`cv`、`theory` 等领域包提供咨询 | 通常以只读为主，必要时写 `workspace/` |
+| Gru | 全局主管、人机接口、项目生命周期、跨项目 relay | `branches/main/`、`branches/shared/<any>/` |
+| Noter | 时间线、checkpoint、总结、Exploration DAG 维护 | `branches/noter/`、`branches/shared/notes/`、`branches/shared/exploration/dag.json` |
+| Coder | 代码维护、调试、实现 | `branches/coder/`、`branches/shared/handoffs/` |
+| Experimenter | 任务调度、远端执行、结果收集 | `branches/experimenter/`、`branches/shared/exp/`、`branches/shared/handoffs/` |
+| Writer | 论文撰写、打包、rebuttal、camera-ready | `branches/writer/`、`branches/shared/handoffs/` |
+| Ethics | 证据审计、无依据论断检测 | `branches/ethics/`、`branches/shared/ethics/`、`branches/shared/handoffs/` |
+| Expert | 结合 `nlp`、`cv`、`theory` 等领域包提供咨询 | `branches/expert-<slug>/`（以读为主）、`branches/shared/handoffs/` |
 
 Role 提示词位于 `minions/roles/{role}/SYSTEM.md`。
 
@@ -658,7 +671,7 @@ Role 提示词位于 `minions/roles/{role}/SYSTEM.md`。
 
 论文评审不是 Role：评审提示资产（system 提示、skill、persona、template）
 位于 `minions/review/`，单轮评审由 Gru 的 `mos_review_run` MCP 工具运行，
-并在 `artifacts/reviews/` 下写入 `reviewer-instance.md`、`fresh.md`、
+并在 `branches/shared/reviews/round-<n>/` 下写入 `reviewer-instance.md`、`fresh.md`、
 `revision_delta.md`、`consolidated.md` 和 `summaries/round-<n>.md`。
 
 ### MCP 工具面
@@ -727,24 +740,31 @@ Codex 会通过 `.codex/config.toml` 启动 MinionsOS 侧 MCP proxy，在 Codex 
 
 ```text
 project_{port}/
-  CLAUDE.md                 # 项目叙事；Gru/作者写，Roles 读
-  AGENTS.md                 # 指向同一项目上下文的 Codex 入口
-  meta.json                 # 机器元数据
-  workspace/                # minionsos/project-{port} 分支的 git worktree
-  eacn3_data/eacn3.db       # 每项目独立的 EACN3 SQLite 数据库
-  memory/{role}.md          # L2 Role scratchpad
-  artifacts/
-    notes/
-    reviews/round-<n>/
-    ethics/
-    exp-{id}/
-    external_feedback/
+  CLAUDE.md                     # 项目叙事；Gru/作者写，Roles 读
+  AGENTS.md                     # 指向同一项目上下文的 Codex 入口
+  meta.json                     # 机器元数据
+  branches/                     # 每个 Role 一棵 worktree，加一棵 shared
+    main/                       # Gru — minionsos/project-{port}
+    noter/                      # Noter 草稿
+    coder/, experimenter/, writer/, ethics/, expert-<slug>/
+    shared/                     # minionsos/project-{port}-shared 分支
+      exploration/dag.json      # Noter 维护的 Exploration DAG
+      notes/                    # Noter 已发布报告
+      ethics/                   # Ethics 已发布报告
+      exp/exp-<id>/             # Experimenter 结果包
+      reviews/round-<n>/        # mos_review_run 输出（工具独占）
+      handoffs/                 # 跨角色交接（含 external feedback）
+  eacn3_data/eacn3.db           # 项目独立的 EACN3 SQLite 数据库
+  events/                       # 每 agent 的 EACN 事件 JSONL 审计流
+  state/                        # 运行时控制状态（shared.lock、.reset_markers/）
   logs/
     backend.log
     role-{name}.log
 ```
 
-scratchpad 大小按模型上下文窗口比例管控：默认 10% soft、15% hard、20% veto。
+Role 唯一持久化的跨周期记忆是 `branches/shared/exploration/dag.json` 中的
+Exploration DAG。Role 不维护任何 per-role scratchpad 文件；唤醒时它们从当前
+transcript、DAG、EACN 历史、共享产物以及项目 `CLAUDE.md` 重建上下文。
 
 ### MinionsVIZ
 
@@ -818,7 +838,7 @@ npm run dev
 | Role 崩溃或未行动 | `project_{port}/logs/role-{name}.log` |
 | 项目元数据异常 | `project_{port}/meta.json` |
 | 需要检查 EACN3 状态 | `project_{port}/eacn3_data/eacn3.db` |
-| 实验失败 | `project_{port}/artifacts/exp-{id}/report.md` |
+| 实验失败 | `project_{port}/branches/shared/exp/exp-{id}/report.md` |
 | Viz 无法访问 | `./viz status` 和 `./viz logs` |
 | doctor 父目录 git 检查失败 | 初始化并提交父目录 git 仓库 |
 

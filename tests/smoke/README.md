@@ -7,11 +7,8 @@ successfully and before declaring a release candidate ready.
 Set `MINIONS_FAKE_CLAUDE=1` in your environment to stub the `claude` CLI with a
 no-op script during automated wiring checks (subprocess orchestration is verified
 without requiring a live Anthropic API key).
-Codex host wiring is covered by unit-level fake Codex launcher tests; manual
-Codex smoke can be started with `MINIONS_AGENT_HOST=codex ./gru` after
-`.codex/config.toml` is present and `codex` is on PATH.
-For a repeatable no-API Codex collaboration simulation, run:
-`uv run python tests/smoke/codex_project_collaboration.py`.
+Roles are always hosted by Claude Code; Codex is reachable only as a sub-agent
+via the `codex-subagent` MCP and is not exercised by this scenario.
 
 ---
 
@@ -80,14 +77,20 @@ Expected: HTTP 200 with `{"status": "ok"}` (or equivalent).
 
 Expected: one row showing the project created in Step 4 with status `active`.
 
-### Step 7 — Default roles spawned
+### Step 7 — Spawn default roles via MCP
 
-```
-./mos role list <PORT>
+Default roles are not auto-spawned by `project_create`. Inside a Gru
+session, spawn the standard set:
+
+```python
+spawn_role(port=<PORT>, role_name="noter")
+spawn_role(port=<PORT>, role_name="coder")
+spawn_expert(port=<PORT>, expert_slug="dl-arch")
 ```
 
-Expected: `noter`, `coder`, `expert-dl-arch` listed as `active`.
-`project_<N>/logs/role-noter.log` etc. exist.
+Expected: `./mos role list <PORT>` lists `noter`, `coder`, `expert-dl-arch`
+as `active`. `project_<N>/logs/role-noter.log` etc. exist. Each role runs
+in its own tmux session named `mos-<PORT>-<role>`.
 
 ### Step 8 — Bridge a message between projects (requires two projects)
 
@@ -113,8 +116,7 @@ project_dormant(port=<PORT>)
 ```
 
 Expected: EACN3 backend subprocess stops. `meta.json` status = `dormant`.
-`project_<N>/artifacts/checkpoint_<ts>.md` created by Noter.
-Git tag `minionsos/dormant/project-<N>-<ts>` exists.
+Git tag `minionsos/dormant/project-<N>-<ts>` exists in the parent repo.
 
 ### Step 10 — Verify dormant in status
 
@@ -138,12 +140,13 @@ Roles from `meta.json.active_roles` are respawned.
 ```python
 project_revive(
     port=<PORT>,
-    external_feedback="Reviewer suggested adding ablation study.",
+    external_feedback="External reviewer suggested adding ablation study.",
     feedback_source="NeurIPS 2026 Area Chair"
 )
 ```
 
-Expected: feedback archived to `project_<N>/artifacts/external_feedback/<ts>.md`.
+Expected: feedback archived under
+`project_<N>/branches/shared/handoffs/external-feedback/<ts>.md`.
 EACN broadcast sent to all roles.
 
 ### Step 13 — Close project
@@ -152,8 +155,9 @@ EACN broadcast sent to all roles.
 project_close(port=<PORT>)
 ```
 
-Expected: `meta.json` status = `closed`. `final_summary.md` created.
-Git tag `minionsos/closed/project-<N>` exists.
+Expected: `meta.json` status = `closed`. Git tags
+`minionsos/dormant/project-<N>-<ts>` (if the project was still active) and
+`minionsos/closed/project-<N>` exist in the parent repo.
 Port added to `retired_ports` in `projects.json`.
 
 ### Step 14 — Verify port is retired

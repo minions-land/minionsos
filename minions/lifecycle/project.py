@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import subprocess
 import time
 from datetime import UTC, datetime
@@ -38,7 +39,7 @@ from minions.lifecycle.git_utils import (
 )
 from minions.paths import (
     MINIONS_ROOT,
-    configured_project_parent_repo,
+    configured_author_repo,
     project_backend_log,
     project_branch_name,
     project_dir,
@@ -46,6 +47,7 @@ from minions.paths import (
     project_logs_dir,
     project_main_workspace,
     project_meta_json,
+    project_parent_repo_dir,
     project_role_workspace,
     project_roles_workspace_dir,
     project_session_ledger,
@@ -150,9 +152,21 @@ def _is_git_work_tree(path: Path) -> bool:
     return _gu_is_git_work_tree(path)
 
 
-def project_parent_repo() -> Path:
-    """Return the git repository used as the source for project worktrees."""
-    configured = configured_project_parent_repo()
+def author_repo() -> Path:
+    """Return the author's source git repo used as the seed for new projects.
+
+    Resolution order:
+    1. ``MINIONS_AUTHOR_REPO`` env var or ``gru.yaml:author_repo``.
+    2. ``MINIONS_ROOT.parent`` if it is a git work tree (the directory the
+       user placed MinionsOS inside).
+    3. ``MINIONS_ROOT`` itself, as a last-resort fallback.
+
+    The author repo is touched **only at project_create time** to read its
+    HEAD; it is never branched into, written to, or pushed against. After
+    seeding, project history lives entirely inside
+    ``project_{port}/parent_repo.git/``.
+    """
+    configured = configured_author_repo()
     if configured is not None:
         return configured
     if _is_git_work_tree(MINIONS_ROOT.parent):
@@ -160,6 +174,16 @@ def project_parent_repo() -> Path:
     if _is_git_work_tree(MINIONS_ROOT):
         return MINIONS_ROOT
     return MINIONS_ROOT.parent
+
+
+def project_parent_repo(port: int) -> Path:
+    """Return the per-project bare git repo for *port*.
+
+    All worktrees (main, role, shared) are added against this repo, so each
+    project's git history is fully isolated from every other project and
+    from the author's own checkout.
+    """
+    return project_parent_repo_dir(port)
 
 
 def _start_backend(port: int) -> subprocess.Popen:  # type: ignore[type-arg]
@@ -574,56 +598,251 @@ def _stop_role_process(port: int, role_name: str, pid: int | None) -> str:
         return f"error:{exc}"
 
 
-def _ensure_parent_is_git_repo() -> None:
-    """Verify that MINIONS_ROOT.parent is a git repository.
+_LARGE_FILE_THRESHOLD_BYTES = 500 * 1024 * 1024  # 500 MB
+_SEED_SKIP_DIR_NAMES: frozenset[str] = frozenset({".git", "MinionsOS", "minionsos"})
 
-    The worktree mechanism needs a git repo to branch off of. If no configured
-    or inferred project parent repo is usable, we fail fast with an actionable
-    message
-    instead of letting ``git worktree add`` emit a cryptic
-    ``fatal: not a git repository`` error.
+
+def _ensure_author_repo_is_git_repo() -> Path:
+    """Verify that the author seed repo is a git work tree, return its path.
+
+    The seed needs to read a real HEAD off some git work tree. If neither the
+    configured ``author_repo`` nor ``MINIONS_ROOT.parent`` is a git repo,
+    bail with an actionable message rather than letting ``git rev-parse``
+    fail mid-create.
     """
-    parent_repo = project_parent_repo()
-    if not _is_git_work_tree(parent_repo):
-        configured = configured_project_parent_repo()
+    src = author_repo()
+    if not _is_git_work_tree(src):
+        configured = configured_author_repo()
         config_hint = (
-            "Check MINIONS_PROJECT_PARENT_REPO or gru.yaml:project_parent_repo.\n"
+            "Check MINIONS_AUTHOR_REPO or gru.yaml:author_repo.\n"
             if configured is not None
-            else "Set gru.yaml:project_parent_repo if your research repo lives elsewhere.\n"
+            else "Set gru.yaml:author_repo if the source you want to seed from "
+            "lives somewhere other than the directory containing MinionsOS.\n"
         )
         raise ProjectError(
-            f"The project parent repo ({parent_repo}) is not a git "
-            "repository. MinionsOS creates project worktrees branched from this "
-            "repo, so it must be git-initialized before project_create.\n"
+            f"The author seed repo ({src}) is not a git repository. "
+            "MinionsOS imports the author's HEAD into each per-project "
+            "bare repo at project_create time, so the source must be "
+            "git-initialized.\n"
             "Fix with:\n"
-            f"    cd {parent_repo} && git init && git add -A && "
-            "git commit -m 'init'\n"
+            f"    cd {src} && git init && git add -A && git commit -m 'init'\n"
             f"{config_hint}"
         )
+    return src
+
+
+def _seed_per_project_repo(port: int) -> tuple[str, str]:
+    """Create the per-project bare repo and seed an initial commit.
+
+    Steps:
+    1. ``git init --bare project_{port}/parent_repo.git``.
+    2. Build a temp work tree under ``state/.seed-staging-{port}/``.
+    3. Resolve the author's HEAD SHA (recorded in meta).
+    4. ``git -C author_repo archive HEAD | tar -x`` into the staging tree
+       (``git archive`` already excludes ``.git/`` and respects export-ignore
+       attributes; we then post-filter to drop the embedded MinionsOS
+       directory and any file > 500 MB).
+    5. ``git init`` inside the staging tree, add+commit, then push the
+       resulting commit into the bare repo as ``minionsos/project-{port}``.
+
+    Returns ``(seed_commit_sha, author_head_sha)``.
+    """
+    src = _ensure_author_repo_is_git_repo()
+    bare = project_parent_repo(port)
+    if bare.exists():
+        raise ProjectError(
+            f"Per-project bare repo already exists for port {port}: {bare}. "
+            "project_create should not be called against an existing project tree."
+        )
+
+    bare.parent.mkdir(parents=True, exist_ok=True)
+    init_bare = subprocess.run(
+        ["git", "init", "--bare", "-b", "main", str(bare)],
+        capture_output=True,
+        text=True,
+    )
+    if init_bare.returncode != 0:
+        raise ProjectError(f"git init --bare failed for port {port}: {init_bare.stderr.strip()}")
+
+    head_proc = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=str(src),
+        capture_output=True,
+        text=True,
+    )
+    if head_proc.returncode != 0:
+        raise ProjectError(f"Could not read author HEAD from {src}: {head_proc.stderr.strip()}")
+    author_sha = head_proc.stdout.strip()
+
+    staging = project_state_dir(port) / f".seed-staging-{port}"
+    if staging.exists():
+        shutil.rmtree(staging)
+    staging.mkdir(parents=True)
+
+    archive_proc = subprocess.Popen(
+        ["git", "archive", "--format=tar", "HEAD"],
+        cwd=str(src),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    untar_proc = subprocess.Popen(
+        ["tar", "-x", "-C", str(staging)],
+        stdin=archive_proc.stdout,
+        stderr=subprocess.PIPE,
+    )
+    if archive_proc.stdout is not None:
+        archive_proc.stdout.close()
+    untar_err = untar_proc.communicate()[1]
+    archive_err = archive_proc.communicate()[1]
+    if archive_proc.returncode != 0 or untar_proc.returncode != 0:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise ProjectError(
+            f"git archive | tar failed when seeding port {port}: "
+            f"archive={archive_err!r} tar={untar_err!r}"
+        )
+
+    _seed_postfilter_tree(staging)
+
+    init_proc = subprocess.run(
+        ["git", "init", "-q", "-b", f"minionsos/project-{port}"],
+        cwd=str(staging),
+        capture_output=True,
+        text=True,
+    )
+    if init_proc.returncode != 0:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise ProjectError(
+            f"git init in seed staging failed for port {port}: {init_proc.stderr.strip()}"
+        )
+    # Use a stable identity for the seed commit so projects on hosts without
+    # global git config still seed cleanly.
+    seed_env = {
+        "GIT_AUTHOR_NAME": "MinionsOS",
+        "GIT_AUTHOR_EMAIL": "minionsos@localhost",
+        "GIT_COMMITTER_NAME": "MinionsOS",
+        "GIT_COMMITTER_EMAIL": "minionsos@localhost",
+        **os.environ,
+    }
+    add_proc = subprocess.run(
+        ["git", "add", "-A"],
+        cwd=str(staging),
+        capture_output=True,
+        text=True,
+        env=seed_env,
+    )
+    if add_proc.returncode != 0:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise ProjectError(
+            f"git add in seed staging failed for port {port}: {add_proc.stderr.strip()}"
+        )
+    msg = f"seed: import author HEAD {author_sha[:12]} (port {port})"
+    commit_proc = subprocess.run(
+        ["git", "commit", "-q", "--allow-empty", "-m", msg],
+        cwd=str(staging),
+        capture_output=True,
+        text=True,
+        env=seed_env,
+    )
+    if commit_proc.returncode != 0:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise ProjectError(
+            f"git commit in seed staging failed for port {port}: {commit_proc.stderr.strip()}"
+        )
+    seed_sha_proc = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=str(staging),
+        capture_output=True,
+        text=True,
+    )
+    seed_sha = seed_sha_proc.stdout.strip()
+    push_branch = f"minionsos/project-{port}"
+    push_proc = subprocess.run(
+        ["git", "push", str(bare), f"HEAD:refs/heads/{push_branch}"],
+        cwd=str(staging),
+        capture_output=True,
+        text=True,
+        env=seed_env,
+    )
+    if push_proc.returncode != 0:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise ProjectError(
+            f"Could not push seed commit into per-project bare repo for port {port}: "
+            f"{push_proc.stderr.strip()}"
+        )
+    # Set the bare repo's HEAD to the project's main branch so subsequent
+    # ``git worktree add ... HEAD`` resolves cleanly.
+    sym_proc = subprocess.run(
+        ["git", "symbolic-ref", "HEAD", f"refs/heads/{push_branch}"],
+        cwd=str(bare),
+        capture_output=True,
+        text=True,
+    )
+    if sym_proc.returncode != 0:
+        logger.warning(
+            "Could not set HEAD on per-project bare repo for port %d: %s",
+            port,
+            sym_proc.stderr.strip(),
+        )
+    shutil.rmtree(staging, ignore_errors=True)
+    return seed_sha, author_sha
+
+
+def _seed_postfilter_tree(staging: Path) -> None:
+    """Drop entries that survived ``git archive`` but should not be seeded.
+
+    - Any directory named ``MinionsOS`` / ``minionsos`` (avoid recursive seed).
+    - Any regular file larger than 500 MB.
+
+    ``.git`` is already excluded by ``git archive`` so we don't need to
+    revisit it here.
+    """
+    for path in list(staging.rglob("*")):
+        if not path.exists():
+            continue  # may have been deleted by an earlier iteration
+        try:
+            if path.is_dir() and path.name in _SEED_SKIP_DIR_NAMES:
+                shutil.rmtree(path, ignore_errors=True)
+                continue
+            if path.is_file():
+                try:
+                    size = path.stat().st_size
+                except OSError:
+                    continue
+                if size > _LARGE_FILE_THRESHOLD_BYTES:
+                    logger.info(
+                        "seed: skipping large file (%.1f MB): %s",
+                        size / (1024 * 1024),
+                        path.relative_to(staging),
+                    )
+                    path.unlink(missing_ok=True)
+        except Exception as exc:
+            logger.warning("seed postfilter encountered %s on %s; continuing", exc, path)
 
 
 def _create_worktree(port: int, base_branch: str) -> str:
-    """Create a git worktree for *port* inside the parent repo.
+    """Create the main worktree for *port* against its bare parent repo.
 
-    Returns the branch name ``minionsos/project-{port}``.
+    The seed step has already created branch ``minionsos/project-{port}``
+    in the bare repo, pointing at the seed commit. This function just
+    checks that branch out into ``branches/main/``.
+
+    *base_branch* is accepted for API compatibility (callers may pass
+    ``"HEAD"`` or a tag like the upstream branch name) but is currently
+    ignored — every project starts on its own freshly-seeded branch.
     """
+    del base_branch  # reserved for future "fork from existing branch" support
     branch = f"minionsos/project-{port}"
     workspace = project_main_workspace(port)
     workspace.parent.mkdir(parents=True, exist_ok=True)
 
-    parent_repo = project_parent_repo()
-
-    # Resolve base_branch: "HEAD" means the current HEAD of the parent repo.
-    resolved_base = base_branch if base_branch != "HEAD" else "HEAD"
+    parent_repo = project_parent_repo(port)
 
     cmd = [
         "git",
         "worktree",
         "add",
-        "-b",
-        branch,
         str(workspace),
-        resolved_base,
+        branch,
     ]
     logger.info("Creating worktree: %s", " ".join(cmd))
     result = subprocess.run(
@@ -691,7 +910,7 @@ def _create_shared_worktree(port: int) -> str:
                 f"directory exists and is not empty: {exc}"
             ) from exc
 
-    parent_repo = project_parent_repo()
+    parent_repo = project_parent_repo(port)
     base = project_branch_name(port)
     cmd = [
         "git",
@@ -730,8 +949,8 @@ def _create_shared_worktree(port: int) -> str:
 
 
 def _git_tag(port: int, tag: str) -> None:
-    """Create a git tag in the parent repo."""
-    result = _gu_run_git(["tag", tag], project_parent_repo(), check=False)
+    """Create a git tag in the per-project bare repo."""
+    result = _gu_run_git(["tag", tag], project_parent_repo(port), check=False)
     if result.returncode != 0:
         logger.warning("git tag %s failed: %s", tag, result.stderr.strip())
 
@@ -928,7 +1147,7 @@ def _create_role_worktree(
         raise ProjectError(f"Role workspace already exists but is not a git worktree: {workspace}")
 
     workspace.parent.mkdir(parents=True, exist_ok=True)
-    parent_repo = project_parent_repo()
+    parent_repo = project_parent_repo(port)
     resolved_base = base_branch if base_branch not in {None, ""} else project_branch_name(port)
     if resolved_base != "HEAD" and not _git_ref_exists(parent_repo, resolved_base):
         logger.debug(
@@ -1219,11 +1438,12 @@ def project_create(
     # Workspace hygiene: write a .gitignore to prevent unstructured files.
     _write_project_gitignore(pdir)
 
-    # Create main project worktree (Gru's branch), then the shared
-    # cross-role worktree on its own branch. Role worktrees are created
-    # lazily by ``register_role`` and branch off main.
+    # Create per-project bare repo by seeding from the author repo's HEAD,
+    # then add the main worktree (Gru's branch) and the shared cross-role
+    # worktree. Role worktrees are created lazily by ``register_role`` and
+    # branch off the project's main branch.
     try:
-        _ensure_parent_is_git_repo()
+        _seed_per_project_repo(port)
         branch = _create_worktree(port, base_branch)
         _create_shared_worktree(port)
     except ProjectError as exc:
@@ -1430,6 +1650,79 @@ def project_dormant(
     return updated
 
 
+def _remove_all_worktrees(port: int) -> None:
+    """Remove every worktree registered against the project's bare repo.
+
+    Branches and tags are retained — only the working directories under
+    ``project_{port}/branches/`` are removed, plus the bare repo's
+    ``.git/worktrees/`` registrations are pruned. Forensic recovery is
+    still possible via ``git worktree add /tmp/inspect <branch>`` against
+    the per-project bare repo.
+
+    Best-effort: failures on individual worktrees are logged but do not
+    abort the close operation, since by the time we get here the project
+    is already being retired.
+    """
+    bare = project_parent_repo(port)
+    if not bare.exists():
+        return
+
+    list_proc = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"],
+        cwd=str(bare),
+        capture_output=True,
+        text=True,
+    )
+    if list_proc.returncode != 0:
+        logger.warning(
+            "project_close: could not list worktrees for port %d: %s",
+            port,
+            list_proc.stderr.strip(),
+        )
+        return
+
+    worktree_paths: list[Path] = []
+    for line in list_proc.stdout.splitlines():
+        if line.startswith("worktree "):
+            wt = Path(line[len("worktree ") :].strip())
+            # Skip the bare repo's own listing (some git versions include it).
+            if wt.resolve() == bare.resolve():
+                continue
+            worktree_paths.append(wt)
+
+    for wt in worktree_paths:
+        rm = subprocess.run(
+            ["git", "worktree", "remove", "--force", str(wt)],
+            cwd=str(bare),
+            capture_output=True,
+            text=True,
+        )
+        if rm.returncode != 0:
+            logger.warning(
+                "project_close: git worktree remove failed for %s: %s",
+                wt,
+                rm.stderr.strip(),
+            )
+        # If the directory still exists (force-remove couldn't clean it
+        # because of permission issues, etc.), best-effort rmtree.
+        if wt.exists():
+            shutil.rmtree(wt, ignore_errors=True)
+
+    # Prune any stale registrations left over from removed worktrees.
+    prune = subprocess.run(
+        ["git", "worktree", "prune"],
+        cwd=str(bare),
+        capture_output=True,
+        text=True,
+    )
+    if prune.returncode != 0:
+        logger.warning(
+            "project_close: git worktree prune failed for port %d: %s",
+            port,
+            prune.stderr.strip(),
+        )
+
+
 def project_close(
     port: int,
     store: StateStore | None = None,
@@ -1437,21 +1730,18 @@ def project_close(
     """Transition project *port* to closed state.
 
     Same as dormant, plus:
-    - Writes git tag ``minionsos/closed/project-{port}``.
+    - Writes git tag ``minionsos/closed/project-{port}`` in the project's
+      bare repo so the seed and final HEADs can be located later.
+    - Removes every worktree under ``project_{port}/branches/`` so the bare
+      repo's worktree list does not grow unbounded with closed projects.
+      Branches themselves are retained for forensic inspection — re-attach
+      with ``git worktree add /tmp/inspect <branch>`` against
+      ``project_{port}/parent_repo.git/``.
     - Permanently retires the port.
 
     The session jsonl files left under ``~/.claude/projects/<cwd-slug>/``
     are not removed, so the closed project can be inspected forensically
     via ``claude --resume <session_name>`` from the same cwd if needed.
-
-    TODO (deferred): on close, run ``git worktree remove`` for
-    ``branches/main/``, every per-role ``branches/<role>/``, and
-    ``branches/shared/`` so the parent repo's worktree list does not grow
-    unbounded. The branches themselves should be retained for forensic
-    inspection — only the working directories should be removed. Not
-    implemented yet because we do not currently exercise close + parent-
-    repo cleanup in normal operation; revisit when the parent-repo
-    default change lands or when manual cleanup becomes painful.
     """
     _store = store or StateStore()
     entry = _store.get_project(port)
@@ -1503,6 +1793,7 @@ def project_close(
     )
     _write_meta(port, updated)
     _store.retire_port(port)
+    _remove_all_worktrees(port)
     logger.info("project_close done: port=%d", port)
     return updated
 

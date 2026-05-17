@@ -89,9 +89,20 @@ def projects_root() -> Path:
     return _configured_path("projects_root", "MINIONS_PROJECTS_ROOT") or MINIONS_ROOT.parent
 
 
-def configured_project_parent_repo() -> Path | None:
-    """Return the configured source git repo for project worktrees, if any."""
-    return _configured_path("project_parent_repo", "MINIONS_PROJECT_PARENT_REPO")
+def configured_author_repo() -> Path | None:
+    """Return the configured author source repo, if any.
+
+    The author repo is the working tree the user `cd`'d into before placing
+    MinionsOS underneath it (e.g. ``ABC/``). It is the *seed source* for new
+    projects — ``project_create`` imports its current HEAD into a per-project
+    bare repo. After seeding, the author repo is no longer touched: project
+    branches live entirely inside ``project_{port}/parent_repo.git/`` and
+    never bleed back into the author's ``.git``.
+
+    Configurable via ``MINIONS_AUTHOR_REPO`` or ``gru.yaml:author_repo``.
+    Defaults to ``MINIONS_ROOT.parent`` (the directory MinionsOS sits inside).
+    """
+    return _configured_path("author_repo", "MINIONS_AUTHOR_REPO")
 
 
 def project_dir(port: int) -> Path:
@@ -101,6 +112,18 @@ def project_dir(port: int) -> Path:
     ``MINIONS_PROJECTS_ROOT`` or ``gru.yaml:projects_root``.
     """
     return projects_root() / f"project_{port}"
+
+
+def project_parent_repo_dir(port: int) -> Path:
+    """Return the per-project bare git repo for *port*.
+
+    Every project owns a private bare repo at
+    ``project_{port}/parent_repo.git/``. ``project_create`` seeds it once
+    from the author repo's current HEAD (excluding ``MinionsOS/`` and large
+    files). All worktrees — main, role, shared — branch off this repo, so
+    project history is fully isolated from the author's own ``.git``.
+    """
+    return project_dir(port) / "parent_repo.git"
 
 
 def project_workspace_root(port: int) -> Path:

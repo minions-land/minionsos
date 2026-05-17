@@ -242,19 +242,20 @@ mkdir -p "$HOME/.minionsos"
 chmod 0700 "$HOME/.minionsos" 2>/dev/null || true
 ok "User dir ready: $HOME/.minionsos"
 
-# ── 8. Parent-directory git preflight (non-fatal) ────────────────────────────
-# MinionsOS creates per-project git worktrees branched off the directory that
-# contains the MinionsOS checkout. If that parent is not a git repo, project_create will
-# fail with an actionable error at runtime. We warn here so users can fix it
-# before the first ./gru run instead of hitting it mid-flow.
+# ── 8. Author seed-repo git preflight (non-fatal) ────────────────────────────
+# MinionsOS imports the directory containing this repo into a per-project
+# bare repo at project_create time (the "author seed"). If that directory is
+# not a git repo, project_create will fail with an actionable error at
+# runtime. We warn here so users can fix it before the first ./gru run.
+# After seeding, the author repo is never touched again — project branches
+# live entirely inside project_<port>/parent_repo.git/.
 PARENT="$(cd "$ROOT/.." && pwd)"
 if ! git -C "$PARENT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    warn "Parent directory is NOT a git repository: $PARENT"
-    warn "MinionsOS needs the parent to be git-initialised so it can create"
-    warn "per-project worktrees. Before running ./gru, do:"
+    warn "Author repo is NOT a git repository: $PARENT"
+    warn "MinionsOS seeds each project from the author repo's HEAD, so it"
+    warn "must be git-initialised. Before running ./gru, do:"
     warn "    cd $PARENT && git init && git add -A && git commit -m 'init'"
-    warn "Also make sure the MinionsOS checkout .git is absent (or added as a submodule)"
-    warn "so the parent does not treat it as an embedded repo."
+    warn "Or set gru.yaml:author_repo to a different git work tree."
 else
     # Parent is a git repo — check the embedded-.git trap too.
     if [ -d "$ROOT/.git" ]; then
@@ -270,7 +271,7 @@ else
             warn "$CHECKOUT_NAME/.git before the parent's first commit."
         fi
     fi
-    ok "Parent directory git state looks sane: $PARENT"
+    ok "Author repo git state looks sane: $PARENT"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
