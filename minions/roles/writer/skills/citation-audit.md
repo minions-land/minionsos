@@ -17,7 +17,7 @@ Three-layer check on every bib entry: the work **exists** (with rank-1 sanity ch
 ## When to invoke
 
 - Once before any submission, rebuttal, or camera-ready.
-- When Reviewer flags a suspect citation in `artifacts/reviews/`.
+- When Reviewer flags a suspect citation in `branches/shared/reviews/`.
 - When adding a batch of new citations late in the writing cycle.
 
 Run after the draft is stable and numeric claims have been audited; before final compile for submission. Running too early wastes lookups on placeholder text.

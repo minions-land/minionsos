@@ -278,10 +278,13 @@ pending plans + team state, then enters `mos_await_events()`.
 
 ## Exploration DAG — team cognitive memory
 
-The project maintains a shared Exploration DAG at `exploration/dag.json`. This
-is the team's structural truth layer — it records what the team has discovered,
-what failed, what is tentative, and what is verified. It is NOT a communication
-channel (that is EACN) and NOT personal memory.
+The project maintains a shared Exploration DAG at
+`project_{port}/branches/shared/exploration/dag.json`. This is the team's
+structural truth layer — it records what the team has discovered, what failed,
+what is tentative, and what is verified. It is NOT a communication channel
+(that is EACN) and NOT personal memory. Cross-cycle memory is the Exploration
+DAG (`mos_dag_append` / `mos_dag_summary` / `mos_dag_query`); Noter flushes the
+buffered DAG to the shared branch on its periodic wake.
 
 ### Reading the DAG
 
@@ -315,6 +318,19 @@ Rules:
    fresh process could handle them. They are **already dequeued from
    EACN and will not be redelivered** — you must execute them now, or
    they are lost.
+
+   Then list your own execution plans at
+   `branches/<your-role>/plans/<your-role>-*.md`
+   and find any with frontmatter `status: active`. These are multi-step
+   plans your past self (or a previous process under your role) wrote
+   via think-then-act and did not finish. They are distinct from DAG
+   `pending_plans` — those are deferred single events, these are your
+   own structured roadmaps. Resume the oldest active plan's next pending
+   step before designing new work; only re-enter think-then-act when no
+   active plan applies. After each step finishes, atomically update the
+   plan file (flip Status, fill Evidence). When all steps `done`,
+   set `status: done` and `git mv` the file to
+   `branches/<your-role>/plans/archive/`.
 2. **Drain pending_plans first**: for each pending_plan node, do the
    planned work (Plan → Dispatch → Verify → emit any EACN response), then
    `mos_dag_annotate` the node so it stops surfacing.

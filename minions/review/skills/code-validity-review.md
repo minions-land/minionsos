@@ -47,7 +47,7 @@ If none of those triggers apply, use `aspect-review` with `experiments` or `repr
 
 ## Structure
 
-Every finding is bound to a specific claim, cites a concrete code path / line / config / log / artifact / missing-provenance item, and states the minimum revision or experiment needed to resolve the risk. Style and maintainability are out of scope unless they create a realistic validity risk. The review session is read-only on `branches/**` and writes only under `artifacts/reviews/round-<n>/`.
+Every finding is bound to a specific claim, cites a concrete code path / line / config / log / artifact / missing-provenance item, and states the minimum revision or experiment needed to resolve the risk. Style and maintainability are out of scope unless they create a realistic validity risk. The review session is read-only on role branches and writes only under `branches/shared/reviews/round-<n>/`.
 
 Validity-risk checklist: data leakage, train / test mixups, hardcoded results, benchmark shortcuts, stale baselines, seed contamination, cherry-picking, metric mismatch, unreported filtering.
 
@@ -65,7 +65,6 @@ Validity-risk checklist: data leakage, train / test mixups, hardcoded results, b
 - Performing general code review instead of scientific validity review.
 - Inferring a bug from unfamiliar style without tracing execution.
 - Reading historical review context during a fresh Pass A review.
-- Suggesting fixes in any role's branch (e.g. `branches/coder/`, `branches/writer/`); the review session is read-only on `branches/` and writes only under `artifacts/reviews/`.
+- Suggesting fixes in any role's branch (e.g. `branches/coder/`, `branches/writer/`); the review session is read-only on role branches and writes only under `branches/shared/reviews/`.
 - Skipping Codex and doing the trace by hand when Codex would do it in one shot.
 - Letting Codex *judge* whether a finding invalidates the claim. Codex returns the trace; the validity verdict stays in this skill.
-

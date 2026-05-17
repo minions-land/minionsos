@@ -30,7 +30,7 @@ Issue clusters (method / experiments / clarity / related work / claims scope), e
 | `scope adjustment` | Concede and tighten the claim |
 | `disagreement` | Rebut with citation / derivation |
 
-Outputs under `branches/writer/paper/rebuttal/`, one file per response block. Each evidence cite marked `[derived: artifacts/exp-<id>/report.md]` or `[derived: section <N>]`.
+Outputs under `branches/writer/paper/rebuttal/`, one file per response block. Each evidence cite marked `[derived: branches/shared/exp/exp-<id>/report.md]` or `[derived: section <N>]`.
 
 ## Action-label FSM (for explicit per-comment classification)
 
@@ -52,7 +52,7 @@ Composite labels (`DISAGREE + SOFTEN`, `ACCEPT_EXPERIMENT + SOFTEN_CLAIM`) are a
 
 ## Procedure
 
-1. **Ingest reviews.** Read all reviewer reports and Reviewer's consolidated summary at `artifacts/reviews/summaries/`. Do not work from individual reviews alone — the consolidated summary already dedupes and prioritizes.
+1. **Ingest reviews.** Read all reviewer reports and Reviewer's consolidated summary at `branches/shared/reviews/summaries/`. Do not work from individual reviews alone — the consolidated summary already dedupes and prioritizes.
 
 2. **Assign stable IDs and action labels.** Label every reviewer comment `R<N>.C<M>`. Classify with one of the FSM action labels above (composite allowed). Do NOT label by paraphrased prose ("the third concern about GPU acceleration") — paraphrases drift and break cross-links to revisions / commits / EACN tasks.
 

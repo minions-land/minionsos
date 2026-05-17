@@ -23,7 +23,7 @@ If the submission package is missing material the review depends on, raise it as
 
 ## Structure
 
-The round writes to `artifacts/reviews/round-<n>/` with `aspect-notes/` inside. Three mutually isolated passes:
+The round writes to `branches/shared/reviews/round-<n>/` with `aspect-notes/` inside. Three mutually isolated passes:
 
 - **Pass A** — 3–5 independent reviewer instances see current submission only. No prior summaries, prior reviews, rebuttals, changelogs, or orchestrator paraphrases.
 - **Pass B / C** — one dedicated revision-delta subagent reads the previous rolling summary first, then current revision materials. Does not see current-round reviewer reports.
@@ -34,7 +34,7 @@ Reviewer count starts at 3; grow to 4 or 5 when submission is complex, when revi
 ## Procedure
 
 1. **Read the initial prompt.** Confirm submission directory, round number, and whether a prior summary path was provided.
-2. **Create the round directory.** `artifacts/reviews/round-<n>/aspect-notes/`.
+2. **Create the round directory.** `branches/shared/reviews/round-<n>/aspect-notes/`.
 3. **Run Pass A first.** Spawn reviewer instances per `simulate-reviewer-instance`. Pass A sees only the current submission package.
 4. **Grow from 3.** After the third report, decide on reviewer 4 / 5 per the structure criteria. Stop when reviewer 3 is largely redundant with 1 and 2.
 5. **Write `fresh.md`.** Concatenate `reviewer-1.md` through the final generated reviewer report. No summary, no reconciliation.

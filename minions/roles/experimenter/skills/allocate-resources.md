@@ -22,7 +22,7 @@ Turn an accepted request into a queue-ready plan. You decide units, constraints,
 
 ## Structure
 
-Output is a **plan**: a list of unit specs plus any resource-policy changes the plan needs. Each unit spec is `{command, target_id?, gpu_ids?, gpus_needed, min_free_mb?, reserve_mb?, expected_wallclock, input_paths, output_paths, needs_staging?}`. Artifact destinations are planned upfront under `artifacts/exp-{id}/` so `collect-report` can find them. The plan is consumed by `dispatch-runner`, which calls `mos_exp_queue_submit` and (if `needs_staging`) `mos_exp_put`.
+Output is a **plan**: a list of unit specs plus any resource-policy changes the plan needs. Each unit spec is `{command, target_id?, gpu_ids?, gpus_needed, min_free_mb?, reserve_mb?, expected_wallclock, input_paths, output_paths, needs_staging?}`. Final published destinations are planned upfront under `branches/shared/exp/exp-<id>/`; local staging happens under `branches/experimenter/exp/exp-<id>/` so `collect-report` can publish the finished bundle via `mos_publish_to_shared`. The plan is consumed by `dispatch-runner`, which calls `mos_exp_queue_submit` and (if `needs_staging`) `mos_exp_put`.
 
 ## Procedure
 
@@ -36,7 +36,7 @@ Output is a **plan**: a list of unit specs plus any resource-policy changes the 
    - python: register `signal.signal(signal.SIGTERM, lambda *_: save_and_exit())` early
    Without this contract, `evict` is destructive — the operator gets the cards back but loses the partial training.
 5. **Flag input staging.** If a unit's data is not already on its target, mark `needs_staging: true` with the source / destination paths. Do not call `mos_exp_put` here — `dispatch-runner` will run it before submission.
-6. **Record artifact slots.** Each unit has a planned destination under `artifacts/exp-{id}/` or an equivalent batch artifact directory.
+6. **Record artifact slots.** Each unit has a planned final destination under `branches/shared/exp/exp-<id>/` and a staging destination under `branches/experimenter/exp/exp-<id>/` or an equivalent batch artifact directory.
 7. **Hand off to dispatch-runner.** Emit the plan: unit list, pool changes (if any), staging flags, artifact slots, and a one-line note saying which units are SIGTERM-safe. Mark tool facts `[derived: allocate-resources plan @ <ts>]`. Do not call `mos_exp_queue_submit` — that is `dispatch-runner`'s job.
 
 ## Pitfalls

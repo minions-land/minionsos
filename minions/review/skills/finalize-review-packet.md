@@ -32,8 +32,8 @@ You do not publish on EACN. You have no EACN tools. The orchestrator process is 
 
 ## Procedure
 
-1. Verify `artifacts/reviews/round-<n>/consolidated.md` contains: notification, AC / Editor meta-review, exact `## Decision <label>` on its own line (one of the seven), required revisions or camera-ready instructions, revision-delta highlights when applicable, every generated `reviewer-<i>.md` inlined in full.
-2. Verify the rolling summary `artifacts/reviews/summaries/round-<n>.md` exists and contains unresolved issues, newly raised issues, resolved-since-last-round items, long-standing unanswered questions, and the final decision — without raw quotations or notification prose.
+1. Verify `branches/shared/reviews/round-<n>/consolidated.md` contains: notification, AC / Editor meta-review, exact `## Decision <label>` on its own line (one of the seven), required revisions or camera-ready instructions, revision-delta highlights when applicable, every generated `reviewer-<i>.md` inlined in full.
+2. Verify the rolling summary `branches/shared/reviews/summaries/round-<n>.md` exists and contains unresolved issues, newly raised issues, resolved-since-last-round items, long-standing unanswered questions, and the final decision — without raw quotations or notification prose.
 3. End your last assistant turn with the absolute path to `consolidated.md` and the final decision label on its own line. `mos_review_run` parses both.
 
 ## Pitfalls

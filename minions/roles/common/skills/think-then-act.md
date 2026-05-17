@@ -3,7 +3,7 @@ slug: think-then-act
 summary: Think then act — toolkit of four cognitive postures for structured planning. Use any combination of unstated-premises audit, first-principles derivation, dialectical synthesis, and goal-setting before dispatching execution.
 layer: logical
 tools: eacn3_send_message, codex
-version: 4
+version: 5
 status: active
 references: unstated-premises, first-principles, dialectical-synthesis, goal-setting
 provenance: human+agent
@@ -63,9 +63,68 @@ The agent decides. The skill does not decide for you.
 
 When you have enough clarity (from however many postures you used):
 
-- **Write a plan**: Use Superpowers `writing-plans` if available, or write an inline markdown checklist.
-- **Dispatch**: Use `subagent-driven-development`, `delegate-heavy-task` (Codex), or host-native `Task`. If Superpowers plugin skills are unavailable, write the plan inline and dispatch via `delegate-heavy-task` or `Task`.
+- **Write a plan**: Use Superpowers `writing-plans` if available, or write a markdown checklist.
+- **Persist the plan if ≥2 steps** (see "Plan persistence" below). Single-step work skips persistence — just dispatch.
+- **Dispatch**: Use `subagent-driven-development`, `delegate-heavy-task` (Codex), or host-native `Task`. If Superpowers plugin skills are unavailable, dispatch via `delegate-heavy-task` or `Task`.
 - **Pass goals verbatim**: Copy your Goal-Setting threshold (specific numbers, not "a good report") into the dispatch as its acceptance criterion. No placeholders — "TBD", "reasonable", "appropriate" are plan failures. If you ran Goal-Setting, the final dispatch's acceptance must be the same threshold, not a softer paraphrase.
+
+## Plan persistence (≥2 steps)
+
+Multi-step plans must survive context resets. Write them to durable disk so a
+future wake — yours or a respawned process under the same role — can resume
+without re-deriving them. **This is distinct from the DAG `pending_plan` flag**
+(used by `cognitive-checkpoint` for deferred single events). An execution plan
+is your own multi-step roadmap; a `pending_plan` DAG node is a deferred event.
+They coexist.
+
+**Where**: `project_{port}/branches/<role>/plans/<role>-<slug>.md` (active) →
+`project_{port}/branches/<role>/plans/archive/` (when status flips to `done` or
+`abandoned`).
+
+**Resume protocol** (handled by `roles/SYSTEM.md` lifecycle, but you must obey
+it from think-then-act too): before designing a new plan at wake, list
+`branches/<your-role>/plans/<your-role>-*.md` and resume the oldest active one's next
+pending step. Only enter the postures when no active plan applies to the
+current event batch.
+
+**Update protocol**: after each step's dispatch returns, atomically rewrite
+the plan file — flip that step's `Status` to `done` and fill `Evidence`
+(commit SHA, artifact path, EACN event id). When all steps `done`, set
+frontmatter `status: done` and `git mv` to `archive/`. If the work is
+superseded or wrong direction, set `status: abandoned` with a one-line
+`abandoned-reason` and archive.
+
+### Template
+
+```markdown
+---
+plan-id: <role>-<slug>-YYYY-MM-DD
+owner: <role>
+parent-eacn-task: <task-id or null>
+status: active   # active | done | abandoned
+---
+
+## Postures used
+- <posture>: <one-line takeaway>
+
+## Steps
+
+| # | What | Goal (sensor / threshold) | Dispatch | Status | Evidence |
+|---|------|---------------------------|----------|--------|----------|
+| 1 | ... | ... | inline / Task / codex / EACN | pending | — |
+| 2 | ... | ... | ... | pending | — |
+
+## Notes
+<free-form: open questions, branch points, things to revisit>
+```
+
+*Worked example.* You woke to "add /healthz endpoint + test". Two steps minimum
+(endpoint, test). Write `branches/coder/plans/coder-healthz-2026-05-17.md` with both
+steps and their goals. Dispatch step 1 via Task subagent. When it returns, flip
+step 1 to `done`, fill Evidence with the commit SHA, write back. Dispatch step
+2. If `mos_reset_context` fires between steps for any reason, the next process
+sees the active plan in `branches/coder/plans/`, picks up at step 2, no re-thinking
+needed.
 
 ## Hard constraints
 

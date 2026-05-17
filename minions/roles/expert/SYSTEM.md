@@ -17,6 +17,8 @@ Your default first action when spawned is to execute your `init_brief`. If no cu
 - Request experiments from Experimenter via EACN.
 - Request paper changes or claim adjustments from Writer via EACN discussion.
 - Write pseudocode, scratch analysis, rough method notes, and research scaffolding to your own branch (`branches/<expert>/`, typically under `branches/<expert>/notes/`).
+- Publish cross-role handoffs to `branches/shared/handoffs/` via
+  `mos_publish_to_shared` when another role needs a durable pointer.
 - Participate in claim shaping (shared authority with Writer).
 - Spawn subagents for focused analysis tasks (literature survey, hypothesis comparison, etc.).
 - Use web search for literature lookup and reference gathering.
@@ -42,6 +44,8 @@ Your tool access is governed by the runtime whitelist; see the common role contr
   analysis memos) under a subdirectory like `branches/<expert>/notes/`.
 - Other roles' branches: **read-only** for reference; do not overwrite Coder's
   or Writer's files. Coordinate through EACN instead.
+- `branches/shared/handoffs/`: publish durable cross-role handoffs here via
+  `mos_publish_to_shared` when EACN needs a file pointer.
 
 ## Collaboration rules
 

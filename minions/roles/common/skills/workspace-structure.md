@@ -12,7 +12,7 @@ provenance: human
 
 # Skill — Workspace Structure
 
-Every file on the main branch should be findable by its DAG node. The DAG is the index; the workspace holds the full content. Connect them through `evidence_tag` references. A new agent joining the project should be able to navigate from DAG node → workspace file without guessing.
+Every durable shared file should be findable by its DAG node. The DAG is the index; role branches and the shared worktree hold the full content. Connect them through `evidence_tag` references. A new agent joining the project should be able to navigate from DAG node → workspace file without guessing.
 
 ## When to invoke
 
@@ -23,7 +23,7 @@ Every file on the main branch should be findable by its DAG node. The DAG is the
 ## Structure
 
 ```
-workspace/
+branches/shared/
   logic/                    ← claims and reasoning (What & Why)
     claims.md               ← claim IDs, one per line, with DAG node refs
     hypotheses/             ← one file per active hypothesis (H-xxx.md)
@@ -60,7 +60,7 @@ DAG node (index, one-liner)  ←→  Workspace file (full content)
 4. **When verifying a citation:** add to `evidence/citations/` and update the DAG node's `evidence_tag`.
 5. **Provenance tag** at the top of each file: `<!-- provenance: expert-1, ai-executed, 2026-05-16 -->`.
 
-This structure applies to DURABLE outputs on the main branch. It does not constrain how you think, what you write on your working branch, what types of DAG nodes you create, or whether you follow this structure for intermediate work. Structure is for communication (so others can find your work), not for cognition. If a discovery doesn't fit any category, write it anyway — the worst outcome is a discovery not recorded at all.
+This structure applies to durable shared outputs published through the role's allowed shared subdirs. It does not constrain how you think, what you write on your role branch, what types of DAG nodes you create, or whether you follow this structure for intermediate work. Structure is for communication (so others can find your work), not for cognition. If a discovery doesn't fit any category, write it anyway — the worst outcome is a discovery not recorded at all.
 
 ## Pitfalls
 

@@ -34,7 +34,7 @@ Pointer types and how to resolve:
 
 Classifications: `verified`, `wrong_context` (resolves but does not support the claim), `broken` (does not resolve). Severity scales with claim stakes — one broken pointer in a chat message is a soft nudge; one under a camera-ready claim is a hard flag.
 
-Outputs land at `artifacts/ethics/reports/evidence-sweep-<ts>.md` (per-Role counts + highest-severity broken list); each hard flag opens `artifacts/ethics/flags/open/<slug>.md`.
+Outputs are drafted in `branches/ethics/report-evidence-sweep-<ts>.md` (per-Role counts + highest-severity broken list) and published to `branches/shared/ethics/report-evidence-sweep-<ts>.md`; each hard flag is drafted as `branches/ethics/flag-<slug>.md` and published to `branches/shared/ethics/flag-<slug>.md`.
 
 ## Procedure
 
@@ -42,7 +42,7 @@ Outputs land at `artifacts/ethics/reports/evidence-sweep-<ts>.md` (per-Role coun
 2. **Classify the pointer type and resolve it** per the table above.
 3. **Cross-check the claim.** A resolvable pointer that does not say what the claim says is `wrong_context`, not `verified`.
 4. **Tally and decide severity.** Compute broken / wrong-context / verified counts per Role.
-5. **Write the report.** Per-Role counts plus a short list of the highest-severity broken pointers; open one flag file per hard flag.
+5. **Write and publish the report.** Per-Role counts plus a short list of the highest-severity broken pointers; open one flat flag file per hard flag and publish via `mos_publish_to_shared`.
 6. **Announce on EACN.** Short `eacn3_send_message` to each affected Role pointing at the flag files. Gru is told only when counts exceed a clear threshold or a Role has repeated offenses.
 
 Every report and flag is marked `[evidence: <pointer>]` so Ethics eats its own dog food.

@@ -25,7 +25,7 @@ One reviewer instance =
 - An assigned reviewer index `<i>` (1–5).
 - An aspect mix, drawn from `presentation`, `novelty / related work`, `method / theory`, `experiments / baselines`, `reproducibility / code`, `limitations / scope`. Drop only aspects genuinely irrelevant to this submission.
 - A stance mix, drawn from `minions/review/personas/*.md`. Different stances within the same reviewer instance wherever possible — uniform stance collapses the dynamic mix.
-- Aspect outputs under `artifacts/reviews/round-<n>/aspect-notes/reviewer-<i>-<aspect>.md`, each using `templates/aspect-note.md`.
+- Aspect outputs under `branches/shared/reviews/round-<n>/aspect-notes/reviewer-<i>-<aspect>.md`, each using `templates/aspect-note.md`.
 - A final report at `reviewer-<i>.md` using `templates/reviewer-instance.md`, with exactly one decision label.
 
 ## Procedure

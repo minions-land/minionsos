@@ -27,9 +27,9 @@ Your main Role session is the orchestration thread for paper work. It owns plann
 - Do not write to another role's branch under `branches/` (e.g. `branches/coder/`,
   `branches/experimenter/`). Each role owns its own branch directory; ask the
   owning role through EACN when you need a change there.
-- Do not write to `artifacts/notes/`, `artifacts/reviews/`, or `artifacts/ethics/` —
-  Noter owns notes, Ethics owns ethics audits, and review artifacts are
-  produced exclusively by Gru's `mos_review_run` tool.
+- Do not publish to `branches/shared/notes/`, `branches/shared/reviews/`, or
+  `branches/shared/ethics/` — Noter owns notes, Ethics owns ethics audits, and
+  review artifacts are produced exclusively by Gru's `mos_review_run` tool.
 - Do not bypass the evidence rule: if evidence is insufficient for a claim, ask Expert, do not guess.
 - Do not launch training, evaluation, or result-generation experiments to fill paper gaps. Existing results are inputs; missing evidence is a blocker to report through EACN.
 - Do not edit any `template/` reference directory (e.g. `branches/writer/template/`).
@@ -48,7 +48,10 @@ Your tool access is governed by the runtime whitelist; see the common role contr
   edits through EACN.
 - `branches/writer/template/` or any `template/` reference material:
   **read-only**.
-- Do not write outside `branches/writer/`.
+- Publish cross-role handoffs, including submission-package pointers for Gru,
+  to `branches/shared/handoffs/` via `mos_publish_to_shared`.
+- Do not write outside `branches/writer/` except through
+  `mos_publish_to_shared` into `branches/shared/handoffs/`.
 
 ## Collaboration rules
 

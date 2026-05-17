@@ -14,6 +14,14 @@ provenance: human+agent
 
 `mos_reset_context` kills your tmux session. The Gru watchdog respawns a fresh `claude` process with no conversation history. The only bridge across that gap is the Exploration DAG. Anything not persisted is lost — including events already dequeued from EACN that will not be redelivered.
 
+## Two distinct "plan" concepts — do not confuse them
+
+This skill uses **`metadata.pending_plan = true`** on DAG nodes — a flag for *deferred single events* that the next fresh process must execute before it calls `mos_await_events`. Each pending_plan node is one EACN event you received but did not run.
+
+This is **not** the same thing as `branches/<role>/plans/<role>-<slug>.md` produced by [[think-then-act]] — those are *your own multi-step execution plans* (markdown documents with frontmatter, step tables, and Goal-Setting thresholds). Execution plans persist across resets unchanged; only their per-step `Status` updates as steps complete. They do not carry the `pending_plan` flag, do not live in the DAG, and are not affected by `mos_reset_context`.
+
+Both coexist. After respawn the role drains DAG `pending_plan` nodes (this skill), and separately resumes any active execution plan in `branches/<role>/plans/` (handled by think-then-act + `roles/SYSTEM.md` lifecycle).
+
 ## When to invoke
 
 - Before every `mos_reset_context()` call — mandatory.

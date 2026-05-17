@@ -16,21 +16,21 @@ Independent revision-check state. The revision-delta subagent is deliberately bl
 
 ## When to invoke
 
-- During `run-review-round` if `artifacts/reviews/summaries/round-<n-1>.md` exists.
+- During `run-review-round` if `branches/shared/reviews/summaries/round-<n-1>.md` exists.
 - First-round reviews have no prior summary; skip this skill. If downstream tooling expects the file, the orchestrator may write a minimal placeholder saying `skipped: no prior summary`.
 
 ## Structure
 
 Two bounded reading passes:
 
-- **Pass B (previous summary only)** — read `artifacts/reviews/summaries/round-<n-1>.md`. Do not read older summaries, older round directories, current `reviewer-<i>.md`, current `fresh.md`, or current `consolidated.md`.
+- **Pass B (previous summary only)** — read `branches/shared/reviews/summaries/round-<n-1>.md`. Do not read older summaries, older round directories, current `reviewer-<i>.md`, current `fresh.md`, or current `consolidated.md`.
 - **Pass C (current revision materials)** — read the current submission and any author changelog / rebuttal attached to the review request.
 
 Output is `revision_delta.md` using `templates/revision_delta.md`; for each prior issue, status ∈ {resolved, unresolved, insufficiently addressed, contradicted by rebuttal}, plus any new issues the revision itself introduced.
 
 ## Procedure
 
-1. **Pass B: read previous summary only.** `artifacts/reviews/summaries/round-<n-1>.md`. Nothing else.
+1. **Pass B: read previous summary only.** `branches/shared/reviews/summaries/round-<n-1>.md`. Nothing else.
 2. **Extract the prior issue checklist.** Compress the previous summary into concrete issues to verify.
 3. **Pass C: read current revision materials.** Current submission and any author changelog / rebuttal attached to the review request.
 4. **Assess resolution.** For each prior issue: resolved / unresolved / insufficiently addressed / contradicted by the rebuttal.

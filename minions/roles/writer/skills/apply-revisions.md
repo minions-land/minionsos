@@ -38,7 +38,7 @@ Revision state lives in `branches/writer/paper/revisions/round-<n>.md` — a che
 
    Do NOT use one narrative logic across paper types. A Discussion-tense sentence in a methods-paper Results section is the most common register-mixing failure.
 
-2. **Build the checklist.** Read `artifacts/reviews/round-<n>/consolidated.md` required-revisions section and `branches/writer/paper/rebuttal/` response blocks. Extract one checklist entry per concern. Write the initial `revisions/round-<n>.md` with all entries `pending`.
+2. **Build the checklist.** Read `branches/shared/reviews/round-<n>/consolidated.md` required-revisions section and `branches/writer/paper/rebuttal/` response blocks. Extract one checklist entry per concern. Write the initial `revisions/round-<n>.md` with all entries `pending`.
 
 3. **Group by file target.** Sort entries by which section / figure / table they touch, so one editing pass covers one file.
 

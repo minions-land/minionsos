@@ -12,28 +12,28 @@ Only delimiter headings may be added around the pasted reviewer reports.
 
 ## Reviewer 1
 
-<paste artifacts/reviews/round-<n>/reviewer-1.md verbatim>
+<paste branches/shared/reviews/round-<n>/reviewer-1.md verbatim>
 
 ---
 
 ## Reviewer 2
 
-<paste artifacts/reviews/round-<n>/reviewer-2.md verbatim>
+<paste branches/shared/reviews/round-<n>/reviewer-2.md verbatim>
 
 ---
 
 ## Reviewer 3
 
-<paste artifacts/reviews/round-<n>/reviewer-3.md verbatim>
+<paste branches/shared/reviews/round-<n>/reviewer-3.md verbatim>
 
 ---
 
 ## Reviewer 4 (if generated)
 
-<paste artifacts/reviews/round-<n>/reviewer-4.md verbatim>
+<paste branches/shared/reviews/round-<n>/reviewer-4.md verbatim>
 
 ---
 
 ## Reviewer 5 (if generated)
 
-<paste artifacts/reviews/round-<n>/reviewer-5.md verbatim>
+<paste branches/shared/reviews/round-<n>/reviewer-5.md verbatim>

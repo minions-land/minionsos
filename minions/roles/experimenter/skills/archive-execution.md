@@ -2,7 +2,7 @@
 slug: archive-execution
 summary: Preserve reusable operational knowledge — templates, scheduling lessons, failure patterns — beyond a single run, in a form future Experimenter invocations can find and apply.
 layer: logical
-tools:
+tools: mos_publish_to_shared
 version: 2
 status: active
 supersedes:
@@ -22,12 +22,12 @@ Distill the reusable part of a matured run — a reproducible recipe, a recurrin
 
 ## Structure
 
-Reusable templates and lessons live under `artifacts/exp-templates/`. Per-run bundles stay in `artifacts/exp-{id}/` and are not moved. Each archive entry is terse and operational: trigger (when this applies), recipe (scripts / env / `gpus_needed` / expected wallclock), pitfalls, pointers to the canonical reference `exp-{id}`. Failure notes follow the same shape: symptom, root cause, fix or workaround, canonical `exp-{id}`.
+Reusable templates and lessons are staged under `branches/experimenter/exp/templates/` and published to `branches/shared/exp/templates/` via `mos_publish_to_shared`. Per-run bundles stay in `branches/shared/exp/exp-<id>/` and are not moved. Each archive entry is terse and operational: trigger (when this applies), recipe (scripts / env / `gpus_needed` / expected wallclock), pitfalls, pointers to the canonical reference `exp-{id}`. Failure notes follow the same shape: symptom, root cause, fix or workaround, canonical `exp-{id}`.
 
 ## Procedure
 
 1. **Decide what is reusable.** A one-off flaky run is not reusable; a reproducible recipe is, and so is a recurring failure mode. Err toward terse capture of recurring patterns.
-2. **Pick the archive location.** `artifacts/exp-templates/<slug>.md`. Per-run bundles stay in `artifacts/exp-{id}/` — do not move them.
+2. **Pick the archive location.** Draft at `branches/experimenter/exp/templates/<slug>.md`; publish to `branches/shared/exp/templates/<slug>.md`. Per-run bundles stay in `branches/shared/exp/exp-<id>/` — do not move them.
 3. **Write the entry tight.** Trigger (when this applies), recipe (scripts / env / `gpus_needed` / expected wallclock), pitfalls, pointers to the best reference `exp-{id}`.
 4. **Capture failure cases too.** Symptom, root cause, fix or workaround, `exp-{id}` of the canonical occurrence — prevents re-paying the debugging cost.
 5. **Link from `report.md`.** Add a pointer in the originating report to the archived template so the connection is bidirectional.

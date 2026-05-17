@@ -27,7 +27,7 @@ Deliverables:
 - **Main PDF.** Built from a clean compile.
 - **`tex.zip`.** Source archive: all `*.tex`, `*.bib`, style files (`.sty` / `.cls` per venue), `figures/*.pdf` (prefer vector), `figures/*.png` (raster-only). Excludes `build/` intermediates, `.aux` / `.log`, editor backups, hidden files.
 - **Supplementary.** `supplementary.pdf` if venue separates it; main PDF references ("see Appendix A") resolve to the correct document.
-- **Code snapshot.** `README` with exact reproduction commands, `requirements.txt` or lockfile, pointers to `artifacts/exp-{id}/` for each reported number, license. Paths and secrets scrubbed.
+- **Code snapshot.** `README` with exact reproduction commands, `requirements.txt` or lockfile, pointers to `branches/shared/exp/exp-<id>/` for each reported number, license. Paths and secrets scrubbed.
 
 Venue checklist items: anonymous (no identifying self-citations), page limit, fonts embedded, file size.
 
@@ -37,11 +37,11 @@ Venue checklist items: anonymous (no identifying self-citations), page limit, fo
 2. **Build `tex.zip`** per the Structure spec.
 3. **Verify the archive compiles standalone.** Extract to a scratch directory on a clean path, run `latexmk -pdf main.tex`. Must produce the same PDF. No system-specific includes.
 4. **Assemble supplementary.** Merge appendix-only content into `supplementary.pdf` if the venue separates it. Verify cross-document references resolve.
-5. **Prepare the code snapshot.** `README` with exact reproduction commands, `requirements.txt` or equivalent, pointers to `artifacts/exp-{id}/` per reported number, license. Scrub paths and secrets.
+5. **Prepare the code snapshot.** `README` with exact reproduction commands, `requirements.txt` or equivalent, pointers to `branches/shared/exp/exp-<id>/` per reported number, license. Scrub paths and secrets.
 6. **Run the venue checklist.** Anonymous (no author info or blinding-breaking self-citations); page limit (ML: body to Conclusion; IEEE: total including refs); fonts embedded (`pdffonts main.pdf | grep -v yes` empty); file size within venue limit (typically < 50 MB; prefer < 10 MB).
 7. **Gate on readiness.** Do not mark the package ready while any checklist item is missing; list gaps explicitly.
 
-Every reproducibility claim (e.g. "Table 3 reproduced") is marked `[derived: artifacts/exp-<id>/report.md]`.
+Every reproducibility claim (e.g. "Table 3 reproduced") is marked `[derived: branches/shared/exp/exp-<id>/report.md]`.
 
 ## Pitfalls
 

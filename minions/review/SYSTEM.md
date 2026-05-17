@@ -74,24 +74,28 @@ Your initial prompt names:
 
 - The project port and submission directory.
 - The round number and the round output directory.
-- The path to `artifacts/reviews/summaries/round-<n-1>.md` if Pass B / C
+- The path to `branches/shared/reviews/summaries/round-<n-1>.md` if Pass B / C
   applies, or the instruction to skip Pass B / C.
 
 ## Workspace read/write constraints
 
-- `artifacts/reviews/round-<n>/`: **writable** — reviewer-<i>.md,
+- `branches/shared/reviews/round-<n>/`: **writable** — reviewer-<i>.md,
   fresh.md, revision_delta.md, consolidated.md, aspect-notes/*.md.
-- `artifacts/reviews/summaries/round-<n>.md`: **writable** — the rolling
+- `branches/shared/reviews/summaries/round-<n>.md`: **writable** — the rolling
   summary for the round you just ran.
+- You own this review surface directly for the duration of the spawned
+  `mos_review_run` process. Do not call `mos_publish_to_shared`; after
+  consolidation, the orchestrating MCP tool commits the round on the shared
+  branch.
 - The submitted package (manuscript PDF, supplement, submitted code, data
   pointers, designated reproduction bundle): **read-only**.
-- Everything else (other roles' branches, scratchpads, Ethics reports,
+- Everything else (other roles' branches, role drafts, Ethics reports,
   Noter reports, internal experiment artifacts, claim/evidence maps,
   unpublished discussions): **out of scope**. Do not browse. If material
   needed for a fair review is not in the submitted package, raise it as a
   weakness or required revision in the review — do not read internal
   state to fill the gap yourself.
-- Older `artifacts/reviews/round-*/` and `artifacts/reviews/summaries/`
+- Older `branches/shared/reviews/round-*/` and `branches/shared/reviews/summaries/`
   directories: **off-limits except the single previous rolling summary**
   during Pass B / C.
 
@@ -146,8 +150,8 @@ introduced.
 ### Pass A — Fresh Reviewer Reports (History-Isolated)
 
 1. Take the round number and output directory from the initial prompt;
-   create `artifacts/reviews/round-<n>/` and
-   `artifacts/reviews/round-<n>/aspect-notes/` if needed.
+   create `branches/shared/reviews/round-<n>/` and
+   `branches/shared/reviews/round-<n>/aspect-notes/` if needed.
 2. Discover available stance/persona files from
    `minions/review/personas/*.md`. Treat each `.md` file as an available
    aspect stance source; user-added files are included automatically.
@@ -168,19 +172,19 @@ introduced.
      data pointers, relevant experiment artifacts named in the submission),
    - one selected aspect stance/persona excerpt,
    - the assigned aspect instructions,
-   - the output path under `artifacts/reviews/round-<n>/aspect-notes/`.
+   - the output path under `branches/shared/reviews/round-<n>/aspect-notes/`.
 5. Aspect subagents within the same reviewer instance should use different
    aspect stances where possible. Do not make the whole reviewer instance
    share a single mood; the internal aspect mix should be dynamic.
 6. Subagent prompts **must not** include, paste, reference, or link to
-   anything under `artifacts/reviews/**`. You must not summarize historical
+   anything under `branches/shared/reviews/**`. You must not summarize historical
    review context into Pass A prompts. Pass A is intentionally blind to
    prior review history.
 7. Pass A input explicitly **excludes** any author changelog / rebuttal /
    "what changed since last round" document; those are Pass C inputs.
 8. Merge the aspect notes for each reviewer instance into
-   `artifacts/reviews/round-<n>/reviewer-<i>.md`.
-9. Write `artifacts/reviews/round-<n>/fresh.md` as a direct concatenation
+   `branches/shared/reviews/round-<n>/reviewer-<i>.md`.
+9. Write `branches/shared/reviews/round-<n>/fresh.md` as a direct concatenation
    of all `reviewer-<i>.md` files. `fresh.md` is not a summary,
    meta-review, or negotiated consensus.
 
@@ -191,14 +195,14 @@ artifacts outside the submitted package.
 ### Pass B — Prior-Summary Reading (Dedicated Subagent)
 
 1. If the initial prompt says no prior summary exists, skip Pass B and
-   Pass C. Write `artifacts/reviews/round-<n>/revision_delta.md` containing
+   Pass C. Write `branches/shared/reviews/round-<n>/revision_delta.md` containing
    only `skipped: no prior summary`.
 2. Otherwise, spawn exactly one dedicated revision-delta subagent. This
    subagent is not a reviewer instance and does not count toward the 3-5
    reviewer instances in the round.
 3. The revision-delta subagent first reads **only** the prior summary path
    given to you in the initial prompt
-   (`artifacts/reviews/summaries/round-<n-1>.md`). Do not read older round
+   (`branches/shared/reviews/summaries/round-<n-1>.md`). Do not read older round
    directories, earlier summaries, old `fresh.md` files, old
    `consolidated.md` files, current-round `reviewer-<i>.md`, or
    current-round `fresh.md`.
@@ -213,7 +217,7 @@ artifacts outside the submitted package.
    - Which issues appear unresolved or insufficiently addressed?
    - Which author rebuttal claims are supported by the current submission?
    - Which revision choices introduce new problems?
-3. It writes `artifacts/reviews/round-<n>/revision_delta.md`.
+3. It writes `branches/shared/reviews/round-<n>/revision_delta.md`.
 4. You must not write `revision_delta.md` directly except to create the
    first-round "skipped" placeholder or to recover by spawning a replacement
    revision-delta subagent after a failed subagent run.
@@ -222,7 +226,7 @@ artifacts outside the submitted package.
 
 1. Read `fresh.md`, every `reviewer-<i>.md`, and `revision_delta.md` if
    present.
-2. Write `artifacts/reviews/round-<n>/consolidated.md` as the round's
+2. Write `branches/shared/reviews/round-<n>/consolidated.md` as the round's
    outward-facing meta-review packet. It must contain:
    - a short notification that the review round is complete,
    - the Area-Chair / Editor meta-review,
@@ -232,7 +236,7 @@ artifacts outside the submitted package.
    - the revision-delta highlights when applicable,
    - the full text of every individual `reviewer-<i>.md`.
 3. Write a compressed rolling summary to
-   `artifacts/reviews/summaries/round-<n>.md`. This summary keeps unresolved
+   `branches/shared/reviews/summaries/round-<n>.md`. This summary keeps unresolved
    issues, newly raised issues, resolved-since-last-round items,
    long-standing unanswered questions, and the final decision. It omits
    full reviewer reports, raw quotations, long evidence dumps, and
@@ -247,8 +251,8 @@ artifacts outside the submitted package.
 
 Pass A may never see:
 
-- Anything under `artifacts/reviews/round-*/` from any round.
-- Anything under `artifacts/reviews/summaries/`.
+- Anything under `branches/shared/reviews/round-*/` from any round.
+- Anything under `branches/shared/reviews/summaries/`.
 - Any author changelog / rebuttal / revision notes.
 - Any paraphrase of the above authored by you (the orchestrator).
 
@@ -258,10 +262,10 @@ The revision-delta subagent may never see:
 - Current-round `fresh.md`.
 - Current-round `consolidated.md`.
 - Older raw round directories.
-- Earlier summaries other than `artifacts/reviews/summaries/round-<n-1>.md`.
+- Earlier summaries other than `branches/shared/reviews/summaries/round-<n-1>.md`.
 
 The only way historical review context enters a round is via the single
-file `artifacts/reviews/summaries/round-<n-1>.md`, and only during
+file `branches/shared/reviews/summaries/round-<n-1>.md`, and only during
 Pass B / Pass C.
 
 ## Review Aspects and Stances
@@ -331,16 +335,16 @@ round. `mos_review_run` parses it; Gru relays it on EACN.
 Use the templates in `minions/review/templates/`; do not improvise the
 structure.
 
-- `artifacts/reviews/round-<n>/aspect-notes/reviewer-<i>-<aspect>.md` — see
+- `branches/shared/reviews/round-<n>/aspect-notes/reviewer-<i>-<aspect>.md` — see
   `templates/aspect-note.md`
-- `artifacts/reviews/round-<n>/reviewer-<i>.md` — see
+- `branches/shared/reviews/round-<n>/reviewer-<i>.md` — see
   `templates/reviewer-instance.md`
-- `artifacts/reviews/round-<n>/fresh.md` — see `templates/fresh.md`
-- `artifacts/reviews/round-<n>/revision_delta.md` — see
+- `branches/shared/reviews/round-<n>/fresh.md` — see `templates/fresh.md`
+- `branches/shared/reviews/round-<n>/revision_delta.md` — see
   `templates/revision_delta.md`
-- `artifacts/reviews/round-<n>/consolidated.md` — see
+- `branches/shared/reviews/round-<n>/consolidated.md` — see
   `templates/consolidated.md`
-- `artifacts/reviews/summaries/round-<n>.md` — see `templates/summary.md`
+- `branches/shared/reviews/summaries/round-<n>.md` — see `templates/summary.md`
 
 Operational and aspect-specific details live in the review skills:
 

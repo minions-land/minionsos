@@ -104,7 +104,7 @@ Axis label 9–10 pt; tick label 8 pt; line width ≥ 1.5 pt; marker size ≥ 5 
 
 ## Reproducibility
 
-Plotting scripts at `branches/writer/paper/figures/gen_fig_<name>.py` read concrete data files from `branches/experimenter/experiments/` or `artifacts/exp-{id}/`. No hardcoded numbers. Re-run reproduces byte-identical output modulo font rendering.
+Plotting scripts at `branches/writer/paper/figures/gen_fig_<name>.py` read concrete data files from `branches/experimenter/experiments/` or `branches/shared/exp/exp-<id>/`. No hardcoded numbers. Re-run reproduces byte-identical output modulo font rendering.
 
 Export both formats: `fig.savefig(path.pdf)` for LaTeX inclusion, `fig.savefig(path.png, dpi=300)` for slides / web. Verify LaTeX includes the PDF without font warnings; verify the SVG has non-zero `<text>` nodes.
 
