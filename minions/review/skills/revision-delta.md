@@ -17,7 +17,7 @@ Independent revision-check state. The revision-delta subagent is deliberately bl
 ## When to invoke
 
 - During `run-review-round` if `artifacts/reviews/summaries/round-<n-1>.md` exists.
-- First-round reviews have no prior summary; skip this skill. If downstream tooling expects the file, Reviewer main may write a minimal placeholder saying `skipped: no prior summary`.
+- First-round reviews have no prior summary; skip this skill. If downstream tooling expects the file, the orchestrator may write a minimal placeholder saying `skipped: no prior summary`.
 
 ## Structure
 

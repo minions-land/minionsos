@@ -59,6 +59,7 @@ from minions.tools import experiment_ssh as _exp
 from minions.tools import exploration_dag as _dag
 from minions.tools import paper_search as _paper_search
 from minions.tools import reset as _reset
+from minions.tools import review as _review
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -112,6 +113,7 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_read_medrxiv_paper",
     "mos_read_pubmed_paper",
     "mos_project_bridge",
+    "mos_review_run",
     "mos_attach_role",
     "mos_dismiss_role",
     "mos_kill_role",
@@ -289,9 +291,7 @@ class ProjectCheckpointArgs(BaseModel):
 
 class SpawnRoleArgs(BaseModel):
     project_port: int
-    role: str = Field(
-        description="Role name: noter, coder, experimenter, writer, reviewer, or ethics."
-    )
+    role: str = Field(description="Role name: noter, coder, experimenter, writer, or ethics.")
     init_brief: str | None = Field(
         default=None, description="Initial EACN message to the new role."
     )
@@ -352,7 +352,27 @@ class PaperIdArgs(BaseModel):
 
 @mcp.tool()
 def mos_project_create(args: ProjectCreateArgs) -> dict:
-    """Create a new MinionsOS project, start its EACN3 backend, and register it."""
+    """Create a new MinionsOS project — heavy side effects.
+
+    What happens:
+
+    1. Allocates a fresh port and reserves it in ``state/projects.json``.
+    2. Creates ``project_{port}/`` with ``branches/main/`` as a **new git
+       worktree** off the parent repo (the directory containing this
+       MinionsOS checkout must be a git repo).
+    3. Spawns the project's EACN3 backend as a long-lived subprocess on
+       that port and registers a server card.
+    4. Writes ``meta.json``, ``CLAUDE.md``, ``AGENTS.md``, and the
+       initial role workspaces.
+
+    Use this only when the author asks to start a new project. To bring
+    back a previously-dormant project, use ``mos_project_revive`` instead.
+
+    Returns ``{port, branch, workspace_path, project_dir, claude_md}``.
+    Raises ``ProjectError`` / ``BackendError`` on failure (no rollback —
+    the operator may need to clean up partial state with ``mos project
+    repair``).
+    """
     _require_tool_allowed("mos_project_create")
     from minions.paths import project_dir as _pdir
     from minions.paths import project_workspace as _pws
@@ -453,7 +473,23 @@ def mos_project_set_phase(args: ProjectPhaseArgs) -> dict:
 
 @mcp.tool()
 def mos_project_checkpoint_workspace(args: ProjectCheckpointArgs) -> dict:
-    """Create a durable git checkpoint for the main or role workspace."""
+    """Commit the project workspace to its branch and optionally push.
+
+    Side effects (all on the role's git worktree):
+
+    1. ``git add -A`` followed by ``git commit -m <message>`` on the
+       role's branch — creates a real commit even if no remote is
+       configured.
+    2. If ``gru.yaml`` has ``github_push_target`` set for this role,
+       also ``git push`` to that remote. The push is best-effort:
+       failure logs a warning, the local commit stands.
+
+    Use this at natural durable-state boundaries (between coherent batches
+    of work). Calling it on every wake is wasteful; calling it never means
+    Role work lives only in the running process.
+
+    Returns ``{commit_sha, branch, pushed: bool, push_error?}``.
+    """
     _require_tool_allowed("mos_project_checkpoint_workspace")
     return _project_checkpoint_workspace(
         args.port,
@@ -464,7 +500,28 @@ def mos_project_checkpoint_workspace(args: ProjectCheckpointArgs) -> dict:
 
 @mcp.tool()
 def mos_spawn_role(args: SpawnRoleArgs) -> dict:
-    """Spawn a fixed role (noter, coder, experimenter, writer, reviewer, ethics)."""
+    """Register a fixed role and start its long-lived ``claude`` process.
+
+    Side effects:
+
+    1. Registers a project-local EACN3 AgentCard for the role (so it can
+       receive direct messages and bid on tasks).
+    2. Prepares the role's git branch worktree under
+       ``project_{port}/branches/<role>/``.
+    3. Starts a detached tmux session ``mos-{port}-{role}`` running
+       ``claude --append-system-prompt @SYSTEM.md ...`` — the role
+       enters its forever loop on ``mos_await_events``.
+
+    Idempotent: calling this when the role's tmux session is already
+    alive returns the existing session metadata without starting a
+    second process.
+
+    ``role`` must be one of ``"noter"``, ``"coder"``, ``"experimenter"``,
+    ``"writer"``, ``"ethics"``. For domain experts, use
+    ``mos_spawn_expert`` instead.
+
+    Returns ``{role, session_name, eacn_agent_id, started, attach_cmd}``.
+    """
     _require_tool_allowed("mos_spawn_role")
     return _spawn_role(
         project_port=args.project_port,
@@ -476,7 +533,19 @@ def mos_spawn_role(args: SpawnRoleArgs) -> dict:
 
 @mcp.tool()
 def mos_spawn_expert(args: SpawnExpertArgs) -> dict:
-    """Spawn a domain expert role."""
+    """Register a domain expert role and start its long-lived ``claude`` process.
+
+    Same lifecycle as ``mos_spawn_role`` — registers an EACN AgentCard,
+    creates a git worktree at ``branches/expert-<slug>/``, starts a tmux
+    session, and the expert enters the forever loop on
+    ``mos_await_events``. The differentiator is the *domain* parameter,
+    which selects an Expert domain pack (``minions/domains/<slug>.md``)
+    to be appended to the role system prompt.
+
+    Idempotent on existing live tmux session.
+
+    Returns ``{role, session_name, eacn_agent_id, started, attach_cmd}``.
+    """
     _require_tool_allowed("mos_spawn_expert")
     return _spawn_expert(
         project_port=args.project_port,
@@ -489,7 +558,25 @@ def mos_spawn_expert(args: SpawnExpertArgs) -> dict:
 
 @mcp.tool()
 def mos_dismiss_role(args: DismissRoleArgs) -> dict:
-    """Dismiss (terminate) a role subprocess."""
+    """Terminate a resident role and remove its EACN registration.
+
+    Side effects:
+
+    1. Kills the role's tmux session ``mos-{port}-<role>`` if alive.
+       The Claude Code session jsonl under
+       ``~/.claude/projects/<cwd-slug>/`` is **kept** so a future
+       ``mos_project_revive`` (or manual ``mos role inspect``) can
+       resume the prior conversation.
+    2. Removes the role's project-local EACN AgentCard so peers stop
+       routing direct messages and tasks to it.
+    3. Marks the role ``dismissed`` in ``projects.json``.
+
+    Use sparingly — sleeping roles cost nothing. Dismiss only when the
+    role is genuinely done with the project (e.g. closing a phase) or
+    misbehaving and needs a fresh start.
+
+    Returns ``{name, eacn_unregistered: bool, session_killed: bool}``.
+    """
     _require_tool_allowed("mos_dismiss_role")
     return _dismiss_role(
         project_port=args.project_port,
@@ -530,6 +617,23 @@ def mos_project_bridge(args: ProjectBridgeArgs) -> dict:
         mode=args.mode,
         source_note=args.source_note,
     )
+
+
+@mcp.tool()
+def mos_review_run(args: _review.ReviewRunArgs) -> dict:
+    """Run one Area-Chair review round on a submission package.
+
+    Gates on the submission checklist first: any unchecked Required item
+    short-circuits with ``{"status": "rejected", ...}`` and no review is
+    spawned. On pass, drives the 3-pass review procedure to completion and
+    returns the round number, decision label, and produced artifact paths.
+
+    This tool replaces the previous long-lived Reviewer role. Gru invokes it
+    when Writer publishes a submission via EACN; the result is relayed back to
+    Writer on the project's Local EACN.
+    """
+    _require_tool_allowed("mos_review_run")
+    return _review.review_run(args)
 
 
 @mcp.tool()

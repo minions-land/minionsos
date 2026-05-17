@@ -110,11 +110,47 @@ def test_project_create_makes_ethics_tree(tmp_path: Path, monkeypatch) -> None:
     (pdir / "artifacts" / "ethics" / "flags" / "open").mkdir(parents=True, exist_ok=True)
     (pdir / "artifacts" / "ethics" / "flags" / "resolved").mkdir(parents=True, exist_ok=True)
     (pdir / "artifacts" / "ethics" / "investigations").mkdir(parents=True, exist_ok=True)
+    (pdir / "artifacts" / "ethics" / "adjudications").mkdir(parents=True, exist_ok=True)
+    (pdir / "artifacts" / "ethics" / "mock-reviews").mkdir(parents=True, exist_ok=True)
 
     assert (pdir / "artifacts" / "ethics" / "reports").is_dir()
     assert (pdir / "artifacts" / "ethics" / "flags" / "open").is_dir()
     assert (pdir / "artifacts" / "ethics" / "flags" / "resolved").is_dir()
     assert (pdir / "artifacts" / "ethics" / "investigations").is_dir()
+    assert (pdir / "artifacts" / "ethics" / "adjudications").is_dir()
+    assert (pdir / "artifacts" / "ethics" / "mock-reviews").is_dir()
+
+
+def test_ethics_skills_include_mock_review() -> None:
+    """mock-review skill is discoverable so it appears in the wake-up [Skills] block."""
+    from minions.lifecycle.skills import list_skills
+
+    slugs = {slug for slug, _ in list_skills("ethics")}
+    assert "mock-review" in slugs
+    assert "citation-authenticity-audit" in slugs
+    assert "evidence-pointer-sweep" in slugs
+
+
+def test_ethics_mock_review_template_exists() -> None:
+    """The mock-review template is shipped alongside the skill."""
+    from minions.paths import ROLES_DIR
+
+    template = ROLES_DIR / "ethics" / "templates" / "mock-review.md"
+    assert template.is_file()
+    body = template.read_text(encoding="utf-8")
+    assert "Informal verdict" in body
+    assert "not a formal review decision" in body
+
+
+def test_ethics_system_prefers_subagent_dispatch() -> None:
+    """SYSTEM.md must steer Ethics toward subagent dispatch with codex preferred."""
+    from minions.paths import ROLES_DIR
+
+    body = (ROLES_DIR / "ethics" / "SYSTEM.md").read_text(encoding="utf-8")
+    assert "Subagent dispatch preference" in body
+    assert "codex" in body
+    assert "Task" in body
+    assert "CODEX_UNAVAILABLE" in body
 
 
 def test_fixed_roles_contains_ethics() -> None:

@@ -1,19 +1,18 @@
-"""mos_reset_context — MinionsOS-specific context reset tool.
+"""mos_reset_context — kill the current Role's tmux session for a clean restart.
 
-Signals the agent harness to clear the conversation context while keeping
-the process alive. The agent MUST have persisted all valuable state to the
-Exploration DAG before calling this.
+The agent calls this at a natural batch boundary after persisting durable
+state to the Exploration DAG. The session is killed; the Gru watchdog
+respawns a fresh ``claude`` process under the same session name with no
+``--resume`` flag, so SYSTEM.md re-injects but conversation history starts
+empty. The DAG is the external memory that bridges the gap.
 
-After reset, the conversation returns to system prompt only. The agent
-continues running and should call mos_dag_summary() to re-orient, then
-mos_await_events() for next work.
+Why this is not Claude's compact:
+- Compact summarizes (costs tokens, lossy, can drift role contract).
+- Reset deletes (costs zero tokens, lossless because state lives in DAG).
 
-This is NOT compact. Compact summarizes and costs tokens. Reset deletes
-and costs nothing. The DAG is the external memory that survives the reset.
-
-Evidence for this pattern: all major coding agents (Claude Code, Cursor,
-Codex) recommend starting fresh context for new tasks. This tool makes
-that transition seamless without process restart overhead.
+A marker file under ``project_{port}/exploration/.reset_markers/{role}`` is
+written before the kill so the watchdog can distinguish a deliberate reset
+from a real crash and not increment the crash counter.
 """
 
 from __future__ import annotations
@@ -21,9 +20,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import subprocess
 from datetime import UTC, datetime
 
-from minions.paths import project_dir
+from minions.paths import project_exploration_dir
 
 logger = logging.getLogger(__name__)
 
@@ -40,54 +40,74 @@ def _env_role() -> str:
 
 
 def mos_reset_context(reason: str = "") -> dict:
-    """Signal the harness to clear conversation context.
+    """Kill this Role's tmux session so the watchdog respawns it cold.
 
-    The agent MUST have persisted all valuable state to the Exploration DAG
-    before calling this. After reset, context returns to system prompt only.
+    The agent MUST have persisted all valuable state — including any
+    pending plans not yet executed — to the Exploration DAG before
+    calling this. After respawn, conversation context is empty; the new
+    process re-orients via ``mos_dag_summary()`` which surfaces those
+    pending plans, then enters its event loop.
 
     Args:
-        reason: Why the reset is happening (logged for debugging).
-                Typical reasons: "task direction change", "batch complete",
-                "switching to unrelated work".
+        reason: Why the reset is happening (logged for debugging and
+                surfaced in the Gru-side respawn audit).
 
     Returns:
-        Acknowledgement dict. The harness intercepts this tool result and
-        performs the actual context truncation before delivering it.
+        Acknowledgement dict. In practice the agent rarely sees this —
+        the tmux session dies before the LLM gets to read it.
     """
     port = _env_port()
     role = _env_role()
     ts = datetime.now(UTC).isoformat(timespec="seconds")
 
-    journal_path = project_dir(port) / "exploration" / "journal.jsonl"
-    journal_path.parent.mkdir(parents=True, exist_ok=True)
+    exploration = project_exploration_dir(port)
+    exploration.mkdir(parents=True, exist_ok=True)
 
-    entry = {
-        "op": "reset",
-        "role": role,
-        "reason": reason,
-        "timestamp": ts,
-    }
-
+    journal_path = exploration / "journal.jsonl"
+    entry = {"op": "reset", "role": role, "reason": reason, "timestamp": ts}
     try:
         with journal_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except OSError as exc:
         logger.warning("Failed to log reset to journal: %s", exc)
 
+    marker_dir = exploration / ".reset_markers"
+    marker_dir.mkdir(parents=True, exist_ok=True)
+    marker_path = marker_dir / role
+    try:
+        marker_path.write_text(json.dumps({"reason": reason, "timestamp": ts}))
+    except OSError as exc:
+        logger.warning("Failed to write reset marker: %s", exc)
+
+    session = f"mos-{port}-{role}"
     logger.info(
-        "mos_reset_context called by role=%s port=%d reason=%r",
-        role,
-        port,
+        "mos_reset_context: killing tmux session=%s reason=%r role=%s",
+        session,
         reason,
+        role,
     )
+
+    try:
+        subprocess.run(
+            ["tmux", "kill-session", "-t", session],
+            check=False,
+            capture_output=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.error("mos_reset_context: tmux kill-session failed: %s", exc)
+        return {
+            "status": "reset_failed",
+            "error": str(exc),
+            "instruction": (
+                "Reset could not kill the tmux session. Persist state to the "
+                "DAG and exit your event loop manually if needed."
+            ),
+        }
 
     return {
         "status": "reset_acknowledged",
-        "instruction": (
-            "Context cleared. You are now in a fresh state. "
-            "Call mos_dag_summary() to re-orient on team state, "
-            "then mos_await_events() for next work."
-        ),
+        "instruction": "Session terminating; watchdog will respawn cold.",
         "role": role,
         "timestamp": ts,
     }

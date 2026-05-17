@@ -98,6 +98,7 @@ def launch_role_process(
     project_port: int,
     *,
     cfg: GruConfig | None = None,
+    resume: bool = False,
 ) -> dict[str, object]:
     """Start a long-lived ``claude`` process for *role_entry* in tmux.
 
@@ -106,9 +107,16 @@ def launch_role_process(
     second one. Callers wanting to force-restart should ``kill_session``
     first.
 
+    When ``resume=True``, the launched ``claude`` is invoked with
+    ``--resume <session_name>`` so Claude Code reattaches to the prior
+    conversation persisted under the role's cwd in
+    ``~/.claude/projects/<cwd-slug>/``. Pass True from ``project_revive``;
+    leave False on first launch (cold start).
+
     Returns a small status dict with ``session_name``, ``cwd``,
-    ``log_path``, ``attach_cmd``, and ``started`` (True if a fresh session
-    was launched, False if an existing session was found).
+    ``log_path``, ``attach_cmd``, ``started`` (True if a fresh session was
+    launched, False if an existing session was found), and ``resumed``
+    (mirrors the *resume* argument when a fresh session was launched).
     """
     if not _have_tmux():
         raise RoleError("tmux is not installed; resident-Role launcher requires tmux on PATH.")
@@ -124,6 +132,7 @@ def launch_role_process(
         return {
             "session_name": name,
             "started": False,
+            "resumed": False,
             "attach_cmd": attach_command(project_port, role_name),
         }
 
@@ -148,6 +157,7 @@ def launch_role_process(
         allowed_tools=whitelist_csv(role_name, "main"),
         workspace=workspace,
         session_name=role_entry.session_name or project_session_name(project_port, role_name),
+        resume=resume,
     )
 
     env = _role_env(
@@ -165,14 +175,16 @@ def launch_role_process(
         log_path=log_path,
     )
     logger.info(
-        "launch_role_process: tmux session=%s launched role=%s port=%d",
+        "launch_role_process: tmux session=%s launched role=%s port=%d resume=%s",
         name,
         role_name,
         project_port,
+        resume,
     )
     return {
         "session_name": name,
         "started": True,
+        "resumed": bool(resume),
         "cwd": str(invocation.cwd),
         "log_path": str(log_path),
         "attach_cmd": attach_command(project_port, role_name),

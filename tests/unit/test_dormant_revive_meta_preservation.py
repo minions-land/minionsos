@@ -435,3 +435,100 @@ def test_project_repair_refreshes_missing_server_registration(
     assert meta["eacn3_server_id"] == "srv-new"
     assert meta["eacn3_server_token"] == "tok-new"
     assert meta["gru_agent_token"] == "gru-new"
+
+
+def test_dormant_kills_role_tmux_sessions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """project_dormant must kill every active role's tmux session before
+    stopping the backend; otherwise resident claude processes keep polling
+    a dead server."""
+    port = 40114
+    store, _entry, pdir = _seed_project(tmp_path, port=port)
+    coder = RoleEntry(name="coder", state="active", eacn_agent_id="coder")
+    writer = RoleEntry(name="writer", state="active", eacn_agent_id="writer")
+    store.update_project(port, active_roles=[coder, writer])
+    _install_patches(
+        monkeypatch,
+        pdir,
+        backend_pid=12345,
+        server_id="srv-x",
+        server_token="srv-tok",
+        gru_token="gru-tok",
+    )
+
+    killed: list[tuple[int, str]] = []
+
+    from minions.lifecycle import role_launcher
+
+    monkeypatch.setattr(
+        role_launcher,
+        "kill_session",
+        lambda port_, role_name: killed.append((port_, role_name)) or True,
+    )
+
+    proj_mod.project_dormant(port, store=store)
+
+    assert (port, "coder") in killed
+    assert (port, "writer") in killed
+    assert len(killed) == 2
+
+
+def test_revive_relaunches_roles_with_resume(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """project_revive must call launch_role_process(..., resume=True) for
+    every restored role so prior conversation history is reattached."""
+    port = 40115
+    store, entry, pdir = _seed_project(tmp_path, port=port)
+    role = RoleEntry(name="coder", state="dismissed", eacn_agent_id="coder")
+    store.update_project(port, status="dormant", dormant_at="x", active_roles=[role])
+    dormant = entry.model_copy(
+        update={"status": "dormant", "dormant_at": "x", "active_roles": [role]}
+    )
+    (pdir / "meta.json").write_text(
+        json.dumps(
+            {
+                **dormant.model_dump(),
+                "backend_pid": 111,
+                "eacn3_server_id": "srv-old",
+                "eacn3_server_token": "tok-old",
+                "gru_agent_id": "gru",
+                "gru_agent_token": "gru-old",
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    _install_patches(
+        monkeypatch,
+        pdir,
+        backend_pid=22222,
+        server_id="srv-new",
+        server_token="tok-new",
+        gru_token="gru-new",
+    )
+
+    launched: list[dict[str, object]] = []
+
+    from minions.lifecycle import role_launcher
+
+    def _fake_launch(role_entry, project_port, *, cfg=None, resume=False):
+        launched.append(
+            {
+                "role": role_entry.name,
+                "port": project_port,
+                "resume": resume,
+            }
+        )
+        return {
+            "session_name": f"mos-{project_port}-{role_entry.name}",
+            "started": True,
+            "resumed": resume,
+        }
+
+    monkeypatch.setattr(role_launcher, "launch_role_process", _fake_launch)
+
+    proj_mod.project_revive(port, store=store)
+
+    assert launched == [{"role": "coder", "port": port, "resume": True}]
+    role_after = store.get_project(port).active_roles[0]  # type: ignore[union-attr]
+    assert role_after.state == "sleeping"

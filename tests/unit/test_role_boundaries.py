@@ -1,4 +1,4 @@
-"""Phase 3 tests: role classification, boundary enforcement, Reviewer isolation."""
+"""Phase 3 tests: role classification, boundary enforcement, write boundaries."""
 
 from __future__ import annotations
 
@@ -33,14 +33,16 @@ class TestRoleType:
     def test_experimenter_is_eacn_visible(self) -> None:
         assert ROLE_CLASSIFICATION["experimenter"] == RoleType.eacn_visible
 
-    def test_reviewer_is_eacn_visible(self) -> None:
-        assert ROLE_CLASSIFICATION["reviewer"] == RoleType.eacn_visible
-
     def test_ethics_is_eacn_visible(self) -> None:
         assert ROLE_CLASSIFICATION["ethics"] == RoleType.eacn_visible
 
     def test_expert_is_eacn_visible(self) -> None:
         assert ROLE_CLASSIFICATION["expert"] == RoleType.eacn_visible
+
+    def test_reviewer_not_a_role(self) -> None:
+        """Review is run by the mos_review_run MCP tool, not by a Role."""
+        assert "reviewer" not in ROLE_CLASSIFICATION
+        assert "reviewer" not in FIXED_ROLES
 
 
 class TestWriteBoundaries:
@@ -56,12 +58,6 @@ class TestWriteBoundaries:
         assert not any(p.startswith("branches/writer/") for p in allowed)
         assert "artifacts/notes/" in allowed
 
-    def test_reviewer_cannot_write_branches(self) -> None:
-        allowed = ROLE_WRITE_BOUNDARIES["reviewer"]
-        assert "artifacts/reviews/" in allowed
-        assert not any(p.startswith("branches/coder/") for p in allowed)
-        assert not any(p.startswith("branches/writer/") for p in allowed)
-
     def test_coder_owns_its_branch(self) -> None:
         allowed = ROLE_WRITE_BOUNDARIES["coder"]
         assert any(p.startswith("branches/coder/") for p in allowed)
@@ -75,6 +71,14 @@ class TestWriteBoundaries:
             for p in allowed
         )
 
+    def test_no_role_writes_review_artifacts(self) -> None:
+        """artifacts/reviews/ is owned exclusively by mos_review_run's spawned process."""
+        for role, allowed in ROLE_WRITE_BOUNDARIES.items():
+            assert not any(p.startswith("artifacts/reviews/") for p in allowed), (
+                f"role {role!r} declares write access to artifacts/reviews/; "
+                "that surface is owned by mos_review_run only."
+            )
+
 
 class TestBoundaryContext:
     def test_gru_boundary_mentions_human_side(self) -> None:
@@ -84,14 +88,6 @@ class TestBoundaryContext:
     def test_noter_boundary_mentions_human_side(self) -> None:
         ctx = _boundary_context("noter", 37596)
         assert "human-side" in ctx.lower() or "human_side" in ctx.lower()
-
-    def test_reviewer_boundary_mentions_isolation(self) -> None:
-        ctx = _boundary_context("reviewer", 37596)
-        assert "pdf" in ctx.lower() or "submission" in ctx.lower()
-
-    def test_reviewer_boundary_forbids_internal(self) -> None:
-        ctx = _boundary_context("reviewer", 37596)
-        assert "internal" in ctx.lower() or "artifacts" in ctx.lower()
 
     def test_ethics_boundary_mentions_evidence(self) -> None:
         ctx = _boundary_context("ethics", 37596)
@@ -114,32 +110,10 @@ class TestBoundaryContext:
         assert len(ctx) > 0
 
 
-class TestReviewerWhitelistIsolation:
+class TestEthicsWhitelist:
     def test_non_gru_main_roles_can_spawn_subagents(self) -> None:
-        for role in ("noter", "coder", "experimenter", "writer", "reviewer", "ethics", "expert"):
+        for role in ("noter", "coder", "experimenter", "writer", "ethics", "expert"):
             assert "Task" in resolve_whitelist(role, "main")
-
-    def test_reviewer_has_no_write_tools(self) -> None:
-        tools = resolve_whitelist("reviewer", "main")
-        assert "Write" not in tools
-        assert "Edit" not in tools
-        assert "Bash" not in tools
-
-    def test_reviewer_subagent_can_write_reviews(self) -> None:
-        """Reviewer subagent executes the writes the main session plans.
-
-        Per the common SYSTEM.md Plan → Dispatch → Verify contract, review
-        outputs under artifacts/reviews/ are produced by a subagent, not by
-        Reviewer main. The subagent therefore needs Write/Edit; it remains
-        EACN-invisible because no eacn3_* tools appear in this whitelist
-        (asserted by TestSubagentEacnInvisibility).
-        """
-        tools = resolve_whitelist("reviewer", "subagent")
-        assert "Write" in tools
-        assert "Edit" in tools
-        # Reviewer subagents must NOT get Bash — review is read + write, not
-        # shell execution. They also must not appear on EACN.
-        assert "Bash" not in tools
 
     def test_ethics_has_no_write_tools(self) -> None:
         tools = resolve_whitelist("ethics", "main")
@@ -154,7 +128,7 @@ class TestSubagentEacnInvisibility:
     every EACN-facing action. This invariant is what lets the main session
     stay short and token-cheap."""
 
-    _ALL_ROLES = ("gru", "noter", "coder", "experimenter", "writer", "reviewer", "ethics", "expert")
+    _ALL_ROLES = ("gru", "noter", "coder", "experimenter", "writer", "ethics", "expert")
 
     def test_no_subagent_has_eacn3_tools(self) -> None:
         for role in self._ALL_ROLES:
@@ -168,10 +142,7 @@ class TestSubagentEacnInvisibility:
     def test_no_subagent_has_cross_project_tools(self) -> None:
         for role in self._ALL_ROLES:
             tools = resolve_whitelist(role, "subagent")
-            leaks = [
-                t for t in tools
-                if t == "mos_project_bridge" or t.startswith("mos_project_")
-            ]
+            leaks = [t for t in tools if t == "mos_project_bridge" or t.startswith("mos_project_")]
             assert not leaks, (
                 f"{role} subagent whitelist leaks cross-project coordination tools {leaks}; "
                 "these are Gru-main coordination tools, not subagent execution tools."

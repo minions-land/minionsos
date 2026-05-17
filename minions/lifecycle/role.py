@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-FIXED_ROLES = {"noter", "coder", "experimenter", "writer", "reviewer", "ethics"}
+FIXED_ROLES = {"noter", "coder", "experimenter", "writer", "ethics"}
 
 
 # ---------------------------------------------------------------------------
@@ -96,36 +96,42 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "drive project progress, dispatch tasks through EACN3, and inspect health/status. "
         "You do NOT implement code, run experiments, write final paper text, or "
         "participate in Review.\n"
-        "Write boundaries: your branch `branches/main/` (this is Gru's own branch), "
-        "`artifacts/` project coordination notes, and your own "
-        "`branches/main/.minionsos/scratchpad.md`. Do NOT edit other roles' branches "
-        "directly; ask the owning role through EACN instead.\n"
+        "Write boundaries: your branch `branches/main/` (this is Gru's own branch) "
+        "and `artifacts/` project coordination notes. Do NOT edit other roles' "
+        "branches directly; ask the owning role through EACN instead.\n"
+        "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
+        "`mos_dag_summary` / `mos_dag_query`) — checkpoint before "
+        "`mos_reset_context`.\n"
     ),
     "noter": (
         "[Role boundary: human-side agent]\n"
         "You provide staged reports so humans can observe the system: periodic summaries, "
         "pending tasks, risks, evidence chains, artifact indexes, concise status. "
         "You reduce Gru context pressure rather than add to it.\n"
-        "Write boundaries: `artifacts/notes/` and your own "
-        "`branches/noter/.minionsos/scratchpad.md` only. Do NOT write to any other "
+        "Write boundaries: `artifacts/notes/` only. Do NOT write to any other "
         "role's branch under `branches/`.\n"
+        "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
+        "`mos_dag_summary` / `mos_dag_query`).\n"
     ),
     "coder": (
         "[Role boundary: EACN-visible agent]\n"
         "Communicate state and task handoffs through EACN3. "
         "Delegate complex execution to subagents; summarize and write back results.\n"
-        "Write boundaries: your branch `branches/coder/` and your own "
-        "`branches/coder/.minionsos/scratchpad.md` by default. Conditional "
+        "Write boundaries: your branch `branches/coder/` by default. Conditional "
         "system-maintenance boundary: MinionsOS repository runtime code only when "
         "Gru or the author explicitly assigns that implementation work through EACN "
         "and names the scope, allowed paths, and verification target.\n"
+        "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
+        "`mos_dag_summary` / `mos_dag_query`).\n"
     ),
     "experimenter": (
         "[Role boundary: EACN-visible agent]\n"
         "Communicate state and task handoffs through EACN3. "
         "Delegate complex execution to subagents; summarize and write back results.\n"
-        "Write boundaries: your branch `branches/experimenter/`, `artifacts/exp-*/` "
-        "result bundles, and your own `branches/experimenter/.minionsos/scratchpad.md`.\n"
+        "Write boundaries: your branch `branches/experimenter/` and "
+        "`artifacts/exp-*/` result bundles.\n"
+        "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
+        "`mos_dag_summary` / `mos_dag_query`).\n"
     ),
     "writer": (
         "[Role boundary: EACN-visible agent]\n"
@@ -134,19 +140,9 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "Claims must be supported by evidence, experiment, derivation, citation, "
         "or explicit speculation markers.\n"
         "Write boundaries: your branch `branches/writer/` (primary: "
-        "`branches/writer/paper/`) and your own `branches/writer/.minionsos/scratchpad.md`.\n"
-    ),
-    "reviewer": (
-        "[Role boundary: EACN-visible agent — ISOLATED]\n"
-        "You see ONLY the paper PDF and submitted/open-source-ready repository code. "
-        "You must NOT access internal experiment artifacts, evidence/claim maps, "
-        "Ethics reports, Noter reports, internal discussions, known limitations files, "
-        "or unresolved risk lists unless they are visible in the submitted PDF or repository. "
-        "Each review round produces at least three independent opinions. "
-        "Gru does not participate in Review.\n"
-        "Write boundaries: `artifacts/reviews/` and your own "
-        "`branches/reviewer/.minionsos/scratchpad.md` only. Do NOT write to any "
-        "other role's branch under `branches/`.\n"
+        "`branches/writer/paper/`).\n"
+        "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
+        "`mos_dag_summary` / `mos_dag_query`).\n"
     ),
     "ethics": (
         "[Role boundary: EACN-visible agent — continuous evidence validation]\n"
@@ -154,17 +150,19 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "and claims have real evidence support. You MAY inspect internal materials: "
         "experiment artifacts, evidence/claim maps, appendix plans, known limitations, "
         "unresolved risks, agent communications, and all claim types.\n"
-        "Write boundaries: `artifacts/ethics/` and your own "
-        "`branches/ethics/.minionsos/scratchpad.md` only. Do NOT write to any other "
-        "role's branch under `branches/`. Do NOT read any other role's "
-        "`.minionsos/scratchpad.md` — private working memory must stay private.\n"
+        "Write boundaries: `artifacts/ethics/` only. Do NOT write to any other "
+        "role's branch under `branches/`.\n"
+        "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
+        "`mos_dag_summary` / `mos_dag_query`).\n"
     ),
     "expert": (
         "[Role boundary: EACN-visible agent]\n"
         "Communicate state and task handoffs through EACN3. "
         "Preferably read-mostly; write to your own branch only when necessary.\n"
         "Write boundaries: your branch `branches/<expert>/` (sparingly, scientific "
-        "scratch only) and your own `branches/<expert>/.minionsos/scratchpad.md`.\n"
+        "scratch only).\n"
+        "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
+        "`mos_dag_summary` / `mos_dag_query`).\n"
     ),
 }
 

@@ -119,6 +119,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "mos_spawn_expert",
         "mos_dismiss_role",
         "mos_list_roles",
+        "mos_review_run",
         "mos_start_monitor",
         *_CODEX_BRIDGE_TOOLS,
         "WebSearch",
@@ -259,18 +260,6 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Write",
         "Edit",
     ],
-    ("reviewer", "main"): [
-        "eacn3_*",
-        "mos_await_events",
-        "mos_dag_*",
-        "mos_reset_context",
-        "Task",
-        "codex",
-        "WebSearch",
-        "WebFetch",
-        "Read",
-    ],
-    ("reviewer", "subagent"): ["codex", "WebSearch", "WebFetch", "Read", "Write", "Edit"],
     ("ethics", "main"): [
         "eacn3_*",
         "mos_await_events",
@@ -332,24 +321,21 @@ ROLE_CLASSIFICATION: dict[str, RoleType] = {
     "coder": RoleType.eacn_visible,
     "experimenter": RoleType.eacn_visible,
     "writer": RoleType.eacn_visible,
-    "reviewer": RoleType.eacn_visible,
     "ethics": RoleType.eacn_visible,
     "expert": RoleType.eacn_visible,
 }
 
 ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
-    "gru": ["branches/main/", "artifacts/", "branches/main/.minionsos/scratchpad.md"],
-    "noter": ["artifacts/notes/", "branches/noter/.minionsos/scratchpad.md"],
-    "coder": ["branches/coder/", "branches/coder/.minionsos/scratchpad.md"],
+    "gru": ["branches/main/", "artifacts/"],
+    "noter": ["artifacts/notes/"],
+    "coder": ["branches/coder/"],
     "experimenter": [
         "branches/experimenter/",
         "artifacts/exp-*/",
-        "branches/experimenter/.minionsos/scratchpad.md",
     ],
-    "writer": ["branches/writer/", "branches/writer/.minionsos/scratchpad.md"],
-    "reviewer": ["artifacts/reviews/", "branches/reviewer/.minionsos/scratchpad.md"],
-    "ethics": ["artifacts/ethics/", "branches/ethics/.minionsos/scratchpad.md"],
-    "expert": ["branches/<expert>/", "branches/<expert>/.minionsos/scratchpad.md"],
+    "writer": ["branches/writer/"],
+    "ethics": ["artifacts/ethics/"],
+    "expert": ["branches/<expert>/"],
 }
 
 

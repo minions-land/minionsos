@@ -28,13 +28,15 @@ minions/
 │   ├── experiment_scheduler.py # SQLite-backed Experimenter GPU queue
 │   ├── project_bridge.py    # mos_project_bridge MCP-facing wrapper
 │   └── whitelist.py         # resolve_allowed_tools
-├── roles/                   # shared contract, role prompts, skills, reviewer assets
+├── roles/                   # shared contract, role prompts, skills
 │   ├── SYSTEM.md            # common Role contract injected before role-specific prompts
-│   ├── {role}/SYSTEM.md     # gru/noter/coder/experimenter/writer/reviewer/ethics/expert
-│   ├── {role}/skills/       # procedural skills discovered at wake-up
-│   └── reviewer/
-│       ├── personas/        # short stance files
-│       └── templates/       # aspect-note / reviewer-instance / fresh / revision_delta / consolidated / summary
+│   ├── {role}/SYSTEM.md     # gru/noter/coder/experimenter/writer/ethics/expert
+│   └── {role}/skills/       # procedural skills discovered at wake-up
+├── review/                  # paper-review prompt assets used by mos_review_run
+│   ├── SYSTEM.md            # Area-Chair system prompt for the spawned claude --print
+│   ├── skills/              # run-review-round, simulate-reviewer-instance, aspect-review, ...
+│   ├── personas/            # short reviewer stance files
+│   └── templates/           # aspect-note / reviewer-instance / fresh / revision_delta / consolidated / summary / submission-checklist
 ├── domains/                 # Expert domain-pack assets (not Python)
 ├── config/
 │   ├── gru.yaml.example
@@ -57,7 +59,7 @@ tmux session driving `mos_await_events()`.
 - `minions/lifecycle/project.py` also exposes `mos_project_checkpoint_workspace(...)` for durable local commits and optional GitHub push when `github_push_target` is configured.
 - `minions/lifecycle/agent_host.py` is the only place that should know Claude Code CLI invocation details.
 - `minions/gru/loop.py` runs the Gru heartbeat monitor and experiment queue reconciliation.
-- Role `SYSTEM.md` files must not describe a polling loop. Shared role/subagent/scratchpad/EACN behavior lives in `minions/roles/SYSTEM.md`; review output formats live under `minions/roles/reviewer/templates/`.
+- Role `SYSTEM.md` files must not describe a polling loop. Shared role/subagent/scratchpad/EACN behavior lives in `minions/roles/SYSTEM.md`; review output formats live under `minions/review/templates/`.
 
 Key design points:
 
@@ -75,11 +77,11 @@ Key design points:
 3. Add a row to the tool/write boundary table in root `CLAUDE.md`.
 4. If the new role registers via `mos_spawn_role`, add its name to `FIXED_ROLES` in `minions/lifecycle/role.py`.
 5. Write a unit test under `tests/unit/` covering registration and whitelist resolution.
-6. If the new role has a multi-pass workflow (like Reviewer's 3-Pass progressive disclosure), document the pass boundaries and isolation rules explicitly; do not let later passes contaminate earlier ones by accident.
+6. If the new role has a multi-pass workflow with required isolation between passes, document the pass boundaries and isolation rules explicitly; do not let later passes contaminate earlier ones by accident. (See `minions/review/SYSTEM.md` for a worked example — though that one is a tool persona, not a Role.)
 
 ## How to add a Role skill
 
-Applies to any Role (Expert, Experimenter, Writer, Noter, Coder, Reviewer, Ethics, Gru).
+Applies to any Role (Expert, Experimenter, Writer, Noter, Coder, Ethics, Gru).
 
 1. Create `minions/roles/{role}/skills/{slug}.md` where `{slug}` is lowercase hyphen-separated (e.g. `occams-razor.md`, `triage-request.md`, `citation-audit.md`).
 2. Follow the standard structure: H1 title on the first line, a one-line summary on the next non-blank line (used by the discovery mechanism), then `Core move` / `Core question`, `Procedure`, `When to invoke`, `Pitfalls`, `Output habit` (marking derived claims per root `Evidence-first EACN communication`).

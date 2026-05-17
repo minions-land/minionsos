@@ -45,11 +45,9 @@ from minions.paths import (
     project_eacn_db,
     project_logs_dir,
     project_main_workspace,
-    project_memory_dir,
     project_meta_json,
     project_role_workspace,
     project_roles_workspace_dir,
-    project_scratchpad,
     project_session_ledger,
     project_session_name,
     project_shared_workspace,
@@ -730,59 +728,6 @@ def _ensure_workspace_layout(port: int) -> None:
     project_state_dir(port).mkdir(parents=True, exist_ok=True)
 
 
-def migrate_legacy_scratchpads(port: int) -> list[str]:
-    """Move legacy per-project ``memory/{role}.md`` files into each role's
-    ``branches/<role>/.minionsos/scratchpad.md``.
-
-    Safe-idempotent: returns list of migrated role names. If the role's new
-    branch dir does not exist yet (e.g. role not registered), the legacy file
-    is left in place so a later revive can still find it.
-    """
-    legacy_dir = project_memory_dir(port)
-    if not legacy_dir.exists():
-        return []
-    migrated: list[str] = []
-    for old_path in legacy_dir.glob("*.md"):
-        role_name = old_path.stem
-        if not role_name:
-            continue
-        new_path = project_scratchpad(port, role_name)
-        # Only migrate when the role's branch dir already exists; otherwise
-        # we'd be creating .minionsos/ outside any git worktree.
-        if not new_path.parent.parent.exists():
-            continue
-        if new_path.exists():
-            # New already present; archive the old as .bak to avoid silent loss.
-            backup = old_path.with_suffix(".md.bak")
-            try:
-                old_path.rename(backup)
-            except Exception as exc:
-                logger.warning(
-                    "migrate_legacy_scratchpads: could not archive %s: %s", old_path, exc
-                )
-            continue
-        new_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            text = old_path.read_text(encoding="utf-8")
-        except Exception as exc:
-            logger.warning("migrate_legacy_scratchpads: read %s failed: %s", old_path, exc)
-            continue
-        new_path.write_text(text, encoding="utf-8")
-        try:
-            old_path.unlink()
-        except Exception as exc:
-            logger.warning("migrate_legacy_scratchpads: unlink %s failed: %s", old_path, exc)
-        migrated.append(role_name)
-        logger.info(
-            "migrated legacy scratchpad port=%d role=%s: %s -> %s",
-            port,
-            role_name,
-            old_path,
-            new_path,
-        )
-    return migrated
-
-
 def project_workspace(port: int) -> Path:
     """Backward-compatible alias for the canonical main workspace."""
     return project_main_workspace(port)
@@ -1100,7 +1045,7 @@ def _render_project_claude_md(
         "- Branch checkouts live under `branches/`: `branches/main/` is Gru's main "
         "branch (the primary integration tree); every other role has its own "
         "branch at `branches/<role>/`; shared handoffs live under `branches/shared/`. "
-        "System-layer files (scratchpad, wake state) live in each role's "
+        "System-layer files (heartbeat, role state) live in each role's "
         "`branches/<role>/.minionsos/` hidden directory."
     )
     lines.append(
@@ -1173,6 +1118,8 @@ def project_create(
     (pdir / "artifacts" / "ethics" / "flags" / "open").mkdir(parents=True, exist_ok=True)
     (pdir / "artifacts" / "ethics" / "flags" / "resolved").mkdir(parents=True, exist_ok=True)
     (pdir / "artifacts" / "ethics" / "investigations").mkdir(parents=True, exist_ok=True)
+    (pdir / "artifacts" / "ethics" / "adjudications").mkdir(parents=True, exist_ok=True)
+    (pdir / "artifacts" / "ethics" / "mock-reviews").mkdir(parents=True, exist_ok=True)
     (pdir / "memory").mkdir(parents=True, exist_ok=True)
     (pdir / "eacn3_data").mkdir(parents=True, exist_ok=True)
 
@@ -1319,9 +1266,12 @@ def project_dormant(
 ) -> ProjectEntry:
     """Transition project *port* to dormant state.
 
+    - Kills each Role's tmux session so the long-lived ``claude`` processes
+      stop polling. The Claude Code session jsonl files (under
+      ``~/.claude/projects/<cwd-slug>/``) are left intact so ``project_revive``
+      can later reattach with ``--resume <session_name>``.
     - Stops the EACN3 backend.
-    - Dismisses all roles (updates state only; actual subprocess termination
-      is handled by lifecycle/role.py callers before calling this).
+    - Marks every role ``dismissed`` in the store.
     - Writes a git tag ``minionsos/dormant/project-{port}-<ts>``.
     - Updates ``meta.json`` and ``projects.json``.
     """
@@ -1333,6 +1283,27 @@ def project_dormant(
         raise ProjectError(f"Project {port} is not active (status={entry.status}).")
 
     logger.info("project_dormant port=%d", port)
+
+    # Kill long-lived Role tmux sessions BEFORE stopping the backend so the
+    # resident claude processes stop sending HTTP polls into a dying server.
+    from minions.lifecycle.role_launcher import kill_session as _kill_session
+
+    for role in entry.active_roles:
+        try:
+            killed = _kill_session(port, role.name)
+            if killed:
+                logger.info(
+                    "project_dormant: killed tmux session for role=%s port=%d",
+                    role.name,
+                    port,
+                )
+        except Exception as exc:
+            logger.warning(
+                "project_dormant: kill_session failed for role=%s port=%d: %s",
+                role.name,
+                port,
+                exc,
+            )
 
     # Stop backend. Read backend_pid from the on-disk meta (not from the
     # store entry — runtime-only fields live on disk).
@@ -1372,6 +1343,10 @@ def project_close(
     Same as dormant, plus:
     - Writes git tag ``minionsos/closed/project-{port}``.
     - Permanently retires the port.
+
+    The session jsonl files left under ``~/.claude/projects/<cwd-slug>/``
+    are not removed, so the closed project can be inspected forensically
+    via ``claude --resume <session_name>`` from the same cwd if needed.
     """
     _store = store or StateStore()
     entry = _store.get_project(port)
@@ -1382,8 +1357,20 @@ def project_close(
 
     logger.info("project_close port=%d", port)
 
-    # If still active, stop backend first.
+    # If still active, kill role sessions and stop backend first.
     if entry.status == "active":
+        from minions.lifecycle.role_launcher import kill_session as _kill_session
+
+        for role in entry.active_roles:
+            try:
+                _kill_session(port, role.name)
+            except Exception as exc:
+                logger.warning(
+                    "project_close: kill_session failed for role=%s port=%d: %s",
+                    role.name,
+                    port,
+                    exc,
+                )
         try:
             raw = project_meta_json(port).read_text(encoding="utf-8")
             backend_pid = json.loads(raw).get("backend_pid")
@@ -1486,13 +1473,17 @@ def project_revive(
     """Revive a dormant project.
 
     - Re-starts the EACN3 backend on the same port.
-    - Restores ``active_roles`` from ``meta.json``.
+    - Restores ``active_roles`` from ``meta.json`` and re-registers each
+      project-local EACN AgentCard.
+    - Re-launches each Role's long-lived ``claude`` process inside its
+      tmux session with ``--resume <session_name>`` so the prior
+      conversation continues. If the launcher cannot find a matching
+      session jsonl in ``~/.claude/projects/<cwd-slug>/``, Claude will
+      cold-start a fresh conversation under the same session name; we log
+      a warning but treat that as non-fatal.
     - If *external_feedback* is provided, archives it to
       ``artifacts/external_feedback/<ts>.md``.
     - Updates ``meta.json`` and ``projects.json``.
-
-    Note: actual role subprocess re-spawning is done by the caller (Gru /
-    MCP tool layer) after this function returns.
     """
     _store = store or StateStore()
     entry = _store.get_project(port)
@@ -1588,6 +1579,43 @@ def project_revive(
         logger.error("Role workspace/EACN restore failed during revive (fatal): %s", exc)
         proc.terminate()
         raise
+
+    # Re-launch each Role's long-lived claude process with --resume so the
+    # prior conversation history is reattached. Failures here are logged
+    # but not fatal — the role state is already restored, and the operator
+    # can re-run mos role spawn / mos project repair to recover.
+    try:
+        from minions.lifecycle.role_launcher import launch_role_process as _launch_role
+    except Exception as exc:
+        logger.warning(
+            "project_revive: role_launcher unavailable (port=%d): %s; "
+            "Role processes were not relaunched.",
+            port,
+            exc,
+        )
+    else:
+        relaunched: list[RoleEntry] = []
+        for role in revived_roles:
+            try:
+                status = _launch_role(role, port, resume=True)
+                logger.info(
+                    "project_revive: relaunched role=%s port=%d session=%s started=%s resumed=%s",
+                    role.name,
+                    port,
+                    status.get("session_name"),
+                    status.get("started"),
+                    status.get("resumed"),
+                )
+                relaunched.append(role.model_copy(update={"state": "sleeping"}))
+            except Exception as exc:
+                logger.warning(
+                    "project_revive: launch_role_process failed for role=%s port=%d: %s",
+                    role.name,
+                    port,
+                    exc,
+                )
+                relaunched.append(role)
+        revived_roles = relaunched
 
     updated = _store.update_project(
         port,
@@ -1741,17 +1769,6 @@ def project_repair_eacn_agents(
     tmp = meta_path.with_suffix(".tmp")
     tmp.write_text(json.dumps(raw, indent=2), encoding="utf-8")
     os.replace(tmp, meta_path)
-
-    try:
-        migrated = migrate_legacy_scratchpads(port)
-        if migrated:
-            logger.info(
-                "project_revive: migrated legacy scratchpads port=%d roles=%s",
-                port,
-                migrated,
-            )
-    except Exception as exc:
-        logger.warning("project_revive: scratchpad migration failed port=%d: %s", port, exc)
 
     status = (
         "already"

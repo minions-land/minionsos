@@ -33,7 +33,6 @@ def _stub_ensure_role_workspace(
     Tests that genuinely want real ``git worktree add`` behaviour can override
     the stubs inside the test body (patch takes precedence over earlier patch).
     """
-    from minions import paths as paths_mod
     from minions.lifecycle import role as role_mod
 
     tmp_root = tmp_path_factory.mktemp("role-workspaces")
@@ -50,8 +49,4 @@ def _stub_ensure_role_workspace(
         path.mkdir(parents=True, exist_ok=True)
         return branch, path
 
-    def fake_project_scratchpad(port: int, role_name: str) -> Path:
-        return tmp_root / f"p{port}" / role_name / ".minionsos" / "scratchpad.md"
-
     monkeypatch.setattr(role_mod, "ensure_role_workspace", fake_ensure_role_workspace)
-    monkeypatch.setattr(paths_mod, "project_scratchpad", fake_project_scratchpad)

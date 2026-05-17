@@ -58,7 +58,8 @@ def test_initial_prompt_drives_forever_loop(tmp_path: Path) -> None:
     assert "FIRST" in prompt
     # The loop must terminate every cycle with another mos_await_events call.
     flat = " ".join(prompt.split())
-    assert "process must stay resident" in flat
+    assert "event loop runs forever" in flat
+    assert "Do not emit a final assistant turn that does not end with `mos_await_events()`" in flat
     # Subagent dispatch path is named.
     assert "Task" in prompt or "subagent" in prompt.lower()
     # Cold start: orient on the DAG before calling mos_await_events.
@@ -72,3 +73,37 @@ def test_forever_loop_prompt_is_role_specific() -> None:
     assert "`coder`" in coder
     assert "`writer`" in writer
     assert coder != writer
+
+
+def test_invocation_omits_resume_by_default(tmp_path: Path) -> None:
+    invocation = _build(tmp_path)
+    # Cold start (the default) must NEVER carry --resume; that flag is
+    # only meaningful when there's a prior session to reattach to.
+    assert "--resume" not in invocation.command
+
+
+def test_invocation_appends_resume_when_requested(tmp_path: Path) -> None:
+    system = tmp_path / "SYSTEM.md"
+    system.write_text("role system", encoding="utf-8")
+    invocation = build_role_invocation(
+        cfg=GruConfig(agent_host="claude"),
+        role_name="coder",
+        project_port=37596,
+        project_agent_id="coder",
+        system_path=system,
+        allowed_tools="Read,Write",
+        workspace=tmp_path,
+        session_name="p37596/coder",
+        resume=True,
+    )
+    # When resume=True, --resume must appear AND its value must be the
+    # same human-readable session_name we set with --name (Claude Code
+    # accepts session titles as a --resume value).
+    assert "--resume" in invocation.command
+    resume_index = invocation.command.index("--resume")
+    assert invocation.command[resume_index + 1] == "p37596/coder"
+    # And --name is still there with the same value, so the two flags are
+    # consistent.
+    assert "--name" in invocation.command
+    name_index = invocation.command.index("--name")
+    assert invocation.command[name_index + 1] == "p37596/coder"

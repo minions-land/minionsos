@@ -29,4 +29,4 @@ Author changelog / rebuttal consulted: <path or none>
 
 ## Bottom Line for Meta-Review
 
-<short paragraph for Reviewer main to consider when writing consolidated.md>
+<short paragraph for the orchestrator to consider when writing consolidated.md>

@@ -24,6 +24,7 @@ from datetime import UTC, datetime
 from minions.config import load_gru_config, pin_effective_agent_host
 from minions.lifecycle.health import CrashCounter, append_health_event, backend_health
 from minions.logging_setup import configure_logging
+from minions.paths import project_exploration_dir
 from minions.state.store import StateStore
 
 configure_logging()
@@ -197,9 +198,19 @@ class GruLoop:
                     continue
                 if session_alive(port, role.name):
                     continue
-                # Session is gone. Try to bring it back.
-                self._crash_counter.record_role_crash(port, role.name)
-                if self._crash_counter.role_threshold_exceeded(port, role.name):
+                # Session is gone. Distinguish a deliberate
+                # ``mos_reset_context`` from a real crash by checking the
+                # marker file the reset tool drops before killing tmux.
+                marker = project_exploration_dir(port) / ".reset_markers" / role.name
+                deliberate_reset = marker.exists()
+                if deliberate_reset:
+                    with contextlib.suppress(OSError):
+                        marker.unlink()
+                else:
+                    self._crash_counter.record_role_crash(port, role.name)
+                if not deliberate_reset and self._crash_counter.role_threshold_exceeded(
+                    port, role.name
+                ):
                     msg = (
                         f"[ALERT] Role {role.name!r} on port {port} has crashed "
                         f"≥3 times in 1h. Marking dismissed."
@@ -225,18 +236,32 @@ class GruLoop:
                 # Below crash threshold — try to respawn.
                 try:
                     status = launch_role_process(role, port)
-                    msg = (
-                        f"[WARN] Role {role.name!r} on port {port} session was dead; "
-                        f"relaunched (tmux={status.get('session_name')})."
-                    )
-                    self._emit_health_event(
-                        port=port,
-                        kind="role_respawn",
-                        severity="warning",
-                        message=msg,
-                        role_name=role.name,
-                    )
-                    logger.warning(msg)
+                    if deliberate_reset:
+                        msg = (
+                            f"[INFO] Role {role.name!r} on port {port} reset "
+                            f"and respawned cold (tmux={status.get('session_name')})."
+                        )
+                        self._emit_health_event(
+                            port=port,
+                            kind="role_reset",
+                            severity="info",
+                            message=msg,
+                            role_name=role.name,
+                        )
+                        logger.info(msg)
+                    else:
+                        msg = (
+                            f"[WARN] Role {role.name!r} on port {port} session was dead; "
+                            f"relaunched (tmux={status.get('session_name')})."
+                        )
+                        self._emit_health_event(
+                            port=port,
+                            kind="role_respawn",
+                            severity="warning",
+                            message=msg,
+                            role_name=role.name,
+                        )
+                        logger.warning(msg)
                     events.append(msg)
                 except Exception as exc:
                     msg = (

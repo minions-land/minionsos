@@ -1,9 +1,9 @@
 ---
 slug: cognitive-checkpoint
-summary: Persist cognitive state to the Exploration DAG before calling mos_reset_context or when finishing a line of investigation.
+summary: Persist cognitive state to the Exploration DAG before mos_reset_context — including any unrelated events you received but deliberately did not execute, marked pending_plan, so the next process picks them up before calling mos_await_events.
 layer: logical
 tools: mos_dag_append, mos_dag_annotate, mos_reset_context
-version: 3
+version: 5
 status: active
 supersedes:
 references: think-then-act
@@ -12,30 +12,66 @@ provenance: human+agent
 
 # Skill — Cognitive Checkpoint
 
-Persist discoveries and pending plans to the Exploration DAG so your future self (post-reset) can pick up without re-deriving context.
+`mos_reset_context` kills your tmux session. The Gru watchdog respawns a fresh `claude` process with no conversation history. The only bridge across that gap is the Exploration DAG. Anything not persisted is lost — including events already dequeued from EACN that will not be redelivered.
 
 ## When to invoke
 
-- Before calling `mos_reset_context()` (mandatory — reset without checkpoint = data loss).
-- When finishing a coherent line of investigation.
-- When think-then-act determines the next events require a direction change.
+- Before every `mos_reset_context()` call — mandatory.
+- When think-then-act has split the incoming batch into relevant + unrelated, and the unrelated set is non-empty.
+- When finishing a coherent line of investigation and the next thing in queue is a new direction.
+
+## Structure
+
+The checkpoint persists two categories: completed work (discoveries, status changes, dead ends) and deferred work (events received but not executed). The deferred category uses `metadata.pending_plan = true` as the hand-off channel:
+
+- **This process**: receives events, executes the related ones, persists the unrelated ones with `pending_plan = true`, resets.
+- **Next process**: cold-starts, calls `mos_dag_summary`, sees pending plans, executes them, THEN calls `mos_await_events` for genuinely new work.
+
+If you skip the pending_plan persistence step, the unrelated events are lost forever — EACN does not redeliver.
 
 ## Procedure
 
-1. **Persist completed work.** For each discovery not yet in the DAG, call `mos_dag_append` with the appropriate type and a self-contained one-line description.
-2. **Update node statuses.** For any node whose status changed during this session, call `mos_dag_annotate` with evidence references.
-3. **Record dead ends.** Append with type `dead_end` and the abandonment reason.
-4. **Persist pending plans.** If you have planned next steps that you have not yet executed, append them as `unverified` nodes (hypothesis, experiment, or question) so your post-reset self knows what to do next. Add edges connecting them to the current work.
-5. **Add edges.** Connect all new nodes to existing ones with appropriate relations.
-6. **Call `mos_reset_context()`** with a reason describing why you are resetting.
+1. **Persist completed work.** For each discovery not yet in the DAG, call `mos_dag_append` with the right type and a self-contained one-line description. Include `evidence_tag` pointing to the receipt / artifact / commit.
+2. **Update node statuses.** For any node whose support_status changed during this session, call `mos_dag_annotate` with new evidence.
+3. **Record dead ends.** Append with `type=dead_end` and the abandonment reason — losing these causes redundant re-exploration after reset.
+4. **Persist unrelated-but-dequeued events as pending plans — critical.** For each event you received this cycle but deliberately did not execute (because it was unrelated to your context), append a node with **`metadata.pending_plan = true`**. The node text must capture enough of the event for a fresh agent to act on it without re-reading the original event (which is gone). Include sender, ask, and any deadline/budget. Same flag applies to planned-but-not-yet-executed next steps from your own work.
+5. **Add edges.** Connect new nodes to existing ones with appropriate relations (`supports`, `refutes`, `depends_on`, `derived_from`). Orphans are hard to interpret post-respawn.
+6. **Call `mos_reset_context(reason=...)`.** The tool kills your tmux session immediately; you almost never see its return value.
+
+## Pending-plan node — shape
+
+For an unrelated event handed off to the next process:
+
+```python
+mos_dag_append(nodes=[{
+    "type": "question",            # or experiment / hypothesis — match event intent
+    "text": "Writer requests Coder refactor data-loader for arbitrary tokenizers (HF vs SP). Originating event from writer@2026-05-17T14:02Z.",
+    "support_status": "unverified",
+    "metadata": {"pending_plan": True, "source": "eacn_event"},
+}])
+```
+
+For your own planned-but-not-yet-executed next step:
+
+```python
+mos_dag_append(nodes=[{
+    "type": "experiment",
+    "text": "Sweep learning rate {1e-4, 5e-4, 1e-3} for the 12B variant",
+    "support_status": "unverified",
+    "metadata": {"pending_plan": True},
+}])
+```
+
+Always add an edge anchoring the pending plan to its parent context (hypothesis, decision, or originating event) so it is not floating.
 
 ## Pitfalls
 
-- Calling `mos_reset_context()` without checkpointing first — your future self starts blind.
-- Persisting intermediate reasoning as nodes — only persist conclusions and plans.
-- Forgetting pending plans — your post-reset self will not know what was next.
-- Writing vague node text — each node must be self-contained and interpretable without surrounding context.
+- **Calling `mos_reset_context()` without persisting unrelated events.** Those events were dequeued from EACN — they will not be redelivered. The next process will never know they existed.
+- **Trying to execute unrelated events before resetting.** That defeats the purpose: the whole reason you are resetting is to avoid burning tokens in the wrong context. Persist them and let the next process do them in a clean context.
+- **Forgetting `metadata.pending_plan = true`.** Without the flag, the node is buried; `mos_dag_summary` will not surface it; the next process will not know to execute it before calling `mos_await_events`.
+- **Vague node text.** Each pending_plan node must be interpretable by a fresh agent who has zero context — they will not have the original event in their history. Include sender, request, and any deadline.
+- **Resetting mid-execution.** If a relevant event's work is half-done, finish it or roll back; don't reset with workspace in an inconsistent state.
 
 ## Output habit
 
-`[checkpoint: {node_ids persisted}, pending: {planned_node_ids}] → mos_reset_context({reason})`
+`[checkpoint: persisted={node_ids}, pending_plan={pending_node_ids}] → mos_reset_context({reason})`

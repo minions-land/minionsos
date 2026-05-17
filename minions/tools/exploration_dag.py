@@ -379,7 +379,7 @@ def mos_dag_path(
     edges = dag["edges"]
 
     if target_node_id not in nodes_by_id:
-        return {"error": f"Target node not found: {target_node_id}"}
+        raise ValueError(f"Target node not found: {target_node_id}")
 
     # Build adjacency (undirected). Weight = 1.0 - strength (high strength = low cost).
     adj: dict[str, list[tuple[float, str, dict]]] = defaultdict(list)
@@ -393,11 +393,11 @@ def mos_dag_path(
         start = from_node_id
     else:
         if not dag["nodes"]:
-            return {"error": "DAG is empty"}
+            raise ValueError("DAG is empty")
         start = dag["nodes"][0]["id"]
 
     if start not in nodes_by_id:
-        return {"error": f"Start node not found: {start}"}
+        raise ValueError(f"Start node not found: {start}")
 
     if start == target_node_id:
         return {"path_nodes": [nodes_by_id[start]], "path_edges": []}
@@ -447,7 +447,12 @@ def mos_dag_path(
 
 
 def mos_dag_summary() -> dict[str, Any]:
-    """High-level DAG summary for role wakeup injection. Kept under 800 tokens."""
+    """High-level DAG summary for role wakeup injection. Kept under 800 tokens.
+
+    Surfaces pending plans (nodes with metadata.pending_plan == true) at the
+    top so a freshly respawned post-reset agent can see what its previous
+    self had planned but not yet executed, and pick up without losing work.
+    """
     port = _env_port()
     dag = _load_dag(port)
     nodes = dag["nodes"]
@@ -462,6 +467,26 @@ def mos_dag_summary() -> dict[str, Any]:
     by_status: dict[str, int] = defaultdict(int)
     for n in nodes:
         by_status[n.get("support_status", "unknown")] += 1
+
+    # Pending plans — checkpointed-but-not-executed work. Newest first so a
+    # post-reset agent picks up the most recent intent.
+    pending = [
+        n
+        for n in nodes
+        if (n.get("metadata") or {}).get("pending_plan") is True
+        and n.get("support_status") in ("unverified", "tentative")
+    ]
+    pending.sort(key=lambda n: n.get("created_at", ""), reverse=True)
+    pending_view = [
+        {
+            "id": p["id"],
+            "type": p.get("type", ""),
+            "text": p.get("text", ""),
+            "author_role": p.get("author_role", ""),
+            "created_at": p.get("created_at", ""),
+        }
+        for p in pending[:10]
+    ]
 
     # Active hypotheses (tentative or unverified).
     active_hyps = [
@@ -485,6 +510,8 @@ def mos_dag_summary() -> dict[str, Any]:
         "root_question": dag.get("root_question", ""),
         "total_nodes": len(nodes),
         "total_edges": len(edges),
+        "pending_plans": pending_view,
+        "pending_plans_total": len(pending),
         "nodes_by_type": dict(by_type),
         "nodes_by_status": dict(by_status),
         "active_hypotheses": [{"id": h["id"], "text": h["text"]} for h in active_hyps[:10]],

@@ -39,6 +39,7 @@ def build_role_invocation(
     allowed_tools: str,
     workspace: Path,
     session_name: str,
+    resume: bool = False,
 ) -> RoleInvocation:
     """Build the ``claude`` invocation for a long-lived Role.
 
@@ -47,6 +48,11 @@ def build_role_invocation(
     ``initial_prompt`` is the first user message the launcher pipes in. The
     Role's SYSTEM.md is appended to Claude's system prompt so role rules sit
     outside the conversation body and survive auto-compact.
+
+    When ``resume=True``, ``--resume <session_name>`` is appended so Claude
+    Code reattaches to the prior conversation (Claude Code resolves the value
+    against existing session titles in the current cwd's project index). Use
+    on revive; leave False on first launch.
     """
     del cfg, project_port, project_agent_id  # not used yet; reserved for parity
     cmd: list[str] = [
@@ -68,6 +74,8 @@ def build_role_invocation(
         "--permission-mode",
         "bypassPermissions",
     ]
+    if resume and session_name:
+        cmd += ["--resume", session_name]
     return RoleInvocation(
         host_name="claude",
         command=cmd,
@@ -89,34 +97,48 @@ def build_forever_loop_prompt(*, role_name: str) -> str:
     return (
         f"You are the MinionsOS `{role_name}` role. Your event loop runs forever.\n"
         "\n"
-        "Loop:\n"
+        "Cold start (this is your first cycle on a fresh process):\n"
+        "1. Call `mos_dag_summary()` first to orient on team state.\n"
+        "2. Inspect `pending_plans` in the summary. These are events your\n"
+        "   previous self received but judged unrelated to its context;\n"
+        "   it persisted them and reset so YOU could handle them. They\n"
+        "   are already dequeued from EACN and will NOT be redelivered.\n"
+        "   Drain them now: for each pending_plan node:\n"
+        "     - read its full node via `mos_dag_query(related_to=<id>)`,\n"
+        "     - perform the work (Plan → Dispatch subagent → Verify →\n"
+        "       emit any EACN response),\n"
+        "     - call `mos_dag_annotate` (verified/refuted + evidence_tag)\n"
+        "       so it stops surfacing.\n"
+        "3. Only after pending_plans is drained, call `mos_await_events()`\n"
+        "   to enter the steady-state loop below.\n"
+        "\n"
+        "Steady-state loop:\n"
         "1. Call `mos_await_events()`. It blocks until your project-local EACN3\n"
         "   queue delivers actionable content (real events, or after ~5 minutes\n"
         "   of silence a synthetic `idle_check`).\n"
-        "2. When it returns:\n"
-        "   a. Scan first for events involving Gru (sender_id=`gru`,\n"
-        "      initiator_id=`gru`, or events targeting the `gru` queue that\n"
-        "      mention you). Handle Gru-related events FIRST — supervisor\n"
-        "      consistency is non-negotiable, never starve Gru traffic.\n"
-        "   b. Then run think-then-act on the remaining events: Plan in 3-6\n"
-        "      lines, Dispatch substantive work to a host-native subagent\n"
-        "      (Task tool), Verify the subagent's return, emit EACN responses\n"
-        "      with `eacn3_send_message` / `eacn3_create_task` /\n"
-        "      `eacn3_submit_bid` / `eacn3_submit_result`.\n"
-        "3. When the current cycle is done, call `mos_await_events()` again.\n"
-        "\n"
-        "When the current context is no longer serving the next task — at a\n"
-        "natural boundary between coherent batches — checkpoint durable state\n"
-        "to the Exploration DAG (`mos_dag_append` / `mos_dag_annotate`), then\n"
-        "call `mos_reset_context(reason=...)` to clear conversation context. After\n"
-        "reset call `mos_dag_summary()` to re-orient and `mos_await_events()`\n"
-        "to receive the next event.\n"
+        "2. Think-then-act — split the batch BEFORE executing:\n"
+        "   a. Gru first: scan for events involving Gru (sender_id=`gru`,\n"
+        "      initiator_id=`gru`, or events targeting the `gru` queue).\n"
+        "      Handle Gru-related events FIRST regardless of relevance.\n"
+        "   b. For each remaining event, classify:\n"
+        "      - RELEVANT: continues or builds on this process's current\n"
+        "        context (same hypothesis, awaited reply, subagent return,\n"
+        "        same paper section).\n"
+        "      - UNRELATED: a new direction with no overlap.\n"
+        "3. Execute the RELEVANT events now (Plan → Dispatch subagent →\n"
+        "   Verify → respond via `eacn3_send_message` /\n"
+        "   `eacn3_create_task` / `eacn3_submit_bid` / `eacn3_submit_result`).\n"
+        "4. Decide next step:\n"
+        "   - No unrelated events → call `mos_await_events()` again.\n"
+        "   - Unrelated events present → invoke `cognitive-checkpoint`:\n"
+        "     persist completed work to the DAG, AND persist each\n"
+        "     unrelated event as a node with\n"
+        "     `metadata.pending_plan = true` (do NOT execute them now).\n"
+        "     Then call `mos_reset_context(reason=...)`. The respawned\n"
+        "     process drains those pending plans before its own\n"
+        "     `mos_await_events`.\n"
         "\n"
         "Your output is tool calls. Do not emit a final assistant turn that\n"
-        "does not end with `mos_await_events()` — the process must stay\n"
-        "resident.\n"
-        "\n"
-        "Cold start: this is your first cycle on a fresh process. Call\n"
-        "`mos_dag_summary()` first to orient on team state, then call\n"
-        "`mos_await_events()` to enter the loop above.\n"
+        "does not end with `mos_await_events()` (or `mos_reset_context()`,\n"
+        "which terminates this process so the watchdog respawns it).\n"
     )

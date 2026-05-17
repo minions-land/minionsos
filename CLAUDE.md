@@ -68,9 +68,9 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/config/` — example Gru and experiment-target configs copied by `install.sh`.
 - `minions/state/` — runtime Gru state, including `projects.json` and Gru logs; gitignored runtime data.
 - `minions/roles/SYSTEM.md` — common Role contract injected before each role-specific prompt.
-- `minions/roles/{role}/SYSTEM.md` — role prompts for Gru, Noter, Coder, Experimenter, Writer, Reviewer, Ethics, and Expert.
+- `minions/roles/{role}/SYSTEM.md` — role prompts for Gru, Noter, Coder, Experimenter, Writer, Ethics, and Expert.
 - `minions/roles/{role}/skills/*.md` — optional role skills discovered at wake-up.
-- `minions/roles/reviewer/personas/*.md` and `templates/*.md` — reviewer stance files and required review output formats.
+- `minions/review/` — paper-review prompt assets (SYSTEM.md, skills, personas, templates) consumed by the `mos_review_run` MCP tool. Review is **not** a Role and is not registered on EACN.
 - `minions/domains/*.md` — Expert domain packs used as reusable specialty assets.
 - `minions-viz/` — read-only Observatory dashboard, Express/WebSocket server plus React/Vite frontend.
 - `EACN3/` — local editable EACN3 dependency.
@@ -139,24 +139,23 @@ Tool/write boundaries:
 | Writer subagent | paper-search MCP tools only | no | no | no | yes |
 | Expert main | `eacn3_*` | no | `codex` | no | yes, but preferably read-mostly |
 | Expert subagent | no | no | `codex` | no | yes, but preferably read-mostly |
-| Reviewer main | `eacn3_*` | no | `codex` | no | `artifacts/reviews/round-<n>/` only |
-| Reviewer subagent | no | no | `codex` | no | no |
 | Ethics main | `eacn3_*` | no | `codex` | no | `artifacts/ethics/` only |
 | Ethics subagent | no | no | `codex` | no | no |
 
-Noter and Reviewer must not write to `workspace/`.
+Noter must not write to `workspace/`. The review surface (`artifacts/reviews/round-<n>/` and `artifacts/reviews/summaries/`) is owned exclusively by the spawned process from `mos_review_run`; no Role writes there.
 
-### Role skills and reviewer workflow
+### Role skills and review workflow
 
 Role skills are markdown procedure guides under `minions/roles/{role}/skills/`. `minions.lifecycle.skills.list_skills` discovers them at wake-up, extracts one-line summaries, and injects a `[Skills]` block pointing to the full files. Skills should stay procedural and cross-domain; put domain-specific content under `minions/domains/`.
 
-Reviewer has extra review-round assets:
+Review is run by Gru's `mos_review_run` MCP tool, not by a long-lived Role. Its prompt assets live under `minions/review/`:
 
-- `minions/roles/reviewer/personas/*.md` define short reviewer stances.
-- `minions/roles/reviewer/skills/*.md` define review-round, reviewer-instance, aspect-note, code-validity, revision-delta, and publish procedures.
-- `minions/roles/reviewer/templates/*.md` define the required outputs: `aspect-note.md`, `reviewer-instance.md`, `fresh.md`, `revision_delta.md`, `consolidated.md`, and `summary.md`.
+- `minions/review/SYSTEM.md` — Area-Chair / Editor system prompt for the spawned `claude --print` process.
+- `minions/review/skills/*.md` — `run-review-round`, `simulate-reviewer-instance`, `aspect-review`, `code-validity-review`, `revision-delta`, `finalize-review-packet`.
+- `minions/review/personas/*.md` — short reviewer stances used by aspect subagents.
+- `minions/review/templates/*.md` — required outputs: `aspect-note.md`, `reviewer-instance.md`, `fresh.md`, `revision_delta.md`, `consolidated.md`, `summary.md`, plus the `submission-checklist.md` Writer attaches when submitting.
 
-Reviewer Pass A must produce 3-5 independent reviewer-instance reports before reading prior review history. History enters only through the previous rolling summary during Pass B / Pass C.
+A review round's Pass A must produce 3-5 independent reviewer-instance reports before reading prior review history. History enters only through the previous rolling summary during Pass B / Pass C.
 
 ### Layered memory
 
@@ -215,6 +214,6 @@ Relevant files:
 
 - New Role: add `minions/roles/{role}/SYSTEM.md`, update role whitelist/configuration, update the root whitelist table, and add unit coverage.
 - New Role skill: add `minions/roles/{role}/skills/{slug}.md`; discovery is automatic through `minions.lifecycle.skills`.
-- New Reviewer output shape: update the relevant `minions/roles/reviewer/templates/*.md`, reviewer skill, and `tests/unit/test_reviewer_system_invariants.py`.
+- New review output shape: update the relevant `minions/review/templates/*.md`, the matching review skill in `minions/review/skills/`, and the test pinning the `mos_review_run` invariants.
 - New Expert domain: add `minions/domains/{slug}.md`; keep it as a reusable prompt asset and add discovery/injection tests if runtime behavior changes.
 - New MCP tool: add it under `minions/tools/`, register it in the MCP server, update whitelist rules, and add tests.

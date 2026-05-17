@@ -28,6 +28,7 @@ if _env_root := os.environ.get("MINIONS_ROOT"):
 
 PACKAGE_DIR: Path = MINIONS_ROOT / "minions"
 ROLES_DIR: Path = PACKAGE_DIR / "roles"
+REVIEW_DIR: Path = PACKAGE_DIR / "review"
 DOMAINS_DIR: Path = PACKAGE_DIR / "domains"
 CONFIG_DIR: Path = PACKAGE_DIR / "config"
 STATE_DIR: Path = PACKAGE_DIR / "state"
@@ -221,39 +222,20 @@ def project_artifacts_dir(port: int) -> Path:
     return project_dir(port) / "artifacts"
 
 
-def project_memory_dir(port: int) -> Path:
-    """Legacy per-project scratchpad directory (pre-branches restructure).
+def project_reviews_dir(port: int) -> Path:
+    """Return the ``artifacts/reviews/`` directory for *port*."""
+    return project_artifacts_dir(port) / "reviews"
 
-    Kept so one-shot migration code can still find the old ``memory/{role}.md``
-    files. New writes must go through ``project_scratchpad`` which targets
-    ``branches/<role>/.minionsos/scratchpad.md``.
+
+def project_role_workspace_for_legacy(port: int, role_name: str) -> Path:
+    """Compatibility shim — kept until callers move off the helper.
+
+    Was used by the now-removed scratchpad migration. New code should use
+    :func:`project_role_workspace` directly. The function exists only so a
+    stray import does not crash; it returns the same path as
+    ``project_role_workspace``.
     """
-    return project_dir(port) / "memory"
-
-
-def project_role_state_dir(port: int, role_name: str) -> Path:
-    """Return the per-role MinionsOS state subdir inside the role branch dir.
-
-    Holds hidden, system-layer files that belong to the role's branch:
-    scratchpad (compact memory), local wake intent recovery, etc. The name is
-    lowercase ``.minionsos`` to stay case-safe on Linux/macOS/GitHub.
-    """
-    return project_role_workspace(port, role_name) / ".minionsos"
-
-
-def project_scratchpad(port: int, role_name: str) -> Path:
-    """Return the scratchpad markdown path for *role_name* in *port*.
-
-    Location: ``project_{port}/branches/<role-branch>/.minionsos/scratchpad.md``.
-    Tracked by git on the role's branch so ``/compact`` snapshots become part
-    of the branch history.
-    """
-    return project_role_state_dir(port, role_name) / "scratchpad.md"
-
-
-def project_legacy_scratchpad(port: int, role_name: str) -> Path:
-    """Return the pre-restructure scratchpad path (used only for migration)."""
-    return project_memory_dir(port) / f"{role_name}.md"
+    return project_role_workspace(port, role_name)
 
 
 def role_system_md(role: str) -> Path:
