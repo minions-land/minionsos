@@ -1,6 +1,6 @@
 # Rust archive
 
-This directory holds the Rust workspace that was briefly part of MinionsOS V5.
+This directory holds the Rust workspace that was briefly part of MinionsOS.
 It is kept here as a historical reference and a possible future starting point;
 nothing in the live runtime depends on it.
 
@@ -8,7 +8,7 @@ nothing in the live runtime depends on it.
 
 - Not built, not tested, not imported by any Python code.
 - Not part of CI.
-- Safe to delete entirely. Preserved so the V5 runtime-contracts experiment
+- Safe to delete entirely. Preserved so the MinionsOS runtime-contracts experiment
   (`PhasePolicy`, `explicit_task_targets`) can be resurrected without a fresh
   greenfield if we ever restart the `mosd` work.
 

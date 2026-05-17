@@ -1,0 +1,179 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]: MinionsVIZ · Observatory
+    - button "mjm ▾" [ref=e8] [cursor=pointer]:
+      - generic [ref=e10]: mjm
+      - generic [ref=e11]: ▾
+    - button "37596 EACN3-Viz-Demo ▾" [ref=e13] [cursor=pointer]:
+      - generic [ref=e14]: "37596"
+      - generic [ref=e15]: EACN3-Viz-Demo
+      - generic [ref=e16]: ▾
+    - generic [ref=e19]: link up
+    - button "Enter VR" [disabled] [ref=e20] [cursor=pointer]:
+      - img [ref=e21]
+      - text: Enter VR
+  - generic [ref=e23]:
+    - generic [ref=e484]:
+      - generic: ★ EACN3-Viz-Demo
+    - complementary [ref=e485]:
+      - heading "Agents · 14" [level=4] [ref=e486]:
+        - text: Agents
+        - generic [ref=e488]: · 14
+      - generic [ref=e489]:
+        - generic [ref=e490]:
+          - generic [ref=e491]:
+            - text: Gru
+            - generic [ref=e492]: × 1
+          - generic [ref=e493] [cursor=pointer]:
+            - generic [ref=e495]:
+              - generic [ref=e496]:
+                - generic [ref=e497]: G
+                - generic [ref=e498]: Gru
+              - generic [ref=e499]: gru
+            - 'generic "state: active" [ref=e500]': active
+        - generic [ref=e501]:
+          - generic [ref=e502]:
+            - text: Noter
+            - generic [ref=e503]: × 1
+          - generic [ref=e504] [cursor=pointer]:
+            - generic [ref=e506]:
+              - generic [ref=e507]:
+                - generic [ref=e508]: "N"
+                - generic [ref=e509]: Noter
+              - generic [ref=e510]: noter
+            - 'generic "state: sleeping" [ref=e511]': sleeping
+        - generic [ref=e512]:
+          - generic [ref=e513]:
+            - text: Coder
+            - generic [ref=e514]: × 2
+          - generic [ref=e515] [cursor=pointer]:
+            - generic [ref=e517]:
+              - generic [ref=e518]:
+                - generic [ref=e519]: C·primary
+                - generic [ref=e520]: Coder (primary)
+              - generic [ref=e521]: coder-primary
+            - 'generic "state: sleeping" [ref=e522]': sleeping
+          - generic [ref=e523] [cursor=pointer]:
+            - generic [ref=e525]:
+              - generic [ref=e526]:
+                - generic [ref=e527]: C·tests
+                - generic [ref=e528]: Coder (tests)
+              - generic [ref=e529]: coder-tests
+            - 'generic "state: sleeping" [ref=e530]': sleeping
+        - generic [ref=e531]:
+          - generic [ref=e532]:
+            - text: Experimenter
+            - generic [ref=e533]: × 2
+          - generic [ref=e534] [cursor=pointer]:
+            - generic [ref=e536]:
+              - generic [ref=e537]:
+                - generic [ref=e538]: E·gpu
+                - generic [ref=e539]: Experimenter (gpu)
+              - generic [ref=e540]: experimenter-gpu
+            - 'generic "state: active" [ref=e541]': active
+          - generic [ref=e542] [cursor=pointer]:
+            - generic [ref=e544]:
+              - generic [ref=e545]:
+                - generic [ref=e546]: E·cpu
+                - generic [ref=e547]: Experimenter (cpu)
+              - generic [ref=e548]: experimenter-cpu
+            - 'generic "state: active" [ref=e549]': active
+        - generic [ref=e550]:
+          - generic [ref=e551]:
+            - text: Writer
+            - generic [ref=e552]: × 1
+          - generic [ref=e553] [cursor=pointer]:
+            - generic [ref=e555]:
+              - generic [ref=e556]:
+                - generic [ref=e557]: W
+                - generic [ref=e558]: Writer
+              - generic [ref=e559]: writer
+            - 'generic "state: active" [ref=e560]': active
+        - generic [ref=e561]:
+          - generic [ref=e562]:
+            - text: Reviewer
+            - generic [ref=e563]: × 3
+          - generic [ref=e564] [cursor=pointer]:
+            - generic [ref=e566]:
+              - generic [ref=e567]:
+                - generic [ref=e568]: R·1
+                - generic [ref=e569]: "Reviewer #1"
+              - generic [ref=e570]: reviewer-1
+            - 'generic "state: active" [ref=e571]': active
+          - generic [ref=e572] [cursor=pointer]:
+            - generic [ref=e574]:
+              - generic [ref=e575]:
+                - generic [ref=e576]: R·2
+                - generic [ref=e577]: "Reviewer #2"
+              - generic [ref=e578]: reviewer-2
+            - 'generic "state: active" [ref=e579]': active
+          - generic [ref=e580] [cursor=pointer]:
+            - generic [ref=e582]:
+              - generic [ref=e583]:
+                - generic [ref=e584]: R·3
+                - generic [ref=e585]: "Reviewer #3"
+              - generic [ref=e586]: reviewer-3
+            - 'generic "state: active" [ref=e587]': active
+        - generic [ref=e588]:
+          - generic [ref=e589]:
+            - text: Expert
+            - generic [ref=e590]: × 3
+          - generic [ref=e591] [cursor=pointer]:
+            - generic [ref=e593]:
+              - generic [ref=e594]:
+                - generic [ref=e595]: E·ml
+                - generic [ref=e596]: Expert (ml)
+              - generic [ref=e597]: expert-ml
+            - 'generic "state: active" [ref=e598]': active
+          - generic [ref=e599] [cursor=pointer]:
+            - generic [ref=e601]:
+              - generic [ref=e602]:
+                - generic [ref=e603]: E·bio
+                - generic [ref=e604]: Expert (bio)
+              - generic [ref=e605]: expert-bio
+            - 'generic "state: active" [ref=e606]': active
+          - generic [ref=e607] [cursor=pointer]:
+            - generic [ref=e609]:
+              - generic [ref=e610]:
+                - generic [ref=e611]: E·math
+                - generic [ref=e612]: Expert (math)
+              - generic [ref=e613]: expert-math
+            - 'generic "state: active" [ref=e614]': active
+        - generic [ref=e615]:
+          - generic [ref=e616]:
+            - text: Ethics
+            - generic [ref=e617]: × 1
+          - generic [ref=e618] [cursor=pointer]:
+            - generic [ref=e620]:
+              - generic [ref=e621]:
+                - generic [ref=e622]: E
+                - generic [ref=e623]: Ethics
+              - generic [ref=e624]: ethics
+            - 'generic "state: active" [ref=e625]': active
+    - generic:
+      - generic [ref=e628]:
+        - generic [ref=e629]: "14"
+        - generic [ref=e630]: Agent instances
+      - generic [ref=e633]:
+        - generic [ref=e634]: "16"
+        - generic [ref=e635]: Total tasks
+      - generic [ref=e638]:
+        - generic [ref=e639]: "5"
+        - generic [ref=e640]: Open
+      - generic [ref=e643]:
+        - generic [ref=e644]: "4"
+        - generic [ref=e645]: In progress
+      - generic [ref=e648]:
+        - generic [ref=e649]: "7"
+        - generic [ref=e650]: Completed
+      - generic [ref=e653]:
+        - generic [ref=e654]: "0"
+        - generic [ref=e655]: Messages
+      - generic [ref=e658]:
+        - generic [ref=e659]: UP
+        - generic [ref=e660]: Backend
+    - generic [ref=e661]: WebXR not available in this browser. Desktop navigation works with mouse drag + wheel.
+  - navigation [ref=e204]:
+    - button "Universe" [active] [ref=e205] [cursor=pointer]
+    - button "Tasks · 16" [ref=e206] [cursor=pointer]
+    - button "Terminals · 14" [ref=e207] [cursor=pointer]

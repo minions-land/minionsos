@@ -1,4 +1,4 @@
-# MinionsOS V4
+# MinionsOS
 
 [English](#english) | [中文](#中文)
 
@@ -6,12 +6,12 @@
 
 ## English
 
-**MinionsOS V4** is a local multi-agent operating system for running isolated,
+**MinionsOS** is a local multi-agent operating system for running isolated,
 paper-sized research projects. A persistent **Gru** supervisor manages projects,
 each project owns its own **EACN3** coordination backend, and event-driven
-agent-host **Roles** wake up only when there is work to process. Claude Code
-remains the default host; Codex is supported as an opt-in host through the same
-MinionsOS lifecycle and EACN3 bus.
+agent-host **Roles** wake up only when there is work to process. Codex is the
+default host in MinionsOS; Claude Code is supported through the same MinionsOS lifecycle
+and EACN3 bus.
 
 The design goal is simple: one author, one checkout, one Gru, many isolated
 research projects.
@@ -115,7 +115,7 @@ checkout. That parent directory must be a git repository before you create
 projects:
 
 ```bash
-cd <parent-of-MinionsOS_V4>
+cd <parent-of-MinionsOS>
 git init
 git add -A
 git commit -m "init"
@@ -126,8 +126,8 @@ git commit -m "init"
 ### Install
 
 ```bash
-git clone https://github.com/Minions-Land/MinionsOS_V4.git
-cd MinionsOS_V4
+git clone https://github.com/Minions-Land/MinionsOS.git
+cd MinionsOS
 ./install.sh
 ./mos doctor
 ```
@@ -429,7 +429,7 @@ proprietary/internal until a license is added.
 
 ## 中文
 
-**MinionsOS V4** 是一个本地多智能体操作系统，用于运行相互隔离的论文级科研项目。常驻的
+**MinionsOS** 是一个本地多智能体操作系统，用于运行相互隔离的论文级科研项目。常驻的
 **Gru** 负责总控；每个项目拥有独立的 **EACN3** 协调后端；Role
 由事件触发，短时唤醒、处理任务、完成后退出。Codex 是默认
 agent host，Claude Code 可通过同一套 MinionsOS 生命周期和 EACN3 bus 显式启用。
@@ -529,7 +529,7 @@ MinionsOS 会从当前 checkout 的父目录创建项目 worktree。创建项目
 git 仓库：
 
 ```bash
-cd <MinionsOS_V4 的父目录>
+cd <MinionsOS 的父目录>
 git init
 git add -A
 git commit -m "init"
@@ -540,8 +540,8 @@ git commit -m "init"
 ### 安装
 
 ```bash
-git clone https://github.com/Minions-Land/MinionsOS_V4.git
-cd MinionsOS_V4
+git clone https://github.com/Minions-Land/MinionsOS.git
+cd MinionsOS
 ./install.sh
 ./mos doctor
 ```

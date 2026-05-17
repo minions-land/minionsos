@@ -1,0 +1,202 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]: MinionsVIZ · Observatory
+    - button "mjm ▾" [ref=e8] [cursor=pointer]:
+      - generic [ref=e10]: mjm
+      - generic [ref=e11]: ▾
+    - button "37596 EACN3-Viz-Demo ▾" [ref=e13] [cursor=pointer]:
+      - generic [ref=e14]: "37596"
+      - generic [ref=e15]: EACN3-Viz-Demo
+      - generic [ref=e16]: ▾
+    - generic [ref=e19]: link up
+    - button "Enter VR" [disabled] [ref=e20]:
+      - img [ref=e21]
+      - text: Enter VR
+  - generic [ref=e23]:
+    - generic [ref=e314]:
+      - generic: ★ EACN3-Viz-Demo
+    - complementary [ref=e315]:
+      - heading "Agents · 14" [level=4] [ref=e316]:
+        - text: Agents
+        - generic [ref=e318]: · 14
+      - generic [ref=e319]:
+        - generic [ref=e320]:
+          - generic [ref=e321]:
+            - text: Gru
+            - generic [ref=e322]: × 1
+          - generic [ref=e323] [cursor=pointer]:
+            - generic [ref=e325]:
+              - generic [ref=e326]:
+                - generic [ref=e327]: G
+                - generic [ref=e328]: Gru
+              - generic [ref=e329]: gru
+            - generic [ref=e330]:
+              - generic "2 pending events" [ref=e331]: ● 2
+              - generic "idle — waiting for events" [ref=e332]: idle
+        - generic [ref=e333]:
+          - generic [ref=e334]:
+            - text: Noter
+            - generic [ref=e335]: × 1
+          - generic [ref=e336] [cursor=pointer]:
+            - generic [ref=e338]:
+              - generic [ref=e339]:
+                - generic [ref=e340]: "N"
+                - generic [ref=e341]: Noter
+              - generic [ref=e342]: noter
+            - generic "idle — waiting for events" [ref=e344]: idle
+        - generic [ref=e345]:
+          - generic [ref=e346]:
+            - text: Coder
+            - generic [ref=e347]: × 2
+          - generic [ref=e348] [cursor=pointer]:
+            - generic [ref=e350]:
+              - generic [ref=e351]:
+                - generic [ref=e352]: C·primary
+                - generic [ref=e353]: Coder (primary)
+              - generic [ref=e354]: coder-primary
+            - generic [ref=e355]:
+              - generic "2 pending events" [ref=e356]: ● 2
+              - generic "handling work" [ref=e357]: active
+          - generic [ref=e358] [cursor=pointer]:
+            - generic [ref=e360]:
+              - generic [ref=e361]:
+                - generic [ref=e362]: C·tests
+                - generic [ref=e363]: Coder (tests)
+              - generic [ref=e364]: coder-tests
+            - generic [ref=e365]:
+              - generic "1 pending events" [ref=e366]: ● 1
+              - generic "handling work" [ref=e367]: active
+        - generic [ref=e368]:
+          - generic [ref=e369]:
+            - text: Experimenter
+            - generic [ref=e370]: × 2
+          - generic [ref=e371] [cursor=pointer]:
+            - generic [ref=e373]:
+              - generic [ref=e374]:
+                - generic [ref=e375]: E·cpu
+                - generic [ref=e376]: Experimenter (cpu)
+              - generic [ref=e377]: experimenter-cpu
+            - generic [ref=e378]:
+              - generic "1 pending events" [ref=e379]: ● 1
+              - generic "handling work" [ref=e380]: active
+          - generic [ref=e381] [cursor=pointer]:
+            - generic [ref=e383]:
+              - generic [ref=e384]:
+                - generic [ref=e385]: E·gpu
+                - generic [ref=e386]: Experimenter (gpu)
+              - generic [ref=e387]: experimenter-gpu
+            - generic [ref=e388]:
+              - generic "1 pending events" [ref=e389]: ● 1
+              - generic "handling work" [ref=e390]: active
+        - generic [ref=e391]:
+          - generic [ref=e392]:
+            - text: Writer
+            - generic [ref=e393]: × 1
+          - generic [ref=e394] [cursor=pointer]:
+            - generic [ref=e396]:
+              - generic [ref=e397]:
+                - generic [ref=e398]: W
+                - generic [ref=e399]: Writer
+              - generic [ref=e400]: writer
+            - generic [ref=e401]:
+              - generic "1 pending events" [ref=e402]: ● 1
+              - generic "idle — waiting for events" [ref=e403]: idle
+        - generic [ref=e404]:
+          - generic [ref=e405]:
+            - text: Reviewer
+            - generic [ref=e406]: × 3
+          - generic [ref=e407] [cursor=pointer]:
+            - generic [ref=e409]:
+              - generic [ref=e410]:
+                - generic [ref=e411]: R·1
+                - generic [ref=e412]: "Reviewer #1"
+              - generic [ref=e413]: reviewer-1
+            - generic [ref=e414]:
+              - generic "1 pending events" [ref=e415]: ● 1
+              - generic "handling work" [ref=e416]: active
+          - generic [ref=e417] [cursor=pointer]:
+            - generic [ref=e419]:
+              - generic [ref=e420]:
+                - generic [ref=e421]: R·2
+                - generic [ref=e422]: "Reviewer #2"
+              - generic [ref=e423]: reviewer-2
+            - generic "idle — waiting for events" [ref=e425]: idle
+          - generic [ref=e426] [cursor=pointer]:
+            - generic [ref=e428]:
+              - generic [ref=e429]:
+                - generic [ref=e430]: R·3
+                - generic [ref=e431]: "Reviewer #3"
+              - generic [ref=e432]: reviewer-3
+            - generic "idle — waiting for events" [ref=e434]: idle
+        - generic [ref=e435]:
+          - generic [ref=e436]:
+            - text: Expert
+            - generic [ref=e437]: × 3
+          - generic [ref=e438] [cursor=pointer]:
+            - generic [ref=e440]:
+              - generic [ref=e441]:
+                - generic [ref=e442]: E·bio
+                - generic [ref=e443]: Expert (bio)
+              - generic [ref=e444]: expert-bio
+            - generic "idle — waiting for events" [ref=e446]: idle
+          - generic [ref=e447] [cursor=pointer]:
+            - generic [ref=e449]:
+              - generic [ref=e450]:
+                - generic [ref=e451]: E·math
+                - generic [ref=e452]: Expert (math)
+              - generic [ref=e453]: expert-math
+            - generic [ref=e454]:
+              - generic "1 pending events" [ref=e455]: ● 1
+              - generic "handling work" [ref=e456]: active
+          - generic [ref=e457] [cursor=pointer]:
+            - generic [ref=e459]:
+              - generic [ref=e460]:
+                - generic [ref=e461]: E·ml
+                - generic [ref=e462]: Expert (ml)
+              - generic [ref=e463]: expert-ml
+            - generic [ref=e464]:
+              - generic "1 pending events" [ref=e465]: ● 1
+              - generic "handling work" [ref=e466]: active
+        - generic [ref=e467]:
+          - generic [ref=e468]:
+            - text: Ethics
+            - generic [ref=e469]: × 1
+          - generic [ref=e470] [cursor=pointer]:
+            - generic [ref=e472]:
+              - generic [ref=e473]:
+                - generic [ref=e474]: E
+                - generic [ref=e475]: Ethics
+              - generic [ref=e476]: ethics
+            - generic [ref=e477]:
+              - generic "1 pending events" [ref=e478]: ● 1
+              - generic "handling work" [ref=e479]: active
+    - generic:
+      - generic [ref=e482]:
+        - generic [ref=e483]: "14"
+        - generic [ref=e484]: Agent instances
+      - generic [ref=e487]:
+        - generic [ref=e488]: "18"
+        - generic [ref=e489]: Total tasks
+      - generic [ref=e492]:
+        - generic [ref=e493]: "6"
+        - generic [ref=e494]: Open
+      - generic [ref=e497]:
+        - generic [ref=e498]: "5"
+        - generic [ref=e499]: In progress
+      - generic [ref=e502]:
+        - generic [ref=e503]: "7"
+        - generic [ref=e504]: Completed
+      - generic [ref=e507]:
+        - generic [ref=e508]: "2"
+        - generic [ref=e509]: Messages
+      - generic [ref=e512]:
+        - generic [ref=e513]: UP
+        - generic [ref=e514]: Backend
+    - generic [ref=e515]: "WebXR not available. Desktop: drag to orbit, wheel to zoom."
+    - generic "Observatory is read-only; no writes are ever sent to EACN." [ref=e516]: read-only observatory
+  - navigation [ref=e72]:
+    - button "Universe" [active] [ref=e73] [cursor=pointer]
+    - button "Tasks · 18" [ref=e74] [cursor=pointer]
+    - button "Terminals · 14" [ref=e239] [cursor=pointer]
+    - button "Events · 7" [ref=e76] [cursor=pointer]
+    - button "Adjudication · 2" [ref=e77] [cursor=pointer]

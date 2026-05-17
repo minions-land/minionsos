@@ -1,0 +1,37 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]: MinionsVIZ · Observatory
+    - button "mjm ▾" [ref=e76] [cursor=pointer]:
+      - generic [ref=e10]: mjm
+      - generic [ref=e11]: ▾
+    - button "— Select project ▾" [ref=e78] [cursor=pointer]:
+      - generic [ref=e79]: —
+      - generic [ref=e80]: Select project
+      - generic [ref=e81]: ▾
+    - generic [ref=e14]: no link
+    - button "Enter VR" [disabled] [ref=e15] [cursor=pointer]:
+      - img [ref=e16]
+      - text: Enter VR
+  - generic [ref=e20]:
+    - heading "Select a project" [level=1] [ref=e82]
+    - paragraph [ref=e22]: mjm · 2 projects
+    - generic [ref=e23]:
+      - button "EACN3-Viz-Demo active port 37596 · 3 roles" [ref=e83] [cursor=pointer]:
+        - strong [ref=e84]: EACN3-Viz-Demo
+        - generic [ref=e85]:
+          - generic [ref=e86]: active
+          - generic [ref=e87]: port 37596
+          - generic [ref=e88]: ·
+          - generic [ref=e89]: 3 roles
+      - button "EACN3 Viz Demo active port 37597 · 0 roles" [ref=e90] [cursor=pointer]:
+        - strong [ref=e91]: EACN3 Viz Demo
+        - generic [ref=e92]:
+          - generic [ref=e93]: active
+          - generic [ref=e94]: port 37597
+          - generic [ref=e95]: ·
+          - generic [ref=e96]: 0 roles
+    - button "← Change Gru" [ref=e98] [cursor=pointer]
+  - navigation [ref=e72]:
+    - button "Universe" [disabled] [ref=e73] [cursor=pointer]
+    - button "Tasks · 0" [disabled] [ref=e74] [cursor=pointer]
+    - button "Terminals · 0" [disabled] [ref=e75] [cursor=pointer]

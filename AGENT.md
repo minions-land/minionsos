@@ -1,4 +1,4 @@
-# MinionsOS V4 Agent Guide
+# MinionsOS Agent Guide
 
 This repository uses `AGENTS.md` as the canonical agent instruction file.
 Read `AGENTS.md` for coding, testing, security, and repository workflow rules.

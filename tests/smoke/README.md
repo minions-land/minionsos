@@ -1,7 +1,7 @@
-# MinionsOS V4 — Manual Smoke Test Scenario
+# MinionsOS — Manual Smoke Test Scenario
 
 This document describes the 15-step manual smoke scenario for verifying a fresh
-MinionsOS V4 installation end-to-end. Run this after `./install.sh` completes
+MinionsOS installation end-to-end. Run this after `./install.sh` completes
 successfully and before declaring a release candidate ready.
 
 Set `MINIONS_FAKE_CLAUDE=1` in your environment to stub the `claude` CLI with a

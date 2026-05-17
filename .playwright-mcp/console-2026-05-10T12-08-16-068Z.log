@@ -1,0 +1,13 @@
+[    6042ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube.com') does not match the recipient window's origin ('https://www.google.com'). @ https://www.youtube.com/s/player/8fb635c2/www-widgetapi.vflset/www-widgetapi.js:209
+[    6520ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://static.doubleclick.net/instream/ad_status.js:0
+[   10221ms] Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at rY (https://openai.com/_next/static/chunks/0k4ch34rdj0mx.js?dpl=dpl_8ZFRzwkpAhCekMnJYVGxuTdjUVuH:1:40205)
+    at iu (https://openai.com/_next/static/chunks/0k4ch34rdj0mx.js?dpl=dpl_8ZFRzwkpAhCekMnJYVGxuTdjUVuH:1:91246)
+    at sd (https://openai.com/_next/static/chunks/0k4ch34rdj0mx.js?dpl=dpl_8ZFRzwkpAhCekMnJYVGxuTdjUVuH:1:131936)
+    at https://openai.com/_next/static/chunks/0k4ch34rdj0mx.js?dpl=dpl_8ZFRzwkpAhCekMnJYVGxuTdjUVuH:1:126822
+    at se (https://openai.com/_next/static/chunks/0k4ch34rdj0mx.js?dpl=dpl_8ZFRzwkpAhCekMnJYVGxuTdjUVuH:1:126923)
+    at sH (https://openai.com/_next/static/chunks/0k4ch34rdj0mx.js?dpl=dpl_8ZFRzwkpAhCekMnJYVGxuTdjUVuH:1:153487)
+    at MessagePort._ (https://openai.com/_next/static/chunks/0k4ch34rdj0mx.js?dpl=dpl_8ZFRzwkpAhCekMnJYVGxuTdjUVuH:1:1646)
+[   15626ms] [WARNING] The resource https://openai.com/_next/static/chunks/174f9d8.-p2fq.js?dpl=dpl_8ZFRzwkpAhCekMnJYVGxuTdjUVuH was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://openai.com/zh-Hans-CN/index/unrolling-the-codex-agent-loop/:0
+[   19682ms] [WARNING] The resource https://openai.com/_next/static/chunks/174f9d8.-p2fq.js?dpl=dpl_8ZFRzwkpAhCekMnJYVGxuTdjUVuH was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://openai.com/zh-Hans-CN/index/unrolling-the-codex-agent-loop/:0
+[   23171ms] [WARNING] The resource https://openai.com/_next/static/chunks/174f9d8.-p2fq.js?dpl=dpl_8ZFRzwkpAhCekMnJYVGxuTdjUVuH was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://openai.com/zh-Hans-CN/index/unrolling-the-codex-agent-loop/:0

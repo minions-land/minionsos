@@ -1,4 +1,19 @@
-# MinionsOS V5 Repository Guidelines
+# MinionsOS Repository Guidelines
+
+> **Running as a MinionsOS agent (not a developer)?**
+> This file is the developer-facing contributing guide. Codex auto-loads it
+> because it sits at the repo root, but it is **not** a role contract.
+>
+> - Codex Gru: your role contract is written to
+>   `minions/state/codex-gru.AGENTS.md` on every launch (common + Gru
+>   `SYSTEM.md` combined) by `minions/bin/gru`. Read that file first.
+> - Codex Role wake: your role contract is in `AGENTS.md` inside your
+>   branch directory (e.g. `project_{port}/branches/<role>/AGENTS.md`),
+>   written by `minions/lifecycle/role.py` before each wake.
+> - Claude Gru / Role: the contract arrives via
+>   `--append-system-prompt @minions/roles/.../SYSTEM.md` at launch.
+>
+> The rest of this file is for humans working on MinionsOS itself.
 
 ## Project Structure & Module Organization
 

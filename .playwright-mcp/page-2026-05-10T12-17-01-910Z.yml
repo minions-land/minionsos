@@ -1,0 +1,52 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]: MinionsVIZ · Observatory
+    - button "mjm ▾" [ref=e8] [cursor=pointer]:
+      - generic [ref=e10]: mjm
+      - generic [ref=e11]: ▾
+    - button "37596 EACN3-Viz-Demo ▾" [ref=e13] [cursor=pointer]:
+      - generic [ref=e14]: "37596"
+      - generic [ref=e15]: EACN3-Viz-Demo
+      - generic [ref=e16]: ▾
+    - generic [ref=e19]: link up
+    - button "Enter VR" [disabled] [ref=e20]:
+      - img [ref=e21]
+      - text: Enter VR
+  - generic [ref=e23]:
+    - generic [ref=e27]:
+      - generic: ★ EACN3-Viz-Demo
+    - complementary [ref=e28]:
+      - heading "Agents · 0" [level=4] [ref=e29]:
+        - text: Agents
+        - generic [ref=e31]: · 0
+      - generic [ref=e33]: No agents registered yet
+    - generic:
+      - generic [ref=e36]:
+        - generic [ref=e37]: "0"
+        - generic [ref=e38]: Agent instances
+      - generic [ref=e41]:
+        - generic [ref=e42]: "18"
+        - generic [ref=e43]: Total tasks
+      - generic [ref=e46]:
+        - generic [ref=e47]: "6"
+        - generic [ref=e48]: Open
+      - generic [ref=e51]:
+        - generic [ref=e52]: "5"
+        - generic [ref=e53]: In progress
+      - generic [ref=e56]:
+        - generic [ref=e57]: "7"
+        - generic [ref=e58]: Completed
+      - generic [ref=e61]:
+        - generic [ref=e62]: "2"
+        - generic [ref=e63]: Messages
+      - generic [ref=e66]:
+        - generic [ref=e67]: UP
+        - generic [ref=e68]: Backend
+    - generic [ref=e69]: "WebXR not available. Desktop: drag to orbit, wheel to zoom."
+    - generic "Observatory is read-only; no writes are ever sent to EACN." [ref=e70]: read-only observatory
+  - navigation [ref=e72]:
+    - button "Universe" [ref=e73] [cursor=pointer]
+    - button "Tasks · 18" [ref=e74] [cursor=pointer]
+    - button "Terminals · 0" [ref=e75] [cursor=pointer]
+    - button "Events · 7" [ref=e76] [cursor=pointer]
+    - button "Adjudication · 2" [ref=e77] [cursor=pointer]

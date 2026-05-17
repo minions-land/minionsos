@@ -1,0 +1,47 @@
+[   23137ms] [LOG] THREE.WebGLRenderer: Context Lost. @ http://127.0.0.1:7891/assets/index-CnkhSkNE.js:3877
+[   63315ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/expert?gru=15f2fea50d70&tail=500:0
+[   63315ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/expert?gru=15f2fea50d70&tail=500:0
+[   63316ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/coder?gru=15f2fea50d70&tail=500:0
+[   63317ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/noter?gru=15f2fea50d70&tail=500:0
+[   63317ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/ethics?gru=15f2fea50d70&tail=500:0
+[   63318ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/reviewer?gru=15f2fea50d70&tail=500:0
+[   63318ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/experimenter?gru=15f2fea50d70&tail=500:0
+[   63319ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/writer?gru=15f2fea50d70&tail=500:0
+[   63319ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/coder?gru=15f2fea50d70&tail=500:0
+[   63319ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/expert?gru=15f2fea50d70&tail=500:0
+[   63320ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/reviewer?gru=15f2fea50d70&tail=500:0
+[   63321ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/experimenter?gru=15f2fea50d70&tail=500:0
+[   63321ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/gru?gru=15f2fea50d70&tail=500:0
+[   63321ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/reviewer?gru=15f2fea50d70&tail=500:0
+[  251681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/expert?gru=15f2fea50d70&tail=500:0
+[  251681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/expert?gru=15f2fea50d70&tail=500:0
+[  251681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/coder?gru=15f2fea50d70&tail=500:0
+[  251681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/reviewer?gru=15f2fea50d70&tail=500:0
+[  251681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/ethics?gru=15f2fea50d70&tail=500:0
+[  251681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/experimenter?gru=15f2fea50d70&tail=500:0
+[  251681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/expert?gru=15f2fea50d70&tail=500:0
+[  251681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/writer?gru=15f2fea50d70&tail=500:0
+[  251681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/coder?gru=15f2fea50d70&tail=500:0
+[  251681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/noter?gru=15f2fea50d70&tail=500:0
+[  251681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/gru?gru=15f2fea50d70&tail=500:0
+[  251681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/reviewer?gru=15f2fea50d70&tail=500:0
+[  251681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/experimenter?gru=15f2fea50d70&tail=500:0
+[  251681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/reviewer?gru=15f2fea50d70&tail=500:0
+[  252183ms] [LOG] THREE.WebGLRenderer: Context Lost. @ http://127.0.0.1:7891/assets/index-CnkhSkNE.js:3877
+[ 1308205ms] [LOG] THREE.WebGLRenderer: Context Lost. @ http://127.0.0.1:7891/assets/index-CnkhSkNE.js:3877
+[ 1348550ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/expert?gru=15f2fea50d70&tail=500:0
+[ 1348553ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/coder?gru=15f2fea50d70&tail=500:0
+[ 1348554ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/expert?gru=15f2fea50d70&tail=500:0
+[ 1348556ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/ethics?gru=15f2fea50d70&tail=500:0
+[ 1348559ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/reviewer?gru=15f2fea50d70&tail=500:0
+[ 1348560ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/writer?gru=15f2fea50d70&tail=500:0
+[ 1348560ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/experimenter?gru=15f2fea50d70&tail=500:0
+[ 1348561ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/coder?gru=15f2fea50d70&tail=500:0
+[ 1348561ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/noter?gru=15f2fea50d70&tail=500:0
+[ 1348561ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/gru?gru=15f2fea50d70&tail=500:0
+[ 1348562ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/reviewer?gru=15f2fea50d70&tail=500:0
+[ 1348563ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/expert?gru=15f2fea50d70&tail=500:0
+[ 1348563ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/experimenter?gru=15f2fea50d70&tail=500:0
+[ 1348564ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:7891/api/mos/project/37596/role-log/reviewer?gru=15f2fea50d70&tail=500:0
+[ 1385818ms] [LOG] THREE.WebGLRenderer: Context Lost. @ http://127.0.0.1:7891/assets/index-CnkhSkNE.js:3877
+[ 1980083ms] [LOG] THREE.WebGLRenderer: Context Lost. @ http://127.0.0.1:7891/assets/index-CnkhSkNE.js:3877

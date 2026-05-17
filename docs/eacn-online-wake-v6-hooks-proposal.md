@@ -1,4 +1,4 @@
-# EACN Online Wake Hooks Proposal for MinionsOS V5
+# EACN Online Wake Hooks Proposal for MinionsOS
 
 版本：v0.2
 范围：只改 MinionsOS 的 wake/runtime，不改 EACN3 协议

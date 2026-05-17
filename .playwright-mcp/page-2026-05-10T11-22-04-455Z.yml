@@ -1,0 +1,151 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]: MinionsVIZ · Observatory
+    - button "mjm ▾" [ref=e76] [cursor=pointer]:
+      - generic [ref=e10]: mjm
+      - generic [ref=e11]: ▾
+    - button "37596 EACN3-Viz-Demo ▾" [ref=e99] [cursor=pointer]:
+      - generic [ref=e79]: "37596"
+      - generic [ref=e80]: EACN3-Viz-Demo
+      - generic [ref=e81]: ▾
+    - generic [ref=e14]: link up
+    - button "Enter VR" [disabled] [ref=e15] [cursor=pointer]:
+      - img [ref=e16]
+      - text: Enter VR
+  - generic [ref=e285]:
+    - generic [ref=e286]:
+      - generic [ref=e287]:
+        - generic [ref=e288]: Unclaimed
+        - generic [ref=e290]: "3"
+      - generic [ref=e291]:
+        - generic [ref=e292] [cursor=pointer]:
+          - generic [ref=e293]:
+            - generic [ref=e294]: "#task-1002"
+            - generic [ref=e295]: W
+          - generic [ref=e296]: "Task #3: process stage for writer"
+          - generic [ref=e298]: research
+        - generic [ref=e299] [cursor=pointer]:
+          - generic [ref=e300]:
+            - generic [ref=e301]: "#task-1001"
+            - generic [ref=e302]: G
+          - generic [ref=e303]: "Task #2: process stage for gru"
+          - generic [ref=e305]: research
+        - generic [ref=e306] [cursor=pointer]:
+          - generic [ref=e307]:
+            - generic [ref=e308]: "#task-1000"
+            - generic [ref=e309]: G
+          - generic [ref=e310]: "Task #1: process stage for gru"
+          - generic [ref=e311]:
+            - generic [ref=e312]: research
+            - generic [ref=e313]: adj
+    - generic [ref=e314]:
+      - generic [ref=e315]:
+        - generic [ref=e316]: Bidding
+        - generic [ref=e318]: "2"
+      - generic [ref=e319]:
+        - generic [ref=e320] [cursor=pointer]:
+          - generic [ref=e321]:
+            - generic [ref=e322]: "#task-1004"
+            - generic [ref=e323]: R·1
+          - generic [ref=e324]: "Task #5: process stage for reviewer-1"
+          - generic [ref=e325]:
+            - generic [ref=e326]: research
+            - generic [ref=e327]: 1 bids
+        - generic [ref=e328] [cursor=pointer]:
+          - generic [ref=e329]:
+            - generic [ref=e330]: "#task-1003"
+            - generic [ref=e331]: G
+          - generic [ref=e332]: "Task #4: process stage for gru"
+          - generic [ref=e333]:
+            - generic [ref=e334]: research
+            - generic [ref=e335]: 1 bids
+    - generic [ref=e336]:
+      - generic [ref=e337]:
+        - generic [ref=e338]: In progress
+        - generic [ref=e340]: "4"
+      - generic [ref=e341]:
+        - generic [ref=e342] [cursor=pointer]:
+          - generic [ref=e343]:
+            - generic [ref=e344]: "#task-1008"
+            - generic [ref=e345]: R·2
+          - generic [ref=e346]: "Task #9: process stage for reviewer-2"
+          - generic [ref=e348]: research
+        - generic [ref=e349] [cursor=pointer]:
+          - generic [ref=e350]:
+            - generic [ref=e351]: "#task-1007"
+            - generic [ref=e352]: E·math
+          - generic [ref=e353]: "Task #8: process stage for expert-math"
+          - generic [ref=e354]:
+            - generic [ref=e355]: research
+            - generic [ref=e356]: adj
+        - generic [ref=e357] [cursor=pointer]:
+          - generic [ref=e358]:
+            - generic [ref=e359]: "#task-1006"
+            - generic [ref=e360]: E·gpu
+          - generic [ref=e361]: "Task #7: process stage for experimenter-gpu"
+          - generic [ref=e363]: research
+        - generic [ref=e364] [cursor=pointer]:
+          - generic [ref=e365]:
+            - generic [ref=e366]: "#task-1005"
+            - generic [ref=e367]: C·primary
+          - generic [ref=e368]: "Task #6: process stage for coder-primary"
+          - generic [ref=e369]:
+            - generic [ref=e370]: research
+            - generic [ref=e371]: ml
+    - generic [ref=e372]:
+      - generic [ref=e373]:
+        - generic [ref=e374]: Completed
+        - generic [ref=e376]: "7"
+      - generic [ref=e377]:
+        - generic [ref=e378] [cursor=pointer]:
+          - generic [ref=e379]:
+            - generic [ref=e380]: "#task-1015"
+            - generic [ref=e381]: E·ml
+          - generic [ref=e382]: "Task #16: process stage for expert-ml"
+          - generic [ref=e383]:
+            - generic [ref=e384]: research
+            - generic [ref=e385]: ml
+        - generic [ref=e386] [cursor=pointer]:
+          - generic [ref=e387]:
+            - generic [ref=e388]: "#task-1014"
+            - generic [ref=e389]: E·bio
+          - generic [ref=e390]: "Task #15: process stage for expert-bio"
+          - generic [ref=e391]:
+            - generic [ref=e392]: research
+            - generic [ref=e393]: adj
+        - generic [ref=e394] [cursor=pointer]:
+          - generic [ref=e395]:
+            - generic [ref=e396]: "#task-1013"
+            - generic [ref=e397]: R·3
+          - generic [ref=e398]: "Task #14: process stage for reviewer-3"
+          - generic [ref=e400]: research
+        - generic [ref=e401] [cursor=pointer]:
+          - generic [ref=e402]:
+            - generic [ref=e403]: "#task-1012"
+            - generic [ref=e404]: W
+          - generic [ref=e405]: "Task #13: process stage for writer"
+          - generic [ref=e407]: research
+        - generic [ref=e408] [cursor=pointer]:
+          - generic [ref=e409]:
+            - generic [ref=e410]: "#task-1011"
+            - generic [ref=e411]: "N"
+          - generic [ref=e412]: "Task #12: process stage for noter"
+          - generic [ref=e414]: research
+        - generic [ref=e415] [cursor=pointer]:
+          - generic [ref=e416]:
+            - generic [ref=e417]: "#task-1010"
+            - generic [ref=e418]: C·tests
+          - generic [ref=e419]: "Task #11: process stage for coder-tests"
+          - generic [ref=e420]:
+            - generic [ref=e421]: research
+            - generic [ref=e422]: ml
+        - generic [ref=e423] [cursor=pointer]:
+          - generic [ref=e424]:
+            - generic [ref=e425]: "#task-1009"
+            - generic [ref=e426]: G
+          - generic [ref=e427]: "Task #10: process stage for gru"
+          - generic [ref=e429]: research
+  - navigation [ref=e72]:
+    - button "Universe" [ref=e73] [cursor=pointer]
+    - button "Tasks · 16" [active] [ref=e283] [cursor=pointer]
+    - button "Terminals · 14" [ref=e284] [cursor=pointer]

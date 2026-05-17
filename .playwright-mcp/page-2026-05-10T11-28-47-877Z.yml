@@ -1,0 +1,145 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]: MinionsVIZ · Observatory
+    - button "mjm ▾" [ref=e8] [cursor=pointer]:
+      - generic [ref=e10]: mjm
+      - generic [ref=e11]: ▾
+    - button "37596 EACN3-Viz-Demo ▾" [ref=e13] [cursor=pointer]:
+      - generic [ref=e14]: "37596"
+      - generic [ref=e15]: EACN3-Viz-Demo
+      - generic [ref=e16]: ▾
+    - generic [ref=e19]: link up
+    - button "Enter VR" [disabled] [ref=e20] [cursor=pointer]:
+      - img [ref=e21]
+      - text: Enter VR
+  - generic [ref=e662]:
+    - generic [ref=e663]:
+      - banner [ref=e664]:
+        - generic [ref=e666]:
+          - text: Expert
+          - generic [ref=e667]: · Expert (ml)
+        - generic [ref=e668]: E·ml
+        - generic [ref=e669]: 0 ln
+        - button "pause" [ref=e670] [cursor=pointer]
+      - generic [ref=e671]: "\x1b[90m(no log yet — will stream when role runs)\x1b[0m"
+    - generic [ref=e672]:
+      - banner [ref=e673]:
+        - generic [ref=e675]:
+          - text: Expert
+          - generic [ref=e676]: · Expert (bio)
+        - generic [ref=e677]: E·bio
+        - generic [ref=e678]: 0 ln
+        - button "pause" [ref=e679] [cursor=pointer]
+      - generic [ref=e680]: "\x1b[90m(no log yet — will stream when role runs)\x1b[0m"
+    - generic [ref=e681]:
+      - banner [ref=e682]:
+        - generic [ref=e684]:
+          - text: Coder
+          - generic [ref=e685]: · Coder (primary)
+        - generic [ref=e686]: C·primary
+        - generic [ref=e687]: 0 ln
+        - button "pause" [ref=e688] [cursor=pointer]
+      - generic [ref=e689]: "\x1b[90m(no log yet — will stream when role runs)\x1b[0m"
+    - generic [ref=e690]:
+      - banner [ref=e691]:
+        - generic [ref=e693]:
+          - text: Coder
+          - generic [ref=e694]: · Coder (tests)
+        - generic [ref=e695]: C·tests
+        - generic [ref=e696]: 0 ln
+        - button "pause" [ref=e697] [cursor=pointer]
+      - generic [ref=e698]: "\x1b[90m(no log yet — will stream when role runs)\x1b[0m"
+    - generic [ref=e699]:
+      - banner [ref=e700]:
+        - generic [ref=e702]:
+          - text: Ethics
+          - generic [ref=e703]: · Ethics
+        - generic [ref=e704]: E
+        - generic [ref=e705]: 0 ln
+        - button "pause" [ref=e706] [cursor=pointer]
+      - generic [ref=e707]: "\x1b[90m(no log yet — will stream when role runs)\x1b[0m"
+    - generic [ref=e708]:
+      - banner [ref=e709]:
+        - generic [ref=e711]:
+          - text: Experimenter
+          - generic [ref=e712]: · Experimenter (gpu)
+        - generic [ref=e713]: E·gpu
+        - generic [ref=e714]: 0 ln
+        - button "pause" [ref=e715] [cursor=pointer]
+      - generic [ref=e716]: "\x1b[90m(no log yet — will stream when role runs)\x1b[0m"
+    - generic [ref=e717]:
+      - banner [ref=e718]:
+        - generic [ref=e720]:
+          - text: Experimenter
+          - generic [ref=e721]: · Experimenter (cpu)
+        - generic [ref=e722]: E·cpu
+        - generic [ref=e723]: 0 ln
+        - button "pause" [ref=e724] [cursor=pointer]
+      - generic [ref=e725]: "\x1b[90m(no log yet — will stream when role runs)\x1b[0m"
+    - generic [ref=e726]:
+      - banner [ref=e727]:
+        - generic [ref=e729]:
+          - text: Expert
+          - generic [ref=e730]: · Expert (math)
+        - generic [ref=e731]: E·math
+        - generic [ref=e732]: 0 ln
+        - button "pause" [ref=e733] [cursor=pointer]
+      - generic [ref=e734]: "\x1b[90m(no log yet — will stream when role runs)\x1b[0m"
+    - generic [ref=e735]:
+      - banner [ref=e736]:
+        - generic [ref=e738]:
+          - text: Noter
+          - generic [ref=e739]: · Noter
+        - generic [ref=e740]: "N"
+        - generic [ref=e741]: 0 ln
+        - button "pause" [ref=e742] [cursor=pointer]
+      - generic [ref=e743]: "\x1b[90m(no log yet — will stream when role runs)\x1b[0m"
+    - generic [ref=e744]:
+      - banner [ref=e745]:
+        - generic [ref=e747]:
+          - text: Gru
+          - generic [ref=e748]: · Gru
+        - generic [ref=e749]: G
+        - generic [ref=e750]: 0 ln
+        - button "pause" [ref=e751] [cursor=pointer]
+      - generic [ref=e752]: "\x1b[90m(no log yet — will stream when role runs)\x1b[0m"
+    - generic [ref=e753]:
+      - banner [ref=e754]:
+        - generic [ref=e756]:
+          - text: Reviewer
+          - generic [ref=e757]: "· Reviewer #1"
+        - generic [ref=e758]: R·1
+        - generic [ref=e759]: 0 ln
+        - button "pause" [ref=e760] [cursor=pointer]
+      - generic [ref=e761]: "\x1b[90m(no log yet — will stream when role runs)\x1b[0m"
+    - generic [ref=e762]:
+      - banner [ref=e763]:
+        - generic [ref=e765]:
+          - text: Reviewer
+          - generic [ref=e766]: "· Reviewer #2"
+        - generic [ref=e767]: R·2
+        - generic [ref=e768]: 0 ln
+        - button "pause" [ref=e769] [cursor=pointer]
+      - generic [ref=e770]: "\x1b[90m(no log yet — will stream when role runs)\x1b[0m"
+    - generic [ref=e771]:
+      - banner [ref=e772]:
+        - generic [ref=e774]:
+          - text: Reviewer
+          - generic [ref=e775]: "· Reviewer #3"
+        - generic [ref=e776]: R·3
+        - generic [ref=e777]: 0 ln
+        - button "pause" [ref=e778] [cursor=pointer]
+      - generic [ref=e779]: "\x1b[90m(no log yet — will stream when role runs)\x1b[0m"
+    - generic [ref=e780]:
+      - banner [ref=e781]:
+        - generic [ref=e783]:
+          - text: Writer
+          - generic [ref=e784]: · Writer
+        - generic [ref=e785]: W
+        - generic [ref=e786]: 0 ln
+        - button "pause" [ref=e787] [cursor=pointer]
+      - generic [ref=e788]: "\x1b[90m(no log yet — will stream when role runs)\x1b[0m"
+  - navigation [ref=e204]:
+    - button "Universe" [ref=e205] [cursor=pointer]
+    - button "Tasks · 16" [ref=e206] [cursor=pointer]
+    - button "Terminals · 14" [active] [ref=e207] [cursor=pointer]

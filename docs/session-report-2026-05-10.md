@@ -1,4 +1,4 @@
-# MinionsOS V5 — Session Acceptance Report
+# MinionsOS — Session Acceptance Report
 
 Date: 2026-05-10
 Scope: one autonomous sitting covering batches **C2-step1**, the earlier

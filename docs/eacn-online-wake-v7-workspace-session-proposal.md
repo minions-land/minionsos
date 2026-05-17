@@ -1,4 +1,4 @@
-# EACN Workspace / Session / Push Proposal for MinionsOS V5
+# EACN Workspace / Session / Push Proposal for MinionsOS
 
 版本：v0.1
 范围：在 `v6-hooks` proposal 基础上，新增 workspace 规划、常驻 PID、命名 session、以及本地 commit / 可选 GitHub push 机制。
@@ -6,12 +6,12 @@
 
 ## 1. 先给结论
 
-落地说明（当前 V5 实现）：EACN3 是 task/message/adjudication/router 的唯一事实源。
+落地说明（当前 MinionsOS 实现）：EACN3 是 task/message/adjudication/router 的唯一事实源。
 MinionsOS 不复刻 domain router，不合成 open-task 事件，也不替 role drain EACN3 正文。
 MinionsOS 只使用 EACN3 的非破坏性 pending-count 元数据和本地 lifecycle hook 生成 wake intent；
 被唤醒的 role 必须自己使用原生 `eacn3_*` 工具读取、竞标、回复、提交或裁决。
 
-我建议把 V5 的运行模型再往前推一层：
+我建议把 MinionsOS 的运行模型再往前推一层：
 
 - `workspace` 不再只是单一编辑目录，而是一个严格的工作区容器。
 - 每个 active role 都有自己的 canonical 工作区。
@@ -257,7 +257,7 @@ role 在自己工作区里持续工作，状态循环大致是：
 
 ### 7.3 Template 来源
 
-`/Users/mjm/MinionsOS_V5/minions/roles/` 应该被视为模板源，不是 runtime 真相。
+`/Users/mjm/MinionsOS/minions/roles/` 应该被视为模板源，不是 runtime 真相。
 
 也就是说：
 
@@ -351,4 +351,4 @@ EACN3 仍然是任务、消息、裁决、discover 的事实源。
 2. `github_push_target` 是否就是一个可选远端 repo + branch namespace。
 3. `main` 的 merge 权限是否只给 Gru，还是允许特定 role 自动合并。
 
-如果这三点定了，后面就可以把它直接拆成 V5 的实现任务。
+如果这三点定了，后面就可以把它直接拆成 MinionsOS 的实现任务。

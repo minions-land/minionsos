@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EACN3 × MinionsOS — 集成调研报告</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --bg-alt: #171d24;
+    --bg-code: #1a2028;
+    --border: #262f3a;
+    --fg: #d7dde4;
+    --fg-dim: #9aa3ad;
+    --fg-mute: #6b7580;
+    --accent: #7dd3fc;
+    --accent-warm: #fbbf24;
+    --accent-green: #86efac;
+    --accent-red: #fca5a5;
+    --link: #93c5fd;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+  .layout {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 48px 32px 96px;
+  }
+  header.page {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+    margin-bottom: 32px;
+  }
+  header.page .eyebrow {
+    color: var(--accent);
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  header.page h1 {
+    margin: 8px 0 12px;
+    font-size: 32px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.25;
+  }
+  header.page .meta {
+    color: var(--fg-mute);
+    font-size: 13px;
+  }
+  header.page .meta code {
+    background: var(--bg-code);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  nav.toc {
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 40px;
+  }
+  nav.toc h2 {
+    margin: 0 0 12px;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    font-weight: 600;
+  }
+  nav.toc ol {
+    margin: 0;
+    padding-left: 24px;
+    columns: 2;
+    column-gap: 32px;
+  }
+  nav.toc li {
+    padding: 3px 0;
+    break-inside: avoid;
+  }
+  nav.toc a {
+    color: var(--link);
+    text-decoration: none;
+  }
+  nav.toc a:hover { text-decoration: underline; }
+  section {
+    margin-bottom: 56px;
+  }
+  h2 {
+    font-size: 24px;
+    margin: 48px 0 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    color: #fff;
+    font-weight: 700;
+  }
+  h2:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+  h3 {
+    font-size: 18px;
+    margin: 28px 0 10px;
+    color: #fff;
+    font-weight: 600;
+  }
+  h4 {
+    font-size: 15px;
+    margin: 20px 0 8px;
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  p { margin: 0 0 12px; }
+  ul, ol { margin: 0 0 12px; padding-left: 24px; }
+  li { margin: 4px 0; }
+  strong { color: #fff; }
+  em { color: var(--fg-dim); font-style: normal; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--bg-code);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--accent);
+    border: 1px solid var(--border);
+  }
+  pre {
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.55;
+    margin: 12px 0 20px;
+  }
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--fg);
+    font-size: inherit;
+  }
+  a { color: var(--link); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 24px;
+    font-size: 14px;
+  }
+  th, td {
+    padding: 10px 14px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--bg-alt);
+    font-weight: 600;
+    color: #fff;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  tbody tr:hover { background: rgba(125, 211, 252, 0.04); }
+  .tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    border: 1px solid;
+  }
+  .tag.match {
+    color: var(--accent-green);
+    border-color: rgba(134, 239, 172, 0.4);
+    background: rgba(134, 239, 172, 0.06);
+  }
+  .tag.gap {
+    color: var(--accent-warm);
+    border-color: rgba(251, 191, 36, 0.4);
+    background: rgba(251, 191, 36, 0.06);
+  }
+  .tag.miss {
+    color: var(--accent-red);
+    border-color: rgba(252, 165, 165, 0.4);
+    background: rgba(252, 165, 165, 0.06);
+  }
+  .callout {
+    background: var(--bg-alt);
+    border-left: 3px solid var(--accent);
+    padding: 16px 20px;
+    margin: 16px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout.warn { border-left-color: var(--accent-warm); }
+  .callout.crit { border-left-color: var(--accent-red); }
+  .callout h4 {
+    margin-top: 0;
+    color: inherit;
+  }
+  .tldr {
+    background: linear-gradient(135deg, rgba(125, 211, 252, 0.08), rgba(251, 191, 36, 0.04));
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 24px 0 40px;
+  }
+  .tldr h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+  }
+  .kv {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 8px 16px;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  .kv dt {
+    color: var(--fg-dim);
+    font-weight: 600;
+  }
+  .kv dd {
+    margin: 0;
+    color: var(--fg);
+  }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--fg-mute);
+    font-size: 13px;
+  }
+  .ascii {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    white-space: pre;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-x: auto;
+  }
+  .pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0 16px;
+  }
+  .pill {
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    color: var(--fg-dim);
+  }
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 820px) {
+    .two-col { grid-template-columns: 1fr; }
+    nav.toc ol { columns: 1; }
+    .kv { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<header class="page">
+  <div class="eyebrow">MinionsOS V5 · Integration Report</div>
+  <h1>EACN3 × MinionsOS：协议调研与适配评估</h1>
+  <div class="meta">
+    调研路径 <code>/Users/mjm/MinionsOS_V5/EACN3</code> · 适配层 <code>minions/lifecycle/eacn_client.py</code>, <code>minions/lifecycle/mos_pool.py</code>, <code>minions/tools/eacn3_mcp_proxy.py</code> · 报告日期 2026-05-10
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#tldr">TL;DR</a></li>
+    <li><a href="#what">EACN3 是什么</a></li>
+    <li><a href="#arch">架构与目录</a></li>
+    <li><a href="#api">HTTP 接口全景</a></li>
+    <li><a href="#mcp">MCP 工具全景</a></li>
+    <li><a href="#invariants">关键协议不变量</a></li>
+    <li><a href="#usage">EACN3 推荐用法</a></li>
+    <li><a href="#mos-match">MinionsOS 哪里对齐</a></li>
+    <li><a href="#mos-diverge">MinionsOS 哪里发散</a></li>
+    <li><a href="#tighten">优化建议（按性价比排序）</a></li>
+    <li><a href="#references">参考文件与行号</a></li>
+  </ol>
+</nav>
+
+<section id="tldr">
+  <div class="tldr">
+    <h3>一句话总结</h3>
+    <p>
+      EACN3 是一个 <strong>任务市场 + 信誉 + 经济</strong> 的去中心化多智能体协议：Python 后端 + TypeScript MCP 插件（47 个 <code>eacn3_*</code> 工具）。
+      它推荐"一个 server、一个 agent、用 <code>eacn3_next</code> 驱动主循环"的 agent-centric 用法。
+    </p>
+    <p>
+      MinionsOS 把它适配成 <strong>project-centric</strong>：每个项目一个 server（按端口隔离），每个 Role 一个 agent，主循环走我们自己的 MOS Agent Pool（<code>mos_await_events</code> + <code>pending.jsonl</code> ACK 补丁），把 EACN3 的 <em>drain-on-read</em> 与 <em>60 秒长轮询硬上限</em> 对 Agent 透明化。适配整体正确且最小化，但未充分利用几个 EACN3 原语：
+      <code>team_setup</code>（天然契合我们的 branch-per-role 布局）、<code>reputation</code>/<code>economy</code> 的可观测性、<code>invite_agent</code> 的定向邀请、<code>close_task</code> 的清理、<code>confirm_budget</code> 的角色间议价。
+    </p>
+    <p>
+      唯一的多节点缺口：<code>_post_message_raw</code> 发送时 <code>server_id</code> 与 <code>network_id</code> 置空。在当前"每项目单节点"的前提下无害；若未来跨节点联邦，需要修。
+    </p>
+  </div>
+</section>
+
+<section id="what">
+  <h2>1. EACN3 是什么</h2>
+  <p>
+    EACN3（Emergent Agent Collaboration Network）是一个三层协议栈的<strong>协调层</strong>：
+  </p>
+  <table>
+    <thead>
+      <tr><th>层级</th><th>协议</th><th>职责</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Coordination</td><td><strong>EACN3</strong></td><td>竞标、仲裁、信誉、发现 —— 决定"谁干活、干得怎样、下次信谁"</td></tr>
+      <tr><td>Communication</td><td>A2A</td><td>Agent 之间的消息与会话建立</td></tr>
+      <tr><td>Tooling</td><td>MCP</td><td>工具调用标准</td></tr>
+    </tbody>
+  </table>
+
+  <h3>核心原语</h3>
+  <ol>
+    <li><strong>任务市场。</strong>Agent 发布任务（budget、domains、deadline），其他 Agent 竞标（confidence、price）。准入公式 <code>confidence × reputation ≥ threshold</code>，由服务端判断。发起者挑选获胜结果，escrow 结算。</li>
+    <li><strong>分层分解。</strong>中标者可 <code>create_subtask</code>，预算从父任务 escrow 中划拨，depth 上限 3，结果通过 <code>subtask_completed</code> 事件自动冒泡。</li>
+    <li><strong>Agent-to-Agent 直信</strong>（<code>POST /api/messages</code>）。与任务事件共用每 Agent 队列。</li>
+    <li><strong>团队形成</strong> (<code>team_setup</code>)：基于共享 git 仓库，带 ACK-tracked 的 per-agent 分支握手。</li>
+    <li><strong>信誉系统</strong>：0.0–1.0 分，新 Agent 默认 0.5，由 <code>task_completed</code> / <code>task_rejected</code> / <code>task_timeout</code> / <code>bid_declined</code> 驱动。</li>
+    <li><strong>经济账户</strong>：内部 credit ledger，每 Agent 有 <code>available</code> + <code>frozen</code>（escrow 冻结）。</li>
+    <li><strong>发现</strong>：servers / agents / domains，Gossip → DHT → Bootstrap 三级查询（多集群场景）。</li>
+    <li><strong>Cluster 模式</strong>：联邦部署；单机部署（MinionsOS 选型）下大部分 cluster 代码是本地短路。</li>
+  </ol>
+</section>
+
+<section id="arch">
+  <h2>2. 架构与目录</h2>
+  <div class="ascii">EACN3/
+├── eacn/                          Python backend (FastAPI)
+│   ├── core/models/               AgentCard, Task, PushEvent, ServerCard, LogEntry, HumanContact
+│   └── network/
+│       ├── api/
+│       │   ├── app.py             create_app(), lifespan, x-server-id 活性中间件
+│       │   ├── routes.py          30 个任务/竞标/结果/消息/事件/admin 端点   (732 LOC)
+│       │   ├── discovery_routes.py  11 个 server/agent 发现端点              (303 LOC)
+│       │   ├── peer_routes.py     15 个集群 peer-to-peer 端点                 (297 LOC)
+│       │   └── schemas.py         Pydantic 请求/响应模型
+│       ├── task_manager.py        任务状态机
+│       ├── adjudication.py        评审侧通道
+│       ├── auth.py                x-server-id + admin 校验
+│       ├── cluster/               DHT、gossip、router、成员管理
+│       ├── discovery/             bootstrap、gossip、DHT、query
+│       ├── economy/               账户、escrow、结算
+│       ├── db/                    SQLite 持久化
+│       ├── push.py                内存 pub/sub 分发器
+│       ├── offline_store.py       每 Agent 的 SQLite 消息队列
+│       ├── reputation.py          信誉分 + 衰减
+│       └── matcher.py             domain 匹配
+├── plugin/                        TypeScript MCP 插件（npm）
+│   ├── server.ts                  47 个 eacn3_* MCP 工具注册                  (2250 LOC)
+│   ├── src/
+│   │   ├── network-client.ts      HTTP 封装 + retry/backoff + x-server-id     (594 LOC)
+│   │   ├── state.ts               插件磁盘态（server_card、agents、事件缓冲）
+│   │   ├── event-transport.ts     fetchEvents() —— 长轮询
+│   │   ├── a2a-server.ts          本地 A2A server（V5 纯 HTTP 流已不用）
+│   │   ├── reverse-control.ts     反向控制诊断
+│   │   └── models.ts              TS 端 schema 镜像
+│   ├── AGENT_GUIDE.md             官方 agent 使用手册
+│   └── skills/                    32 条过程技能（16 EN + 16 ZH）
+└── examples/                      quickstart 脚本</div>
+
+  <h3>交互模型</h3>
+  <p>4 个顶点，6 条边，全连通：Platform（EACN3）、Human、Agent A、Agent B。MinionsOS 的每个项目相当于一个独立的小宇宙（独立 EACN3 端口），Gru 同时扮演 <em>Human</em> 与 <em>Platform</em> 的联络点。</p>
+</section>
+
+<section id="api">
+  <h2>3. HTTP 接口全景（后端）</h2>
+
+  <h3><code>routes.py</code> — 30 个端点</h3>
+  <table>
+    <thead><tr><th>分组</th><th>端点</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>任务</td>
+        <td>
+          <code>POST /api/tasks</code> · <code>GET /api/tasks/open</code> · <code>GET /api/tasks/{id}</code> · <code>GET /api/tasks/{id}/status</code> · <code>GET /api/tasks</code> ·
+          <code>POST /api/tasks/{id}/bid</code> · <code>POST /api/tasks/{id}/invite</code> · <code>POST /api/tasks/{id}/reject</code> ·
+          <code>POST /api/tasks/{id}/result</code> · <code>POST /api/tasks/{id}/select</code> · <code>GET /api/tasks/{id}/results</code> ·
+          <code>POST /api/tasks/{id}/close</code> · <code>PUT /api/tasks/{id}/deadline</code> · <code>POST /api/tasks/{id}/discussions</code> ·
+          <code>POST /api/tasks/{id}/confirm-budget</code> · <code>POST /api/tasks/{id}/subtask</code>
+        </td>
+      </tr>
+      <tr>
+        <td>信誉</td>
+        <td><code>POST /api/reputation/events</code> · <code>GET /api/reputation/{agent_id}</code></td>
+      </tr>
+      <tr>
+        <td>经济</td>
+        <td><code>GET /api/economy/balance</code> · <code>GET /api/economy/escrows</code> · <code>POST /api/economy/deposit</code></td>
+      </tr>
+      <tr>
+        <td>消息</td>
+        <td><code>POST /api/messages</code></td>
+      </tr>
+      <tr>
+        <td>事件（核心！）</td>
+        <td><code>GET /api/events/{agent_id}?timeout=&lt;0..60&gt;</code> —— drain-on-read，可选长轮询，硬上限 60 秒</td>
+      </tr>
+      <tr>
+        <td>管理</td>
+        <td><code>GET /api/cluster/status</code> · <code>GET|PUT /api/admin/config</code> · <code>POST /api/admin/scan-deadlines</code> · <code>POST /api/admin/fund</code> · <code>GET /api/admin/offline-stats</code> · <code>GET /api/admin/logs</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3><code>discovery_routes.py</code> — 11 个端点</h3>
+  <div class="pill-row">
+    <span class="pill">POST /api/discovery/servers</span>
+    <span class="pill">GET /api/discovery/servers/{id}</span>
+    <span class="pill">POST /api/discovery/servers/{id}/heartbeat</span>
+    <span class="pill">DELETE /api/discovery/servers/{id}</span>
+    <span class="pill">POST /api/discovery/agents</span>
+    <span class="pill">GET /api/discovery/agents/{id}</span>
+    <span class="pill">PUT /api/discovery/agents/{id}</span>
+    <span class="pill">DELETE /api/discovery/agents/{id}</span>
+    <span class="pill">GET /api/discovery/query</span>
+    <span class="pill">GET /api/discovery/agents</span>
+  </div>
+
+  <h3><code>peer_routes.py</code> — 15 个端点（集群专用）</h3>
+  <p>DHT store/revoke/lookup、gossip exchange、peer task broadcast/bid/result/subtask/status、peer push。MinionsOS 单机部署永远不会命中。</p>
+
+  <h3>顶层</h3>
+  <div class="pill-row">
+    <span class="pill">GET /health</span>
+  </div>
+</section>
+
+<section id="mcp">
+  <h2>4. MCP 工具全景（插件）</h2>
+  <p><code>plugin/server.ts</code> 共注册 <strong>47 个</strong> <code>eacn3_*</code> 工具：</p>
+  <table>
+    <thead><tr><th>分类</th><th>数量</th><th>工具</th><th>备注</th></tr></thead>
+    <tbody>
+      <tr><td>健康 / 集群</td><td>2</td><td><code>eacn3_health</code>, <code>eacn3_cluster_status</code></td><td>—</td></tr>
+      <tr><td>Server 生命周期</td><td>4</td><td><code>eacn3_connect</code>, <code>eacn3_disconnect</code>, <code>eacn3_heartbeat</code>, <code>eacn3_server_info</code></td><td><code>connect</code> 是必须的第一个调用</td></tr>
+      <tr><td>Agent 生命周期</td><td>7</td><td><code>eacn3_claim_agent</code>, <code>eacn3_register_agent</code>, <code>eacn3_get_agent</code>, <code>eacn3_update_agent</code>, <code>eacn3_unregister_agent</code>, <code>eacn3_list_my_agents</code>, <code>eacn3_discover_agents</code>, <code>eacn3_list_agents</code></td><td><code>claim</code> 复用盘上 agent id，跨会话持久</td></tr>
+      <tr><td>任务查询</td><td>4</td><td><code>eacn3_get_task</code>, <code>eacn3_get_task_status</code>, <code>eacn3_list_open_tasks</code>, <code>eacn3_list_tasks</code></td><td>全部非破坏性</td></tr>
+      <tr><td>任务写（发起者）</td><td>7</td><td><code>eacn3_create_task</code>, <code>eacn3_get_task_results</code>, <code>eacn3_select_result</code>, <code>eacn3_close_task</code>, <code>eacn3_update_deadline</code>, <code>eacn3_update_discussions</code>, <code>eacn3_confirm_budget</code></td><td><code>get_task_results</code> <strong>有副作用</strong>：首次调用将任务转为 <code>completed</code></td></tr>
+      <tr><td>任务写（执行者）</td><td>5</td><td><code>eacn3_submit_bid</code>, <code>eacn3_submit_result</code>, <code>eacn3_reject_task</code>, <code>eacn3_create_subtask</code>, <code>eacn3_invite_agent</code></td><td>—</td></tr>
+      <tr><td>消息</td><td>1</td><td><code>eacn3_send_message</code></td><td>—</td></tr>
+      <tr><td>信誉</td><td>2</td><td><code>eacn3_report_event</code>, <code>eacn3_get_reputation</code></td><td>—</td></tr>
+      <tr><td>经济</td><td>2</td><td><code>eacn3_get_balance</code>, <code>eacn3_deposit</code></td><td>—</td></tr>
+      <tr><td>事件 / 调度</td><td>3</td><td><code>eacn3_get_events</code>, <code>eacn3_await_events</code>, <code>eacn3_next</code></td><td>三者均为 <strong>drain-on-read</strong>，调用即出队</td></tr>
+      <tr><td>消息传输辅助</td><td>1</td><td><code>eacn3_get_messages</code></td><td>—</td></tr>
+      <tr><td>Session</td><td>1</td><td><code>eacn3_list_sessions</code></td><td>—</td></tr>
+      <tr><td>团队</td><td>3</td><td><code>eacn3_team_setup</code>, <code>eacn3_team_status</code>, <code>eacn3_team_retry_ack</code></td><td>Git 共享的多 Agent 团队</td></tr>
+      <tr><td>反向控制</td><td>1</td><td><code>eacn3_reverse_control_status</code></td><td>诊断</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="invariants">
+  <h2>5. 关键协议不变量</h2>
+
+  <div class="callout crit">
+    <h4>🔑 <code>GET /api/events/{agent_id}</code> 是 drain-on-read</h4>
+    消息返回给 Agent 后即从 <code>OfflineStore</code> 移除。<strong>没有 ACK，没有重放</strong>。这是 MOS Agent Pool 存在的根本原因。
+  </div>
+
+  <div class="callout crit">
+    <h4>🔑 <code>timeout</code> 查询参数硬上限 60 秒</h4>
+    <code>routes.py:641</code> 的 <code>Query(default=0, ge=0, le=60)</code> 会 422 拒绝任何 &gt; 60 的值。MOS Agent Pool 在 Python 层分片成 60 秒块来规避。
+  </div>
+
+  <div class="callout warn">
+    <h4>⏱ Liveness = fetch 活动</h4>
+    <code>poll_events</code> 调用时会 <code>touch_agent_fetch(agent_id)</code>。后台扫描器每 30 秒（<code>scan_interval_seconds</code>）检查一次，<strong>120 秒无 fetch 即标记下线</strong>（<code>agent_offline_seconds=120</code>）。带 <code>x-server-id</code> 头的 POST/PUT/DELETE 也会刷新 server 上所有 agent 的活性。
+  </div>
+
+  <div class="callout warn">
+    <h4>🚀 启动门</h4>
+    <code>lifespan</code> 启动未完成前，除 <code>/health</code> 外所有请求返回 503。
+  </div>
+
+  <div class="callout">
+    <h4>🌐 跨节点转发时才需要三层地址</h4>
+    <code>server_id</code> / <code>network_id</code> 只在 <em>cluster 转发</em>（<code>forward_push</code>）时被使用；本地单机投递走 <code>_store.store(target_agent_id, ...)</code>，只认 <code>agent_id</code>。MinionsOS 发空字符串在单机下完全 OK。
+  </div>
+
+  <div class="callout">
+    <h4>🔒 <code>x-server-id</code> 是隐式认证令牌</h4>
+    活性刷新与 admin 端点依赖它。<code>network-client.ts</code> 自动注入；MinionsOS Python 客户端目前不显式注入，但我们的轮询路径通过 <code>touch_agent_fetch</code> 覆盖活性。
+  </div>
+
+  <div class="callout">
+    <h4>📨 V5 使用 HTTP 轮询而非 WebSocket</h4>
+    <code>app.py</code> 注释明确："Every event is written to the per-agent message queue unconditionally. Agents drain it via HTTP polling. No WebSocket — just a queue."
+  </div>
+</section>
+
+<section id="usage">
+  <h2>6. EACN3 推荐用法</h2>
+  <p>来自 <code>AGENT_GUIDE.md</code> 与 <code>README.md</code>：</p>
+
+  <h3>起步 5 步</h3>
+  <pre><code>1. eacn3_health()                                验证节点
+2. eacn3_connect(network_endpoint?)              获取 server_id
+3. eacn3_register_agent(name, description, ...)  获取 agent_id
+4. eacn3_get_events() / eacn3_list_open_tasks()  初始态
+5. eacn3_next()                                  驱动主循环</code></pre>
+
+  <h3>主循环：<code>eacn3_next</code></h3>
+  <p>
+    每次调用返回<strong>一条</strong>最高优先级事件，附带 <code>suggested_tool</code> 与 <code>suggested_params</code>。空闲时返回上下文感知的反思 prompt（未取回的委派结果、未回复消息、等等）。EACN3 设计者把它定位为核心调度器。
+  </p>
+
+  <h3>其他要点</h3>
+  <ul>
+    <li><strong>每 server 一个 agent</strong>（简化 <code>agent_id</code> / <code>initiator_id</code> / <code>sender_id</code> 的自动注入）。</li>
+    <li><strong>Domains 尽量具体</strong>：<code>"python-coding"</code> 比 <code>"coding"</code> 路由更精。</li>
+    <li><strong>Budget / Deposit 纪律</strong>：<code>available ≥ budget</code> 方能发布任务；<code>deposit</code> 充值。</li>
+    <li><strong>Reputation 由结果驱动</strong>：<code>submit_result</code> 自动上报 <code>task_completed</code>；<code>reject_task</code> 自动上报 <code>task_rejected</code>。</li>
+    <li><strong>禁止手搓 HTTP</strong>：AGENT_GUIDE 有专门的 "NEVER bypass" 章节。</li>
+  </ul>
+</section>
+
+<section id="mos-match">
+  <h2>7. MinionsOS 哪里对齐 <span class="tag match">MATCH</span></h2>
+  <ul>
+    <li><strong>每项目一 server、每 Role 一 agent。</strong>通过端口隔离 server，<code>EACN3_STATE_DIR</code> 给每个 Role 独立插件状态目录。</li>
+    <li><strong><code>mos_await_events</code> 对 Agent 透明化 60 秒切片。</strong>Agent 眼里是一次调用；Python 层分块轮询。这是在协议硬上限下能给出的最佳方案。</li>
+    <li><strong>Per-wake ACK 补丁。</strong><code>.minionsos/inbox/pending.jsonl</code> 在事件交给 Agent 前本地落盘，崩溃重启后下次 wake 注入 init prompt。EACN3 自身没 ACK，这个缺口正是 MOS Agent Pool 存在的理由。</li>
+    <li><strong>活性通过 fetch 自带刷新。</strong>每 60 秒一次 <code>poll_events</code>，agent 始终 online；休眠 role 超过 120 秒自动离线也合理（MinionsOS 视 Role 为 ephemeral，下次 wake 重新注册）。</li>
+    <li><strong>非破坏性读直调。</strong><code>eacn3_get_task</code> / <code>eacn3_list_*</code> / <code>eacn3_get_messages</code> 等直调；drain 类工具全部走 MOS。</li>
+    <li><strong>Subagent EACN 不可见。</strong><code>minions-role</code> 代理 profile 正确地从 subagent 白名单剥离所有 <code>eacn3_*</code>。</li>
+    <li><strong>Budget 约定。</strong>内部任务 <code>budget=0</code>；<code>ensure_balance</code> 把 Gru 余额顶到 <code>local_eacn_initial_balance</code>（默认 10 000）作保险。</li>
+  </ul>
+</section>
+
+<section id="mos-diverge">
+  <h2>8. MinionsOS 哪里发散 <span class="tag gap">GAP</span></h2>
+
+  <ol>
+    <li>
+      <strong>完全不用 <code>eacn3_next</code>。</strong>
+      EACN3 设计核心是 <code>next</code>（"core work scheduler"，返回一条事件 + suggested action + urgency）。我们用自己的 <code>mos_await_events</code> 拉原始事件，由 role 提示词里的 Plan → Dispatch → Verify 决定动作。
+      这是<em>有意的</em>（我们要显式控制流，而不是 EACN3 的每事件自动建议），但代价是丢失了：
+      <ul>
+        <li>EACN3 的 urgency 排序（<code>task_broadcast</code> &gt; <code>discussion_update</code> &gt; <code>task_timeout</code>）；</li>
+        <li>空闲反思 prompt（"你委派了 1 个任务，结果查了吗？"）；</li>
+        <li><code>server.ts:1835+</code> 那张久经考验的事件→动作映射表。</li>
+      </ul>
+    </li>
+
+    <li>
+      <strong>不用 <code>eacn3_team_setup</code>。</strong>
+      EACN3 的 "共享 git repo、每 Agent 一条分支" 团队原语跟我们的 <code>branches/&lt;role&gt;/</code> 布局几乎完美契合。现在完全未连通，导致：
+      <ul>
+        <li>Role 之间无 ACK-tracked 的分支自动发现；</li>
+        <li>任务创建时没有 team preamble；</li>
+        <li>跟 EACN3 官方案例 001–003（多 Agent 协作的样板）对不齐。</li>
+      </ul>
+    </li>
+
+    <li>
+      <strong><code>invite_agent</code> 与 <code>invited_agent_ids</code> 用得不一致。</strong>
+      EACN3 的 admission threshold（<code>confidence × reputation ≥ θ</code>）会挡住新 Agent（reputation=0.5）对公开任务的竞标。<code>invite_agent</code> 绕过能力检查。
+      我们在 <code>create_task</code> 时用了 <code>invited_agent_ids</code>，但任务发出后的"增补邀请"没跑通。
+    </li>
+
+    <li>
+      <strong>不读 reputation。</strong>
+      Role 之间互相选任务不看对方 reputation、人手动 report 也不做（全靠 <code>submit_result</code>/<code>reject_task</code> 的自动上报）、Gru 的心跳摘要也没把信誉漂移作为信号暴露给人。结果：Role 反复失败时 EACN3 知道，但人不知道。
+    </li>
+
+    <li>
+      <strong>经济系统形同虚设。</strong>所有任务 <code>budget=0</code>，<code>deposit</code> 只为保险丝而设：
+      <ul>
+        <li>escrow / settlement 逻辑完全未走；</li>
+        <li><code>confirm_budget</code> / <code>bid_request_confirmation</code> 这个天然的"Role 因价太低拒单"信号用不上；</li>
+        <li>公开任务若 <code>budget &gt; 0</code>，每 role 的 deposit 管理我们没做。</li>
+      </ul>
+    </li>
+
+    <li>
+      <strong><code>_post_message_raw</code> 发空 <code>server_id</code> / <code>network_id</code>。</strong>
+      确认：单机下无害（本地投递只看 <code>agent_id</code>），但未来跨节点转发（<code>forward_push</code>）会路由失败。两种选择：
+      <ul>
+        <li><strong>A.</strong> 从目标 AgentCard 查出再填（一次 <code>get_agent_card</code>，便宜）。</li>
+        <li><strong>B.</strong> 文档声明 MinionsOS 有意单节点部署。</li>
+      </ul>
+    </li>
+
+    <li>
+      <strong>事件状态三重存储。</strong>插件 <code>state.ts::drainEvents</code> 缓冲合成事件、MinionsOS <code>pending.jsonl</code> 做 ACK 补丁，EACN3 <code>OfflineStore</code> 存权威。每个事件短时间内存在三处，功能不重叠但状态机耦合。
+    </li>
+
+    <li>
+      <strong>不调用 <code>eacn3_close_task</code>。</strong>EACN3 的任务状态机有 <code>completed</code> 和 <code>closed</code> 两个终态；我们在 <code>select_result</code> 后停住，于是任务一直以"open but completed"存在。无害但长期堆积。
+    </li>
+
+    <li>
+      <strong>任务构造参数欠缺。</strong><code>create_task</code> 接受 <code>level</code> / <code>max_depth</code> / <code>max_concurrent_bidders</code>，MinionsOS 全部使用默认。
+      我们本可以用它们从 role prompt 侧约束 review round 的并发评审数量或 subtask 深度。
+    </li>
+
+    <li>
+      <strong>不用 <code>eacn3_discover_agents</code>。</strong>EACN3 支持 Gossip → DHT → Bootstrap 三级发现。单节点下 <code>list_agents</code> 够用；联邦化后这个工具是入口。
+    </li>
+  </ol>
+
+  <h3>其他小观察</h3>
+  <ul>
+    <li>插件的 <code>eacn3_await_events</code> client-side cap 是 120 秒，但后端 422 拒绝 &gt; 60，所以端到端上限依然是 60 秒。我们的 MOS Agent Pool 正确切片在 60 秒。</li>
+    <li><code>eacn3_list_open_tasks</code> 后端最多 200 条/次；我们默认 50，够用。</li>
+    <li><code>OfflineStore</code> 有 <code>max_per_agent</code> 和 <code>ttl_seconds</code> 限制 —— 长时间休眠的 role 可能丢消息。应在文档中说明。</li>
+    <li><code>eacn3_get_task_results</code> 首次调用 <strong>会把任务状态推向 completed</strong>（side effect）。Role 做诊断读时要注意。</li>
+  </ul>
+</section>
+
+<section id="tighten">
+  <h2>9. 优化建议（按性价比排序）</h2>
+
+  <h3>高价值 / 低成本 <span class="tag match">QUICK WIN</span></h3>
+  <ol>
+    <li><strong>在 <code>select_result</code> 之后调 <code>eacn3_close_task</code>。</strong>改公共 EACN 技能即可。让任务市场保持干净。</li>
+    <li><strong><code>_post_message_raw</code> 从 AgentCard 查出三层地址。</strong>一次 <code>get_agent_card</code> 查询，成本几乎为零。以后若联邦化无需再改。</li>
+    <li><strong>在 <code>mos_create_task</code> 上设 <code>max_depth=3</code> / <code>max_concurrent_bidders=&lt;N&gt;</code></strong>，尤其是 review round / experiment，给我们一个协议原生的速率限制。</li>
+    <li><strong>在公共 EACN 技能里文档化 <code>get_task_results</code> 的副作用。</strong>防止 Role 做诊断时误伤状态机。</li>
+    <li><strong>在 Gru 心跳摘要里暴露 reputation。</strong>每 role 一次 <code>eacn3_get_reputation</code>。把隐式的信誉漂移变成可见信号。</li>
+  </ol>
+
+  <h3>中等价值 / 中等成本 <span class="tag gap">WORTHWHILE</span></h3>
+  <ol start="6">
+    <li>
+      <strong>在 MinionsOS 项目里启用 <code>eacn3_team_setup</code>。</strong>
+      <code>branches/&lt;role&gt;/</code> 已经就是 EACN3 团队所期望的布局。实施路径：
+      <ul>
+        <li><code>project_create</code> 注册完所有 role 后，用完整 role 集调 <code>eacn3_team_setup</code>；</li>
+        <li>EACN3 会自动往任务里注入 team preamble，Role 之间的分支认知免维护；</li>
+        <li>对齐官方案例 001–003 的团队范式。</li>
+      </ul>
+    </li>
+    <li><strong>把 <code>eacn3_next</code> 包一层 <code>mos_next</code> 作为可选调度器。</strong>主循环仍是 <code>mos_await_events</code>；想要 EACN3 urgency + idle prompt 的 role 按需用。能省大量 prompt token。</li>
+    <li><strong>Review 轮里使用 <code>invite_agent</code>。</strong>Reviewer 主会话事后想拉 Ethics / Expert 参与复审时，用 <code>invite_agent</code> 绕过 admission threshold 是合法途径。</li>
+  </ol>
+
+  <h3>低价值 / 高成本 <span class="tag miss">LATER</span></h3>
+  <ol start="9">
+    <li><strong>真实 budget + <code>confirm_budget</code> 驱动议价。</strong>EACN3 原设计故事，但单租户封闭项目收益低，建议推迟到多租户。</li>
+    <li><strong>采用 <code>eacn3_discover_agents</code>。</strong>MinionsOS 未来跨项目联邦化时的入口，当前单项目 <code>list_agents</code> 已够。</li>
+    <li><strong>停止维护 <code>pending.jsonl</code>，完全依赖 <code>OfflineStore</code> TTL + 手动 replay。</strong>只有当三重存储真的成为调试负担时再动手。</li>
+  </ol>
+
+  <div class="callout">
+    <h4>建议的第一步</h4>
+    <p>把上面 <strong>1–5</strong> 条做成一个小 PR：三行代码 + 文档更新。<code>team_setup</code>（第 6 条）值得单独一个 PR，因为它需要在 <code>project_create</code> 和 <code>register_role</code> 之间协调，并更新 common SYSTEM.md 的 team preamble 约定。</p>
+  </div>
+</section>
+
+<section id="references">
+  <h2>10. 参考文件与行号</h2>
+  <dl class="kv">
+    <dt>EACN3 README</dt>
+    <dd><code>EACN3/README.md</code></dd>
+    <dt>Agent 使用手册</dt>
+    <dd><code>EACN3/plugin/AGENT_GUIDE.md</code></dd>
+    <dt>后端入口</dt>
+    <dd><code>EACN3/eacn/network/api/app.py</code>（lifespan、启动门、活性中间件）</dd>
+    <dt>核心路由</dt>
+    <dd><code>EACN3/eacn/network/api/routes.py</code>（关键：<code>poll_events</code> 在 <code>:638-691</code>，硬上限 <code>:641</code>）</dd>
+    <dt>消息 schema</dt>
+    <dd><code>EACN3/eacn/network/api/schemas.py:281</code>（<code>MessageAddress</code> / <code>RelayMessageRequest</code>）</dd>
+    <dt>活性配置</dt>
+    <dd><code>EACN3/eacn/network/config.py:76</code>（<code>LivenessConfig</code>，默认 120s / 30s）</dd>
+    <dt>MCP 工具注册</dt>
+    <dd><code>EACN3/plugin/server.ts</code>（47 个 <code>server.tool(...)</code>）</dd>
+    <dt>HTTP 客户端封装</dt>
+    <dd><code>EACN3/plugin/src/network-client.ts</code>（<code>x-server-id</code> 自动注入在 <code>:99-102</code>）</dd>
+    <dt>MinionsOS EACN 客户端</dt>
+    <dd><code>minions/lifecycle/eacn_client.py</code>（<code>_post_message_raw:499</code> 的空地址即第 6 条优化项）</dd>
+    <dt>MOS Agent Pool</dt>
+    <dd><code>minions/lifecycle/mos_pool.py</code>（60 秒切片在 <code>mos_await_events</code> 内部）</dd>
+    <dt>MCP 代理</dt>
+    <dd><code>minions/tools/eacn3_mcp_proxy.py</code>（<code>minions-role</code> profile 按 role 白名单裁剪）</dd>
+    <dt>Role 白名单</dt>
+    <dd><code>minions/config/__init__.py:153</code>（<code>_WHITELIST</code>）</dd>
+  </dl>
+</section>
+
+<footer>
+  <p>
+    本报告由 Claude Code 对 <code>EACN3/</code> 代码树 + <code>minions/lifecycle/</code> 适配层做只读静态调研生成。未修改 EACN3 任何文件，符合 V5 Proposal 的"不修改 EACN3"硬约束。
+    路径：<code>/Users/mjm/MinionsOS_V5/docs/eacn3-integration-report.html</code>
+  </p>
+</footer>
+
+</div>
+</body>
+</html>

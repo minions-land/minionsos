@@ -1,0 +1,98 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]: MinionsVIZ · Observatory
+    - button "mjm ▾" [ref=e8] [cursor=pointer]:
+      - generic [ref=e10]: mjm
+      - generic [ref=e11]: ▾
+    - button "37596 EACN3-Viz-Demo ▾" [ref=e13] [cursor=pointer]:
+      - generic [ref=e14]: "37596"
+      - generic [ref=e15]: EACN3-Viz-Demo
+      - generic [ref=e16]: ▾
+    - generic [ref=e19]: link up
+    - button "Enter VR" [disabled] [ref=e20]:
+      - img [ref=e21]
+      - text: Enter VR
+  - generic [ref=e518]:
+    - generic [ref=e519]:
+      - textbox "filter by agent, task id, content…" [ref=e521]
+      - generic [ref=e522]:
+        - generic [ref=e523]:
+          - button "all" [ref=e524] [cursor=pointer]
+          - button "message" [ref=e525] [cursor=pointer]
+          - button "log" [ref=e526] [cursor=pointer]
+        - generic [ref=e527] [cursor=pointer]:
+          - checkbox "errors only" [ref=e528]
+          - text: errors only
+        - generic [ref=e529]: 7 / 7
+    - generic [ref=e530]:
+      - generic [ref=e531]:
+        - generic [ref=e532]: 20:16:32
+        - generic [ref=e533]: message
+        - generic [ref=e534]:
+          - generic [ref=e535]: R·1
+          - text: "Reviewer #1"
+        - generic [ref=e536]: → EEthics
+        - generic [ref=e537]: msg → ethics
+        - generic [ref=e538]: task-2011
+        - generic "Flagged Section 3.2 for re-read." [ref=e539]
+      - generic [ref=e540]:
+        - generic [ref=e541]: 20:16:32
+        - generic [ref=e542]: log
+        - generic [ref=e543]:
+          - generic [ref=e544]: R·1
+          - text: "Reviewer #1"
+        - generic [ref=e545]: relay_message
+        - generic [ref=e546]: task-2011
+        - 'generic "{\"ok\":true}" [ref=e547]'
+      - generic [ref=e548]:
+        - generic [ref=e549]: 20:16:18
+        - generic [ref=e550]: message
+        - generic [ref=e551]:
+          - generic [ref=e552]: C·primary
+          - text: Coder (primary)
+        - generic [ref=e553]: → GGru
+        - generic [ref=e554]: msg → gru
+        - generic [ref=e555]: task-2020
+        - generic "ETA 10m" [ref=e556]
+      - generic [ref=e557]:
+        - generic [ref=e558]: 20:16:18
+        - generic [ref=e559]: log
+        - generic [ref=e560]:
+          - generic [ref=e561]: C·primary
+          - text: Coder (primary)
+        - generic [ref=e562]: relay_message
+        - generic [ref=e563]: task-2020
+        - 'generic "{\"ok\":true}" [ref=e564]'
+      - generic [ref=e565]:
+        - generic [ref=e566]: 20:16:12
+        - generic [ref=e567]: log
+        - generic [ref=e568]:
+          - generic [ref=e569]: R·1
+          - text: "Reviewer #1"
+        - generic [ref=e570]: submit_bid
+        - generic [ref=e571]: task-2010
+        - 'generic "{\"ok\":true}" [ref=e572]'
+      - generic [ref=e573]:
+        - generic [ref=e574]: 20:16:00
+        - generic [ref=e575]: log
+        - generic [ref=e576]:
+          - generic [ref=e577]: C·primary
+          - text: Coder (primary)
+        - generic [ref=e578]: claim_task
+        - generic [ref=e579]: task-2020
+        - 'generic "{\"ok\":true}" [ref=e580]'
+      - generic [ref=e581]:
+        - generic [ref=e582]: 20:15:40
+        - generic [ref=e583]: log
+        - generic [ref=e584]:
+          - generic [ref=e585]: C·primary
+          - text: Coder (primary)
+        - generic [ref=e586]: ✗ submit_result
+        - generic [ref=e587]: task-2020-
+        - 'generic "ERROR: budget_locked: already selected" [ref=e588]'
+  - navigation [ref=e72]:
+    - button "Universe" [ref=e73] [cursor=pointer]
+    - button "Tasks · 18" [ref=e74] [cursor=pointer]
+    - button "Terminals · 14" [ref=e239] [cursor=pointer]
+    - button "Events · 7" [active] [ref=e76] [cursor=pointer]
+    - button "Adjudication · 2" [ref=e77] [cursor=pointer]

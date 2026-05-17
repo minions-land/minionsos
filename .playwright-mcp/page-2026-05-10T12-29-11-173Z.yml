@@ -1,0 +1,90 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]: MinionsVIZ · Observatory
+    - button "mjm ▾" [ref=e8] [cursor=pointer]:
+      - generic [ref=e10]: mjm
+      - generic [ref=e11]: ▾
+    - button "37596 EACN3-Viz-Demo ▾" [ref=e13] [cursor=pointer]:
+      - generic [ref=e14]: "37596"
+      - generic [ref=e15]: EACN3-Viz-Demo
+      - generic [ref=e16]: ▾
+    - generic [ref=e19]: link up
+    - button "Enter VR" [disabled] [ref=e20]:
+      - img [ref=e21]
+      - text: Enter VR
+  - generic [ref=e589]:
+    - generic [ref=e590]:
+      - banner [ref=e591]:
+        - generic [ref=e593]:
+          - text: adjudication
+          - generic [ref=e594]: "#task-2040"
+        - generic [ref=e595]: completed
+      - generic [ref=e596]:
+        - paragraph [ref=e597]: Pick best explanation for layer-collapse observation
+        - generic [ref=e598]:
+          - generic [ref=e599]:
+            - generic [ref=e600]: Initiator
+            - generic [ref=e601]: G · Gru
+          - generic [ref=e602]:
+            - generic [ref=e603]: Domains
+            - generic [ref=e604]:
+              - generic [ref=e605]: research
+              - generic [ref=e606]: ml
+          - generic [ref=e607]:
+            - generic [ref=e608]: Deadline
+            - generic [ref=e609]: 2026-05-10T12:06:40.452593Z
+          - generic [ref=e610]:
+            - generic [ref=e611]: Depth
+            - generic [ref=e612]: 0 / 3
+        - generic [ref=e613]: Results
+        - generic [ref=e614]:
+          - generic [ref=e615]:
+            - generic [ref=e616]:
+              - generic [ref=e617]: E·ml
+              - generic [ref=e618]: Expert (ml)
+              - generic [ref=e619]: selected
+            - list [ref=e620]:
+              - listitem [ref=e621]:
+                - text: R·1·consistent with ablation
+                - generic [ref=e622]: score 0.82
+              - listitem [ref=e623]:
+                - text: R·2·well-grounded
+                - generic [ref=e624]: score 0.74
+          - generic [ref=e625]:
+            - generic [ref=e626]:
+              - generic [ref=e627]: E·math
+              - generic [ref=e628]: Expert (math)
+            - list [ref=e629]:
+              - listitem [ref=e630]:
+                - text: R·1·partially correct
+                - generic [ref=e631]: score 0.56
+              - listitem [ref=e632]:
+                - text: R·3·needs empirical backing
+                - generic [ref=e633]: score 0.45
+    - generic [ref=e634]:
+      - banner [ref=e635]:
+        - generic [ref=e637]:
+          - text: adjudication
+          - generic [ref=e638]: "#task-2041"
+        - generic [ref=e639]: awaiting_retrieval
+      - generic [ref=e640]:
+        - paragraph [ref=e641]: "Adjudicate: which unit-test suite is more robust?"
+        - generic [ref=e642]:
+          - generic [ref=e643]:
+            - generic [ref=e644]: Initiator
+            - generic [ref=e645]: "R·1 · Reviewer #1"
+          - generic [ref=e646]:
+            - generic [ref=e647]: Domains
+            - generic [ref=e649]: testing
+          - generic [ref=e650]:
+            - generic [ref=e651]: Deadline
+            - generic [ref=e652]: 2026-05-10T13:16:40.452593Z
+          - generic [ref=e653]:
+            - generic [ref=e654]: Depth
+            - generic [ref=e655]: 0 / 3
+  - navigation [ref=e72]:
+    - button "Universe" [ref=e73] [cursor=pointer]
+    - button "Tasks · 18" [ref=e74] [cursor=pointer]
+    - button "Terminals · 14" [ref=e239] [cursor=pointer]
+    - button "Events · 7" [ref=e76] [cursor=pointer]
+    - button "Adjudication · 2" [active] [ref=e77] [cursor=pointer]

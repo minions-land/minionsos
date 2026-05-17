@@ -1,0 +1,60 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]: MinionsVIZ · Observatory
+    - button "Select Gru ▾" [ref=e8] [cursor=pointer]:
+      - generic [ref=e10]: Select Gru
+      - generic [ref=e11]: ▾
+    - generic [ref=e14]: no link
+    - button "Enter VR" [disabled] [ref=e15] [cursor=pointer]:
+      - img [ref=e16]
+      - text: Enter VR
+  - generic [ref=e20]:
+    - heading "Select a Gru" [level=1] [ref=e21]
+    - paragraph [ref=e22]: MinionsVIZ is a machine-wide Observatory. Each registered Gru is a MinionsOS installation on this host — pick one to inspect its projects.
+    - generic [ref=e23]:
+      - button "mjm offline · 0 projects /Users/mjm/MinionsOS_V2" [ref=e24] [cursor=pointer]:
+        - strong [ref=e25]: mjm
+        - generic [ref=e26]:
+          - generic [ref=e28]: offline
+          - generic [ref=e29]: ·
+          - generic [ref=e30]: 0 projects
+        - generic [ref=e31]: /Users/mjm/MinionsOS_V2
+      - button "mjm offline · 0 projects /Users/mjm/MinionsOS_V3" [ref=e32] [cursor=pointer]:
+        - strong [ref=e33]: mjm
+        - generic [ref=e34]:
+          - generic [ref=e36]: offline
+          - generic [ref=e37]: ·
+          - generic [ref=e38]: 0 projects
+        - generic [ref=e39]: /Users/mjm/MinionsOS_V3
+      - button "mjm offline · 0 projects /Users/mjm/MinionsOS_V3_Codex" [ref=e40] [cursor=pointer]:
+        - strong [ref=e41]: mjm
+        - generic [ref=e42]:
+          - generic [ref=e44]: offline
+          - generic [ref=e45]: ·
+          - generic [ref=e46]: 0 projects
+        - generic [ref=e47]: /Users/mjm/MinionsOS_V3_Codex
+      - button "mjm online · 2 projects /Users/mjm/MinionsOS_V4" [ref=e48] [cursor=pointer]:
+        - strong [ref=e49]: mjm
+        - generic [ref=e50]:
+          - generic [ref=e52]: online
+          - generic [ref=e53]: ·
+          - generic [ref=e54]: 2 projects
+        - generic [ref=e55]: /Users/mjm/MinionsOS_V4
+      - button "mjm online · 0 projects /Users/mjm/MinionsOS_V5" [ref=e56] [cursor=pointer]:
+        - strong [ref=e57]: mjm
+        - generic [ref=e58]:
+          - generic [ref=e60]: online
+          - generic [ref=e61]: ·
+          - generic [ref=e62]: 0 projects
+        - generic [ref=e63]: /Users/mjm/MinionsOS_V5
+      - button "Grokk理论研究 offline · 0 projects /Users/mjm/Downloads/Grokk理论研究/MinionsOS_V4-main" [ref=e64] [cursor=pointer]:
+        - strong [ref=e65]: Grokk理论研究
+        - generic [ref=e66]:
+          - generic [ref=e68]: offline
+          - generic [ref=e69]: ·
+          - generic [ref=e70]: 0 projects
+        - generic [ref=e71]: /Users/mjm/Downloads/Grokk理论研究/MinionsOS_V4-main
+  - navigation [ref=e72]:
+    - button "Universe" [disabled] [ref=e73] [cursor=pointer]
+    - button "Tasks · 0" [disabled] [ref=e74] [cursor=pointer]
+    - button "Terminals · 0" [disabled] [ref=e75] [cursor=pointer]
