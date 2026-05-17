@@ -3,7 +3,7 @@ slug: think-then-act
 summary: Think then act — toolkit of four cognitive postures for structured planning. Use any combination of unstated-premises audit, first-principles derivation, dialectical synthesis, and goal-setting before dispatching execution.
 layer: logical
 tools: eacn3_send_message, codex
-version: 3
+version: 4
 status: active
 references: unstated-premises, first-principles, dialectical-synthesis, goal-setting
 provenance: human+agent
@@ -22,7 +22,9 @@ mandatory pipeline.
 - You are uncertain about the right approach
 - The work crosses boundaries (files, roles, experiments)
 
-Skip entirely for trivial single-step responses. Use one posture alone if
+**Skip entirely** when the spec is concrete (file path + acceptance already
+stated) or the task is trivial single-step. Don't audit premises the spec
+already pins — that is ceremony, not thinking. Use one posture alone if
 that is all the situation needs.
 
 ## The four postures (your toolkit)
@@ -63,10 +65,12 @@ When you have enough clarity (from however many postures you used):
 
 - **Write a plan**: Use Superpowers `writing-plans` if available, or write an inline markdown checklist.
 - **Dispatch**: Use `subagent-driven-development`, `delegate-heavy-task` (Codex), or host-native `Task`. If Superpowers plugin skills are unavailable, write the plan inline and dispatch via `delegate-heavy-task` or `Task`.
-- **Pass goals**: Each dispatched task should carry its acceptance metric from Goal-Setting (if you ran it).
+- **Pass goals verbatim**: Copy your Goal-Setting threshold (specific numbers, not "a good report") into the dispatch as its acceptance criterion. No placeholders — "TBD", "reasonable", "appropriate" are plan failures. If you ran Goal-Setting, the final dispatch's acceptance must be the same threshold, not a softer paraphrase.
 
-## Constraints that DO apply regardless
+## Hard constraints
 
-1. **Autonomous-only**: You cannot reach a human terminal. If you are stuck or need a second opinion, send a message on EACN3 to the relevant role and either wait for a reply in this wake or exit and let MinionsOS re-wake you when the answer arrives. Never pause for human input.
+1. **Autonomous-only, evidence-first**: You cannot reach a human terminal. Messaging another role and exiting is a LAST resort — first try `codex` (read-only) or a `Task` subagent on the codebase, git history, EACN logs, and artifacts. Most "I need to ask X" questions are answerable from the repo. Architectural questions ("should we change Y?") almost always have more signal in the code than in the proposer's head. Only message another role when (a) the answer is a fact about that role's intent or external state that cannot be inferred from artifacts, AND (b) the role is reachable this wake. Never pause for human input.
+
+   *Worked example.* A peer asks "should we replace static X with dynamic X?" Tempting move: EACN-message them asking what problem they're solving. Wrong, if they are offline — that loops the wake into nothing. Right move: dispatch `codex` on the relevant code path, role configs, and recent EACN logs to surface concrete friction (or its absence), then make a defensible recommendation from that evidence. The proposer's intent is rarely the bottleneck; the codebase has the answer.
 2. **Time-aware**: The postures are thinking tools, not rituals. 2–8 minutes total, not hours.
 3. **Evidence-marked**: Tag outputs per the Evidence-first EACN convention.
