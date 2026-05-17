@@ -101,15 +101,33 @@ Every project is identified by its EACN3 backend port and lives under `project_{
 
 ```text
 project_{port}/
-├── CLAUDE.md              # project narrative; author/Gru write, roles read
-├── AGENTS.md              # Codex sub-agent's view of project context (mirrors CLAUDE.md)
-├── meta.json              # machine metadata
-├── workspace/             # git worktree on branch minionsos/project-{port}
-├── eacn3_data/eacn3.db    # project-local EACN3 SQLite state
-├── memory/{role}.md       # L2 role scratchpads
-├── artifacts/             # notes, reviews, ethics reports, experiments, feedback
-└── logs/                  # backend.log and role-{name}.log
+├── CLAUDE.md                    # project narrative; author/Gru write, roles read
+├── AGENTS.md                    # Codex sub-agent's view of project context (mirrors CLAUDE.md)
+├── meta.json                    # machine metadata
+├── branches/                    # git worktrees, one per role plus a shared tree
+│   ├── main/                    # Gru — branch minionsos/project-{port}
+│   ├── coder/                   # branch minionsos/project-{port}-coder
+│   ├── experimenter/            # branch minionsos/project-{port}-experimenter
+│   ├── writer/                  # branch minionsos/project-{port}-writer
+│   ├── ethics/                  # Ethics drafts; published reports go to shared/ethics/
+│   ├── noter/                   # Noter drafts; published notes/DAG go to shared/
+│   ├── expert-<slug>/           # one per Expert
+│   └── shared/                  # branch minionsos/project-{port}-shared
+│       ├── exploration/dag.json # Noter-curated Exploration DAG
+│       ├── notes/               # Noter staged reports
+│       ├── ethics/              # Ethics published reports (flat)
+│       ├── exp/exp-<id>/        # Experimenter result bundles
+│       ├── reviews/round-<n>/   # mos_review_run output (tool-owned)
+│       └── handoffs/            # cross-role handoffs
+├── eacn3_data/eacn3.db          # project-local EACN3 SQLite state (gitignored)
+├── events/                      # per-agent EACN event JSONL audit stream (gitignored)
+├── state/                       # runtime control state (gitignored)
+│   ├── shared.lock              # flock used by mos_publish_to_shared
+│   └── .reset_markers/          # mos_reset_context drops a marker per role
+└── logs/                        # backend.log and role-{name}.log (gitignored)
 ```
+
+Cross-role writes go through `mos_publish_to_shared(role, src_path, dst_subpath, commit_message)`, which holds `state/shared.lock`, copies the source file into `branches/shared/<dst_subpath>`, and commits on the shared branch. Per-role subdir policy lives in `minions/tools/publish.py` (`_ROLE_ALLOWED_SHARED_SUBDIRS`). The DAG file is updated in place by `mos_dag_append`/`mos_dag_annotate` and flushed on a timer by Noter through `mos_dag_commit_shared`. The review surface (`reviews/`) is reserved for `mos_review_run`, which writes there directly and commits the round at the end.
 
 The parent directory containing this repository must be a git repository before `mos_project_create`, because MinionsOS creates per-project worktrees from the parent repo. `./install.sh` warns about this and `./mos doctor` re-checks it.
 
@@ -121,26 +139,19 @@ Only Gru may spawn EACN-visible agents or use `mos_project_*`, `mos_spawn_*`, an
 
 Claude Code is the only Role host. It honors CLI `--allowed-tools` for tool gating. The `codex-subagent` MCP exposes Codex GPT-5.5 to Roles as a full-access delegation target through the single `codex` tool (use `sandbox=read-only` for analysis, `sandbox=danger-full-access` for execution); it does not host a Role process. MinionsOS MCP server-side authorization in `minions/tools/mcp_server.py` must remain aligned with `minions.config.resolve_whitelist` so the same boundary applies regardless of which surface a tool call comes through.
 
-Tool/write boundaries:
+Tool/write boundaries (main role write scope; subagents inherit from their parent main role):
 
-| Agent | Project-local EACN access | Experiment tools | Codex subagent | Gru/project/spawn tools | Workspace writes |
-|---|---|---|---|---|---|
-| Gru main | `eacn3_*` (events delivered by scheduler) | no | `codex` | yes | yes |
-| Gru subagent | no | no | no | no | yes |
-| Noter main | `eacn3_*` (read-mostly) | no | no | no | `artifacts/notes/` only |
-| Noter subagent | no | no | no | no | no |
-| Coder main | `eacn3_*` | no | `codex` | no | yes |
-| Coder subagent | no | no | `codex` | no | yes |
-| Experimenter main | `eacn3_*` | yes | `codex` | no | yes |
-| Experimenter subagent | no | yes | `codex` | no | yes |
-| Writer main | `eacn3_*` plus paper-search MCP tools | no | `codex` | no | yes |
-| Writer subagent | paper-search MCP tools only | no | no | no | yes |
-| Expert main | `eacn3_*` | no | `codex` | no | yes, but preferably read-mostly |
-| Expert subagent | no | no | `codex` | no | yes, but preferably read-mostly |
-| Ethics main | `eacn3_*` | no | `codex` | no | `artifacts/ethics/` only |
-| Ethics subagent | no | no | `codex` | no | no |
+| Agent | Project-local EACN access | Experiment tools | Codex subagent | Gru/project/spawn tools | Own branch | Shared subdirs (via mos_publish_to_shared) |
+|---|---|---|---|---|---|---|
+| Gru main | `eacn3_*` (events delivered by scheduler) | no | `codex` | yes | `branches/main/` | any subdir |
+| Noter main | `eacn3_*` (read-mostly) | no | no | no | `branches/noter/` (drafts) | `notes/`, `exploration/`, `handoffs/` |
+| Coder main | `eacn3_*` | no | `codex` | no | `branches/coder/` | `handoffs/` |
+| Experimenter main | `eacn3_*` | yes | `codex` | no | `branches/experimenter/` | `exp/`, `handoffs/` |
+| Writer main | `eacn3_*` plus paper-search MCP tools | no | `codex` | no | `branches/writer/` | `handoffs/` |
+| Expert main | `eacn3_*` | no | `codex` | no | `branches/<expert>/` (read-mostly) | `handoffs/` |
+| Ethics main | `eacn3_*` | no | `codex` | no | `branches/ethics/` (drafts) | `ethics/`, `handoffs/` |
 
-Noter must not write to `workspace/`. The review surface (`artifacts/reviews/round-<n>/` and `artifacts/reviews/summaries/`) is owned exclusively by the spawned process from `mos_review_run`; no Role writes there.
+`branches/shared/reviews/` is reserved for `mos_review_run` — the publish tool will reject any other caller. `branches/shared/exploration/dag.json` is updated in-place by `mos_dag_append` and committed on a Noter-driven cron through `mos_dag_commit_shared` (whitelisted to Noter and Gru only). No role writes to another role's `branches/<role>/` directly; cross-role artefacts always travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`.
 
 ### Role skills and review workflow
 
@@ -155,16 +166,16 @@ Review is run by Gru's `mos_review_run` MCP tool, not by a long-lived Role. Its 
 
 A review round's Pass A must produce 3-5 independent reviewer-instance reports before reading prior review history. History enters only through the previous rolling summary during Pass B / Pass C.
 
-### Layered memory
+### Cross-cycle memory
 
-Roles are cold-started each invocation. Reconstruct role context from:
+Roles are cold-started each invocation. There are no per-role scratchpad files. The only persistent cross-cycle memory is the **Exploration DAG** at `project_{port}/branches/shared/exploration/dag.json`, accessed via `mos_dag_append` / `mos_dag_query` / `mos_dag_summary` / `mos_dag_annotate` / `mos_dag_path`. It is buffered to disk on every call and flushed to a single commit on the shared branch by Noter on its periodic wake (`noter_periodic_interval`, default 5m).
+
+Roles reconstruct context at wake-up from:
 
 1. current transcript,
-2. `project_{port}/memory/{role}.md`,
-3. project artifacts and EACN history,
+2. the Exploration DAG (especially `pending_plan` nodes left by their previous self before a `mos_reset_context`),
+3. EACN history and shared `branches/shared/<subdir>/` artefacts,
 4. root and project `CLAUDE.md` files.
-
-Role scratchpads are working memory, not transcript dumps. They are size-policed by `minions/lifecycle/wakeup.py`: soft at 10%, hard at 15%, veto at 20% of the model context estimate.
 
 ### Evidence-first EACN communication
 
@@ -205,7 +216,7 @@ Relevant files:
 | Role crash or behavior | `project_{port}/logs/role-{name}.log` |
 | Project metadata | `project_{port}/meta.json` |
 | EACN3 state | `project_{port}/eacn3_data/eacn3.db` |
-| Experiment failure | `project_{port}/artifacts/exp-{id}/report.md` |
+| Experiment failure | `project_{port}/branches/shared/exp/exp-{id}/report.md` |
 | Viz process | `./viz status` and `./viz logs` |
 
 ## Extension points

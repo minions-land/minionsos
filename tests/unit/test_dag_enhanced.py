@@ -14,10 +14,21 @@ def _isolated_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     port = 9999
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
     monkeypatch.setattr(
-        "minions.tools.exploration_dag.project_dir",
-        lambda p: tmp_path / f"project_{p}",
+        dag,
+        "project_shared_subdir",
+        lambda p, subdir: tmp_path / f"project_{p}" / "branches" / "shared" / subdir,
     )
-    exploration_dir = tmp_path / f"project_{port}" / "exploration"
+    monkeypatch.setattr(
+        dag,
+        "project_shared_dag_json",
+        lambda p: tmp_path
+        / f"project_{p}"
+        / "branches"
+        / "shared"
+        / "exploration"
+        / "dag.json",
+    )
+    exploration_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "exploration"
     exploration_dir.mkdir(parents=True)
     return exploration_dir
 

@@ -32,6 +32,7 @@ from minions.paths import (
     project_dir,
     project_main_workspace,
     project_reviews_dir,
+    project_shared_workspace,
 )
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,7 @@ class ReviewRunArgs(BaseModel):
         default=None,
         description=(
             "Optional path to the previous round's rolling summary "
-            "(``artifacts/reviews/summaries/round-<n-1>.md``). Required for Pass B / Pass C."
+            "(``branches/shared/reviews/summaries/round-<n-1>.md``). Required for Pass B / Pass C."
         ),
     )
 
@@ -124,7 +125,7 @@ def _resolve_submission_dir(port: int, submission_path: str) -> Path:
 
     Rejects paths that resolve outside the project's directory — submissions
     must live within ``project_{port}/`` (typically under
-    ``branches/writer/paper/submissions/`` or ``artifacts/submissions/``).
+    ``branches/writer/paper/submissions/`` or ``branches/shared/handoffs/``).
     """
     p = Path(submission_path)
     if not p.is_absolute():
@@ -697,10 +698,76 @@ def review_run(args: ReviewRunArgs) -> dict[str, object]:
             "round": round_num,
             "consolidated_path": str(consolidated_path),
         }
+
+    commit_sha = _commit_review_round_to_shared(
+        port=args.port,
+        round_num=round_num,
+        decision=decision,
+    )
+
     return {
         "status": "completed",
         "round": round_num,
         "decision": decision,
         "consolidated_path": str(consolidated_path),
         "summary_path": str(summary_path),
+        "shared_commit_sha": commit_sha,
     }
+
+
+def _commit_review_round_to_shared(*, port: int, round_num: int, decision: str) -> str | None:
+    """Commit the round's outputs on the shared branch.
+
+    ``mos_review_run`` owns ``branches/shared/reviews/`` directly rather
+    than going through ``mos_publish_to_shared``, since it produced the
+    files in-place under that tree. We still acquire the per-project
+    flock so concurrent ``mos_publish_to_shared`` calls from any role
+    serialise cleanly with this commit.
+    """
+    from minions.tools.publish import _shared_lock  # local import to avoid cycle
+
+    workspace = project_shared_workspace(port)
+    if not workspace.exists():
+        logger.warning("review_run: shared worktree missing for port=%d; skipping commit", port)
+        return None
+
+    msg = f"review: round-{round_num} consolidated ({decision})"
+    with _shared_lock(port):
+        add = subprocess.run(
+            ["git", "add", "-A", "reviews"],
+            cwd=str(workspace),
+            capture_output=True,
+            text=True,
+        )
+        if add.returncode != 0:
+            logger.warning(
+                "review_run: git add failed for shared port=%d: %s",
+                port,
+                add.stderr.strip(),
+            )
+            return None
+        commit = subprocess.run(
+            ["git", "commit", "-m", msg],
+            cwd=str(workspace),
+            capture_output=True,
+            text=True,
+        )
+        if commit.returncode != 0:
+            output = f"{commit.stdout}\n{commit.stderr}".lower()
+            if "nothing to commit" in output or "nothing added to commit" in output:
+                return None
+            logger.warning(
+                "review_run: git commit failed for shared port=%d: %s",
+                port,
+                commit.stderr.strip(),
+            )
+            return None
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(workspace),
+            capture_output=True,
+            text=True,
+        )
+        if head.returncode != 0:
+            return None
+        return head.stdout.strip() or None

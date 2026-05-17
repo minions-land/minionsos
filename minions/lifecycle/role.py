@@ -58,16 +58,18 @@ def _now_iso() -> str:
 def _resolve_time_trigger_interval(role_name: str, interval: str | None) -> str | None:
     """Resolve optional periodic wakeups for a role.
 
-    Noter gets a default cadence because periodic status summaries are part of
-    its core contract. Other roles remain event-driven unless explicitly
-    configured. The cadence is recorded on the ``RoleEntry`` for the
-    resident-Role launcher to consume; this module does not schedule wakeups.
+    Noter gets a default cadence because periodic DAG flushes are part of its
+    core contract. Report publication is throttled separately by
+    ``noter_report_interval``. Other roles remain event-driven unless
+    explicitly configured. The cadence is recorded on the ``RoleEntry`` for
+    the resident-Role launcher to consume; this module does not schedule
+    wakeups.
     """
     if interval is None and role_name == "noter":
         try:
-            interval = load_gru_config().noter_report_interval
+            interval = load_gru_config().noter_periodic_interval
         except Exception:
-            interval = "30m"
+            interval = "5m"
     if not interval:
         return None
     try:
@@ -94,30 +96,39 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "You do NOT implement code, run experiments, write final paper text, or "
         "participate in Review.\n"
         "Write boundaries: your branch `branches/main/` (this is Gru's own branch) "
-        "and `artifacts/` project coordination notes. Do NOT edit other roles' "
-        "branches directly; ask the owning role through EACN instead.\n"
+        "and project-level files (`CLAUDE.md`, `meta.json`). Do NOT edit other "
+        "roles' branches directly; ask the owning role through EACN instead. "
+        "Cross-role artefacts go to `branches/shared/<subdir>/` via "
+        "`mos_publish_to_shared` — Gru may publish into any subdir.\n"
         "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
-        "`mos_dag_summary` / `mos_dag_query`) — checkpoint before "
-        "`mos_reset_context`.\n"
+        "`mos_dag_summary` / `mos_dag_query`) — Noter flushes it to the shared "
+        "branch on its periodic wake.\n"
     ),
     "noter": (
-        "[Role boundary: human-side agent]\n"
-        "You provide staged reports so humans can observe the system: periodic summaries, "
-        "pending tasks, risks, evidence chains, artifact indexes, concise status. "
-        "You reduce Gru context pressure rather than add to it.\n"
-        "Write boundaries: `artifacts/notes/` only. Do NOT write to any other "
-        "role's branch under `branches/`.\n"
-        "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
-        "`mos_dag_summary` / `mos_dag_query`).\n"
+        "[Role boundary: human-side agent — DAG curator]\n"
+        "You wake on a periodic timer (`noter_periodic_interval`, default 5m) "
+        "to (a) flush the buffered Exploration DAG via `mos_dag_commit_shared` "
+        "and (b) consider whether a fresh staged report is due (target cadence "
+        "`noter_report_interval`, default 30m). You also wake on direct EACN "
+        "messages addressed to Noter.\n"
+        "Write boundaries: your drafts go in your branch `branches/noter/`; "
+        "publish to `branches/shared/notes/<file>.md` via "
+        "`mos_publish_to_shared`. The DAG itself lives at "
+        "`branches/shared/exploration/dag.json` and is flushed by you.\n"
+        "Do NOT write to any other role's `branches/<role>/` directory. Do "
+        "NOT publish into any shared subdir other than `notes/`, "
+        "`exploration/`, or `handoffs/`.\n"
     ),
     "coder": (
         "[Role boundary: EACN-visible agent]\n"
         "Communicate state and task handoffs through EACN3. "
         "Delegate complex execution to subagents; summarize and write back results.\n"
-        "Write boundaries: your branch `branches/coder/` by default. Conditional "
-        "system-maintenance boundary: MinionsOS repository runtime code only when "
-        "Gru or the author explicitly assigns that implementation work through EACN "
-        "and names the scope, allowed paths, and verification target.\n"
+        "Write boundaries: your branch `branches/coder/` by default. Publish "
+        "cross-role handoffs to `branches/shared/handoffs/` via "
+        "`mos_publish_to_shared`. Conditional system-maintenance boundary: "
+        "MinionsOS repository runtime code only when Gru or the author "
+        "explicitly assigns that implementation work through EACN and names the "
+        "scope, allowed paths, and verification target.\n"
         "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
         "`mos_dag_summary` / `mos_dag_query`).\n"
     ),
@@ -125,8 +136,10 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "[Role boundary: EACN-visible agent]\n"
         "Communicate state and task handoffs through EACN3. "
         "Delegate complex execution to subagents; summarize and write back results.\n"
-        "Write boundaries: your branch `branches/experimenter/` and "
-        "`artifacts/exp-*/` result bundles.\n"
+        "Write boundaries: your branch `branches/experimenter/` for working "
+        "state. Publish completed result bundles to "
+        "`branches/shared/exp/exp-<id>/` and cross-role handoffs to "
+        "`branches/shared/handoffs/` via `mos_publish_to_shared`.\n"
         "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
         "`mos_dag_summary` / `mos_dag_query`).\n"
     ),
@@ -137,7 +150,9 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "Claims must be supported by evidence, experiment, derivation, citation, "
         "or explicit speculation markers.\n"
         "Write boundaries: your branch `branches/writer/` (primary: "
-        "`branches/writer/paper/`).\n"
+        "`branches/writer/paper/`). Publish cross-role handoffs (e.g. a "
+        "submission package for review) to `branches/shared/handoffs/` via "
+        "`mos_publish_to_shared`.\n"
         "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
         "`mos_dag_summary` / `mos_dag_query`).\n"
     ),
@@ -147,8 +162,13 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "and claims have real evidence support. You MAY inspect internal materials: "
         "experiment artifacts, evidence/claim maps, appendix plans, known limitations, "
         "unresolved risks, agent communications, and all claim types.\n"
-        "Write boundaries: `artifacts/ethics/` only. Do NOT write to any other "
-        "role's branch under `branches/`.\n"
+        "Write boundaries: your branch `branches/ethics/` for working drafts "
+        "and investigation notes. Publish finalised reports, flags, "
+        "adjudications, and mock-reviews to `branches/shared/ethics/` (flat: "
+        "`report-<slug>.md`, `flag-<slug>.md`, `mock-review-<slug>.md`, "
+        "`adjudication-<task-id>.md`) via `mos_publish_to_shared`. Do NOT "
+        "publish into `branches/shared/reviews/` — that surface is reserved "
+        "for `mos_review_run`.\n"
         "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
         "`mos_dag_summary` / `mos_dag_query`).\n"
     ),
@@ -157,7 +177,8 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "Communicate state and task handoffs through EACN3. "
         "Preferably read-mostly; write to your own branch only when necessary.\n"
         "Write boundaries: your branch `branches/<expert>/` (sparingly, scientific "
-        "scratch only).\n"
+        "scratch only). Publish cross-role handoffs to "
+        "`branches/shared/handoffs/` via `mos_publish_to_shared`.\n"
         "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
         "`mos_dag_summary` / `mos_dag_query`).\n"
     ),
@@ -176,7 +197,7 @@ def _boundary_context(role_name: str, project_port: int) -> str:
         return _BOUNDARY_TEXT[normalised]
     role_type = ROLE_CLASSIFICATION.get(normalised, RoleType.eacn_visible)
     label = "human-side" if role_type == RoleType.human_side else "EACN-visible"
-    dirs = ROLE_WRITE_BOUNDARIES.get(normalised, ["memory/"])
+    dirs = ROLE_WRITE_BOUNDARIES.get(normalised, ["branches/<role>/"])
     return f"[Role boundary: {label} agent]\nWrite boundaries: {', '.join(dirs)}.\n"
 
 

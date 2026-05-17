@@ -26,7 +26,7 @@ def project_port(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> int:
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
     monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
     proj = tmp_path / f"project_{port}"
-    (proj / "exploration").mkdir(parents=True)
+    (proj / "branches" / "shared" / "exploration").mkdir(parents=True)
     return port
 
 
@@ -37,7 +37,14 @@ def test_reset_writes_journal_entry(project_port: int, tmp_path: Path) -> None:
         result = reset.mos_reset_context(reason="task switch")
 
     assert result["status"] == "reset_acknowledged"
-    journal = tmp_path / f"project_{project_port}" / "exploration" / "journal.jsonl"
+    journal = (
+        tmp_path
+        / f"project_{project_port}"
+        / "branches"
+        / "shared"
+        / "exploration"
+        / "journal.jsonl"
+    )
     assert journal.exists()
     rows = [json.loads(line) for line in journal.read_text().splitlines() if line.strip()]
     reset_rows = [r for r in rows if r.get("op") == "reset"]
@@ -52,7 +59,7 @@ def test_reset_writes_marker_file(project_port: int, tmp_path: Path) -> None:
         mock_run.return_value.returncode = 0
         reset.mos_reset_context(reason="batch complete")
 
-    marker = tmp_path / f"project_{project_port}" / "exploration" / ".reset_markers" / "coder"
+    marker = tmp_path / f"project_{project_port}" / "state" / ".reset_markers" / "coder"
     assert marker.exists()
     payload = json.loads(marker.read_text())
     assert payload["reason"] == "batch complete"
@@ -177,7 +184,14 @@ def test_pending_plan_flag_survives_dag_round_trip(project_port: int, tmp_path: 
             }
         ]
     )
-    dag_path = tmp_path / f"project_{project_port}" / "exploration" / "dag.json"
+    dag_path = (
+        tmp_path
+        / f"project_{project_port}"
+        / "branches"
+        / "shared"
+        / "exploration"
+        / "dag.json"
+    )
     raw = json.loads(dag_path.read_text())
     node = raw["nodes"][0]
     assert node["metadata"]["pending_plan"] is True

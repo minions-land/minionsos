@@ -91,6 +91,18 @@ _CODEX_BRIDGE_TOOLS = [
     "codex",
 ]
 
+# DAG tools every role uses to inspect/extend the buffered DAG. They are
+# explicitly listed (not via the ``mos_dag_*`` glob) because
+# ``mos_dag_commit_shared`` is reserved for Noter/Gru — committing the
+# DAG is a curator action, not a per-role one.
+_DAG_RW_TOOLS = [
+    "mos_dag_annotate",
+    "mos_dag_append",
+    "mos_dag_path",
+    "mos_dag_query",
+    "mos_dag_summary",
+]
+
 # Maps (role_name, agent_type) → list of allowed tool prefixes / names.
 # "main" = the top-level role agent-host process; "subagent" = spawned sub-processes.
 _WHITELIST: dict[tuple[str, str], list[str]] = {
@@ -112,6 +124,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "mos_get_events",
         "mos_unread_summary",
         "mos_dag_*",
+        "mos_publish_to_shared",
         "mos_reset_context",
         "mos_attach_role",
         "mos_kill_role",
@@ -134,6 +147,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "eacn3_*",
         "mos_await_events",
         "mos_dag_*",
+        "mos_publish_to_shared",
         "mos_reset_context",
         "Task",
         "WebSearch",
@@ -144,7 +158,8 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("coder", "main"): [
         "eacn3_*",
         "mos_await_events",
-        "mos_dag_*",
+        *_DAG_RW_TOOLS,
+        "mos_publish_to_shared",
         "mos_reset_context",
         "Task",
         "mos_project_checkpoint_workspace",
@@ -168,7 +183,8 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("experimenter", "main"): [
         "eacn3_*",
         "mos_await_events",
-        "mos_dag_*",
+        *_DAG_RW_TOOLS,
+        "mos_publish_to_shared",
         "mos_reset_context",
         "Task",
         "mos_project_checkpoint_workspace",
@@ -214,7 +230,8 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("writer", "main"): [
         "eacn3_*",
         "mos_await_events",
-        "mos_dag_*",
+        *_DAG_RW_TOOLS,
+        "mos_publish_to_shared",
         "mos_reset_context",
         *_WRITER_PAPER_SEARCH_TOOLS,
         "Task",
@@ -239,7 +256,8 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("expert", "main"): [
         "eacn3_*",
         "mos_await_events",
-        "mos_dag_*",
+        *_DAG_RW_TOOLS,
+        "mos_publish_to_shared",
         "mos_reset_context",
         "Task",
         "mos_project_checkpoint_workspace",
@@ -263,7 +281,8 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("ethics", "main"): [
         "eacn3_*",
         "mos_await_events",
-        "mos_dag_*",
+        *_DAG_RW_TOOLS,
+        "mos_publish_to_shared",
         "mos_reset_context",
         "Task",
         "codex",
@@ -326,16 +345,37 @@ ROLE_CLASSIFICATION: dict[str, RoleType] = {
 }
 
 ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
-    "gru": ["branches/main/", "artifacts/"],
-    "noter": ["artifacts/notes/"],
-    "coder": ["branches/coder/"],
+    "gru": [
+        "branches/main/",
+        "branches/shared/<any>/ (via mos_publish_to_shared)",
+    ],
+    "noter": [
+        "branches/noter/ (drafts)",
+        "branches/shared/notes/ (via mos_publish_to_shared)",
+        "branches/shared/exploration/dag.json (via mos_dag_commit_shared)",
+    ],
+    "coder": [
+        "branches/coder/",
+        "branches/shared/handoffs/ (via mos_publish_to_shared)",
+    ],
     "experimenter": [
         "branches/experimenter/",
-        "artifacts/exp-*/",
+        "branches/shared/exp/ (via mos_publish_to_shared)",
+        "branches/shared/handoffs/ (via mos_publish_to_shared)",
     ],
-    "writer": ["branches/writer/"],
-    "ethics": ["artifacts/ethics/"],
-    "expert": ["branches/<expert>/"],
+    "writer": [
+        "branches/writer/",
+        "branches/shared/handoffs/ (via mos_publish_to_shared)",
+    ],
+    "ethics": [
+        "branches/ethics/",
+        "branches/shared/ethics/ (via mos_publish_to_shared)",
+        "branches/shared/handoffs/ (via mos_publish_to_shared)",
+    ],
+    "expert": [
+        "branches/<expert>/",
+        "branches/shared/handoffs/ (via mos_publish_to_shared)",
+    ],
 }
 
 
@@ -415,9 +455,24 @@ class GruConfig(BaseModel):
         default=30,
         description="Python-side Experimenter queue reconcile cadence in seconds.",
     )
+    noter_periodic_interval: str = Field(
+        default="5m",
+        description=(
+            "Cadence at which Noter wakes to flush the buffered Exploration "
+            "DAG to a single commit on the shared branch and to take stock "
+            "of the team. Reports are published on a slower internal cadence "
+            "(see noter_report_interval); DAG flushes happen on every "
+            "periodic wake."
+        ),
+    )
     noter_report_interval: str = Field(
         default="30m",
-        description="Default time-trigger cadence for Noter periodic project summaries.",
+        description=(
+            "Target cadence for Noter staged report publishes. Noter compares "
+            "the time since the last published report against this value on "
+            "each periodic wake (see noter_periodic_interval) and only "
+            "publishes a new report when the interval has elapsed."
+        ),
     )
     local_eacn_initial_balance: float = Field(
         default=10_000.0,

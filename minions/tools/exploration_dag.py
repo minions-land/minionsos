@@ -1,15 +1,23 @@
-"""Exploration DAG â project-level shared knowledge graph for autonomous discovery.
+"""Exploration DAG — project-level shared knowledge graph for autonomous discovery.
 
 Records hypotheses, experiments, results, dead ends, decisions, and their
 relationships.  All roles read/write through these functions; the MCP
 registration layer in ``mcp_server.py`` wraps them as tools.
 
 Environment:
-    MINIONS_PROJECT_PORT â identifies the project.
+    MINIONS_PROJECT_PORT — identifies the project.
 
 Storage:
-    project_{port}/exploration/dag.json   â canonical graph state.
-    project_{port}/exploration/journal.jsonl â append-only mutation log.
+    project_{port}/branches/shared/exploration/dag.json     — canonical graph state.
+    project_{port}/branches/shared/exploration/journal.jsonl — append-only mutation log.
+
+The DAG and journal live inside the cross-role shared worktree
+(``branches/shared/`` on branch ``minionsos/project-{port}-shared``) so
+DAG history is auditable in git. ``mos_dag_append`` and
+``mos_dag_annotate`` write to the working tree only; commits happen on a
+cron through ``mos_dag_commit_shared``, which is owned by Noter and
+flushes the buffered DAG state via ``mos_publish_to_shared`` (single
+commit per cron tick, message "noter: dag flush <ts>").
 """
 
 from __future__ import annotations
@@ -24,7 +32,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from minions.paths import project_dir
+from minions.paths import project_shared_dag_json, project_shared_subdir
 
 logger = logging.getLogger(__name__)
 
@@ -88,11 +96,11 @@ TYPE_PREFIX: dict[str, str] = {
 
 
 def _exploration_dir(port: int) -> Path:
-    return project_dir(port) / "exploration"
+    return project_shared_subdir(port, "exploration")
 
 
 def _dag_path(port: int) -> Path:
-    return _exploration_dir(port) / "dag.json"
+    return project_shared_dag_json(port)
 
 
 def _journal_path(port: int) -> Path:
@@ -519,6 +527,47 @@ def mos_dag_summary() -> dict[str, Any]:
         "blocked_count": len(blocked),
         "dead_end_count": len(dead_ends),
     }
+
+
+def mos_dag_commit_shared(message: str | None = None) -> dict[str, Any]:
+    """Flush the buffered DAG to a single commit on the shared branch.
+
+    Owned by Noter. The DAG file at
+    ``branches/shared/exploration/dag.json`` is updated freely by every
+    role through ``mos_dag_append`` / ``mos_dag_annotate`` (working tree
+    only, no commit). This tool performs one auditable commit per call by
+    publishing the current DAG state through ``mos_publish_to_shared``.
+
+    Intended use: Noter cron tick (default every 5 minutes — configurable
+    in ``gru.yaml``). Other roles must not call this themselves; the
+    whitelist binds it to Noter and Gru only.
+
+    Returns the publish result dict (``commit_sha``, ``branch``, etc.).
+    Raises if the DAG file does not exist or the publish fails.
+    """
+    from minions.tools.publish import mos_publish_to_shared
+
+    port = _env_port()
+    dag_path = _dag_path(port)
+    if not dag_path.exists():
+        return {
+            "port": port,
+            "role": _env_role() or "noter",
+            "dst_path": "exploration/dag.json",
+            "commit_sha": None,
+            "pushed": False,
+            "push_branch": None,
+            "branch": None,
+            "skipped": "dag.json does not exist yet",
+        }
+    msg = message or f"noter: dag flush {_now_iso()}"
+    return mos_publish_to_shared(
+        role=_env_role() or "noter",
+        src_path=str(dag_path),
+        dst_subpath="exploration/dag.json",
+        commit_message=msg,
+        port=port,
+    )
 
 
 def mos_dag_relevant(context_text: str, max_nodes: int = 10) -> dict[str, Any]:

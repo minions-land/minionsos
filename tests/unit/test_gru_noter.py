@@ -34,7 +34,7 @@ class FakeRoleStore:
 
 def test_register_noter_defaults_to_periodic_time_trigger() -> None:
     store = FakeRoleStore()
-    cfg = GruConfig(noter_report_interval="12m")
+    cfg = GruConfig(noter_periodic_interval="12m")
     with (
         patch("minions.lifecycle.role.load_gru_config", return_value=cfg),
         patch("minions.lifecycle.role.register_project_role_agent", return_value=("tok", [])),
@@ -44,6 +44,10 @@ def test_register_noter_defaults_to_periodic_time_trigger() -> None:
     role = store.roles[-1]
     assert result["time_trigger_interval"] == "12m"
     assert role.time_trigger_interval == "12m"
+
+
+def test_noter_default_periodic_interval_is_5m() -> None:
+    assert GruConfig().noter_periodic_interval == "5m"
 
 
 def test_noter_default_report_interval_is_30m() -> None:

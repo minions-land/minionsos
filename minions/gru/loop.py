@@ -24,7 +24,7 @@ from datetime import UTC, datetime
 from minions.config import load_gru_config, pin_effective_agent_host
 from minions.lifecycle.health import CrashCounter, append_health_event, backend_health
 from minions.logging_setup import configure_logging
-from minions.paths import project_exploration_dir
+from minions.paths import project_reset_markers_dir
 from minions.state.store import StateStore
 
 configure_logging()
@@ -177,7 +177,7 @@ class GruLoop:
                 # Session is gone. Distinguish a deliberate
                 # ``mos_reset_context`` from a real crash by checking the
                 # marker file the reset tool drops before killing tmux.
-                marker = project_exploration_dir(port) / ".reset_markers" / role.name
+                marker = project_reset_markers_dir(port) / role.name
                 deliberate_reset = marker.exists()
                 if deliberate_reset:
                     with contextlib.suppress(OSError):

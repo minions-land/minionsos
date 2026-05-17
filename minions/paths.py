@@ -131,8 +131,48 @@ def project_roles_workspace_dir(port: int) -> Path:
 
 
 def project_shared_workspace(port: int) -> Path:
-    """Return the shared cross-role handoff directory for *port*."""
+    """Return the cross-role shared worktree for *port*.
+
+    Layout under ``branches/shared/`` (a git worktree on branch
+    ``minionsos/project-{port}-shared``):
+
+    - ``exploration/dag.json``        Noter-curated Exploration DAG
+    - ``notes/``                      Noter staged reports
+    - ``ethics/``                     Ethics published audit reports (flat)
+    - ``exp/``                        Experimenter result bundles
+    - ``reviews/round-<n>/``          ``mos_review_run`` output
+    - ``handoffs/``                   free-form cross-role handoffs
+
+    Roles do **not** ``Write`` to this tree directly. All writes go through
+    ``mos_publish_to_shared`` which holds a project-local flock and commits
+    each publish on the shared branch. The exception is ``mos_review_run``
+    which owns ``reviews/round-<n>/`` directly.
+    """
     return project_workspace_root(port) / "shared"
+
+
+def project_shared_subdir(port: int, subdir: str) -> Path:
+    """Return a subdirectory under ``branches/shared/`` for *port*."""
+    return project_shared_workspace(port) / _safe_component(subdir)
+
+
+def project_shared_dag_json(port: int) -> Path:
+    """Return the canonical Exploration DAG path for *port*.
+
+    Lives at ``branches/shared/exploration/dag.json`` so DAG state is
+    durable, shared, and committed periodically by Noter on a cron.
+    """
+    return project_shared_subdir(port, "exploration") / "dag.json"
+
+
+def project_shared_branch_name(port: int) -> str:
+    """Return the canonical git branch name for the shared worktree."""
+    return f"minionsos/project-{port}-shared"
+
+
+def project_shared_lock(port: int) -> Path:
+    """Return the per-project flock path that serializes shared writes."""
+    return project_state_dir(port) / "shared.lock"
 
 
 def project_role_branch_leaf(role_name: str) -> str:
@@ -218,13 +258,29 @@ def project_role_log(port: int, role_name: str) -> Path:
 
 
 def project_artifacts_dir(port: int) -> Path:
-    """Return the ``artifacts/`` directory for *port*."""
-    return project_dir(port) / "artifacts"
+    """DEPRECATED: ``artifacts/`` is gone. Returns the shared worktree.
+
+    Kept as a transitional alias so any straggling caller hitting this
+    function lands on the new shared tree rather than at a missing path.
+    New code should call :func:`project_shared_workspace` or
+    :func:`project_shared_subdir` directly.
+    """
+    return project_shared_workspace(port)
 
 
 def project_reviews_dir(port: int) -> Path:
-    """Return the ``artifacts/reviews/`` directory for *port*."""
-    return project_artifacts_dir(port) / "reviews"
+    """Return ``branches/shared/reviews/`` (formerly ``artifacts/reviews/``)."""
+    return project_shared_subdir(port, "reviews")
+
+
+def project_reset_markers_dir(port: int) -> Path:
+    """Return the per-role reset-marker directory for *port*.
+
+    Markers live under ``project_{port}/state/.reset_markers/`` so they
+    stay gitignored runtime control state, separate from the audited
+    shared tree.
+    """
+    return project_state_dir(port) / ".reset_markers"
 
 
 def role_system_md(role: str) -> Path:
@@ -238,8 +294,13 @@ def common_role_system_md() -> Path:
 
 
 def project_exploration_dir(port: int) -> Path:
-    """Return the exploration DAG directory for *port*."""
-    return project_dir(port) / "exploration"
+    """Return the Exploration DAG directory for *port*.
+
+    Lives under ``branches/shared/exploration/`` so DAG state is captured
+    in git on the shared branch. Use :func:`project_shared_dag_json` for
+    the canonical ``dag.json`` path directly.
+    """
+    return project_shared_subdir(port, "exploration")
 
 
 def project_events_dir(port: int) -> Path:

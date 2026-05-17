@@ -50,6 +50,8 @@ from minions.paths import (
     project_roles_workspace_dir,
     project_session_ledger,
     project_session_name,
+    project_shared_branch_name,
+    project_shared_subdir,
     project_shared_workspace,
     project_state_dir,
     project_workspace_root,
@@ -296,13 +298,21 @@ def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
 
 
 def _default_noter_time_trigger_interval() -> str | None:
+    """Return Noter's default periodic-wake cadence.
+
+    Noter wakes on this interval to flush the buffered Exploration DAG via
+    ``mos_dag_commit_shared`` and to consider whether a fresh staged report
+    is due (see ``noter_report_interval``). Defaults to ``5m`` so DAG
+    history accumulates with bounded latency without flooding the shared
+    branch with one commit per ``mos_dag_append`` call.
+    """
     try:
         from minions.config import load_gru_config, parse_duration
 
-        interval = load_gru_config().noter_report_interval
+        interval = load_gru_config().noter_periodic_interval
         return interval if parse_duration(interval) > 0 else None
     except Exception:
-        return "30m"
+        return "5m"
 
 
 def _normalise_revived_role(role: RoleEntry) -> RoleEntry:
@@ -624,6 +634,98 @@ def _create_worktree(port: int, base_branch: str) -> str:
     )
     if result.returncode != 0:
         raise ProjectError(f"git worktree add failed for port {port}: {result.stderr.strip()}")
+    return branch
+
+
+_SHARED_SUBDIRS = ("exploration", "notes", "ethics", "exp", "reviews", "handoffs")
+_SHARED_README = """\
+# Project shared worktree
+
+This directory is the cross-role shared worktree for this project. It is its
+own git branch (`minionsos/project-{port}-shared`) checked out here.
+
+Roles do **not** `Write` here directly. All writes go through
+`mos_publish_to_shared`, which holds a project-local flock on
+`state/shared.lock` and commits each publish on the shared branch.
+
+## Subdirectories
+
+- `exploration/dag.json` — Noter-curated Exploration DAG. Buffered local
+  writes via `mos_dag_append`; periodic commits by Noter on a cron through
+  `mos_publish_to_shared`.
+- `notes/` — Noter staged reports.
+- `ethics/` — Ethics published audit reports (flat: `report-*.md`,
+  `flag-*.md`, `mock-review-*.md`, `adjudication-*.md`).
+- `exp/` — Experimenter result bundles, one per experiment.
+- `reviews/round-<n>/` — `mos_review_run` output. The review tool owns this
+  surface directly; no other role writes here.
+- `handoffs/` — Free-form cross-role handoffs.
+"""
+
+
+def _create_shared_worktree(port: int) -> str:
+    """Create the cross-role shared worktree for *port*.
+
+    Branched off the project's main branch so role outputs published here
+    accumulate in one auditable git history. Seeds the standard subdir
+    layout and an initial commit so role-side publishes land on a populated
+    branch from the start.
+
+    Returns the shared branch name.
+    """
+    branch = project_shared_branch_name(port)
+    workspace = project_shared_workspace(port)
+    workspace.parent.mkdir(parents=True, exist_ok=True)
+
+    if workspace.exists() and _is_git_work_tree(workspace):
+        return branch
+    if workspace.exists():
+        # The directory was created earlier (e.g. by _ensure_workspace_layout)
+        # but is not a worktree. ``git worktree add`` refuses a non-empty
+        # target, so remove the empty placeholder before adding.
+        try:
+            workspace.rmdir()
+        except OSError as exc:
+            raise ProjectError(
+                f"Cannot create shared worktree at {workspace}: "
+                f"directory exists and is not empty: {exc}"
+            ) from exc
+
+    parent_repo = project_parent_repo()
+    base = project_branch_name(port)
+    cmd = [
+        "git",
+        "worktree",
+        "add",
+        "-b",
+        branch,
+        str(workspace),
+        base,
+    ]
+    logger.info("Creating shared worktree: %s", " ".join(cmd))
+    result = subprocess.run(
+        cmd,
+        cwd=str(parent_repo),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise ProjectError(
+            f"git worktree add failed for shared on port {port}: {result.stderr.strip()}"
+        )
+
+    # Seed the canonical subdir layout with .gitkeep so an empty shared
+    # tree still tracks structure. README documents the surface for any
+    # operator dropping into the worktree.
+    for subdir in _SHARED_SUBDIRS:
+        sub = workspace / subdir
+        sub.mkdir(parents=True, exist_ok=True)
+        (sub / ".gitkeep").write_text("", encoding="utf-8")
+    (workspace / "README.md").write_text(_SHARED_README.format(port=port), encoding="utf-8")
+
+    seed_commit = _git_commit_workspace(workspace, "shared: seed cross-role layout")
+    if seed_commit is None:
+        logger.debug("shared worktree seed produced no commit (already clean)")
     return branch
 
 
@@ -975,14 +1077,6 @@ _PROJECT_GITIGNORE = """\
 !meta.json
 !branches/
 !branches/**
-!artifacts/
-!artifacts/**
-!memory/
-!memory/**
-!logs/
-!logs/**
-!eacn3_data/
-!eacn3_data/**
 """
 
 
@@ -1037,11 +1131,23 @@ def _render_project_claude_md(
     lines.append("")
     lines.append("- All inter-Role communication goes through EACN3 on this port.")
     lines.append(
-        "- Branch checkouts live under `branches/`: `branches/main/` is Gru's main "
+        "- Branch checkouts live under `branches/`: `branches/main/` is Gru's "
         "branch (the primary integration tree); every other role has its own "
-        "branch at `branches/<role>/`; shared handoffs live under `branches/shared/`. "
-        "System-layer files (heartbeat, role state) live in each role's "
-        "`branches/<role>/.minionsos/` hidden directory."
+        "branch at `branches/<role>/`; the shared cross-role tree lives at "
+        "`branches/shared/` on its own branch."
+    )
+    lines.append(
+        "- Cross-role artefacts (Ethics reports, Experimenter result bundles, "
+        "Noter notes, free-form handoffs) go to `branches/shared/<subdir>/` via "
+        "`mos_publish_to_shared`. Each role may only publish into its allowed "
+        "subdirs (see role boundary text). The Exploration DAG at "
+        "`branches/shared/exploration/dag.json` is updated in place by "
+        "`mos_dag_append`/`mos_dag_annotate` and committed by Noter on a "
+        "periodic cron via `mos_dag_commit_shared`."
+    )
+    lines.append(
+        "- The review surface `branches/shared/reviews/round-<n>/` is reserved "
+        "for `mos_review_run`; the publish tool will reject any other caller."
     )
     lines.append(
         "- Root constitution at repo `CLAUDE.md` always wins on conflicts (see Hard rules)."
@@ -1108,23 +1214,18 @@ def project_create(
     pdir.mkdir(parents=True, exist_ok=True)
     _ensure_workspace_layout(port)
     project_logs_dir(port).mkdir(parents=True, exist_ok=True)
-    (pdir / "artifacts" / "notes").mkdir(parents=True, exist_ok=True)
-    (pdir / "artifacts" / "ethics" / "reports").mkdir(parents=True, exist_ok=True)
-    (pdir / "artifacts" / "ethics" / "flags" / "open").mkdir(parents=True, exist_ok=True)
-    (pdir / "artifacts" / "ethics" / "flags" / "resolved").mkdir(parents=True, exist_ok=True)
-    (pdir / "artifacts" / "ethics" / "investigations").mkdir(parents=True, exist_ok=True)
-    (pdir / "artifacts" / "ethics" / "adjudications").mkdir(parents=True, exist_ok=True)
-    (pdir / "artifacts" / "ethics" / "mock-reviews").mkdir(parents=True, exist_ok=True)
-    (pdir / "memory").mkdir(parents=True, exist_ok=True)
     (pdir / "eacn3_data").mkdir(parents=True, exist_ok=True)
 
     # Workspace hygiene: write a .gitignore to prevent unstructured files.
     _write_project_gitignore(pdir)
 
-    # Create git worktree.
+    # Create main project worktree (Gru's branch), then the shared
+    # cross-role worktree on its own branch. Role worktrees are created
+    # lazily by ``register_role`` and branch off main.
     try:
         _ensure_parent_is_git_repo()
         branch = _create_worktree(port, base_branch)
+        _create_shared_worktree(port)
     except ProjectError as exc:
         logger.error("Worktree creation failed: %s", exc)
         raise
@@ -1342,6 +1443,15 @@ def project_close(
     The session jsonl files left under ``~/.claude/projects/<cwd-slug>/``
     are not removed, so the closed project can be inspected forensically
     via ``claude --resume <session_name>`` from the same cwd if needed.
+
+    TODO (deferred): on close, run ``git worktree remove`` for
+    ``branches/main/``, every per-role ``branches/<role>/``, and
+    ``branches/shared/`` so the parent repo's worktree list does not grow
+    unbounded. The branches themselves should be retained for forensic
+    inspection — only the working directories should be removed. Not
+    implemented yet because we do not currently exercise close + parent-
+    repo cleanup in normal operation; revisit when the parent-repo
+    default change lands or when manual cleanup becomes painful.
     """
     _store = store or StateStore()
     entry = _store.get_project(port)
@@ -1477,7 +1587,7 @@ def project_revive(
       cold-start a fresh conversation under the same session name; we log
       a warning but treat that as non-fatal.
     - If *external_feedback* is provided, archives it to
-      ``artifacts/external_feedback/<ts>.md``.
+      ``branches/shared/handoffs/external-feedback/<ts>.md``.
     - Updates ``meta.json`` and ``projects.json``.
     """
     _store = store or StateStore()
@@ -1527,7 +1637,7 @@ def project_revive(
 
     # Inject external feedback if provided.
     if external_feedback:
-        fb_dir = project_dir(port) / "artifacts" / "external_feedback"
+        fb_dir = project_shared_subdir(port, "handoffs") / "external-feedback"
         fb_dir.mkdir(parents=True, exist_ok=True)
         ts_safe = now.replace(":", "-").replace(".", "-")
         fb_path = fb_dir / f"{ts_safe}.md"

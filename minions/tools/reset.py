@@ -10,9 +10,11 @@ Why this is not Claude's compact:
 - Compact summarizes (costs tokens, lossy, can drift role contract).
 - Reset deletes (costs zero tokens, lossless because state lives in DAG).
 
-A marker file under ``project_{port}/exploration/.reset_markers/{role}`` is
+A marker file under ``project_{port}/state/.reset_markers/{role}`` is
 written before the kill so the watchdog can distinguish a deliberate reset
-from a real crash and not increment the crash counter.
+from a real crash and not increment the crash counter. Markers live under
+``state/`` (gitignored) rather than under the audited shared tree, since
+they are runtime control signals and have no review value.
 """
 
 from __future__ import annotations
@@ -23,7 +25,7 @@ import os
 import subprocess
 from datetime import UTC, datetime
 
-from minions.paths import project_exploration_dir
+from minions.paths import project_reset_markers_dir, project_shared_subdir
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +62,9 @@ def mos_reset_context(reason: str = "") -> dict:
     role = _env_role()
     ts = datetime.now(UTC).isoformat(timespec="seconds")
 
-    exploration = project_exploration_dir(port)
+    # Journal lives in the audited shared tree alongside the DAG, since it
+    # is genuine project history. Markers live in gitignored state/.
+    exploration = project_shared_subdir(port, "exploration")
     exploration.mkdir(parents=True, exist_ok=True)
 
     journal_path = exploration / "journal.jsonl"
@@ -71,7 +75,7 @@ def mos_reset_context(reason: str = "") -> dict:
     except OSError as exc:
         logger.warning("Failed to log reset to journal: %s", exc)
 
-    marker_dir = exploration / ".reset_markers"
+    marker_dir = project_reset_markers_dir(port)
     marker_dir.mkdir(parents=True, exist_ok=True)
     marker_path = marker_dir / role
     try:

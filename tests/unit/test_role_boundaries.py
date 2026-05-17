@@ -46,36 +46,40 @@ class TestRoleType:
 
 
 class TestWriteBoundaries:
-    """MinionsOS role write boundaries live under ``branches/<role>/`` plus each role's
-    artifact subdir. The legacy ``workspace/`` + ``memory/`` layout was retired
-    when projects moved to per-role branch worktrees."""
+    """MinionsOS role write boundaries live under each role branch plus allowed
+    ``branches/shared/<subdir>/`` publish surfaces."""
 
     def test_noter_cannot_write_branches(self) -> None:
         allowed = ROLE_WRITE_BOUNDARIES["noter"]
-        # Noter only owns its own branch scratchpad; it never writes to any
-        # other role's branch and does not touch the legacy "workspace/" path.
+        # Noter owns its own drafts and the curated shared notes/DAG surfaces;
+        # it never writes to any other role's branch.
         assert not any(p.startswith("branches/coder/") for p in allowed)
         assert not any(p.startswith("branches/writer/") for p in allowed)
-        assert "artifacts/notes/" in allowed
+        assert any(p.startswith("branches/noter/") for p in allowed)
+        assert any(p.startswith("branches/shared/notes/") for p in allowed)
+        assert any("branches/shared/exploration/dag.json" in p for p in allowed)
 
     def test_coder_owns_its_branch(self) -> None:
         allowed = ROLE_WRITE_BOUNDARIES["coder"]
         assert any(p.startswith("branches/coder/") for p in allowed)
 
-    def test_ethics_restricted_to_ethics_artifacts(self) -> None:
+    def test_ethics_restricted_to_ethics_branch_and_shared_surface(self) -> None:
         allowed = ROLE_WRITE_BOUNDARIES["ethics"]
-        assert "artifacts/ethics/" in allowed
-        # Ethics must not write into any role's branch worktree.
+        assert any(p.startswith("branches/ethics/") for p in allowed)
+        assert any(p.startswith("branches/shared/ethics/") for p in allowed)
+        # Ethics must not write into any other role's branch worktree.
         assert not any(
-            p.startswith("branches/") and not p.startswith("branches/ethics/.minionsos/")
+            p.startswith("branches/")
+            and not p.startswith("branches/ethics/")
+            and not p.startswith("branches/shared/")
             for p in allowed
         )
 
     def test_no_role_writes_review_artifacts(self) -> None:
-        """artifacts/reviews/ is owned exclusively by mos_review_run's spawned process."""
+        """branches/shared/reviews/ is owned exclusively by mos_review_run."""
         for role, allowed in ROLE_WRITE_BOUNDARIES.items():
-            assert not any(p.startswith("artifacts/reviews/") for p in allowed), (
-                f"role {role!r} declares write access to artifacts/reviews/; "
+            assert not any(p.startswith("branches/shared/reviews/") for p in allowed), (
+                f"role {role!r} declares write access to branches/shared/reviews/; "
                 "that surface is owned by mos_review_run only."
             )
 

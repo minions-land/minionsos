@@ -7,8 +7,8 @@ Simulates a 10-step scientific exploration workflow and measures:
 
 Three modes:
 1. Long-running: single context window, no compaction, accumulates everything
-2. Short-process: fresh context each step, only scratchpad for continuity
-3. DAG+compact: fresh context each step, DAG + scratchpad + compact skill
+2. Short-process: fresh context each step, only small carried summary for continuity
+3. DAG+compact: fresh context each step, DAG + carried summary + compact skill
 
 The test is deterministic (no LLM calls) — it simulates the information flow
 and measures what each mode would have available at each step.
@@ -105,7 +105,7 @@ SCENARIO = [
 
 # Simulated token costs per step (realistic estimates)
 TOKENS_PER_STEP_CONTEXT = 3000  # average tokens consumed per step of work
-TOKENS_SCRATCHPAD = 500  # scratchpad injection cost
+TOKENS_CARRIED_SUMMARY = 500  # small cross-cycle summary injection cost
 TOKENS_DAG_SUMMARY = 400  # dag_summary injection cost
 TOKENS_SYSTEM_PROMPT = 2000  # role SYSTEM.md + skills
 
@@ -115,10 +115,21 @@ def _isolated_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     port = 9999
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
     monkeypatch.setattr(
-        "minions.tools.exploration_dag.project_dir",
-        lambda p: tmp_path / f"project_{p}",
+        dag,
+        "project_shared_subdir",
+        lambda p, subdir: tmp_path / f"project_{p}" / "branches" / "shared" / subdir,
     )
-    exploration_dir = tmp_path / f"project_{port}" / "exploration"
+    monkeypatch.setattr(
+        dag,
+        "project_shared_dag_json",
+        lambda p: tmp_path
+        / f"project_{p}"
+        / "branches"
+        / "shared"
+        / "exploration"
+        / "dag.json",
+    )
+    exploration_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "exploration"
     exploration_dir.mkdir(parents=True)
     return exploration_dir
 
@@ -145,23 +156,25 @@ class TestPerformanceComparison:
         }
 
     def _simulate_short_process(self) -> dict:
-        """Mode 2: Fresh context each step, only scratchpad."""
+        """Mode 2: Fresh context each step, only small carried summary."""
         total_tokens = 0
         knowledge_retained = 0
 
         for i, _step in enumerate(SCENARIO):
-            # Each step: system prompt + scratchpad + work
-            step_tokens = TOKENS_SYSTEM_PROMPT + TOKENS_SCRATCHPAD + TOKENS_PER_STEP_CONTEXT
+            # Each step: system prompt + carried summary + work
+            step_tokens = TOKENS_SYSTEM_PROMPT + TOKENS_CARRIED_SUMMARY + TOKENS_PER_STEP_CONTEXT
             total_tokens += step_tokens
-            # Scratchpad can only hold ~3 items reliably
+            # Small carried summaries can only hold ~3 items reliably
             knowledge_retained = min(i + 1, 3)
 
         return {
             "mode": "short_process",
             "total_tokens_consumed": total_tokens,
-            "peak_context": TOKENS_SYSTEM_PROMPT + TOKENS_SCRATCHPAD + TOKENS_PER_STEP_CONTEXT,
+            "peak_context": TOKENS_SYSTEM_PROMPT
+            + TOKENS_CARRIED_SUMMARY
+            + TOKENS_PER_STEP_CONTEXT,
             "knowledge_at_step_10": knowledge_retained,
-            "dead_end_visible_at_step_6": False,  # scratchpad may have lost it
+            "dead_end_visible_at_step_6": False,  # carried summary may have lost it
             "can_recall_step_1_at_step_10": False,  # too far back
         }
 
@@ -170,10 +183,10 @@ class TestPerformanceComparison:
         total_tokens = 0
 
         for _i, step in enumerate(SCENARIO):
-            # Each step: system + scratchpad + dag_summary + work
+            # Each step: system + carried summary + dag_summary + work
             step_tokens = (
                 TOKENS_SYSTEM_PROMPT
-                + TOKENS_SCRATCHPAD
+                + TOKENS_CARRIED_SUMMARY
                 + TOKENS_DAG_SUMMARY
                 + TOKENS_PER_STEP_CONTEXT
             )
@@ -189,7 +202,7 @@ class TestPerformanceComparison:
             "mode": "dag_compact",
             "total_tokens_consumed": total_tokens,
             "peak_context": TOKENS_SYSTEM_PROMPT
-            + TOKENS_SCRATCHPAD
+            + TOKENS_CARRIED_SUMMARY
             + TOKENS_DAG_SUMMARY
             + TOKENS_PER_STEP_CONTEXT,
             "knowledge_at_step_10": summary["total_nodes"],  # all 10 nodes accessible

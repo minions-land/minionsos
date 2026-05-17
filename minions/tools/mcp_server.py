@@ -58,6 +58,7 @@ from minions.tools import await_events as _await_events
 from minions.tools import experiment_ssh as _exp
 from minions.tools import exploration_dag as _dag
 from minions.tools import paper_search as _paper_search
+from minions.tools import publish as _publish
 from minions.tools import reset as _reset
 from minions.tools import review as _review
 
@@ -73,6 +74,7 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_reset_context",
     "mos_dag_annotate",
     "mos_dag_append",
+    "mos_dag_commit_shared",
     "mos_dag_path",
     "mos_dag_query",
     "mos_dag_summary",
@@ -108,6 +110,7 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_project_list",
     "mos_project_revive",
     "mos_project_set_phase",
+    "mos_publish_to_shared",
     "mos_read_arxiv_paper",
     "mos_read_biorxiv_paper",
     "mos_read_medrxiv_paper",
@@ -286,6 +289,41 @@ class ProjectCheckpointArgs(BaseModel):
     message: str | None = Field(
         default=None,
         description="Optional git commit message for the durable checkpoint.",
+    )
+
+
+class PublishToSharedArgs(BaseModel):
+    role: str = Field(
+        description=(
+            "Calling role name (gru, noter, ethics, experimenter, writer, "
+            "coder, expert, or expert-<slug>). Used for the per-role "
+            "subdir policy."
+        )
+    )
+    src_path: str = Field(
+        description=(
+            "Absolute path to the source file in the role's own branch "
+            "worktree (or any readable location)."
+        )
+    )
+    dst_subpath: str = Field(
+        description=(
+            "Destination relative path under branches/shared/, e.g. "
+            "'notes/2026-05-17-discussion.md', 'ethics/report-leakage-claim.md', "
+            "'exp/exp-42/report.md', or 'handoffs/coder-result.json'. The "
+            "first path component must be one of the role's allowed shared "
+            "subdirs (reviews/ is reserved for mos_review_run)."
+        )
+    )
+    commit_message: str = Field(
+        description="Git commit message for this publish (one line preferred)."
+    )
+    port: int | None = Field(
+        default=None,
+        description=(
+            "Project port. Defaults to MINIONS_PROJECT_PORT (auto-set in "
+            "role processes); pass explicitly when calling from outside."
+        ),
     )
 
 
@@ -495,6 +533,43 @@ def mos_project_checkpoint_workspace(args: ProjectCheckpointArgs) -> dict:
         args.port,
         role_name=args.role_name,
         message=args.message,
+    )
+
+
+@mcp.tool()
+def mos_publish_to_shared(args: PublishToSharedArgs) -> dict:
+    """Publish a file from the calling role's worktree into the shared tree.
+
+    Behavior:
+
+    1. Acquire a per-project flock on ``state/shared.lock`` to serialise
+       concurrent writers.
+    2. Validate ``dst_subpath`` against the calling role's policy. Each
+       role may publish only into its own subdir(s):
+
+       - Gru: any subdir
+       - Noter: ``notes/``, ``exploration/``, ``handoffs/``
+       - Ethics: ``ethics/``, ``handoffs/``
+       - Experimenter: ``exp/``, ``handoffs/``
+       - Writer / Coder / Expert: ``handoffs/`` only
+       - ``reviews/`` is reserved for ``mos_review_run`` and rejected here.
+
+    3. Copy ``src_path`` into ``branches/shared/<dst_subpath>``.
+    4. ``git add -A`` + ``git commit -m <commit_message>`` on the shared
+       branch.
+    5. ``git push`` if ``github_push_target`` is configured.
+
+    Returns ``{port, role, dst_path, commit_sha, pushed, push_branch,
+    branch}``. ``commit_sha`` is ``None`` when the file already matched
+    on disk (no-op publish).
+    """
+    _require_tool_allowed("mos_publish_to_shared")
+    return _publish.mos_publish_to_shared(
+        role=args.role,
+        src_path=args.src_path,
+        dst_subpath=args.dst_subpath,
+        commit_message=args.commit_message,
+        port=args.port,
     )
 
 
@@ -981,6 +1056,29 @@ def mos_dag_summary() -> dict:
     """Return a high-level DAG summary: node counts, active hypotheses, blocked paths."""
     _require_tool_allowed("mos_dag_summary")
     return _dag.mos_dag_summary()
+
+
+class DagCommitSharedArgs(BaseModel):
+    message: str | None = Field(
+        default=None,
+        description=("Optional git commit message; defaults to 'noter: dag flush <iso-ts>'."),
+    )
+
+
+@mcp.tool()
+def mos_dag_commit_shared(args: DagCommitSharedArgs) -> dict:
+    """Flush the buffered DAG to a single commit on the shared branch.
+
+    Owned by Noter (whitelist also grants Gru). Other roles must not call
+    this — they update the DAG via ``mos_dag_append`` /
+    ``mos_dag_annotate`` and let Noter's cron flush the accumulated state.
+
+    Returns the publish result dict (port, role, dst_path, commit_sha,
+    pushed, push_branch, branch). ``commit_sha`` is None when the on-disk
+    DAG already matches HEAD (no diff).
+    """
+    _require_tool_allowed("mos_dag_commit_shared")
+    return _dag.mos_dag_commit_shared(message=args.message)
 
 
 # ── mos_reset_context ──────────────────────────────────────────────────────────

@@ -23,8 +23,15 @@ project_parent_repo:
 # Defaults to the directory containing MinionsOS.
 projects_root:
 
-# Noter periodic report cadence. Noter is a local observer: it wakes on this
-# timer, plus explicit EACN direct messages addressed to Noter.
+# Noter periodic wake cadence. Noter wakes every interval to flush the buffered
+# Exploration DAG to a single commit on the shared branch (mos_dag_commit_shared),
+# and to consider whether a fresh staged report is due. DAG flushes happen on
+# every periodic wake; reports are throttled by noter_report_interval below.
+noter_periodic_interval: 5m
+
+# Target cadence for Noter staged report publishes. Noter only publishes a new
+# report once this much time has elapsed since the last one (checked on each
+# periodic wake). Set to "0" to disable scheduled reports.
 noter_report_interval: 30m
 
 # Minimum local EACN credit balance to keep available for Gru and registered
