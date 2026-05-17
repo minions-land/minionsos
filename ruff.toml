@@ -1,6 +1,13 @@
 line-length = 100
 target-version = "py311"
-exclude = ["EACN3/", ".venv/", "__pycache__/", "examples/", "answer/"]
+exclude = [
+    "EACN3/",
+    ".venv/",
+    "__pycache__/",
+    "examples/",
+    "answer/",
+    "minions/roles/writer/skills/figure-aesthetic-exemplars/",
+]
 
 [lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]

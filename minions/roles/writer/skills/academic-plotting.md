@@ -1,18 +1,18 @@
 ---
 slug: academic-plotting
-summary: Standards for publication-quality figures — matplotlib for numerical axes, diagram tools for structure, venue-standard styling, colorblind-safe palette, vector + raster outputs.
+summary: Publication-quality figure standards — rcParams + PALETTE-dict pattern + outside ticks for content discipline; matplotlib for numerical axes, diagram tools for structure; vector + raster outputs reproducibly from a checked-in script. Layout discipline lives in figure-layout-defaults.
 layer: logical
 tools:
-version: 2
+version: 3
 status: active
 supersedes:
-references: figure-spec, interactive-figure-prototype
-provenance: human
+references: figure-spec, interactive-figure-prototype, figure-layout-defaults
+provenance: human + SkillTest-R1.A+R1.B-merged
 ---
 
 # Skill — Academic Plotting
 
-Numbers → matplotlib; structure → diagram. Then style to venue, highlight "our method" deliberately, ship vector + raster reproducibly from a checked-in script.
+Two responsibilities: pick the right tool for the figure shape, and apply venue-grade content discipline. Layout (gridspec, panel hierarchy, no-empty-quadrants) lives in `figure-layout-defaults`.
 
 ## When to invoke
 
@@ -20,9 +20,7 @@ Numbers → matplotlib; structure → diagram. Then style to venue, highlight "o
 - When polishing a figure Coder produced — improve readability without changing scientific meaning.
 - Before camera-ready, audit every figure against this checklist.
 
-## Structure
-
-Tool choice by figure shape:
+## Tool by figure shape
 
 | Figure shape | Tool |
 |---|---|
@@ -31,22 +29,94 @@ Tool choice by figure shape:
 
 Chart-type-from-data-shape: time / step on x → line; N methods × M benchmarks → grouped bar; single ranking → horizontal bar; two continuous vars → scatter; square matrix → heatmap; proportions → stacked bar (avoid pie in ML papers).
 
-Publication defaults: font matching venue (Times / Computer Modern for most; sans-serif if allowed); axis label 9–10 pt; tick label 8 pt; line width ≥ 1.5 pt; marker size ≥ 5 pt; figure size single-column ~3.3", full-width ~7". Colorblind-safe palette default: Okabe-Ito `#E69F00 #56B4E9 #009E73 #F0E442 #0072B2 #D55E00 #CC79A7`. One distinct accent reserved for "our method".
+## Content discipline (apply to every script)
 
-## Procedure
+### 1. rcParams block at the top
 
-1. **Classify the figure** (numerical axes vs structure).
-2. **Pick the chart type from data shape** per the table above.
-3. **Apply publication defaults** (font, sizes, line widths, figure dimensions).
-4. **Use colorblind-safe palettes** with one reserved accent for "our method".
-5. **Keep plotting scripts checked in.** `branches/writer/paper/figures/gen_fig_<name>.py` reads from a concrete data file under `branches/experimenter/experiments/` or `artifacts/exp-{id}/`. No hardcoded numbers. Re-run reproduces byte-identical output modulo font rendering.
-6. **Export both formats.** `fig.savefig(path.pdf)` for LaTeX inclusion; `fig.savefig(path.png, dpi=300)` for slide / web reuse. Verify LaTeX includes the PDF without font warnings.
+Every plotting script for a paper figure leads with:
+
+```python
+import matplotlib as mpl
+mpl.rcParams.update({
+    "font.family": "sans-serif",
+    "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "Liberation Sans"],
+    "svg.fonttype": "none",     # editable text in SVG
+    "pdf.fonttype": 42,         # editable TrueType in PDF
+    "axes.spines.right": False,
+    "axes.spines.top": False,
+    "axes.linewidth": 0.8,
+    "legend.frameon": False,
+})
+```
+
+Editable text in vector outputs is a HARD Nature-family submission requirement. Verify with `grep -c '<text' fig.svg` — 0 means rasterised paths, the figure will be flagged.
+
+### 2. PALETTE-dict pattern, single dict per script
+
+```python
+PALETTE = {
+    "signal": "#0F4D92",
+    "signal_soft": "#B4C0E4",
+    "neutral": "#767676",
+    "neutral_light": "#D8D8D8",
+    "accent": "#E4CCD8",
+    "accent_dark": "#9A4D8E",
+    "black": "#272727",
+}
+```
+
+Discipline rule: **green and red are for directional signals only** (gain / loss / up / down / KO-vs-WT). Categorical labels (cluster IDs, condition names without direction) use neutrals — grey + single-blue family + faint pink. A saturated 3-or-4 hue cycle on a cluster sidebar burns the green/red pair on labels that carry no direction.
+
+Default palette: Okabe-Ito `#E69F00 #56B4E9 #009E73 #F0E442 #0072B2 #D55E00 #CC79A7` is colorblind-safe and remains the right starting point when the figure has no directional split.
+
+### 3. Figure size in inches, not millimetres
+
+| Figure | Default figsize (inches) |
+|---|---|
+| Single panel | `(6, 4)` |
+| 2-panel side-by-side | `(10, 4)` |
+| 4-panel hero | `(11, 6)` (see `figure-layout-defaults`) |
+| Single-column publication | `~3.3"` width |
+| Full-width publication | `~7"` width |
+
+Compress to exact mm only at submission packaging stage, AFTER layout is visually confirmed. Leading with `figsize=(width_mm/25.4, height_mm/25.4)` produces unreadable cramming.
+
+### 4. TwoSlopeNorm for diverging colormaps
+
+```python
+norm = mpl.colors.TwoSlopeNorm(vmin=-vmax, vcenter=0, vmax=vmax)
+im = ax.imshow(data, cmap="RdBu_r", norm=norm)
+```
+
+The zero line on a z-score or log-fold-change heatmap is load-bearing. Do not rely on data-symmetric `vmin/vmax`.
+
+### 5. Outside ticks
+
+```python
+ax.tick_params(direction="out", length=2.2, width=0.6)
+```
+
+Inside ticks fight the data; outside reads as instrument-style chrome.
+
+### 6. Labels and weights
+
+Axis label 9–10 pt; tick label 8 pt; line width ≥ 1.5 pt; marker size ≥ 5 pt. Reserve one distinct accent color for "our method" / the directional signal of interest.
+
+## Reproducibility
+
+Plotting scripts at `branches/writer/paper/figures/gen_fig_<name>.py` read concrete data files from `branches/experimenter/experiments/` or `artifacts/exp-{id}/`. No hardcoded numbers. Re-run reproduces byte-identical output modulo font rendering.
+
+Export both formats: `fig.savefig(path.pdf)` for LaTeX inclusion, `fig.savefig(path.png, dpi=300)` for slides / web. Verify LaTeX includes the PDF without font warnings; verify the SVG has non-zero `<text>` nodes.
 
 Each figure ships as: `gen_fig_<name>.py`, `fig_<name>.pdf`, `fig_<name>.png`, plus a one-line provenance docstring citing the source data file.
 
 ## Pitfalls
 
-- Auto-generated defaults (blue / orange / green) that are not colorblind-safe.
+- 0 `<text>` nodes in saved SVG — copy-editors cannot edit, venue will flag.
+- Saturated 3-or-4 hue cycle on a categorical cluster bar — burns green/red on direction-less labels.
 - Hardcoding numbers into plotting scripts — breaks reproducibility and evidence trace.
-- Over-decorating: gradients, 3D bars, drop shadows. The consequence is reviewer distrust ("if the figure is decorated, what is being hidden?") and venue rejection on raster reproducibility — flat beats fancy.
+- Over-decorating: gradients, 3D bars, drop shadows. Reviewer distrust ("if the figure is decorated, what is being hidden?") and venue raster-reproducibility issues.
 - Tiny axis labels unreadable at column width.
+- Mm-first figsize — drives cramming. Mm conversion is a packaging move.
+- Inside ticks fighting the data.
+- Diverging cmap without TwoSlopeNorm — zero line drifts off centre by data luck.
