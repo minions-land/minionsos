@@ -36,7 +36,6 @@ import uuid
 from pathlib import Path
 from typing import Any, Literal
 
-from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from minions.config import LocalTarget, SSHTarget, load_experiment_targets
@@ -44,8 +43,6 @@ from minions.errors import ConfigError, ExperimentError
 from minions.tools.experiment_scheduler import ExperimentScheduler, QueueUnit
 
 logger = logging.getLogger(__name__)
-
-mcp = FastMCP("minions-exp")
 
 # ---------------------------------------------------------------------------
 # Size limit
@@ -346,7 +343,6 @@ class ExpQueuePlanArgs(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
 def exp_run(args: ExpRunArgs) -> dict:
     """Launch a command **detached** on a local or SSH target, return immediately.
 
@@ -528,7 +524,6 @@ def _ssh_status(host: str, key: str, workdir: str, run_id: str) -> dict:
     return {"state": "running", "log_tail": log_tail}
 
 
-@mcp.tool()
 def exp_status(args: ExpStatusArgs) -> dict:
     """Check run state. Returns ``{state, exit_code?, log_tail}``."""
     target_id = _resolve_target_id(args.target_id)
@@ -539,7 +534,6 @@ def exp_status(args: ExpStatusArgs) -> dict:
     return _ssh_status(host, key, workdir, args.run_id)
 
 
-@mcp.tool()
 def exp_wait(args: ExpWaitArgs) -> dict:
     """Poll every 2 s up to *timeout* seconds for the run to exit."""
     target_id = _resolve_target_id(args.target_id)
@@ -558,7 +552,6 @@ def exp_wait(args: ExpWaitArgs) -> dict:
         time.sleep(2.0)
 
 
-@mcp.tool()
 def exp_kill(args: ExpKillArgs) -> dict:
     """Send SIGTERM to a running exp_run process."""
     target_id = _resolve_target_id(args.target_id)
@@ -616,7 +609,6 @@ def exp_kill(args: ExpKillArgs) -> dict:
     return {"killed": "OK" in out}
 
 
-@mcp.tool()
 def exp_list(args: ExpListArgs) -> list[dict]:
     """List all runs on *target_id* by scanning ``logs/*.meta.json``."""
     target_id = _resolve_target_id(args.target_id)
@@ -701,7 +693,6 @@ def exp_list(args: ExpListArgs) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
 def exp_put(args: ExpPutArgs) -> dict:
     """Upload a local file to a target's workdir."""
     kind, workdir, host, key = _resolve_workdir(args.target_id)
@@ -739,7 +730,6 @@ def exp_put(args: ExpPutArgs) -> dict:
     return {"ok": True, "dest": remote_dest}
 
 
-@mcp.tool()
 def exp_get(args: ExpGetArgs) -> dict:
     """Download a file from a target's workdir. Refuses if > 500 MB."""
     kind, workdir, host, key = _resolve_workdir(args.target_id)
@@ -797,7 +787,6 @@ def exp_get(args: ExpGetArgs) -> dict:
     return {"ok": True, "bytes": size}
 
 
-@mcp.tool()
 def exp_tail(args: ExpTailArgs) -> dict:
     """Tail a log file on a target (non-blocking)."""
     kind, workdir, host, key = _resolve_workdir(args.target_id)
@@ -826,7 +815,6 @@ def exp_tail(args: ExpTailArgs) -> dict:
     return {"lines": result.stdout, "exists": True}
 
 
-@mcp.tool()
 def query_gpus(args: QueryGpusArgs) -> list[dict]:
     """Query free GPU memory on a target."""
     kind, _workdir, host, key = _resolve_workdir(args.target_id)
@@ -898,7 +886,6 @@ def _queue_unit(args: ExpQueueUnitArgs) -> QueueUnit:
     )
 
 
-@mcp.tool()
 def exp_queue_submit(args: ExpQueueSubmitArgs) -> dict:
     """Append experiment units to the project-global queue and optionally reconcile.
 
@@ -916,19 +903,16 @@ def exp_queue_submit(args: ExpQueueSubmitArgs) -> dict:
     )
 
 
-@mcp.tool()
 def exp_queue_reconcile(args: ExpQueueReconcileArgs) -> dict:
     """Run one Python-side scheduling pass for all active experiment batches."""
     return _scheduler(args.project_port).reconcile(batch_id=args.batch_id)
 
 
-@mcp.tool()
 def exp_queue_status(args: ExpQueueStatusArgs) -> dict:
     """Return queue status for one batch or the whole project."""
     return _scheduler(args.project_port).status(batch_id=args.batch_id)
 
 
-@mcp.tool()
 def exp_gpu_pool_set(args: ExpQueueGpuPoolSetArgs) -> dict:
     """Change which physical GPUs are available for new scheduled runs.
 
@@ -950,13 +934,11 @@ def exp_gpu_pool_set(args: ExpQueueGpuPoolSetArgs) -> dict:
     )
 
 
-@mcp.tool()
 def exp_gpu_pool_get(args: ExpQueueGpuPoolGetArgs) -> dict:
     """Return dynamic GPU pool overrides for the project scheduler."""
     return _scheduler(args.project_port).gpu_pool()
 
 
-@mcp.tool()
 def exp_queue_plan(args: ExpQueuePlanArgs) -> dict:
     """Dry-run a candidate submission against the live GPU snapshot.
 

@@ -62,22 +62,11 @@ The agent decides. The skill does not decide for you.
 When you have enough clarity (from however many postures you used):
 
 - **Write a plan**: Use Superpowers `writing-plans` if available, or write an inline markdown checklist.
-- **Dispatch**: Use `subagent-driven-development`, `delegate-heavy-task` (Codex), or host-native `Task`.
+- **Dispatch**: Use `subagent-driven-development`, `delegate-heavy-task` (Codex), or host-native `Task`. If Superpowers plugin skills are unavailable, write the plan inline and dispatch via `delegate-heavy-task` or `Task`.
 - **Pass goals**: Each dispatched task should carry its acceptance metric from Goal-Setting (if you ran it).
 
 ## Constraints that DO apply regardless
 
-1. **Autonomous-only**: You cannot reach a human terminal. Humans cannot reach
-   yours. If you are stuck, blocked, or need a second opinion during any
-   posture, send a message on EACN3 to the relevant role (Expert, Coder,
-   Experimenter, etc.) and either wait for a reply in this wake or exit and
-   let MinionsOS re-wake you when the answer arrives. Never pause for human
-   input — it will never come.
-2. **Time-aware**: The postures are thinking tools, not rituals. 2-8 minutes total, not hours.
+1. **Autonomous-only**: You cannot reach a human terminal. If you are stuck or need a second opinion, send a message on EACN3 to the relevant role and either wait for a reply in this wake or exit and let MinionsOS re-wake you when the answer arrives. Never pause for human input.
+2. **Time-aware**: The postures are thinking tools, not rituals. 2–8 minutes total, not hours.
 3. **Evidence-marked**: Tag outputs per the Evidence-first EACN convention.
-
-## Fallback
-
-If Superpowers plugin skills are unavailable:
-- Write the plan inline as a markdown checklist with goals per task.
-- Dispatch via `delegate-heavy-task` (Codex bridge) or host-native `Task` tool.

@@ -700,6 +700,131 @@ def role_dismiss(
     console.print(f"[green]Dismissed role {result['name']}.[/green]")
 
 
+@role_app.command(name="attach")
+def role_attach(
+    port: int = typer.Argument(..., help="Project port."),
+    name: str = typer.Argument(..., help="Role name."),
+) -> None:
+    """Attach to a role's live tmux session (read-mostly).
+
+    What you see is exactly what the resident `claude` process sees right
+    now. Detach with `Ctrl-b d`. Anything you type is fed to the live
+    session, so by convention this is the "look, don't drive" path. For a
+    technically read-only forensic view, use `mos role inspect`.
+    """
+    from minions.lifecycle.role_launcher import attach_command, session_alive
+
+    if not session_alive(port, name):
+        raise _fail(
+            f"No live tmux session for role={name!r} on port {port}. "
+            f"Run `mos role list {port}` to see registered roles."
+        )
+    raise typer.Exit(subprocess.run(attach_command(port, name)).returncode)
+
+
+@role_app.command(name="inspect")
+def role_inspect(
+    port: int = typer.Argument(..., help="Project port."),
+    name: str = typer.Argument(..., help="Role name."),
+) -> None:
+    """Open a forked Claude session over the role's history (read-only for the role).
+
+    Spawns `claude --resume <session_name> --fork-session` in the role's
+    branch worktree. The role's own jsonl is left untouched; you get a new
+    branch session for forensic reading. The live role process keeps
+    running undisturbed.
+    """
+    from minions.lifecycle.role_launcher import session_name as _session_name
+    from minions.paths import project_role_workspace
+
+    workspace = project_role_workspace(port, name)
+    if not workspace.exists():
+        raise _fail(
+            f"Role workspace not found at {workspace}. "
+            f"Has role={name!r} ever been registered on port {port}?"
+        )
+    sess = _session_name(port, name)
+    cmd = [
+        "claude",
+        "--name",
+        f"{sess}-inspect",
+        "--resume",
+        sess,
+        "--fork-session",
+        "--permission-mode",
+        "default",
+    ]
+    console.print(
+        f"[dim]Forking read-only inspect session over role={name} (port={port}). "
+        f"The live role is unaffected.[/dim]"
+    )
+    raise typer.Exit(subprocess.run(cmd, cwd=workspace).returncode)
+
+
+@role_app.command(name="drive")
+def role_drive(
+    port: int = typer.Argument(..., help="Project port."),
+    name: str = typer.Argument(..., help="Role name."),
+    confirm: bool = typer.Option(
+        False,
+        "--i-know-this-kills-autonomy",
+        help=(
+            "Required acknowledgement. `drive` kills the live tmux session "
+            "and takes over its conversation; this is a maintenance back "
+            "door, not normal operation."
+        ),
+    ),
+) -> None:
+    """Take over a role's conversation (autonomy off — maintenance back door).
+
+    Kills the live tmux session, then opens `claude --resume <session_name>`
+    in the role's branch worktree. The new conversation continues the role's
+    jsonl, so anything you say becomes part of the role's history when the
+    role next revives. Use this only for diagnosis and repair; running a
+    role manually defeats the autonomous design.
+    """
+    if not confirm:
+        raise _fail(
+            "drive requires --i-know-this-kills-autonomy. This is a "
+            "maintenance back door — running a role by hand defeats the "
+            "autonomous loop and writes operator turns into the role's jsonl."
+        )
+
+    from minions.lifecycle.role_launcher import (
+        kill_session,
+        session_alive,
+    )
+    from minions.lifecycle.role_launcher import (
+        session_name as _session_name,
+    )
+    from minions.paths import project_role_workspace
+
+    workspace = project_role_workspace(port, name)
+    if not workspace.exists():
+        raise _fail(
+            f"Role workspace not found at {workspace}. "
+            f"Has role={name!r} ever been registered on port {port}?"
+        )
+    if session_alive(port, name):
+        kill_session(port, name)
+        console.print(f"[yellow]Killed live tmux session for {name} (port {port}).[/yellow]")
+    sess = _session_name(port, name)
+    cmd = [
+        "claude",
+        "--name",
+        sess,
+        "--resume",
+        sess,
+        "--permission-mode",
+        "bypassPermissions",
+    ]
+    console.print(
+        f"[bold red]DRIVING role={name} (port={port}). "
+        f"Anything you type lands in the role's jsonl.[/bold red]"
+    )
+    raise typer.Exit(subprocess.run(cmd, cwd=workspace).returncode)
+
+
 # ---------------------------------------------------------------------------
 # viz subcommands (dispatch to minions/bin/viz)
 # ---------------------------------------------------------------------------

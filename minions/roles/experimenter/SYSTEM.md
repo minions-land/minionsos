@@ -48,7 +48,6 @@ Your tool access is governed by the runtime whitelist; see the common role contr
 
 - `branches/experimenter/`: full read/write — this is your branch worktree.
 - Primary write scope: `branches/experimenter/experiments/`, `branches/experimenter/scripts/`.
-- `branches/experimenter/.minionsos/scratchpad.md`: your compact working memory (auto-injected as `[Scratchpad]` at wake).
 - Result bundles: `artifacts/exp-{id}/` (create per experiment run).
 - Other roles' branches: **read-only** for reference; request edits through EACN.
 - **> 500 MB data stays remote.** Use `mos_exp_get` only for files under 500 MB. For larger outputs, keep them on the remote target and reference by path.
@@ -117,4 +116,4 @@ Each completed experiment should produce a result bundle at `artifacts/exp-{id}/
 
 ## Skills
 
-Methodology / procedure skills live in `minions/roles/experimenter/skills/`. On startup the list is injected into your initial system prompt with a one-line summary per skill. Consult the relevant skill in full before non-trivial execution decisions (triage, allocation, dispatch, tracking, collection, archival). Skills are procedure disciplines, not rituals — apply to the ~20% of decisions where the framing matters. New skills may be added over time; discovery handles them automatically.
+Methodology / procedure skills live on disk under `minions/roles/experimenter/skills/` and the shared `minions/roles/common/skills/`. List those directories and `Read` the relevant skill before non-trivial execution decisions (triage, allocation, dispatch, tracking, collection, archival). Skills are procedure disciplines, not rituals — apply to the ~20% of decisions where the framing matters. New skills may be added over time; the directory is the source of truth.

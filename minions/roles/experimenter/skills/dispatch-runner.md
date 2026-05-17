@@ -21,7 +21,7 @@ Submit once, reflect once, persist the batch id, exit. The Python scheduler issu
 
 ## Structure
 
-Optional pre-check via `mos_exp_queue_plan` for non-trivial sweeps; one call to `mos_exp_queue_submit` per plan; one reflection pass on the returned `placement` summary. If any unit was flagged `needs_staging`, run `mos_exp_put` for that unit's input paths before submitting. After submitting, store `{batch_id, unit_ids}` in scratchpad or the requester-facing note so later wake-ups can call `mos_exp_queue_status`. Never follow with long `mos_exp_wait` — Python reconciles and tracks detached runs. Heavy per-unit execution prep is delegated to a subagent whose whitelist is `mos_exp_*` only.
+Optional pre-check via `mos_exp_queue_plan` for non-trivial sweeps; one call to `mos_exp_queue_submit` per plan; one reflection pass on the returned `placement` summary. If any unit was flagged `needs_staging`, run `mos_exp_put` for that unit's input paths before submitting. After submitting, record `{batch_id, unit_ids}` via `mos_dag_append` or the requester-facing note so later wake-ups can call `mos_exp_queue_status`. Never follow with long `mos_exp_wait` — Python reconciles and tracks detached runs. Heavy per-unit execution prep is delegated to a subagent whose whitelist is `mos_exp_*` only.
 
 ## Procedure
 
@@ -29,7 +29,7 @@ Optional pre-check via `mos_exp_queue_plan` for non-trivial sweeps; one call to 
 2. **Stage inputs.** For each unit the plan flagged `needs_staging: true`, run `mos_exp_put(target_id, src, dst)` before submission. Skip if already staged.
 3. **Submit all units.** `mos_exp_queue_submit(units=[...])`; include `reserve_mb` / `min_free_mb` from the plan.
 4. **Reflect on placement.** Read the `reconcile.placement` block in the response: `by_gpu` (current physical distribution), `blocked_reasons` (`no_capacity` / `target_pin` / `explicit_gpu`), and `skew_warning`. If `skew_warning` is non-empty, do not silently move on — return to `allocate-resources` for a constraint adjustment (e.g. tighter `gpus_needed`, explicit `target_id` spread, smaller `reserve_mb` if over-padded). If `blocked_reasons.target_pin` or `explicit_gpu` are non-zero and unexpected, surface that to the requester via EACN.
-5. **Record the batch id.** Store `{batch_id, unit_ids}` plus the placement summary in scratchpad or the requester-facing note so later wake-ups can call `mos_exp_queue_status`.
+5. **Record the batch id.** Persist `{batch_id, unit_ids}` plus the placement summary via `mos_dag_append` or the requester-facing note so later wake-ups can call `mos_exp_queue_status`.
 6. **Do not block.** Never follow queue submission with long `mos_exp_wait`; Python reconciles and tracks detached runs.
 7. **Delegate heavy per-unit execution prep to a subagent** when a unit requires non-trivial scripting, data massage, or config expansion. Subagents have `mos_exp_*` only; they must not inherit `eacn3_*`.
 8. **Broadcast a short EACN handoff** listing the batch id, currently launched units, pending count, and any non-empty placement signals so Noter / requester know jobs are alive: `{batch_id, submitted, launched_now, pending, skew_warning?, blocked_reasons?}` plus a pointer to status / report artifacts.

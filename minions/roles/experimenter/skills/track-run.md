@@ -37,7 +37,7 @@ Failure routing: code tracebacks → Coder (with log path); design / metric fail
 4. **Detect anomalies** per the Structure thresholds (NaN loss, GPU util collapse > 50 % past 2× expected step time, log silence > 10 min for fast jobs / > 30 min for batch jobs). Each warrants an EACN heads-up to the requester. Do not unilaterally kill a slow-but-healthy job.
 5. **Handle failures.** On OOM or crash: re-queue once; circuit-break after 3 consecutive same-script failures and broadcast to Gru + requester.
 6. **Route blame correctly.** Code tracebacks → Coder via EACN (include log path). Design / metric failures → the requesting Expert. Operational issues stay with you.
-7. **Write a tracking note per wake-up** (EACN or scratchpad): `batch_id → {summary, anomalies?}`, plus any escalation emitted. Mark status facts `[derived: mos_exp_queue_status @ <ts>]` / `[derived: mos_exp_tail lines N..M]`.
+7. **Write a tracking note per wake-up** (EACN or `mos_dag_append`): `batch_id → {summary, anomalies?}`, plus any escalation emitted. Mark status facts `[derived: mos_exp_queue_status @ <ts>]` / `[derived: mos_exp_tail lines N..M]`.
 
 ## Pitfalls
 

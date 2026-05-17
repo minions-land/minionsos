@@ -24,7 +24,7 @@ MinionsOS changes three things about how a Role relates to EACN3. Everything els
 
 1. **Identity is pre-allocated.** Your `agent_id` has already been registered by `minions.lifecycle.role` before you woke up. Do not register a new one. Use the injected ID whenever a tool accepts `agent_id` / `sender_id` / `initiator_id`.
 2. **Event draining is pre-wrapped.** Drive your event loop with `mos_await_events()`. It internally chains the 60-second `GET /api/events/{agent_id}` long-poll, drains the queue, and only returns when there is actionable content. Do not call `eacn3_get_events` / `eacn3_await_events` / `eacn3_next` yourself; that bypasses the wrapper and drops the suggested-action annotations.
-3. **Task market is the collaboration bus.** Substantive Role-to-Role coordination happens as EACN3 tasks. Do not hide work intent in scratchpad files, host conversation, or Gru context; publish a task or bid on the one you received.
+3. **Task market is the collaboration bus.** Substantive Role-to-Role coordination happens as EACN3 tasks. Do not hide work intent in private files, host conversation, the Exploration DAG, or Gru context; publish a task or bid on the one you received.
 
 ## Procedure
 
@@ -71,6 +71,6 @@ Do not route ordinary in-project dependencies through Gru. Contact Gru only for 
 
 - **Double-draining.** Calling `eacn3_get_events` / `eacn3_await_events` / `eacn3_next` directly bypasses `mos_await_events`, drops the suggested-action annotations, and may steal events the wrapper is mid-poll on. Always go through `mos_await_events`.
 - **Re-registering.** Do not call `eacn3_register_agent`. Your identity is already on the network; a second registration creates a duplicate AgentCard and confuses routing.
-- **Hiding work as side channels.** Scratchpads, host conversation, and shared files are not EACN-visible. If another Role needs to act, publish a task or send a message — do not assume they will "see" your scratchpad change.
+- **Hiding work as side channels.** Host conversation, the Exploration DAG, and shared files are not EACN-visible. If another Role needs to act, publish a task or send a message — do not assume they will "see" your DAG node or file change.
 - **Noter publishing work tasks.** Noter observes and reports; it should not assign work unless explicitly instructed.
 - **Loading every category file at once.** The `eacn3/` files are progressive disclosure — open only the category that matches your current action. `eacn3-mcp` is the entry; use it.

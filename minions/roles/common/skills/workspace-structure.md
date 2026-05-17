@@ -1,12 +1,26 @@
-# Workspace Structure
+---
+slug: workspace-structure
+summary: Guide for organizing workspace writes so the main branch stays coherent and extractable into a paper. DAG is the index; workspace holds the full content.
+layer: structural
+tools: mos_dag_append, mos_dag_annotate
+version: 2
+status: active
+supersedes:
+references: cognitive-checkpoint
+provenance: human
+---
 
-Guide for organizing workspace writes so the main branch stays coherent and extractable into a paper.
+# Skill — Workspace Structure
 
-## Core move
+Every file on the main branch should be findable by its DAG node. The DAG is the index; the workspace holds the full content. Connect them through `evidence_tag` references. A new agent joining the project should be able to navigate from DAG node → workspace file without guessing.
 
-Every file you write to the workspace should be findable by its DAG node. The DAG is the index; the workspace holds the full content. Connect them through evidence_tag references.
+## When to invoke
 
-## Structure convention
+- Before writing any durable file to the workspace — check if it fits the structure.
+- During cognitive-checkpoint — ensure new DAG nodes have corresponding workspace files.
+- Skip for scratch work that won't survive the session (use your branch freely for drafts).
+
+## Structure
 
 ```
 workspace/
@@ -27,7 +41,16 @@ workspace/
     DEAD-xxx.md             ← what was tried, why it failed, what we learned
 ```
 
-This is a recommendation, not a rigid schema. Adapt to your project's needs. The principle is: a new agent joining the project should be able to navigate from DAG node → workspace file without guessing.
+This is a recommendation, not a rigid schema. Adapt to your project's needs. The principle is navigability from DAG to content.
+
+The DAG and workspace relate as index to content:
+
+```
+DAG node (index, one-liner)  ←→  Workspace file (full content)
+     H-003: "entropy correlates"  →  logic/hypotheses/H-003.md
+     E-005: "ablation on BERT"    →  experiments/E-005/results.md
+     DEAD-002: "random pruning"   →  dead_ends/DEAD-002.md
+```
 
 ## Procedure
 
@@ -35,49 +58,13 @@ This is a recommendation, not a rigid schema. Adapt to your project's needs. The
 2. **When recording a dead end:** create `dead_ends/DEAD-xxx.md` with the full story (not just the one-liner in the DAG).
 3. **When making a decision:** create `logic/decisions/D-xxx.md` explaining the rationale, alternatives considered, and what evidence drove the choice.
 4. **When verifying a citation:** add to `evidence/citations/` and update the DAG node's `evidence_tag`.
-5. **Provenance tag:** at the top of each file, note who wrote it and how:
-   ```
-   <!-- provenance: expert-1, ai-executed, 2026-05-16 -->
-   ```
+5. **Provenance tag** at the top of each file: `<!-- provenance: expert-1, ai-executed, 2026-05-16 -->`.
 
-## When to invoke
-
-- Before writing any file to the workspace — check if it fits the structure.
-- During cognitive-checkpoint — ensure new DAG nodes have corresponding workspace files.
-- Skip for scratch work that won't survive the session (use your branch freely for drafts).
-
-## Freedom clause
-
-This skill guides DURABLE outputs (files that survive on main branch). It does NOT constrain:
-- How you think, reason, or explore within your context
-- What you write on your own working branch (drafts, scratch, experiments)
-- What types of DAG nodes you create (any string is valid)
-- Whether you follow this structure at all for intermediate work
-
-Structure is for communication (so others can find your work), not for cognition
-(how you arrive at discoveries). If a discovery doesn't fit any category, write
-it anyway — use a custom type, put it in a new directory, or just dump it as a
-free-form markdown file. The worst outcome is NOT "wrong structure" — it's
-"discovery not recorded at all."
+This structure applies to DURABLE outputs on the main branch. It does not constrain how you think, what you write on your working branch, what types of DAG nodes you create, or whether you follow this structure for intermediate work. Structure is for communication (so others can find your work), not for cognition. If a discovery doesn't fit any category, write it anyway — the worst outcome is a discovery not recorded at all.
 
 ## Pitfalls
 
 - Writing results without linking to DAG nodes — creates orphan files nobody can find.
-- Putting everything in one giant file — breaks progressive disclosure (agents load what they need).
+- Putting everything in one giant file — breaks progressive disclosure.
 - Skipping dead_ends/ — future agents will re-explore the same failures.
-- Over-structuring drafts — this convention is for DURABLE outputs on main branch, not for your working branch.
-
-## Relationship to DAG
-
-```
-DAG node (index, one-liner)  ←→  Workspace file (full content)
-     H-003: "entropy correlates"  →  logic/hypotheses/H-003.md (full reasoning)
-     E-005: "ablation on BERT"    →  experiments/E-005/results.md (data, plots)
-     DEAD-002: "random pruning"   →  dead_ends/DEAD-002.md (what went wrong)
-```
-
-The DAG is what you query. The workspace is what you read when you need depth.
-
-## Output habit
-
-When creating a workspace file: `[workspace: {path}] linked to DAG node {id}`.
+- Over-structuring drafts — this convention is for durable outputs, not working-branch scratch.
