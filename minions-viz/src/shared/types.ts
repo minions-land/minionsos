@@ -210,6 +210,35 @@ export interface NetworkSnapshot {
   grus: GruInfo[];
 }
 
+// ── DAG types ─────────────────────────────────────────────────────
+
+export interface DagNode {
+  id: string;
+  type: string;
+  text: string;
+  support_status: string;
+  author_role: string;
+  created_at: string;
+  evidence_tag: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface DagEdge {
+  from_id: string;
+  to_id: string;
+  relation: string;
+  strength: number;
+  created_at: string;
+  author_role: string;
+}
+
+export interface DagData {
+  project_port: number;
+  root_question: string;
+  nodes: DagNode[];
+  edges: DagEdge[];
+}
+
 export type WsMessage =
   | { type: "snapshot"; data: NetworkSnapshot }
   | { type: "tasks:update"; data: Task[] }

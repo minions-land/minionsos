@@ -12,8 +12,9 @@ import AgentDetail from "./AgentDetail";
 import MetricHUD from "./MetricHUD";
 import EventLog from "./EventLog";
 import Adjudication from "./Adjudication";
+import DagView from "./DagView";
 
-type View = "universe" | "tasks" | "terminals" | "events" | "adjudication";
+type View = "universe" | "tasks" | "terminals" | "events" | "adjudication" | "dag";
 
 export default function App() {
   const store = useStore();
@@ -144,6 +145,8 @@ export default function App() {
             {view === "adjudication" && (
               <Adjudication tasks={store.tasks} agents={store.agents} />
             )}
+
+            {view === "dag" && <DagView />}
           </>
         )}
       </div>
@@ -183,6 +186,13 @@ export default function App() {
           disabled={showPicker}
         >
           Adjudication · {adjCount}
+        </button>
+        <button
+          className={"tab" + (view === "dag" ? " active" : "")}
+          onClick={() => setView("dag")}
+          disabled={showPicker}
+        >
+          DAG
         </button>
       </nav>
     </div>

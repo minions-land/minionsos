@@ -16,7 +16,7 @@ import {
   updateCluster, updateLogs, updateMessages, snapshotFor, ensurePair, setSelection,
   getSelection, setGrus, activePairs,
 } from "./state.js";
-import { loadGrus, getGru, getProjectFor, registryPath } from "./grus.js";
+import { loadGrus, getGru, getProjectFor, registryPath, projectDirFor } from "./grus.js";
 import {
   getOverview, getScratchpads, getScratchpad, getArtifactsTree,
   getArtifact, tailLog, roleLogPath,
@@ -176,6 +176,19 @@ app.get("/api/mos/project/:port/log", (req, res) => {
   const content = tailLog(p.gruId, p.port, which, tail);
   if (content == null) return res.status(404).json({ error: "not found" });
   res.type("text/plain").send(content);
+});
+
+app.get("/api/mos/project/:port/dag", (req, res) => {
+  const p = resolveGruAndPort(req, res); if (!p) return;
+  const g = getGru(p.gruId);
+  if (!g) return res.status(404).json({ error: "unknown gru" });
+  const dagFile = path.join(projectDirFor(g.rootPath, p.port), "exploration", "dag.json");
+  try {
+    const raw = fs.readFileSync(dagFile, "utf8");
+    res.json(JSON.parse(raw));
+  } catch {
+    res.json({ project_port: p.port, root_question: "", nodes: [], edges: [] });
+  }
 });
 
 app.get("/api/mos/project/:port/role-log/:role", (req, res) => {

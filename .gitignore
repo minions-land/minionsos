@@ -68,6 +68,7 @@ answer/
 # minions-viz (Observatory frontend) — commit src + dist, not installed deps
 minions-viz/node_modules/
 minions-viz/.vite/
+minions-viz/preview/
 minions-viz-v2/.vite/
 
 # Stray dev log
