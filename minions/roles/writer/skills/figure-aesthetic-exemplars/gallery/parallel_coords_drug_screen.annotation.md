@@ -7,8 +7,9 @@ P1-fix correction).
 multi-dimensional cross-cluster comparison where each dimension is on
 its own axis.
 
-**User grade (R-future-3 v3):** "Three Distinct Pastel 这套配色已经不错了,
-我觉得这个就可以了." Pass after v3 (v1 and v2 used single-hue saturation
+**User grade (R-future-3 v3):** "the three-distinct-pastel palette is
+already pretty good — I think this version is fine." Pass after v3 (v1
+and v2 used single-hue saturation
 gradient which user flagged as low distinguishability).
 
 ## Extracted palette
@@ -24,8 +25,9 @@ hue diversity (P1-corrected) provides distinguishability.
 ## What works
 
 1. **3 hues, NOT 3 saturation levels of one hue.** R-future-3 user
-   correction: "用深浅做区分根本区分不了，尤其是 parallel coords 有这么
-   多线再用深浅就更乱了." This v3 follows the corrected P1.
+   correction: "using shade gradients alone can't separate categories,
+   especially for parallel coords with this many lines using shade gets
+   even messier." This v3 follows the corrected P1.
 2. Cluster mean line bold (linewidth=2.6) above individual lines (alpha=0.30).
    Mean is the visual anchor; individual lines are background context.
 3. Translucent envelope band per cluster (`alpha=0.18`) shows the cluster's

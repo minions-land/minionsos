@@ -5,11 +5,12 @@
 **Archetype:** Beeswarm + median + IQR overlay. Use when each observation
 matters AND a summary statistic per cohort is required.
 
-**User grade (R-future-3):** "**左边好看**, 右边太普通了... 我挺喜欢这个
-形式的: 箱线图加散点, 感觉还可以."
+**User grade (R-future-3):** "**left side looks good**, right side too
+generic... I quite like this form: a box plot with scatter on top, feels
+solid."
 
 **Beat the reference** (`bars_ablation_Cancer.png` is rule-correct but
-"普通"). Beeswarm with overlaid statistics is more information-dense than
+"generic"). Beeswarm with overlaid statistics is more information-dense than
 bar-mean+errorbar at the same canvas size.
 
 ## Extracted palette

@@ -1,10 +1,8 @@
 """Role lifecycle: register, dismiss, list.
 
-After the v5.5 refactor MinionsOS Roles are long-lived — each Role runs as a
-durable agent-host process that calls ``mos_await_events`` on its own queue.
-This module no longer launches short-lived per-event subprocesses; what
-remains is the registration surface used at project bootstrap and by the
-``mos`` CLI:
+MinionsOS Roles are long-lived agent-host processes that call
+``mos_await_events`` on their own queue. This module owns the registration
+surface used at project bootstrap and by the ``mos`` CLI:
 
 - ``register_role`` / ``register_expert`` register a project-local EACN3
   AgentCard, prepare the Role's workspace, and record a named host session in
@@ -13,10 +11,9 @@ remains is the registration surface used at project bootstrap and by the
   project's EACN3 network.
 - ``list_roles`` returns the current registry.
 
-The public ``spawn_role`` / ``spawn_expert`` names are retained as
-backwards-compatible aliases for ``register_role`` / ``register_expert``.
-Resident-Role process startup is owned by the resident-Role launcher and
-not by this module.
+The public ``spawn_role`` / ``spawn_expert`` names are the MCP-facing aliases
+for ``register_role`` / ``register_expert``. Resident-Role process startup is
+owned by the resident-Role launcher and not by this module.
 """
 
 from __future__ import annotations
@@ -426,7 +423,7 @@ def _do_register(
     }
 
 
-# Backwards-compatible aliases.
+# Public aliases used by the MCP surface.
 spawn_role = register_role
 spawn_expert = register_expert
 

@@ -43,8 +43,8 @@ WITHOUT hatches because the alpha gradient alone is sufficient.
 - Y-axis range: starts at the data minimum (not 0), ~5% headroom above
   tallest bar. **Differences between bars are visually amplified by the
   zoomed axis.** This is what the R6.A user feedback called out:
-  "假设数值越高越好，那么最低的那根柱子可能只有一点点 — 多出一点点就能把
-  差异体现出来."
+  "assuming higher is better, the shortest bar should be barely visible;
+  even a small extra height makes the difference legible."
 - Bar width: ~70% of available cell width; gap between groups ~30%
 - Top margin (above bars): ~5% canvas
 - Bottom margin (below x-axis): ~10% canvas (room for x-axis labels)

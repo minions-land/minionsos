@@ -49,10 +49,10 @@ ax_d = fig.add_subplot(gs[1, :])     # bottom-spanning
 ```
 
 This is the layout SkillTest R1.A and R1.B baselines used by accident, and
-the user confirmed both as "非常漂亮、精致" (very neat, very polished).
+the user confirmed both as "very polished and refined".
 
 For 5-panel: **default to `gridspec(3, 3)` with hero=`gs[0:2, 0:2]`**
-(R4.B confirmed: user called this layout "无敌好看且非常准确"):
+(R4.B confirmed: user called this layout "remarkably good-looking and accurate"):
 
 ```python
 fig = plt.figure(figsize=(11, 7.5))  # inches; tune later
@@ -133,8 +133,7 @@ ax_e = fig.add_subplot(sub_BCDE[1, 1])
 This packs B/C/D/E with their own (tighter) spacing while preserving the
 larger grid's wspace/hspace for the hero+subordinate boundary.
 
-User-confirmed at R6.A: without this rule, "右上角这一块地方，图表是
-散开的，中间有很多留白."
+User-confirmed at R6.A: without this rule, "the upper-right region had loose, drifting chart elements with too much whitespace in the middle".
 
 ### Step 6 — Tune y-axis range to data density, not nominal range
 
@@ -158,8 +157,8 @@ negative values.** That clips the negative bars to zero height — they
 disappear visually. R-future validation R5.C 7-panel and R-future
 aesthetic-polished both hit this bug: Vehicle data was -3% (negative
 tumour reduction), CompoundX was 65%, both candidates used `(0, ytop)`
-floor and the Vehicle bars vanished. User explicitly flagged: "灰色的
-柱子完全看不到了，应该是纵轴设置有问题."
+floor and the Vehicle bars vanished. User explicitly flagged: "the gray bars
+became completely invisible — the y-axis range was wrong".
 
 The 0-floor applies ONLY when data is naturally non-negative AND the
 absolute level is part of the message. Negative-value bars require
@@ -175,8 +174,9 @@ the full 0-1 range. The rule applies when the visual emphasis IS the
 difference between groups, not the absolute level.
 
 User-confirmed at R6.A: bar chart with values ~65 and ~-3 on y-axis 0-100
-leaves ~35% empty top — "柱子画得那么长，完全没有意义." The right
-visual is "最低的那根柱子可能只有一点点 — 多出一点点就能把差异体现出来."
+leaves ~35% empty top — "those bars are drawn so long they convey nothing".
+The right visual is "the shortest bar should be barely visible; even a small
+extra height makes the difference legible".
 
 If any check fails:
 - `constrained_layout collapsed to zero` warning fired? **Hard fail.**

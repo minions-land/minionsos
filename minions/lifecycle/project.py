@@ -728,11 +728,6 @@ def _ensure_workspace_layout(port: int) -> None:
     project_state_dir(port).mkdir(parents=True, exist_ok=True)
 
 
-def project_workspace(port: int) -> Path:
-    """Backward-compatible alias for the canonical main workspace."""
-    return project_main_workspace(port)
-
-
 def project_checkpoint_workspace(
     port: int,
     role_name: str | None = None,
@@ -877,7 +872,7 @@ def project_phase_allows_role(entry: ProjectEntry, role_name: str) -> bool:
     """Return True when the current phase allows *role_name* to run.
 
     If no phase policy has been recorded yet, the project defaults to open
-    scheduling so legacy projects keep working.
+    scheduling.
     """
     allowed = {str(role).strip() for role in getattr(entry, "phase_allowed_roles", []) or []}
     if not allowed:

@@ -6,8 +6,9 @@ Principles 1-6.
 **Archetype:** Stacked distribution per category (joyplot variant). Use when
 showing how N distributions shift across a parameter / time / treatment axis.
 
-**User grade (R-future-3):** "整体很朴素... 还行吧." Acceptable but not
-"非常漂亮" tier. Useful as reference for distribution-stacking pattern.
+**User grade (R-future-3):** "overall very plain... passable." Acceptable
+but not "very beautiful" tier. Useful as reference for distribution-stacking
+pattern.
 
 ## Extracted palette
 
@@ -28,7 +29,8 @@ to anchor the visual.
 
 ## Known limitations
 
-User R-future-3: "非有效位置太多了，左右两边有很多没有分布、没有山岭的部分."
+User R-future-3: "too much wasted space — the left and right edges have
+large stretches with no distributions, no ridges at all."
 Distribution tails extend to plot bounds; trim x-axis range to where data
 density is meaningful. Future Task 4 v3 could fix this.
 

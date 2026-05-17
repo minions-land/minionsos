@@ -6,8 +6,10 @@ Real research figure from a multi-method comparison study.
 **Archetype:** Polar / radar plot. Multi-axis cross-method comparison.
 Use when methods need to be compared on N≥3 metrics simultaneously.
 
-**User grade (R-future-2):** "非常漂亮! 这张图真的太漂亮了，看起来非常
-正规、正经. 唯一美中不足的是，每个研究对象外围带颜色的边可以再粗一点."
+**User grade (R-future-2):** "very beautiful! This figure is genuinely
+beautiful — it looks really proper, really professional. The only thing
+missing is that the coloured outer stroke around each method polygon
+could be a bit thicker."
 
 ## Extracted palette
 
@@ -54,7 +56,8 @@ saturated colours).
 
 ## User-flagged refinement
 
-> 唯一美中不足的是，每个研究对象外围带颜色的边可以再粗一点.
+> The only thing missing is that the coloured outer stroke around each
+> method polygon could be a bit thicker.
 
 **Fix:** in matplotlib polar, set the polygon outline `linewidth=2.0`
 or `2.5` instead of default `1.0`. The pastel fill is so pale that the

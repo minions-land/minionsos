@@ -7,7 +7,7 @@ Manifold has v3 in case-manifold/ but not yet in gallery — needs user grading.
 
 | File | Archetype | User grade |
 |---|---|---|
-| `fig3-in-vivo-efficacy-rich.png` | Multi-panel hero composite | 色彩最丰富，A 部分小不合群 |
+| `fig3-in-vivo-efficacy-rich.png` | Multi-panel hero composite | richest colour palette; panel A is too small and reads as out-of-place |
 | `fig4-single-cell-systems-rich.png` | Heatmap + dimension reduction | (not user-graded) |
 | `bars_ablation_Cancer.png` | Single-panel grouped bar | (acceptable baseline) |
 | `correctness_by_category.png` | Multi-bar cross-category | (acceptable baseline) |
@@ -17,26 +17,27 @@ Manifold has v3 in case-manifold/ but not yet in gallery — needs user grading.
 
 | File | Form | User grade |
 |---|---|---|
-| `comparison_radar.png` | Polar / radar plot | **今晚最完美的图 (P9 anchor)** |
-| `diffusion_swiss_roll.png` | Manifold visualisation | 非常好看 |
-| `manifold_holes.png` | Manifold + topological annotation | 不错 (流形系列挺不错) |
+| `comparison_radar.png` | Polar / radar plot | **tonight's most perfect figure (P9 anchor)** |
+| `diffusion_swiss_roll.png` | Manifold visualisation | very good-looking |
+| `manifold_holes.png` | Manifold + topological annotation | solid (the whole manifold series is consistently solid) |
 | `cellsplicenet_ablation.png` | Hybrid composite | (not graded; carries lessons) |
-| `atlas-image-plates.png` | Microscopy image plate | 没什么大问题 |
-| `atlas-network-matrix.png` | Network + adjacency matrix | 非常漂亮 (network half) / matrix half ugly |
+| `atlas-image-plates.png` | Microscopy image plate | no major issues |
+| `atlas-network-matrix.png` | Network + adjacency matrix | very beautiful (network half) / matrix half ugly |
 
 ## R-future-3 self-generated novel forms
 
 | File | Form | User grade | Status |
 |---|---|---|---|
-| `ridgeline_population_distributions.png` | Stacked distributions | 还行 | accepted |
-| `beeswarm_cohort_response.png` | Beeswarm + median/IQR overlay | **左边好看** (beat ref) | accepted |
-| `parallel_coords_drug_screen.png` | Parallel coords + envelope bands (v3) | **可以了** | accepted at v3 |
+| `ridgeline_population_distributions.png` | Stacked distributions | passable | accepted |
+| `beeswarm_cohort_response.png` | Beeswarm + median/IQR overlay | **left side looks good** (beat ref) | accepted |
+| `parallel_coords_drug_screen.png` | Parallel coords + envelope bands (v3) | **good enough** | accepted at v3 |
 
 ## Removed / not in gallery
 
 - `sankey_clinical_pipeline.png` — tested twice (v1, v2); user said
-  "节点很普通，光用 flow 感觉有点多余." Better to OMIT than to ship a
-  weak exemplar. Available as reference if a future fixture demands flow.
+  "the nodes are very generic; using flow alone feels redundant." Better
+  to OMIT than to ship a weak exemplar. Available as reference if a
+  future fixture demands flow.
 
 ## Annotation status
 

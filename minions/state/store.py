@@ -116,8 +116,8 @@ class StateStore:
     """Thread- and process-safe store for ``projects.json``.
 
     Accepts either ``path=<file>`` (canonical callers) or ``root=<dir>``
-    (legacy dict-API callers migrated from the removed ``state_store``
-    module, where the data file is ``root/projects.json``).
+    (``root=`` is a convenience for tests; the data file is then
+    ``<root>/projects.json``).
     """
 
     def __init__(
@@ -214,7 +214,7 @@ class StateStore:
     def add_project(self, entry: ProjectEntry | dict[str, Any]) -> None:
         """Append *entry* to projects.json.
 
-        Accepts a ``ProjectEntry`` (canonical) or a ``dict`` (legacy dict API
+        Accepts a ``ProjectEntry`` (canonical) or a ``dict`` (test-friendly dict input
         from the removed ``state_store`` module).
 
         Raises ``StateError`` if a project with the same port already exists.
@@ -258,7 +258,7 @@ class StateStore:
         *,
         status: Literal["all", "active", "dormant", "closed"] | None = None,
     ) -> list[ProjectEntry]:
-        """Return projects matching ``filter`` (or the legacy ``status`` kwarg)."""
+        """Return projects matching ``filter`` (or the alias ``status`` kwarg)."""
         sel = status if status is not None else (filter if filter is not None else "all")
         data = self._read_data()
         if sel == "all":

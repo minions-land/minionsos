@@ -2,7 +2,7 @@
 """vision_loop.py — figure-aesthetic-exemplars iterative loop.
 
 R-future-4 implementation: structural-audit-driven loop. Vision-capable
-model judging proved unavailable in current toolchain (Codex bridge
+model judging proved unavailable in current toolchain (Codex sub-agent
 doesn't pass images; Read tool vision unavailable in this session).
 Solution: replace vision-model with structural audit (figure_audit.py)
 covering ~60% of principles auto-checkable; flag the rest for human review.

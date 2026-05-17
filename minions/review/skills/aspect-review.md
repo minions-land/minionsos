@@ -35,16 +35,16 @@ The aspect subagent is local-only and EACN-invisible. It may not poll EACN, regi
 
 ## Codex delegation
 
-Codex GPT-5.5 (via the `codex` MCP tool, codex-bridge) is faster and cheaper than scanning the manuscript turn-by-turn yourself. Prefer it when:
+Codex GPT-5.5 (via the `codex` MCP tool, codex-subagent) is faster and cheaper than scanning the manuscript turn-by-turn yourself. Prefer it when:
 
 - The aspect requires reading more than ~3 pages of manuscript, or comparing claims across distant sections.
 - The aspect requires tracing a code path across files (always pair with `code-validity-review`).
 - The aspect requires checking a bibliography against the body text.
 
-Two modes:
+Two modes (controlled by the `sandbox` arg on the single `codex` tool):
 
-- `codex.ask_codex` — read-only analysis. Pass it the aspect, the assigned stance, the submission paths, and the question. Use this for the typical aspect-review pass.
-- `codex.run_codex_worker` — full-access delegated subagent. Use when Codex needs to actually run scripts or chase through many files.
+- `sandbox="read-only"` — read-only analysis. Pass it the aspect, the assigned stance, the submission paths, and the question. Use this for the typical aspect-review pass.
+- `sandbox="danger-full-access"` (default) — full-access delegated sub-agent. Use when Codex needs to actually run scripts or chase through many files.
 
 What stays here: the *decision pressure* (your stance-shaped judgment) and the final `aspect-note.md`. Codex returns evidence; you assemble it under the assigned stance.
 

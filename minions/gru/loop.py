@@ -62,18 +62,6 @@ class GruLoop:
         """
         import threading
 
-        from minions.lifecycle.project import migrate_legacy_scratchpads
-
-        for project in self._store.list_projects(filter="active"):
-            try:
-                migrate_legacy_scratchpads(int(project.port))
-            except Exception as exc:
-                logger.warning(
-                    "GruLoop.run: scratchpad migration failed port=%s: %s",
-                    project.port,
-                    exc,
-                )
-
         def _experiment_scheduler_thread() -> None:
             while not self._stopped:
                 self._reconcile_experiment_queues()
@@ -105,18 +93,6 @@ class GruLoop:
 
     async def run_async(self) -> None:
         """Async variant for use inside an existing asyncio event loop."""
-        from minions.lifecycle.project import migrate_legacy_scratchpads
-
-        for project in self._store.list_projects(filter="active"):
-            try:
-                migrate_legacy_scratchpads(int(project.port))
-            except Exception as exc:
-                logger.warning(
-                    "GruLoop.run_async: scratchpad migration failed port=%s: %s",
-                    project.port,
-                    exc,
-                )
-
         logger.info("Gru monitor async loop started (interval=%ds).", self.interval)
         experiment_task = asyncio.create_task(self._experiment_reconcile_async())
         try:

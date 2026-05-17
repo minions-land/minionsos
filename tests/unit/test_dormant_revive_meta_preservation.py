@@ -35,7 +35,7 @@ def _install_patches(
     monkeypatch.setattr(proj_mod, "project_dir", lambda p: pdir)
     monkeypatch.setattr(proj_mod, "project_logs_dir", lambda p: pdir / "logs")
     monkeypatch.setattr(proj_mod, "project_meta_json", lambda p: pdir / "meta.json")
-    monkeypatch.setattr(proj_mod, "project_workspace", lambda p: pdir / "workspace")
+    monkeypatch.setattr(proj_mod, "project_main_workspace", lambda p: pdir / "workspace")
     monkeypatch.setattr(proj_mod, "project_eacn_db", lambda p: pdir / "eacn3_data" / "eacn3.db")
     monkeypatch.setattr(proj_mod, "project_backend_log", lambda p: pdir / "logs" / "backend.log")
     monkeypatch.setattr(

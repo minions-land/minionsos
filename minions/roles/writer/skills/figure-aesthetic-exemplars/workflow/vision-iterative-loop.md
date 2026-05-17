@@ -101,7 +101,7 @@ def judge_figure(png_path, exemplar_annotation_path, principles_md_path):
 ### Option B: Codex sandbox with vision
 
 Codex GPT-5.5 has vision capability. Same JSON schema; invoke via the
-codex-bridge MCP. Pseudocode:
+codex-subagent MCP. Pseudocode:
 
 ```python
 result = codex_call(
@@ -152,7 +152,7 @@ def main(plot_script_path, exemplar_path):
 
 ## Prerequisites for actual deployment
 
-1. **API access**: Anthropic API key OR codex-bridge MCP surface with image input.
+1. **API access**: Anthropic API key OR codex-subagent MCP surface with image input.
 2. **Refactored plot script**: scripts must accept `--iter N --out-dir D` args.
 3. **Delta-application interface**: translate "fix": "reduce signal saturation from 100% to ~70%" into specific code edits. Either string replace OR pass the delta to a code-editing model.
 
@@ -188,7 +188,7 @@ Design + prototype skeleton complete. Actual deployment requires the prerequisit
 ### Discovery: vision-capable model unavailable in current toolchain
 
 Tested in R-future-4:
-1. **Codex bridge with image input** — confirmed Codex CLI does NOT pass
+1. **Codex sub-agent with image input** — confirmed Codex CLI does NOT pass
    image data to underlying model (returns hallucinated answers based
    only on filename / context).
 2. **Read tool with PNG/JPG** — multimodal output not available in this
@@ -227,8 +227,8 @@ Audit results match user feedback on the 2 reference cases:
 
 | Figure | User feedback | Audit verdict |
 |---|---|---|
-| R5.C 7-panel candidate | 80-90分,排版好但配色差点意思 | P2 saturation: **concerning** (max 0.89) — matches user "颜色感觉差了一点" |
-| R-future aesthetic-polished | 色彩最漂亮，但下面留白多 | P3: trailing whitespace **2.9% (concerning)**, P2 saturation: **good** — matches user judgement exactly |
+| R5.C 7-panel candidate | 80-90 / 100, layout fine but the palette is a bit off | P2 saturation: **concerning** (max 0.89) — matches user "the colour feels a bit off" |
+| R-future aesthetic-polished | most beautiful colours, but lots of empty space at the bottom | P3: trailing whitespace **2.9% (concerning)**, P2 saturation: **good** — matches user judgement exactly |
 
 This is empirical confirmation that the audit captures the same
 aesthetic deficiencies the user names. The audit does not REPLACE the
@@ -243,7 +243,7 @@ takes the user time to articulate.
     → auto-grades P1, P2, P3, editable-text-gate
 [3] if any auto-grade is "concerning" or "fail":
     → flag the top-3 deltas
-    → runner addresses them (manual code edit OR future codex-bridge code-edit)
+    → runner addresses them (manual code edit OR future codex-subagent code-edit)
     → re-render
 [4] when all auto-grades are "good":
     → human visual review for P4-P9 (the principles audit can't grade)

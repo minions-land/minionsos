@@ -5,7 +5,7 @@ event loop via ``mos_await_events``. This module produces the concrete
 ``claude`` argv plus the initial driver prompt the launcher feeds into the
 session.
 
-Codex is not a Role main host; Codex is reachable through the codex-bridge
+Codex is not a Role main host; Codex is reachable through the codex-subagent
 MCP as a subagent. There is therefore no Codex branch here.
 """
 

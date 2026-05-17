@@ -1,6 +1,6 @@
 ---
 slug: delegate-heavy-task
-summary: Delegate complex coding tasks to Codex GPT-5.5 via codex-bridge MCP; falls back to Claude subagent if Codex unavailable.
+summary: Delegate complex coding tasks to Codex GPT-5.5 via codex-subagent MCP; falls back to Claude subagent if Codex unavailable.
 layer: logical
 tools: codex
 version: 3
@@ -12,7 +12,7 @@ provenance: human
 
 # Skill — Delegate Heavy Task
 
-Route high-intensity coding work to Codex GPT-5.5 (via codex-bridge MCP). Fall back to a Claude subagent when Codex is unavailable.
+Route high-intensity coding work to Codex GPT-5.5 (via codex-subagent MCP). Fall back to a Claude subagent when Codex is unavailable.
 
 ## When to invoke
 

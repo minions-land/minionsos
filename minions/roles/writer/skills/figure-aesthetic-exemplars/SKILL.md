@@ -13,8 +13,8 @@ provenance: SkillTest-R6.A-aesthetic-ceiling-finding
 # Skill — Figure Aesthetic Exemplars (DRAFT — SkillTest research zone)
 
 > This is a draft from SkillTest, not a live MinionsOS skill. Authored
-> in response to R6.A user feedback: "用了 Skill 的配色可能稍微规范一点，
-> 但是和美感、好看完全搭不上边."
+> in response to R6.A user feedback: "the skill's palette is maybe slightly
+> more disciplined, but it's nowhere near beautiful or good-looking."
 
 ## What this skill is
 
@@ -35,8 +35,8 @@ empirically beautiful — and DIFF YOUR FIGURE AGAINST THEM.
 
 - You have a draft figure that satisfies all rule-based skills
   (figure-layout-defaults, academic-plotting) but the user / co-author
-  has flagged it as "looks fine but not beautiful," "缺乏新意," "和美感、
-  好看完全搭不上边."
+  has flagged it as "looks fine but not beautiful," "lacks any spark,"
+  or "nowhere near beautiful or good-looking."
 - You are preparing a Nature / Cell / Science cover-eligible figure
   where aesthetic quality matters beyond submittability.
 - You have iteration budget: this skill expects 2-4 render-revise cycles,

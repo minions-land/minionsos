@@ -6,9 +6,10 @@ Atlas illustration of the network + adjacency-matrix combo form.
 **Archetype:** Hybrid composite — network nodes + edges + matrix in one
 visual. Use when relationships between entities are the message.
 
-**User grade (R-future-2):** "非常漂亮，虽然稍微有点看不懂，但视觉效果
-极佳. 不过总体的热力图配色有点丑，用了红色和一种奇怪的湖水绿，这个配色
-不太行."
+**User grade (R-future-2):** "very beautiful — slightly hard to interpret,
+but the visual effect is excellent. The overall heatmap palette is a bit
+ugly though; it uses red and a strange lake-water teal, and that pairing
+doesn't really work."
 
 ## Extracted palette
 

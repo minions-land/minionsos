@@ -227,17 +227,6 @@ def project_reviews_dir(port: int) -> Path:
     return project_artifacts_dir(port) / "reviews"
 
 
-def project_role_workspace_for_legacy(port: int, role_name: str) -> Path:
-    """Compatibility shim — kept until callers move off the helper.
-
-    Was used by the now-removed scratchpad migration. New code should use
-    :func:`project_role_workspace` directly. The function exists only so a
-    stray import does not crash; it returns the same path as
-    ``project_role_workspace``.
-    """
-    return project_role_workspace(port, role_name)
-
-
 def role_system_md(role: str) -> Path:
     """Return the SYSTEM.md path for a built-in role template."""
     return ROLES_DIR / role / "SYSTEM.md"

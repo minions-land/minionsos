@@ -194,10 +194,6 @@ def _ssh_tail(host: str, key: str, remote_path: str, lines: int = 50) -> str:
 class ExpRunArgs(BaseModel):
     target_id: str = Field(description="Target ID from experiment_targets.yaml, or 'auto'.")
     cmd: str = Field(description="Shell command to run on the target.")
-    timeout: int | None = Field(
-        default=None,
-        description="DEPRECATED: no-op. exp_run is always non-blocking; use exp_wait(timeout=...).",
-    )
     gpu_ids: list[int] | None = Field(
         default=None,
         description="GPU IDs to expose via CUDA_VISIBLE_DEVICES.",
@@ -349,9 +345,6 @@ def exp_run(args: ExpRunArgs) -> dict:
     Returns ``{run_id, pid, log_path, target_id}``. The command runs under
     ``nohup setsid`` so closing the SSH session or the calling agent does
     not kill it. Use ``exp_status`` / ``exp_wait`` to observe progress.
-
-    The legacy ``timeout`` parameter is a no-op (kept for backwards call
-    compatibility). Use ``exp_wait(timeout=...)`` instead.
     """
     target_id = _resolve_target_id(args.target_id)
     kind, workdir, host, key = _resolve_workdir(target_id)

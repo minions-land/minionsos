@@ -1,13 +1,15 @@
 # Annotation — manifold_scatter_4cluster
 
 **Source:** SkillTest self-generated (R-future-3 Task 1 candidate v2 — passed
-user grading after the v3 hull-shading attempt was rejected as "意义不大").
+user grading after the v3 hull-shading attempt was rejected as
+"not very meaningful").
 
 **Archetype:** 2D embedding scatter with N=4 clusters, each as a distinct
 pastel hue. Use when data is naturally a manifold / embedding and clusters
 are the primary information.
 
-**User grade (R-future-3-final):** "v2 可以... reference 也还行." Acceptable;
+**User grade (R-future-3-final):** "v2 works... reference is also fine."
+Acceptable;
 distinct from `diffusion_swiss_roll` (manifold-as-curve) — this is
 manifold-as-discrete-clusters.
 
@@ -34,8 +36,9 @@ one hue. Distinguishability comes from hue diversity within the family.
    visible.
 5. **No artificial visual area filler** — the data IS scattered, and the
    figure honestly shows that. Adding convex-hull shading was tested
-   (v3) and rejected as "意义不大，变得更丑了。本来很散的东西，变得好像
-   有点像多边形了。"
+   (v3) and rejected as "not very meaningful — it actually got uglier.
+   The data was naturally scattered, and now it kind of looks like a
+   polygon."
 
 ## What this exemplar EXPLICITLY does NOT do
 
@@ -55,7 +58,9 @@ instead — that's manifold-as-curve, this is manifold-as-clusters.
 
 ## R-future-3 lesson encoded
 
-Honest sparse scatter > artificially filled canvas. When user said "你扩大
-这玩意儿没什么用. 本来很散的东西，你变得好像有点像多边形了，这有什么用呢?" —
+Honest sparse scatter > artificially filled canvas. When user said
+"blowing this thing up is pointless. The data was naturally scattered,
+and you've made it look kind of like a polygon — what's the point of
+that?" —
 the lesson is: do not visually inflate sparse data. Show the data as it is,
 let the eye process the empty space.

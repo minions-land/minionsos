@@ -131,7 +131,7 @@ class TestPerformanceComparison:
         total_tokens = TOKENS_SYSTEM_PROMPT
         context_at_each_step = []
 
-        for step in SCENARIO:
+        for _step in SCENARIO:
             total_tokens += TOKENS_PER_STEP_CONTEXT
             context_at_each_step.append(total_tokens)
 
@@ -149,7 +149,7 @@ class TestPerformanceComparison:
         total_tokens = 0
         knowledge_retained = 0
 
-        for i, step in enumerate(SCENARIO):
+        for i, _step in enumerate(SCENARIO):
             # Each step: system prompt + scratchpad + work
             step_tokens = TOKENS_SYSTEM_PROMPT + TOKENS_SCRATCHPAD + TOKENS_PER_STEP_CONTEXT
             total_tokens += step_tokens
@@ -169,7 +169,7 @@ class TestPerformanceComparison:
         """Mode 3: Fresh context + DAG + compact skill."""
         total_tokens = 0
 
-        for i, step in enumerate(SCENARIO):
+        for _i, step in enumerate(SCENARIO):
             # Each step: system + scratchpad + dag_summary + work
             step_tokens = (
                 TOKENS_SYSTEM_PROMPT

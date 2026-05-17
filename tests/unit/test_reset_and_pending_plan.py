@@ -52,13 +52,7 @@ def test_reset_writes_marker_file(project_port: int, tmp_path: Path) -> None:
         mock_run.return_value.returncode = 0
         reset.mos_reset_context(reason="batch complete")
 
-    marker = (
-        tmp_path
-        / f"project_{project_port}"
-        / "exploration"
-        / ".reset_markers"
-        / "coder"
-    )
+    marker = tmp_path / f"project_{project_port}" / "exploration" / ".reset_markers" / "coder"
     assert marker.exists()
     payload = json.loads(marker.read_text())
     assert payload["reason"] == "batch complete"
@@ -172,9 +166,7 @@ def test_summary_ignores_non_pending_unverified_nodes(project_port: int) -> None
     assert summary["pending_plans_total"] == 0
 
 
-def test_pending_plan_flag_survives_dag_round_trip(
-    project_port: int, tmp_path: Path
-) -> None:
+def test_pending_plan_flag_survives_dag_round_trip(project_port: int, tmp_path: Path) -> None:
     """metadata.pending_plan must persist to dag.json and reload intact."""
     exploration_dag.mos_dag_append(
         nodes=[

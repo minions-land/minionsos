@@ -7,8 +7,9 @@ Real research figure from a continuous-flow generative model paper.
 IS the visual subject. Use when your data has natural 2D / 3D structure
 that bar / line / heatmap would flatten.
 
-**User grade (R-future-2):** "右边非常好看，这个图画得很棒...螺旋图画得
-挺好看的，配色也很好看. 整个流形系列我觉得都挺不错."
+**User grade (R-future-2):** "the right side is very good-looking, this
+figure is really well done... the spiral plot looks great, the palette is
+also nice. I think the entire manifold series is solid."
 
 ## Extracted palette
 
@@ -27,7 +28,7 @@ that bar / line / heatmap would flatten.
 **Critical observation:** **Pure cyan-teal hue family.** All non-grey
 foreground pixels are within a 60° arc on the colour wheel
 (cyan 180° ↔ teal-mint 165° ↔ purple-cyan 200°). NO red, NO orange,
-NO complementary opposite. The figure achieves Principle 1 (色调一致性)
+NO complementary opposite. The figure achieves Principle 1 (hue coherence)
 strictly — one hue family carrying ALL information.
 
 The visual hierarchy comes from saturation gradient WITHIN the cyan

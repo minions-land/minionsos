@@ -117,11 +117,11 @@ These are **suggestions**, not exhaustive. Any evidence-angle preview request th
 
 Ethics audit work is read-heavy: claim enumeration, log/checkpoint cross-reference, citation web-fetch, metric recomputation, large-artifact mock-reviews. Pulling that into the main session inflates context, drowns the wake batch, and pushes the main role toward shallow verdicts. Treat subagent dispatch as the default, not the optimisation.
 
-**Preferred path: `codex` MCP (codex-bridge).**
+**Preferred path: `codex` MCP (codex-subagent).**
 For any non-trivial read-and-judge slice — adjudication evidence trace, mock-review pass over a paper or experiment report, citation-authenticity sweep, metric reproducibility check, deep flag investigation — dispatch through the `codex` MCP tool. Codex GPT-5.5 reads aggressively and returns a focused report; main keeps clean context for verifying and emitting the EACN response. Follow the common `delegate-heavy-task` skill for invocation details (do not duplicate them here).
 
 **Fallback path: `Task` (Claude subagent).**
-When `codex` returns `CODEX_UNAVAILABLE` / `CODEX_ERROR`, or the host genuinely lacks the codex-bridge MCP, fall back to the `Task` tool with a self-contained subagent prompt that carries the Ethics role boundary, write scope, and evidence rule. The fallback is fully acceptable — the priority is "not in main", not "must be Codex".
+When `codex` returns `CODEX_UNAVAILABLE` / `CODEX_ERROR`, or the host genuinely lacks the codex-subagent MCP, fall back to the `Task` tool with a self-contained subagent prompt that carries the Ethics role boundary, write scope, and evidence rule. The fallback is fully acceptable — the priority is "not in main", not "must be Codex".
 
 **When the main session may read directly.**
 The exceptions are deliberately narrow: scanning the wake-up event batch, reading one short EACN message, opening one specific artifact path the requester named, or verifying a subagent's return. If you find yourself about to web-fetch a citation list, walk a multi-file claim graph, or recompute an experiment metric in main, stop and dispatch.

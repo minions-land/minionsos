@@ -2,7 +2,7 @@
 
 User-articulated 3-point principle, R-future-2 round 2026-05-17:
 
-## Principle 1: 色调一致性 (Hue coherence)
+## Principle 1: Hue coherence
 
 **Pick ONE hue family per figure.** All non-grey signals should be hue-
 coherent: e.g. all blue-cyan-teal, OR all red-pink-magenta, OR all
@@ -25,7 +25,7 @@ Anti-exemplars (figures that VIOLATE coherence):
   hue is a distinct hue family. This is what amateur figures default to.
 - Bar chart with red/blue/green/orange — 4 hue families competing.
 
-## Principle 2: 饱和度淡一点 (Reduced saturation)
+## Principle 2: Reduced saturation
 
 **Saturated colours are visual noise.** Most exemplar figures use
 ~50-70% saturation, not 100%. Specifically:
@@ -46,7 +46,7 @@ Cross-figure exemplars: diffusion_swiss_roll's #15c0c0 cyan is around
 cellsplicenet's #154095 deep blue is around 80% saturation but balanced
 by surrounding mint and grey neutrals.
 
-## Principle 3: 有效显示面积 (Effective display area)
+## Principle 3: Effective display area
 
 **Match the visual area of each subplot to the information it carries.**
 A subplot showing 3 categorical bars does NOT need 180 mm of width.
@@ -57,9 +57,10 @@ Two specific failure modes:
 
 ### 3a: Bar charts wasting axis range
 The y-axis 0-100 with bars at 60% leaves 40% empty. The user-articulated
-rule: 假设数值越高越好，最低柱多出一点点就行 (lowest bar visible by a
-small margin is enough). Implement via `set_ylim(data_min - 0.1*span,
-data_max + 0.15*span)`. With negative values, NEVER use `(0, ytop)`.
+rule: assuming higher is better, the lowest bar only needs to extend a
+small amount (just enough to be visible). Implement via
+`set_ylim(data_min - 0.1*span, data_max + 0.15*span)`. With negative
+values, NEVER use `(0, ytop)`.
 
 ### 3b: Subplots over-allocated to data they don't have
 A bar plot with 3 categories doesn't need a wide canvas. A small bar
@@ -91,7 +92,7 @@ This is the layout discipline already encoded in figure-layout-defaults
 Steps 1-6, with the addition of "minimum-area-per-panel" as the
 optimisation target.
 
-## Principle 5: 形式新颖 (Novel forms)
+## Principle 5: Novel forms
 
 **Beyond bar / line / heatmap / box / violin lies a wider form
 vocabulary.** When the data has structure that fits a non-standard form,
@@ -120,9 +121,9 @@ The R-future-2 hierarchy:
 3. Principle 4 (compose the composite)
 4. Principles 1+2 (apply hue coherence + reduced saturation)
 
-Principles 1+2 alone give "色彩规范"; Principles 3+4 alone give
-"排版规整"; Principle 5 alone gives "新颖形式." All five together
-approach the user's "美感 / 超越人类" target.
+Principles 1+2 alone give "disciplined colour"; Principles 3+4 alone give
+"clean layout"; Principle 5 alone gives "novel form". All five together
+approach the user's "beautiful / beyond-human" target.
 
 
 ---
@@ -133,8 +134,8 @@ User graded 6 novel-form exemplars. New sub-rules distilled:
 
 ### Principle 1 sub-rule: red-vs-teal is a known bad pairing
 
-User-flagged on `atlas-network-matrix.png`: heatmap with red and "湖水绿"
-(teal `#95c0c0`-ish) at the same saturation reads as ugly. Avoid this
+User-flagged on `atlas-network-matrix.png`: heatmap with red and lake-water
+teal (`#95c0c0`-ish) at the same saturation reads as ugly. Avoid this
 specific high-complementary pair when both colours are at >40% saturation.
 
 Fix when matrix accompanies a network: keep the matrix in the network's
@@ -152,8 +153,8 @@ ax.fill(x, y, color=pastel, alpha=0.25)
 ax.plot(x, y, color=pastel, linewidth=2.2)  # NOT default 1.0
 ```
 
-User-confirmed on `comparison_radar.png`: 唯一美中不足的是外围边可以再
-粗一点.
+User-confirmed on `comparison_radar.png`: "the only thing missing is that the
+outer polygon stroke could be a bit thicker."
 
 ### Principle 3 sub-rule: legend packing for hybrid composites
 
@@ -161,8 +162,9 @@ When a multi-form panel uses a legend, prefer ncol≥2 (multi-column)
 legend over default single-column. Single-column legend in upper-left
 of a hybrid panel creates whitespace gap above the data.
 
-User-feedback on `cellsplicenet_ablation.png`: 注意一下 Legend 的设置，
-可以分成两列，这样就能取消掉左上角的一些留白.
+User-feedback on `cellsplicenet_ablation.png`: "watch the legend setting —
+splitting it into two columns gets rid of the wasted whitespace in the
+upper-left corner."
 
 ```python
 ax.legend(ncol=2, loc='upper left', frameon=False)
@@ -175,7 +177,8 @@ Standard chart inter-panel gutter is ~5-6% canvas. Image plates
 this to ≤2% because the panels are spatially related and the data
 is the IMAGE itself, not a chart.
 
-User-feedback on `atlas-image-plates.png`: A 到 P 的排列可以再紧凑一点.
+User-feedback on `atlas-image-plates.png`: "the A-through-P arrangement
+could be packed tighter."
 
 ### Principle 5 sub-rule: manifold visualisation > flat chart when geometry IS the message
 
@@ -185,7 +188,7 @@ Flatten to bar/line ONLY when the geometric structure is irrelevant
 or unavailable.
 
 User-confirmed on `diffusion_swiss_roll.png` and `manifold_holes.png`:
-整个流形系列我觉得都挺不错.
+"the entire manifold series is solid — I think they all look good."
 
 This is the form-novelty axis: data with manifold structure → manifold
 visualisation, not "PCA-reduce then bar chart of cluster means."
@@ -196,8 +199,8 @@ When data is N methods × M metrics with M ≥ 3, default to polar /
 radar form. The shape signature each method generates carries
 information that bar charts cannot.
 
-User-confirmed on `comparison_radar.png`: 这张图真的太漂亮了，看起来
-非常正规、正经.
+User-confirmed on `comparison_radar.png`: "this figure is genuinely
+beautiful — it looks really proper, really professional."
 
 Apply with: low-saturation pastel polygon fills + grey-dominant radar
 grid + bumped stroke weight (Principle 2 sub-rule) + radial axis
@@ -207,11 +210,11 @@ labels inline.
 
 | User grade | Aesthetic-principle compliance |
 |---|---|
-| 非常漂亮 / 真的太漂亮 | ALL of P1-P6, with appropriate sub-rules |
-| 还不错 / 挺好看 | 4-5 of P1-P6 satisfied |
-| 中规中矩 / 规整但缺色彩 | P3-P4 satisfied, P1-P2 partial |
-| 一般 / 还可以 | 2-3 of P1-P6 |
-| 显得很普通 / normal | <2 of P1-P6 |
+| "very beautiful" / "genuinely beautiful" | ALL of P1-P6, with appropriate sub-rules |
+| "pretty solid" / "looks good" | 4-5 of P1-P6 satisfied |
+| "passable" / "tidy but lacks colour life" | P3-P4 satisfied, P1-P2 partial |
+| "okay" / "fine" | 2-3 of P1-P6 |
+| "very generic" / "normal" | <2 of P1-P6 |
 
 
 ---
@@ -220,7 +223,7 @@ labels inline.
 
 User R-future-3 grading exposed 4 hard rules I had encoded incorrectly:
 
-### CORRECTION to Principle 1 (色调一致性)
+### CORRECTION to Principle 1 (hue coherence)
 
 **WRONG interpretation:** P1 means "single hue + saturation gradient
 within one hue."
@@ -229,10 +232,12 @@ within one hue."
 **family** (e.g. all cool, or all warm, or all neutral with one accent),
 but ≥ 3 distinct hues are FINE if they are family-coherent."
 
-User-articulated R-future-3: "颜色一致性强但区分度不够 — 用深浅做区分
-根本区分不了，尤其是 parallel coords 有这么多线再用深浅就更乱了."
+User-articulated R-future-3: "the hue coherence is strong but the
+distinguishability is not — using shade gradients alone can't separate
+categories, especially for parallel coords with this many lines using
+shade gets even messier."
 
-The reference `comparison_radar.png` (user-graded "最完美") uses:
+The reference `comparison_radar.png` (user-graded "the most perfect") uses:
 - Mint pastel `#c0eac0`
 - Red-pink pastel `#eac0c0`
 - Cyan pastel `#c0eaea`
@@ -251,7 +256,8 @@ saturation discipline gives COHERENCE.
 
 ### Principle 7 (NEW): legend placement off the data plot
 
-User R-future-3 on radar candidate: "底下的 Legend 和数据集重叠了."
+User R-future-3 on radar candidate: "the legend at the bottom is
+overlapping with the dataset."
 
 **Rule:** for polar / radar / network / dense-overlay plots, the legend
 MUST sit outside the data plot region. Default `loc="lower center"`
@@ -269,8 +275,8 @@ positions the legend cleanly to the right of the polygon.
 
 ### Principle 8 (NEW): manifold figures carry 1-2 information dimensions max
 
-User R-future-3 on manifold candidate: "好乱，奇怪的线条，颜色太亮丽。
-整体太乱了，乱七八糟的."
+User R-future-3 on manifold candidate: "really messy, weird stray lines,
+the colours are too garish. The whole thing is a chaotic mess."
 
 **Cause:** I had Codex stack trajectory + pseudotime gradient + cluster
 labels + bifurcation marker + connecting lines all on one panel. Five
@@ -291,7 +297,8 @@ it readable.
 
 ### Principle 9 (NEW): comparison_radar is the SkillTest "beyond human" anchor
 
-User R-future-3: "comparison_radar 是今晚最完美的图. 这张图真的太漂亮了."
+User R-future-3: "comparison_radar is tonight's most perfect figure. This
+figure is genuinely beautiful."
 
 This figure is the empirical anchor for what "beyond human" means in
 SkillTest. Specifically:
@@ -310,12 +317,12 @@ visual quality?" If no, the candidate is not yet beyond-human.
 
 | User grade | Aesthetic-principle compliance |
 |---|---|
-| 最完美 / 真的太漂亮 (= comparison_radar tier) | ALL of P1-P9 + matches Principle 9 anchor |
-| 非常漂亮 / 真的太漂亮 | ≥7 of P1-P9 |
-| 还不错 / 挺好看 | 5-6 of P1-P9 |
-| 中规中矩 / 规整 | 3-4 of P1-P9 |
-| 太普通 / 一般 | 2-3 of P1-P9 |
-| 太乱 / 一坨大垃圾 | <2 of P1-P9 OR contradicts a principle |
+| "most perfect" / "genuinely beautiful" (= comparison_radar tier) | ALL of P1-P9 + matches Principle 9 anchor |
+| "very beautiful" / "genuinely beautiful" | ≥7 of P1-P9 |
+| "pretty solid" / "looks good" | 5-6 of P1-P9 |
+| "passable" / "tidy" | 3-4 of P1-P9 |
+| "too generic" / "okay" | 2-3 of P1-P9 |
+| "too messy" / "a pile of garbage" | <2 of P1-P9 OR contradicts a principle |
 
 
 ---
@@ -326,8 +333,9 @@ After v2 grading round, user articulated 2 more rules:
 
 ### Principle 3 sub-rule (REVISED after v3 rejection): honest sparse scatter
 
-User R-future-3-final v3 rejection: "你扩大这玩意儿没什么用. 本来很散的
-东西，你变得好像有点像多边形了，这有什么用呢? 还变得更丑了."
+User R-future-3-final v3 rejection: "blowing this thing up is pointless.
+The data was naturally scattered, and you've made it look kind of like a
+polygon — what's the point of that? It actually got uglier."
 
 **Rule:** when the data IS scattered, do NOT visually inflate it. Default
 marker size `s=12-15` for hero scatter is correct. Do NOT add convex-hull
@@ -353,8 +361,10 @@ convex-hull shading was rejected by user. Don't repeat.
 
 ### Principle 9 reaffirmed: comparison_radar is the module template
 
-User R-future-3-final on radar: "对于 Radar，你可以直接把 Reference 当成
-模板了，不需要再讨论别的. 在其他方案上改来改去，颜色都不如 Reference 好看."
+User R-future-3-final on radar: "for the radar, you can just treat the
+reference as the template — there's nothing else to discuss. Anything
+you tweak in other versions, the colours never look as good as the
+reference."
 
 **Rule:** for polar / radar plots specifically, do NOT attempt to
 generate a new exemplar. Use `comparison_radar.png` as the literal

@@ -117,9 +117,9 @@ Your initial prompt names:
   reviewer reports, a meta-review, a decision, and a compressed rolling
   summary.
 - Use web search for review-relevant related-work and originality checks.
-- **Delegate heavy lifting to Codex via the `codex` MCP tool (codex-bridge).** Codex GPT-5.5 is fast, cheap, and well-suited to review work — line-by-line reading of a long manuscript, exhaustive code-path tracing, citation cross-checking, and tabular evidence sweeps are all cheaper to run on Codex than to compose by hand here. The two modes:
-  - `codex.ask_codex` — read-only analysis (manuscript scan, citation check, line-level critique). Use this generously inside aspect subagents.
-  - `codex.run_codex_worker` — full-access sub-agent delegation for tasks that need to actually run scripts or read many files in series. Use when an aspect subagent would otherwise spend many turns iterating.
+- **Delegate heavy lifting to Codex via the `codex` MCP tool (codex-subagent).** Codex GPT-5.5 is fast, cheap, and well-suited to review work — line-by-line reading of a long manuscript, exhaustive code-path tracing, citation cross-checking, and tabular evidence sweeps are all cheaper to run on Codex than to compose by hand here. The `codex` tool exposes a single delegation surface controlled via the `sandbox` arg:
+  - `sandbox="read-only"` — manuscript scan, citation check, line-level critique. Use this generously inside aspect subagents.
+  - `sandbox="danger-full-access"` (default) — full-access sub-agent delegation for tasks that need to actually run scripts or read many files in series. Use when an aspect subagent would otherwise spend many turns iterating.
   Aspect subagents should reach for Codex first when a task is "read N pages / files and find evidence of X". The orchestrator should reach for Codex when synthesizing a long packet that compares many reviewer reports.
 
 ## Hard constraints

@@ -446,7 +446,7 @@ class GruConfig(BaseModel):
         description="Claude model name passed to the claude CLI (e.g. claude-sonnet-4-6).",
     )
     agent_host: Literal["claude", "codex"] = Field(
-        default="codex",
+        default="claude",
         description="Default agent host for Gru and role wakeups: claude or codex.",
     )
     codex_model: str | None = Field(

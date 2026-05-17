@@ -110,10 +110,11 @@ then merge with a sentence-level transition.
   failure.
 - Mixing Data Availability into Code Availability or vice versa.
   They have different policy obligations; keep them separate.
-- Letting Chinese-influenced register survive: "我们会在合理要求下提供" →
-  "we will provide upon reasonable request" → fail. Chinese-author
-  Writers should run this skill with [[cn-en-academic-polish]] when the
-  source draft is Chinese-flavoured.
+- Letting Chinese-influenced register survive: a draft that says
+  "we will provide upon reasonable request" (a literal carry-over from the
+  source Chinese phrasing) → fail. Chinese-author Writers should run this
+  skill with [[cn-en-academic-polish]] when the source draft is
+  Chinese-flavoured.
 
 ## Output habit
 

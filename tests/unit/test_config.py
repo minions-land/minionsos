@@ -83,7 +83,6 @@ class TestLoadGruConfig:
 
     def test_codex_defaults_are_unattended_and_unsandboxed(self, tmp_path: Path) -> None:
         cfg = load_gru_config(tmp_path / "missing.yaml")
-        assert cfg.agent_host == "codex"
         assert cfg.codex_bypass_approvals_and_sandbox is True
         assert cfg.codex_sandbox == "danger-full-access"
         assert cfg.codex_approval_policy == "never"
@@ -208,10 +207,10 @@ class TestGruConfigModel:
         assert ok is False
         assert "claude-fake-99" in detail
 
-    def test_default_agent_host_is_codex(self, tmp_path: Path) -> None:
+    def test_default_agent_host_is_claude(self, tmp_path: Path) -> None:
         cfg = load_gru_config(tmp_path / "nonexistent.yaml")
-        assert cfg.agent_host == "codex"
-        assert cfg.effective_agent_host() == "codex"
+        assert cfg.agent_host == "claude"
+        assert cfg.effective_agent_host() == "claude"
 
     def test_codex_agent_host_skips_static_claude_registry(self, tmp_path: Path) -> None:
         p = tmp_path / "gru.yaml"
