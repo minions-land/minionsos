@@ -20,26 +20,27 @@ research projects.
 
 - **Project isolation.** Every project has its own `project_{port}/` directory,
   EACN3 backend, SQLite state, git worktree, logs, artifacts, and role memory.
-- **Long-lived Roles.** Noter, Coder, Experimenter, Writer, Reviewer, Ethics,
-  and Expert run as resident `claude` processes inside named tmux sessions
+- **Long-lived Roles.** Noter, Coder, Experimenter, Writer, Ethics, and Expert
+  run as resident `claude` processes inside named tmux sessions
   (`mos-{port}-{role}`). Each Role drives its own event loop via
   `mos_await_events()`.
 - **Gru as the control plane.** Gru is the human-facing supervisor and the only
   component allowed to create projects, spawn roles, and relay across projects.
 - **Tool and write boundaries.** Claude roles still receive `--allowed-tools`;
   MinionsOS also enforces project-lifecycle tool permissions inside its MCP
-  server so Codex roles keep the same role boundaries. Noter, Reviewer, and
-  Ethics write only to their artifact areas, while Coder, Experimenter, Writer,
-  and Expert operate in `workspace/`.
+  server so Codex roles keep the same role boundaries. Noter and Ethics write
+  only to their artifact areas, while Coder, Experimenter, Writer, and Expert
+  operate in `workspace/`.
 - **Layered memory.** Role context is reconstructed from the current invocation,
   per-role scratchpads, artifacts, EACN history, and project `CLAUDE.md`.
 - **Skill discovery and domain assets.** Role skills live in
   `minions/roles/{role}/skills/*.md`; Expert domain-pack assets live in
   `minions/domains/*.md`.
-- **Structured review rounds.** Reviewer uses persona files, procedural skills,
-  and strict templates to produce 3-5 independent reviewer reports, a
-  history-aware revision delta, a consolidated meta-review, and a rolling
-  summary.
+- **Structured review.** Paper review runs through Gru's `mos_review_run` MCP
+  tool, not through a long-lived Role. Its prompt assets (SYSTEM.md, procedural
+  skills, reviewer personas, output templates) live under `minions/review/`,
+  and a round produces 3-5 independent reviewer-instance reports plus a
+  consolidated meta-review and rolling summary.
 - **Experiment execution.** Experimenter can submit work to a Python-side
   project queue with `mos_exp_queue_submit`, keep GPUs filled via
   `mos_exp_queue_reconcile`, change the dynamic GPU allow-list with
@@ -63,7 +64,6 @@ Gru
   |     |     +-- Coder          -> workspace/
   |     |     +-- Experimenter   -> workspace/ + exp_* tools
   |     |     +-- Writer         -> workspace/
-  |     |     +-- Reviewer       -> artifacts/reviews/round-<n>/
   |     |     +-- Ethics         -> artifacts/ethics/
   |     |     +-- Expert-*       -> workspace/ + domain pack
   |     |
@@ -89,7 +89,8 @@ minions/
   lifecycle/                # projects, roles, wakeup, relay, health
   tools/                    # MCP tools and experiment execution
   state/                    # runtime state helpers
-  roles/                    # shared Role contract, prompts, skills, reviewer assets
+  roles/                    # shared Role contract, prompts, skills
+  review/                   # paper-review prompt assets used by mos_review_run
   domains/                  # Expert domain-pack assets
   config/*.yaml.example     # local config templates
 
@@ -108,8 +109,8 @@ caches, and `graphify-out/` should not be committed.
 - [`uv`](https://docs.astral.sh/uv/) for Python dependency management
 - `git` 2.x
 - Node **16+** and `npm` for the EACN3 MCP plugin and MinionsVIZ
-- Codex CLI on `PATH` for the default host, or Claude CLI on `PATH` when
-  `agent_host: claude` / `MINIONS_AGENT_HOST=claude` is used
+- Claude CLI on `PATH` for the default host, or Codex CLI on `PATH` when
+  `agent_host: codex` / `MINIONS_AGENT_HOST=codex` is used
 
 MinionsOS creates project worktrees from the directory that contains this
 checkout. That parent directory must be a git repository before you create
@@ -161,14 +162,15 @@ Inspect resolved paths with:
 Agent host selection:
 
 ```bash
-./gru                              # default: Codex
-MINIONS_AGENT_HOST=claude ./gru    # one-shot Claude Code override
+./gru                              # default: Claude Code
+MINIONS_AGENT_HOST=codex ./gru     # one-shot Codex override
 ```
 
 or set in `minions/config/gru.yaml`:
 
 ```yaml
-agent_host: codex
+agent_host: claude
+# Codex-only options (apply when agent_host: codex):
 codex_model:        # optional; leave empty to use Codex CLI defaults
 codex_reasoning_effort: xhigh
 codex_bypass_approvals_and_sandbox: true
@@ -234,7 +236,6 @@ Logs:
 | Coder | Code maintenance, debugging, implementation | `workspace/` |
 | Experimenter | Job dispatch, remote execution, result collection | `workspace/`, `artifacts/exp-*` |
 | Writer | Paper drafting, packaging, rebuttal, camera-ready work | `workspace/` |
-| Reviewer | Area-chair-style review rounds | `artifacts/reviews/round-<n>/` |
 | Ethics | Evidence audit, unsupported-claim detection | `artifacts/ethics/` |
 | Expert | Domain consultation with optional packs such as `nlp`, `cv`, `theory` | usually read-mostly in `workspace/` |
 
@@ -242,9 +243,12 @@ Role prompts are stored at `minions/roles/{role}/SYSTEM.md`.
 
 The shared Role contract at `minions/roles/SYSTEM.md` is injected before each
 role-specific prompt. Skills are discovered from `minions/roles/{role}/skills/`
-at wake-up and injected as a `[Skills]` summary block. Reviewer also has
-`personas/` and `templates/` directories; its review rounds write
-`reviewer-<i>.md`, `fresh.md`, `revision_delta.md`, `consolidated.md`, and
+at wake-up and injected as a `[Skills]` summary block.
+
+Paper review is not a Role: review prompt assets (system prompt, skills,
+personas, templates) live under `minions/review/`, and a round is run by
+Gru's `mos_review_run` MCP tool which writes `reviewer-instance.md`,
+`fresh.md`, `revision_delta.md`, `consolidated.md`, and
 `summaries/round-<n>.md` under `artifacts/reviews/`.
 
 ### MCP Surface
@@ -266,6 +270,7 @@ dismiss_role
 list_roles
 project_bridge
 gru_start_monitor
+review_run
 ```
 
 Experimenter tools:
@@ -391,8 +396,9 @@ Useful extension points:
 
 - Add a role prompt under `minions/roles/{role}/SYSTEM.md`.
 - Add a role skill under `minions/roles/{role}/skills/{lowercase-hyphen}.md`.
-- Update Reviewer output behavior through `minions/roles/reviewer/skills/`,
-  `templates/`, `personas/`, and reviewer invariant tests together.
+- Update review behavior through `minions/review/skills/`,
+  `minions/review/templates/`, `minions/review/personas/`, and the
+  `mos_review_run` invariant tests together.
 - Add an Expert domain pack under `minions/domains/{lowercase-hyphen}.md`.
 - Add MCP tools under `minions/tools/`, then update whitelists and tests.
 
@@ -429,8 +435,8 @@ proprietary/internal until a license is added.
 
 **MinionsOS** 是一个本地多智能体操作系统，用于运行相互隔离的论文级科研项目。常驻的
 **Gru** 负责总控；每个项目拥有独立的 **EACN3** 协调后端；Role
-由事件触发，短时唤醒、处理任务、完成后退出。Codex 是默认
-agent host，Claude Code 可通过同一套 MinionsOS 生命周期和 EACN3 bus 显式启用。
+由事件触发，短时唤醒、处理任务、完成后退出。Claude Code 是默认
+agent host，Codex 可通过同一套 MinionsOS 生命周期和 EACN3 bus 显式启用。
 
 目标很直接：一位作者、一份 checkout、一个 Gru，同时管理多个互不串扰的研究项目。
 
@@ -438,22 +444,23 @@ agent host，Claude Code 可通过同一套 MinionsOS 生命周期和 EACN3 bus 
 
 - **项目隔离。** 每个项目都有独立的 `project_{port}/`、EACN3 后端、SQLite
   状态、git worktree、日志、产物和 Role 记忆。
-- **常驻 Role。** Noter、Coder、Experimenter、Writer、Reviewer、Ethics
-  和 Expert 都以常驻 `claude` 进程运行在各自命名的 tmux 会话
+- **常驻 Role。** Noter、Coder、Experimenter、Writer、Ethics 和 Expert
+  都以常驻 `claude` 进程运行在各自命名的 tmux 会话
   （`mos-{port}-{role}`）中，靠 `mos_await_events()` 驱动自己的事件循环。
 - **Gru 作为控制面。** Gru 是唯一人机入口，也是唯一可创建项目、spawn Role、跨项目
   relay 的组件。
 - **工具和写入边界。** Claude Role 继续通过 `--allowed-tools` 限制工具面；
   MinionsOS MCP server 也会在服务端执行项目生命周期工具授权，因此 Codex Role
-  具有同样边界。Noter、Reviewer、Ethics 只能写各自 artifact 区域；Coder、
+  具有同样边界。Noter、Ethics 只能写各自 artifact 区域；Coder、
   Experimenter、Writer、Expert 在 `workspace/` 工作。
 - **分层记忆。** Role 上下文来自当前事件、每 Role scratchpad、artifacts、EACN
   历史以及项目 `CLAUDE.md`。
 - **Skill 发现和领域资产。** Role 技能放在 `minions/roles/{role}/skills/*.md`；
   Expert 领域包资产放在 `minions/domains/*.md`。
-- **结构化评审轮次。** Reviewer 使用 persona、流程 skill 和严格模板，生成 3-5
-  份独立 reviewer 报告、带历史上下文的 revision delta、consolidated
-  meta-review 和滚动 summary。
+- **结构化评审。** 论文评审通过 Gru 的 `mos_review_run` MCP 工具运行，而不是
+  常驻 Role。其提示资产（SYSTEM.md、流程 skill、reviewer persona、输出
+  template）位于 `minions/review/`，单轮评审会产出 3-5 份独立 reviewer
+  报告，加上 consolidated meta-review 和滚动 summary。
 - **实验执行。** Experimenter 可通过 Python 侧项目队列
   `mos_exp_queue_submit` / `mos_exp_queue_reconcile` 填满 GPU，通过
   `mos_exp_gpu_pool_set` 动态调整可用 GPU 集合，并保留 `mos_exp_run` /
@@ -476,7 +483,6 @@ Gru
   |     |     +-- Coder          -> workspace/
   |     |     +-- Experimenter   -> workspace/ + exp_* tools
   |     |     +-- Writer         -> workspace/
-  |     |     +-- Reviewer       -> artifacts/reviews/round-<n>/
   |     |     +-- Ethics         -> artifacts/ethics/
   |     |     +-- Expert-*       -> workspace/ + domain pack
   |     |
@@ -502,7 +508,8 @@ minions/
   lifecycle/                # 项目、Role、wakeup、relay、health
   tools/                    # MCP 工具和实验执行
   state/                    # 运行状态辅助模块
-  roles/                    # 共享 Role contract、提示词、skills、Reviewer 资产
+  roles/                    # 共享 Role contract、提示词、skills
+  review/                   # mos_review_run 使用的论文评审提示资产
   domains/                  # Expert 领域包资产
   config/*.yaml.example     # 本地配置模板
 
@@ -568,14 +575,15 @@ Codex 使用的 `.codex/config.toml` 存在。
 Agent host 选择：
 
 ```bash
-./gru                              # 默认 Codex
-MINIONS_AGENT_HOST=claude ./gru    # 单次使用 Claude Code
+./gru                              # 默认 Claude Code
+MINIONS_AGENT_HOST=codex ./gru     # 单次使用 Codex
 ```
 
 也可以写入 `minions/config/gru.yaml`：
 
 ```yaml
-agent_host: codex
+agent_host: claude
+# 仅当 agent_host: codex 时生效的 Codex 选项：
 codex_model:        # 可选；留空则使用 Codex CLI 默认值
 codex_reasoning_effort: xhigh
 codex_bypass_approvals_and_sandbox: true
@@ -639,7 +647,6 @@ Noter 终端只报告 backend、role、task 和 notes 状态，不会消费 EACN
 | Coder | 代码维护、调试、实现 | `workspace/` |
 | Experimenter | 任务调度、远端执行、结果收集 | `workspace/`、`artifacts/exp-*` |
 | Writer | 论文撰写、打包、rebuttal、camera-ready | `workspace/` |
-| Reviewer | Area-Chair 式多轮评审 | `artifacts/reviews/round-<n>/` |
 | Ethics | 证据审计、无依据论断检测 | `artifacts/ethics/` |
 | Expert | 结合 `nlp`、`cv`、`theory` 等领域包提供咨询 | 通常以只读为主，必要时写 `workspace/` |
 
@@ -647,9 +654,12 @@ Role 提示词位于 `minions/roles/{role}/SYSTEM.md`。
 
 共享 Role contract 位于 `minions/roles/SYSTEM.md`，会在每个 role-specific
 提示词前注入。Role skills 从 `minions/roles/{role}/skills/` 自动发现，并在唤醒时以
-`[Skills]` 摘要块注入。Reviewer 还包含 `personas/` 和 `templates/`；评审轮次会在
-`artifacts/reviews/` 下写入 `reviewer-<i>.md`、`fresh.md`、`revision_delta.md`、
-`consolidated.md` 和 `summaries/round-<n>.md`。
+`[Skills]` 摘要块注入。
+
+论文评审不是 Role：评审提示资产（system 提示、skill、persona、template）
+位于 `minions/review/`，单轮评审由 Gru 的 `mos_review_run` MCP 工具运行，
+并在 `artifacts/reviews/` 下写入 `reviewer-instance.md`、`fresh.md`、
+`revision_delta.md`、`consolidated.md` 和 `summaries/round-<n>.md`。
 
 ### MCP 工具面
 
@@ -669,6 +679,7 @@ dismiss_role
 list_roles
 project_bridge
 gru_start_monitor
+review_run
 ```
 
 Experimenter 可用：
@@ -790,8 +801,9 @@ npm run dev
 
 - 新 Role：添加 `minions/roles/{role}/SYSTEM.md`。
 - 新 Role skill：添加 `minions/roles/{role}/skills/{lowercase-hyphen}.md`。
-- Reviewer 输出行为变更：同时更新 `minions/roles/reviewer/skills/`、
-  `templates/`、`personas/` 和 reviewer invariant 测试。
+- 评审输出行为变更：同时更新 `minions/review/skills/`、
+  `minions/review/templates/`、`minions/review/personas/` 与
+  `mos_review_run` 不变量测试。
 - 新 Expert 领域包：添加 `minions/domains/{lowercase-hyphen}.md`。
 - 新 MCP 工具：在 `minions/tools/` 中实现，并更新白名单与测试。
 

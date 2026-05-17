@@ -48,7 +48,7 @@ export async function runCodexAgent(options: CodexExecOptions): Promise<CodexExe
     ephemeral = true,
   } = options;
 
-  const tempDir = await mkdtemp(join(tmpdir(), "codex-bridge-"));
+  const tempDir = await mkdtemp(join(tmpdir(), "codex-subagent-"));
   const outputFile = join(tempDir, "last-message.txt");
 
   const args: string[] = ["exec"];
@@ -68,7 +68,7 @@ export async function runCodexAgent(options: CodexExecOptions): Promise<CodexExe
 
   args.push(prompt);
 
-  console.error(`[codex-bridge] codex exec -m ${model} -s ${sandbox} effort=${reasoningEffort} cwd=${cwd}`);
+  console.error(`[codex-subagent] codex exec -m ${model} -s ${sandbox} effort=${reasoningEffort} cwd=${cwd}`);
 
   return new Promise((resolve) => {
     const proc = spawn("codex", args, {

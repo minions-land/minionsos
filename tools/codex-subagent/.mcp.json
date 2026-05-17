@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "codex-bridge": {
+    "codex-subagent": {
       "type": "stdio",
       "command": "node",
       "args": ["dist/server.js"],

@@ -1,4 +1,4 @@
-# codex-bridge
+# codex-subagent
 
 MCP server that gives Claude Code a Codex GPT-5.5 sub-agent with full execution access.
 
@@ -28,7 +28,7 @@ Returns: files changed, commands run (with output), token usage, final message.
 ## Install
 
 ```bash
-cd tools/codex-bridge
+cd tools/codex-subagent
 npm install
 npm run build
 ```
@@ -37,34 +37,34 @@ npm run build
 
 ```bash
 # Auto-register with Claude Code
-npx codex-bridge setup
+npx codex-subagent setup
 
-# Install the /delegate skill
-npx codex-bridge install-skill
+# Install the /codex skill
+npx codex-subagent install-skill
 
 # Check everything works
-npx codex-bridge diagnose
+npx codex-subagent diagnose
 ```
 
 Or manually:
 ```bash
-claude mcp add codex-bridge -s local -- node /path/to/codex-bridge/dist/server.js
+claude mcp add codex-subagent -s local -- node /path/to/codex-subagent/dist/server.js
 ```
 
 ## Share with others
 
 ```bash
 # From npm (once published)
-npm install -g codex-bridge
-npx codex-bridge setup
-npx codex-bridge install-skill
+npm install -g codex-subagent
+npx codex-subagent setup
+npx codex-subagent install-skill
 
 # From source
-git clone https://github.com/DataLab-atom/codex-bridge.git
-cd codex-bridge
+git clone https://github.com/DataLab-atom/codex-subagent.git
+cd codex-subagent
 npm install && npm run build
-npx codex-bridge setup
-npx codex-bridge install-skill
+npx codex-subagent setup
+npx codex-subagent install-skill
 ```
 
 ## Prerequisites

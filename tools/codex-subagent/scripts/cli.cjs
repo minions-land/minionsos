@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * codex-bridge CLI
+ * codex-subagent CLI
  * Usage:
- *   npx codex-bridge setup          — register MCP with Claude Code
- *   npx codex-bridge setup --global  — register globally (all projects)
- *   npx codex-bridge install-skill   — symlink the /delegate skill into ~/.claude/skills/
- *   npx codex-bridge diagnose        — check config and connectivity
+ *   npx codex-subagent setup          — register MCP with Claude Code
+ *   npx codex-subagent setup --global  — register globally (all projects)
+ *   npx codex-subagent install-skill   — symlink the /codex skill into ~/.claude/skills/
+ *   npx codex-subagent diagnose        — check config and connectivity
  */
 
 const { execFileSync, spawnSync } = require('child_process');
@@ -33,28 +33,28 @@ function ensureBuild() {
 
 function setup(global) {
   const serverPath = ensureBuild();
-  console.log('\n  codex-bridge MCP setup\n');
+  console.log('\n  codex-subagent MCP setup\n');
 
   const scope = global ? ['-s', 'user'] : ['-s', 'local'];
-  const args = ['mcp', 'add', 'codex-bridge', ...scope, '--', 'node', serverPath];
+  const args = ['mcp', 'add', 'codex-subagent', ...scope, '--', 'node', serverPath];
 
   try {
     execFileSync('claude', args, { stdio: 'inherit' });
-    ok(`Registered codex-bridge (${global ? 'global' : 'project'} scope)`);
+    ok(`Registered codex-subagent (${global ? 'global' : 'project'} scope)`);
   } catch (e) {
     fail('claude mcp add failed — is Claude Code CLI installed?');
-    log(`Manual: claude mcp add codex-bridge ${scope.join(' ')} -- node ${serverPath}`);
+    log(`Manual: claude mcp add codex-subagent ${scope.join(' ')} -- node ${serverPath}`);
   }
 
   console.log('\n  Next steps:');
   log('1. Restart Claude Code (or start a new session)');
-  log('2. Verify: /mcp should show codex-bridge with ask_codex + run_codex_worker');
-  log('3. Optional: npx codex-bridge install-skill');
+  log('2. Verify: /mcp should show codex-subagent with the codex tool');
+  log('3. Optional: npx codex-subagent install-skill');
   console.log('');
 }
 
 function installSkill() {
-  console.log('\n  Installing /delegate skill\n');
+  console.log('\n  Installing /codex skill\n');
 
   if (fs.existsSync(SKILL_DST)) {
     const stat = fs.lstatSync(SKILL_DST);
@@ -69,12 +69,12 @@ function installSkill() {
   fs.mkdirSync(path.dirname(SKILL_DST), { recursive: true });
   fs.symlinkSync(SKILL_SRC, SKILL_DST, 'dir');
   ok(`Symlinked ${SKILL_DST} -> ${SKILL_SRC}`);
-  log('The /delegate skill is now available in all Claude Code sessions.');
+  log('The /codex skill is now available in all Claude Code sessions.');
   console.log('');
 }
 
 function diagnose() {
-  console.log('\n  codex-bridge diagnostics\n');
+  console.log('\n  codex-subagent diagnostics\n');
 
   // Check build
   if (fs.existsSync(SERVER_JS)) {
@@ -88,7 +88,7 @@ function diagnose() {
     const v = execFileSync('codex', ['--version'], { encoding: 'utf8' }).trim();
     ok(`codex CLI: ${v}`);
   } catch {
-    fail('codex CLI not found — run_codex_worker will be unavailable');
+    fail('codex CLI not found — the codex tool will be unavailable');
     log('Install: npm i -g @openai/codex');
   }
 
@@ -120,9 +120,9 @@ function diagnose() {
 
   // Check skill
   if (fs.existsSync(SKILL_DST)) {
-    ok('/delegate skill installed');
+    ok('/codex skill installed');
   } else {
-    log('/delegate skill not installed — run: npx codex-bridge install-skill');
+    log('/codex skill not installed — run: npx codex-subagent install-skill');
   }
 
   console.log('');
@@ -146,15 +146,15 @@ switch (cmd) {
     break;
   default:
     console.log(`
-  codex-bridge — MCP server bridging Claude Code to Codex GPT-5.5
+  codex-subagent — MCP server exposing Codex GPT-5.5 as a sub-agent to Claude Code
 
   Commands:
     setup [--global]    Register MCP with Claude Code
-    install-skill       Install /delegate skill to ~/.claude/skills/
+    install-skill       Install /codex skill to ~/.claude/skills/
     diagnose            Check config, CLI, and connectivity
 
   Quick start:
-    npx codex-bridge setup
-    npx codex-bridge install-skill
+    npx codex-subagent setup
+    npx codex-subagent install-skill
 `);
 }

@@ -1,11 +1,11 @@
 {
-  "name": "@minionsos/codex-bridge",
+  "name": "@minionsos/codex-subagent",
   "version": "1.1.0",
-  "description": "MCP server bridging Claude Code to Codex GPT-5.5 for high-intensity coding tasks",
+  "description": "MCP server exposing Codex GPT-5.5 as a sub-agent to Claude Code for high-intensity coding tasks",
   "type": "module",
   "main": "dist/server.js",
   "bin": {
-    "codex-bridge": "scripts/cli.cjs"
+    "codex-subagent": "scripts/cli.cjs"
   },
   "files": [
     "dist/",
@@ -33,7 +33,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DataLab-atom/codex-bridge.git"
+    "url": "git+https://github.com/DataLab-atom/codex-subagent.git"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",

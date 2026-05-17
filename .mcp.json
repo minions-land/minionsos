@@ -12,10 +12,10 @@
       "args": ["EACN3/plugin/dist/server.js"],
       "env": {}
     },
-    "codex-bridge": {
+    "codex-subagent": {
       "type": "stdio",
       "command": "node",
-      "args": ["tools/codex-bridge/dist/server.js"],
+      "args": ["tools/codex-subagent/dist/server.js"],
       "env": {}
     }
   }

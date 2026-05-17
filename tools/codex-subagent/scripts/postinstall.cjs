@@ -9,9 +9,9 @@ const SERVER_JS = path.join(__dirname, '..', 'dist', 'server.js');
 
 if (!fs.existsSync(SERVER_JS)) {
   console.log('');
-  console.log('  codex-bridge: dist/server.js not found.');
+  console.log('  codex-subagent: dist/server.js not found.');
   console.log('  If installing from source, run: npm run build');
   console.log('');
 } else {
-  console.log('  codex-bridge installed. Run: npx codex-bridge setup');
+  console.log('  codex-subagent installed. Run: npx codex-subagent setup');
 }

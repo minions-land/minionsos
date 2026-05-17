@@ -5,7 +5,7 @@ import { z } from "zod";
 import { isCodexAvailable, runCodexAgent, summarizeEvents } from "./codex-cli.js";
 
 const server = new McpServer({
-  name: "codex-bridge",
+  name: "codex-subagent",
   version: "1.1.0",
 });
 
@@ -209,17 +209,17 @@ Error Handling:
 );
 
 async function main() {
-  console.error("[codex-bridge] Starting MCP server v1.1.0...");
+  console.error("[codex-subagent] Starting MCP server v1.1.0...");
 
   const codexOk = await isCodexAvailable();
-  console.error(`[codex-bridge] codex CLI: ${codexOk ? "available" : "NOT FOUND"}`);
+  console.error(`[codex-subagent] codex CLI: ${codexOk ? "available" : "NOT FOUND"}`);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("[codex-bridge] Connected via stdio");
+  console.error("[codex-subagent] Connected via stdio");
 }
 
 main().catch((err) => {
-  console.error("[codex-bridge] Fatal:", err);
+  console.error("[codex-subagent] Fatal:", err);
   process.exit(1);
 });

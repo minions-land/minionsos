@@ -16,7 +16,7 @@ command = "node"
 args = ["EACN3/plugin/dist/server.js"]
 enabled = true
 
-[mcp_servers.codex-bridge]
+[mcp_servers.codex-subagent]
 command = "node"
-args = ["tools/codex-bridge/dist/server.js"]
+args = ["tools/codex-subagent/dist/server.js"]
 enabled = true

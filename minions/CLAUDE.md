@@ -1,6 +1,6 @@
 # CLAUDE.md — minions/ Developer View
 
-This file is shown when you `cd minions/ && claude` to hack MinionsOS itself. It covers the Python package architecture and how to extend it. **Claude Code is the primary and default agent host** for every Role process — `agent_host.py` builds the long-lived `claude` invocation. Codex is no longer used to host a Role process; it remains reachable as a sub-agent through the `codex-bridge` MCP for high-intensity execution delegation. Keep that delegation path working; do not reintroduce a Codex Role host.
+This file is shown when you `cd minions/ && claude` to hack MinionsOS itself. It covers the Python package architecture and how to extend it. **Claude Code is the primary and default agent host** for every Role process — `agent_host.py` builds the long-lived `claude` invocation. Codex is no longer used to host a Role process; it remains reachable as a sub-agent through the `codex-subagent` MCP for high-intensity execution delegation. Keep that delegation path working; do not reintroduce a Codex Role host.
 
 ## Package architecture
 
@@ -38,6 +38,7 @@ minions/
 │   ├── personas/            # short reviewer stance files
 │   └── templates/           # aspect-note / reviewer-instance / fresh / revision_delta / consolidated / summary / submission-checklist
 ├── domains/                 # Expert domain-pack assets (not Python)
+├── hooks/                   # post_compact_dag.py, pre_compact_science.py
 ├── config/
 │   ├── gru.yaml.example
 │   └── experiment_targets.yaml.example
@@ -49,11 +50,8 @@ minions/
 ## Role lifecycle
 
 Roles are long-lived agent-host processes. Each Role drives its own event loop
-by calling `mos_await_events` on its EACN3 queue. MinionsOS no longer launches
-short-lived per-event subprocesses — the ephemeral invocation machinery
-(`WakeupScheduler`, `invoke_role_ephemeral`) was retired in v6, and Roles
-are now started by `minions/lifecycle/role_launcher.py` inside their own
-tmux session driving `mos_await_events()`.
+by calling `mos_await_events` on its EACN3 queue. Roles are started by
+`minions/lifecycle/role_launcher.py` inside their own tmux session.
 
 - `minions/lifecycle/role.py` exposes `register_role` / `register_expert` (registers a project-local EACN AgentCard, prepares the role workspace, and records a named host session; no subprocess launch) and `mos_dismiss_role` / `mos_list_roles`.
 - `minions/lifecycle/project.py` also exposes `mos_project_checkpoint_workspace(...)` for durable local commits and optional GitHub push when `github_push_target` is configured.
