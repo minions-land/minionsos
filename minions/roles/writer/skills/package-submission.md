@@ -1,18 +1,19 @@
 ---
 slug: package-submission
-summary: Assemble the final camera-ready / submission bundle — clean PDF, standalone-compilable source archive, supplementary, reproducible code snapshot, venue-specific checklist.
+summary: Assemble the final submission bundle — toolkit of four packaging tasks (PDF compile, source archive, supplementary, code snapshot) plus a venue checklist gate. Use any combination depending on submission type.
 layer: logical
 tools:
-version: 2
+version: 3
 status: active
-supersedes:
 references: paper-compile, end-to-end-paper-workflow
 provenance: human
 ---
 
 # Skill — Package Submission
 
-A clean delivery package where every piece aligns: PDF matches source, source compiles standalone, supplementary matches main paper, code snapshot reproduces claimed results.
+Four packaging tasks available for assembling a submission bundle.
+You decide which to use based on the submission type. The default sequence
+below is a recommendation for full camera-ready — not a mandatory pipeline.
 
 ## When to invoke
 
@@ -20,31 +21,55 @@ A clean delivery package where every piece aligns: PDF matches source, source co
 - Original submission package just before upload.
 - Artifact-evaluation submission (code snapshot emphasis).
 
-## Structure
+## The four tasks (your toolkit)
 
-Deliverables:
+| Task | File | Use when | Skip when |
+|---|---|---|---|
+| **PDF Compile** | `package-submission/package-pdf-compile.md` | Any submission that includes a paper | Never — always needed |
+| **Source Archive** | `package-submission/package-source-archive.md` | Venue requires `tex.zip` source upload | Venue accepts PDF-only (rare) |
+| **Supplementary** | `package-submission/package-supplementary.md` | Paper has appendices in a separate document | All appendices are in the main PDF |
+| **Code Snapshot** | `package-submission/package-code-snapshot.md` | Artifact evaluation, or venue requires code | No code claims in the paper |
 
-- **Main PDF.** Built from a clean compile.
-- **`tex.zip`.** Source archive: all `*.tex`, `*.bib`, style files (`.sty` / `.cls` per venue), `figures/*.pdf` (prefer vector), `figures/*.png` (raster-only). Excludes `build/` intermediates, `.aux` / `.log`, editor backups, hidden files.
-- **Supplementary.** `supplementary.pdf` if venue separates it; main PDF references ("see Appendix A") resolve to the correct document.
-- **Code snapshot.** `README` with exact reproduction commands, `requirements.txt` or lockfile, pointers to `branches/shared/exp/exp-<id>/` for each reported number, license. Paths and secrets scrubbed.
+Each task is a sibling file under `package-submission/`. Read the
+relevant task file when you decide to use it. Task files are NOT
+listed as standalone skills in `[Skills]` — they are progressive
+disclosure reachable only after this orchestrator is chosen.
 
-Venue checklist items: anonymous (no identifying self-citations), page limit, fonts embedded, file size.
+## Default recommendation (not mandatory)
 
-## Procedure
+For a full camera-ready submission:
 
-1. **Re-compile from a clean state.** Delete `build/`, run `paper-compile` from scratch. Never ship a PDF whose source cannot rebuild it.
-2. **Build `tex.zip`** per the Structure spec.
-3. **Verify the archive compiles standalone.** Extract to a scratch directory on a clean path, run `latexmk -pdf main.tex`. Must produce the same PDF. No system-specific includes.
-4. **Assemble supplementary.** Merge appendix-only content into `supplementary.pdf` if the venue separates it. Verify cross-document references resolve.
-5. **Prepare the code snapshot.** `README` with exact reproduction commands, `requirements.txt` or equivalent, pointers to `branches/shared/exp/exp-<id>/` per reported number, license. Scrub paths and secrets.
-6. **Run the venue checklist.** Anonymous (no author info or blinding-breaking self-citations); page limit (ML: body to Conclusion; IEEE: total including refs); fonts embedded (`pdffonts main.pdf | grep -v yes` empty); file size within venue limit (typically < 50 MB; prefer < 10 MB).
-7. **Gate on readiness.** Do not mark the package ready while any checklist item is missing; list gaps explicitly.
+1. **PDF Compile** — clean build from scratch
+2. **Source Archive** — `tex.zip` that compiles standalone
+3. **Supplementary** — separate PDF if venue requires it
+4. **Code Snapshot** — reproducible code bundle
 
-Every reproducibility claim (e.g. "Table 3 reproduced") is marked `[derived: branches/shared/exp/exp-<id>/report.md]`.
+Then run the venue checklist gate.
+
+## Other valid patterns
+
+- **PDF Compile only**: Quick preprint upload to arXiv.
+- **PDF Compile → Source Archive**: Standard venue submission without code.
+- **PDF Compile → Code Snapshot**: Artifact-evaluation-only submission.
+- **All four**: Full camera-ready with artifact evaluation.
+
+The agent decides based on venue requirements.
+
+## Venue checklist gate (shared)
+
+After assembling whichever tasks apply, verify:
+
+- Anonymous: no author info or blinding-breaking self-citations.
+- Page limit: body to Conclusion (ML venues) or total including refs (IEEE).
+- Fonts embedded: `pdffonts main.pdf | grep -v yes` is empty.
+- File size: within venue limit (typically < 50 MB; prefer < 10 MB).
+
+Do not mark the package ready while any checklist item fails.
 
 ## Pitfalls
 
 - Shipping a PDF whose source does not compile on a clean machine.
 - Forgetting to strip author info on anonymous submissions.
-- Code snapshot that reproduces "something close" rather than the claimed numbers. If numbers do not match, fix the snapshot or honestly report the gap.
+- Code snapshot that reproduces "something close" rather than the claimed numbers.
+
+Every reproducibility claim is marked `[derived: branches/shared/exp/exp-<id>/report.md]`.
