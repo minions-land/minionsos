@@ -46,10 +46,14 @@ For complex, ambiguous tasks where you genuinely do not know how to start:
 1. **Unstated Premises** — surface what is NOT said
 2. **First-Principles** — derive options from constraints
 3. **Dialectical Synthesis** — model tensions between options
-4. **Goal-Setting** — define acceptance metrics
+4. **Goal-Setting** — write the 5-element feedback loop (sensor / metric / threshold / feedback period / stop rule); not a verdict or MVP recommendation
 5. **Plan Persistence** — write the plan to disk so it survives resets
 
 Then dispatch. But this is ONE way to use the toolkit.
+
+## Common failure mode — Posture 4 collapses into engineering conclusions
+
+Synthesis (Posture 3) tends to end with "so we should build X". That is the recommendation, not the goal. Posture 4 must produce a Goal block in the canonical format from `goal-setting.md` — sensor, metric, threshold, feedback period, stop rule — that the executor can use as a stopping condition. "Can we build it: yes", "MVP scope is Y", "approach Z is impossible" are inputs to synthesis, not goals. If your Posture-4 output reads like an executive summary, a yes/no verdict, or an "工程性结论 / engineering conclusions" list, you skipped Posture 4 — open `goal-setting.md` and write the actual Goal block before dispatching.
 
 ## Other valid patterns
 

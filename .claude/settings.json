@@ -14,7 +14,22 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3 minions/hooks/write_boundary_guard.py",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "python3 minions/hooks/large_file_guard.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 minions/hooks/write_boundary_guard.py",
             "timeout": 5
           }
         ]
@@ -34,7 +49,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|Agent|Task",
         "hooks": [
           {
             "type": "command",

@@ -11,8 +11,9 @@ The Python entry-point MCP (`minionsos`) intentionally lives elsewhere — insid
 | `minionsos` | `minions/tools/mcp_server.py` | Python (FastMCP) | `uv run --project . python -m minions.tools.mcp_server` | `mos_*` lifecycle (project create/close/spawn_role), `mos_publish_to_shared`, `mos_dag_*`, `mos_review_run`, `mos_await_events`, experiment `exp_*`, paper-search `*_paper`, `mos_project_bridge` |
 | `eacn3` | `mcp-servers/eacn3/plugin/` (built to `dist/server.js`) | Node / TypeScript | `node mcp-servers/eacn3/plugin/dist/server.js` | `eacn3_send_message`, `eacn3_create_task`, `eacn3_submit_bid`, `eacn3_submit_result`, `eacn3_list_*`, `eacn3_get_*` |
 | `codex-subagent` | `mcp-servers/codex-subagent/` (built to `dist/server.js`) | Node / TypeScript | `node mcp-servers/codex-subagent/dist/server.js` | single tool: `codex` (read-only analysis or full-access delegation, controlled via `sandbox`) |
+| `keepalive` | `mcp-servers/keepalive/server.py` | Python (FastMCP) | `uv run --quiet --no-project --with mcp[cli] python mcp-servers/keepalive/server.py` | `wait_bg` (deadline-bounded background-task wait), `keepalive_now` (manual cache touch) |
 
-All three are wired into the workspace via the top-level `.mcp.json` (Claude Code) and `.codex/config.toml` (Codex). Adding a new MCP requires editing both files in addition to dropping the implementation here (or, for a Python-package-coupled server, inside `minions/`).
+All four are wired into the workspace via the top-level `.mcp.json` (Claude Code) and `.codex/config.toml` (Codex). Adding a new MCP requires editing both files in addition to dropping the implementation here (or, for a Python-package-coupled server, inside `minions/`).
 
 ## Build / install
 

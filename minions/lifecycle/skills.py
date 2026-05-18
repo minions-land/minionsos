@@ -73,7 +73,7 @@ def _resolve_role_skills_dir(role_name: str) -> Path:
     Expert roles are registered as ``expert-{slug}`` but all share the
     base ``expert/skills/`` directory.
     """
-    base = "expert" if role_name.startswith("expert") else role_name
+    base = "expert" if role_name == "expert" or role_name.startswith("expert-") else role_name
     return ROLES_DIR / base / "skills"
 
 

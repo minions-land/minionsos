@@ -225,6 +225,59 @@ def _require_tool_allowed(tool_name: str) -> None:
     raise PermissionError(f"Tool {tool_name!r} is not allowed for role {role!r} ({agent_type}).")
 
 
+def _normalise_role_name(role: str) -> str:
+    """Collapse expert-<slug> to 'expert'; legacy aliases resolve too."""
+    if role == "expert" or role.startswith("expert-"):
+        return "expert"
+    return role
+
+
+def _enforce_caller_identity(claimed_role: str) -> None:
+    """Reject MCP calls where the supplied role disagrees with the process role.
+
+    Defends against role-identity spoofing in tools that take a free-form
+    ``role`` argument (e.g. ``mos_publish_to_shared``). Without this check
+    a Coder process could call ``mos_publish_to_shared(role="gru", ...)``
+    and inherit Gru's broader publish policy.
+    """
+    if os.environ.get("MINIONS_DISABLE_MCP_AUTHZ", "").strip() == "1":
+        return
+    actual = os.environ.get("MINIONS_ROLE_NAME", "").strip()
+    if not actual:
+        return
+    if _normalise_role_name(claimed_role) != _normalise_role_name(actual):
+        raise PermissionError(
+            f"role identity mismatch: claimed {claimed_role!r}, "
+            f"actual {actual!r}. Pass your own role name."
+        )
+
+
+def _enforce_caller_project(claimed_port: int | None) -> None:
+    """Reject cross-project port arguments.
+
+    Without this check a role in project A could pass ``port=<B>`` to
+    ``mos_publish_to_shared`` and write commits onto project B's shared
+    branch. We trust the MCP server's environment as ground truth — it
+    is set per-Role at process spawn and roles cannot mutate it.
+    """
+    if claimed_port is None:
+        return
+    if os.environ.get("MINIONS_DISABLE_MCP_AUTHZ", "").strip() == "1":
+        return
+    raw = os.environ.get("MINIONS_PROJECT_PORT", "").strip()
+    if not raw:
+        return
+    try:
+        actual = int(raw)
+    except ValueError:
+        return
+    if int(claimed_port) != actual:
+        raise PermissionError(
+            f"cross-project publish blocked: claimed port {claimed_port}, "
+            f"role process belongs to port {actual}."
+        )
+
+
 # ---------------------------------------------------------------------------
 # Argument models
 # ---------------------------------------------------------------------------
@@ -568,6 +621,8 @@ def mos_publish_to_shared(args: PublishToSharedArgs) -> dict:
     on disk (no-op publish).
     """
     _require_tool_allowed("mos_publish_to_shared")
+    _enforce_caller_identity(args.role)
+    _enforce_caller_project(args.port)
     return _publish.mos_publish_to_shared(
         role=args.role,
         src_path=args.src_path,

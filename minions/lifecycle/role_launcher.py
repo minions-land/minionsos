@@ -323,6 +323,26 @@ def _role_env(
         # downgraded 1h to 5 min). DISABLE_TELEMETRY would force a 5-min
         # fallback for subscription auth, so we deliberately do not set it.
         "ENABLE_PROMPT_CACHING_1H": "1",
+        # 5-minute cache-cliff guard: when ENABLE_PROMPT_CACHING_1H is
+        # silently ignored by the upstream gateway, we still want long-
+        # running Bash subagent calls to slot under the default 5-min TTL
+        # rather than splitting cache blocks across cliff boundaries.
+        # BASH_DEFAULT_TIMEOUT_MS=120000 (2 min) keeps individual Bash
+        # turns short enough that the model's reply lands well before the
+        # cache window closes; BASH_MAX_TIMEOUT_MS=240000 (4 min) caps the
+        # absolute upper bound at < 5 min so user-supplied `timeout:` args
+        # cannot push a turn past the cliff. CLAUDE_AUTO_BACKGROUND_TASKS=1
+        # makes the harness auto-promote any Bash that's still running near
+        # its timeout into a background task (BashOutput) instead of
+        # blocking the conversation, which is the single biggest source of
+        # cache-window overruns in long-lived Role loops. These three are
+        # mirrored in MinionsOS/.claude/settings.json for the dev-host
+        # session and in minions/bin/gru for Gru, so all three agent
+        # surfaces (dev / Gru / Role) inherit the same cliff-guard config
+        # without depending on ~/.claude/settings.json.
+        "BASH_DEFAULT_TIMEOUT_MS": "120000",
+        "BASH_MAX_TIMEOUT_MS": "240000",
+        "CLAUDE_AUTO_BACKGROUND_TASKS": "1",
         "PATH": os.environ.get("PATH", ""),
     }
 
@@ -336,7 +356,8 @@ def _role_model(cfg: GruConfig, role_name: str) -> str | None:
 
 def _combined_system_prompt(role_name: str) -> Path | None:
     """Return the path to the combined common+role SYSTEM.md, or None."""
-    role_path = role_system_md(role_name if not role_name.startswith("expert") else "expert")
+    is_expert = role_name == "expert" or role_name.startswith("expert-")
+    role_path = role_system_md("expert" if is_expert else role_name)
     common_path = common_role_system_md()
     paths = [path for path in (common_path, role_path) if path.exists()]
     if not paths:

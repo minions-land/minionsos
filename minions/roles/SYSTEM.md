@@ -389,14 +389,18 @@ Rules:
      persist completed work to the DAG, AND persist each unrelated event
      as a `pending_plan` node (`metadata.pending_plan = true`). The
      unrelated events are NOT executed in this process — they are
-     handed off to the next one. Then call `mos_reset_context(reason="...")`.
-     The respawned process restarts at step 1, drains those pending plans
-     first, then resumes `mos_await_events`.
+     handed off to the post-handoff process. Then exit the current
+     context by either `mos_compact_context(reason=..., pending_plans=[...])`
+     (preferred — same process, cache warm) or `mos_reset_context(reason="...")`
+     (only if behavior has drifted). After the handoff, the agent restarts
+     at step 1, drains those pending plans first, then resumes
+     `mos_await_events`.
 
-The decision to reset is yours. You reset when the current batch contains
-work that does not fit this process's context — even a single unrelated
-event is enough reason, because executing it in the wrong context wastes
-tokens.
+The decision to hand off is yours. You hand off when the current batch
+contains work that does not fit this process's context — even a single
+unrelated event is enough reason, because executing it in the wrong
+context wastes tokens. Default to `mos_compact_context`; reach for
+`mos_reset_context` only when compact alone cannot recover.
 
 ## Minimal EACN behavior
 

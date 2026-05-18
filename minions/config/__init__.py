@@ -214,7 +214,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         *_WRITER_PAPER_SEARCH_TOOLS,
         "Task",
         "mos_project_checkpoint_workspace",
-        "codex",
+        *_CODEX_BRIDGE_TOOLS,
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -223,6 +223,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("writer", "subagent"): [
+        *_CODEX_BRIDGE_TOOLS,
         *_WRITER_PAPER_SEARCH_TOOLS,
         "WebSearch",
         "WebFetch",
@@ -265,12 +266,19 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "mos_reset_context",
         "mos_compact_context",
         "Task",
-        "codex",
+        *_CODEX_BRIDGE_TOOLS,
         "WebSearch",
         "WebFetch",
         "Read",
     ],
-    ("ethics", "subagent"): ["codex", "WebSearch", "WebFetch", "Read", "Write", "Edit"],
+    ("ethics", "subagent"): [
+        *_CODEX_BRIDGE_TOOLS,
+        "WebSearch",
+        "WebFetch",
+        "Read",
+        "Write",
+        "Edit",
+    ],
 }
 
 
@@ -289,7 +297,7 @@ def resolve_whitelist(role: str, agent_type: Literal["main", "subagent"] = "main
     Returns:
         List of tool name patterns (may contain ``*`` wildcards).
     """
-    normalised = "expert" if role.startswith("expert") else role
+    normalised = "expert" if role == "expert" or role.startswith("expert-") else role
     normalised = _REMOVED_ROLE_ALIASES.get(normalised, normalised)
     key = (normalised, agent_type)
     if key not in _WHITELIST:
@@ -445,18 +453,18 @@ class GruConfig(BaseModel):
         description="Python-side Experimenter queue reconcile cadence in seconds.",
     )
     cache_keepalive_seconds: int = Field(
-        default=270,
+        default=240,
         description=(
             "Wall-clock seconds of silence after which mos_await_events returns "
             "a stable synthetic keepalive event so the Role's long-lived "
             "claude process re-touches its prompt cache before the TTL cliff. "
-            "Empirical measurement confirms tok.fan gateway enforces a ~5-minute "
-            "cache TTL: after 6 minutes of silence, cache_read drops to 0 and "
-            "the next turn pays full cache_create cost (16x more expensive). "
-            "Default 270s (4m30s) ensures the keepalive fires before the 5-min "
-            "cliff. Each keepalive costs ~$0.006; missing the cliff costs ~$0.098. "
-            "Set to 0 to disable if your backend has longer TTL (e.g. direct "
-            "Anthropic API with 1h cache enabled)."
+            "Empirical measurement on tok.fan gateway: cache reliably expires "
+            "around 280s of silence (270s gap + processing delay). Default "
+            "240s (4min) leaves a 60s safety margin before the 5-min cliff. "
+            "Each keepalive costs ~$0.006 (cache_read of system prompt); "
+            "missing the cliff costs ~$0.098 (cache_create of full prefix), "
+            "a 16x penalty. Set to 0 to disable for backends with longer TTL "
+            "(e.g. direct Anthropic API with ENABLE_PROMPT_CACHING_1H=1)."
         ),
     )
     noter_periodic_interval: str = Field(

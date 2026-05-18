@@ -1,9 +1,9 @@
 ---
 slug: cognitive-checkpoint
-summary: Persist cognitive state to the Exploration DAG before mos_reset_context — including any unrelated events you received but deliberately did not execute, marked pending_plan, so the next process picks them up before calling mos_await_events.
+summary: Persist cognitive state to the Exploration DAG before mos_compact_context (preferred) or mos_reset_context — including any unrelated events you received but deliberately did not execute, marked pending_plan, so the post-handoff agent picks them up before calling mos_await_events.
 layer: logical
-tools: mos_dag_append, mos_dag_annotate, mos_reset_context
-version: 5
+tools: mos_dag_append, mos_dag_annotate, mos_compact_context, mos_reset_context
+version: 6
 status: active
 supersedes:
 references: think-then-act
@@ -12,7 +12,7 @@ provenance: human+agent
 
 # Skill — Cognitive Checkpoint
 
-`mos_reset_context` kills your tmux session. The Gru watchdog respawns a fresh `claude` process with no conversation history. The only bridge across that gap is the Exploration DAG. Anything not persisted is lost — including events already dequeued from EACN that will not be redelivered.
+Both `mos_compact_context` and `mos_reset_context` discard your conversation history. Compact compresses it inside the same live process (cache stays warm); reset kills the tmux session and the Gru watchdog respawns a cold `claude`. In both cases the only bridge across the gap is the Exploration DAG. Anything not persisted is lost — including events already dequeued from EACN that will not be redelivered.
 
 ## Two distinct "plan" concepts — do not confuse them
 
@@ -43,8 +43,8 @@ After persisting state (steps 1-5 below), choose the exit:
 
 The checkpoint persists two categories: completed work (discoveries, status changes, dead ends) and deferred work (events received but not executed). The deferred category uses `metadata.pending_plan = true` as the hand-off channel:
 
-- **This process**: receives events, executes the related ones, persists the unrelated ones with `pending_plan = true`, resets.
-- **Next process**: cold-starts, calls `mos_dag_summary`, sees pending plans, executes them, THEN calls `mos_await_events` for genuinely new work.
+- **This process**: receives events, executes the related ones, persists the unrelated ones with `pending_plan = true`, hands off (compact or reset).
+- **Post-handoff agent**: starts in a clean context (compressed-after-compact or cold-after-reset), calls `mos_dag_summary`, sees pending plans, executes them, THEN calls `mos_await_events` for genuinely new work.
 
 If you skip the pending_plan persistence step, the unrelated events are lost forever — EACN does not redeliver.
 
@@ -53,9 +53,11 @@ If you skip the pending_plan persistence step, the unrelated events are lost for
 1. **Persist completed work.** For each discovery not yet in the DAG, call `mos_dag_append` with the right type and a self-contained one-line description. Include `evidence_tag` pointing to the receipt / artifact / commit.
 2. **Update node statuses.** For any node whose support_status changed during this session, call `mos_dag_annotate` with new evidence.
 3. **Record dead ends.** Append with `type=dead_end` and the abandonment reason — losing these causes redundant re-exploration after reset.
-4. **Persist unrelated-but-dequeued events as pending plans — critical.** For each event you received this cycle but deliberately did not execute (because it was unrelated to your context), append a node with **`metadata.pending_plan = true`**. The node text must capture enough of the event for a fresh agent to act on it without re-reading the original event (which is gone). Include sender, ask, and any deadline/budget. Same flag applies to planned-but-not-yet-executed next steps from your own work.
-5. **Add edges.** Connect new nodes to existing ones with appropriate relations (`supports`, `refutes`, `depends_on`, `derived_from`). Orphans are hard to interpret post-respawn.
-6. **Call `mos_reset_context(reason=...)`.** The tool kills your tmux session immediately; you almost never see its return value.
+4. **Persist unrelated-but-dequeued events as pending plans — critical.** For each event you received this cycle but deliberately did not execute (because it was unrelated to your context), append a node with **`metadata.pending_plan = true`**. The node text must capture enough of the event for a post-handoff agent to act on it without re-reading the original event (which is gone). Include sender, ask, and any deadline/budget. Same flag applies to planned-but-not-yet-executed next steps from your own work.
+5. **Add edges.** Connect new nodes to existing ones with appropriate relations (`supports`, `refutes`, `depends_on`, `derived_from`). Orphans are hard to interpret post-handoff.
+6. **Hand off — prefer compact.**
+   - Default: call `mos_compact_context(reason=..., pending_plans=[...])`. Process stays alive, prompt cache stays warm. STOP immediately after the call — no more tool calls or text. The compacted agent wakes up and should call `mos_await_events()` first thing.
+   - Fallback only when compact cannot recover (drifted role contract, externally-edited SYSTEM.md): call `mos_reset_context(reason=...)`. The tool kills your tmux session immediately; you almost never see its return value. Cold start costs ~$0.14 per respawn.
 
 ## Pending-plan node — shape
 
@@ -85,16 +87,19 @@ Always add an edge anchoring the pending plan to its parent context (hypothesis,
 
 ## Pitfalls
 
-- **Calling `mos_reset_context()` without persisting unrelated events.** Those events were dequeued from EACN — they will not be redelivered. The next process will never know they existed.
-- **Trying to execute unrelated events before resetting.** That defeats the purpose: the whole reason you are resetting is to avoid burning tokens in the wrong context. Persist them and let the next process do them in a clean context.
-- **Forgetting `metadata.pending_plan = true`.** Without the flag, the node is buried; `mos_dag_summary` will not surface it; the next process will not know to execute it before calling `mos_await_events`.
-- **Vague node text.** Each pending_plan node must be interpretable by a fresh agent who has zero context — they will not have the original event in their history. Include sender, request, and any deadline.
-- **Resetting mid-execution.** If a relevant event's work is half-done, finish it or roll back; don't reset with workspace in an inconsistent state.
+- **Handing off without persisting unrelated events.** Those events were dequeued from EACN — they will not be redelivered. The post-handoff agent will never know they existed.
+- **Trying to execute unrelated events before handing off.** That defeats the purpose: the whole reason you are handing off is to avoid burning tokens in the wrong context. Persist them and let a clean context do them.
+- **Forgetting `metadata.pending_plan = true`.** Without the flag, the node is buried; `mos_dag_summary` will not surface it; the post-handoff agent will not know to execute it before calling `mos_await_events`.
+- **Vague node text.** Each pending_plan node must be interpretable by an agent who has zero context — they will not have the original event in their history. Include sender, request, and any deadline.
+- **Reaching for reset when compact would do.** Reset costs ~$0.14 in cold-start tokens; compact is free in cache terms. Only escalate to reset when compact alone cannot recover.
+- **Handing off mid-execution.** If a relevant event's work is half-done, finish it or roll back; don't hand off with workspace in an inconsistent state.
 
 ## Output habit
 
+Default (preferred):
+
 `[checkpoint: persisted={node_ids}, pending_plan={pending_node_ids}] → mos_compact_context({reason})`
 
-Or when hard reset is needed:
+Fallback (only when compact cannot recover):
 
 `[checkpoint: persisted={node_ids}, pending_plan={pending_node_ids}] → mos_reset_context({reason})`

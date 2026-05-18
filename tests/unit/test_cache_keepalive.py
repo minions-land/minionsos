@@ -67,6 +67,25 @@ class TestRoleEnvCacheVars:
         env = self._build_env(tmp_path)
         assert "FORCE_PROMPT_CACHING_5M" not in env
 
+    def test_bash_timeouts_under_cache_cliff(self, tmp_path):
+        """BASH_*_TIMEOUT_MS must keep individual Bash turns under the 5-min
+        prompt-cache TTL so a single Bash call never straddles the cliff. We
+        pin the exact values so any deliberate raise becomes a test diff that
+        forces a conscious decision instead of silent drift."""
+        env = self._build_env(tmp_path)
+        assert env.get("BASH_DEFAULT_TIMEOUT_MS") == "120000"
+        assert env.get("BASH_MAX_TIMEOUT_MS") == "240000"
+        # Hard invariant: the *max* must stay strictly under 5 minutes, or
+        # an operator can request a Bash that outlives the cache window.
+        assert int(env["BASH_MAX_TIMEOUT_MS"]) < 5 * 60 * 1000
+
+    def test_auto_background_tasks_enabled(self, tmp_path):
+        """CLAUDE_AUTO_BACKGROUND_TASKS=1 lets the harness promote a near-
+        timeout Bash into a BashOutput-tracked background task instead of
+        blocking the conversation past the cache cliff."""
+        env = self._build_env(tmp_path)
+        assert env.get("CLAUDE_AUTO_BACKGROUND_TASKS") == "1"
+
 
 # --------------------------------------------------------------------------
 # 2. cache_keepalive synthetic event
@@ -207,3 +226,88 @@ def _real_event_response():
             }
 
     return FakeResp()
+
+
+# --------------------------------------------------------------------------
+# 3. Defense-in-depth regressions
+# --------------------------------------------------------------------------
+
+
+class TestKeepaliveDefaultIsSafeForTokFan:
+    """Default ``cache_keepalive_seconds`` must stay <= 240s.
+
+    Empirical measurement on tok.fan: cache reliably expires around 280s
+    of silence. Anything above 240 has been observed to miss the cliff
+    (see Apr 2026 281s gap incident). This test prevents a future config
+    drift from re-introducing that regression.
+    """
+
+    def test_default_keepalive_is_240_or_less(self):
+        from minions.config import GruConfig
+
+        cfg = GruConfig()
+        assert cfg.cache_keepalive_seconds <= 240, (
+            f"cache_keepalive_seconds default raised to {cfg.cache_keepalive_seconds}; "
+            "tok.fan cache expires by ~280s — anything above 240 risks the cliff."
+        )
+
+
+class TestHeartbeatWrittenEveryCycle:
+    """The git-visible heartbeat file must be touched on every poll cycle.
+
+    Heartbeat is the second of the three keepalive layers (the others being
+    the HTTP long-poll itself and the synthetic ``cache_keepalive`` event).
+    The Gru sidecar watchdog uses heartbeat mtime to detect zombie roles —
+    if the file stops getting written, the watchdog should respawn. So
+    every empty poll MUST touch it.
+    """
+
+    def test_heartbeat_file_touched_when_keepalive_fires(self, _await_env, tmp_path):
+        from minions.tools import await_events as ae
+
+        time_values = iter([0.0, 100.0])
+
+        def fake_monotonic():
+            return next(time_values)
+
+        with (
+            patch.object(ae, "_load_keepalive_seconds", return_value=50),
+            patch.object(ae.time, "monotonic", side_effect=fake_monotonic),
+            patch.object(ae.httpx, "get") as mock_get,
+        ):
+            mock_get.side_effect = lambda *a, **kw: (
+                _empty_tasks_response() if "/api/tasks" in a[0] else _empty_poll_response()
+            )
+            ae.await_events()
+
+        hb = tmp_path / "workspace" / ".minionsos" / "heartbeat"
+        assert hb.exists(), "heartbeat file missing after await_events cycle"
+        import json as _json
+
+        payload = _json.loads(hb.read_text())
+        assert payload["agent_id"] == "test-agent"
+        assert "alive_at" in payload
+        assert "pid" in payload
+
+
+class TestRealEventBeatsKeepalive:
+    """A real EACN event must win over the synthetic keepalive even past
+    the keepalive threshold. The keepalive is a fallback for *silent*
+    backends; it must never preempt actual work.
+    """
+
+    def test_real_event_returned_when_present_past_threshold(self, _await_env):
+        from minions.tools import await_events as ae
+
+        # monotonic returns "past threshold" on every read, but the very
+        # first poll already has a real event waiting — it must win.
+        with (
+            patch.object(ae, "_load_keepalive_seconds", return_value=10),
+            patch.object(ae.time, "monotonic", return_value=1_000_000.0),
+            patch.object(ae.httpx, "get", return_value=_real_event_response()),
+        ):
+            result = ae.await_events()
+
+        assert result["count"] == 1
+        assert result["events"][0]["event"]["type"] == "task_timeout"
+        assert result["events"][0]["event"]["task_id"] == "t-real"

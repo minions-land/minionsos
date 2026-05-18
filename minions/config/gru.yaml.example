@@ -62,12 +62,12 @@ experiment_reconcile_interval_seconds: 30
 # session jsonls show ~99% cache hit rate across hour-plus gaps, because Claude
 # Code's internal prefix matching extends effective cache lifetime well beyond
 # the nominal 5-minute ephemeral TTL. Run `./mos cache-stats <session_jsonl>`
-# Prompt cache TTL is ~5 minutes on tok.fan. After 6min silence the cache
-# expires and the next turn pays 16x more (cache_create vs cache_read).
-# Default 270s (4m30s) fires a keepalive ack before the cliff. Each keepalive
-# costs ~$0.006; missing the cliff costs ~$0.098. Set to 0 only if your
-# backend has longer TTL (e.g. direct Anthropic API with 1h cache).
-cache_keepalive_seconds: 270
+# Prompt cache TTL is ~5 minutes on tok.fan. Empirical measurement: cache
+# expires reliably around 280s of silence. Default 240s (4min) leaves a 60s
+# safety margin before the cliff. Each keepalive costs ~$0.006; missing the
+# cliff costs ~$0.098 (16x penalty). Set to 0 to disable for backends with
+# longer TTL (e.g. direct Anthropic API with 1h cache).
+cache_keepalive_seconds: 240
 
 # EACN agent_id used when system components (e.g. the Python-side wakeup
 # dispatcher posting scratchpad-veto warnings) address Gru. Change only if

@@ -831,6 +831,17 @@ viz_app = typer.Typer(help="MinionsOS Observatory (minions-viz) control.")
 app.add_typer(viz_app, name="viz")
 
 
+# ---------------------------------------------------------------------------
+# scaffold + audit subcommands (extension-point stubs and contract drift check)
+# ---------------------------------------------------------------------------
+
+from minions.scaffold.cli import audit_command as _audit_command  # noqa: E402
+from minions.scaffold.cli import scaffold_app as _scaffold_app  # noqa: E402
+
+app.add_typer(_scaffold_app, name="scaffold")
+app.command(name="audit", help=_audit_command.__doc__)(_audit_command)
+
+
 def _viz_script() -> str:
     return str(MINIONS_ROOT / "minions" / "bin" / "viz")
 

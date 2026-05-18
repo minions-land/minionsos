@@ -153,6 +153,21 @@ fi
 : "${GRU_SANDBOX:=1}"
 : "${GRU_SKIP_PERMS:=1}"
 
+# ── Prompt-cache-cliff guards ────────────────────────────────────────────────
+# Mirror the three env vars MinionsOS/.claude/settings.json sets for the dev
+# host and minions/lifecycle/role_launcher._role_env() sets for Role processes,
+# so Gru gets the same explicit guarantee without depending on whatever
+# ~/.claude/settings.json happens to have on the host machine. Keep BASH_*
+# timeouts under the 5-minute cache TTL so any single Bash turn lands inside
+# one cache window, and let the harness auto-promote near-timeout Bash into
+# background tasks (BashOutput) instead of stalling the conversation past the
+# cache cliff. Respect any value the operator already set — these are floors
+# only when unset.
+: "${BASH_DEFAULT_TIMEOUT_MS:=120000}"
+: "${BASH_MAX_TIMEOUT_MS:=240000}"
+: "${CLAUDE_AUTO_BACKGROUND_TASKS:=1}"
+export BASH_DEFAULT_TIMEOUT_MS BASH_MAX_TIMEOUT_MS CLAUDE_AUTO_BACKGROUND_TASKS
+
 if [ "$GRU_SANDBOX" = "1" ]; then
     export IS_SANDBOX=1
 fi

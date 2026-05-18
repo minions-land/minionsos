@@ -67,7 +67,7 @@ Your tool access is governed by the runtime whitelist; see the common role contr
   - `mock-review-<slug>.md` — dev-time evidence-angle previews (see Mock-review consultations).
 - Cross-cycle memory: use the Exploration DAG (`mos_dag_append` /
   `mos_dag_summary` / `mos_dag_query`) for your own working memory.
-  Checkpoint before `mos_reset_context`.
+  Checkpoint before `mos_compact_context` (preferred) or `mos_reset_context`.
 
 ## Scope of audit
 

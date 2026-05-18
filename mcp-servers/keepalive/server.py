@@ -60,7 +60,7 @@ TICK = {
 
 @mcp.tool()
 async def wait_bg(
-    deadline_seconds: int = 240,
+    deadline_seconds: int = 180,
     bg_ids: list[str] | None = None,
     note: str | None = None,
 ) -> dict[str, Any]:
@@ -68,7 +68,9 @@ async def wait_bg(
 
     Args:
         deadline_seconds: how long to block. Hard floor 5s, hard ceiling 300s
-            (5-min cache cliff). Default 240s leaves 60s of headroom.
+            (5-min cache cliff). Default 180s leaves 120s of headroom for
+            tool roundtrip + model processing on either side. Empirically
+            240s was tight enough to occasionally miss the cliff.
         bg_ids: optional list of background task ids the caller is waiting on.
             Echoed in the result so the model can remember which BashOutput
             to call next. Does not affect blocking duration.
@@ -79,7 +81,7 @@ async def wait_bg(
         Tick payload (byte-stable across calls). bg_ids and note are echoed
         in a `caller` sub-object.
     """
-    secs = max(5, min(300, int(deadline_seconds)))
+    secs = max(5, min(270, int(deadline_seconds)))
     elapsed = 0
     while elapsed < secs:
         chunk = min(1, secs - elapsed)

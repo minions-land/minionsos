@@ -41,7 +41,7 @@ def project_eacn_server_id(port: int, meta_path: Path | None = None) -> str:
 
 
 def _normalise_role(role_name: str) -> str:
-    return "expert" if role_name.startswith("expert") else role_name
+    return "expert" if role_name == "expert" or role_name.startswith("expert-") else role_name
 
 
 def role_agent_domains(role_name: str) -> list[str]:

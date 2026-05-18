@@ -14,8 +14,8 @@ Write multi-step plans to durable disk so a future wake can resume without re-de
 ## When to use
 
 - Work has ≥2 steps that will be dispatched separately.
-- Context resets (`mos_reset_context`) are likely between steps.
-- You want a respawned process under the same role to pick up where you left off.
+- Context handoffs (`mos_compact_context` or `mos_reset_context`) are likely between steps.
+- You want the post-handoff agent under the same role to pick up where you left off.
 
 ## Skip when
 
@@ -71,4 +71,4 @@ status: active   # active | done | abandoned
 
 ## Worked example
 
-You woke to "add /healthz endpoint + test". Two steps minimum (endpoint, test). Write `branches/coder/plans/coder-healthz-2026-05-17.md` with both steps and their goals. Dispatch step 1 via Task subagent. When it returns, flip step 1 to `done`, fill Evidence with the commit SHA, write back. Dispatch step 2. If `mos_reset_context` fires between steps, the next process sees the active plan, picks up at step 2 — no re-thinking needed.
+You woke to "add /healthz endpoint + test". Two steps minimum (endpoint, test). Write `branches/coder/plans/coder-healthz-2026-05-17.md` with both steps and their goals. Dispatch step 1 via Task subagent. When it returns, flip step 1 to `done`, fill Evidence with the commit SHA, write back. Dispatch step 2. If a context handoff (`mos_compact_context` or `mos_reset_context`) fires between steps, the post-handoff agent sees the active plan, picks up at step 2 — no re-thinking needed.
