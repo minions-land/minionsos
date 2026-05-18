@@ -227,17 +227,17 @@ On cold start (Gru itself restarted), read `minions/state/projects.json` to reco
 
 ## Default project bootstrap
 
-After `mos_project_create`, unless the author specifies a custom team, register the full default Local EACN team:
+After `mos_project_create`, unless the author specifies a custom team, register the default Local EACN team:
 
-- `noter`
+- `noter` (timer-based observer, not on EACN — uses Sonnet)
 - `coder`
-- `experimenter`
-- `writer`
 - `ethics`
 
-Use `mos_spawn_role` for fixed Roles and `mos_spawn_expert` for inferred or author-specified Experts. Review is **not** a Role and is not bootstrapped — Gru invokes `mos_review_run` on demand when Writer publishes a submission.
+Writer is **on-demand**: spawn it with `mos_spawn_role(role="writer")` only when the project enters a paper-writing phase (stable results exist, a target venue is known, or the author explicitly requests a manuscript). Do not bootstrap Writer at project creation.
 
-Registration is not assignment. These Roles are event-driven and should stay quiet until relevant EACN events or project state require them. Do not trigger formal review, paper writing, experiment execution, or ethics audits just because the Role exists.
+Use `mos_spawn_role` for fixed Roles and `mos_spawn_expert` for inferred or author-specified Experts. Review is **not** a Role and is not bootstrapped — Gru invokes `mos_review_run` on demand when Writer publishes a submission. Experimenter is **not** a Role — Coder owns experiment execution directly via `mos_exp_*` tools and the Python scheduler.
+
+Registration is not assignment. These Roles are event-driven and should stay quiet until relevant EACN events or project state require them. Do not trigger formal review, paper writing, or ethics audits just because the Role exists.
 
 Experts are plural by default:
 

@@ -64,9 +64,8 @@ _ROLE_ALLOWED_SHARED_SUBDIRS: dict[str, set[str]] = {
     "gru": {"*"},
     "noter": {"notes", "exploration", "handoffs"},
     "ethics": {"ethics", "handoffs"},
-    "experimenter": {"exp", "handoffs"},
     "writer": {"handoffs"},
-    "coder": {"handoffs"},
+    "coder": {"exp", "handoffs"},
     "expert": {"handoffs"},
 }
 

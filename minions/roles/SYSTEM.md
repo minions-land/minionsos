@@ -142,8 +142,22 @@ A short, exhaustive list of operations the main session may do **without**
 a subagent. Everything else goes through the host-native subagent
 mechanism:
 
-- Reading files (`Read`) and non-destructive EACN3 reads
-  (`eacn3_get_*`, `eacn3_list_*`, `eacn3_get_messages`).
+- **Small `Read` only** — when you genuinely need to look at a single
+  short artifact (a plan file, a config, a metadata stub, a source file
+  under ~50 KB) and the content will be used across many future turns,
+  direct read is fine. For large files (>50 KB), multi-file
+  investigations, or content you only need to digest once and summarize,
+  dispatch to a Task subagent that returns a compact summary. The
+  trade-off: every byte you Read into main stays in conversation history
+  and is re-sent as cache_read on every future turn; a subagent's
+  context is disposable. For files under ~50 KB the per-turn cache_read
+  cost is negligible; for larger files or multi-file scans the
+  compounding cost exceeds the subagent dispatch overhead within ~30
+  turns.
+- Non-destructive EACN3 reads (`eacn3_get_*`, `eacn3_list_*`,
+  `eacn3_get_messages`) and DAG queries (`mos_dag_summary`,
+  `mos_dag_query`). These return compact structured summaries by
+  design; they are the cache-friendly way to learn project state.
 - Short acknowledgement DMs and "received, will handle" replies via
   `eacn3_send_message`. These must be under ~30 words and carry no
   substantive content.
@@ -156,12 +170,15 @@ mechanism:
 - `mos_project_checkpoint_workspace` when available.
 - `eacn3_disconnect` at exit.
 
-Anything outside this list — file edits, shell commands that mutate,
-paper search, `mos_exp_*`, producing prose that will
-ship as an artifact, coding, reviewing, auditing, domain analysis —
-**must** be dispatched to a subagent. If you find yourself about to
-`Edit` / `Write` / `Bash` a mutating command in the main session, stop
-and spawn a subagent instead.
+Anything outside this list — heavy `Read` (>50 KB or multi-file scans),
+file edits, shell commands that mutate, long `Bash` commands whose
+output you cannot bound, paper search, `mos_exp_*`, producing prose
+that will ship as an artifact, coding, reviewing, auditing, domain
+analysis — **must** be dispatched to a subagent. If you find yourself
+about to `Edit` / `Write` / `Bash` a mutating command in the main
+session, stop and spawn a subagent instead. See the
+`dispatcher-discipline` skill for the concrete pattern (why, how to
+write the subagent prompt, expected return format).
 
 ### Host fallback when no subagent is available
 
@@ -240,13 +257,21 @@ Each cycle:
 1. Call `mos_await_events()`. It returns when there are real events, or when
    ~5 minutes of silence triggers a synthetic `idle_check` reminding you of
    in-flight or delegated work.
-2. **Gru priority.** Scan the returned batch FIRST for events involving Gru
-   (`sender_id=gru`, `initiator_id=gru`, or events on the `gru` queue
-   addressed at you). Handle Gru-related events before everything else.
-   Supervisor traffic must never be starved by ordinary work; Gru is the
-   author's only window into the project, so a delayed reply to Gru is a
-   delayed reply to the author.
-3. Run think-then-act on the remaining events. Plan in 3-6 lines (no side
+2. **Triage the batch** — split BEFORE executing:
+   a. **Gru priority.** Scan the returned batch FIRST for events involving Gru
+      (`sender_id=gru`, `initiator_id=gru`, or events on the `gru` queue
+      addressed at you). Handle Gru-related events before everything else.
+      Supervisor traffic must never be starved by ordinary work; Gru is the
+      author's only window into the project, so a delayed reply to Gru is a
+      delayed reply to the author.
+   b. **Lightweight replies.** Messages you can answer directly without
+      subagent work — ack, status update, short clarification, yes/no
+      decision. Reply immediately via `eacn3_send_message` (<30 words).
+      Do NOT dispatch a subagent for these; the round-trip overhead is not
+      worth it and the sender gets a faster response.
+   c. **Classify remaining events** as RELEVANT (continues current context)
+      or UNRELATED (new direction with no overlap).
+3. Run think-then-act on RELEVANT events. Plan in 3-6 lines (no side
    effects), Dispatch substantive work to a host-native subagent (Task tool
    on Claude; the `codex` MCP for high-intensity remote work), Verify the
    subagent's return, emit EACN responses through raw `eacn3_send_message`
@@ -259,22 +284,35 @@ Never emit a final assistant turn that does not end with another call to
 
 ### Context discipline between cycles
 
-You stay resident across many cycles. When the current context is no longer
-serving the next task — at a natural boundary between coherent batches —
-checkpoint durable state to the Exploration DAG (`mos_dag_append`,
-`mos_dag_annotate`), then call `mos_reset_context(reason=...)`.
+You stay resident across many cycles. When the current context is growing
+large, you have two options — prefer compact over reset:
 
-`mos_reset_context` is not Claude's compact. It kills this Role's tmux
-session; the Gru watchdog respawns a fresh `claude` process under the same
-session name with no conversation history. The DAG is the only bridge.
-Anything not persisted is gone — including planned-but-not-yet-executed
-next steps. The `cognitive-checkpoint` skill is the discipline that makes
-this safe; follow it before every reset, and mark pending plans with
-`metadata.pending_plan = true` so the respawned process surfaces them
-through `mos_dag_summary()`.
+**Option A — `mos_compact_context` (preferred):**
+Compresses conversation history without killing the process. The prompt
+cache stays warm (no cold start penalty). Use when context is large but
+the process is healthy and your role contract has not drifted.
 
-After respawn, the new process calls `mos_dag_summary()` first to see
-pending plans + team state, then enters `mos_await_events()`.
+Call `mos_compact_context(reason=..., pending_plans=[...])`. It persists
+pending plans to the DAG and schedules `/compact`. After calling it,
+STOP immediately — produce no more tool calls or text. You wake up in a
+compressed context. Your first action should be `mos_await_events()`.
+
+The cache keepalive mechanism in `mos_await_events` is unaffected by
+compact — the process never died, so the 5-minute heartbeat cycle
+continues normally.
+
+**Option B — `mos_reset_context` (hard reset):**
+Kills this Role's tmux session entirely. The Gru watchdog respawns a
+fresh `claude` process with no conversation history. Costs ~50k uncached
+tokens on cold start. Use only when:
+- Process behavior has drifted from the role contract.
+- SYSTEM.md was updated externally and needs re-injection.
+- Compact alone cannot recover coherent state.
+
+Before either option, follow the `cognitive-checkpoint` skill: persist
+completed work and mark pending plans with `metadata.pending_plan = true`
+so the post-compact or post-reset process surfaces them through
+`mos_dag_summary()`.
 
 ## Exploration DAG — team cognitive memory
 

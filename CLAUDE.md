@@ -68,7 +68,7 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/config/` — example Gru and experiment-target configs copied by `install.sh`.
 - `minions/state/` — runtime Gru state, including `projects.json` and Gru logs; gitignored runtime data.
 - `minions/roles/SYSTEM.md` — common Role contract injected before each role-specific prompt.
-- `minions/roles/{role}/SYSTEM.md` — role prompts for Gru, Noter, Coder, Experimenter, Writer, Ethics, and Expert.
+- `minions/roles/{role}/SYSTEM.md` — role prompts for Gru, Noter, Coder, Writer, Ethics, and Expert.
 - `minions/roles/{role}/skills/*.md` — optional role skills discovered at wake-up.
 - `minions/review/` — paper-review prompt assets (SYSTEM.md, skills, personas, templates) consumed by the `mos_review_run` MCP tool. Review is **not** a Role and is not registered on EACN.
 - `minions/domains/*.md` — Expert domain packs used as reusable specialty assets.
@@ -109,7 +109,6 @@ project_{port}/
 ├── branches/                    # git worktrees, one per role plus a shared tree
 │   ├── main/                    # Gru — branch minionsos/project-{port}
 │   ├── coder/                   # branch minionsos/project-{port}-coder
-│   ├── experimenter/            # branch minionsos/project-{port}-experimenter
 │   ├── writer/                  # branch minionsos/project-{port}-writer
 │   ├── ethics/                  # Ethics drafts; published reports go to shared/ethics/
 │   ├── noter/                   # Noter drafts; published notes/DAG go to shared/
@@ -118,7 +117,7 @@ project_{port}/
 │       ├── exploration/dag.json # Noter-curated Exploration DAG
 │       ├── notes/               # Noter staged reports
 │       ├── ethics/              # Ethics published reports (flat)
-│       ├── exp/exp-<id>/        # Experimenter result bundles
+│       ├── exp/exp-<id>/        # Coder experiment result bundles
 │       ├── reviews/round-<n>/   # mos_review_run output (tool-owned)
 │       └── handoffs/            # cross-role handoffs
 ├── eacn3_data/eacn3.db          # project-local EACN3 SQLite state (gitignored)
@@ -135,7 +134,11 @@ The parent directory containing this repository is the **author seed repo**: at 
 
 ### Role lifecycle and boundaries
 
-Each Role is a long-lived `claude` process running inside its own tmux session named `mos-{port}-{role}`. Every active project agent, including Noter and the per-project Gru queue agent, must be registered as an AgentCard on that project's Local EACN3 network. The Role drives its event loop with `mos_await_events()` (in `minions/tools/await_events.py`), which wraps the project-local 60-second `GET /api/events/{agent_id}` long-poll, drains events on read, runs an idle-check after ~5 minutes of silence, and only returns when there is actionable content. Heartbeat writes happen between polls so the Gru sidecar watchdog can spot a dead session and respawn it. Roles respond with raw `eacn3_send_message` / `eacn3_create_task` / `eacn3_submit_bid` / `eacn3_submit_result` and stay resident across many cycles. They do not call `eacn3_await_events` / `eacn3_next` / `eacn3_get_events` directly — that bypasses the wrapper and drops the suggested-action annotations.
+Each Role is a long-lived `claude` process running inside its own tmux session named `mos-{port}-{role}`. EACN-registered roles drive their event loop with `mos_await_events()` (in `minions/tools/await_events.py`), which wraps the project-local 60-second `GET /api/events/{agent_id}` long-poll, drains events on read, runs an idle-check after ~5 minutes of silence, and only returns when there is actionable content. Heartbeat writes happen between polls so the Gru sidecar watchdog can spot a dead session and respawn it. Roles respond with raw `eacn3_send_message` / `eacn3_create_task` / `eacn3_submit_bid` / `eacn3_submit_result` and stay resident across many cycles. They do not call `eacn3_await_events` / `eacn3_next` / `eacn3_get_events` directly — that bypasses the wrapper and drops the suggested-action annotations.
+
+**Noter** is the exception: it is NOT registered on EACN3. It uses `mos_noter_wait()` (timer-based, default 5 min) instead of `mos_await_events()`, and observes the project by reading `events/*.jsonl` and `branches/shared/` artifacts. It runs on Sonnet (configured via `gru.yaml: noter_model`).
+
+**Writer** is on-demand: it is not bootstrapped at project creation. Gru spawns it with `mos_spawn_role(role="writer")` when the project enters a paper-writing phase.
 
 Only Gru may spawn EACN-visible agents or use `mos_project_*`, `mos_spawn_*`, and `mos_project_bridge` tools. Subagents or local teams created inside a Role are EACN-invisible by design: they do not have `eacn3_*` tools and do not appear in `projects.json`.
 
@@ -146,10 +149,9 @@ Tool/write boundaries (main role write scope; subagents inherit from their paren
 | Agent | Project-local EACN access | Experiment tools | Codex subagent | Gru/project/spawn tools | Own branch | Shared subdirs (via mos_publish_to_shared) |
 |---|---|---|---|---|---|---|
 | Gru main | `eacn3_*` (events delivered by scheduler) | no | `codex` | yes | `branches/main/` | any subdir |
-| Noter main | `eacn3_*` (read-mostly) | no | no | no | `branches/noter/` (drafts) | `notes/`, `exploration/`, `handoffs/` |
-| Coder main | `eacn3_*` | no | `codex` | no | `branches/coder/` | `handoffs/` |
-| Experimenter main | `eacn3_*` | yes | `codex` | no | `branches/experimenter/` | `exp/`, `handoffs/` |
-| Writer main | `eacn3_*` plus paper-search MCP tools | no | `codex` | no | `branches/writer/` | `handoffs/` |
+| Noter main | `mos_noter_wait` (timer, no EACN) | no | no | no | `branches/noter/` (drafts) | `notes/`, `exploration/`, `handoffs/` |
+| Coder main | `eacn3_*` | yes | `codex` | no | `branches/coder/` | `exp/`, `handoffs/` |
+| Writer main (on-demand) | `eacn3_*` plus paper-search MCP tools | no | `codex` | no | `branches/writer/` | `handoffs/` |
 | Expert main | `eacn3_*` | no | `codex` | no | `branches/<expert>/` (read-mostly) | `handoffs/` |
 | Ethics main | `eacn3_*` | no | `codex` | no | `branches/ethics/` (drafts) | `ethics/`, `handoffs/` |
 

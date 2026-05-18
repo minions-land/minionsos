@@ -5,7 +5,7 @@ layer: logical
 tools: eacn3_send_message, codex
 version: 6
 status: active
-references: unstated-premises, first-principles, dialectical-synthesis, goal-setting, plan-persistence
+references: unstated-premises, first-principles, dialectical-synthesis, goal-setting, plan-persistence, think-in-parallel
 provenance: human+agent
 ---
 
@@ -59,20 +59,29 @@ Then dispatch. But this is ONE way to use the toolkit.
 - **Goal-Setting → Plan Persistence**: Task is clear but multi-step; persist the plan, then dispatch.
 - **Unstated-Premises only**: You realize you cannot proceed and need to consult another role via EACN.
 - **Skip all five**: The task is well-specified, the approach is obvious, and "test passes" is a sufficient goal. Just do it.
+- **Goal-Setting → think-in-parallel**: Task is a hard single-point reasoning problem (math, algorithm, counter-intuitive logic); skip planning postures and go straight to parallel sampling.
 
 The agent decides. The skill does not decide for you.
 
 ## After the postures: dispatch (never self-execute)
 
-**Hard rule: once Think-then-Act is invoked, the main agent becomes a pure
-dispatcher. It does NOT implement, edit files, run commands, or produce
-artifacts itself — not even for single-step tasks.** All execution goes
-through a subagent. This is non-negotiable regardless of task simplicity.
+**Hard rule: the main agent is always a pure dispatcher, not just
+during think-then-act.** It does NOT implement, edit files, run
+commands, or produce artifacts itself — not even for single-step
+tasks, not even for "just one quick read". All execution goes through
+a subagent. This applies to every cycle, whether you invoked
+think-then-act or not. The detailed thresholds (when even a `Read`
+must be dispatched, what the subagent prompt should contain) live in
+[`dispatcher-discipline.md`](dispatcher-discipline.md) — read it once,
+then internalize it.
 
-Why: the value of Think-then-Act is context separation. The thinking
+Why: the value of dispatch is context separation. The thinking
 context stays clean for coordination; the doing context is disposable.
 If the main agent both thinks and does, context bloats and the thinking
-degrades on subsequent tasks.
+degrades on subsequent tasks. Empirical measurement on real Role
+sessions: 94% of uncached input tokens come from `Read` + `Bash` tool
+results in the main session. Routing those through subagents is the
+single largest cost optimization available.
 
 When you have enough clarity (from however many postures you used):
 
@@ -82,6 +91,7 @@ When you have enough clarity (from however many postures you used):
   1. `delegate-heavy-task` (Codex subagent) — preferred for implementation work.
   2. `subagent-driven-development` — when multiple independent tasks can parallelize.
   3. Host-native `Task` tool or `Agent` tool — fallback when Codex is unavailable.
+- **If the dispatched answer returns suspect** (broken logic, contradictory reasoning, or two probes disagree): escalate to `think-in-parallel.md` — do NOT accept or fix manually.
 - **Pass goals verbatim**: Copy your Goal-Setting threshold (specific numbers, not "a good report") into the dispatch as its acceptance criterion. No placeholders — "TBD", "reasonable", "appropriate" are plan failures.
 - **After dispatch returns**: review the result, verify acceptance criteria are met, report completion. If criteria are NOT met, re-dispatch with corrective instructions — do not fix it yourself.
 

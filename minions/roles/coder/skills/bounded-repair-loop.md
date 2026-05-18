@@ -20,7 +20,7 @@ The MinionsOS-safe form of an autonomous repair loop: bounded, observable, never
 - A role request asks Coder to "make this pass" with a concrete command.
 - A previous implementation handoff included a local verification failure.
 
-If the failure requires GPU jobs, large data pipelines, or experiment sweeps, do not run this loop — that work belongs to Experimenter.
+If the failure requires GPU jobs, large data pipelines, or experiment sweeps, do not run this loop — submit those to the experiment queue instead (see `run-experiments` skill).
 
 ## Structure
 
@@ -40,5 +40,5 @@ A short diagnose-fix-verify loop with three hard gates: a named failing command,
 
 - Resetting the iteration counter after a partial pass to "give it one more try" — the bound exists precisely to prevent this drift; if 3 attempts did not pass, the next attempt almost certainly will not either.
 - Changing unrelated code to make a test pass.
-- Running GPU jobs, large data pipelines, or experiment sweeps; those belong to Experimenter.
+- Running GPU jobs, large data pipelines, or experiment sweeps inline; submit those to the experiment queue.
 - Hiding a failure by loosening assertions, swallowing errors, or deleting verification.

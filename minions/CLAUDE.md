@@ -30,7 +30,7 @@ minions/
 │   └── whitelist.py         # resolve_allowed_tools
 ├── roles/                   # shared contract, role prompts, skills
 │   ├── SYSTEM.md            # common Role contract injected before role-specific prompts
-│   ├── {role}/SYSTEM.md     # gru/noter/coder/experimenter/writer/ethics/expert
+│   ├── {role}/SYSTEM.md     # gru/noter/coder/writer/ethics/expert
 │   └── {role}/skills/       # procedural skills discovered at wake-up
 ├── review/                  # paper-review prompt assets used by mos_review_run
 │   ├── SYSTEM.md            # Area-Chair system prompt for the spawned claude --print
@@ -49,11 +49,12 @@ minions/
 
 ## Role lifecycle
 
-Roles are long-lived agent-host processes. Each Role drives its own event loop
-by calling `mos_await_events` on its EACN3 queue. Roles are started by
+Roles are long-lived agent-host processes. EACN-registered roles drive their
+event loop by calling `mos_await_events` on their EACN3 queue; Noter uses
+`mos_noter_wait` (timer-based, not on EACN). Roles are started by
 `minions/lifecycle/role_launcher.py` inside their own tmux session.
 
-- `minions/lifecycle/role.py` exposes `register_role` / `register_expert` (registers a project-local EACN AgentCard, prepares the role workspace, and records a named host session; no subprocess launch) and `mos_dismiss_role` / `mos_list_roles`.
+- `minions/lifecycle/role.py` exposes `register_role` / `register_expert` (registers a project-local EACN AgentCard for EACN roles, prepares the role workspace, and records a named host session; no subprocess launch) and `mos_dismiss_role` / `mos_list_roles`.
 - `minions/lifecycle/project.py` also exposes `mos_project_checkpoint_workspace(...)` for durable local commits and optional GitHub push when `github_push_target` is configured.
 - `minions/lifecycle/agent_host.py` is the only place that should know Claude Code CLI invocation details.
 - `minions/gru/loop.py` runs the Gru heartbeat monitor and experiment queue reconciliation.
@@ -79,7 +80,7 @@ Key design points:
 
 ## How to add a Role skill
 
-Applies to any Role (Expert, Experimenter, Writer, Noter, Coder, Ethics, Gru).
+Applies to any Role (Writer, Noter, Coder, Ethics, Gru).
 
 1. Create `minions/roles/{role}/skills/{slug}.md` where `{slug}` is lowercase hyphen-separated (e.g. `occams-razor.md`, `triage-request.md`, `citation-audit.md`).
 2. Follow the standard structure: H1 title on the first line, a one-line summary on the next non-blank line (used by the discovery mechanism), then `Core move` / `Core question`, `Procedure`, `When to invoke`, `Pitfalls`, `Output habit` (marking derived claims per root `Evidence-first EACN communication`).

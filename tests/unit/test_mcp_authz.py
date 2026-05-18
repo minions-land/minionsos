@@ -36,15 +36,15 @@ def test_mcp_authz_denies_coder_paper_search_tool() -> None:
         _require_tool_allowed("mos_search_arxiv")
 
 
-def test_mcp_authz_allows_experimenter_queue_tool() -> None:
-    with patch.dict(os.environ, {"MINIONS_ROLE_NAME": "experimenter"}, clear=False):
+def test_mcp_authz_allows_coder_experiment_queue_tool() -> None:
+    with patch.dict(os.environ, {"MINIONS_ROLE_NAME": "coder"}, clear=False):
         _require_tool_allowed("mos_exp_queue_submit")
         _require_tool_allowed("mos_exp_gpu_pool_set")
 
 
-def test_mcp_authz_denies_coder_experiment_queue_tool() -> None:
+def test_mcp_authz_denies_noter_experiment_queue_tool() -> None:
     with (
-        patch.dict(os.environ, {"MINIONS_ROLE_NAME": "coder"}, clear=False),
+        patch.dict(os.environ, {"MINIONS_ROLE_NAME": "noter"}, clear=False),
         pytest.raises(PermissionError),
     ):
         _require_tool_allowed("mos_exp_queue_submit")

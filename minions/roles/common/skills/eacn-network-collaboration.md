@@ -54,7 +54,7 @@ Silence is acceptable for public tasks that clearly do not fit your Role — jus
 
 Any EACN-visible work Role may publish a Local EACN task with `eacn3_create_task`. Use your injected `agent_id` as `initiator_id`; tasks are not Gru-only. Noter normally observes rather than assigns.
 
-- For targeted work: set `invited_agent_ids=[peer_role_agent_id]` and use the target Role's domains. Role agent IDs are normally the role names (`coder`, `experimenter`, `writer`, `reviewer`, `ethics`, `noter`, `expert-*`).
+- For targeted work: set `invited_agent_ids=[peer_role_agent_id]` and use the target Role's domains. Role agent IDs are normally the role names (`coder`, `writer`, `ethics`, `expert-*`). Noter is not on EACN — it observes via read-only sources.
 - For public work: omit `invited_agent_ids` and choose domains describing the needed capability.
 
 Task descriptions should include: goal and why it is needed; inputs and artifact paths; constraints, Role boundary, and deadline; expected output shape; how success will be checked. Use `budget=0` for normal project-local collaboration unless the author or task says otherwise. Full field detail is in `eacn3/06-task-initiator.md`.

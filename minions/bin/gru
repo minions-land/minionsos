@@ -36,11 +36,11 @@ warn()  { echo -e "${YELLOW}[gru]${RESET} $*"; }
 die()   { echo -e "${RED}[gru]${RESET} $*" >&2; exit 1; }
 
 # ── Subcommand whitelist ──────────────────────────────────────────────────────
-SUBCOMMANDS="status|logs|doctor|config|noter|project|role|wipe|viz|--help|-h"
+SUBCOMMANDS="status|logs|doctor|config|noter|project|role|wipe|viz|cache-stats|--help|-h"
 
 is_subcommand() {
     local arg="${1:-}"
-    [[ "$arg" =~ ^(status|logs|doctor|config|noter|project|role|wipe|viz|--help|-h)$ ]]
+    [[ "$arg" =~ ^(status|logs|doctor|config|noter|project|role|wipe|viz|cache-stats|--help|-h)$ ]]
 }
 
 # ── State dir ─────────────────────────────────────────────────────────────────

@@ -110,8 +110,13 @@ def launch_role_process(
     When ``resume=True``, the launched ``claude`` is invoked with
     ``--resume <session_name>`` so Claude Code reattaches to the prior
     conversation persisted under the role's cwd in
-    ``~/.claude/projects/<cwd-slug>/``. Pass True from ``project_revive``;
-    leave False on first launch (cold start).
+    ``~/.claude/projects/<cwd-slug>/``. **This resets the prompt cache** —
+    Claude Code rebuilds the cache from scratch and replays the prior
+    history as fresh uncached input, which for a long-running Role
+    typically costs hundreds of thousands of tokens. Pass ``resume=True``
+    only for explicit operator debugging; ``project_revive`` and the
+    crash-watchdog respawn path both pass ``resume=False`` so Roles cold-
+    start and rebuild context from the Exploration DAG instead.
 
     Returns a small status dict with ``session_name``, ``cwd``,
     ``log_path``, ``attach_cmd``, ``started`` (True if a fresh session was
@@ -158,6 +163,7 @@ def launch_role_process(
         workspace=workspace,
         session_name=role_entry.session_name or project_session_name(project_port, role_name),
         resume=resume,
+        model=_role_model(cfg, role_name),
     )
 
     env = _role_env(
@@ -304,8 +310,28 @@ def _role_env(
         "EACN3_NETWORK_URL": f"http://127.0.0.1:{project_port}",
         "EACN3_STATE_DIR": str(plugin_state_dir(project_port, eacn_agent_id).resolve()),
         "MINIONS_GITHUB_PUSH_TARGET": role_entry.github_push_target or "",
+        # Long-horizon cache hit-rate optimization: opt the Role's claude
+        # process into 1-hour prompt cache TTL on backends that honor it
+        # (direct Anthropic API key, Bedrock, Vertex, Foundry — see
+        # claude-code CHANGELOG 2.1.108). Third-party gateways may strip
+        # the 1h cache_control flag and silently fall back to the 5-minute
+        # default; in that case the wall-clock keepalive in mos_await_events
+        # (cache_keepalive_seconds, default 270s) carries the load instead.
+        # Either way the env var is harmless — when honored it lifts the
+        # cliff to 60 min, when ignored we still have keepalive at 4m30s.
+        # Requires claude CLI ≥ 2.1.131 (earlier versions silently
+        # downgraded 1h to 5 min). DISABLE_TELEMETRY would force a 5-min
+        # fallback for subscription auth, so we deliberately do not set it.
+        "ENABLE_PROMPT_CACHING_1H": "1",
         "PATH": os.environ.get("PATH", ""),
     }
+
+
+def _role_model(cfg: GruConfig, role_name: str) -> str | None:
+    """Return the model override for a role, or None for the default."""
+    if role_name == "noter":
+        return cfg.noter_model
+    return None
 
 
 def _combined_system_prompt(role_name: str) -> Path | None:

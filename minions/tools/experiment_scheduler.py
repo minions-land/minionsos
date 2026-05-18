@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sqlite3
 import uuid
 from collections.abc import Callable, Iterable, Iterator
@@ -50,6 +51,12 @@ OOM_EXIT_CODES = frozenset({137, 139, -9, -11})
 # one with the same nvidia-smi reading.
 OOM_ESCALATION_FACTOR = 1.5
 DEFAULT_MAX_RETRIES = 3
+
+# Hard-metric anomaly detection
+ANOMALY_NAN_PATTERN = re.compile(r"\b(nan|NaN|NAN|inf|Inf|INF)\b")
+ANOMALY_LOSS_LINE_PATTERN = re.compile(r"(?i)(loss|train_loss|val_loss|nll|perplexity)")
+# GPU utilization collapse: if 0% for this many seconds, kill the run.
+GPU_UTIL_COLLAPSE_SECONDS = 300  # 5 minutes
 
 
 @dataclass(frozen=True)
@@ -788,13 +795,104 @@ class ExperimentScheduler:
 
         return exp_kill(ExpKillArgs(target_id=target_id, run_id=run_id))
 
+    def _resolve_port(self) -> int | None:
+        """Best-effort resolution of the project port for EACN notifications."""
+        if self.project_port is not None:
+            return self.project_port
+        raw = os.environ.get("MINIONS_PROJECT_PORT", "").strip()
+        return int(raw) if raw.isdigit() else None
+
+    def _notify_coder(
+        self,
+        run_id: str,
+        status: str,
+        *,
+        exit_code: int | None = None,
+        log_path: str | None = None,
+        target_id: str | None = None,
+        duration_seconds: float | None = None,
+        metrics_summary: str | None = None,
+        reason: str | None = None,
+    ) -> None:
+        """Best-effort EACN notification to the coder agent on experiment completion.
+
+        Sends a structured message so Coder can react to results without polling.
+        Failures are logged but never raised — notification is advisory.
+        """
+        port = self._resolve_port()
+        if port is None:
+            logger.debug("_notify_coder: no project port, skipping notification for %s", run_id)
+            return
+        payload: dict[str, Any] = {
+            "type": "experiment_complete",
+            "run_id": run_id,
+            "status": status,
+        }
+        if exit_code is not None:
+            payload["exit_code"] = exit_code
+        if log_path:
+            payload["log_path"] = log_path
+        if target_id:
+            payload["target_id"] = target_id
+        if duration_seconds is not None:
+            payload["duration_seconds"] = round(duration_seconds, 1)
+        if metrics_summary:
+            payload["metrics_summary"] = metrics_summary
+        if reason:
+            payload["reason"] = reason
+        try:
+            from minions.lifecycle.eacn_client import _post_message_raw
+
+            _post_message_raw(
+                port=port,
+                to_agent_id="coder",
+                from_agent_id="scheduler",
+                content=payload,
+                timeout=5.0,
+            )
+            logger.info("Notified coder: run_id=%s status=%s on port %d", run_id, status, port)
+        except Exception as exc:
+            logger.warning(
+                "Failed to notify coder for run_id=%s status=%s: %s", run_id, status, exc
+            )
+
+    def _check_hard_anomalies(
+        self,
+        run_id: str,
+        target_id: str,
+        log_tail: str,
+    ) -> str | None:
+        """Check for hard-metric anomalies in a running experiment's log tail.
+
+        Returns a reason string if an anomaly is detected, None otherwise.
+        Checks:
+        - NaN/Inf in loss-related log lines
+        - GPU utilization collapse (0% for > 5 minutes) — detected via log patterns
+        """
+        # Check for NaN/Inf in loss-related lines
+        for line in log_tail.splitlines():
+            if ANOMALY_LOSS_LINE_PATTERN.search(line) and ANOMALY_NAN_PATTERN.search(line):
+                return f"NaN/Inf detected in loss metric: {line.strip()[:120]}"
+
+        # Check for GPU utilization collapse pattern in logs
+        # Common patterns: "GPU utilization: 0%", "gpu_util=0", "utilization.gpu [%]: 0"
+        gpu_zero_pattern = re.compile(
+            r"(?i)(gpu[_ ]?util\w*\s*[:=]\s*0[%\s]|utilization\.gpu\s*\[%\]\s*:\s*0\b)"
+        )
+        zero_util_lines = [line for line in log_tail.splitlines() if gpu_zero_pattern.search(line)]
+        # If the last 10+ lines of GPU util are all 0%, likely collapsed
+        if len(zero_util_lines) >= 10:
+            return "GPU utilization collapsed to 0% (sustained in recent log tail)"
+
+        return None
+
     def _refresh_running(self, conn: sqlite3.Connection) -> tuple[list[dict], list[dict]]:
         completed: list[dict[str, Any]] = []
         failed: list[dict[str, Any]] = []
         rows = conn.execute(
             """
-            SELECT r.run_id, r.unit_id, r.batch_id, r.target_id, u.attempts, u.max_retries,
-                   u.reserve_mb, u.min_free_mb
+            SELECT r.run_id, r.unit_id, r.batch_id, r.target_id, r.started_at, r.log_path,
+                   u.attempts, u.max_retries, u.reserve_mb, u.min_free_mb
             FROM runs r
             JOIN units u ON u.unit_id = r.unit_id
             WHERE r.state IN ('running', 'launching')
@@ -806,10 +904,63 @@ class ExperimentScheduler:
             except Exception as exc:
                 logger.debug("exp_status failed run_id=%s: %s", row["run_id"], exc)
                 continue
-            if status.get("state") != "exited":
-                continue
-            exit_code = int(status.get("exit_code", -1))
+
             log_tail = str(status.get("log_tail") or "")
+
+            # --- Hard-metric anomaly detection for still-running experiments ---
+            if status.get("state") != "exited":
+                anomaly_reason = self._check_hard_anomalies(
+                    str(row["run_id"]), str(row["target_id"]), log_tail
+                )
+                if anomaly_reason:
+                    logger.warning(
+                        "Anomaly detected run_id=%s: %s — killing", row["run_id"], anomaly_reason
+                    )
+                    try:
+                        self._exp_kill(str(row["target_id"]), str(row["run_id"]))
+                    except Exception as exc:
+                        logger.warning("exp_kill during anomaly failed: %s", exc)
+                    now = _now_iso()
+                    conn.execute(
+                        """
+                        UPDATE runs
+                        SET state='exited', exit_code=-99, finished_at=?, updated_at=?
+                        WHERE run_id=?
+                        """,
+                        (now, now, row["run_id"]),
+                    )
+                    conn.execute(
+                        """
+                        UPDATE units
+                        SET status='failed', active_run_id=NULL, last_error=?, updated_at=?
+                        WHERE unit_id=?
+                        """,
+                        (f"anomaly_killed: {anomaly_reason}", now, row["unit_id"]),
+                    )
+                    failed.append(
+                        {
+                            "unit_id": row["unit_id"],
+                            "run_id": row["run_id"],
+                            "exit_code": -99,
+                            "oom": False,
+                            "next_status": "failed",
+                            "reserve_mb": None,
+                            "anomaly": anomaly_reason,
+                        }
+                    )
+                    self._notify_coder(
+                        run_id=str(row["run_id"]),
+                        status="anomaly_killed",
+                        exit_code=-99,
+                        log_path=row["log_path"],
+                        target_id=str(row["target_id"]),
+                        reason=anomaly_reason,
+                        metrics_summary=log_tail[-500:] if log_tail else None,
+                    )
+                continue
+
+            # --- Terminal state handling ---
+            exit_code = int(status.get("exit_code", -1))
             now = _now_iso()
             conn.execute(
                 """
@@ -819,6 +970,17 @@ class ExperimentScheduler:
                 """,
                 (exit_code, now, now, row["run_id"]),
             )
+
+            # Compute duration if started_at is available
+            duration_seconds: float | None = None
+            started_at = row["started_at"]
+            if started_at:
+                try:
+                    start_dt = datetime.fromisoformat(started_at)
+                    duration_seconds = (datetime.now(tz=UTC) - start_dt).total_seconds()
+                except (ValueError, TypeError):
+                    pass
+
             if exit_code == 0:
                 conn.execute(
                     """
@@ -829,6 +991,15 @@ class ExperimentScheduler:
                     (now, row["unit_id"]),
                 )
                 completed.append({"unit_id": row["unit_id"], "run_id": row["run_id"]})
+                self._notify_coder(
+                    run_id=str(row["run_id"]),
+                    status="completed",
+                    exit_code=0,
+                    log_path=row["log_path"],
+                    target_id=str(row["target_id"]),
+                    duration_seconds=duration_seconds,
+                    metrics_summary=log_tail[-500:] if log_tail else None,
+                )
                 continue
 
             is_oom = self._is_oom(log_tail, exit_code)
@@ -876,6 +1047,18 @@ class ExperimentScheduler:
                     "reserve_mb": new_reserve,
                 }
             )
+            # Notify coder for terminal failures (not OOM retries)
+            if next_status == "failed":
+                notify_status = "oom" if is_oom else ("killed" if exit_code < 0 else "failed")
+                self._notify_coder(
+                    run_id=str(row["run_id"]),
+                    status=notify_status,
+                    exit_code=exit_code,
+                    log_path=row["log_path"],
+                    target_id=str(row["target_id"]),
+                    duration_seconds=duration_seconds,
+                    metrics_summary=log_tail[-500:] if log_tail else None,
+                )
         return completed, failed
 
     def _gpu_slots(self, conn: sqlite3.Connection) -> list[GpuSlot]:

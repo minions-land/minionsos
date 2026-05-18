@@ -43,7 +43,11 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-FIXED_ROLES = {"noter", "coder", "experimenter", "writer", "ethics"}
+FIXED_ROLES = {"noter", "coder", "writer", "ethics"}
+
+# Roles bootstrapped automatically at project creation. Writer is on-demand
+# (spawned by Gru when the project enters a paper-writing phase).
+BOOTSTRAP_ROLES = {"noter", "coder", "ethics"}
 
 
 # ---------------------------------------------------------------------------
@@ -105,12 +109,13 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "branch on its periodic wake.\n"
     ),
     "noter": (
-        "[Role boundary: human-side agent — DAG curator]\n"
-        "You wake on a periodic timer (`noter_periodic_interval`, default 5m) "
+        "[Role boundary: observer — DAG curator, NOT on EACN3]\n"
+        "You wake on a periodic timer (`mos_noter_wait`, default 5m) "
         "to (a) flush the buffered Exploration DAG via `mos_dag_commit_shared` "
         "and (b) consider whether a fresh staged report is due (target cadence "
-        "`noter_report_interval`, default 30m). You also wake on direct EACN "
-        "messages addressed to Noter.\n"
+        "`noter_report_interval`, default 30m). You observe the project by "
+        "reading `events/*.jsonl` and `branches/shared/` — you do NOT have "
+        "EACN3 tools and are not registered on the network.\n"
         "Write boundaries: your drafts go in your branch `branches/noter/`; "
         "publish to `branches/shared/notes/<file>.md` via "
         "`mos_publish_to_shared`. The DAG itself lives at "
@@ -125,21 +130,12 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "Delegate complex execution to subagents; summarize and write back results.\n"
         "Write boundaries: your branch `branches/coder/` by default. Publish "
         "cross-role handoffs to `branches/shared/handoffs/` via "
-        "`mos_publish_to_shared`. Conditional system-maintenance boundary: "
+        "`mos_publish_to_shared`. Publish completed experiment result bundles to "
+        "`branches/shared/exp/exp-<id>/` via `mos_publish_to_shared`. "
+        "Conditional system-maintenance boundary: "
         "MinionsOS repository runtime code only when Gru or the author "
         "explicitly assigns that implementation work through EACN and names the "
         "scope, allowed paths, and verification target.\n"
-        "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
-        "`mos_dag_summary` / `mos_dag_query`).\n"
-    ),
-    "experimenter": (
-        "[Role boundary: EACN-visible agent]\n"
-        "Communicate state and task handoffs through EACN3. "
-        "Delegate complex execution to subagents; summarize and write back results.\n"
-        "Write boundaries: your branch `branches/experimenter/` for working "
-        "state. Publish completed result bundles to "
-        "`branches/shared/exp/exp-<id>/` and cross-role handoffs to "
-        "`branches/shared/handoffs/` via `mos_publish_to_shared`.\n"
         "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
         "`mos_dag_summary` / `mos_dag_query`).\n"
     ),
@@ -335,13 +331,18 @@ def _do_register(
         ) from exc
     session_name = project_session_name(project_port, role_name)
 
-    try:
-        agent_token, _seeds = register_project_role_agent(project_port, role_name)
-    except BackendError as exc:
-        raise RoleError(
-            f"Role {role_name!r} could not join project-local EACN3 network "
-            f"on port {project_port}: {exc}"
-        ) from exc
+    # Noter is not registered on EACN3 — it observes via read-only APIs and
+    # wakes on a timer (mos_noter_wait) rather than mos_await_events.
+    if role_name == "noter":
+        agent_token = ""
+    else:
+        try:
+            agent_token, _seeds = register_project_role_agent(project_port, role_name)
+        except BackendError as exc:
+            raise RoleError(
+                f"Role {role_name!r} could not join project-local EACN3 network "
+                f"on port {project_port}: {exc}"
+            ) from exc
 
     now = _now_iso()
     role_entry = RoleEntry(
@@ -361,31 +362,15 @@ def _do_register(
     )
 
     if init_brief:
-        target_agent_id = resolve_agent_id(project_port, role_name)
-        initiator_id = resolve_agent_id(project_port, "gru")
+        # Noter is not on EACN — skip init_brief delivery for it.
         if role_name == "noter":
-            try:
-                eacn_client.send_message(
-                    port=project_port,
-                    to_agent_id=target_agent_id,
-                    from_agent_id=initiator_id,
-                    content={
-                        "type": "init_brief",
-                        "description": init_brief,
-                        "role": role_name,
-                    },
-                )
-            except BackendError as exc:
-                raise RoleError(
-                    f"Role {role_name!r} joined project-local EACN3 on port {project_port}, "
-                    f"but the init_brief direct message could not be queued through EACN3: {exc}"
-                ) from exc
             logger.info(
-                "init_brief direct message published via EACN: role=%r port=%d",
-                role_name,
+                "init_brief skipped for noter (not on EACN): port=%d",
                 project_port,
             )
         else:
+            target_agent_id = resolve_agent_id(project_port, role_name)
+            initiator_id = resolve_agent_id(project_port, "gru")
             try:
                 eacn_client.create_task(
                     port=project_port,
@@ -469,15 +454,17 @@ def dismiss_role(
     if role is None:
         raise RoleError(f"Role {role_name!r} not found on port {project_port}.")
 
-    try:
-        eacn_client.unregister_agent(project_port, role.eacn_agent_id or role_name)
-    except Exception as exc:
-        logger.warning(
-            "dismiss_role: EACN unregister failed for role=%r port=%d: %s",
-            role_name,
-            project_port,
-            exc,
-        )
+    # Noter is not registered on EACN3 — skip unregistration.
+    if role_name != "noter":
+        try:
+            eacn_client.unregister_agent(project_port, role.eacn_agent_id or role_name)
+        except Exception as exc:
+            logger.warning(
+                "dismiss_role: EACN unregister failed for role=%r port=%d: %s",
+                role_name,
+                project_port,
+                exc,
+            )
 
     try:
         from minions.lifecycle.role_launcher import kill_session

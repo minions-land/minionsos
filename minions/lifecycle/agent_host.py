@@ -40,6 +40,7 @@ def build_role_invocation(
     workspace: Path,
     session_name: str,
     resume: bool = False,
+    model: str | None = None,
 ) -> RoleInvocation:
     """Build the ``claude`` invocation for a long-lived Role.
 
@@ -51,8 +52,17 @@ def build_role_invocation(
 
     When ``resume=True``, ``--resume <session_name>`` is appended so Claude
     Code reattaches to the prior conversation (Claude Code resolves the value
-    against existing session titles in the current cwd's project index). Use
-    on revive; leave False on first launch.
+    against existing session titles in the current cwd's project index).
+
+    .. warning::
+
+        ``resume=True`` resets the prompt cache. Claude Code rebuilds the
+        cache from scratch on resume and replays the entire prior
+        conversation history as new uncached input. For Roles whose
+        long-horizon memory already lives in the Exploration DAG, cold
+        start is strictly cheaper than ``--resume``. The MinionsOS revive
+        flow therefore launches with ``resume=False``; ``resume=True`` is
+        reserved for manual operator debugging.
     """
     del cfg, project_port, project_agent_id  # not used yet; reserved for parity
     cmd: list[str] = [
@@ -62,6 +72,8 @@ def build_role_invocation(
         str(MINIONS_ROOT),
         "claude",
     ]
+    if model:
+        cmd += ["--model", model]
     if session_name:
         cmd += ["--name", session_name]
     if system_path and system_path.exists():
@@ -89,11 +101,74 @@ def build_forever_loop_prompt(*, role_name: str) -> str:
     """Compose the first user message that boots the Role into its forever loop.
 
     The prompt's job is narrow: anchor the Role's identity, name the
-    event-loop tool (``mos_await_events``), and set the supervisor priority
-    rule. All substantive role behavior — boundaries, skills, EACN
-    contract — lives in the appended SYSTEM.md and the role-specific
-    ``SYSTEM.md`` re-injected by Claude on each launch.
+    event-loop tool (``mos_await_events`` for EACN roles, ``mos_noter_wait``
+    for Noter), and set the supervisor priority rule. All substantive role
+    behavior — boundaries, skills, EACN contract — lives in the appended
+    SYSTEM.md and the role-specific ``SYSTEM.md`` re-injected by Claude on
+    each launch.
     """
+    if role_name == "noter":
+        return _build_noter_loop_prompt()
+    return _build_eacn_role_loop_prompt(role_name)
+
+
+def _build_noter_loop_prompt() -> str:
+    """Forever-loop prompt for Noter (timer-based, not on EACN)."""
+    return (
+        "You are the MinionsOS `noter` role. Your event loop runs forever.\n"
+        "\n"
+        "Cold start (this is your first cycle on a fresh process):\n"
+        "1. Call `mos_dag_summary()` first to orient on team state.\n"
+        "2. Inspect `pending_plans` in the summary. These are events your\n"
+        "   previous self received but could not handle in its context;\n"
+        "   it persisted them and reset so YOU could handle them.\n"
+        "   Drain them now: for each pending_plan node:\n"
+        "     - read its full node via `mos_dag_query(related_to=<id>)`,\n"
+        "     - perform the work,\n"
+        "     - call `mos_dag_annotate` (verified/refuted + evidence_tag)\n"
+        "       so it stops surfacing.\n"
+        "3. Only after pending_plans is drained, call `mos_noter_wait()`\n"
+        "   to enter the steady-state loop below.\n"
+        "\n"
+        "Steady-state loop:\n"
+        "1. Call `mos_noter_wait()`. It blocks for the configured interval\n"
+        "   (default 5 min), writing heartbeat files during sleep.\n"
+        "2. On wake: flush the DAG (`mos_dag_commit_shared()`), then read\n"
+        "   recent project activity:\n"
+        "   - Check `branches/shared/` git log for new commits.\n"
+        "   - Read `events/*.jsonl` for recent EACN traffic.\n"
+        "   - Read any new artifacts in `branches/shared/exp/`,\n"
+        "     `branches/shared/handoffs/`, etc.\n"
+        "3. Update the DAG with any new observations.\n"
+        "4. Check whether enough time has elapsed since the last published\n"
+        "   report (target cadence `noter_report_interval`). If due,\n"
+        "   draft and publish a fresh observation report.\n"
+        "5. Call `mos_noter_wait()` again.\n"
+        "\n"
+        "Cache keepalive: if `mos_noter_wait()` returns a single event of\n"
+        "type `cache_keepalive`, that is a wall-clock cliff guard for the\n"
+        "prompt cache, NOT a real event. Reply with exactly the literal\n"
+        "string `ack` and immediately call `mos_noter_wait()` again. Do\n"
+        "not write to the DAG, do not invoke any other tool, do not vary\n"
+        "the ack text — keeping the reply byte-stable is what makes this\n"
+        "turn cacheable.\n"
+        "\n"
+        "Context management — compact vs reset:\n"
+        "- `mos_compact_context(reason, pending_plans)`: PREFERRED. Persists\n"
+        "  pending plans to DAG, then triggers /compact. Process stays alive,\n"
+        "  prompt cache stays warm. Use when context is large but process is\n"
+        "  healthy. After calling, STOP — produce no more output.\n"
+        "- `mos_reset_context(reason)`: HARD RESET. Kills the process entirely.\n"
+        "  Use only when behavior has drifted or compact cannot recover.\n"
+        "\n"
+        "Your output is tool calls. Do not emit a final assistant turn that\n"
+        "does not end with `mos_noter_wait()` (or `mos_reset_context()`,\n"
+        "which terminates this process so the watchdog respawns it).\n"
+    )
+
+
+def _build_eacn_role_loop_prompt(role_name: str) -> str:
+    """Forever-loop prompt for EACN-registered roles."""
     return (
         f"You are the MinionsOS `{role_name}` role. Your event loop runs forever.\n"
         "\n"
@@ -116,11 +191,15 @@ def build_forever_loop_prompt(*, role_name: str) -> str:
         "1. Call `mos_await_events()`. It blocks until your project-local EACN3\n"
         "   queue delivers actionable content (real events, or after ~5 minutes\n"
         "   of silence a synthetic `idle_check`).\n"
-        "2. Think-then-act — split the batch BEFORE executing:\n"
+        "2. Triage the batch — split BEFORE executing:\n"
         "   a. Gru first: scan for events involving Gru (sender_id=`gru`,\n"
         "      initiator_id=`gru`, or events targeting the `gru` queue).\n"
         "      Handle Gru-related events FIRST regardless of relevance.\n"
-        "   b. For each remaining event, classify:\n"
+        "   b. Lightweight replies: messages you can answer directly without\n"
+        "      subagent work (ack, status, short clarification, yes/no).\n"
+        "      Reply immediately via `eacn3_send_message` (<30 words).\n"
+        "      Do NOT dispatch a subagent for these.\n"
+        "   c. For each remaining event, classify:\n"
         "      - RELEVANT: continues or builds on this process's current\n"
         "        context (same hypothesis, awaited reply, subagent return,\n"
         "        same paper section).\n"
@@ -134,9 +213,30 @@ def build_forever_loop_prompt(*, role_name: str) -> str:
         "     persist completed work to the DAG, AND persist each\n"
         "     unrelated event as a node with\n"
         "     `metadata.pending_plan = true` (do NOT execute them now).\n"
-        "     Then call `mos_reset_context(reason=...)`. The respawned\n"
-        "     process drains those pending plans before its own\n"
-        "     `mos_await_events`.\n"
+        "     Then call `mos_compact_context(reason=..., pending_plans=[...])`\n"
+        "     (preferred — keeps cache warm) or `mos_reset_context(reason=...)`\n"
+        "     (only if behavior has drifted). After compact, STOP — produce\n"
+        "     no more output. You wake in compressed context; call\n"
+        "     `mos_await_events()` to resume.\n"
+        "\n"
+        "Cache keepalive: if `mos_await_events()` returns a single event of\n"
+        "type `cache_keepalive`, that is a wall-clock cliff guard for the\n"
+        "prompt cache, NOT a real event. Reply with exactly the literal\n"
+        "string `ack` and immediately call `mos_await_events()` again. Do\n"
+        "not write to the DAG, do not send EACN messages, do not invoke\n"
+        "any other tool, do not vary the ack text — keeping the reply\n"
+        "byte-stable is what makes this turn cacheable.\n"
+        "\n"
+        "Context management — compact vs reset:\n"
+        "- `mos_compact_context(reason, pending_plans)`: PREFERRED. Persists\n"
+        "  pending plans to DAG, then triggers /compact. Process stays alive,\n"
+        "  prompt cache stays warm (no cold start). Use when context is large\n"
+        "  but process is healthy. After calling, STOP — produce no more\n"
+        "  output. You wake up in compressed context; call mos_await_events().\n"
+        "- `mos_reset_context(reason)`: HARD RESET. Kills the process entirely.\n"
+        "  Use only when behavior has drifted, SYSTEM.md changed externally,\n"
+        "  or compact cannot recover coherent state. Costs ~50k uncached\n"
+        "  tokens on cold start.\n"
         "\n"
         "Your output is tool calls. Do not emit a final assistant turn that\n"
         "does not end with `mos_await_events()` (or `mos_reset_context()`,\n"

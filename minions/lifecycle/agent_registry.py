@@ -48,9 +48,14 @@ def role_agent_domains(role_name: str) -> list[str]:
     """Return discovery domains for a MinionsOS project role."""
     base = _normalise_role(role_name)
     specific = {
-        "noter": ["coordination", "observation", "status"],
-        "coder": ["coding", "debugging", "implementation"],
-        "experimenter": ["experiments", "execution", "evaluation"],
+        "coder": [
+            "coding",
+            "debugging",
+            "implementation",
+            "experiments",
+            "execution",
+            "evaluation",
+        ],
         "writer": ["writing", "paper", "latex"],
         "ethics": [
             "evidence",
@@ -75,14 +80,9 @@ def role_agent_tier(role_name: str) -> str:
 def role_agent_description(role_name: str) -> str:
     base = _normalise_role(role_name)
     descriptions = {
-        "noter": (
-            "Project-local Noter observer. Records and summarizes activity from this "
-            "project's Local EACN3 network without acting as a hidden relay."
-        ),
-        "coder": "Project-local Coder role for implementation, debugging, and code handoffs.",
-        "experimenter": (
-            "Project-local Experimenter role for resource scheduling, experiment execution, "
-            "and result reporting."
+        "coder": (
+            "Project-local Coder role for implementation, debugging, code handoffs, "
+            "experiment execution, and result reporting."
         ),
         "writer": "Project-local Writer role for paper drafting and evidence-grounded revisions.",
         "ethics": "Project-local Ethics role for evidence validation and claim audit.",

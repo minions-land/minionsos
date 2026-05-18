@@ -18,7 +18,7 @@ A bounded feature implementation after requirements and ownership are clear.
 
 - Gru or another role has completed feature intake and assigned implementation to Coder.
 - A user request requires adding behavior rather than only debugging or review.
-- A change that needs coordinated implementation — "coordinated" means it touches more than one Coder-owned module, or requires a handoff to another role (Writer, Experimenter, Reviewer, Ethics, Expert, Gru).
+- A change that needs coordinated implementation — "coordinated" means it touches more than one Coder-owned module, or requires a handoff to another role (Writer, Reviewer, Ethics, Expert, Gru).
 
 If requirements are still ambiguous, do not start; ask through EACN first.
 

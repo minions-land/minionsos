@@ -144,7 +144,7 @@ The subagent type does not change the write boundary or the evidence rule — Et
 2. **Adjudication branch:** inspect the parent task, submitted result, cited artifacts, logs, and commits; dispatch a subagent to produce the verdict draft in `branches/ethics/`, publish it as `branches/shared/ethics/adjudication-<task-id>.md`, and submit the EACN3 adjudication-style result with a verdict and evidence trail.
 3. **Mock-review branch:** dispatch a subagent following `skills/mock-review.md`; subagent drafts `branches/ethics/mock-review-<slug>.md` using `templates/mock-review.md`; publish it as `branches/shared/ethics/mock-review-<slug>.md`; main role posts the EACN reply with a pointer.
 4. **Ordinary audit branch:** enumerate substantive claims in the target scope. For each claim, check artifact paths, EACN history, code line numbers; web-search/fetch for citations.
-5. If unclear: post `@<role>` asking for an evidence pointer, or `@experimenter` requesting a verification rerun, or spawn a subagent for a deep dive.
+5. If unclear: post `@<role>` asking for an evidence pointer, or `@coder` requesting a verification rerun, or spawn a subagent for a deep dive.
 6. Classify each claim: `verified` / `unsupported` / `contradicted`.
 7. Write a report summarizing the batch and one flag file per `unsupported` / `contradicted` claim. Resolved flags stay in the flat shared ethics layout with status updated in the file.
 

@@ -30,12 +30,12 @@ def test_empty_when_no_dir(fake_roles: Path) -> None:
 def test_standard_h1_plus_summary(fake_roles: Path) -> None:
     _write_skill(
         fake_roles,
-        "experimenter",
+        "coder",
         "execution-guide",
         "# Skill - Execution Guide\n\nA disciplined procedure for running experiments.\n"
         "\n## Core move\n...",
     )
-    result = skills_mod.list_skills("experimenter")
+    result = skills_mod.list_skills("coder")
     assert result == [("execution-guide", "A disciplined procedure for running experiments.")]
 
 

@@ -1186,7 +1186,60 @@ def ensure_role_workspace(
     base_branch: str | None = None,
 ) -> tuple[str, Path]:
     """Public wrapper that returns the role branch and workspace path."""
-    return _create_role_worktree(port, role_name, base_branch=base_branch)
+    branch, workspace = _create_role_worktree(port, role_name, base_branch=base_branch)
+    _seed_claude_settings(workspace)
+    return branch, workspace
+
+
+def _seed_claude_settings(workspace: Path) -> None:
+    """Ensure the role workspace has a .claude/settings.json with project hooks.
+
+    This makes MinionsOS hooks (PreCompact, PostCompact) portable: they live
+    inside the project, not in the user's global ~/.claude/settings.json.
+    When someone clones MinionsOS, the hooks travel with the repo and apply
+    automatically to Role agent sessions without touching global config.
+
+    Hook commands reference MINIONS_ROOT (which role_launcher sets in the
+    Role's env) so they resolve correctly regardless of install location.
+    The shell expands the env var at hook execution time.
+    """
+    claude_dir = workspace / ".claude"
+    settings_path = claude_dir / "settings.json"
+    if settings_path.exists():
+        return
+    claude_dir.mkdir(parents=True, exist_ok=True)
+    minions_root_str = str(MINIONS_ROOT)
+    pre_compact_cmd = f"python3 {minions_root_str}/minions/hooks/pre_compact_science.py"
+    post_compact_cmd = f"python3 {minions_root_str}/minions/hooks/post_compact_dag.py"
+    settings = {
+        "hooks": {
+            "PreCompact": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": pre_compact_cmd,
+                            "timeout": 5,
+                        }
+                    ]
+                }
+            ],
+            "PostCompact": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": post_compact_cmd,
+                            "timeout": 10,
+                        }
+                    ]
+                }
+            ],
+        }
+    }
+    tmp = settings_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, settings_path)
 
 
 def project_phase_allows_role(entry: ProjectEntry, role_name: str) -> bool:
@@ -1872,11 +1925,16 @@ def project_revive(
     - Restores ``active_roles`` from ``meta.json`` and re-registers each
       project-local EACN AgentCard.
     - Re-launches each Role's long-lived ``claude`` process inside its
-      tmux session with ``--resume <session_name>`` so the prior
-      conversation continues. If the launcher cannot find a matching
-      session jsonl in ``~/.claude/projects/<cwd-slug>/``, Claude will
-      cold-start a fresh conversation under the same session name; we log
-      a warning but treat that as non-fatal.
+      tmux session as a **cold start** (no ``--resume``). Role context is
+      rebuilt from durable artefacts: the Exploration DAG, EACN history,
+      and ``pending_plan`` nodes. We deliberately do NOT pass ``--resume``
+      here because resuming a session forces Claude Code to rebuild its
+      prompt cache from scratch (cache TTL is reset), which would erase
+      the cache-warmth investment of the prior dormant period and re-pay
+      hundreds of thousands of input tokens to replay history that is
+      mostly already encoded in the DAG. Cold start + DAG read-back is
+      cheaper and matches the dormant→revive semantics ("the project
+      restarts; agents reconstruct from durable state").
     - If *external_feedback* is provided, archives it to
       ``branches/shared/handoffs/external-feedback/<ts>.md``.
     - Updates ``meta.json`` and ``projects.json``.
@@ -1976,10 +2034,14 @@ def project_revive(
         proc.terminate()
         raise
 
-    # Re-launch each Role's long-lived claude process with --resume so the
-    # prior conversation history is reattached. Failures here are logged
-    # but not fatal — the role state is already restored, and the operator
-    # can re-run mos role spawn / mos project repair to recover.
+    # Re-launch each Role's long-lived claude process as a COLD START
+    # (resume=False). Resuming a session would force Claude Code to rebuild
+    # its prompt cache from scratch and replay a large conversation history
+    # that is largely redundant with the DAG; cold start lets the Role do
+    # its own pending_plans drain + DAG summary on first wake. Failures
+    # here are logged but not fatal — the role state is already restored,
+    # and the operator can re-run mos role spawn / mos project repair to
+    # recover.
     try:
         from minions.lifecycle.role_launcher import launch_role_process as _launch_role
     except Exception as exc:
@@ -1993,14 +2055,13 @@ def project_revive(
         relaunched: list[RoleEntry] = []
         for role in revived_roles:
             try:
-                status = _launch_role(role, port, resume=True)
+                status = _launch_role(role, port, resume=False)
                 logger.info(
-                    "project_revive: relaunched role=%s port=%d session=%s started=%s resumed=%s",
+                    "project_revive: relaunched role=%s port=%d session=%s started=%s",
                     role.name,
                     port,
                     status.get("session_name"),
                     status.get("started"),
-                    status.get("resumed"),
                 )
                 relaunched.append(role.model_copy(update={"state": "sleeping"}))
             except Exception as exc:

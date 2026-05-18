@@ -908,6 +908,57 @@ def viz_ensure() -> None:
 # ---------------------------------------------------------------------------
 
 
+@app.command(name="cache-stats")
+def cache_stats_cmd(
+    port: int | None = typer.Argument(None, help="Project port. Omit for --session mode."),
+    role: str | None = typer.Argument(None, help="Role name. Omit to list all Roles."),
+    session: Path | None = typer.Option(None, "--session", help="Single jsonl path."),  # noqa: B008
+    repo_root: Path = typer.Option(  # noqa: B008
+        Path("/Users/mjm/MinionsOS"),
+        "--repo-root",
+        help="MinionsOS repo root (where project_{port}/ lives).",
+    ),
+) -> None:
+    """Report token/cache usage for a Role, project, or single session.
+
+    Three modes:
+
+    \b
+      mos cache-stats <port> <role>   per-Role rollup across sessions
+      mos cache-stats <port>          per-project rollup (all Roles)
+      mos cache-stats --session FILE  raw single-session report
+
+    Identifies cold-start sessions (cache_read=0 on the first turn) so you
+    can see how many ``mos_reset_context`` calls / watchdog respawns
+    happened, and what each cost in cache_creation tokens.
+    """
+    from minions.tools import cache_stats as _cs
+
+    if session is not None:
+        if not session.exists():
+            raise _fail(f"file not found: {session}")
+        turns = _cs._load_turns(session)
+        console.print(_cs._format_session_report(session, turns))
+        return
+
+    if port is None:
+        raise _fail(
+            "Pass either <port> [<role>] for a Role/project rollup, "
+            "or --session FILE for a single-session report."
+        )
+
+    repo_root_path = repo_root
+    claude_root = Path.home() / ".claude" / "projects"
+
+    if role is not None:
+        target = _cs._role_cwd(port, role, repo_root_path)
+        sessions = _cs._discover_sessions_for_cwd(target, claude_root)
+        console.print(_cs._format_role_report(port, role, target, sessions))
+        return
+
+    console.print(_cs._format_project_report(port, repo_root_path, claude_root))
+
+
 @app.command()
 def wipe(
     port: int = typer.Argument(..., help="Project port to wipe."),

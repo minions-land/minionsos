@@ -144,22 +144,26 @@ class TestWhitelistResolver:
         assert "mos_project_bridge" not in tools
         assert "mos_spawn_role" not in tools
 
-    def test_noter_has_eacn3_tools(self) -> None:
+    def test_noter_not_on_eacn(self) -> None:
         tools = resolve_allowed_tools("noter")
-        assert any(t.startswith("eacn3") for t in tools)
+        assert not any(t.startswith("eacn3") for t in tools)
+        assert "mos_await_events" not in tools
+        assert "mos_noter_wait" in tools
 
-    def test_coder_no_exp_tools(self) -> None:
+    def test_coder_has_exp_tools(self) -> None:
         tools = resolve_allowed_tools("coder")
-        assert not any(t.startswith("exp_") for t in tools)
-
-    def test_experimenter_has_exp_tools(self) -> None:
-        tools = resolve_allowed_tools("experimenter")
         assert "mos_exp_run" in tools
         assert "mos_exp_put" in tools
         assert "mos_exp_get" in tools
         assert "mos_exp_tail" in tools
         assert "mos_exp_queue_*" in tools
         assert "mos_exp_gpu_pool_*" in tools
+
+    def test_experimenter_alias_resolves_to_coder(self) -> None:
+        """Experimenter was removed; its alias degrades to coder's whitelist."""
+        tools = resolve_allowed_tools("experimenter")
+        assert "mos_exp_queue_*" in tools
+        assert "mos_exp_run" in tools
 
     def test_writer_has_paper_search_mcp_tools(self) -> None:
         tools = resolve_allowed_tools("writer")

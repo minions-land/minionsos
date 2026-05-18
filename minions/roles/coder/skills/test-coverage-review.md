@@ -31,7 +31,7 @@ Map changed behavior → existing tests → critical gaps → add tests in Coder
 3. **Identify critical gaps.** Prioritize lifecycle transitions, persisted state, role boundaries, EACN payloads, config defaults, CLI behavior, and dashboard read-only guarantees.
 4. **Add tests when Coder owns the path.** Fast and isolated; do not depend on existing runtime state or live external services.
 5. **Use fake orchestration where needed.** Existing fake launcher patterns: `MINIONS_FAKE_CLAUDE=1` for Claude, fake Codex binaries for Codex.
-6. **Record untested risk.** If a gap needs heavy execution or human setup, ask Experimenter / Gru through EACN rather than faking confidence.
+6. **Record untested risk.** If a gap needs heavy execution or human setup, submit to the experiment queue or ask Gru through EACN rather than faking confidence.
 7. **Report** covered behaviors, added or existing test paths, commands run, and the highest-risk untested behavior if any remains.
 
 ## Pitfalls

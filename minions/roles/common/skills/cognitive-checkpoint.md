@@ -24,9 +24,20 @@ Both coexist. After respawn the role drains DAG `pending_plan` nodes (this skill
 
 ## When to invoke
 
-- Before every `mos_reset_context()` call — mandatory.
+- Before every `mos_compact_context()` or `mos_reset_context()` call — mandatory.
 - When think-then-act has split the incoming batch into relevant + unrelated, and the unrelated set is non-empty.
 - When finishing a coherent line of investigation and the next thing in queue is a new direction.
+
+## Compact vs Reset — choose after checkpointing
+
+After persisting state (steps 1-5 below), choose the exit:
+
+- **`mos_compact_context(reason, pending_plans)`** — PREFERRED. Process stays
+  alive, prompt cache stays warm. Use when context is large but healthy.
+  After calling, STOP immediately. You wake in compressed context.
+- **`mos_reset_context(reason)`** — HARD RESET. Kills the process. Use only
+  when behavior has drifted or SYSTEM.md changed externally. Costs ~50k
+  uncached tokens on cold start.
 
 ## Structure
 
@@ -81,5 +92,9 @@ Always add an edge anchoring the pending plan to its parent context (hypothesis,
 - **Resetting mid-execution.** If a relevant event's work is half-done, finish it or roll back; don't reset with workspace in an inconsistent state.
 
 ## Output habit
+
+`[checkpoint: persisted={node_ids}, pending_plan={pending_node_ids}] → mos_compact_context({reason})`
+
+Or when hard reset is needed:
 
 `[checkpoint: persisted={node_ids}, pending_plan={pending_node_ids}] → mos_reset_context({reason})`

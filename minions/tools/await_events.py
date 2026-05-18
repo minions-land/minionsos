@@ -8,7 +8,15 @@ only returns to the LLM when there is actionable content:
    - Query task state and message sessions (same logic as eacn3_next idle).
    - If actionable items found → return as synthetic idle_check event.
    - If nothing (no-idle) → swallow silently, continue polling.
-3. Heartbeat file updated every cycle (git-visible liveness, zero LLM tokens).
+3. After ``cache_keepalive_seconds`` of wall-clock silence, force-return a
+   stable synthetic ``cache_keepalive`` event. The Role acks with a fixed
+   short reply and immediately re-enters the loop. This re-touches the
+   prompt cache before the 5-minute TTL cliff (or, where the gateway
+   honors it, the 1-hour cliff after ``ENABLE_PROMPT_CACHING_1H=1`` in
+   the Role env). The payload is byte-for-byte identical every time —
+   no timestamps, counters, or per-process state — so the post-keepalive
+   conversation tail stays cacheable too.
+4. Heartbeat file updated every cycle (git-visible liveness, zero LLM tokens).
 
 Token efficiency: the LLM is suspended while this tool blocks. Tokens are
 consumed only at call time (input) and return time (output). All intermediate
@@ -24,6 +32,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -34,6 +43,27 @@ logger = logging.getLogger(__name__)
 
 EACN3_POLL_TIMEOUT_SEC = 60
 IDLE_CHECK_THRESHOLD = 5  # consecutive empty polls before idle check
+
+# Stable synthetic event returned just before the prompt-cache TTL cliff.
+# Byte-for-byte identical every time so the conversation tail that follows
+# it stays cacheable across the next several turns. Any drift here (port
+# number, timestamp, counter) defeats the cache it is meant to refresh.
+_KEEPALIVE_EVENT: dict[str, Any] = {
+    "event": {
+        "type": "cache_keepalive",
+        "task_id": "",
+        "payload": {},
+    },
+    "suggested_action": (
+        "Cache keepalive — no work to do. Reply with a single short ack "
+        "(e.g. 'ack') and immediately call mos_await_events() again. Do "
+        "not write to the DAG, do not send EACN messages, do not invoke "
+        "any other tool."
+    ),
+    "suggested_tool": "mos_await_events",
+    "suggested_params": {},
+    "urgency": "low",
+}
 
 
 def _env_port() -> int:
@@ -363,12 +393,24 @@ def await_events() -> dict[str, Any]:
     Returns:
         {count: N, events: [{event, suggested_action, suggested_tool,
                              suggested_params, urgency}, ...]}
-        where N > 0 always. Events may be real EACN3 events or a synthetic
-        idle_check (after ~5 min of silence, if there is unfinished work).
+        where N > 0 always. Events may be real EACN3 events, a synthetic
+        idle_check (after ~5 min of silence, if there is unfinished work),
+        or a synthetic cache_keepalive (after ``cache_keepalive_seconds``
+        of wall-clock silence, regardless of work state — this keeps the
+        Role's 1h prompt cache from expiring).
     """
     port = _env_port()
     agent_id = _env_agent_id()
     workspace = _env_workspace()
+
+    # Wall-clock since this Role last produced an LLM turn. Used to refresh
+    # the prompt cache (5 min default; lifted to 1 h when the env var
+    # ENABLE_PROMPT_CACHING_1H=1 is set in role_launcher and the upstream
+    # gateway transmits it) before its cliff. Read knob lazily so a
+    # missing/broken gru.yaml does not break the event loop — keepalive
+    # is an optimization, not a correctness requirement.
+    keepalive_seconds = _load_keepalive_seconds()
+    started_monotonic = time.monotonic()
 
     consecutive_empty = 0
 
@@ -401,3 +443,29 @@ def await_events() -> dict[str, Any]:
             if idle_event is not None:
                 return {"count": 1, "events": [idle_event]}
             # no-idle: truly nothing to do. Swallow silently, keep polling.
+
+        # Cache-keepalive cliff guard. Independent of idle_check: even when
+        # there is genuinely no work, we must surface a tiny LLM turn before
+        # the prompt-cache TTL expires, or the next real event will eat
+        # a full system-prompt + tool-definitions cold start (~50k input
+        # tokens uncached). The synthetic event payload is constant so the
+        # post-keepalive conversation tail stays cacheable.
+        if keepalive_seconds > 0 and (time.monotonic() - started_monotonic) >= keepalive_seconds:
+            return {"count": 1, "events": [_KEEPALIVE_EVENT]}
+
+
+def _load_keepalive_seconds() -> int:
+    """Read cache_keepalive_seconds from gru.yaml, defaulting to off on error.
+
+    Reading the config lazily (not at module import) keeps the await_events
+    tool decoupled from gru.yaml availability — a Role process can still
+    poll EACN3 even if its config file is malformed; it just loses the
+    keepalive optimization.
+    """
+    try:
+        from minions.config import load_gru_config
+
+        return int(load_gru_config().cache_keepalive_seconds)
+    except Exception as exc:
+        logger.debug("cache_keepalive_seconds load failed; keepalive disabled: %s", exc)
+        return 0

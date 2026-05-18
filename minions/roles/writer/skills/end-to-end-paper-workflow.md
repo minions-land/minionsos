@@ -30,7 +30,7 @@ Blockers that prevent calling a paper "done": missing PDF, unresolved citations,
 
 ## Procedure
 
-1. **Gather inputs first.** Read the project brief, `branches/<role>/` evidence (primarily `branches/experimenter/` and `branches/coder/`), result tables / logs, existing figures, and any `template/` reference material. Do not write prose until the evidence inventory is clear.
+1. **Gather inputs first.** Read the project brief, `branches/<role>/` evidence (primarily `branches/coder/` and `branches/coder/exp/`), result tables / logs, existing figures, and any `template/` reference material. Do not write prose until the evidence inventory is clear.
 2. **Structure facts before narrative.** If method details, numbers, comparisons, or missing-evidence questions are not already organized, delegate to `paper-evidence-analyst` and require a traceable evidence summary.
 3. **Build citations early.** Delegate to `paper-literature-citation-builder` before drafting frontmatter or related work. Require a bibliography, literature matrix, citation map, and explicit citation gaps.
 4. **Delegate by boundary** per `paper-work-boundaries`: frontmatter, method, results, closing, figures, tables, template integration, QA. Subagent prompts include the relevant boundary, allowed paths, forbidden paths, evidence rules, and required final report sections.

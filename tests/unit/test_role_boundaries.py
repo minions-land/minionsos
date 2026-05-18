@@ -30,8 +30,9 @@ class TestRoleType:
     def test_coder_is_eacn_visible(self) -> None:
         assert ROLE_CLASSIFICATION["coder"] == RoleType.eacn_visible
 
-    def test_experimenter_is_eacn_visible(self) -> None:
-        assert ROLE_CLASSIFICATION["experimenter"] == RoleType.eacn_visible
+    def test_experimenter_removed(self) -> None:
+        """Experimenter role has been retired; its tools moved to Coder."""
+        assert "experimenter" not in ROLE_CLASSIFICATION
 
     def test_ethics_is_eacn_visible(self) -> None:
         assert ROLE_CLASSIFICATION["ethics"] == RoleType.eacn_visible
@@ -89,9 +90,11 @@ class TestBoundaryContext:
         ctx = _boundary_context("gru", 37596)
         assert "human-side" in ctx.lower() or "human_side" in ctx.lower()
 
-    def test_noter_boundary_mentions_human_side(self) -> None:
+    def test_noter_boundary_mentions_observer(self) -> None:
         ctx = _boundary_context("noter", 37596)
-        assert "human-side" in ctx.lower() or "human_side" in ctx.lower()
+        assert "observer" in ctx.lower()
+        assert "not on eacn3" in ctx.lower()
+        assert "mos_noter_wait" in ctx
 
     def test_ethics_boundary_mentions_evidence(self) -> None:
         ctx = _boundary_context("ethics", 37596)
@@ -116,7 +119,7 @@ class TestBoundaryContext:
 
 class TestEthicsWhitelist:
     def test_non_gru_main_roles_can_spawn_subagents(self) -> None:
-        for role in ("noter", "coder", "experimenter", "writer", "ethics", "expert"):
+        for role in ("noter", "coder", "writer", "ethics", "expert"):
             assert "Task" in resolve_whitelist(role, "main")
 
     def test_ethics_has_no_write_tools(self) -> None:
@@ -132,7 +135,7 @@ class TestSubagentEacnInvisibility:
     every EACN-facing action. This invariant is what lets the main session
     stay short and token-cheap."""
 
-    _ALL_ROLES = ("gru", "noter", "coder", "experimenter", "writer", "ethics", "expert")
+    _ALL_ROLES = ("gru", "noter", "coder", "writer", "ethics", "expert")
 
     def test_no_subagent_has_eacn3_tools(self) -> None:
         for role in self._ALL_ROLES:

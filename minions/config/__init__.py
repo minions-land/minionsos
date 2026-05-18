@@ -126,6 +126,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "mos_dag_*",
         "mos_publish_to_shared",
         "mos_reset_context",
+        "mos_compact_context",
         "mos_attach_role",
         "mos_kill_role",
         "mos_spawn_role",
@@ -144,11 +145,11 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("gru", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
     ("noter", "main"): [
-        "eacn3_*",
-        "mos_await_events",
+        "mos_noter_wait",
         "mos_dag_*",
         "mos_publish_to_shared",
         "mos_reset_context",
+        "mos_compact_context",
         "Task",
         "WebSearch",
         "WebFetch",
@@ -161,31 +162,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         *_DAG_RW_TOOLS,
         "mos_publish_to_shared",
         "mos_reset_context",
-        "Task",
-        "mos_project_checkpoint_workspace",
-        *_CODEX_BRIDGE_TOOLS,
-        "WebSearch",
-        "WebFetch",
-        "Bash",
-        "Read",
-        "Write",
-        "Edit",
-    ],
-    ("coder", "subagent"): [
-        *_CODEX_BRIDGE_TOOLS,
-        "WebSearch",
-        "WebFetch",
-        "Bash",
-        "Read",
-        "Write",
-        "Edit",
-    ],
-    ("experimenter", "main"): [
-        "eacn3_*",
-        "mos_await_events",
-        *_DAG_RW_TOOLS,
-        "mos_publish_to_shared",
-        "mos_reset_context",
+        "mos_compact_context",
         "Task",
         "mos_project_checkpoint_workspace",
         *_CODEX_BRIDGE_TOOLS,
@@ -207,7 +184,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Write",
         "Edit",
     ],
-    ("experimenter", "subagent"): [
+    ("coder", "subagent"): [
         *_CODEX_BRIDGE_TOOLS,
         "mos_exp_run",
         "mos_exp_status",
@@ -233,6 +210,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         *_DAG_RW_TOOLS,
         "mos_publish_to_shared",
         "mos_reset_context",
+        "mos_compact_context",
         *_WRITER_PAPER_SEARCH_TOOLS,
         "Task",
         "mos_project_checkpoint_workspace",
@@ -259,6 +237,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         *_DAG_RW_TOOLS,
         "mos_publish_to_shared",
         "mos_reset_context",
+        "mos_compact_context",
         "Task",
         "mos_project_checkpoint_workspace",
         *_CODEX_BRIDGE_TOOLS,
@@ -284,6 +263,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         *_DAG_RW_TOOLS,
         "mos_publish_to_shared",
         "mos_reset_context",
+        "mos_compact_context",
         "Task",
         "codex",
         "WebSearch",
@@ -298,7 +278,9 @@ def resolve_whitelist(role: str, agent_type: Literal["main", "subagent"] = "main
     """Return the allowed-tools list for *role* and *agent_type*.
 
     Expert roles are stored as ``expert-<slug>``; this function normalises
-    them to ``expert`` before lookup.
+    them to ``expert`` before lookup. Removed roles (e.g. ``experimenter``)
+    are resolved through ``_REMOVED_ROLE_ALIASES`` so old env vars degrade
+    gracefully.
 
     Args:
         role: Role name, e.g. ``"noter"``, ``"expert-dl-arch"``.
@@ -308,6 +290,7 @@ def resolve_whitelist(role: str, agent_type: Literal["main", "subagent"] = "main
         List of tool name patterns (may contain ``*`` wildcards).
     """
     normalised = "expert" if role.startswith("expert") else role
+    normalised = _REMOVED_ROLE_ALIASES.get(normalised, normalised)
     key = (normalised, agent_type)
     if key not in _WHITELIST:
         logger.warning(
@@ -338,10 +321,16 @@ ROLE_CLASSIFICATION: dict[str, RoleType] = {
     "gru": RoleType.human_side,
     "noter": RoleType.human_side,
     "coder": RoleType.eacn_visible,
-    "experimenter": RoleType.eacn_visible,
     "writer": RoleType.eacn_visible,
     "ethics": RoleType.eacn_visible,
     "expert": RoleType.eacn_visible,
+}
+
+# Legacy alias kept for backward-compat in tests/tools that still reference
+# the removed Experimenter role by name.  Resolves to "coder" in whitelist
+# lookups so old MINIONS_ROLE_NAME=experimenter env vars degrade gracefully.
+_REMOVED_ROLE_ALIASES: dict[str, str] = {
+    "experimenter": "coder",
 }
 
 ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
@@ -357,10 +346,6 @@ ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
     ],
     "coder": [
         "branches/coder/",
-        "branches/shared/handoffs/ (via mos_publish_to_shared)",
-    ],
-    "experimenter": [
-        "branches/experimenter/",
         "branches/shared/exp/ (via mos_publish_to_shared)",
         "branches/shared/handoffs/ (via mos_publish_to_shared)",
     ],
@@ -459,6 +444,21 @@ class GruConfig(BaseModel):
         default=30,
         description="Python-side Experimenter queue reconcile cadence in seconds.",
     )
+    cache_keepalive_seconds: int = Field(
+        default=270,
+        description=(
+            "Wall-clock seconds of silence after which mos_await_events returns "
+            "a stable synthetic keepalive event so the Role's long-lived "
+            "claude process re-touches its prompt cache before the TTL cliff. "
+            "Empirical measurement confirms tok.fan gateway enforces a ~5-minute "
+            "cache TTL: after 6 minutes of silence, cache_read drops to 0 and "
+            "the next turn pays full cache_create cost (16x more expensive). "
+            "Default 270s (4m30s) ensures the keepalive fires before the 5-min "
+            "cliff. Each keepalive costs ~$0.006; missing the cliff costs ~$0.098. "
+            "Set to 0 to disable if your backend has longer TTL (e.g. direct "
+            "Anthropic API with 1h cache enabled)."
+        ),
+    )
     noter_periodic_interval: str = Field(
         default="5m",
         description=(
@@ -503,6 +503,13 @@ class GruConfig(BaseModel):
     claude_model: str = Field(
         default="claude-sonnet-4-6",
         description="Claude model name passed to the claude CLI (e.g. claude-sonnet-4-6).",
+    )
+    noter_model: str = Field(
+        default="sonnet",
+        description=(
+            "Model for the Noter role. Noter does summarization and DAG "
+            "maintenance — Sonnet is sufficient and much cheaper than Opus."
+        ),
     )
     agent_host: Literal["claude", "codex"] = Field(
         default="claude",

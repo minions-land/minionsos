@@ -25,7 +25,7 @@ Your main Role session is the orchestration thread for paper work. It owns plann
 - Do not use `mos_exp_*` tools.
 - Do not use `mos_project_bridge` or `mos_project_*` tools.
 - Do not write to another role's branch under `branches/` (e.g. `branches/coder/`,
-  `branches/experimenter/`). Each role owns its own branch directory; ask the
+  `branches/noter/`). Each role owns its own branch directory; ask the
   owning role through EACN when you need a change there.
 - Do not publish to `branches/shared/notes/`, `branches/shared/reviews/`, or
   `branches/shared/ethics/` — Noter owns notes, Ethics owns ethics audits, and
@@ -43,7 +43,7 @@ Your tool access is governed by the runtime whitelist; see the common role contr
 
 - `branches/writer/paper/`: full read/write — this is your primary domain.
 - `branches/writer/`: full read/write (your role branch worktree).
-- Other roles' branches (`branches/coder/`, `branches/experimenter/`, …):
+- Other roles' branches (`branches/coder/`, `branches/noter/`, …):
   **read-only** for consuming experiment results, figures, and code. Request
   edits through EACN.
 - `branches/writer/template/` or any `template/` reference material:

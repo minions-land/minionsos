@@ -472,11 +472,11 @@ def test_dormant_kills_role_tmux_sessions(tmp_path: Path, monkeypatch: pytest.Mo
     assert len(killed) == 2
 
 
-def test_revive_relaunches_roles_with_resume(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """project_revive must call launch_role_process(..., resume=True) for
-    every restored role so prior conversation history is reattached."""
+def test_revive_relaunches_roles_cold(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """project_revive must call launch_role_process(..., resume=False) for
+    every restored role. Resuming would reset Claude Code's prompt cache and
+    replay the prior conversation as fresh uncached input; cold-starting and
+    rebuilding context from the Exploration DAG is strictly cheaper."""
     port = 40115
     store, entry, pdir = _seed_project(tmp_path, port=port)
     role = RoleEntry(name="coder", state="dismissed", eacn_agent_id="coder")
@@ -529,6 +529,6 @@ def test_revive_relaunches_roles_with_resume(
 
     proj_mod.project_revive(port, store=store)
 
-    assert launched == [{"role": "coder", "port": port, "resume": True}]
+    assert launched == [{"role": "coder", "port": port, "resume": False}]
     role_after = store.get_project(port).active_roles[0]  # type: ignore[union-attr]
     assert role_after.state == "sleeping"

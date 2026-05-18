@@ -55,8 +55,10 @@ from minions.logging_setup import configure_logging
 from minions.paths import STATE_DIR
 from minions.state.store import StateStore
 from minions.tools import await_events as _await_events
+from minions.tools import compact as _compact
 from minions.tools import experiment_ssh as _exp
 from minions.tools import exploration_dag as _dag
+from minions.tools import noter_wait as _noter_wait
 from minions.tools import paper_search as _paper_search
 from minions.tools import publish as _publish
 from minions.tools import reset as _reset
@@ -71,6 +73,7 @@ _GRU_START_MONITOR_INTERVAL: int | None = None
 mcp = FastMCP("minions")
 
 _MINIONS_MCP_TOOL_NAMES = {
+    "mos_compact_context",
     "mos_reset_context",
     "mos_dag_annotate",
     "mos_dag_append",
@@ -83,6 +86,7 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_download_medrxiv",
     "mos_download_pubmed",
     "mos_await_events",
+    "mos_noter_wait",
     "mos_get_events",
     "mos_unread_summary",
     "mos_exp_get",
@@ -295,7 +299,7 @@ class ProjectCheckpointArgs(BaseModel):
 class PublishToSharedArgs(BaseModel):
     role: str = Field(
         description=(
-            "Calling role name (gru, noter, ethics, experimenter, writer, "
+            "Calling role name (gru, noter, ethics, writer, "
             "coder, expert, or expert-<slug>). Used for the per-role "
             "subdir policy."
         )
@@ -329,7 +333,7 @@ class PublishToSharedArgs(BaseModel):
 
 class SpawnRoleArgs(BaseModel):
     project_port: int
-    role: str = Field(description="Role name: noter, coder, experimenter, writer, or ethics.")
+    role: str = Field(description="Role name: noter, coder, writer, or ethics.")
     init_brief: str | None = Field(
         default=None, description="Initial EACN message to the new role."
     )
@@ -579,21 +583,23 @@ def mos_spawn_role(args: SpawnRoleArgs) -> dict:
 
     Side effects:
 
-    1. Registers a project-local EACN3 AgentCard for the role (so it can
-       receive direct messages and bid on tasks).
+    1. For EACN roles (coder, writer, ethics): registers a project-local
+       EACN3 AgentCard so it can receive messages and bid on tasks.
+       For noter: skips EACN registration (noter observes via read-only sources).
     2. Prepares the role's git branch worktree under
        ``project_{port}/branches/<role>/``.
     3. Starts a detached tmux session ``mos-{port}-{role}`` running
-       ``claude --append-system-prompt @SYSTEM.md ...`` — the role
-       enters its forever loop on ``mos_await_events``.
+       ``claude`` — EACN roles enter their forever loop on
+       ``mos_await_events``; noter uses ``mos_noter_wait``.
 
     Idempotent: calling this when the role's tmux session is already
     alive returns the existing session metadata without starting a
     second process.
 
-    ``role`` must be one of ``"noter"``, ``"coder"``, ``"experimenter"``,
+    ``role`` must be one of ``"noter"``, ``"coder"``,
     ``"writer"``, ``"ethics"``. For domain experts, use
-    ``mos_spawn_expert`` instead.
+    ``mos_spawn_expert`` instead. Writer is on-demand — spawn it when
+    the project enters a paper-writing phase.
 
     Returns ``{role, session_name, eacn_agent_id, started, attach_cmd}``.
     """
@@ -976,6 +982,25 @@ def mos_await_events() -> dict:
     return _await_events.await_events()
 
 
+# ── mos_noter_wait ──────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def mos_noter_wait() -> dict:
+    """Block for the noter periodic interval, then return a wake event.
+
+    Timer-based wait for the Noter role (which is not on EACN3). Sleeps for
+    ``noter_periodic_interval`` (default 5 min), writing heartbeat files
+    during sleep. Includes the same cache-keepalive guard as mos_await_events.
+
+    Returns {count: 1, events: [{type, delta, suggested_action}]}.
+
+    Identity read from env: MINIONS_PROJECT_PORT, MINIONS_WORKSPACE.
+    """
+    _require_tool_allowed("mos_noter_wait")
+    return _noter_wait.noter_wait()
+
+
 # ── Exploration DAG tools ──────────────────────────────────────────────
 
 
@@ -1100,6 +1125,40 @@ def mos_reset_context(args: MosResetArgs) -> dict:
     """
     _require_tool_allowed("mos_reset_context")
     return _reset.mos_reset_context(reason=args.reason)
+
+
+# ── mos_compact_context ───────────────────────────────────────────────────────
+
+
+class MosCompactArgs(BaseModel):
+    reason: str = Field(
+        default="",
+        description="Why compact is happening (e.g. context too large, switching direction).",
+    )
+    pending_plans: list[dict] = Field(
+        default_factory=list,
+        description=(
+            "Events or planned steps to persist as pending_plan DAG nodes. "
+            "Each dict needs at minimum 'type' and 'text' fields."
+        ),
+    )
+
+
+@mcp.tool()
+def mos_compact_context(args: MosCompactArgs) -> dict:
+    """Compress conversation context without killing the process.
+
+    Persists pending plans to the DAG, then schedules /compact. Unlike
+    mos_reset_context, this preserves the prompt cache (no cold start).
+    After calling this, STOP immediately — produce no more tool calls or
+    text. The /compact fires as the next input after your turn ends.
+    Then call mos_await_events() to resume.
+    """
+    _require_tool_allowed("mos_compact_context")
+    return _compact.mos_compact_context(
+        reason=args.reason,
+        pending_plans=args.pending_plans or None,
+    )
 
 
 # ── Resident-Role tmux helpers ─────────────────────────────────────────
