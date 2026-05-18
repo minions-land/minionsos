@@ -1,7 +1,7 @@
 line-length = 100
 target-version = "py311"
 exclude = [
-    "EACN3/",
+    "mcp-servers/eacn3/",
     ".venv/",
     "__pycache__/",
     "examples/",

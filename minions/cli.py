@@ -312,13 +312,13 @@ def doctor(
         eacn_cmd = str(eacn3.get("command") or "")
         eacn_args = eacn3.get("args") or []
         eacn_direct = eacn_cmd == "node" and any(
-            "EACN3/plugin/dist/server.js" in str(arg) for arg in eacn_args
+            "mcp-servers/eacn3/plugin/dist/server.js" in str(arg) for arg in eacn_args
         )
         _check(
             "codex-mcp-eacn3-direct",
             eacn_direct,
             (
-                "node EACN3/plugin/dist/server.js"
+                "node mcp-servers/eacn3/plugin/dist/server.js"
                 if eacn_direct
                 else f"cmd={eacn_cmd!r} args={eacn_args}"
             ),

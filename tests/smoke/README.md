@@ -16,7 +16,7 @@ via the `codex-subagent` MCP and is not exercised by this scenario.
 
 - `./install.sh` completed without errors.
 - `uv`, `node >=16`, and `git` are on PATH.
-- EACN3 submodule is present (`EACN3/pyproject.toml` exists).
+- EACN3 source is present (`mcp-servers/eacn3/pyproject.toml` exists).
 - At least one free port in 37596–37999.
 
 ---

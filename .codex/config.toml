@@ -13,10 +13,10 @@ approval_mode = "approve"
 # long-poll scheduler that delivers events to roles in their init prompt.
 [mcp_servers.eacn3]
 command = "node"
-args = ["EACN3/plugin/dist/server.js"]
+args = ["mcp-servers/eacn3/plugin/dist/server.js"]
 enabled = true
 
 [mcp_servers.codex-subagent]
 command = "node"
-args = ["tools/codex-subagent/dist/server.js"]
+args = ["mcp-servers/codex-subagent/dist/server.js"]
 enabled = true

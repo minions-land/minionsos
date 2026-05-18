@@ -26,7 +26,7 @@ class TestMcpConfigMountsEacn3:
         eacn3 = cfg["mcpServers"]["eacn3"]
         assert eacn3["command"] == "node"
         args = eacn3["args"]
-        assert any("EACN3/plugin/dist/server.js" in a for a in args), args
+        assert any("mcp-servers/eacn3/plugin/dist/server.js" in a for a in args), args
 
 
 class TestCodexMcpConfigMountsEacn3:
@@ -46,7 +46,7 @@ class TestCodexMcpConfigMountsEacn3:
         eacn3 = cfg["mcp_servers"]["eacn3"]
         assert eacn3["command"] == "node"
         args = eacn3["args"]
-        assert any("EACN3/plugin/dist/server.js" in a for a in args), args
+        assert any("mcp-servers/eacn3/plugin/dist/server.js" in a for a in args), args
 
 
 class TestInstallShMandatoryPluginBuild:

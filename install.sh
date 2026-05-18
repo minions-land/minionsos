@@ -65,8 +65,8 @@ ensure_launchers
 ok "Launcher permissions ready"
 
 # ── 0. Submodule guard ────────────────────────────────────────────────────────
-if [ ! -f "$ROOT/EACN3/pyproject.toml" ] && [ ! -f "$ROOT/EACN3/setup.py" ]; then
-    die "EACN3 submodule is missing or empty.\n       Run: git submodule update --init --recursive\n       Then re-run ./install.sh"
+if [ ! -f "$ROOT/mcp-servers/eacn3/pyproject.toml" ] && [ ! -f "$ROOT/mcp-servers/eacn3/setup.py" ]; then
+    die "EACN3 source is missing or empty at mcp-servers/eacn3/.\n       Run: git submodule update --init --recursive\n       Then re-run ./install.sh"
 fi
 
 # ── 1. Bootstrap uv ───────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ ok "uv sync complete"
 
 # ── 4. Install EACN3 editable ─────────────────────────────────────────────────
 info "Installing EACN3 (editable)..."
-uv_project pip install --python "$PROJECT_PYTHON" -e ./EACN3
+uv_project pip install --python "$PROJECT_PYTHON" -e ./mcp-servers/eacn3
 ok "EACN3 installed"
 
 # ── 5. Build EACN3 MCP plugin ─────────────────────────────────────────────────
@@ -138,12 +138,12 @@ else
     fi
 
     info "Building EACN3 MCP plugin (npm dependency install + build)..."
-    if ! (npm_project_install "$ROOT/EACN3/plugin" && cd "$ROOT/EACN3/plugin" && npm run build); then
+    if ! (npm_project_install "$ROOT/mcp-servers/eacn3/plugin" && cd "$ROOT/mcp-servers/eacn3/plugin" && npm run build); then
         die "EACN3 plugin build failed.\n       Inspect the output above; fix the error, then re-run ./install.sh."
     fi
-    PLUGIN_DIST="$ROOT/EACN3/plugin/dist/server.js"
+    PLUGIN_DIST="$ROOT/mcp-servers/eacn3/plugin/dist/server.js"
     if [ ! -f "$PLUGIN_DIST" ]; then
-        die "EACN3 plugin build reported success but $PLUGIN_DIST is missing.\n       This indicates a broken build script in EACN3/plugin/."
+        die "EACN3 plugin build reported success but $PLUGIN_DIST is missing.\n       This indicates a broken build script in mcp-servers/eacn3/plugin/."
     fi
     ok "EACN3 MCP plugin built: $PLUGIN_DIST"
 
@@ -200,7 +200,7 @@ enabled = true
 
 [mcp_servers.eacn3]
 command = "node"
-args = ["EACN3/plugin/dist/server.js"]
+args = ["mcp-servers/eacn3/plugin/dist/server.js"]
 enabled = true
 EOF
     ok "Created Codex MCP config: .codex/config.toml"

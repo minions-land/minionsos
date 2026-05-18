@@ -1,12 +1,12 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. **Claude Code is the primary and default agent host** for every Role. Codex is no longer used to host a Role process directly — it is reachable as a sub-agent through the `codex-subagent` MCP server (`tools/codex-subagent/`) when a Role wants to delegate high-intensity execution to GPT-5.5. Keep that delegation path working when refactoring; do not ground new Role behavior in Codex-as-host.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. **Claude Code is the primary and default agent host** for every Role. Codex is no longer used to host a Role process directly — it is reachable as a sub-agent through the `codex-subagent` MCP server (`mcp-servers/codex-subagent/`) when a Role wants to delegate high-intensity execution to GPT-5.5. Keep that delegation path working when refactoring; do not ground new Role behavior in Codex-as-host.
 
 ## Project overview
 
 MinionsOS is a local multi-agent operating system for running autonomous research projects. A persistent Gru process supervises many isolated paper-sized projects; each project has its own EACN3 backend, git worktree, artifacts, logs, role scratchpads, and long-lived Role processes hosted by Claude Code. Roles may delegate high-intensity execution to Codex GPT-5.5 through the `codex-subagent` MCP, but Codex never hosts a Role process directly.
 
-`EACN3/` is a local editable dependency pinned through `pyproject.toml` and `uv.lock`. Treat it as a dependency boundary during normal MinionsOS work: prefer EACN MCP tools and the MinionsOS adapter modules over hand-written HTTP calls or incidental edits inside `EACN3/`.
+`mcp-servers/eacn3/` is a local editable dependency pinned through `pyproject.toml` and `uv.lock`. Treat it as a dependency boundary during normal MinionsOS work: prefer EACN MCP tools and the MinionsOS adapter modules over hand-written HTTP calls or incidental edits inside `mcp-servers/eacn3/`.
 
 ## Common commands
 
@@ -57,7 +57,7 @@ npm run build
 npm start
 ```
 
-Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, `virtualenv`, or bare `python -m venv` in workflow steps. The package requires Python 3.11+ and uses `uv.lock` plus the editable `EACN3` source configured in `pyproject.toml`.
+Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, `virtualenv`, or bare `python -m venv` in workflow steps. The package requires Python 3.11+ and uses `uv.lock` plus the editable EACN3 source at `mcp-servers/eacn3/` configured in `pyproject.toml`.
 
 ## Architecture map
 
@@ -73,7 +73,8 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/review/` — paper-review prompt assets (SYSTEM.md, skills, personas, templates) consumed by the `mos_review_run` MCP tool. Review is **not** a Role and is not registered on EACN.
 - `minions/domains/*.md` — Expert domain packs used as reusable specialty assets.
 - `minions-viz/` — read-only Observatory dashboard, Express/WebSocket server plus React/Vite frontend.
-- `EACN3/` — local editable EACN3 dependency.
+- `EACN3` — local editable EACN3 dependency (lives at `mcp-servers/eacn3/`).
+- `mcp-servers/` — standalone MCP servers registered in `.mcp.json`. `mcp-servers/README.md` is the canonical registry. Currently houses `eacn3/` (the EACN3 dep + its Node plugin) and `codex-subagent/` (Node bridge to Codex GPT-5.5). The `minionsos` MCP server itself lives inside the Python package at `minions/tools/mcp_server.py` for import-graph reasons; see `mcp-servers/minionsos.md` for why.
 - `project_{port}/` — runtime projects created by Gru; gitignored.
 
 ### Python package responsibilities
@@ -93,7 +94,7 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/tools/experiment_scheduler.py` keeps the SQLite-backed project experiment queue and GPU packing logic.
 - `minions/tools/paper_search.py` implements Writer paper-search helpers exposed through MCP.
 - `minions/tools/whitelist.py` resolves allowed tool surfaces for main roles vs. subagents.
-- `tools/codex-subagent/` is a standalone Node MCP server that exposes Codex GPT-5.5 to Claude Code roles as a full-access sub-agent for high-intensity execution (single `codex` tool: read-only analysis or full-access delegation, controlled via the `sandbox` arg).
+- `mcp-servers/codex-subagent/` is a standalone Node MCP server that exposes Codex GPT-5.5 to Claude Code roles as a full-access sub-agent for high-intensity execution (single `codex` tool: read-only analysis or full-access delegation, controlled via the `sandbox` arg).
 
 ### Runtime project model
 

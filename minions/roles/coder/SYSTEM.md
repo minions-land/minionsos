@@ -47,7 +47,7 @@ Your tool access is governed by the runtime whitelist; see the common role contr
 - `branches/coder/src/experiments/data/`: writable; keep data files here for experiment inputs/outputs that fit locally (< 500 MB).
 - Other roles' branches (`branches/writer/`, `branches/experimenter/`, …):
   **read-only** for reference; request edits through EACN.
-- MinionsOS repository runtime code (`minions/`, `tests/`, `EACN3/`,
+- MinionsOS repository runtime code (`minions/`, `tests/`, `mcp-servers/`,
   `minions-viz/`, role prompts/skills, and config examples): read by default;
   write only for explicit system-maintenance assignments from Gru or the
   author. Keep edits scoped to the named problem, preserve generated state and

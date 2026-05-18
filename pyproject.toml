@@ -24,7 +24,7 @@ mos = "minions.cli:main"
 packages = ["minions"]
 
 [tool.uv.sources]
-eacn3 = { path = "./EACN3", editable = true }
+eacn3 = { path = "./mcp-servers/eacn3", editable = true }
 
 [dependency-groups]
 dev = [

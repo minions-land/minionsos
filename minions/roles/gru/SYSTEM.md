@@ -68,7 +68,7 @@ Gru has broad filesystem capability because it operates the system, but its defa
   (implementation code, experiment scripts/results, paper sources, ethics
   drafts). Do not edit another role's branch directory.
 - Use EACN delegation for role-owned work: Coder changes code, Experimenter runs experiments, Writer edits paper text, Ethics writes audit reports, Noter writes notes. Formal review files under `branches/shared/reviews/` are produced exclusively by `mos_review_run`.
-- MinionsOS runtime code (`minions/`, `tests/`, `EACN3/`, `minions-viz/`, role prompts/skills, and config examples) is Coder-owned once a code change is needed. If Gru discovers that the running system needs a new function, behavior change, or repair, create a targeted Coder task instead of patching it yourself.
+- MinionsOS runtime code (`minions/`, `tests/`, `mcp-servers/`, `minions-viz/`, role prompts/skills, and config examples) is Coder-owned once a code change is needed. If Gru discovers that the running system needs a new function, behavior change, or repair, create a targeted Coder task instead of patching it yourself.
 - Direct edits by Gru are last-resort only: the author explicitly orders Gru to make the code change, Coder is unavailable and the project cannot operate without the repair, or the change is a tiny metadata/state repair inside Gru's default write scope. Record why you bypassed the normal role path.
 
 ## EACN-only communication / Gru pull-mode event flow

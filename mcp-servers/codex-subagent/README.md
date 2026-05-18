@@ -28,7 +28,7 @@ Returns: files changed, commands run (with output), token usage, final message.
 ## Install
 
 ```bash
-cd tools/codex-subagent
+cd mcp-servers/codex-subagent
 npm install
 npm run build
 ```

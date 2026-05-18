@@ -332,7 +332,7 @@ wheels = [
 [[package]]
 name = "eacn3"
 version = "0.6.1"
-source = { editable = "EACN3" }
+source = { editable = "mcp-servers/eacn3" }
 dependencies = [
     { name = "aiosqlite" },
     { name = "fastapi" },
@@ -741,7 +741,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "eacn3", editable = "EACN3" },
+    { name = "eacn3", editable = "mcp-servers/eacn3" },
     { name = "fastmcp", specifier = ">=0.2" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "pydantic", specifier = ">=2.0" },

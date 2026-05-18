@@ -1,0 +1,51 @@
+# MCP Servers
+
+This directory holds the standalone MCP servers that MinionsOS registers in `.mcp.json`. It is the single physical home for every MCP this repo ships, so a developer or operator can audit "what MCPs does MinionsOS expose" by running `ls mcp-servers/`.
+
+The Python entry-point MCP (`minionsos`) intentionally lives elsewhere — inside the Python package at `minions/tools/mcp_server.py`. That decision is documented in `minionsos.md`. Treat this README plus that doc card as the canonical MCP registry.
+
+## Registry
+
+| Server | Physical location | Language | Entry | Tools (selection) |
+|---|---|---|---|---|
+| `minionsos` | `minions/tools/mcp_server.py` | Python (FastMCP) | `uv run --project . python -m minions.tools.mcp_server` | `mos_*` lifecycle (project create/close/spawn_role), `mos_publish_to_shared`, `mos_dag_*`, `mos_review_run`, `mos_await_events`, experiment `exp_*`, paper-search `*_paper`, `mos_project_bridge` |
+| `eacn3` | `mcp-servers/eacn3/plugin/` (built to `dist/server.js`) | Node / TypeScript | `node mcp-servers/eacn3/plugin/dist/server.js` | `eacn3_send_message`, `eacn3_create_task`, `eacn3_submit_bid`, `eacn3_submit_result`, `eacn3_list_*`, `eacn3_get_*` |
+| `codex-subagent` | `mcp-servers/codex-subagent/` (built to `dist/server.js`) | Node / TypeScript | `node mcp-servers/codex-subagent/dist/server.js` | single tool: `codex` (read-only analysis or full-access delegation, controlled via `sandbox`) |
+
+All three are wired into the workspace via the top-level `.mcp.json` (Claude Code) and `.codex/config.toml` (Codex). Adding a new MCP requires editing both files in addition to dropping the implementation here (or, for a Python-package-coupled server, inside `minions/`).
+
+## Build / install
+
+```bash
+# Python MCP — installed by uv sync; no manual build.
+./install.sh                                # full project bootstrap, including MCP plugin builds.
+
+# Node MCPs — install.sh handles them, but for individual rebuilds:
+(cd mcp-servers/eacn3/plugin && npm install && npm run build)
+(cd mcp-servers/codex-subagent && npm install && npm run build)
+```
+
+`install.sh` is idempotent and is the supported way to set everything up. Running individual `npm install` / `npm run build` is for re-building a single server after edits.
+
+## Skill management vs MCP management
+
+These two registries are deliberately different shapes. Both are first-class, but the conventions differ:
+
+| Aspect | Skill management | MCP management |
+|---|---|---|
+| Source of truth | `minions/lifecycle/skills.py:list_skills(role)` | `.mcp.json` + `.codex/config.toml` |
+| Discovery | Automatic — non-recursive `glob("*.md")` over `minions/roles/{role}/skills/` and `minions/roles/common/skills/` | Explicit — every server is named in the config files |
+| Adding a new entry | Drop a `.md` file in the right `skills/` directory; it appears in the role's `[Skills]` block on the next wake | Implement the server, add an entry to `.mcp.json` and `.codex/config.toml`, register it in `minions/tools/whitelist.py` if access control matters, add coverage in `tests/unit/test_eacn3_plugin_wiring.py` style |
+| Hiding sub-content | Nest sub-skills into a same-named subdirectory (orchestrator + nested files); the non-recursive glob hides them while orchestrator links them by relative path | Not applicable — every MCP server is a top-level concern |
+| Doc surface | `SKILL.md` frontmatter `summary:` populates the discovery summary | `mcp-servers/README.md` (this file) for human registry; the server's own README/help for tool docs |
+
+Skills can be added/reorganised without touching code paths; MCP servers cannot. That's why MCP additions need the heavier checklist above and why this registry is hand-maintained rather than auto-generated.
+
+## What lives in here vs `minions/tools/`
+
+`minions/tools/` is the Python tools package — 14 sibling modules used by both the MinionsOS lifecycle code and the `minionsos` MCP server. Roughly:
+
+- `minions/tools/mcp_server.py` — the FastMCP entry that wraps everything else and gets exposed as the `minionsos` MCP.
+- `minions/tools/publish.py`, `experiment_ssh.py`, `experiment_scheduler.py`, `paper_search.py`, `await_events.py`, `whitelist.py`, etc. — the implementation modules the MCP server calls into.
+
+`mcp-servers/` is the separate-process / separate-language home. If you add a Python MCP whose internals are tightly coupled to `minions/lifecycle/` (the way `mcp_server.py` is), keep it inside `minions/tools/` and document it as a card in this directory. If you add a Node or external-process MCP, it lives here as its own folder.

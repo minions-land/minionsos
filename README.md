@@ -99,7 +99,9 @@ minions/
   config/*.yaml.example     # local config templates
 
 minions-viz/                # read-only React/Vite dashboard
-EACN3/                      # local editable EACN3 dependency
+mcp-servers/                # standalone MCP servers
+  eacn3/                    # local editable EACN3 dependency (Python + Node plugin)
+  codex-subagent/           # Codex GPT-5.5 sub-agent bridge (Node)
 tests/unit/                 # fast behavior tests
 tests/smoke/                # integration-style smoke checks
 ```
@@ -139,7 +141,7 @@ cd MinionsOS
 ```
 
 `install.sh` is idempotent. It bootstraps `uv` when needed, syncs Python
-dependencies, installs the local editable `EACN3/` package, builds the EACN3 MCP
+dependencies, installs the local editable `mcp-servers/eacn3/` package, builds the EACN3 MCP
 plugin, builds MinionsVIZ when needed, creates launcher symlinks, and copies
 `minions/config/*.yaml.example` to local `.yaml` files without overwriting
 existing config. It also ensures `.codex/config.toml` exists for Codex MCP
@@ -527,7 +529,9 @@ minions/
   config/*.yaml.example     # 本地配置模板
 
 minions-viz/                # 只读 React/Vite 仪表盘
-EACN3/                      # 本地 editable EACN3 依赖
+mcp-servers/                # 独立 MCP server
+  eacn3/                    # 本地 editable EACN3 依赖（Python + Node 插件）
+  codex-subagent/           # Codex GPT-5.5 子代理桥接（Node）
 tests/unit/                 # 快速单元测试
 tests/smoke/                # 集成式 smoke 检查
 ```
@@ -565,7 +569,7 @@ cd MinionsOS
 ```
 
 `install.sh` 可以重复执行：它会按需自举 `uv`、同步 Python 依赖、editable 安装本地
-`EACN3/`、构建 EACN3 MCP 插件、按需构建 MinionsVIZ、创建启动脚本链接，并把
+`mcp-servers/eacn3/`、构建 EACN3 MCP 插件、按需构建 MinionsVIZ、创建启动脚本链接，并把
 `minions/config/*.yaml.example` 复制为本地 `.yaml` 配置且不覆盖已有文件。它也会确保
 Codex 使用的 `.codex/config.toml` 存在。
 
