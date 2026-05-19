@@ -196,14 +196,33 @@ app.get("/api/mos/project/:port/wiki", (req, res) => {
   const g = getGru(p.gruId);
   if (!g) return res.status(404).json({ error: "unknown gru" });
   const wikiDir = path.join(projectDirFor(g.rootPath, p.port), "branches", "shared", "wiki");
+  const MAX_ENTRIES = 500;
+  const MAX_BYTES_PER_FILE = 256 * 1024;
   try {
     const entries: any[] = [];
     if (fs.existsSync(wikiDir)) {
-      const files = fs.readdirSync(wikiDir).filter(f => f.endsWith('.md'));
-      for (const file of files) {
-        const content = fs.readFileSync(path.join(wikiDir, file), 'utf8');
-        const title = file.replace('.md', '');
-        entries.push({ title, content, updated_at: fs.statSync(path.join(wikiDir, file)).mtime });
+      const stack: string[] = [wikiDir];
+      while (stack.length && entries.length < MAX_ENTRIES) {
+        const dir = stack.pop()!;
+        for (const name of fs.readdirSync(dir)) {
+          const abs = path.join(dir, name);
+          const st = fs.statSync(abs);
+          if (st.isDirectory()) {
+            stack.push(abs);
+          } else if (st.isFile() && name.endsWith(".md") && st.size <= MAX_BYTES_PER_FILE) {
+            const rel = path.relative(wikiDir, abs).replace(/\\/g, "/");
+            const title = rel.replace(/\.md$/, "");
+            const kind = rel.includes("/") ? rel.split("/")[0] : "root";
+            entries.push({
+              title,
+              path: rel,
+              kind,
+              content: fs.readFileSync(abs, "utf8"),
+              updated_at: st.mtime,
+            });
+            if (entries.length >= MAX_ENTRIES) break;
+          }
+        }
       }
     }
     res.json({ entries });
@@ -216,10 +235,48 @@ app.get("/api/mos/project/:port/knowledge-graph", (req, res) => {
   const p = resolveGruAndPort(req, res); if (!p) return;
   const g = getGru(p.gruId);
   if (!g) return res.status(404).json({ error: "unknown gru" });
-  const kgFile = path.join(projectDirFor(g.rootPath, p.port), "knowledge-graph.json");
+  const projectDir = projectDirFor(g.rootPath, p.port);
+  const corpusFile = path.join(projectDir, "branches", "shared", "exploration", "corpus_graph.json");
+  const legacyFile = path.join(projectDir, "knowledge-graph.json");
+  const MAX_ENTITIES = 2000;
   try {
-    const raw = fs.readFileSync(kgFile, "utf8");
-    res.json(JSON.parse(raw));
+    const file = fs.existsSync(corpusFile) ? corpusFile : legacyFile;
+    const raw = fs.readFileSync(file, "utf8");
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const rawNodes = Array.isArray(parsed.nodes)
+      ? (parsed.nodes as Array<Record<string, unknown>>)
+      : Array.isArray(parsed.entities)
+        ? (parsed.entities as Array<Record<string, unknown>>)
+        : [];
+    const rawLinks = Array.isArray(parsed.links)
+      ? (parsed.links as Array<Record<string, unknown>>)
+      : Array.isArray(parsed.relations)
+        ? (parsed.relations as Array<Record<string, unknown>>)
+        : [];
+    const entities = rawNodes.slice(0, MAX_ENTITIES).map((n) => {
+      const id = String(n.id ?? n.name ?? "");
+      const labelKey = ["name", "label", "title", "text"].find((k) => n[k] != null);
+      return {
+        id,
+        name: labelKey ? String(n[labelKey]) : id,
+        type: String(n.type ?? "node"),
+        properties: typeof n.properties === "object" ? n.properties : undefined,
+      };
+    });
+    const allowed = new Set(entities.map((e) => e.id));
+    const endpointId = (v: unknown): string => {
+      if (v && typeof v === "object" && "id" in v) return String((v as Record<string, unknown>).id ?? "");
+      return v == null ? "" : String(v);
+    };
+    const relations = rawLinks
+      .map((l) => ({
+        source: endpointId(l.source),
+        target: endpointId(l.target),
+        relation: String(l.relation ?? l.label ?? l.type ?? "related"),
+        properties: typeof l.properties === "object" ? l.properties : undefined,
+      }))
+      .filter((r) => r.source && r.target && allowed.has(r.source) && allowed.has(r.target));
+    res.json({ entities, relations });
   } catch {
     res.json({ entities: [], relations: [] });
   }

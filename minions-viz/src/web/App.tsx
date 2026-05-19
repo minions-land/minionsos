@@ -198,6 +198,20 @@ export default function App() {
         >
           DAG
         </button>
+        <button
+          className={"tab" + (view === "wiki" ? " active" : "")}
+          onClick={() => setView("wiki")}
+          disabled={showPicker}
+        >
+          📚 Wiki
+        </button>
+        <button
+          className={"tab" + (view === "knowledge" ? " active" : "")}
+          onClick={() => setView("knowledge")}
+          disabled={showPicker}
+        >
+          🧠 Knowledge
+        </button>
       </nav>
     </div>
   );
