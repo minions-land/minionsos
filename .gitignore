@@ -39,6 +39,13 @@ project_*/artifacts/
 project_*/artifacts/ethics/
 project_*/memory/
 project_*/logs/
+project_*/branches/
+project_*/state/
+project_*/events/
+project_*/parent_repo.git/
+
+# Generated test-suite overview page (regenerated from pytest collection)
+tests/_overview.html
 
 # Node
 node_modules/

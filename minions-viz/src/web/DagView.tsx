@@ -26,20 +26,20 @@ const STATUS_OPACITY: Record<string, number> = {
   out_of_scope: 0.35,
 };
 
-const RELATION_STYLES: Record<string, { dash: string; color: string }> = {
-  refines: { dash: "", color: "rgba(160,180,220,0.4)" },
-  tests: { dash: "6 3", color: "rgba(251,146,60,0.5)" },
-  supports: { dash: "", color: "rgba(52,211,153,0.5)" },
-  contradicts: { dash: "4 4", color: "rgba(248,113,113,0.6)" },
-  depends_on: { dash: "", color: "rgba(96,165,250,0.4)" },
-  derived_from: { dash: "8 4", color: "rgba(192,132,252,0.4)" },
-  supersedes: { dash: "", color: "rgba(251,191,36,0.5)" },
-  cites: { dash: "2 4", color: "rgba(148,163,184,0.35)" },
-  blocks: { dash: "4 2", color: "rgba(248,113,113,0.5)" },
+const RELATION_STYLES: Record<string, { dash: string; color: string; width: number }> = {
+  refines: { dash: "", color: "rgba(160,180,220,0.5)", width: 2 },
+  tests: { dash: "6 3", color: "rgba(251,146,60,0.6)", width: 2.5 },
+  supports: { dash: "", color: "rgba(52,211,153,0.6)", width: 2.5 },
+  contradicts: { dash: "4 4", color: "rgba(248,113,113,0.7)", width: 2.5 },
+  depends_on: { dash: "", color: "rgba(96,165,250,0.5)", width: 2 },
+  derived_from: { dash: "8 4", color: "rgba(192,132,252,0.5)", width: 2 },
+  supersedes: { dash: "", color: "rgba(251,191,36,0.6)", width: 2 },
+  cites: { dash: "2 4", color: "rgba(148,163,184,0.4)", width: 1.5 },
+  blocks: { dash: "4 2", color: "rgba(248,113,113,0.6)", width: 2.5 },
 };
 
-const NODE_RADIUS = 24;
-const LABEL_OFFSET = 32;
+const NODE_RADIUS = 28;
+const LABEL_OFFSET = 38;
 
 // ── Force simulation ──────────────────────────────────────────────
 
@@ -53,6 +53,7 @@ interface SimNode {
   fy: number | null;
   data: DagNode;
   timeRank: number;
+  layer: number; // Hierarchical layer for better visual organization
 }
 
 interface SimEdge {
@@ -61,23 +62,137 @@ interface SimEdge {
   data: DagEdge;
 }
 
+// Compute hierarchical layers using topological sort
+function computeHierarchicalLayers(nodes: DagNode[], edges: DagEdge[]): Map<string, number> {
+  const layers = new Map<string, number>();
+  const inDegree = new Map<string, number>();
+  const outEdges = new Map<string, string[]>();
+
+  // Initialize
+  nodes.forEach(n => {
+    inDegree.set(n.id, 0);
+    outEdges.set(n.id, []);
+  });
+
+  // Build graph
+  edges.forEach(e => {
+    inDegree.set(e.to_id, (inDegree.get(e.to_id) || 0) + 1);
+    outEdges.get(e.from_id)?.push(e.to_id);
+  });
+
+  // Topological sort with layer assignment
+  const queue: string[] = [];
+  nodes.forEach(n => {
+    if (inDegree.get(n.id) === 0) {
+      queue.push(n.id);
+      layers.set(n.id, 0);
+    }
+  });
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const currentLayer = layers.get(current) || 0;
+
+    outEdges.get(current)?.forEach(next => {
+      const deg = inDegree.get(next)! - 1;
+      inDegree.set(next, deg);
+
+      const nextLayer = Math.max(layers.get(next) || 0, currentLayer + 1);
+      layers.set(next, nextLayer);
+
+      if (deg === 0) {
+        queue.push(next);
+      }
+    });
+  }
+
+  // Handle cycles - assign remaining nodes to layer 0
+  nodes.forEach(n => {
+    if (!layers.has(n.id)) {
+      layers.set(n.id, 0);
+    }
+  });
+
+  return layers;
+}
+
+// Compute hierarchical layers using topological sort
+function computeHierarchicalLayers(nodes: DagNode[], edges: DagEdge[]): Map<string, number> {
+  const layers = new Map<string, number>();
+  const inDegree = new Map<string, number>();
+  const outEdges = new Map<string, string[]>();
+
+  // Initialize
+  nodes.forEach(n => {
+    inDegree.set(n.id, 0);
+    outEdges.set(n.id, []);
+  });
+
+  // Build graph
+  edges.forEach(e => {
+    inDegree.set(e.to_id, (inDegree.get(e.to_id) || 0) + 1);
+    outEdges.get(e.from_id)?.push(e.to_id);
+  });
+
+  // Topological sort with layer assignment
+  const queue: string[] = [];
+  nodes.forEach(n => {
+    if (inDegree.get(n.id) === 0) {
+      queue.push(n.id);
+      layers.set(n.id, 0);
+    }
+  });
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const currentLayer = layers.get(current) || 0;
+
+    outEdges.get(current)?.forEach(next => {
+      const deg = inDegree.get(next)! - 1;
+      inDegree.set(next, deg);
+
+      const nextLayer = Math.max(layers.get(next) || 0, currentLayer + 1);
+      layers.set(next, nextLayer);
+
+      if (deg === 0) {
+        queue.push(next);
+      }
+    });
+  }
+
+  // Handle cycles - assign remaining nodes to layer 0
+  nodes.forEach(n => {
+    if (!layers.has(n.id)) {
+      layers.set(n.id, 0);
+    }
+  });
+
+  return layers;
+}
+
 function runForceStep(nodes: SimNode[], edges: SimEdge[], width: number, height: number) {
-  const alpha = 0.3;
-  const repulsion = 8000;
-  const attraction = 0.008;
-  const damping = 0.85;
-  const centerForce = 0.01;
-  const timeGravity = 0.02;
+  const alpha = 0.25;
+  const repulsion = 12000;
+  const attraction = 0.01;
+  const damping = 0.82;
+  const centerForce = 0.015;
+  const layerGravity = 0.08; // Strong layer-based vertical positioning
+  const timeGravity = 0.015;
 
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+  const maxLayer = Math.max(...nodes.map(n => n.layer || 0), 0);
 
-  // Repulsion (Barnes-Hut simplified: direct N^2 for small graphs)
+  // Repulsion with same-layer boost
   for (let i = 0; i < nodes.length; i++) {
     for (let j = i + 1; j < nodes.length; j++) {
       const a = nodes[i], b = nodes[j];
       let dx = b.x - a.x, dy = b.y - a.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const force = repulsion / (dist * dist);
+
+      // Stronger repulsion for same-layer nodes
+      const sameLayer = (a.layer === b.layer) ? 1.5 : 1.0;
+      const force = (repulsion * sameLayer) / (dist * dist);
+
       dx = (dx / dist) * force;
       dy = (dy / dist) * force;
       a.vx -= dx * alpha;
@@ -109,10 +224,17 @@ function runForceStep(nodes: SimNode[], edges: SimEdge[], width: number, height:
     node.vy += (cy - node.y) * centerForce * alpha;
   }
 
-  // Time-based vertical gravity (earlier nodes float up)
+  // Layer-based vertical positioning (main visual improvement)
   for (const node of nodes) {
-    const targetY = cy + (node.timeRank - 0.5) * height * 0.6;
-    node.vy += (targetY - node.y) * timeGravity * alpha;
+    const layerProgress = maxLayer > 0 ? (node.layer || 0) / maxLayer : 0.5;
+    const targetY = height * 0.15 + layerProgress * height * 0.7;
+    node.vy += (targetY - node.y) * layerGravity * alpha;
+  }
+
+  // Time-based horizontal nudge
+  for (const node of nodes) {
+    const targetX = cx + (node.timeRank - 0.5) * width * 0.3;
+    node.vx += (targetX - node.x) * timeGravity * alpha;
   }
 
   // Apply velocities
@@ -191,6 +313,9 @@ export default function DagView() {
 
     const { width, height } = sizeRef.current;
 
+    // Compute hierarchical layers
+    const layerMap = computeHierarchicalLayers(dag.nodes, dag.edges);
+
     // Compute rank based on sort mode
     let ranked: DagNode[];
     if (sortMode === "type") {
@@ -207,18 +332,21 @@ export default function DagView() {
     const existingMap = new Map(nodesRef.current.map((n) => [n.id, n]));
     const nodes: SimNode[] = dag.nodes.map((n) => {
       const existing = existingMap.get(n.id);
+      const layer = layerMap.get(n.id) || 0;
       if (existing) {
         existing.data = n;
         existing.timeRank = rankMap.get(n.id) ?? 0.5;
+        existing.layer = layer;
         return existing;
       }
       return {
         id: n.id,
-        x: width * 0.2 + Math.random() * width * 0.6,
-        y: height * 0.2 + Math.random() * height * 0.6,
+        x: width * 0.3 + Math.random() * width * 0.4,
+        y: height * 0.3 + Math.random() * height * 0.4,
         vx: 0, vy: 0, fx: null, fy: null,
         data: n,
         timeRank: rankMap.get(n.id) ?? 0.5,
+        layer,
       };
     });
 
