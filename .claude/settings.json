@@ -33,6 +33,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 minions/hooks/long_subagent_advisor.py",
+            "timeout": 3
+          }
+        ]
       }
     ],
     "PostToolUseFailure": [

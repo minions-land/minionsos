@@ -18,8 +18,10 @@ silently smoothed over.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Literal
 
 from minions.scaffold import contracts
@@ -538,6 +540,112 @@ def check_codex_on_restricted_role() -> list[Issue]:
     return issues
 
 
+_DISPATCH_POSTURE_THRESHOLD_DEFAULT = 0.15
+_DISPATCH_POSTURE_THRESHOLD_ENV = "MINIONS_AUDIT_DISPATCH_HEAVY_SELF_THRESHOLD"
+_DISPATCH_POSTURE_MIN_TURNS = 20  # below this, sample is too small to draw a conclusion
+
+
+def _dispatch_posture_threshold() -> float:
+    """Resolve the heavy_self threshold, allowing CI / test override."""
+    raw = os.environ.get(_DISPATCH_POSTURE_THRESHOLD_ENV)
+    if raw is None or raw == "":
+        return _DISPATCH_POSTURE_THRESHOLD_DEFAULT
+    try:
+        return float(raw)
+    except ValueError:
+        return _DISPATCH_POSTURE_THRESHOLD_DEFAULT
+
+
+def _live_role_session_paths(claude_root: Path) -> list[Path]:
+    """Find session jsonls whose recorded cwd still exists today.
+
+    A session whose cwd has been deleted (closed project, removed worktree)
+    reflects a contract version that is no longer running. Excluding those
+    keeps the audit focused on live posture, not archeology.
+    """
+    import json
+
+    paths: list[Path] = []
+    if not claude_root.exists():
+        return paths
+    for slug_dir in claude_root.iterdir():
+        if not slug_dir.is_dir():
+            continue
+        for jsonl in slug_dir.glob("*.jsonl"):
+            try:
+                with jsonl.open(encoding="utf-8") as fh:
+                    cwd: str | None = None
+                    for line in fh:
+                        try:
+                            obj = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        c = obj.get("cwd")
+                        if isinstance(c, str) and c:
+                            cwd = c
+                            break
+            except OSError:
+                continue
+            if cwd is None:
+                continue
+            if "/branches/" not in cwd:
+                continue  # not a Role main session
+            if not Path(cwd).exists():
+                continue  # archived / closed project
+            paths.append(jsonl)
+    return paths
+
+
+def check_dispatch_posture(
+    *,
+    claude_root: Path | None = None,
+) -> list[Issue]:
+    """Warn when live Role main sessions self-execute past the threshold.
+
+    The ``dispatcher-discipline`` skill says the main role process must
+    dispatch all heavy work to a Task / codex subagent, not Bash / Edit /
+    Write itself. This check counts ``tool_use`` records across live (cwd
+    still exists) Role main session jsonls. If ``heavy_self`` exceeds
+    ``MINIONS_AUDIT_DISPATCH_HEAVY_SELF_THRESHOLD`` (default 15%) it
+    raises an info-level Issue.
+
+    Silent pass when no live data exists yet — a freshly cloned repo
+    should not warn.
+    """
+    from minions.tools.cache_stats import compute_dispatch_posture
+
+    root = claude_root if claude_root is not None else Path.home() / ".claude" / "projects"
+    paths = _live_role_session_paths(root)
+    if not paths:
+        return []
+    posture = compute_dispatch_posture(paths)
+    if posture.total() < _DISPATCH_POSTURE_MIN_TURNS:
+        return []
+    threshold = _dispatch_posture_threshold()
+    pct = posture.heavy_self_pct()
+    if pct <= threshold:
+        return []
+    bucket_summary = ", ".join(
+        f"{b}={getattr(posture, b)}"
+        for b in ("dispatch", "coord", "heavy_self", "read_self", "misc")
+    )
+    return [
+        Issue(
+            "info",
+            "dispatch-posture",
+            (
+                f"Role main heavy_self={pct:.1%} > {threshold:.1%} threshold "
+                f"across {posture.total()} live tool_uses ({bucket_summary})."
+            ),
+            hint=(
+                "Main role is self-executing instead of dispatching. Open "
+                "minions/roles/common/skills/dispatcher-discipline.md and "
+                "delegate Bash / Edit / Write through Task or codex subagent."
+            ),
+        )
+    ]
+
+
 _ALL_CHECKS = (
     check_role_dirs_have_system_md,
     check_fixed_roles_have_dir,
@@ -552,6 +660,7 @@ _ALL_CHECKS = (
     check_subagent_not_broader_than_main,
     check_wildcard_tool_set_unchanged,
     check_codex_on_restricted_role,
+    check_dispatch_posture,
 )
 
 
@@ -568,6 +677,7 @@ __all__ = [
     "Severity",
     "audit",
     "check_codex_on_restricted_role",
+    "check_dispatch_posture",
     "check_fixed_roles_have_dir",
     "check_mcp_servers_have_doc_card",
     "check_mcp_servers_registered",

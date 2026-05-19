@@ -1,0 +1,12 @@
+[project]
+name = "minionsos-graphify-mcp"
+version = "0.1.0"
+description = "Per-project graphify (Layer 3 structural index) MCP server for MinionsOS."
+requires-python = ">=3.11"
+dependencies = [
+    "graphifyy>=0.8.13,<0.9",
+    "mcp>=1.0",
+]
+
+[tool.uv]
+package = false

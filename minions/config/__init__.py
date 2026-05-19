@@ -34,12 +34,15 @@ _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 _DURATION_RE = re.compile(r"^\s*(\d+)\s*([smhd]?)\s*$", re.IGNORECASE)
 _DURATION_UNITS = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}
-_WRITER_PAPER_SEARCH_TOOLS = [
+_PAPER_SEARCH_TOOLS = [
     "mos_search_arxiv",
     "mos_search_pubmed",
     "mos_search_biorxiv",
     "mos_search_medrxiv",
     "mos_search_google_scholar",
+    "mos_search_semantic",
+    "mos_search_papers_federated",
+    "mos_resolve_arxiv_ids",
     "mos_download_arxiv",
     "mos_download_pubmed",
     "mos_download_biorxiv",
@@ -91,6 +94,14 @@ _CODEX_BRIDGE_TOOLS = [
     "codex",
 ]
 
+# Cache-keepalive MCP tools. Available to every Role and every subagent so
+# the wait_bg / keepalive_now loop (driven by the bg_keepalive_nudge hook)
+# can run anywhere. The MCP server is registered globally in `.mcp.json`.
+_KEEPALIVE_TOOLS = [
+    "wait_bg",
+    "keepalive_now",
+]
+
 # DAG tools every role uses to inspect/extend the buffered DAG. They are
 # explicitly listed (not via the ``mos_dag_*`` glob) because
 # ``mos_dag_commit_shared`` is reserved for Noter/Gru — committing the
@@ -103,10 +114,29 @@ _DAG_RW_TOOLS = [
     "mos_dag_summary",
 ]
 
+_WIKI_READ_TOOLS = [
+    "mos_wiki_query",
+    "mos_wiki_hot_get",
+]
+
+# Read-only graphify MCP tools — Layer 3 structural index over branches/shared/.
+# Built by Noter periodic, served by mcp-servers/graphify/launcher.sh. Whitelisted
+# universally because every read is non-destructive; Noter is the only writer.
+_GRAPHIFY_READ_TOOLS = [
+    "mcp__graphify__query_graph",
+    "mcp__graphify__get_node",
+    "mcp__graphify__get_neighbors",
+    "mcp__graphify__get_community",
+    "mcp__graphify__god_nodes",
+    "mcp__graphify__graph_stats",
+    "mcp__graphify__shortest_path",
+]
+
 # Maps (role_name, agent_type) → list of allowed tool prefixes / names.
 # "main" = the top-level role agent-host process; "subagent" = spawned sub-processes.
 _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("gru", "main"): [
+        *_KEEPALIVE_TOOLS,
         "mos_project_bridge",
         "mos_project_checkpoint_workspace",
         "mos_project_create",
@@ -124,7 +154,14 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "mos_get_events",
         "mos_unread_summary",
         "mos_dag_*",
+        *_WIKI_READ_TOOLS,
+        *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
+        "mos_signboard_read",
+        "mos_signboard_set",
+        "mos_signboard_evaluate",
+        "mos_signboard_consume",
+        "mos_signboard_reopen",
         "mos_reset_context",
         "mos_compact_context",
         "mos_attach_role",
@@ -136,6 +173,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "mos_review_run",
         "mos_start_monitor",
         *_CODEX_BRIDGE_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -143,11 +181,25 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Write",
         "Edit",
     ],
-    ("gru", "subagent"): ["WebSearch", "WebFetch", "Bash", "Read", "Write", "Edit"],
+    ("gru", "subagent"): [
+        *_KEEPALIVE_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
+        "WebSearch",
+        "WebFetch",
+        "Bash",
+        "Read",
+        "Write",
+        "Edit",
+    ],
     ("noter", "main"): [
+        *_KEEPALIVE_TOOLS,
         "mos_noter_wait",
         "mos_dag_*",
+        "mos_wiki_ingest",
+        *_WIKI_READ_TOOLS,
+        *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
+        "mos_signboard_read",
         "mos_reset_context",
         "mos_compact_context",
         "Task",
@@ -155,12 +207,17 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "WebFetch",
         "Read",
     ],
-    ("noter", "subagent"): ["WebSearch", "WebFetch", "Read", "Write", "Edit"],
+    ("noter", "subagent"): [*_KEEPALIVE_TOOLS, "WebSearch", "WebFetch", "Read", "Write", "Edit"],
     ("coder", "main"): [
+        *_KEEPALIVE_TOOLS,
         "eacn3_*",
         "mos_await_events",
         *_DAG_RW_TOOLS,
+        *_WIKI_READ_TOOLS,
+        *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
+        "mos_signboard_read",
+        "mos_signboard_set",
         "mos_reset_context",
         "mos_compact_context",
         "Task",
@@ -185,6 +242,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("coder", "subagent"): [
+        *_KEEPALIVE_TOOLS,
         *_CODEX_BRIDGE_TOOLS,
         "mos_exp_run",
         "mos_exp_status",
@@ -205,13 +263,18 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("writer", "main"): [
+        *_KEEPALIVE_TOOLS,
         "eacn3_*",
         "mos_await_events",
         *_DAG_RW_TOOLS,
+        *_WIKI_READ_TOOLS,
+        *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
+        "mos_signboard_read",
+        "mos_signboard_set",
         "mos_reset_context",
         "mos_compact_context",
-        *_WRITER_PAPER_SEARCH_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
         "Task",
         "mos_project_checkpoint_workspace",
         *_CODEX_BRIDGE_TOOLS,
@@ -223,8 +286,9 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("writer", "subagent"): [
+        *_KEEPALIVE_TOOLS,
         *_CODEX_BRIDGE_TOOLS,
-        *_WRITER_PAPER_SEARCH_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -233,15 +297,21 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("expert", "main"): [
+        *_KEEPALIVE_TOOLS,
         "eacn3_*",
         "mos_await_events",
         *_DAG_RW_TOOLS,
+        *_WIKI_READ_TOOLS,
+        *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
+        "mos_signboard_read",
+        "mos_signboard_set",
         "mos_reset_context",
         "mos_compact_context",
         "Task",
         "mos_project_checkpoint_workspace",
         *_CODEX_BRIDGE_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -250,7 +320,9 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("expert", "subagent"): [
+        *_KEEPALIVE_TOOLS,
         *_CODEX_BRIDGE_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -259,10 +331,16 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Edit",
     ],
     ("ethics", "main"): [
+        *_KEEPALIVE_TOOLS,
         "eacn3_*",
         "mos_await_events",
         *_DAG_RW_TOOLS,
+        *_WIKI_READ_TOOLS,
+        "mos_wiki_lint",
+        *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
+        "mos_signboard_read",
+        "mos_signboard_set",
         "mos_reset_context",
         "mos_compact_context",
         "Task",
@@ -272,6 +350,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Read",
     ],
     ("ethics", "subagent"): [
+        *_KEEPALIVE_TOOLS,
         *_CODEX_BRIDGE_TOOLS,
         "WebSearch",
         "WebFetch",
@@ -350,25 +429,30 @@ ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
         "branches/noter/ (drafts)",
         "branches/shared/notes/ (via mos_publish_to_shared)",
         "branches/shared/handoffs/ (via mos_publish_to_shared)",
+        "branches/shared/wiki/ (via mos_wiki_ingest + mos_publish_to_shared)",
         "branches/shared/exploration/dag.json (via mos_dag_commit_shared)",
     ],
     "coder": [
         "branches/coder/",
         "branches/shared/exp/ (via mos_publish_to_shared)",
         "branches/shared/handoffs/ (via mos_publish_to_shared)",
+        "branches/shared/governance/signboard.json (via mos_signboard_set)",
     ],
     "writer": [
         "branches/writer/",
         "branches/shared/handoffs/ (via mos_publish_to_shared)",
+        "branches/shared/governance/signboard.json (via mos_signboard_set)",
     ],
     "ethics": [
         "branches/ethics/",
         "branches/shared/ethics/ (via mos_publish_to_shared)",
         "branches/shared/handoffs/ (via mos_publish_to_shared)",
+        "branches/shared/governance/signboard.json (via mos_signboard_set)",
     ],
     "expert": [
         "branches/<expert>/",
         "branches/shared/handoffs/ (via mos_publish_to_shared)",
+        "branches/shared/governance/signboard.json (via mos_signboard_set)",
     ],
 }
 

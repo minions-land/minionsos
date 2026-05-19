@@ -90,7 +90,16 @@ def test_ethics_subagent_whitelist() -> None:
     no eacn3_* tools in this whitelist.
     """
     tools = resolve_whitelist("ethics", "subagent")
-    assert set(tools) == {"codex", "WebSearch", "WebFetch", "Read", "Write", "Edit"}
+    assert set(tools) == {
+        "codex",
+        "wait_bg",
+        "keepalive_now",
+        "WebSearch",
+        "WebFetch",
+        "Read",
+        "Write",
+        "Edit",
+    }
 
 
 def test_project_create_makes_ethics_tree(tmp_path: Path, monkeypatch) -> None:

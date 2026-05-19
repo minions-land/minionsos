@@ -63,6 +63,8 @@ from minions.tools import paper_search as _paper_search
 from minions.tools import publish as _publish
 from minions.tools import reset as _reset
 from minions.tools import review as _review
+from minions.tools import signboard as _signboard
+from minions.tools import wiki as _wiki
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -125,12 +127,24 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_dismiss_role",
     "mos_kill_role",
     "mos_list_roles",
+    "mos_signboard_read",
+    "mos_signboard_set",
+    "mos_signboard_evaluate",
+    "mos_signboard_consume",
+    "mos_signboard_reopen",
     "mos_spawn_role",
+    "mos_wiki_hot_get",
+    "mos_wiki_ingest",
+    "mos_wiki_lint",
+    "mos_wiki_query",
     "mos_search_arxiv",
     "mos_search_biorxiv",
     "mos_search_google_scholar",
     "mos_search_medrxiv",
     "mos_search_pubmed",
+    "mos_search_papers_federated",
+    "mos_search_semantic",
+    "mos_resolve_arxiv_ids",
 }
 
 
@@ -440,6 +454,33 @@ class PaperIdArgs(BaseModel):
     )
 
 
+class PaperFederatedArgs(BaseModel):
+    query: str = Field(description="Academic paper search query.")
+    sources: list[str] | None = Field(
+        default=None,
+        description=(
+            "Optional list of source keys to query. Defaults to "
+            "['arxiv', 'semantic']. Valid keys: 'arxiv', 'pubmed', "
+            "'biorxiv', 'medrxiv', 'semantic', 'crossref', 'openalex', 'europepmc'. "
+            "Crossref / OpenAlex are valid but pollute results for very recent "
+            "arXiv-only preprints — pass them explicitly when querying for "
+            "established / DOI-bearing literature."
+        ),
+    )
+    max_results: int = Field(default=5, ge=1, le=50, description="Per-source result count.")
+
+
+class ArxivIdsArgs(BaseModel):
+    ids: list[str] = Field(
+        description=(
+            "List of arXiv ids to resolve to canonical paper dicts. Bypasses "
+            "keyword search via arXiv's id_list= API parameter. Typical use: "
+            "extract ids from WebSearch URLs (regex on 'arxiv.org/abs/<id>') "
+            "and batch-resolve here for structured citation metadata."
+        ),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Tool implementations
 # ---------------------------------------------------------------------------
@@ -630,6 +671,162 @@ def mos_publish_to_shared(args: PublishToSharedArgs) -> dict:
         commit_message=args.commit_message,
         port=args.port,
     )
+
+
+# ── Signboard (milestone consensus) ────────────────────────────────────
+
+
+class SignboardSetArgs(BaseModel):
+    milestone: str = Field(
+        description=(
+            "Milestone slug. One of: experiments_ready, writing_ready, "
+            "submit_ready, resubmit_ready, camera_ready."
+        )
+    )
+    raised: bool = Field(
+        description=(
+            "True to raise your sign in favor of advancing to this milestone; "
+            "False to withdraw a previously-raised sign. Default state is "
+            "lowered — there is no need to call this with raised=False unless "
+            "you previously raised."
+        )
+    )
+    evidence: str | None = Field(
+        default=None,
+        description=(
+            "Required when raising. Concrete artifact path, commit SHA, "
+            "EACN event id, or URL backing your position."
+        ),
+    )
+    reason: str | None = Field(
+        default=None,
+        description="Required when lowering. One short line explaining why.",
+    )
+
+
+class SignboardReadArgs(BaseModel):
+    milestone: str | None = Field(
+        default=None,
+        description=("Optional milestone slug. Omit to read the full signboard state."),
+    )
+
+
+@mcp.tool()
+def mos_signboard_set(args: SignboardSetArgs) -> dict:
+    """Raise or lower this role's sign for a milestone.
+
+    The signboard is a lightweight consensus surface: each eligible role
+    independently raises a sign (with evidence) when it thinks the
+    project is ready to advance to a milestone. Gru watches the board
+    and dispatches the next phase only when quorum is met (Ethics is a
+    required signer on every paper-facing milestone — without Ethics,
+    no quorum is achievable).
+
+    Identity is read from the role process env (``MINIONS_AGENT_ID`` /
+    ``MINIONS_ROLE_NAME``). You cannot raise on behalf of another role.
+
+    Side effects:
+
+    1. Atomic update of ``branches/shared/governance/signboard.json``
+       under the per-project ``state/shared.lock``.
+    2. Best-effort EACN direct message to Gru (``type:
+       signboard_change``) so Gru reconsiders quorum on the same wake.
+
+    Already-consumed milestones reject further mutations until Gru
+    re-opens them (e.g. after rebuttal). The call returns ``noop_reason:
+    milestone_already_consumed`` in that case.
+
+    Returns the new slot state plus the caller's identity.
+    """
+    _require_tool_allowed("mos_signboard_set")
+    return _signboard.mos_signboard_set(
+        milestone=args.milestone,
+        raised=args.raised,
+        evidence=args.evidence,
+        reason=args.reason,
+    )
+
+
+@mcp.tool()
+def mos_signboard_read(args: SignboardReadArgs) -> dict:
+    """Read current signboard state.
+
+    Pure read — no lock, no notify, no side effects. Returns either the
+    whole board (when ``milestone`` is omitted) or a single slot.
+    """
+    _require_tool_allowed("mos_signboard_read")
+    return _signboard.mos_signboard_read(milestone=args.milestone)
+
+
+class SignboardMilestoneArgs(BaseModel):
+    milestone: str = Field(
+        description=(
+            "Milestone slug. One of: experiments_ready, writing_ready, "
+            "submit_ready, resubmit_ready, camera_ready."
+        )
+    )
+
+
+@mcp.tool()
+def mos_signboard_evaluate(args: SignboardMilestoneArgs) -> dict:
+    """Evaluate quorum for a milestone — Gru-only.
+
+    Reads the live signboard plus the EACN3 registered-expert roster and
+    returns ``{milestone, fixed_required, experts_present,
+    experts_required_count, experts_raised, raised, missing_fixed,
+    experts_met, consumed_at, consumed_round, met}``.
+
+    Pure read; no state change. Call this when a ``signboard_change``
+    event arrives, or before dispatching a milestone-gated action, to
+    decide whether the project may advance.
+    """
+    _require_tool_allowed("mos_signboard_evaluate")
+    port = int(os.environ.get("MINIONS_PROJECT_PORT", "0") or 0)
+    if port <= 0:
+        raise PermissionError(
+            "mos_signboard_evaluate: MINIONS_PROJECT_PORT must be set (Gru session)."
+        )
+    return _signboard.evaluate_quorum(port, args.milestone)
+
+
+@mcp.tool()
+def mos_signboard_consume(args: SignboardMilestoneArgs) -> dict:
+    """Mark a milestone as consumed — Gru-only bookkeeping after dispatch.
+
+    Call exactly once after Gru has dispatched the action a milestone
+    gates (e.g. after spawning Writer for ``writing_ready``, or after
+    invoking ``mos_review_run`` for ``submit_ready``). Idempotent:
+    re-consuming a consumed milestone is a no-op but is logged.
+
+    Once consumed, further ``mos_signboard_set`` calls on the same
+    milestone return ``noop_reason: milestone_already_consumed`` until
+    Gru calls ``mos_signboard_reopen``.
+    """
+    _require_tool_allowed("mos_signboard_consume")
+    port = int(os.environ.get("MINIONS_PROJECT_PORT", "0") or 0)
+    if port <= 0:
+        raise PermissionError(
+            "mos_signboard_consume: MINIONS_PROJECT_PORT must be set (Gru session)."
+        )
+    return _signboard.consume_milestone(port, args.milestone)
+
+
+@mcp.tool()
+def mos_signboard_reopen(args: SignboardMilestoneArgs) -> dict:
+    """Reset a milestone for a fresh round — Gru-only.
+
+    Clears all raised signs and the consumed marker on *milestone*,
+    preserving ``consumed_round`` for audit. Use after reviewer feedback
+    returns to gather a new ``resubmit_ready`` consensus, or any time a
+    milestone needs to be re-deliberated.
+    """
+    _require_tool_allowed("mos_signboard_reopen")
+    port = int(os.environ.get("MINIONS_PROJECT_PORT", "0") or 0)
+    if port <= 0:
+        raise PermissionError(
+            "mos_signboard_reopen: MINIONS_PROJECT_PORT must be set (Gru session)."
+        )
+    return _signboard.reopen_milestone(port, args.milestone)
 
 
 @mcp.tool()
@@ -919,6 +1116,29 @@ def mos_search_google_scholar(args: PaperSearchArgs) -> list[dict]:
 
 
 @mcp.tool()
+def mos_search_semantic(args: PaperSearchArgs) -> list[dict]:
+    """Search Semantic Scholar (correctly-named alternative to mos_search_google_scholar)."""
+    _require_tool_allowed("mos_search_semantic")
+    return _paper_search.search_semantic(args.query, args.max_results)
+
+
+@mcp.tool()
+def mos_search_papers_federated(args: PaperFederatedArgs) -> list[dict]:
+    """Run a federated search across multiple academic sources, deduplicating by DOI/title."""
+    _require_tool_allowed("mos_search_papers_federated")
+    return _paper_search.search_papers_federated(
+        args.query, sources=args.sources, max_results=args.max_results
+    )
+
+
+@mcp.tool()
+def mos_resolve_arxiv_ids(args: ArxivIdsArgs) -> list[dict]:
+    """Batch-resolve arXiv ids to canonical paper dicts (Web → ID → paper, step 2)."""
+    _require_tool_allowed("mos_resolve_arxiv_ids")
+    return _paper_search.resolve_arxiv_ids(args.ids)
+
+
+@mcp.tool()
 def mos_read_arxiv_paper(args: PaperIdArgs) -> str:
     """Read arXiv metadata and abstract text for a paper id."""
     _require_tool_allowed("mos_read_arxiv_paper")
@@ -1159,6 +1379,49 @@ def mos_dag_commit_shared(args: DagCommitSharedArgs) -> dict:
     """
     _require_tool_allowed("mos_dag_commit_shared")
     return _dag.mos_dag_commit_shared(message=args.message)
+
+
+# ── Wiki Layer 2 tools ─────────────────────────────────────────────────
+
+
+@mcp.tool()
+async def mos_wiki_ingest(
+    src_path: str,
+    source_role: str,
+    source_slug: str,
+    title: str | None = None,
+    summary: str | None = None,
+) -> dict:
+    """Ingest a shared artifact into Wiki; see minions.tools.wiki.mos_wiki_ingest."""
+    _require_tool_allowed("mos_wiki_ingest")
+    return _wiki.mos_wiki_ingest(
+        src_path=src_path,
+        source_role=source_role,
+        source_slug=source_slug,
+        title=title,
+        summary=summary,
+    )
+
+
+@mcp.tool()
+async def mos_wiki_query(text: str, max_pages: int = 5) -> dict:
+    """Query Wiki index entries; see minions.tools.wiki.mos_wiki_query."""
+    _require_tool_allowed("mos_wiki_query")
+    return _wiki.mos_wiki_query(text=text, max_pages=max_pages)
+
+
+@mcp.tool()
+async def mos_wiki_hot_get() -> dict:
+    """Read Wiki hot cache; see minions.tools.wiki.mos_wiki_hot_get."""
+    _require_tool_allowed("mos_wiki_hot_get")
+    return _wiki.mos_wiki_hot_get()
+
+
+@mcp.tool()
+async def mos_wiki_lint() -> dict:
+    """Audit wiki/ structure. See wiki.mos_wiki_lint."""
+    _require_tool_allowed("mos_wiki_lint")
+    return _wiki.mos_wiki_lint()
 
 
 # ── mos_reset_context ──────────────────────────────────────────────────────────

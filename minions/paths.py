@@ -188,6 +188,16 @@ def project_shared_dag_json(port: int) -> Path:
     return project_shared_subdir(port, "exploration") / "dag.json"
 
 
+def project_signboard_json(port: int) -> Path:
+    """Return the canonical signboard state path for *port*.
+
+    Lives at ``branches/shared/governance/signboard.json``. Updated
+    atomically by ``mos_signboard_set`` under ``state/shared.lock``;
+    each mutation is committed on the shared branch.
+    """
+    return project_shared_subdir(port, "governance") / "signboard.json"
+
+
 def project_shared_branch_name(port: int) -> str:
     """Return the canonical git branch name for the shared worktree."""
     return f"minionsos/project-{port}-shared"

@@ -5,7 +5,7 @@ layer: logical
 tools: eacn3_send_message, codex
 version: 6
 status: active
-references: unstated-premises, first-principles, dialectical-synthesis, goal-setting, plan-persistence, think-in-parallel
+references: unstated-premises, first-principles, dialectical-synthesis, goal-setting, plan-persistence, think-in-parallel, evidence-driven-proposal
 provenance: human+agent
 ---
 
@@ -53,7 +53,7 @@ Then dispatch. But this is ONE way to use the toolkit.
 
 ## Common failure mode — Posture 4 collapses into engineering conclusions
 
-Synthesis (Posture 3) tends to end with "so we should build X". That is the recommendation, not the goal. Posture 4 must produce a Goal block in the canonical format from `goal-setting.md` — sensor, metric, threshold, feedback period, stop rule — that the executor can use as a stopping condition. "Can we build it: yes", "MVP scope is Y", "approach Z is impossible" are inputs to synthesis, not goals. If your Posture-4 output reads like an executive summary, a yes/no verdict, or an "工程性结论 / engineering conclusions" list, you skipped Posture 4 — open `goal-setting.md` and write the actual Goal block before dispatching.
+Synthesis (Posture 3) tends to end with "so we should build X". That is the recommendation, not the goal. Posture 4 must produce a Goal block in the canonical format from `goal-setting.md` — sensor, metric, threshold, feedback period, stop rule — that the executor can use as a stopping condition. "Can we build it: yes", "MVP scope is Y", "approach Z is impossible" are inputs to synthesis, not goals. If your Posture-4 output reads like an executive summary, a yes/no verdict, or an "engineering conclusions" list, you skipped Posture 4 — open `goal-setting.md` and write the actual Goal block before dispatching.
 
 ## Other valid patterns
 
@@ -69,23 +69,24 @@ The agent decides. The skill does not decide for you.
 
 ## After the postures: dispatch (never self-execute)
 
-**Hard rule: the main agent is always a pure dispatcher, not just
-during think-then-act.** It does NOT implement, edit files, run
-commands, or produce artifacts itself — not even for single-step
-tasks, not even for "just one quick read". All execution goes through
-a subagent. This applies to every cycle, whether you invoked
-think-then-act or not. The detailed thresholds (when even a `Read`
-must be dispatched, what the subagent prompt should contain) live in
-[`dispatcher-discipline.md`](dispatcher-discipline.md) — read it once,
-then internalize it.
+**Hard rule: once Think-then-Act is invoked, the main agent becomes a pure
+dispatcher for implementation work. It does NOT implement, edit files,
+produce artifacts, or run experiments itself — not even for single-step
+tasks.** All implementation execution goes through a subagent. This is
+non-negotiable regardless of task simplicity.
 
-Why: the value of dispatch is context separation. The thinking
+**Carve-out for verification probes.** A ≤5-second read-only probe per
+`evidence-driven-proposal.md` (e.g. `grep`, `head` of a config, `python
+-c "import x; print(x.__version__)"`, single-test rerun) is **not**
+implementation work — it is the publication gate, and dispatching it
+through a subagent would defeat the low-cost anchor value the probe is
+for. Run those probes inline, mark the claim with `[evidence: …]`, and
+keep dispatching the actual work.
+
+Why: the value of Think-then-Act is context separation. The thinking
 context stays clean for coordination; the doing context is disposable.
 If the main agent both thinks and does, context bloats and the thinking
-degrades on subsequent tasks. Empirical measurement on real Role
-sessions: 94% of uncached input tokens come from `Read` + `Bash` tool
-results in the main session. Routing those through subagents is the
-single largest cost optimization available.
+degrades on subsequent tasks.
 
 When you have enough clarity (from however many postures you used):
 
@@ -95,12 +96,17 @@ When you have enough clarity (from however many postures you used):
   1. `delegate-heavy-task` (Codex subagent) — preferred for implementation work.
   2. `subagent-driven-development` — when multiple independent tasks can parallelize.
   3. Host-native `Task` tool or `Agent` tool — fallback when Codex is unavailable.
-- **If the dispatched answer returns suspect** (broken logic, contradictory reasoning, or two probes disagree): escalate to `think-in-parallel.md` — do NOT accept or fix manually.
+- **If the dispatched answer returns suspect** (broken logic, contradictory reasoning, or two probes disagree): escalate to `think-in-parallel` — do NOT accept or fix manually.
 - **Pass goals verbatim**: Copy your Goal-Setting threshold (specific numbers, not "a good report") into the dispatch as its acceptance criterion. No placeholders — "TBD", "reasonable", "appropriate" are plan failures.
-- **After dispatch returns**: review the result, verify acceptance criteria are met, report completion. If criteria are NOT met, re-dispatch with corrective instructions — do not fix it yourself.
+- **Dispatch is fire-and-forget. Do NOT await the subagent inline.**
+  Always pass `run_in_background: true` to the `Agent`/`Task` tool. After
+  dispatching, flip the plan step to `dispatched` and immediately call
+  `mos_await_events()`. Claude Code will notify this process when the
+  background agent completes — handle the result in that wake cycle.
+- **On result arrival**: verify acceptance criteria, then run `evidence-driven-proposal.md` before publishing the finding. Flip step to `done` with the `[evidence: …]` / `[derived: …]` / `[speculation]` markers it produces.
 
 ## Hard constraints
 
 1. **Autonomous-only, evidence-first**: You cannot reach a human terminal. Messaging another role and exiting is a LAST resort — first try `codex` (read-only) or a `Task` subagent on the codebase, git history, EACN logs, and artifacts. Most "I need to ask X" questions are answerable from the repo. Only message another role when (a) the answer is a fact about that role's intent or external state that cannot be inferred from artifacts, AND (b) the role is reachable this wake. Never pause for human input.
 2. **Time-aware**: The postures are thinking tools, not rituals. 2–8 minutes total, not hours.
-3. **Evidence-marked**: Tag outputs per the Evidence-first EACN convention.
+3. **Evidence-marked**: Tag every load-bearing claim per `evidence-driven-proposal.md` — `[evidence: …]` (anchor probe with command + outcome) / `[derived: …]` (basis stated) / `[speculation]` (cannot probe or derive).

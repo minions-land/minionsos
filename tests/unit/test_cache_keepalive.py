@@ -86,6 +86,27 @@ class TestRoleEnvCacheVars:
         env = self._build_env(tmp_path)
         assert env.get("CLAUDE_AUTO_BACKGROUND_TASKS") == "1"
 
+    def test_tool_search_disabled_for_roles(self, tmp_path):
+        """Roles must NOT inherit deferred-tool-loading from the dev host.
+
+        Regression: the 2026-05-19 dispatch-eval e2e showed a fresh Coder
+        spinning on deferred eacn3_* tools (6+ min thrashing) because
+        ENABLE_TOOL_SEARCH=true was inherited from ~/.claude/settings.json
+        and the forever-loop prompt does not teach the ToolSearch dance.
+        Force-disable for all Role processes so every whitelisted tool is
+        callable on the first turn.
+
+        Claude Code only accepts the literal strings "true"/"false"/"auto".
+        Any other value (including "0") is treated as Invalid and silently
+        falls back to the host default.
+        """
+        env = self._build_env(tmp_path)
+        assert env.get("ENABLE_TOOL_SEARCH") == "false", (
+            "Role env must hard-set ENABLE_TOOL_SEARCH=false (literal string) "
+            "to override the dev host's lazy-loading default. "
+            "Note: '0' is Invalid per Claude Code and ignored."
+        )
+
 
 # --------------------------------------------------------------------------
 # 2. cache_keepalive synthetic event
@@ -294,20 +315,47 @@ class TestRealEventBeatsKeepalive:
     """A real EACN event must win over the synthetic keepalive even past
     the keepalive threshold. The keepalive is a fallback for *silent*
     backends; it must never preempt actual work.
+
+    Implementation note: the assertion is bounded by an explicit poll-count
+    cap rather than wall-clock timeout. A mutation that makes ``await_events``
+    ignore real events would otherwise loop forever and (because the polling
+    is patched with a ``MagicMock`` whose ``call_args_list`` grows unbounded)
+    allocate ~500 MB/s until the host OOMs. See ``dev-log/2026-05.md``
+    2026-05-19 entry on the 16 GB pytest orphan incident.
     """
 
     def test_real_event_returned_when_present_past_threshold(self, _await_env):
         from minions.tools import await_events as ae
+
+        # Wrap httpx.get so we can fail fast if the loop refuses to return
+        # the real event. ``MagicMock`` would silently record every call and
+        # leak memory; this counter raises after a small bound instead.
+        max_polls = 4
+        poll_count = {"n": 0}
+        real_resp = _real_event_response()
+
+        def bounded_get(*_args, **_kwargs):
+            poll_count["n"] += 1
+            if poll_count["n"] > max_polls:
+                raise AssertionError(
+                    f"await_events polled httpx.get more than {max_polls} times "
+                    "without returning the real event — keepalive is preempting "
+                    "actual work."
+                )
+            return real_resp
 
         # monotonic returns "past threshold" on every read, but the very
         # first poll already has a real event waiting — it must win.
         with (
             patch.object(ae, "_load_keepalive_seconds", return_value=10),
             patch.object(ae.time, "monotonic", return_value=1_000_000.0),
-            patch.object(ae.httpx, "get", return_value=_real_event_response()),
+            patch.object(ae.httpx, "get", side_effect=bounded_get),
         ):
             result = ae.await_events()
 
         assert result["count"] == 1
         assert result["events"][0]["event"]["type"] == "task_timeout"
         assert result["events"][0]["event"]["task_id"] == "t-real"
+        assert poll_count["n"] == 1, (
+            f"real event should be returned after the first poll, got {poll_count['n']}"
+        )

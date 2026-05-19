@@ -1,0 +1,267 @@
+"""Unit tests for the Phase 6 Wiki lint surface."""
+
+from __future__ import annotations
+
+import os
+import shutil
+import time
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from minions.paths import project_shared_workspace, project_state_dir
+from minions.tools import wiki
+
+
+@pytest.fixture
+def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    port = 43456
+    monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path))
+    monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
+    shared = project_shared_workspace(port)
+    shared.mkdir(parents=True, exist_ok=True)
+    project_state_dir(port).mkdir(parents=True, exist_ok=True)
+    _mock_publish_file(monkeypatch)
+    return {"port": port, "shared": shared, "wiki": shared / "wiki"}
+
+
+def _mock_publish_file(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
+    publish_results: list[dict[str, object]] = []
+
+    def fake_publish_file(
+        port: int,
+        abs_src: Path,
+        rel_dst_under_wiki: str,
+        message: str,
+    ) -> dict[str, object]:
+        assert message == "noter: wiki lint"
+        dst = project_shared_workspace(port) / "wiki" / rel_dst_under_wiki
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(abs_src, dst)
+        result: dict[str, object] = {
+            "port": port,
+            "dst_path": f"wiki/{rel_dst_under_wiki}",
+            "commit_sha": f"fake-{len(publish_results) + 1}",
+        }
+        publish_results.append(result)
+        return result
+
+    monkeypatch.setattr(wiki, "_publish_file", fake_publish_file)
+    return publish_results
+
+
+def _write_wiki_page(wiki_root: Path, rel_path: str, text: str) -> Path:
+    path = wiki_root / rel_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def _write_source(wiki_root: Path, slug: str, body: str = "Source body.\n") -> Path:
+    return _write_wiki_page(
+        wiki_root,
+        f"sources/{slug}.md",
+        "\n".join(
+            [
+                "---",
+                "type: source",
+                f'slug: "{slug}"',
+                "page_kind: source",
+                "---",
+                "",
+                body.rstrip(),
+                "",
+            ]
+        ),
+    )
+
+
+def _write_contradiction(wiki_root: Path, slug: str, status: str = "unresolved") -> Path:
+    return _write_wiki_page(
+        wiki_root,
+        f"contradictions/contradiction-{slug}.md",
+        "\n".join(
+            [
+                "---",
+                "type: contradiction",
+                f'slug: "contradiction-{slug}"',
+                "page_kind: contradiction",
+                f"status: {status}",
+                "---",
+                "",
+                f"# Contradiction: {slug}",
+                "",
+            ]
+        ),
+    )
+
+
+def _findings_for(result: dict[str, object], check: str) -> list[dict[str, object]]:
+    findings = result["findings"]
+    assert isinstance(findings, list)
+    return [
+        finding
+        for finding in findings
+        if isinstance(finding, dict) and finding.get("check") == check
+    ]
+
+
+def _finding_set(result: dict[str, object]) -> set[tuple[object, ...]]:
+    findings = result["findings"]
+    assert isinstance(findings, list)
+    return {
+        (
+            finding.get("check"),
+            finding.get("slug"),
+            finding.get("detail"),
+            finding.get("wiki_path"),
+            finding.get("severity"),
+        )
+        for finding in findings
+        if isinstance(finding, dict)
+    }
+
+
+def test_wiki_lint_no_pages_returns_zero_counts(project: dict[str, Any]) -> None:
+    result = wiki.mos_wiki_lint()
+
+    assert result["orphan_pages"] == 0
+    assert result["dead_links"] == 0
+    assert result["missing_concept_pages"] == 0
+    assert result["stale_claims"] == 0
+    assert result["lint_count"] == 0
+    assert result["findings"] == []
+    assert "error" not in result
+
+
+def test_wiki_lint_flags_source_without_inbound_link(project: dict[str, Any]) -> None:
+    _write_source(project["wiki"], "lonely")
+
+    result = wiki.mos_wiki_lint()
+
+    assert result["orphan_pages"] == 1
+    assert _findings_for(result, "ORPHAN_PAGE") == [
+        {
+            "check": "ORPHAN_PAGE",
+            "slug": "lonely",
+            "detail": "No inbound wikilink from another wiki page.",
+            "wiki_path": "wiki/sources/lonely.md",
+            "severity": "info",
+        }
+    ]
+
+
+def test_wiki_lint_flags_dead_wikilink(project: dict[str, Any]) -> None:
+    _write_wiki_page(project["wiki"], "index.md", "# Wiki Index\n\nSee [[nonexistent]].\n")
+
+    result = wiki.mos_wiki_lint()
+
+    dead_links = _findings_for(result, "DEAD_LINK")
+    assert result["dead_links"] == 1
+    assert dead_links[0]["slug"] == "nonexistent"
+    assert dead_links[0]["wiki_path"] == "wiki/index.md"
+    assert dead_links[0]["severity"] == "error"
+
+
+def test_wiki_lint_flags_repeated_index_title_token(project: dict[str, Any]) -> None:
+    _write_wiki_page(
+        project["wiki"],
+        "index.md",
+        "\n".join(
+            [
+                "# Wiki Index",
+                "",
+                "## Cache alpha",
+                "slug: alpha",
+                "wiki_path: wiki/sources/alpha.md",
+                "",
+                "## Cache beta",
+                "slug: beta",
+                "wiki_path: wiki/sources/beta.md",
+                "",
+                "## Cache gamma",
+                "slug: gamma",
+                "wiki_path: wiki/sources/gamma.md",
+                "",
+            ]
+        ),
+    )
+
+    result = wiki.mos_wiki_lint()
+
+    missing = _findings_for(result, "MISSING_CONCEPT_PAGE")
+    assert result["missing_concept_pages"] == 1
+    assert missing[0]["slug"] == "cache"
+    assert missing[0]["wiki_path"] == "wiki/index.md"
+    assert missing[0]["severity"] == "info"
+
+
+def test_wiki_lint_flags_old_unresolved_contradiction(project: dict[str, Any]) -> None:
+    page = _write_contradiction(project["wiki"], "cache")
+    old = time.time() - (73 * 60 * 60)
+    os.utime(page, (old, old))
+
+    result = wiki.mos_wiki_lint()
+
+    stale = _findings_for(result, "STALE_CLAIM")
+    assert result["stale_claims"] == 1
+    assert stale[0]["slug"] == "contradiction-cache"
+    assert stale[0]["wiki_path"] == "wiki/contradictions/contradiction-cache.md"
+    assert stale[0]["severity"] == "warning"
+
+
+def test_wiki_lint_does_not_flag_fresh_unresolved_contradiction(
+    project: dict[str, Any],
+) -> None:
+    _write_contradiction(project["wiki"], "cache")
+
+    result = wiki.mos_wiki_lint()
+
+    assert result["stale_claims"] == 0
+    assert _findings_for(result, "STALE_CLAIM") == []
+
+
+def test_wiki_lint_writes_and_updates_hot_summary_block(project: dict[str, Any]) -> None:
+    hot = _write_wiki_page(
+        project["wiki"],
+        "hot.md",
+        "\n".join(
+            [
+                "preface",
+                "",
+                "<!-- lint-summary-start -->",
+                "old lint",
+                "<!-- lint-summary-end -->",
+                "",
+                "tail",
+                "",
+            ]
+        ),
+    )
+
+    wiki.mos_wiki_lint()
+
+    content = hot.read_text(encoding="utf-8")
+    assert "<!-- lint-summary-start -->" in content
+    assert "<!-- lint-summary-end -->" in content
+    assert "old lint" not in content
+    assert "lint_count: 0" in content
+    assert "preface" in content
+    assert "tail" in content
+    assert len(content.encode("utf-8")) <= 4096
+
+
+def test_wiki_lint_is_idempotent_for_finding_set(project: dict[str, Any]) -> None:
+    _write_source(project["wiki"], "lonely")
+    _write_wiki_page(project["wiki"], "index.md", "# Wiki Index\n\nSee [[missing]].\n")
+
+    first = wiki.mos_wiki_lint()
+    second = wiki.mos_wiki_lint()
+
+    assert _finding_set(second) == _finding_set(first)
+    assert second["orphan_pages"] == first["orphan_pages"]
+    assert second["dead_links"] == first["dead_links"]
+    assert second["missing_concept_pages"] == first["missing_concept_pages"]
+    assert second["stale_claims"] == first["stale_claims"]
+    assert second["lint_count"] == first["lint_count"]

@@ -185,7 +185,8 @@ def list_mcp_server_doc_cards() -> list[str]:
 
 
 _TOOL_DECL_RE = re.compile(
-    r"^@mcp\.tool\(\)\s*\n\s*def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(", re.MULTILINE
+    r"^@mcp\.tool\(\)\s*\n\s*(?:async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(",
+    re.MULTILINE,
 )
 
 

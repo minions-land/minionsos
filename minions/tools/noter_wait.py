@@ -121,6 +121,123 @@ def _events_jsonl_delta(port: int) -> dict[str, Any]:
     return {"total_event_lines": total}
 
 
+_CORPUS_GRAPH_SOURCES = ("wiki", "notes", "ethics", "exp")
+_CORPUS_GRAPH_REBUILD_TIMEOUT = 300  # seconds
+
+
+def _newest_source_mtime(workspace: Path | None) -> float:
+    """Return the newest mtime under shared/{wiki,notes,ethics,exp}/, or 0.0."""
+    if workspace is None:
+        return 0.0
+    shared = workspace.parent / "shared"
+    if not shared.exists():
+        return 0.0
+    newest = 0.0
+    for sub in _CORPUS_GRAPH_SOURCES:
+        root = shared / sub
+        if not root.is_dir():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file():
+                continue
+            try:
+                m = path.stat().st_mtime
+            except OSError:
+                continue
+            if m > newest:
+                newest = m
+    return newest
+
+
+def _maybe_rebuild_corpus_graph(workspace: Path | None) -> dict[str, Any]:
+    """Rebuild branches/shared/exploration/corpus_graph.json when stale.
+
+    Compares the existing graph's mtime against the newest source mtime
+    under shared/{wiki,notes,ethics,exp}/. Only invokes the heavy
+    `mcp-servers/graphify/extract.py` shell-out when sources are newer.
+
+    Returns a dict embedded into the periodic-wake event:
+        {"rebuilt": True, "node_count": N, "duration_s": float, ...}
+        {"rebuilt": False, "reason": "..."}.
+
+    Never raises — graphify failures must NOT crash Noter's wake loop.
+    """
+    try:
+        if workspace is None:
+            return {"rebuilt": False, "reason": "no workspace"}
+        shared = workspace.parent / "shared"
+        graph_path = shared / "exploration" / "corpus_graph.json"
+        newest_src = _newest_source_mtime(workspace)
+        if newest_src == 0.0:
+            return {"rebuilt": False, "reason": "no source files"}
+        graph_mtime = graph_path.stat().st_mtime if graph_path.exists() else 0.0
+        # Treat a stub graph (very small file) as needing rebuild even if newer.
+        if graph_path.exists() and graph_path.stat().st_size > 200 and graph_mtime >= newest_src:
+            return {"rebuilt": False, "reason": "graph fresh"}
+
+        # Resolve port from workspace path: project_{port}/branches/<role>
+        port = int(workspace.parent.parent.name.removeprefix("project_"))
+    except Exception as exc:
+        logger.warning("corpus_graph rebuild precheck failed: %s", exc)
+        return {"rebuilt": False, "reason": f"precheck error: {exc}"}
+
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    extract_script = repo_root / "mcp-servers" / "graphify" / "extract.py"
+    venv_python = repo_root / "mcp-servers" / "graphify" / ".venv" / "bin" / "python"
+    if not extract_script.exists() or not venv_python.exists():
+        return {
+            "rebuilt": False,
+            "reason": (
+                "graphify venv not installed — run "
+                "`cd mcp-servers/graphify && VIRTUAL_ENV=$PWD/.venv uv pip install -e .`"
+            ),
+        }
+
+    cmd = [str(venv_python), str(extract_script), "--port", str(port)]
+    started = time.monotonic()
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=_CORPUS_GRAPH_REBUILD_TIMEOUT,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        logger.warning("corpus_graph rebuild timed out after %ds", _CORPUS_GRAPH_REBUILD_TIMEOUT)
+        return {
+            "rebuilt": False,
+            "reason": f"timeout after {_CORPUS_GRAPH_REBUILD_TIMEOUT}s",
+        }
+    except Exception as exc:
+        logger.warning("corpus_graph rebuild subprocess failed: %s", exc)
+        return {"rebuilt": False, "reason": f"subprocess error: {exc}"}
+
+    duration = time.monotonic() - started
+    if result.returncode != 0:
+        tail = "\n".join((result.stderr or "").strip().splitlines()[-20:])
+        logger.info("corpus_graph rebuild non-zero exit (rc=%d): %s", result.returncode, tail)
+        return {
+            "rebuilt": False,
+            "reason": f"extract exit {result.returncode}",
+            "stderr_tail": tail,
+            "duration_s": round(duration, 2),
+        }
+
+    try:
+        payload = json.loads((result.stdout or "").strip().splitlines()[-1])
+    except (json.JSONDecodeError, IndexError):
+        payload = {}
+    return {
+        "rebuilt": bool(payload.get("rebuilt")),
+        "node_count": payload.get("node_count", 0),
+        "edge_count": payload.get("edge_count", 0),
+        "file_count": payload.get("file_count", 0),
+        "duration_s": round(duration, 2),
+        "reason": payload.get("reason", ""),
+    }
+
+
 def noter_wait() -> dict[str, Any]:
     """Block for the noter periodic interval, then return a wake event.
 
@@ -148,6 +265,15 @@ def noter_wait() -> dict[str, Any]:
         if keepalive_seconds > 0 and elapsed >= keepalive_seconds:
             return {"count": 1, "events": [_KEEPALIVE_EVENT]}
 
+    corpus_graph = _maybe_rebuild_corpus_graph(workspace)
+    try:
+        from minions.tools.wiki import mos_wiki_lint
+
+        lint_result = mos_wiki_lint(port=port)
+    except Exception as exc:
+        logger.warning("wiki lint failed: %s", exc)
+        lint_result = {"error": str(exc)}
+
     return {
         "count": 1,
         "events": [
@@ -157,6 +283,8 @@ def noter_wait() -> dict[str, Any]:
                 "delta": {
                     "shared_branch": _shared_branch_delta(workspace),
                     "events": _events_jsonl_delta(port),
+                    "corpus_graph": corpus_graph,
+                    "wiki_lint": lint_result,
                 },
                 "suggested_action": (
                     "Periodic wake. Flush the DAG (mos_dag_commit_shared), "

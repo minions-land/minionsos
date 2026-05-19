@@ -326,6 +326,16 @@ def _format_role_report(port: int, role: str, target_cwd: Path, sessions: list[_
             f"to cold starts ({cold} x {avg_cold_cost:,}). Each reset re-encodes the "
             f"system prompt + tool defs into prompt cache."
         )
+    posture = compute_dispatch_posture([s.path for s in sessions])
+    if posture.total() > 0:
+        lines.append("")
+        lines.append(_format_dispatch_posture(posture))
+        if posture.heavy_self_pct() > 0.15:
+            lines.append(
+                f"Note: heavy_self {100 * posture.heavy_self_pct():.1f}% > 15% baseline. "
+                "Main role is doing work itself instead of dispatching to a "
+                "Task / codex subagent. See dispatcher-discipline skill."
+            )
     return "\n".join(lines)
 
 
@@ -402,6 +412,130 @@ def _recommendation(overall: float, totals: dict[str, int]) -> str:
 # Backward-compat shim: keep the name the existing tests import.
 _format_report = _format_session_report
 _summarize = _bucket_summary
+
+
+# --------------------------------------------------------------------------
+# Dispatch posture
+# --------------------------------------------------------------------------
+#
+# Orthogonal to token cost: tells us how often the main role agent
+# *self-executed* (Bash/Edit/Write) vs *dispatched* (Task/codex). The
+# `dispatcher-discipline` skill says the main role must be a pure
+# dispatcher; this metric checks whether real session traffic agrees.
+#
+# Buckets:
+#   dispatch    — Task / codex / mcp__codex-subagent__* (a real subagent)
+#   coord       — eacn3_* / mcp__minionsos__* (project coordination, not heavy)
+#   heavy_self  — Bash / Edit / Write / MultiEdit / NotebookEdit (main does work)
+#   read_self   — Read / Grep / Glob / WebSearch / WebFetch (main reads)
+#   misc        — anything else (ToolSearch, etc.)
+#
+# heavy_self is the canary: anything > a low threshold means the main
+# session is leaking work into its own context, which is the largest
+# uncached-input cost driver per empirical measurement on real Roles.
+
+_DISPATCH_NAMES = frozenset({"Task", "Agent", "codex"})
+_DISPATCH_PREFIXES = ("mcp__codex-subagent__",)
+_COORD_PREFIXES = ("mcp__minionsos__", "mcp__eacn3__")
+_HEAVY_SELF = frozenset({"Bash", "Edit", "Write", "MultiEdit", "NotebookEdit"})
+_READ_SELF = frozenset({"Read", "Grep", "Glob", "WebSearch", "WebFetch"})
+
+_POSTURE_BUCKETS = ("dispatch", "coord", "heavy_self", "read_self", "misc")
+
+
+class _DispatchPosture(NamedTuple):
+    """Tool-use bucket counts for one or more sessions.
+
+    Aggregations sum the bucket fields directly. Use ``.total()`` and
+    ``.heavy_self_pct()`` rather than recomputing — keeps the threshold
+    semantics in one place.
+    """
+
+    dispatch: int
+    coord: int
+    heavy_self: int
+    read_self: int
+    misc: int
+
+    def total(self) -> int:
+        return self.dispatch + self.coord + self.heavy_self + self.read_self + self.misc
+
+    def heavy_self_pct(self) -> float:
+        t = self.total()
+        return self.heavy_self / t if t else 0.0
+
+    def as_dict(self) -> dict[str, int]:
+        return {b: getattr(self, b) for b in _POSTURE_BUCKETS}
+
+
+def _classify_tool(name: str) -> str:
+    """Map one tool_use name to its posture bucket."""
+    if name in _DISPATCH_NAMES or name.startswith(_DISPATCH_PREFIXES):
+        return "dispatch"
+    if name.startswith(_COORD_PREFIXES):
+        return "coord"
+    if name in _HEAVY_SELF:
+        return "heavy_self"
+    if name in _READ_SELF:
+        return "read_self"
+    return "misc"
+
+
+def _posture_from_tool_names(names: list[str]) -> _DispatchPosture:
+    """Pure aggregator. Given an iterable of tool_use names, bucket them."""
+    counts = dict.fromkeys(_POSTURE_BUCKETS, 0)
+    for name in names:
+        counts[_classify_tool(name)] += 1
+    return _DispatchPosture(**counts)
+
+
+def _tool_names_from_jsonl(path: Path) -> list[str]:
+    """Extract every tool_use name an assistant emitted in *path*.
+
+    Robust to malformed lines and non-assistant entries; never raises.
+    """
+    names: list[str] = []
+    try:
+        fh = path.open(encoding="utf-8")
+    except OSError:
+        return names
+    with fh:
+        for line in fh:
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if obj.get("type") != "assistant":
+                continue
+            content = (obj.get("message") or {}).get("content") or []
+            if not isinstance(content, list):
+                continue
+            for c in content:
+                if isinstance(c, dict) and c.get("type") == "tool_use":
+                    n = c.get("name")
+                    if isinstance(n, str):
+                        names.append(n)
+    return names
+
+
+def compute_dispatch_posture(paths: list[Path]) -> _DispatchPosture:
+    """Aggregate posture across many jsonl files."""
+    names: list[str] = []
+    for p in paths:
+        names.extend(_tool_names_from_jsonl(p))
+    return _posture_from_tool_names(names)
+
+
+def _format_dispatch_posture(posture: _DispatchPosture) -> str:
+    total = posture.total()
+    if total == 0:
+        return "Dispatch posture: no tool_use telemetry."
+    lines = ["Dispatch posture (tool_use distribution across these sessions):"]
+    for bucket in _POSTURE_BUCKETS:
+        n = getattr(posture, bucket)
+        pct = 100 * n / total if total else 0.0
+        lines.append(f"  {bucket:<11} {n:>6}  {pct:>5.1f}%")
+    return "\n".join(lines)
 
 
 # --------------------------------------------------------------------------

@@ -189,6 +189,35 @@ def test_audit_flags_orphan_mcp_tool(fake_repo: Path, monkeypatch: pytest.Monkey
     assert any("mos_orphan_tool" in i.message for i in issues)
 
 
+def test_list_registered_mcp_tools_finds_both_sync_and_async(fake_repo: Path) -> None:
+    """Regression: ``async def`` tools must be picked up by the parser.
+
+    Bug observed 2026-05-19: the @mcp.tool() regex required a bare ``def``
+    and silently missed every ``async def`` tool, causing audit to report
+    them as dead whitelist entries even though they were properly
+    registered.
+    """
+    server = fake_repo / "minions" / "tools" / "mcp_server.py"
+    server.write_text(
+        "@mcp.tool()\n"
+        "def mos_sync_tool(args):\n"
+        "    return {}\n"
+        "\n"
+        "@mcp.tool()\n"
+        "async def mos_async_tool(text: str) -> dict:\n"
+        "    return {}\n"
+        "\n"
+        "@mcp.tool()\n"
+        "async  def  mos_async_loose_spacing(x: int) -> dict:\n"
+        "    return {}\n",
+        encoding="utf-8",
+    )
+    found = set(contracts.list_registered_mcp_tools())
+    assert "mos_sync_tool" in found
+    assert "mos_async_tool" in found
+    assert "mos_async_loose_spacing" in found
+
+
 def test_audit_wildcard_match_passes(fake_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     server = fake_repo / "minions" / "tools" / "mcp_server.py"
     server.write_text(
@@ -395,3 +424,144 @@ def test_expert_normalisation_no_longer_matches_expertise() -> None:
     assert resolve_whitelist("expertise", "main") == []
     # 'expert-rl-theory' continues to inherit the expert whitelist.
     assert resolve_whitelist("expert-rl-theory", "main") == resolve_whitelist("expert", "main")
+
+
+# --------------------------------------------------------------------------
+# check_dispatch_posture
+# --------------------------------------------------------------------------
+
+
+def _build_role_jsonl(slug_dir: Path, *, cwd: str, tool_uses: list[str]) -> Path:
+    """Write a minimal Role-main session jsonl into *slug_dir*.
+
+    The first entry carries the cwd (so cwd-existence filtering sees it).
+    Each ``tool_uses`` entry becomes one assistant turn with one tool_use.
+    """
+    slug_dir.mkdir(parents=True, exist_ok=True)
+    path = slug_dir / "session.jsonl"
+    entries = [
+        {"type": "user", "cwd": cwd, "message": {"content": "boot"}},
+    ]
+    for i, name in enumerate(tool_uses):
+        entries.append(
+            {
+                "type": "assistant",
+                "timestamp": f"2026-05-19T00:00:{i:02d}Z",
+                "message": {
+                    "usage": {"cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
+                    "content": [{"type": "tool_use", "name": name}],
+                },
+            }
+        )
+    path.write_text("\n".join(json.dumps(e) for e in entries) + "\n", encoding="utf-8")
+    return path
+
+
+def test_dispatch_posture_silent_when_no_live_data(tmp_path: Path) -> None:
+    """Empty / nonexistent claude_root must not warn — fresh repos are clean."""
+    from minions.scaffold.audit import check_dispatch_posture
+
+    issues = check_dispatch_posture(claude_root=tmp_path / "missing")
+    assert issues == []
+
+
+def test_dispatch_posture_warns_above_threshold(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """heavy_self ratio above the threshold raises a single info-level Issue."""
+    from minions.scaffold.audit import check_dispatch_posture
+
+    # Create a "live" branches/<role>/ directory that the audit sees as real
+    role_cwd = tmp_path / "project_38000" / "branches" / "coder"
+    role_cwd.mkdir(parents=True)
+
+    claude_root = tmp_path / "claude" / "projects"
+    # 80% Bash + 20% Task → heavy_self_pct = 80% > 15% threshold
+    _build_role_jsonl(
+        claude_root / "slug",
+        cwd=str(role_cwd),
+        tool_uses=["Bash"] * 80 + ["Task"] * 20,
+    )
+
+    monkeypatch.delenv("MINIONS_AUDIT_DISPATCH_HEAVY_SELF_THRESHOLD", raising=False)
+    issues = check_dispatch_posture(claude_root=claude_root)
+    assert len(issues) == 1
+    issue = issues[0]
+    assert issue.severity == "info"
+    assert issue.surface == "dispatch-posture"
+    assert "heavy_self=80.0%" in issue.message
+    assert "dispatcher-discipline" in issue.hint
+
+
+def test_dispatch_posture_silent_below_threshold(tmp_path: Path) -> None:
+    """heavy_self under the threshold must produce no issue."""
+    from minions.scaffold.audit import check_dispatch_posture
+
+    role_cwd = tmp_path / "project_38000" / "branches" / "coder"
+    role_cwd.mkdir(parents=True)
+    claude_root = tmp_path / "claude" / "projects"
+    # 5% Bash + 95% Task → well under threshold
+    _build_role_jsonl(
+        claude_root / "slug",
+        cwd=str(role_cwd),
+        tool_uses=["Bash"] * 5 + ["Task"] * 95,
+    )
+
+    issues = check_dispatch_posture(claude_root=claude_root)
+    assert issues == []
+
+
+def test_dispatch_posture_excludes_archived_projects(tmp_path: Path) -> None:
+    """Sessions whose cwd has been deleted (closed project) are skipped."""
+    from minions.scaffold.audit import check_dispatch_posture
+
+    # Note: do NOT create role_cwd → it does not exist
+    nonexistent_cwd = str(tmp_path / "project_99999" / "branches" / "coder")
+    claude_root = tmp_path / "claude" / "projects"
+    _build_role_jsonl(
+        claude_root / "slug",
+        cwd=nonexistent_cwd,
+        tool_uses=["Bash"] * 100,  # would warn if it counted
+    )
+
+    assert check_dispatch_posture(claude_root=claude_root) == []
+
+
+def test_dispatch_posture_threshold_overridable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """MINIONS_AUDIT_DISPATCH_HEAVY_SELF_THRESHOLD env var raises the bar."""
+    from minions.scaffold.audit import check_dispatch_posture
+
+    role_cwd = tmp_path / "project_38000" / "branches" / "coder"
+    role_cwd.mkdir(parents=True)
+    claude_root = tmp_path / "claude" / "projects"
+    _build_role_jsonl(
+        claude_root / "slug",
+        cwd=str(role_cwd),
+        tool_uses=["Bash"] * 50 + ["Task"] * 50,  # 50% heavy_self
+    )
+
+    # Default threshold (15%) → warns
+    monkeypatch.setenv("MINIONS_AUDIT_DISPATCH_HEAVY_SELF_THRESHOLD", "0.15")
+    assert len(check_dispatch_posture(claude_root=claude_root)) == 1
+
+    # Bump threshold above observed → silent
+    monkeypatch.setenv("MINIONS_AUDIT_DISPATCH_HEAVY_SELF_THRESHOLD", "0.75")
+    assert check_dispatch_posture(claude_root=claude_root) == []
+
+
+def test_dispatch_posture_silent_when_sample_too_small(tmp_path: Path) -> None:
+    """Below MIN_TURNS, heavy_self ratio is statistically meaningless → no warn."""
+    from minions.scaffold.audit import check_dispatch_posture
+
+    role_cwd = tmp_path / "project_38000" / "branches" / "coder"
+    role_cwd.mkdir(parents=True)
+    claude_root = tmp_path / "claude" / "projects"
+    # Fewer than _DISPATCH_POSTURE_MIN_TURNS (=20), all heavy
+    _build_role_jsonl(
+        claude_root / "slug",
+        cwd=str(role_cwd),
+        tool_uses=["Bash"] * 5,
+    )
+    assert check_dispatch_posture(claude_root=claude_root) == []

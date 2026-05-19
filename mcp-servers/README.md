@@ -12,8 +12,9 @@ The Python entry-point MCP (`minionsos`) intentionally lives elsewhere — insid
 | `eacn3` | `mcp-servers/eacn3/plugin/` (built to `dist/server.js`) | Node / TypeScript | `node mcp-servers/eacn3/plugin/dist/server.js` | `eacn3_send_message`, `eacn3_create_task`, `eacn3_submit_bid`, `eacn3_submit_result`, `eacn3_list_*`, `eacn3_get_*` |
 | `codex-subagent` | `mcp-servers/codex-subagent/` (built to `dist/server.js`) | Node / TypeScript | `node mcp-servers/codex-subagent/dist/server.js` | single tool: `codex` (read-only analysis or full-access delegation, controlled via `sandbox`) |
 | `keepalive` | `mcp-servers/keepalive/server.py` | Python (FastMCP) | `uv run --quiet --no-project --with mcp[cli] python mcp-servers/keepalive/server.py` | `wait_bg` (deadline-bounded background-task wait), `keepalive_now` (manual cache touch) |
+| `graphify` | `mcp-servers/graphify/` (isolated `.venv` + `launcher.sh`) | Python (graphify lib) | `bash mcp-servers/graphify/launcher.sh` | read-only Layer-3 graph: `query_graph`, `get_node`, `get_neighbors`, `get_community`, `god_nodes`, `graph_stats`, `shortest_path` |
 
-All four are wired into the workspace via the top-level `.mcp.json` (Claude Code) and `.codex/config.toml` (Codex). Adding a new MCP requires editing both files in addition to dropping the implementation here (or, for a Python-package-coupled server, inside `minions/`).
+All five are wired into the workspace via the top-level `.mcp.json` (Claude Code) and `.codex/config.toml` (Codex). Adding a new MCP requires editing both files in addition to dropping the implementation here (or, for a Python-package-coupled server, inside `minions/`).
 
 ## Build / install
 

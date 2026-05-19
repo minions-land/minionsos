@@ -23,6 +23,12 @@
       "command": "uv",
       "args": ["run", "--quiet", "--no-project", "--with", "mcp[cli]", "python", "mcp-servers/keepalive/server.py"],
       "env": {}
+    },
+    "graphify": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["mcp-servers/graphify/launcher.sh"],
+      "env": {}
     }
   }
 }

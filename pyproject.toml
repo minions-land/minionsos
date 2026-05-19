@@ -15,6 +15,7 @@ dependencies = [
     "typer>=0.12",
     "fastmcp>=0.2",
     "eacn3",
+    "paper-search-mcp",
 ]
 
 [project.scripts]
@@ -25,6 +26,7 @@ packages = ["minions"]
 
 [tool.uv.sources]
 eacn3 = { path = "./mcp-servers/eacn3", editable = true }
+paper-search-mcp = { git = "https://github.com/openags/paper-search-mcp.git", rev = "d438222" }
 
 [dependency-groups]
 dev = [

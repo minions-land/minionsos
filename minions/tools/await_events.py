@@ -415,6 +415,16 @@ def await_events() -> dict[str, Any]:
     consecutive_empty = 0
 
     while True:
+        # Early cache-keepalive cliff check: do BEFORE the next long-poll, not
+        # only after. The long-poll itself blocks for ~60s, so checking only
+        # at the bottom of the loop means a config of cache_keepalive_seconds
+        # < 60 is dead, and a config near the cliff (e.g. 240) only has 60s
+        # safety margin minus poll latency. Checking up-front gives the full
+        # configured value as headroom.
+        if keepalive_seconds > 0 and (time.monotonic() - started_monotonic) >= keepalive_seconds:
+            _touch_heartbeat(workspace, agent_id)
+            return {"count": 1, "events": [_KEEPALIVE_EVENT]}
+
         events = _poll_once(port, agent_id)
         _touch_heartbeat(workspace, agent_id)
         # Sync-write durable copy BEFORE the LLM ever sees the events.

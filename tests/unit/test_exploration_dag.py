@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -33,6 +34,16 @@ def _isolated_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     exploration_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "exploration"
     exploration_dir.mkdir(parents=True)
     return exploration_dir
+
+
+def _write_legacy_dag(exploration_dir: Path, nodes: list[dict[str, object]]) -> None:
+    payload = {
+        "project_port": 9999,
+        "root_question": "legacy graph",
+        "nodes": nodes,
+        "edges": [],
+    }
+    (exploration_dir / "dag.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
 class TestMosDagAppend:
@@ -72,6 +83,49 @@ class TestMosDagAppend:
         """Custom types are accepted (not rejected) — schema is suggestive."""
         result = dag.mos_dag_append(nodes=[{"type": "observation", "text": "X"}])
         assert result["created_node_ids"] == ["OBS-001"]
+
+    def test_append_stores_provenance_and_confidence(self):
+        dag.mos_dag_append(
+            nodes=[
+                {
+                    "type": "hypothesis",
+                    "text": "Derived from earlier evidence",
+                    "provenance": "inferred",
+                    "confidence": 0.42,
+                }
+            ]
+        )
+        node = dag.mos_dag_query(node_type="hypothesis")["nodes"][0]
+        assert node["provenance"] == "inferred"
+        assert node["confidence"] == 0.42
+
+    def test_append_defaults_provenance_and_confidence(self):
+        dag.mos_dag_append(nodes=[{"type": "hypothesis", "text": "Defaulted"}])
+        node = dag.mos_dag_query(node_type="hypothesis")["nodes"][0]
+        assert node["provenance"] == "extracted"
+        assert node["confidence"] == 1.0
+
+    @pytest.mark.parametrize("confidence", [-0.1, 1.1])
+    def test_append_rejects_out_of_range_confidence(self, confidence: float):
+        with pytest.raises(ValueError, match="Node confidence must be 0.0-1.0"):
+            dag.mos_dag_append(
+                nodes=[{"type": "hypothesis", "text": "Invalid", "confidence": confidence}]
+            )
+
+    def test_append_accepts_custom_provenance(self, caplog: pytest.LogCaptureFixture):
+        with caplog.at_level(logging.INFO, logger=dag.logger.name):
+            dag.mos_dag_append(
+                nodes=[
+                    {
+                        "type": "hypothesis",
+                        "text": "Field note",
+                        "provenance": "field-note",
+                    }
+                ]
+            )
+        node = dag.mos_dag_query(node_type="hypothesis")["nodes"][0]
+        assert node["provenance"] == "field-note"
+        assert "Custom provenance: field-note" in caplog.text
 
     def test_journal_written(self, _isolated_project: Path):
         dag.mos_dag_append(nodes=[{"type": "question", "text": "Why?"}])
@@ -128,6 +182,40 @@ class TestMosDagQuery:
         assert "E-001" in ids
         assert "R-001" not in ids
 
+    def test_legacy_dag_without_provenance_confidence_still_works(
+        self, _isolated_project: Path
+    ):
+        _write_legacy_dag(
+            _isolated_project,
+            [
+                {
+                    "id": "H-001",
+                    "type": "hypothesis",
+                    "text": "Legacy hypothesis",
+                    "support_status": "unverified",
+                    "author_role": "expert-legacy",
+                    "created_at": "2026-05-01T00:00:00+00:00",
+                    "evidence_tag": "",
+                    "metadata": {},
+                }
+            ],
+        )
+
+        dag.mos_dag_append(
+            nodes=[{"type": "result", "text": "New result", "author_role": "coder"}],
+            edges=[{"from_id": "H-001", "to_id": "R-001", "relation": "supports"}],
+        )
+        dag.mos_dag_annotate(node_id="H-001", support_status="tentative")
+        summary = dag.mos_dag_summary()
+        query = dag.mos_dag_query(related_to="H-001")
+
+        legacy_node = next(node for node in query["nodes"] if node["id"] == "H-001")
+        assert "provenance" not in legacy_node
+        assert "confidence" not in legacy_node
+        assert summary["nodes_by_provenance"]["unknown"] == 1
+        assert summary["nodes_by_provenance"]["extracted"] == 1
+        assert len(query["nodes"]) == 2
+
 
 class TestMosDagAnnotate:
     def test_annotate_status(self):
@@ -136,6 +224,24 @@ class TestMosDagAnnotate:
         assert result["changes"]["support_status"]["new"] == "verified"
         q = dag.mos_dag_query(node_type="hypothesis")
         assert q["nodes"][0]["support_status"] == "verified"
+
+    def test_annotate_provenance_and_confidence(self, _isolated_project: Path):
+        dag.mos_dag_append(nodes=[{"type": "hypothesis", "text": "H1"}])
+        result = dag.mos_dag_annotate(
+            node_id="H-001",
+            provenance="speculative",
+            confidence=0.25,
+        )
+        assert result["changes"]["provenance"]["new"] == "speculative"
+        assert result["changes"]["confidence"]["new"] == 0.25
+
+        node = dag.mos_dag_query(node_type="hypothesis")["nodes"][0]
+        assert node["provenance"] == "speculative"
+        assert node["confidence"] == 0.25
+
+        journal = _isolated_project / "journal.jsonl"
+        entries = [json.loads(line) for line in journal.read_text().splitlines()]
+        assert [entry["field"] for entry in entries[1:]] == ["provenance", "confidence"]
 
     def test_annotate_nonexistent_raises(self):
         with pytest.raises(ValueError, match="Node not found"):
@@ -185,3 +291,57 @@ class TestMosDagSummary:
         assert result["dead_end_count"] == 1
         assert len(result["active_hypotheses"]) == 1
         assert result["active_hypotheses"][0]["id"] == "H-001"
+
+    def test_summary_counts_provenance_by_role(self, _isolated_project: Path):
+        _write_legacy_dag(
+            _isolated_project,
+            [
+                {
+                    "id": "H-001",
+                    "type": "hypothesis",
+                    "text": "Legacy hypothesis",
+                    "support_status": "unverified",
+                    "author_role": "expert-old",
+                    "created_at": "2026-05-01T00:00:00+00:00",
+                    "evidence_tag": "",
+                    "metadata": {},
+                }
+            ],
+        )
+        dag.mos_dag_append(
+            nodes=[
+                {
+                    "type": "experiment",
+                    "text": "Extracted artifact",
+                    "author_role": "coder",
+                },
+                {
+                    "type": "insight",
+                    "text": "Working hypothesis",
+                    "author_role": "expert-foo",
+                    "provenance": "speculative",
+                    "confidence": 0.3,
+                },
+                {
+                    "type": "result",
+                    "text": "Derived result",
+                    "author_role": "expert-foo",
+                    "provenance": "inferred",
+                    "confidence": 0.6,
+                },
+            ]
+        )
+
+        result = dag.mos_dag_summary()
+        assert result["nodes_by_provenance"] == {
+            "unknown": 1,
+            "extracted": 1,
+            "speculative": 1,
+            "inferred": 1,
+        }
+        assert result["nodes_by_provenance_role"]["expert-old"]["unknown"] == 1
+        assert result["nodes_by_provenance_role"]["coder"]["extracted"] == 1
+        assert result["nodes_by_provenance_role"]["expert-foo"] == {
+            "speculative": 1,
+            "inferred": 1,
+        }

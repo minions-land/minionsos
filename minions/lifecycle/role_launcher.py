@@ -229,11 +229,21 @@ def _spawn_tmux(
     """Start a detached tmux session running *argv*, then send *initial_prompt*.
 
     The session is created with ``tmux new-session -d`` so it never
-    daemonizes inside the caller's TTY. After creation we ``send-keys`` the
-    initial prompt followed by ``Enter`` so the long-lived ``claude``
-    receives its first user message and starts the forever loop.
+    daemonizes inside the caller's TTY. Logging is captured via
+    ``tmux pipe-pane`` (NOT a shell ``| tee`` pipe) — Claude Code 2.1+
+    detects a non-TTY stdout when piped through ``tee`` and silently
+    switches to ``--print`` mode, then errors with "Input must be
+    provided through stdin" because the launcher feeds its initial
+    prompt via send-keys, not stdin. ``pipe-pane`` taps the pty after
+    Claude already attached, so the TTY check passes.
+
+    After session is up we ``send-keys`` the initial prompt followed by
+    ``Enter``. Claude Code's REPL treats a multiline pasted block as a
+    single buffered submission requiring an explicit Enter to commit, so
+    we send a second Enter after a short delay to ensure the prompt
+    actually fires.
     """
-    cmd_str = " ".join(_quote(a) for a in argv) + f" 2>&1 | tee -a {_quote(str(log_path))}"
+    cmd_str = " ".join(_quote(a) for a in argv)
     new_session_cmd = [
         "tmux",
         "new-session",
@@ -255,6 +265,28 @@ def _spawn_tmux(
             f"tmux new-session failed for {session_name}: {stderr.strip() or exc}"
         ) from exc
 
+    # Capture pane output to log via tmux's own pipe-pane (preserves TTY).
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        subprocess.run(
+            [
+                "tmux",
+                "pipe-pane",
+                "-t",
+                session_name,
+                f"cat >> {_quote(str(log_path))}",
+            ],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        # Logging is optional — never fail the spawn over a missing log.
+        logger.warning(
+            "_spawn_tmux: pipe-pane failed for %s; role will run without log: %s",
+            session_name,
+            exc,
+        )
+
     # Give claude a moment to come up, then deliver the initial prompt.
     # We send the prompt as a single block followed by Enter so claude reads
     # it as the first user message.
@@ -262,13 +294,44 @@ def _spawn_tmux(
 
 
 def _tmux_send_initial_prompt(session_name: str, prompt: str) -> None:
-    """Type *prompt* into the tmux session as if the operator typed it."""
+    """Type *prompt* into the tmux session as if the operator typed it.
+
+    Two waits + two Enters are deliberate. Claude Code 2.1 needs a moment
+    after process spawn to attach its REPL, and its multiline paste mode
+    treats a freshly pasted block as buffered input that requires an
+    explicit Enter to commit. Empirically:
+
+    1. Wait ~3s for claude to become interactive.
+    2. send-keys -l <prompt>: types the prompt verbatim into the input.
+    3. send-keys Enter: turns the paste into a committed multiline block.
+    4. Brief sleep so the REPL processes the commit.
+    5. send-keys Enter: actually submits the prompt to the model.
+
+    Without step 5, the prompt sits in the input field and the model
+    never wakes — the cold start failure mode observed in the
+    dispatch-eval e2e on 2026-05-19.
+    """
+    import time
+
+    # 1. Let claude attach.
+    time.sleep(3)
+
     try:
+        # 2. Paste the prompt.
         subprocess.run(
             ["tmux", "send-keys", "-t", session_name, "-l", prompt],
             check=True,
             capture_output=True,
         )
+        # 3. Commit the paste.
+        subprocess.run(
+            ["tmux", "send-keys", "-t", session_name, "Enter"],
+            check=True,
+            capture_output=True,
+        )
+        # 4. Brief settle.
+        time.sleep(0.5)
+        # 5. Actually submit.
         subprocess.run(
             ["tmux", "send-keys", "-t", session_name, "Enter"],
             check=True,
@@ -343,6 +406,22 @@ def _role_env(
         "BASH_DEFAULT_TIMEOUT_MS": "120000",
         "BASH_MAX_TIMEOUT_MS": "240000",
         "CLAUDE_AUTO_BACKGROUND_TASKS": "1",
+        # Force-disable Claude Code's deferred tool-loading. The dev host's
+        # global ~/.claude/settings.json sets ENABLE_TOOL_SEARCH=true so the
+        # author's interactive sessions can lazily pull schemas only when
+        # needed. That is wrong for Role processes: a fresh Coder cannot
+        # call eacn3_submit_bid / eacn3_send_message until ToolSearch loads
+        # their schemas, and the forever-loop prompt does not teach the
+        # ToolSearch dance. Empirical: the 2026-05-19 dispatch-eval e2e
+        # showed Coder spending 6+ minutes thrashing on deferred eacn3_*
+        # tools and never managing to bid on its task. With eager loading
+        # every whitelisted tool is callable on the first turn — the
+        # cost is a one-time, larger system-prompt cache_create per Role
+        # cold start, which is fine because Roles cold-start rarely.
+        # Valid Claude Code values: "true" / "false" / "auto" / "auto:N".
+        # An invalid value (e.g. "0") is silently ignored on non-first-party
+        # hosts like tok.fan, leaving the default in place.
+        "ENABLE_TOOL_SEARCH": "false",
         "PATH": os.environ.get("PATH", ""),
     }
 

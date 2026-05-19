@@ -11,11 +11,18 @@ MCP as a subagent. There is therefore no Codex branch here.
 
 from __future__ import annotations
 
+import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from minions.config import GruConfig
-from minions.paths import MINIONS_ROOT
+from minions.paths import MINIONS_ROOT, project_shared_subdir
+
+logger = logging.getLogger(__name__)
+
+HOT_CACHE_BYTE_LIMIT = 4096
+HOT_CACHE_TRUNCATION_LINE = "(truncated for wake-up injection — see wiki/hot.md for full)"
 
 
 @dataclass(frozen=True)
@@ -64,7 +71,7 @@ def build_role_invocation(
         flow therefore launches with ``resume=False``; ``resume=True`` is
         reserved for manual operator debugging.
     """
-    del cfg, project_port, project_agent_id  # not used yet; reserved for parity
+    del cfg, project_agent_id  # not used yet; reserved for parity
     cmd: list[str] = [
         "uv",
         "run",
@@ -92,12 +99,12 @@ def build_role_invocation(
         host_name="claude",
         command=cmd,
         cwd=workspace if workspace.exists() else MINIONS_ROOT,
-        initial_prompt=build_forever_loop_prompt(role_name=role_name),
+        initial_prompt=build_forever_loop_prompt(role_name=role_name, port=project_port),
         session_name=session_name,
     )
 
 
-def build_forever_loop_prompt(*, role_name: str) -> str:
+def build_forever_loop_prompt(*, role_name: str, port: int | None = None) -> str:
     """Compose the first user message that boots the Role into its forever loop.
 
     The prompt's job is narrow: anchor the Role's identity, name the
@@ -108,15 +115,18 @@ def build_forever_loop_prompt(*, role_name: str) -> str:
     each launch.
     """
     if role_name == "noter":
-        return _build_noter_loop_prompt()
-    return _build_eacn_role_loop_prompt(role_name)
+        return _build_noter_loop_prompt(port=port)
+    return _build_eacn_role_loop_prompt(role_name, port=port)
 
 
-def _build_noter_loop_prompt() -> str:
+def _build_noter_loop_prompt(*, port: int | None = None) -> str:
     """Forever-loop prompt for Noter (timer-based, not on EACN)."""
+    hot_cache = _hot_cache_block(port)
+    hot_cache_section = f"{hot_cache}\n" if hot_cache else ""
     return (
         "You are the MinionsOS `noter` role. Your event loop runs forever.\n"
         "\n"
+        f"{hot_cache_section}"
         "Cold start (this is your first cycle on a fresh process):\n"
         "1. Call `mos_dag_summary()` first to orient on team state.\n"
         "2. Inspect `pending_plans` in the summary. These are events your\n"
@@ -167,11 +177,14 @@ def _build_noter_loop_prompt() -> str:
     )
 
 
-def _build_eacn_role_loop_prompt(role_name: str) -> str:
+def _build_eacn_role_loop_prompt(role_name: str, *, port: int | None = None) -> str:
     """Forever-loop prompt for EACN-registered roles."""
+    hot_cache = _hot_cache_block(port)
+    hot_cache_section = f"{hot_cache}\n" if hot_cache else ""
     return (
         f"You are the MinionsOS `{role_name}` role. Your event loop runs forever.\n"
         "\n"
+        f"{hot_cache_section}"
         "Cold start (this is your first cycle on a fresh process):\n"
         "1. Call `mos_dag_summary()` first to orient on team state.\n"
         "2. Inspect `pending_plans` in the summary. These are events your\n"
@@ -242,3 +255,59 @@ def _build_eacn_role_loop_prompt(role_name: str) -> str:
         "does not end with `mos_await_events()` (or `mos_reset_context()`,\n"
         "which terminates this process so the watchdog respawns it).\n"
     )
+
+
+def _hot_cache_block(port: int | None = None) -> str | None:
+    """Return the wake-up hot-cache prompt block for *port*, if available."""
+    resolved_port = _resolve_hot_cache_port(port)
+    if resolved_port is None:
+        return None
+
+    path = project_shared_subdir(resolved_port, "wiki") / "hot.md"
+    try:
+        if not path.exists() or path.stat().st_size == 0:
+            return None
+        raw = path.read_bytes()
+        full_content = raw.decode("utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        logger.warning("failed to read wiki hot cache from %s: %s", path, exc)
+        return None
+
+    if not full_content.strip():
+        return None
+
+    truncated = len(raw) > HOT_CACHE_BYTE_LIMIT
+    content = (
+        raw[:HOT_CACHE_BYTE_LIMIT].decode("utf-8", errors="ignore") if truncated else full_content
+    )
+    if truncated:
+        content = f"{content}\n" if not content.endswith("\n") else content
+        content = f"{content}{HOT_CACHE_TRUNCATION_LINE}\n"
+    elif not content.endswith("\n"):
+        content = f"{content}\n"
+
+    return (
+        "## [Hot Cache]\n"
+        "\n"
+        "Brief rolling cache of recent project-wide context, maintained by\n"
+        "Noter. Read silently — do NOT explicitly cite this in EACN messages.\n"
+        "\n"
+        f"{content}"
+    )
+
+
+def _resolve_hot_cache_port(port: int | None) -> int | None:
+    """Resolve the project port used to locate the wiki hot cache."""
+    if port is not None:
+        return port
+
+    raw = os.environ.get("MINIONS_PROJECT_PORT", "").strip()
+    if not raw:
+        logger.debug("MINIONS_PROJECT_PORT not set; omitting wiki hot cache")
+        return None
+
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning("MINIONS_PROJECT_PORT is not a valid int: %r", raw)
+        return None

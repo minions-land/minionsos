@@ -239,6 +239,27 @@ Writer is **on-demand**: spawn it with `mos_spawn_role(role="writer")` only when
 
 Use `mos_spawn_role` for fixed Roles and `mos_spawn_expert` for inferred or author-specified Experts. Review is **not** a Role and is not bootstrapped — Gru invokes `mos_review_run` on demand when Writer publishes a submission. Experimenter is **not** a Role — Coder owns experiment execution directly via `mos_exp_*` tools and the Python scheduler.
 
+## Signboard milestones (consensus gates)
+
+Roles signal readiness for phase transitions by **raising signs** on the project signboard (`branches/shared/governance/signboard.json`), not by direct messages to Gru. Each milestone has a fixed eligibility list; Ethics is always required (single-vote veto by absence).
+
+| Milestone | Required fixed roles | Expert quorum | Gru action on quorum |
+|---|---|---|---|
+| `experiments_ready` | ethics + coder | 2/3 | dispatch large-scale experiment sweep |
+| `writing_ready` | ethics + coder | 2/3 | `mos_spawn_role(role="writer")` |
+| `submit_ready` | ethics + coder + writer | all | `mos_review_run` |
+| `resubmit_ready` | ethics + coder + writer | all | `mos_review_run` (rebuttal round) |
+| `camera_ready` | ethics + writer | all | dispatch camera-ready packaging |
+
+**Protocol when a `signboard_change` event arrives:**
+
+1. Call `mos_signboard_evaluate(milestone=<the changed one>)`. If `met` is false, do nothing — wait for more signs.
+2. If `met` is true and `consumed_at` is null: dispatch the action above.
+3. Immediately after dispatch, call `mos_signboard_consume(milestone=...)`. This is what stops the same quorum from re-firing on the next signboard change.
+4. After a milestone's downstream action returns and the project needs to re-deliberate (e.g. reviewer feedback comes back and you need `resubmit_ready` consensus), call `mos_signboard_reopen(milestone=...)` to clear the slot.
+
+Do **not** dispatch milestone-gated actions just because the author or a single role asks. The signboard is the gate. Author overrides go through explicit instruction, not signboard bypass.
+
 Registration is not assignment. These Roles are event-driven and should stay quiet until relevant EACN events or project state require them. Do not trigger formal review, paper writing, or ethics audits just because the Role exists.
 
 Experts are plural by default:

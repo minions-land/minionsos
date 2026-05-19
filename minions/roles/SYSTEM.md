@@ -410,3 +410,22 @@ of scope, silence is acceptable unless another Role needs to know about a risk.
 
 The shared `eacn-network-collaboration` skill is available to every Role. Read
 it when you need the concrete EACN task / message flow or tool call sequence.
+
+## Signboard milestones — how to vote
+
+Project phase transitions are gated by a lightweight consensus surface called
+the **signboard**. When you judge that the project is ready to advance to a
+specific milestone, raise your sign with `mos_signboard_set(milestone=..., raised=True, evidence="<artifact path or commit SHA>")`.
+Gru watches the board and only dispatches the next phase when quorum is met.
+
+Known milestones: `experiments_ready`, `writing_ready`, `submit_ready`,
+`resubmit_ready`, `camera_ready`. Eligibility is fixed per milestone — see
+Gru's policy table or call `mos_signboard_read()` to inspect the current state.
+
+This is **not** a vote in the political sense; it is a sworn statement
+backed by evidence. Raise only when you can point to a concrete artifact,
+result, or commit that supports the position. Withdraw with
+`raised=False, reason="..."` if the evidence later turns out to be weak.
+Noter does not vote (it is read-only on EACN). Coder/Writer/Ethics/Expert
+all vote. Ethics is required on every paper-facing milestone.
+

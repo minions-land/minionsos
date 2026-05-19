@@ -297,3 +297,120 @@ def test_format_role_report_with_data(tmp_path: Path) -> None:
     assert "49." in report or "48." in report
     # Cold-start summary
     assert "Cold-start sessions: 1 of 1" in report
+
+
+# --------------------------------------------------------------------------
+# Dispatch posture
+# --------------------------------------------------------------------------
+
+
+def test_classify_tool_buckets() -> None:
+    from minions.tools.cache_stats import _classify_tool
+
+    # Subagent dispatch
+    assert _classify_tool("Task") == "dispatch"
+    assert _classify_tool("Agent") == "dispatch"
+    assert _classify_tool("codex") == "dispatch"
+    assert _classify_tool("mcp__codex-subagent__codex") == "dispatch"
+
+    # Coordination (lightweight, not heavy work)
+    assert _classify_tool("mcp__minionsos__mos_dag_append") == "coord"
+    assert _classify_tool("mcp__eacn3__eacn3_send_message") == "coord"
+
+    # Heavy self-execution (the canary)
+    assert _classify_tool("Bash") == "heavy_self"
+    assert _classify_tool("Edit") == "heavy_self"
+    assert _classify_tool("Write") == "heavy_self"
+    assert _classify_tool("MultiEdit") == "heavy_self"
+    assert _classify_tool("NotebookEdit") == "heavy_self"
+
+    # Reads (still in-context but no mutation)
+    assert _classify_tool("Read") == "read_self"
+    assert _classify_tool("Grep") == "read_self"
+    assert _classify_tool("Glob") == "read_self"
+    assert _classify_tool("WebSearch") == "read_self"
+
+    # Anything else
+    assert _classify_tool("ToolSearch") == "misc"
+    assert _classify_tool("UnknownTool") == "misc"
+
+
+def test_posture_aggregation_and_pct() -> None:
+    from minions.tools.cache_stats import _posture_from_tool_names
+
+    posture = _posture_from_tool_names(
+        [
+            "Bash",
+            "Bash",
+            "Edit",  # 3 heavy_self
+            "Read",
+            "Read",  # 2 read_self
+            "Task",  # 1 dispatch
+            "ToolSearch",  # 1 misc
+            "mcp__minionsos__mos_dag_append",  # 1 coord
+        ]
+    )
+    assert posture.heavy_self == 3
+    assert posture.read_self == 2
+    assert posture.dispatch == 1
+    assert posture.misc == 1
+    assert posture.coord == 1
+    assert posture.total() == 8
+    assert posture.heavy_self_pct() == 3 / 8
+
+
+def test_compute_dispatch_posture_extracts_from_jsonl(tmp_path: Path) -> None:
+    from minions.tools.cache_stats import compute_dispatch_posture
+
+    p = tmp_path / "s.jsonl"
+    _write_session(
+        p,
+        [
+            {
+                "type": "assistant",
+                "timestamp": "2026-05-18T00:00:01Z",
+                "message": {
+                    "usage": {
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 0,
+                    },
+                    "content": [
+                        {"type": "tool_use", "name": "Bash"},
+                        {"type": "tool_use", "name": "Read"},
+                        {"type": "text", "text": "thinking"},
+                    ],
+                },
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-05-18T00:00:02Z",
+                "message": {
+                    "usage": {
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 0,
+                    },
+                    "content": [
+                        {"type": "tool_use", "name": "Task"},
+                    ],
+                },
+            },
+            # non-assistant entries with tool_use must be ignored
+            {
+                "type": "user",
+                "message": {"content": [{"type": "tool_use", "name": "Bash"}]},
+            },
+        ],
+    )
+    posture = compute_dispatch_posture([p])
+    assert posture.heavy_self == 1
+    assert posture.read_self == 1
+    assert posture.dispatch == 1
+    assert posture.total() == 3
+
+
+def test_dispatch_posture_handles_missing_files() -> None:
+    """Nonexistent paths must not raise — audit must stay best-effort."""
+    from minions.tools.cache_stats import compute_dispatch_posture
+
+    posture = compute_dispatch_posture([Path("/nonexistent/never/here.jsonl")])
+    assert posture.total() == 0

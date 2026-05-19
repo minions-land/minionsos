@@ -60,13 +60,17 @@ logger = logging.getLogger(__name__)
 # - "reviews/" is intentionally absent everywhere — that surface is owned
 #   exclusively by ``mos_review_run`` which writes commits directly without
 #   going through this tool.
+# - "wiki/" is owned exclusively by Noter (Karpathy LLM Wiki pattern);
+#   other roles publish raw artefacts to their own subdir + Noter
+#   ingest-compiles them into wiki/.
 _ROLE_ALLOWED_SHARED_SUBDIRS: dict[str, set[str]] = {
     "gru": {"*"},
-    "noter": {"notes", "exploration", "handoffs"},
-    "ethics": {"ethics", "handoffs"},
-    "writer": {"handoffs"},
-    "coder": {"exp", "handoffs"},
-    "expert": {"handoffs"},
+    # Wiki ownership invariant: Noter is the only non-Gru role that may publish wiki/.
+    "noter": {"notes", "exploration", "handoffs", "wiki"},
+    "ethics": {"ethics", "handoffs", "governance"},
+    "writer": {"handoffs", "governance"},
+    "coder": {"exp", "handoffs", "governance"},
+    "expert": {"handoffs", "governance"},
 }
 
 # Reserved roots no role may publish into via this tool. ``mos_review_run``
