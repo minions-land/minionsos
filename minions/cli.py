@@ -824,6 +824,121 @@ def role_drive(
 
 
 # ---------------------------------------------------------------------------
+# issues subcommands
+# ---------------------------------------------------------------------------
+
+issues_app = typer.Typer(help="Read runtime issue reports filed by Roles.")
+app.add_typer(issues_app, name="issues")
+
+
+def _format_issue_row(rec: dict) -> tuple[str, str, str, str, str, str]:
+    reporter = rec.get("reporter") or {}
+    role = str(reporter.get("role") or "?") if isinstance(reporter, dict) else "?"
+    return (
+        str(rec.get("id") or "?"),
+        str(rec.get("ts") or "?"),
+        str(rec.get("severity") or "?"),
+        str(rec.get("component") or "?"),
+        role,
+        str(rec.get("title") or ""),
+    )
+
+
+@issues_app.command("list")
+def issues_list(
+    port: int = typer.Argument(..., help="Project port."),
+    json_flag: bool = typer.Option(False, "--json"),
+) -> None:
+    """List all issue reports filed against a live project."""
+    from minions.tools.issues import list_issues
+
+    records = list_issues(port)
+    if json_flag:
+        _json_out(records)
+        return
+    if not records:
+        console.print(f"No issues filed for project {port}.")
+        return
+    table = Table(title=f"Issues for project {port}", show_lines=True)
+    table.add_column("ID")
+    table.add_column("When")
+    table.add_column("Sev")
+    table.add_column("Component")
+    table.add_column("Role")
+    table.add_column("Title", overflow="fold")
+    for rec in records:
+        table.add_row(*_format_issue_row(rec))
+    console.print(table)
+
+
+@issues_app.command("tail")
+def issues_tail(
+    port: int = typer.Argument(..., help="Project port."),
+    n: int = typer.Option(10, "--n", "-n", help="How many recent issues to show."),
+    json_flag: bool = typer.Option(False, "--json"),
+) -> None:
+    """Show the most recent N issue reports for a project."""
+    from minions.tools.issues import tail_issues
+
+    records = tail_issues(port, n)
+    if json_flag:
+        _json_out(records)
+        return
+    if not records:
+        console.print(f"No issues filed for project {port}.")
+        return
+    for rec in records:
+        console.print("─" * 60)
+        console.print(
+            f"[cyan]{rec.get('id')}[/cyan]  "
+            f"[dim]{rec.get('ts')}[/dim]  "
+            f"[bold]{rec.get('severity')}[/bold]/{rec.get('component')}  "
+            f"[magenta]{(rec.get('reporter') or {}).get('role', '?')}[/magenta]"
+        )
+        console.print(f"[bold]{rec.get('title', '')}[/bold]")
+        if rec.get("summary"):
+            console.print(rec["summary"])
+        if rec.get("evidence"):
+            console.print(f"[dim]evidence:[/dim] {rec['evidence']}")
+        if rec.get("workaround"):
+            console.print(f"[dim]workaround:[/dim] {rec['workaround']}")
+
+
+@issues_app.command("archive")
+def issues_archive(
+    json_flag: bool = typer.Option(False, "--json"),
+) -> None:
+    """List archived issue files under ~/.minionsos/issues/.
+
+    These are snapshots taken at project_close / project_dormant time;
+    use them when the live project tree no longer exists.
+    """
+    from minions.paths import host_issues_archive_dir
+
+    archive = host_issues_archive_dir()
+    if not archive.exists():
+        console.print("No archived issue files yet.")
+        return
+    files = sorted(archive.glob("*.jsonl"))
+    if json_flag:
+        _json_out([str(p) for p in files])
+        return
+    if not files:
+        console.print(f"No archived issue files in {archive}.")
+        return
+    table = Table(title=f"Archived issues ({archive})", show_lines=True)
+    table.add_column("File")
+    table.add_column("Size", justify="right")
+    for f in files:
+        try:
+            size = f.stat().st_size
+        except OSError:
+            size = 0
+        table.add_row(str(f), f"{size}B")
+    console.print(table)
+
+
+# ---------------------------------------------------------------------------
 # viz subcommands (dispatch to minions/bin/viz)
 # ---------------------------------------------------------------------------
 

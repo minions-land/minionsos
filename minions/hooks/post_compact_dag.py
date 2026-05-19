@@ -1,9 +1,39 @@
 #!/usr/bin/env python3
-"""PostCompact hook: extract DAG-worthy nodes from compact summary.
+"""PostCompact hook — extract pointer-shaped notes from a compact summary.
 
-Reads the compact summary from stdin (JSON with 'compact_summary' field),
-parses it for node references and typed entries, and appends any new nodes
-to the project's journal.jsonl for later DAG ingestion.
+Fires after Claude Code's ``/compact`` completes.  Reads the compact summary
+from stdin (JSON with a ``compact_summary`` field, possibly accompanied by
+others Claude Code may add later — extra keys are ignored).
+
+The summary is *pointer-shaped*: it cites DAG node IDs, wiki paths,
+experiment-report paths, EACN event ids, etc.  This hook does NOT try to
+materialise content from those pointers.  It only walks the summary,
+extracts:
+
+  - new / changed DAG node ids                 (## New_or_changed_nodes)
+  - pending-plan node ids restated by the LLM  (## Pending_plans)
+  - bare ``[H-001]`` / ``[E-002]`` etc. node refs anywhere in the body
+
+…and appends a single ``post_compact_extract`` audit entry to the same
+project journal that ``mos_compact_context`` writes to:
+
+  project_<port>/branches/shared/exploration/journal.jsonl
+
+Why an audit-only entry rather than direct DAG mutation:
+
+  ``mos_compact_context`` already persists pending plans to the DAG
+  *before* scheduling ``/compact`` (see ``minions/tools/compact.py``).
+  Mutating the DAG again from the post-compact summary would risk
+  duplicating those nodes, since the compact model legitimately restates
+  them in its output.  We therefore treat this hook as an audit /
+  recovery trail: if the agent later needs to reconstruct what was
+  in-flight when the compact happened, the journal has both the
+  pre-compact ``compact`` entry (with persisted node ids) and the
+  post-compact ``post_compact_extract`` entry (with whatever the LLM
+  cited in its summary).
+
+Cache safety: stdout / stderr only; no settings, no cwd, no system
+prompt.  Does not affect the prompt-prefix cache key.
 """
 
 from __future__ import annotations
@@ -13,172 +43,185 @@ import logging
 import os
 import re
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
-logging.basicConfig(stream=sys.stderr, level=logging.DEBUG, format="%(levelname)s: %(message)s")
+logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(levelname)s: %(message)s")
 log = logging.getLogger("post_compact_dag")
 
-# Patterns for node references and typed entries
-NODE_REF_RE = re.compile(r"\[(H-\d+|E-\d+|R-\d+|D-\d+)\]")
-TYPED_ENTRY_RE = re.compile(
-    r"^[-*]\s*(hypothesis|experiment|result|dead_end):\s*(.+)",
-    re.IGNORECASE | re.MULTILINE,
-)
-STATUS_RE = re.compile(r"\((tentative|verified|refuted|abandoned)\)", re.IGNORECASE)
+# DAG node-id prefixes — must stay aligned with TYPE_PREFIX in
+# minions/tools/exploration_dag.py.  Keep this list permissive: missing a
+# new prefix only makes the audit entry less informative; it never breaks
+# anything.
+NODE_PREFIXES = ("H", "E", "R", "D", "Q", "DEAD", "I", "M", "C", "A")
+NODE_REF_RE = re.compile(rf"\b({'|'.join(NODE_PREFIXES)})-\d+\b")
+SECTION_RE = re.compile(r"^##\s+([A-Za-z_]+)\s*$", re.MULTILINE)
+WORKING_ON_RE = re.compile(r"^##\s+Working_on\s*\n([\s\S]*?)(?=\n##\s|\Z)", re.MULTILINE)
+NEXT_ACTION_RE = re.compile(r"^##\s+Next_action\s*\n([\s\S]*?)(?=\n##\s|\Z)", re.MULTILINE)
+PENDING_RE = re.compile(r"^##\s+Pending_plans\s*\n([\s\S]*?)(?=\n##\s|\Z)", re.MULTILINE)
+NEW_NODES_RE = re.compile(r"^##\s+New_or_changed_nodes\s*\n([\s\S]*?)(?=\n##\s|\Z)", re.MULTILINE)
+DEAD_ENDS_RE = re.compile(r"^##\s+Dead_ends\s*\n([\s\S]*?)(?=\n##\s|\Z)", re.MULTILINE)
 
 
-def find_project_dir() -> Path | None:
-    """Locate the project directory from MINIONS_PROJECT_PORT."""
-    port = os.environ.get("MINIONS_PROJECT_PORT")
-    if not port:
-        log.debug("MINIONS_PROJECT_PORT not set, skipping")
-        return None
+def _exploration_dir(port: int) -> Path | None:
+    """Return ``project_<port>/branches/shared/exploration`` if locatable.
 
-    # Walk up from CWD or use MINIONS_ROOT to find project_{port}/
+    Avoids importing ``minions.paths`` so the hook also works in raw
+    operator shells where the package isn't on sys.path.  The repo root
+    is the parent of the directory holding this file's parent (i.e.
+    ``minions/hooks/post_compact_dag.py`` → ``MinionsOS/``).
+    """
     minions_root = os.environ.get("MINIONS_ROOT")
     if minions_root:
-        candidate = Path(minions_root).parent / f"project_{port}"
+        repo_root = Path(minions_root).parent
     else:
-        # Try relative to this script's grandparent (MinionsOS repo root)
-        candidate = Path(__file__).resolve().parent.parent.parent / f"project_{port}"
-
-    if candidate.is_dir():
-        return candidate
-
-    log.debug("Project directory not found: %s", candidate)
-    return None
+        repo_root = Path(__file__).resolve().parent.parent.parent
+    candidate = repo_root / f"project_{port}" / "branches" / "shared" / "exploration"
+    return candidate if candidate.is_dir() else None
 
 
-def load_existing_node_ids(project_dir: Path) -> set[str]:
-    """Load node IDs already present in dag.json."""
-    dag_path = project_dir / "dag.json"
+def _journal_path(exploration_dir: Path) -> Path:
+    return exploration_dir / "journal.jsonl"
+
+
+def _dag_path(exploration_dir: Path) -> Path:
+    return exploration_dir / "dag.json"
+
+
+def _existing_node_ids(dag_path: Path) -> set[str]:
     if not dag_path.exists():
         return set()
-
     try:
         data = json.loads(dag_path.read_text(encoding="utf-8"))
-        ids: set[str] = set()
-        for node in data.get("nodes", []):
-            node_id = node.get("id", "")
-            if node_id:
-                ids.add(node_id)
-        return ids
     except (json.JSONDecodeError, OSError) as exc:
-        log.debug("Could not read dag.json: %s", exc)
+        log.debug("could not read %s: %s", dag_path, exc)
         return set()
+    ids: set[str] = set()
+    for node in data.get("nodes", []):
+        nid = node.get("id", "")
+        if isinstance(nid, str) and nid:
+            ids.add(nid)
+    return ids
 
 
-def extract_nodes_from_summary(summary: str) -> list[dict]:
-    """Extract DAG-worthy nodes from the compact summary text."""
-    nodes: list[dict] = []
-    seen_ids: set[str] = set()
-
-    # Extract explicitly typed entries (- hypothesis: ..., - experiment: ..., etc.)
-    for match in TYPED_ENTRY_RE.finditer(summary):
-        node_type = match.group(1).lower()
-        description = match.group(2).strip()
-
-        # Check for an inline node ID
-        id_match = NODE_REF_RE.search(description)
-        node_id = id_match.group(1) if id_match else None
-
-        # Check for status annotation
-        status_match = STATUS_RE.search(description)
-        status = status_match.group(1).lower() if status_match else "tentative"
-
-        # Clean description of inline markers
-        clean_desc = NODE_REF_RE.sub("", description).strip()
-        clean_desc = STATUS_RE.sub("", clean_desc).strip()
-        clean_desc = clean_desc.strip(" -—:")
-
-        if node_id and node_id in seen_ids:
-            continue
-        if node_id:
-            seen_ids.add(node_id)
-
-        nodes.append(
-            {
-                "id": node_id,
-                "type": node_type,
-                "description": clean_desc,
-                "status": status,
-                "source": "post_compact",
-            }
-        )
-
-    # Also pick up bare [H-xxx] references in context lines that weren't typed entries
-    for match in NODE_REF_RE.finditer(summary):
-        node_id = match.group(1)
-        if node_id not in seen_ids:
-            seen_ids.add(node_id)
-            # Infer type from prefix
-            prefix = node_id.split("-")[0]
-            type_map = {"H": "hypothesis", "E": "experiment", "R": "result", "D": "dead_end"}
-            nodes.append(
-                {
-                    "id": node_id,
-                    "type": type_map.get(prefix, "unknown"),
-                    "description": "",
-                    "status": "tentative",
-                    "source": "post_compact_ref_only",
-                }
-            )
-
-    return nodes
+def _section_text(summary: str, pattern: re.Pattern[str]) -> str:
+    m = pattern.search(summary)
+    return m.group(1).strip() if m else ""
 
 
-def append_to_journal(project_dir: Path, nodes: list[dict]) -> int:
-    """Append new nodes to journal.jsonl. Returns count written."""
-    journal_path = project_dir / "journal.jsonl"
-    count = 0
+def _node_ids_in(text: str) -> list[str]:
+    """Return DAG node ids cited in ``text``, deduped, in order of first occurrence."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for match in NODE_REF_RE.finditer(text):
+        nid = match.group(0)
+        if nid not in seen:
+            seen.add(nid)
+            out.append(nid)
+    return out
 
-    try:
-        with journal_path.open("a", encoding="utf-8") as f:
-            for node in nodes:
-                f.write(json.dumps(node, ensure_ascii=False) + "\n")
-                count += 1
-    except OSError as exc:
-        log.error("Failed to write journal.jsonl: %s", exc)
 
-    return count
+def _structured_extract(summary: str) -> dict:
+    """Pull the pointer-shaped fields out of a memory-layer-aware summary.
+
+    Returns a dict shaped::
+
+        {
+            "working_on": "...",
+            "next_action": "...",
+            "new_or_changed_node_ids": [...],
+            "pending_plan_node_ids": [...],
+            "dead_end_node_ids": [...],
+            "all_node_refs": [...],   # every DAG ref anywhere in the summary
+            "sections_seen": [...],   # which ## headings we found
+        }
+    """
+    sections = [m.group(1) for m in SECTION_RE.finditer(summary)]
+    return {
+        "working_on": _section_text(summary, WORKING_ON_RE),
+        "next_action": _section_text(summary, NEXT_ACTION_RE),
+        "new_or_changed_node_ids": _node_ids_in(_section_text(summary, NEW_NODES_RE)),
+        "pending_plan_node_ids": _node_ids_in(_section_text(summary, PENDING_RE)),
+        "dead_end_node_ids": _node_ids_in(_section_text(summary, DEAD_ENDS_RE)),
+        "all_node_refs": _node_ids_in(summary),
+        "sections_seen": sections,
+    }
+
+
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def main() -> None:
+    raw = sys.stdin.read()
+    if not raw.strip():
+        log.debug("empty stdin, nothing to do")
+        return
+
     try:
-        raw = sys.stdin.read()
-        if not raw.strip():
-            log.debug("Empty stdin, nothing to do")
-            return
-
         data = json.loads(raw)
-        summary = data.get("compact_summary", "")
-        if not summary:
-            log.debug("No compact_summary field in input")
-            return
-    except (json.JSONDecodeError, KeyError) as exc:
-        log.error("Failed to parse stdin: %s", exc)
+    except json.JSONDecodeError as exc:
+        log.error("could not parse stdin as JSON: %s", exc)
+        return
+    if not isinstance(data, dict):
+        log.error("stdin payload is not a JSON object")
         return
 
-    project_dir = find_project_dir()
-    if not project_dir:
+    summary = data.get("compact_summary", "") or ""
+    if not isinstance(summary, str) or not summary.strip():
+        log.debug("no compact_summary text — nothing to extract")
         return
 
-    # Extract nodes from the summary
-    nodes = extract_nodes_from_summary(summary)
-    if not nodes:
-        log.debug("No DAG-worthy nodes found in compact summary")
+    port_env = os.environ.get("MINIONS_PROJECT_PORT", "")
+    if not port_env:
+        log.debug("MINIONS_PROJECT_PORT not set, skipping")
+        return
+    try:
+        port = int(port_env)
+    except ValueError:
+        log.error("MINIONS_PROJECT_PORT=%r is not an integer", port_env)
         return
 
-    # Filter out nodes already in dag.json
-    existing_ids = load_existing_node_ids(project_dir)
-    new_nodes = [n for n in nodes if n.get("id") is None or n["id"] not in existing_ids]
-
-    if not new_nodes:
-        log.debug("All extracted nodes already exist in dag.json")
+    exploration = _exploration_dir(port)
+    if exploration is None:
+        log.debug("no exploration dir for project_%s, skipping", port)
         return
 
-    count = append_to_journal(project_dir, new_nodes)
-    log.debug("Appended %d new nodes to journal.jsonl", count)
+    extract = _structured_extract(summary)
+
+    # Annotate which referenced ids already exist in the live DAG so a human
+    # auditor can immediately see whether the compact summary cited known
+    # nodes vs hallucinated ones.
+    known_ids = _existing_node_ids(_dag_path(exploration))
+    extract["unknown_node_refs"] = [n for n in extract["all_node_refs"] if n not in known_ids]
+    extract["known_node_refs"] = [n for n in extract["all_node_refs"] if n in known_ids]
+
+    entry = {
+        "op": "post_compact_extract",
+        "role": os.environ.get("MINIONS_ROLE_NAME", "unknown"),
+        "trigger": data.get("trigger", ""),
+        "timestamp": _now_iso(),
+        "summary_chars": len(summary),
+        "extract": extract,
+    }
+
+    journal = _journal_path(exploration)
+    try:
+        journal.parent.mkdir(parents=True, exist_ok=True)
+        with journal.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except OSError as exc:
+        log.error("failed to append journal entry to %s: %s", journal, exc)
+        return
+
+    log.info(
+        "post_compact_extract: %d node refs (%d known, %d unknown), %d new, %d pending",
+        len(extract["all_node_refs"]),
+        len(extract["known_node_refs"]),
+        len(extract["unknown_node_refs"]),
+        len(extract["new_or_changed_node_ids"]),
+        len(extract["pending_plan_node_ids"]),
+    )
 
 
 if __name__ == "__main__":

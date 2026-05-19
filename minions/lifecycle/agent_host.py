@@ -48,14 +48,20 @@ def build_role_invocation(
     session_name: str,
     resume: bool = False,
     model: str | None = None,
+    mcp_config_path: Path | None = None,
+    role_system_paths: list[Path] | None = None,
 ) -> RoleInvocation:
     """Build the ``claude`` invocation for a long-lived Role.
 
     The returned ``command`` is the argv to launch (no shell), ``cwd`` is the
     Role's branch workspace (Claude reads ``CLAUDE.md`` / files from cwd), and
-    ``initial_prompt`` is the first user message the launcher pipes in. The
-    Role's SYSTEM.md is appended to Claude's system prompt so role rules sit
-    outside the conversation body and survive auto-compact.
+    ``initial_prompt`` is the first user message the launcher pipes in.
+
+    Cache optimization: ``system_path`` should point ONLY to the common Role
+    contract (``minions/roles/SYSTEM.md``), which is byte-identical across all
+    roles. Role-specific instructions (from ``role_system_paths``) are injected
+    into the first user message instead, so the system-prompt prefix stays
+    identical and maximizes cross-role KV cache sharing at the API level.
 
     When ``resume=True``, ``--resume <session_name>`` is appended so Claude
     Code reattaches to the prior conversation (Claude Code resolves the value
@@ -87,7 +93,7 @@ def build_role_invocation(
         cmd += ["--append-system-prompt", f"@{system_path}"]
     cmd += [
         "--mcp-config",
-        str(MINIONS_ROOT / ".mcp.json"),
+        str(mcp_config_path or (MINIONS_ROOT / ".mcp.json")),
         "--allowed-tools",
         allowed_tools,
         "--permission-mode",
@@ -99,12 +105,21 @@ def build_role_invocation(
         host_name="claude",
         command=cmd,
         cwd=workspace if workspace.exists() else MINIONS_ROOT,
-        initial_prompt=build_forever_loop_prompt(role_name=role_name, port=project_port),
+        initial_prompt=build_forever_loop_prompt(
+            role_name=role_name,
+            port=project_port,
+            role_system_paths=role_system_paths,
+        ),
         session_name=session_name,
     )
 
 
-def build_forever_loop_prompt(*, role_name: str, port: int | None = None) -> str:
+def build_forever_loop_prompt(
+    *,
+    role_name: str,
+    port: int | None = None,
+    role_system_paths: list[Path] | None = None,
+) -> str:
     """Compose the first user message that boots the Role into its forever loop.
 
     The prompt's job is narrow: anchor the Role's identity, name the
@@ -113,16 +128,24 @@ def build_forever_loop_prompt(*, role_name: str, port: int | None = None) -> str
     behavior — boundaries, skills, EACN contract — lives in the appended
     SYSTEM.md and the role-specific ``SYSTEM.md`` re-injected by Claude on
     each launch.
+
+    Cache optimization: role-specific SYSTEM.md content is injected here (in
+    the first user message) rather than in ``--append-system-prompt``, so the
+    system prompt prefix stays byte-identical across all roles and maximizes
+    cross-role KV cache sharing at the API level.
     """
     if role_name == "noter":
-        return _build_noter_loop_prompt(port=port)
-    return _build_eacn_role_loop_prompt(role_name, port=port)
+        return _build_noter_loop_prompt(port=port, role_system_paths=role_system_paths)
+    return _build_eacn_role_loop_prompt(role_name, port=port, role_system_paths=role_system_paths)
 
 
-def _build_noter_loop_prompt(*, port: int | None = None) -> str:
+def _build_noter_loop_prompt(
+    *, port: int | None = None, role_system_paths: list[Path] | None = None
+) -> str:
     """Forever-loop prompt for Noter (timer-based, not on EACN)."""
     hot_cache = _hot_cache_block(port)
     hot_cache_section = f"{hot_cache}\n" if hot_cache else ""
+    role_contract = _role_contract_block(role_system_paths)
     return (
         "You are the MinionsOS `noter` role. Your event loop runs forever.\n"
         "\n"
@@ -174,13 +197,17 @@ def _build_noter_loop_prompt(*, port: int | None = None) -> str:
         "Your output is tool calls. Do not emit a final assistant turn that\n"
         "does not end with `mos_noter_wait()` (or `mos_reset_context()`,\n"
         "which terminates this process so the watchdog respawns it).\n"
+        f"{role_contract}"
     )
 
 
-def _build_eacn_role_loop_prompt(role_name: str, *, port: int | None = None) -> str:
+def _build_eacn_role_loop_prompt(
+    role_name: str, *, port: int | None = None, role_system_paths: list[Path] | None = None
+) -> str:
     """Forever-loop prompt for EACN-registered roles."""
     hot_cache = _hot_cache_block(port)
     hot_cache_section = f"{hot_cache}\n" if hot_cache else ""
+    role_contract = _role_contract_block(role_system_paths)
     return (
         f"You are the MinionsOS `{role_name}` role. Your event loop runs forever.\n"
         "\n"
@@ -254,6 +281,40 @@ def _build_eacn_role_loop_prompt(role_name: str, *, port: int | None = None) -> 
         "Your output is tool calls. Do not emit a final assistant turn that\n"
         "does not end with `mos_await_events()` (or `mos_reset_context()`,\n"
         "which terminates this process so the watchdog respawns it).\n"
+        f"{role_contract}"
+    )
+
+
+def _role_contract_block(role_system_paths: list[Path] | None = None) -> str:
+    """Return the role-specific contract text for injection into the user message.
+
+    Reads each path in *role_system_paths* and concatenates them under a
+    ``[Role-Specific Contract]`` header. Returns empty string if no paths
+    are provided or none exist.
+    """
+    if not role_system_paths:
+        return ""
+    parts: list[str] = []
+    for path in role_system_paths:
+        if not path.exists():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if text:
+            parts.append(text)
+    if not parts:
+        return ""
+    combined = "\n\n---\n\n".join(parts)
+    return (
+        "\n\n"
+        "## [Role-Specific Contract]\n"
+        "\n"
+        "The following role-specific rules supplement the common contract in\n"
+        "the system prompt. They take precedence on role-specific matters.\n"
+        "\n"
+        f"{combined}\n"
     )
 
 

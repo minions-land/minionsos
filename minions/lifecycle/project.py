@@ -856,7 +856,7 @@ def _create_worktree(port: int, base_branch: str) -> str:
     return branch
 
 
-_SHARED_SUBDIRS = ("exploration", "notes", "ethics", "exp", "reviews", "handoffs")
+_SHARED_SUBDIRS = ("exploration", "notes", "ethics", "exp", "reviews", "handoffs", "wiki")
 _SHARED_README = """\
 # Project shared worktree
 
@@ -879,6 +879,7 @@ Roles do **not** `Write` here directly. All writes go through
 - `reviews/round-<n>/` — `mos_review_run` output. The review tool owns this
   surface directly; no other role writes here.
 - `handoffs/` — Free-form cross-role handoffs.
+- `wiki/` — Noter-compiled knowledge base (Karpathy LLM Wiki pattern, Phase 2+).
 """
 
 
@@ -1692,6 +1693,13 @@ def project_dormant(
     tag = f"minionsos/dormant/project-{port}-{ts}"
     _git_tag(port, tag)
 
+    try:
+        from minions.tools.issues import archive_issues as _archive_issues
+
+        _archive_issues(port, closed_ts=now)
+    except Exception as exc:
+        logger.warning("project_dormant: issue archive failed for port=%d: %s", port, exc)
+
     updated = _store.update_project(
         port,
         status="dormant",
@@ -1836,6 +1844,13 @@ def project_close(
     if entry.status == "active":
         _git_tag(port, dormant_tag)
     _git_tag(port, closed_tag)
+
+    try:
+        from minions.tools.issues import archive_issues as _archive_issues
+
+        _archive_issues(port, closed_ts=now)
+    except Exception as exc:
+        logger.warning("project_close: issue archive failed for port=%d: %s", port, exc)
 
     updated = _store.update_project(
         port,

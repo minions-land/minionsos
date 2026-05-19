@@ -242,6 +242,7 @@ def register_expert(
     init_brief: str | None = None,
     store: StateStore | None = None,
     time_trigger_interval: str | None = None,
+    skill_node: str | None = None,
 ) -> dict[str, object]:
     """Register an expert role for event-driven invocation."""
     slug = slugify(domain)
@@ -255,6 +256,7 @@ def register_expert(
         init_brief=brief,
         store=store or StateStore(),
         time_trigger_interval=time_trigger_interval,
+        skill_node_slug=skill_node,
     )
 
 
@@ -264,6 +266,7 @@ def _do_register(
     init_brief: str | None,
     store: StateStore,
     time_trigger_interval: str | None,
+    skill_node_slug: str | None = None,
 ) -> dict[str, object]:
     entry = store.get_project(project_port)
     if entry is None:
@@ -357,6 +360,7 @@ def _do_register(
         workspace_branch=workspace_branch,
         github_push_target=getattr(entry, "github_push_target", None),
         time_trigger_interval=resolved_time_trigger,
+        skill_node_slug=skill_node_slug,
         eacn_agent_id=resolve_agent_id(project_port, role_name),
         eacn_agent_token=agent_token,
         eacn_registered_at=now,

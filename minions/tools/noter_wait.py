@@ -2,7 +2,7 @@
 
 Noter is not registered on EACN3 and does not use ``mos_await_events``.
 Instead it sleeps for a configurable interval (``noter_periodic_interval``,
-default 5 min) and wakes to flush the DAG and observe project state.
+default 3 min) and wakes to flush the DAG and observe project state.
 
 This tool provides the same cache-keepalive guard as ``mos_await_events``
 so Noter's prompt cache stays warm during long idle periods. The keepalive
@@ -70,7 +70,7 @@ def _load_interval_seconds() -> int:
 
         return parse_duration(load_gru_config().noter_periodic_interval)
     except Exception:
-        return 300
+        return 180
 
 
 def _load_keepalive_seconds() -> int:
@@ -119,6 +119,40 @@ def _events_jsonl_delta(port: int) -> dict[str, Any]:
         except Exception:
             pass
     return {"total_event_lines": total}
+
+
+def _nudge_path(port: int) -> Path:
+    """Return the nudge marker path for this project's Noter."""
+    from minions.paths import project_state_dir
+
+    return project_state_dir(port) / ".noter_nudge"
+
+
+def _check_and_clear_nudge(port: int) -> bool:
+    """Return True and clear the marker if a nudge is pending."""
+    path = _nudge_path(port)
+    if path.exists():
+        import contextlib
+
+        with contextlib.suppress(OSError):
+            path.unlink(missing_ok=True)
+        return True
+    return False
+
+
+def nudge_noter(port: int) -> None:
+    """Write a nudge marker so Noter wakes early on next sleep-chunk check.
+
+    Called by mos_publish_to_shared after a successful publish. The marker
+    is a zero-byte file; its existence is the signal. Noter checks every
+    30s during its sleep loop and wakes immediately if found.
+    """
+    path = _nudge_path(port)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path.touch(exist_ok=True)
+    except OSError as exc:
+        logger.debug("nudge_noter: failed to touch %s: %s", path, exc)
 
 
 _CORPUS_GRAPH_SOURCES = ("wiki", "notes", "ethics", "exp")
@@ -265,7 +299,20 @@ def noter_wait() -> dict[str, Any]:
         if keepalive_seconds > 0 and elapsed >= keepalive_seconds:
             return {"count": 1, "events": [_KEEPALIVE_EVENT]}
 
+        if _check_and_clear_nudge(port):
+            logger.info("noter_wait: nudge detected, waking early at %.1fs", elapsed)
+            break
+
     corpus_graph = _maybe_rebuild_corpus_graph(workspace)
+    # Register project graph into global cross-project index (Gru reads this).
+    try:
+        from minions.tools.global_graph import mos_global_graph_register
+
+        global_reg = mos_global_graph_register(port)
+    except Exception as exc:
+        logger.warning("global graph registration failed: %s", exc)
+        global_reg = {"registered": False, "reason": str(exc)}
+
     try:
         from minions.tools.wiki import mos_wiki_lint
 
@@ -284,6 +331,7 @@ def noter_wait() -> dict[str, Any]:
                     "shared_branch": _shared_branch_delta(workspace),
                     "events": _events_jsonl_delta(port),
                     "corpus_graph": corpus_graph,
+                    "global_graph": global_reg,
                     "wiki_lint": lint_result,
                 },
                 "suggested_action": (

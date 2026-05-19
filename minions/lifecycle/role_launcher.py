@@ -153,17 +153,45 @@ def launch_role_process(
     log_path = project_role_log(project_port, role_name)
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Skill-node injection: if this role has an associated skill node,
+    # generate a per-instance MCP config, resolve extra tools, and inject
+    # skills into the workspace.
+    mcp_config_path: Path | None = None
+    extra_allowed: str = ""
+    extra_domain_md: Path | None = None
+
+    if role_entry.skill_node_slug:
+        from minions.lifecycle.skill_nodes import (
+            generate_instance_mcp_config,
+            inject_skills_to_workspace,
+            load_manifest,
+            resolve_extra_allowed_tools,
+        )
+
+        manifest = load_manifest(role_entry.skill_node_slug)
+        session = session_name(project_port, role_name)
+        mcp_config_path = generate_instance_mcp_config(
+            MINIONS_ROOT / ".mcp.json", manifest, session
+        )
+        extra_tools = resolve_extra_allowed_tools(manifest)
+        if extra_tools:
+            extra_allowed = "," + ",".join(extra_tools)
+        inject_skills_to_workspace(manifest, workspace)
+        extra_domain_md = manifest.domain_pack_path
+
     invocation = build_role_invocation(
         cfg=cfg,
         role_name=role_name,
         project_port=project_port,
         project_agent_id=role_entry.eacn_agent_id or role_name,
-        system_path=_combined_system_prompt(role_name),
-        allowed_tools=whitelist_csv(role_name, "main"),
+        system_path=_combined_system_prompt(role_name, extra_domain_md=extra_domain_md),
+        allowed_tools=whitelist_csv(role_name, "main") + extra_allowed,
         workspace=workspace,
         session_name=role_entry.session_name or project_session_name(project_port, role_name),
         resume=resume,
         model=_role_model(cfg, role_name),
+        mcp_config_path=mcp_config_path,
+        role_system_paths=_role_system_paths(role_name, extra_domain_md=extra_domain_md),
     )
 
     env = _role_env(
@@ -433,39 +461,33 @@ def _role_model(cfg: GruConfig, role_name: str) -> str | None:
     return None
 
 
-def _combined_system_prompt(role_name: str) -> Path | None:
-    """Return the path to the combined common+role SYSTEM.md, or None."""
+def _combined_system_prompt(role_name: str, *, extra_domain_md: Path | None = None) -> Path | None:
+    """Return the path to the common SYSTEM.md only (cache-optimized).
+
+    Cache optimization: all roles share the same ``--append-system-prompt``
+    content (the common contract at ``minions/roles/SYSTEM.md``). Role-specific
+    instructions and domain packs are injected into the first user message by
+    ``build_forever_loop_prompt`` via ``role_system_paths``, so the system-prompt
+    prefix stays byte-identical across roles and maximizes cross-role KV cache
+    sharing at the API level.
+    """
+    del role_name, extra_domain_md  # no longer used; role-specific goes to user msg
+    common_path = common_role_system_md()
+    if common_path.exists():
+        return common_path
+    return None
+
+
+def _role_system_paths(role_name: str, *, extra_domain_md: Path | None = None) -> list[Path]:
+    """Return the list of role-specific SYSTEM.md paths for user-message injection."""
     is_expert = role_name == "expert" or role_name.startswith("expert-")
     role_path = role_system_md("expert" if is_expert else role_name)
-    common_path = common_role_system_md()
-    paths = [path for path in (common_path, role_path) if path.exists()]
-    if not paths:
-        return None
-    if paths == [role_path]:
-        return role_path
-
-    import hashlib
-    import tempfile
-
-    parts: list[str] = []
-    for path in paths:
-        label = "Common Role System" if path == common_path else f"{role_name} Role System"
-        try:
-            text = path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        parts.append(f"# {label}\n\n{text.strip()}\n")
-    if not parts:
-        return None
-    combined = "\n\n---\n\n".join(parts) + "\n"
-    digest = hashlib.sha256(combined.encode("utf-8")).hexdigest()[:12]
-    safe = role_name.replace("/", "_").replace("..", "_")
-    out_dir = Path(tempfile.gettempdir()) / "minionsos-role-prompts"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{safe}-{digest}.md"
-    if not out_path.exists() or out_path.read_text(encoding="utf-8") != combined:
-        out_path.write_text(combined, encoding="utf-8")
-    return out_path
+    paths: list[Path] = []
+    if role_path.exists():
+        paths.append(role_path)
+    if extra_domain_md and extra_domain_md.exists():
+        paths.append(extra_domain_md)
+    return paths
 
 
 def _quote(value: str) -> str:

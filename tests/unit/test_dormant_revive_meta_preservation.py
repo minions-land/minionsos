@@ -284,7 +284,7 @@ def test_revive_restores_noter_from_meta_and_repairs_timer(
     assert role.name == "noter"
     assert role.state == "sleeping"
     assert role.pid is None
-    assert role.time_trigger_interval == "5m"
+    assert role.time_trigger_interval == "3m"
     assert role.eacn_agent_token == "noter-token"
 
 

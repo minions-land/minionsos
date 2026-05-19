@@ -336,6 +336,41 @@ def project_exploration_dir(port: int) -> Path:
     return project_shared_subdir(port, "exploration")
 
 
+def project_issues_dir(port: int) -> Path:
+    """Return the runtime issue-tracker directory for *port*.
+
+    Layout: ``project_{port}/issues/issues.jsonl`` plus
+    ``issues.lock`` for serialising appends. Roles call
+    ``mos_issue_report`` to drop a structured record here when they
+    notice a scaffolding-level problem (broken tool, contradictory
+    SYSTEM, missing skill). Read-only for the human/dev side. The
+    project lifecycle archives this file under
+    :func:`host_issues_archive_dir` on close/dormant.
+    """
+    return project_dir(port) / "issues"
+
+
+def project_issues_jsonl(port: int) -> Path:
+    """Return the append-only JSONL issues file for *port*."""
+    return project_issues_dir(port) / "issues.jsonl"
+
+
+def project_issues_lock(port: int) -> Path:
+    """Return the flock path that serialises issue appends for *port*."""
+    return project_issues_dir(port) / "issues.lock"
+
+
+def host_issues_archive_dir() -> Path:
+    """Return the host-level directory where closed projects' issues land.
+
+    On project_close / project_dormant the per-project ``issues.jsonl``
+    is copied to ``~/.minionsos/issues/{port}-{ts}.jsonl`` so reports
+    survive after the project tree is torn down. Cross-project view for
+    the human; not read by Roles.
+    """
+    return Path.home() / ".minionsos" / "issues"
+
+
 def project_events_dir(port: int) -> Path:
     """Return the per-agent EACN event-log directory for *port*.
 
