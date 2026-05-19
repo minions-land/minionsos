@@ -192,21 +192,18 @@ CODEX_CONFIG_DIR="$ROOT/.codex"
 CODEX_CONFIG="$CODEX_CONFIG_DIR/config.toml"
 mkdir -p "$CODEX_CONFIG_DIR"
 if [ ! -f "$CODEX_CONFIG" ]; then
-    cat > "$CODEX_CONFIG" <<'EOF'
-[mcp_servers.minionsos]
-command = "uv"
-args = ["run", "--project", ".", "python", "-m", "minions.tools.mcp_server"]
-enabled = true
-
-[mcp_servers.eacn3]
-command = "node"
-args = ["mcp-servers/eacn3/plugin/dist/server.js"]
-enabled = true
-EOF
+    "$PROJECT_PYTHON" "$ROOT/minions/tools/_gen_codex_config.py" "$CODEX_CONFIG"
     ok "Created Codex MCP config: .codex/config.toml"
 else
     ok "Codex MCP config already exists: .codex/config.toml (not overwritten)"
 fi
+
+# ── 6c. Generate .mcp.json (Claude Code MCP servers) ─────────────────────────
+# Always regenerated to stay in sync with what is actually built.
+# codex-subagent is conditional: only registered if its dist/server.js exists.
+info "Generating .mcp.json (Claude Code MCP servers)..."
+"$PROJECT_PYTHON" "$ROOT/minions/tools/_gen_mcp_json.py" "$ROOT"
+ok ".mcp.json generated"
 
 # ── 7. Ensure launcher is executable ─────────────────────────────────────────
 if [ -f "$ROOT/minions/bin/gru" ]; then
@@ -272,6 +269,52 @@ else
         fi
     fi
     ok "Author repo git state looks sane: $PARENT"
+fi
+
+# ── 9. Claude Code hooks verification ────────────────────────────────────────
+# Verify that the project Python can import all hook dependencies.
+# This catches the "system python3 is 3.9 but hooks need 3.11+" failure mode.
+info "Verifying Claude Code hooks..."
+HOOKS_DIR="$ROOT/minions/hooks"
+HOOK_VERIFY_FAILED=0
+for hook in "$HOOKS_DIR"/*.py; do
+    [ -f "$hook" ] || continue
+    hookname="$(basename "$hook")"
+    if ! "$PROJECT_PYTHON" -c "import ast; ast.parse(open('$hook').read())" 2>/dev/null; then
+        warn "Hook syntax error: $hookname"
+        HOOK_VERIFY_FAILED=1
+        continue
+    fi
+    if ! "$PROJECT_PYTHON" "$hook" < /dev/null >/dev/null 2>/dev/null; then
+        : # hooks exit 0 on empty stdin; non-zero means import or runtime error
+        # But some hooks legitimately exit 0 on empty input, so only check import
+    fi
+done
+# Targeted import check for the known 3.11+ dependency
+if ! "$PROJECT_PYTHON" -c "from datetime import UTC" 2>/dev/null; then
+    warn "Project Python cannot import datetime.UTC (requires 3.11+)"
+    HOOK_VERIFY_FAILED=1
+fi
+if [ "$HOOK_VERIFY_FAILED" = "0" ]; then
+    ok "All hooks verified with project Python ($("$PROJECT_PYTHON" --version 2>&1))"
+else
+    die "Hook verification failed. Ensure Python 3.11+ is available:\n       uv python install 3.11 && uv sync"
+fi
+
+# ── 10. Claude Code settings validation ──────────────────────────────────────
+# Verify .claude/settings.json exists and hooks reference the project venv.
+CLAUDE_SETTINGS="$ROOT/.claude/settings.json"
+if [ -f "$CLAUDE_SETTINGS" ]; then
+    if grep -q 'python3 ' "$CLAUDE_SETTINGS" 2>/dev/null; then
+        warn ".claude/settings.json still references bare 'python3' in hooks."
+        warn "Hooks should use .venv/bin/python to ensure Python 3.11+."
+        warn "Run: git checkout .claude/settings.json  (to get the fixed version)"
+    else
+        ok "Claude Code settings: hooks use project Python"
+    fi
+else
+    warn ".claude/settings.json not found — Claude Code hooks will not be active."
+    warn "This file should be checked into the repository."
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────

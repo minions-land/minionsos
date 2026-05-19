@@ -14,12 +14,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/minions/hooks/write_boundary_guard.py\"",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/write_boundary_guard.py\"",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/minions/hooks/large_file_guard.py\"",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/large_file_guard.py\"",
             "timeout": 5
           }
         ]
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/minions/hooks/write_boundary_guard.py\"",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/write_boundary_guard.py\"",
             "timeout": 5
           }
         ]
@@ -39,7 +39,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/minions/hooks/long_subagent_advisor.py\"",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/long_subagent_advisor.py\"",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/role_dispatcher_guard.py\"",
             "timeout": 3
           }
         ]
@@ -51,7 +61,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/minions/hooks/edit_failure_rescue.py\"",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/edit_failure_rescue.py\"",
             "timeout": 5
           }
         ]
@@ -63,7 +73,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/minions/hooks/bg_keepalive_nudge.py\"",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/bg_keepalive_nudge.py\"",
             "timeout": 3
           }
         ]
@@ -74,7 +84,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/minions/hooks/pre_compact_science.py\"",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/pre_compact_science.py\"",
             "timeout": 5
           }
         ]
@@ -85,7 +95,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/minions/hooks/post_compact_dag.py\"",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/post_compact_dag.py\"",
             "timeout": 10
           }
         ]
