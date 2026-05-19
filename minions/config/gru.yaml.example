@@ -32,7 +32,7 @@ projects_root:
 # Exploration DAG to a single commit on the shared branch (mos_dag_commit_shared),
 # and to consider whether a fresh staged report is due. DAG flushes happen on
 # every periodic wake; reports are throttled by noter_report_interval below.
-noter_periodic_interval: 5m
+noter_periodic_interval: 3m
 
 # Target cadence for Noter staged report publishes. Noter only publishes a new
 # report once this much time has elapsed since the last one (checked on each

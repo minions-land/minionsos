@@ -13,8 +13,10 @@ import MetricHUD from "./MetricHUD";
 import EventLog from "./EventLog";
 import Adjudication from "./Adjudication";
 import DagView from "./DagView";
+import { WikiView } from "./WikiView";
+import { KnowledgeGraphView } from "./KnowledgeGraphView";
 
-type View = "universe" | "tasks" | "terminals" | "events" | "adjudication" | "dag";
+type View = "universe" | "tasks" | "terminals" | "events" | "adjudication" | "dag" | "wiki" | "knowledge";
 
 export default function App() {
   const store = useStore();
@@ -147,6 +149,8 @@ export default function App() {
             )}
 
             {view === "dag" && <DagView />}
+            {view === "wiki" && <WikiView />}
+            {view === "knowledge" && <KnowledgeGraphView />}
           </>
         )}
       </div>

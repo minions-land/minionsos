@@ -17,7 +17,7 @@ def test_common_role_contract_documents_agent_host_portability() -> None:
     text = (ROOT / "minions" / "roles" / "SYSTEM.md").read_text(encoding="utf-8")
 
     assert "## Agent-host portability" in text
-    assert "Claude Code and Codex" in text
+    assert "any agent host" in text
     assert "host-native subagent mechanism" in text
     assert "self-contained" in text
 
@@ -29,7 +29,7 @@ def test_common_role_contract_requires_role_to_role_eacn() -> None:
     assert "targeted task" in text
     assert "eacn3_create_task" in text
     assert "direct EACN" in text
-    assert "not substitutes for registered project Roles" in text
+    assert "Do not route ordinary cross-role work through Gru" in text
 
 
 def test_role_prompts_avoid_claude_only_subagent_and_skill_contracts() -> None:

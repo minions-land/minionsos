@@ -1,6 +1,6 @@
 ---
 slug: reliable-file-io
-summary: Atomic single-file IO and chunked long-document pipeline. Use BEFORE any Write/Edit on files >200 lines, content with CJK/code-fences/math/heredoc tokens, paths with prior failures, or documents >50KB. Replaces plain Write/Edit.
+summary: Atomic alternative to Write/Edit. Trigger BEFORE writing on files >~200 lines, CJK/code-fences/math/heredoc-token content, paths where Write/Edit already failed this session, or documents >~50KB. Tier 1 atomic rename for single files; Tier 2 chunked pipeline with manifest + read-back verification for >50KB documents.
 layer: physical
 tools: Bash
 version: 1
@@ -75,7 +75,9 @@ def atomic_write(path: Path, text: str) -> None:
         prefix=f".{path.name}.", suffix=".tmp", delete=False
     )
     try:
-        tmp.write(text); tmp.flush(); os.fsync(tmp.fileno())
+        tmp.write(text)
+        tmp.flush()
+        os.fsync(tmp.fileno())
     finally:
         tmp.close()
     os.replace(tmp.name, path)
@@ -106,17 +108,20 @@ atomic_write(TARGET, "".join(parts))
 **Update by anchor (replaces Edit):**
 ```python
 text = TARGET.read_text(encoding="utf-8")
-start = text.index("## Outline\n")
+anchor = "## Outline\n"
+assert text.count(anchor) == 1, f"anchor not unique: {text.count(anchor)} matches"
+start = text.index(anchor)
 end   = text.index("\n## ", start + 1) + 1
 text  = text[:start] + "## Outline (revised)\n\n- New point\n\n" + text[end:]
 atomic_write(TARGET, text)
 ```
 
-**Append:**
+**Append (atomic — read-modify-write, never `open("a")`):**
 ```python
-with TARGET.open("a", encoding="utf-8") as f:
-    f.write("\n## Appendix\n\nNew material...\n")
+existing = TARGET.read_text(encoding="utf-8") if TARGET.exists() else ""
+atomic_write(TARGET, existing + "\n## Appendix\n\nNew material...\n")
 ```
+> Plain `open("a")` is **not atomic** — a crash mid-write leaves a partial tail. Always go through `atomic_write` so the rename is the only externally visible state change.
 
 ### Pitfalls
 - Always pass `encoding="utf-8"` explicitly.
@@ -245,11 +250,15 @@ Stage 5: Final Validation & Repair
 
 ## Bash fallback (only when python3 is unavailable)
 
+Write to a sibling tmp file, fsync, then `mv` — same atomic-rename guarantee as Tier 1, weaker durability.
+
 ```bash
-: > "$FILE"
-cat >> "$FILE" <<'CHUNK_END_98a7f'
+TMP="$(mktemp "${FILE}.XXXXXX.tmp")"
+cat > "$TMP" <<'EOF_PAYLOAD'
 ...content...
-CHUNK_END_98a7f
+EOF_PAYLOAD
+sync
+mv -f "$TMP" "$FILE"
 ```
 
-Use only for environments without Python. Weaker atomicity guarantees.
+Never use `: > "$FILE"` followed by `cat >>` — that truncates the destination before any new bytes are written, so a crash mid-write loses the file.

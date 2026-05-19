@@ -1,0 +1,228 @@
+import { useEffect, useState, useMemo } from "react";
+import { useStore } from "./store";
+
+interface WikiEntry {
+  title: string;
+  content: string;
+  tags?: string[];
+  created_at?: string;
+  updated_at?: string;
+  links?: string[];
+}
+
+interface WikiGraph {
+  nodes: Array<{ id: string; label: string; type: string }>;
+  edges: Array<{ source: string; target: string; label?: string }>;
+}
+
+export function WikiView() {
+  const store = useStore();
+  const gruId = store.selectedGruId;
+  const port = store.selectedPort;
+  const [entries, setEntries] = useState<WikiEntry[]>([]);
+  const [selectedEntry, setSelectedEntry] = useState<WikiEntry | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "graph">("list");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!gruId || port == null) return;
+    setLoading(true);
+    fetch(`/api/mos/project/${port}/wiki?gru=${gruId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setEntries(data.entries || []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setEntries([]);
+        setLoading(false);
+      });
+  }, [gruId, port]);
+
+  const filteredEntries = useMemo(() => {
+    if (!searchQuery) return entries;
+    const q = searchQuery.toLowerCase();
+    return entries.filter(
+      (e) =>
+        e.title.toLowerCase().includes(q) ||
+        e.content.toLowerCase().includes(q) ||
+        (e.tags && e.tags.some((t) => t.toLowerCase().includes(q)))
+    );
+  }, [entries, searchQuery]);
+
+  const wikiGraph = useMemo(() => {
+    const nodes = entries.map((e) => ({
+      id: e.title,
+      label: e.title,
+      type: "wiki-entry",
+    }));
+    const edges: Array<{ source: string; target: string; label?: string }> = [];
+    entries.forEach((e) => {
+      if (e.links) {
+        e.links.forEach((link) => {
+          if (entries.some((entry) => entry.title === link)) {
+            edges.push({ source: e.title, target: link, label: "links-to" });
+          }
+        });
+      }
+    });
+    return { nodes, edges };
+  }, [entries]);
+
+  if (!gruId || port == null) {
+    return (
+      <div className="wiki-view empty">
+        <div className="empty-state">
+          <div className="icon">📚</div>
+          <div className="message">Select a project to view wiki entries</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="wiki-view loading">
+        <div className="spinner">Loading wiki...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="wiki-view">
+      <div className="wiki-header">
+        <div className="wiki-controls">
+          <input
+            type="text"
+            className="wiki-search"
+            placeholder="Search wiki entries..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <div className="view-toggle">
+            <button
+              className={viewMode === "list" ? "active" : ""}
+              onClick={() => setViewMode("list")}
+            >
+              📝 List
+            </button>
+            <button
+              className={viewMode === "graph" ? "active" : ""}
+              onClick={() => setViewMode("graph")}
+            >
+              🕸️ Graph
+            </button>
+          </div>
+        </div>
+        <div className="wiki-stats">
+          <span>{filteredEntries.length} entries</span>
+          {searchQuery && <span>· filtered from {entries.length}</span>}
+        </div>
+      </div>
+
+      {viewMode === "list" ? (
+        <div className="wiki-list">
+          {filteredEntries.length === 0 ? (
+            <div className="empty-state">
+              <div className="icon">📭</div>
+              <div className="message">
+                {searchQuery ? "No matching entries found" : "No wiki entries yet"}
+              </div>
+            </div>
+          ) : (
+            filteredEntries.map((entry, idx) => (
+              <div
+                key={idx}
+                className={`wiki-entry ${selectedEntry === entry ? "selected" : ""}`}
+                onClick={() => setSelectedEntry(entry)}
+              >
+                <div className="entry-header">
+                  <h3>{entry.title}</h3>
+                  {entry.tags && entry.tags.length > 0 && (
+                    <div className="entry-tags">
+                      {entry.tags.map((tag, i) => (
+                        <span key={i} className="tag">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="entry-preview">
+                  {entry.content.substring(0, 200)}
+                  {entry.content.length > 200 && "..."}
+                </div>
+                {entry.updated_at && (
+                  <div className="entry-meta">
+                    Updated: {new Date(entry.updated_at).toLocaleDateString()}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="wiki-graph-view">
+          <WikiGraphCanvas graph={wikiGraph} />
+        </div>
+      )}
+
+      {selectedEntry && (
+        <div className="wiki-detail-panel">
+          <div className="panel-header">
+            <h2>{selectedEntry.title}</h2>
+            <button className="close-btn" onClick={() => setSelectedEntry(null)}>
+              ✕
+            </button>
+          </div>
+          <div className="panel-content">
+            <div className="entry-full-content">{selectedEntry.content}</div>
+            {selectedEntry.links && selectedEntry.links.length > 0 && (
+              <div className="entry-links">
+                <h4>Links</h4>
+                <ul>
+                  {selectedEntry.links.map((link, i) => (
+                    <li key={i}>
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const linked = entries.find((e) => e.title === link);
+                          if (linked) setSelectedEntry(linked);
+                        }}
+                      >
+                        {link}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WikiGraphCanvas({ graph }: { graph: WikiGraph }) {
+  useEffect(() => {
+    // TODO: Implement D3.js force-directed graph visualization
+    // Similar to DagView but for wiki entries
+  }, [graph]);
+
+  return (
+    <div className="graph-canvas">
+      <svg width="100%" height="100%">
+        <text x="50%" y="50%" textAnchor="middle" fill="#666">
+          Graph visualization coming soon...
+        </text>
+      </svg>
+      <div className="graph-stats">
+        <span>{graph.nodes.length} nodes</span>
+        <span>{graph.edges.length} edges</span>
+      </div>
+    </div>
+  );
+}

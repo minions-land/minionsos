@@ -116,60 +116,6 @@ function computeHierarchicalLayers(nodes: DagNode[], edges: DagEdge[]): Map<stri
   return layers;
 }
 
-// Compute hierarchical layers using topological sort
-function computeHierarchicalLayers(nodes: DagNode[], edges: DagEdge[]): Map<string, number> {
-  const layers = new Map<string, number>();
-  const inDegree = new Map<string, number>();
-  const outEdges = new Map<string, string[]>();
-
-  // Initialize
-  nodes.forEach(n => {
-    inDegree.set(n.id, 0);
-    outEdges.set(n.id, []);
-  });
-
-  // Build graph
-  edges.forEach(e => {
-    inDegree.set(e.to_id, (inDegree.get(e.to_id) || 0) + 1);
-    outEdges.get(e.from_id)?.push(e.to_id);
-  });
-
-  // Topological sort with layer assignment
-  const queue: string[] = [];
-  nodes.forEach(n => {
-    if (inDegree.get(n.id) === 0) {
-      queue.push(n.id);
-      layers.set(n.id, 0);
-    }
-  });
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    const currentLayer = layers.get(current) || 0;
-
-    outEdges.get(current)?.forEach(next => {
-      const deg = inDegree.get(next)! - 1;
-      inDegree.set(next, deg);
-
-      const nextLayer = Math.max(layers.get(next) || 0, currentLayer + 1);
-      layers.set(next, nextLayer);
-
-      if (deg === 0) {
-        queue.push(next);
-      }
-    });
-  }
-
-  // Handle cycles - assign remaining nodes to layer 0
-  nodes.forEach(n => {
-    if (!layers.has(n.id)) {
-      layers.set(n.id, 0);
-    }
-  });
-
-  return layers;
-}
-
 function runForceStep(nodes: SimNode[], edges: SimEdge[], width: number, height: number) {
   const alpha = 0.25;
   const repulsion = 12000;

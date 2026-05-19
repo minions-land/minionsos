@@ -25,7 +25,7 @@ minions/
 ├── tools/
 │   ├── mcp_server.py        # FastMCP stdio server wrapping lifecycle functions
 │   ├── experiment_ssh.py    # exp_run plus exp_queue_* / exp_gpu_pool_* MCP tools
-│   ├── experiment_scheduler.py # SQLite-backed Experimenter GPU queue
+│   ├── experiment_scheduler.py # SQLite-backed Coder GPU queue
 │   ├── project_bridge.py    # mos_project_bridge MCP-facing wrapper
 │   └── whitelist.py         # resolve_allowed_tools
 ├── roles/                   # shared contract, role prompts, skills

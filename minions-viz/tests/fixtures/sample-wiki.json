@@ -1,0 +1,36 @@
+{
+  "entries": [
+    {
+      "title": "Getting Started",
+      "content": "Welcome to MinionsOS! This wiki contains documentation and guides for using the system.\n\nKey concepts:\n- Roles: Autonomous agents that perform tasks\n- Tasks: Units of work in the system\n- DAG: Directed Acyclic Graph of task dependencies",
+      "tags": ["introduction", "basics"],
+      "created_at": "2024-01-15T10:00:00Z",
+      "updated_at": "2024-01-20T15:30:00Z",
+      "links": ["Roles", "Tasks"]
+    },
+    {
+      "title": "Roles",
+      "content": "Roles are autonomous agents in MinionsOS. Each role has:\n\n- A unique identifier\n- Specific capabilities\n- Access to tools and resources\n- Ability to spawn sub-tasks",
+      "tags": ["concepts", "roles"],
+      "created_at": "2024-01-16T09:00:00Z",
+      "updated_at": "2024-01-19T14:20:00Z",
+      "links": ["Tasks", "Getting Started"]
+    },
+    {
+      "title": "Tasks",
+      "content": "Tasks represent units of work in the system. They can be:\n\n- Created by roles\n- Dependent on other tasks\n- Executed in parallel or sequentially\n- Monitored for completion",
+      "tags": ["concepts", "tasks"],
+      "created_at": "2024-01-16T09:30:00Z",
+      "updated_at": "2024-01-18T11:45:00Z",
+      "links": ["Roles", "DAG Visualization"]
+    },
+    {
+      "title": "DAG Visualization",
+      "content": "The DAG (Directed Acyclic Graph) view shows task dependencies:\n\n- Nodes represent tasks\n- Edges show dependencies\n- Colors indicate task status\n- Interactive exploration available",
+      "tags": ["visualization", "dag"],
+      "created_at": "2024-01-17T13:00:00Z",
+      "updated_at": "2024-01-20T16:00:00Z",
+      "links": ["Tasks"]
+    }
+  ]
+}

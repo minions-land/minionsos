@@ -1296,7 +1296,7 @@ def mos_noter_wait() -> dict:
     """Block for the noter periodic interval, then return a wake event.
 
     Timer-based wait for the Noter role (which is not on EACN3). Sleeps for
-    ``noter_periodic_interval`` (default 5 min), writing heartbeat files
+    ``noter_periodic_interval`` (default 3 min), writing heartbeat files
     during sleep. Includes the same cache-keepalive guard as mos_await_events.
 
     Returns {count: 1, events: [{type, delta, suggested_action}]}.

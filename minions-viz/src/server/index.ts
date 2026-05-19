@@ -191,6 +191,40 @@ app.get("/api/mos/project/:port/dag", (req, res) => {
   }
 });
 
+app.get("/api/mos/project/:port/wiki", (req, res) => {
+  const p = resolveGruAndPort(req, res); if (!p) return;
+  const g = getGru(p.gruId);
+  if (!g) return res.status(404).json({ error: "unknown gru" });
+  const wikiDir = path.join(projectDirFor(g.rootPath, p.port), "branches", "shared", "wiki");
+  try {
+    const entries: any[] = [];
+    if (fs.existsSync(wikiDir)) {
+      const files = fs.readdirSync(wikiDir).filter(f => f.endsWith('.md'));
+      for (const file of files) {
+        const content = fs.readFileSync(path.join(wikiDir, file), 'utf8');
+        const title = file.replace('.md', '');
+        entries.push({ title, content, updated_at: fs.statSync(path.join(wikiDir, file)).mtime });
+      }
+    }
+    res.json({ entries });
+  } catch {
+    res.json({ entries: [] });
+  }
+});
+
+app.get("/api/mos/project/:port/knowledge-graph", (req, res) => {
+  const p = resolveGruAndPort(req, res); if (!p) return;
+  const g = getGru(p.gruId);
+  if (!g) return res.status(404).json({ error: "unknown gru" });
+  const kgFile = path.join(projectDirFor(g.rootPath, p.port), "knowledge-graph.json");
+  try {
+    const raw = fs.readFileSync(kgFile, "utf8");
+    res.json(JSON.parse(raw));
+  } catch {
+    res.json({ entities: [], relations: [] });
+  }
+});
+
 app.get("/api/mos/project/:port/role-log/:role", (req, res) => {
   const p = resolveGruAndPort(req, res); if (!p) return;
   const role = req.params.role;

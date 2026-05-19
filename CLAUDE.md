@@ -90,7 +90,7 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/lifecycle/project_bridge.py` implements the Gru-only cross-project bridge (`mos_project_bridge`).
 - `minions/state/` contains file-backed state management and port allocation.
 - `minions/tools/mcp_server.py` exposes lifecycle operations as FastMCP tools.
-- `minions/tools/experiment_ssh.py` implements Experimenter `mos_exp_*` local/SSH execution tools, including queue-facing `exp_queue_*` and `exp_gpu_pool_*`.
+- `minions/tools/experiment_ssh.py` implements Coder's `mos_exp_*` local/SSH execution tools, including queue-facing `exp_queue_*` and `exp_gpu_pool_*`.
 - `minions/tools/experiment_scheduler.py` keeps the SQLite-backed project experiment queue and GPU packing logic.
 - `minions/tools/paper_search.py` implements Writer paper-search helpers exposed through MCP.
 - `minions/tools/whitelist.py` resolves allowed tool surfaces for main roles vs. subagents.
@@ -120,6 +120,7 @@ project_{port}/
 │       ├── exp/exp-<id>/        # Coder experiment result bundles
 │       ├── reviews/round-<n>/   # mos_review_run output (tool-owned)
 │       ├── handoffs/            # cross-role handoffs
+│       ├── governance/          # signboard.json (phase-transition consensus)
 │       └── wiki/                         ← Layer 2: Compiled Knowledge (LLM Wiki pattern)
 │           ├── index.md                    Noter-maintained catalog
 │           ├── hot.md                      ~500-word rolling cache, injected at role wake-up
@@ -142,7 +143,7 @@ The parent directory containing this repository is the **author seed repo**: at 
 
 Each Role is a long-lived `claude` process running inside its own tmux session named `mos-{port}-{role}`. EACN-registered roles drive their event loop with `mos_await_events()` (in `minions/tools/await_events.py`), which wraps the project-local 60-second `GET /api/events/{agent_id}` long-poll, drains events on read, runs an idle-check after ~5 minutes of silence, and only returns when there is actionable content. Heartbeat writes happen between polls so the Gru sidecar watchdog can spot a dead session and respawn it. Roles respond with raw `eacn3_send_message` / `eacn3_create_task` / `eacn3_submit_bid` / `eacn3_submit_result` and stay resident across many cycles. They do not call `eacn3_await_events` / `eacn3_next` / `eacn3_get_events` directly — that bypasses the wrapper and drops the suggested-action annotations.
 
-**Noter** is the exception: it is NOT registered on EACN3. It uses `mos_noter_wait()` (timer-based, default 5 min) instead of `mos_await_events()`, and observes the project by reading `events/*.jsonl` and `branches/shared/` artifacts. It runs on Sonnet (configured via `gru.yaml: noter_model`).
+**Noter** is the exception: it is NOT registered on EACN3. It uses `mos_noter_wait()` (timer-based, default 3 min) instead of `mos_await_events()`, and observes the project by reading `events/*.jsonl` and `branches/shared/` artifacts. It runs on Sonnet (configured via `gru.yaml: noter_model`).
 
 **Writer** is on-demand: it is not bootstrapped at project creation. Gru spawns it with `mos_spawn_role(role="writer")` when the project enters a paper-writing phase.
 
@@ -156,10 +157,10 @@ Tool/write boundaries (main role write scope; subagents inherit from their paren
 |---|---|---|---|---|---|---|
 | Gru main | `eacn3_*` (events delivered by scheduler) | no | `codex` | yes | `branches/main/` | any subdir |
 | Noter main | `mos_noter_wait` (timer, no EACN) | no | no | no | `branches/noter/` (drafts) | `notes/`, `exploration/`, `handoffs/`, `wiki/` |
-| Coder main | `eacn3_*` | yes | `codex` | no | `branches/coder/` | `exp/`, `handoffs/` |
-| Writer main (on-demand) | `eacn3_*` plus paper-search MCP tools | no | `codex` | no | `branches/writer/` | `handoffs/` |
-| Expert main | `eacn3_*` | no | `codex` | no | `branches/<expert>/` (read-mostly) | `handoffs/` |
-| Ethics main | `eacn3_*` | no | `codex` | no | `branches/ethics/` (drafts) | `ethics/`, `handoffs/` |
+| Coder main | `eacn3_*` | yes | `codex` | no | `branches/coder/` | `exp/`, `handoffs/`, `governance/` |
+| Writer main (on-demand) | `eacn3_*` plus paper-search MCP tools | no | `codex` | no | `branches/writer/` | `handoffs/`, `governance/` |
+| Expert main | `eacn3_*` | no | `codex` | no | `branches/<expert>/` (read-mostly) | `handoffs/`, `governance/` |
+| Ethics main | `eacn3_*` | no | `codex` | no | `branches/ethics/` (drafts) | `ethics/`, `handoffs/`, `governance/` |
 | All roles (read) | - | - | - | - | - | `wiki/` (via `mos_wiki_query`/`hot_get`) |
 
 `branches/shared/reviews/` is reserved for `mos_review_run` — the publish tool will reject any other caller. `branches/shared/exploration/dag.json` is updated in-place by `mos_dag_append` and committed on a Noter-driven cron through `mos_dag_commit_shared` (whitelisted to Noter and Gru only). No role writes to another role's `branches/<role>/` directly; cross-role artefacts always travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`.
@@ -179,7 +180,7 @@ A review round's Pass A must produce 3-5 independent reviewer-instance reports b
 
 ### Cross-cycle memory
 
-Roles are cold-started each invocation. There are no per-role scratchpad files. The only persistent cross-cycle memory is the **Exploration DAG** at `project_{port}/branches/shared/exploration/dag.json`, accessed via `mos_dag_append` / `mos_dag_query` / `mos_dag_summary` / `mos_dag_annotate` / `mos_dag_path`. It is buffered to disk on every call and flushed to a single commit on the shared branch by Noter on its periodic wake (`noter_periodic_interval`, default 5m).
+Roles are cold-started each invocation. There are no per-role scratchpad files. The only persistent cross-cycle memory is the **Exploration DAG** at `project_{port}/branches/shared/exploration/dag.json`, accessed via `mos_dag_append` / `mos_dag_query` / `mos_dag_summary` / `mos_dag_annotate` / `mos_dag_path`. It is buffered to disk on every call and flushed to a single commit on the shared branch by Noter on its periodic wake (`noter_periodic_interval`, default 3m).
 
 Roles reconstruct context at wake-up from:
 
