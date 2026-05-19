@@ -119,7 +119,13 @@ project_{port}/
 │       ├── ethics/              # Ethics published reports (flat)
 │       ├── exp/exp-<id>/        # Coder experiment result bundles
 │       ├── reviews/round-<n>/   # mos_review_run output (tool-owned)
-│       └── handoffs/            # cross-role handoffs
+│       ├── handoffs/            # cross-role handoffs
+│       └── wiki/                         ← Layer 2: Compiled Knowledge (LLM Wiki pattern)
+│           ├── index.md                    Noter-maintained catalog
+│           ├── hot.md                      ~500-word rolling cache, injected at role wake-up
+│           ├── log.md                      Append-only ingest/lint journal (JSONL)
+│           ├── sources/{role}-{slug}.md    One page per ingested artifact
+│           └── contradictions/             Auto-detected claim conflicts (Ethics reads)
 ├── eacn3_data/eacn3.db          # project-local EACN3 SQLite state (gitignored)
 ├── events/                      # per-agent EACN event JSONL audit stream (gitignored)
 ├── state/                       # runtime control state (gitignored)
@@ -149,11 +155,12 @@ Tool/write boundaries (main role write scope; subagents inherit from their paren
 | Agent | Project-local EACN access | Experiment tools | Codex subagent | Gru/project/spawn tools | Own branch | Shared subdirs (via mos_publish_to_shared) |
 |---|---|---|---|---|---|---|
 | Gru main | `eacn3_*` (events delivered by scheduler) | no | `codex` | yes | `branches/main/` | any subdir |
-| Noter main | `mos_noter_wait` (timer, no EACN) | no | no | no | `branches/noter/` (drafts) | `notes/`, `exploration/`, `handoffs/` |
+| Noter main | `mos_noter_wait` (timer, no EACN) | no | no | no | `branches/noter/` (drafts) | `notes/`, `exploration/`, `handoffs/`, `wiki/` |
 | Coder main | `eacn3_*` | yes | `codex` | no | `branches/coder/` | `exp/`, `handoffs/` |
 | Writer main (on-demand) | `eacn3_*` plus paper-search MCP tools | no | `codex` | no | `branches/writer/` | `handoffs/` |
 | Expert main | `eacn3_*` | no | `codex` | no | `branches/<expert>/` (read-mostly) | `handoffs/` |
 | Ethics main | `eacn3_*` | no | `codex` | no | `branches/ethics/` (drafts) | `ethics/`, `handoffs/` |
+| All roles (read) | - | - | - | - | - | `wiki/` (via `mos_wiki_query`/`hot_get`) |
 
 `branches/shared/reviews/` is reserved for `mos_review_run` — the publish tool will reject any other caller. `branches/shared/exploration/dag.json` is updated in-place by `mos_dag_append` and committed on a Noter-driven cron through `mos_dag_commit_shared` (whitelisted to Noter and Gru only). No role writes to another role's `branches/<role>/` directly; cross-role artefacts always travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`.
 

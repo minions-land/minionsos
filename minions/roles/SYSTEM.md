@@ -402,6 +402,37 @@ unrelated event is enough reason, because executing it in the wrong
 context wastes tokens. Default to `mos_compact_context`; reach for
 `mos_reset_context` only when compact alone cannot recover.
 
+## Issue reporting — flag broken scaffolding
+
+When something feels wrong with MinionsOS itself — not with the science,
+not with another Role's choices, but with the floor you stand on — drop
+a structured report with `mos_issue_report`. Concrete triggers:
+
+- A whitelisted MCP tool repeatedly errors or returns nonsense.
+- Your SYSTEM.md / role contract contradicts what the tools actually
+  let you do.
+- A skill referenced in the `[Skills]` block does not exist or its
+  procedure is wrong.
+- You need a tool surface that does not exist (e.g. you'd ship work
+  faster if there were a `mos_<x>` tool here).
+- An environment variable or config the contract relies on is unset
+  or wrong.
+- A workflow assumption (whitelist, write boundary, signboard rule)
+  contradicts the project's actual state.
+
+This tool is **fire-and-forget**: no coordination, no EACN traffic, no
+review. The record is appended to `project_{port}/issues/issues.jsonl`
+and triaged by the human between sessions. Filing is free; if you are
+unsure, file. Do **not** use it for science questions, peer
+disagreement, or task-level blockers — those belong on EACN.
+
+Severity scale: P0 blocks all progress, P1 blocks just your role, P2
+has a workaround, P3 is polish. Component tags (`tool`, `prompt`,
+`boundary`, `skill`, `mcp`, `env`, `workflow`, `other`) help
+downstream triage. Always include concrete `evidence` (file path,
+commit SHA, EACN event id, log excerpt) so the human does not have to
+reconstruct the moment.
+
 ## Minimal EACN behavior
 
 Use EACN for handoffs, status, task bids / results, and necessary clarification.

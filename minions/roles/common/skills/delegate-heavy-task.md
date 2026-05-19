@@ -43,6 +43,7 @@ Route high-intensity coding work to Codex GPT-5.5 (via codex-subagent MCP). Fall
 - Codex operates autonomously — review its output before accepting
 - If Codex times out, break the task into smaller pieces
 - For non-git directories, use `sandbox: "read-only"` + `skip_git_check: true`
+- For multi-file tasks, spell out NON-GOALS explicitly in the `task` string — what NOT to touch / build / change. Often more useful than the goal list, because it stops Codex from drifting into "obviously also needed" adjacent work.
 
 ## Output habit
 

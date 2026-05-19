@@ -65,19 +65,25 @@ def test_ethics_registration(monkeypatch) -> None:
 
 
 def test_ethics_main_whitelist() -> None:
+    # CLI whitelist is unified across EACN roles for cache optimization.
+    # Verify the unified list includes what Ethics needs.
     tools = resolve_whitelist("ethics", "main")
-    # Ethics talks to other roles through native EACN3 tools.
     assert "eacn3_*" in tools
     assert "WebSearch" in tools
     assert "WebFetch" in tools
     assert "Read" in tools
-    assert not any(t.startswith("mos_exp_") for t in tools)
-    assert "mos_project_bridge" not in tools
-    assert not any(t.startswith("mos_spawn_") for t in tools)
-    assert not any(t.startswith("mos_project_") for t in tools)
-    assert "Write" not in tools
-    assert "Edit" not in tools
-    assert "Bash" not in tools
+
+    # Server-side authz still enforces the real Ethics boundary.
+    from minions.config import resolve_server_authz
+
+    authz = resolve_server_authz("ethics", "main")
+    assert not any(t.startswith("mos_exp_") for t in authz)
+    assert "mos_project_bridge" not in authz
+    assert not any(t.startswith("mos_spawn_") for t in authz)
+    assert not any(t.startswith("mos_project_") and t != "mos_project_checkpoint_workspace" for t in authz)
+    assert "Write" not in authz
+    assert "Edit" not in authz
+    assert "Bash" not in authz
 
 
 def test_ethics_subagent_whitelist() -> None:
@@ -94,6 +100,7 @@ def test_ethics_subagent_whitelist() -> None:
         "codex",
         "wait_bg",
         "keepalive_now",
+        "mos_issue_report",
         "WebSearch",
         "WebFetch",
         "Read",

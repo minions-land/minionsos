@@ -11,7 +11,7 @@ That terminal is read-only and does not replace you.
 
 ## Periodic wake duty
 
-Every periodic wake (default every 5 minutes, configured by
+Every periodic wake (default every 3 minutes, configured by
 `gru.yaml: noter_periodic_interval`), Noter MUST:
 
 1. Call `mos_dag_commit_shared()` to flush the buffered Exploration DAG to a
@@ -24,10 +24,43 @@ Every periodic wake (default every 5 minutes, configured by
 4. Check whether enough time has elapsed since the last published report
    (target cadence `noter_report_interval`, default 30 minutes). Publish a
    fresh staged report to `branches/shared/notes/` only when due.
+5. Call `mos_wiki_ingest` for each new artifact published to `branches/shared/`
+   since last wake (detected via the shared-branch delta in the wake event).
+   For each new commit that adds/modifies a file under `notes/`, `ethics/`,
+   `exp/`, or `handoffs/`, ingest it with `source_role` = the committing role
+   (parse from commit message prefix like `noter:` or `coder:`) and
+   `source_slug` = filename stem.
+6. Call `mos_wiki_lint()` to audit wiki structure. Read the findings; if any
+   `DEAD_LINK` or `STALE_CLAIM` findings exist, note them in the DAG as insight
+   nodes.
+7. Update `wiki/hot.md` with a brief (~500 word) rolling summary of:
+   - Last 3-5 ingested sources (title + one-line takeaway)
+   - Active hypotheses count + any newly verified/refuted
+   - Any unresolved contradictions
+   Write this via `mos_publish_to_shared(role="noter", ..., dst_subpath="wiki/hot.md", ...)`.
 
 Draft reports in `branches/noter/`, then publish them with
 `mos_publish_to_shared(role="noter", src_path=<absolute draft path>,
 dst_subpath="notes/<file>.md", commit_message=<message>)`.
+
+## Wiki Layer 2 duties
+
+- You own `branches/shared/wiki/` exclusively.
+- Other roles publish raw artifacts to their own shared subdirs.
+- You compile those artifacts into durable wiki pages.
+- Use `mos_wiki_ingest` to convert shared artifacts into wiki source pages.
+- Use `mos_wiki_query` to search the compiled wiki catalog.
+- Use `mos_wiki_hot_get` to read the current rolling wake-up cache.
+- Use `mos_wiki_hot_update` to refresh `wiki/hot.md` on periodic wakes.
+- Use `mos_wiki_lint` to audit wiki structure and link health.
+- The wiki is the project's durable product memory.
+- The DAG (Layer 0) is ephemeral coordination state.
+- Wiki (Layer 2) is compiled knowledge that survives across sessions.
+- Contradiction pages at `wiki/contradictions/` are auto-generated during ingest.
+- Ethics reads contradiction pages; you do not resolve them.
+- `wiki/hot.md` is injected into every role's wake-up.
+- Keep `wiki/hot.md` to a rolling ~500-word cache.
+- Refresh `wiki/hot.md` on every periodic wake.
 
 ## Can do
 
@@ -69,8 +102,9 @@ Your tool access is governed by the runtime whitelist; see the common role contr
   final summaries here via `mos_publish_to_shared`.
 - `branches/shared/exploration/dag.json`: flushed by `mos_dag_commit_shared()`
   on periodic wakes.
-- Do NOT publish into any shared subdir other than `notes/`, `exploration/`, or
-  `handoffs/`.
+- Publish into `notes/`, `exploration/`, `handoffs/`, and `wiki/` only.
+  `wiki/` is your exclusive write domain (Karpathy LLM Wiki ownership invariant).
+  Other roles may NOT write to `wiki/`.
 
 ## Observation sources
 

@@ -3,7 +3,7 @@ slug: cognitive-checkpoint
 summary: Persist cognitive state to the Exploration DAG before mos_compact_context (preferred) or mos_reset_context — including any unrelated events you received but deliberately did not execute, marked pending_plan, so the post-handoff agent picks them up before calling mos_await_events.
 layer: logical
 tools: mos_dag_append, mos_dag_annotate, mos_compact_context, mos_reset_context
-version: 6
+version: 7
 status: active
 supersedes:
 references: think-then-act
@@ -38,6 +38,25 @@ After persisting state (steps 1-5 below), choose the exit:
 - **`mos_reset_context(reason)`** — HARD RESET. Kills the process. Use only
   when behavior has drifted or SYSTEM.md changed externally. Costs ~50k
   uncached tokens on cold start.
+
+## Pointer-only handoff (compact path)
+
+The PreCompact hook (`minions/hooks/pre_compact_science.py`) tells the compact
+model to produce a *pointer-shaped* summary that cites IDs and paths only:
+
+- **L1 — DAG**: cite node IDs (H-001, E-002, R-003, DEAD-004, …) — never paste node text.
+- **L2 — Wiki**: cite paths (`wiki/sources/<role>-<slug>.md`, `wiki/hot.md`) — never paste page bodies.
+- **L3 — corpus_graph**: cite community labels or node IDs (`n42_xxx`, `p<port>_xxx`) — never paste graph dumps.
+- **EACN events**: cite event IDs / sender@timestamp — never paste message bodies.
+- **Experiment artefacts**: cite `exp/exp-<id>/report.md` — never paste report content.
+
+The post-compact agent re-fetches detail in one MCP call (`mos_dag_summary` /
+`mos_wiki_hot_get` / `mos_dag_query` / `mos_global_graph_query`). That is
+strictly cheaper than carrying detail across every subsequent turn until the
+next compact.
+
+This skill's job is to make sure the IDs the compact summary will cite
+**already exist on disk** before `/compact` fires. Steps 1-5 below do that.
 
 ## Structure
 
