@@ -356,25 +356,25 @@ def test_whitelist_denies_signboard_set_to_noter() -> None:
 
 
 def test_only_gru_can_evaluate_consume_reopen() -> None:
-    """evaluate/consume/reopen are control-plane tools — Gru only."""
-    from minions.config import resolve_whitelist
+    """evaluate/consume/reopen are control-plane tools — Gru only at server side."""
+    from minions.config import resolve_server_authz
 
-    gru_tools = set(resolve_whitelist("gru", "main"))
+    gru_authz = set(resolve_server_authz("gru", "main"))
     for tool in (
         "mos_signboard_evaluate",
         "mos_signboard_consume",
         "mos_signboard_reopen",
     ):
-        assert tool in gru_tools
+        assert tool in gru_authz
 
     for role in ("coder", "writer", "ethics", "expert", "noter"):
-        tools = set(resolve_whitelist(role, "main"))
+        authz = set(resolve_server_authz(role, "main"))
         for tool in (
             "mos_signboard_evaluate",
             "mos_signboard_consume",
             "mos_signboard_reopen",
         ):
-            assert tool not in tools, f"{role} should not have {tool}"
+            assert tool not in authz, f"{role} should not have {tool}"
 
 
 def test_full_milestone_flow_evaluate_consume_reopen(

@@ -189,9 +189,16 @@ class TestWhitelistResolver:
         assert "mos_search_papers_federated" in tools
 
     def test_coder_does_not_get_writer_paper_search_mcp(self) -> None:
-        tools = resolve_allowed_tools("coder")
-        assert "mos_search_arxiv" not in tools
-        assert "mos_search_google_scholar" not in tools
+        """Server-side authz still blocks Coder from paper-search tools.
+
+        The CLI whitelist is unified for cache optimization, but the MCP
+        server enforces the real per-role boundary via resolve_server_authz.
+        """
+        from minions.config import resolve_server_authz
+
+        authz = resolve_server_authz("coder", "main")
+        assert "mos_search_arxiv" not in authz
+        assert "mos_search_google_scholar" not in authz
 
     def test_unknown_role_raises(self) -> None:
         with pytest.raises(Exception):

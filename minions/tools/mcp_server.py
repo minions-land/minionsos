@@ -27,7 +27,7 @@ from typing import Any, Literal, cast
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
-from minions.config import resolve_whitelist
+from minions.config import resolve_server_authz
 from minions.lifecycle.project import (
     project_checkpoint_workspace as _project_checkpoint_workspace,
 )
@@ -58,6 +58,8 @@ from minions.tools import await_events as _await_events
 from minions.tools import compact as _compact
 from minions.tools import experiment_ssh as _exp
 from minions.tools import exploration_dag as _dag
+from minions.tools import global_graph as _global_graph
+from minions.tools import issues as _issues
 from minions.tools import noter_wait as _noter_wait
 from minions.tools import paper_search as _paper_search
 from minions.tools import publish as _publish
@@ -83,6 +85,10 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_dag_path",
     "mos_dag_query",
     "mos_dag_summary",
+    "mos_global_graph_query",
+    "mos_global_graph_register",
+    "mos_global_graph_shared_concepts",
+    "mos_issue_report",
     "mos_download_arxiv",
     "mos_download_biorxiv",
     "mos_download_medrxiv",
@@ -106,6 +112,7 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_exp_tail",
     "mos_exp_wait",
     "mos_spawn_expert",
+    "mos_list_skill_nodes",
     "mos_query_gpus",
     "mos_start_monitor",
     "mos_project_checkpoint_workspace",
@@ -134,6 +141,7 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_signboard_reopen",
     "mos_spawn_role",
     "mos_wiki_hot_get",
+    "mos_wiki_hot_update",
     "mos_wiki_ingest",
     "mos_wiki_lint",
     "mos_wiki_query",
@@ -172,7 +180,7 @@ def allowed_tool_names_for_profile(
     if agent_type not in {"main", "subagent"}:
         agent_type = "main"
 
-    patterns = resolve_whitelist(role, cast(Literal["main", "subagent"], agent_type))
+    patterns = resolve_server_authz(role, cast(Literal["main", "subagent"], agent_type))
     return {
         tool_name
         for tool_name in _MINIONS_MCP_TOOL_NAMES
@@ -233,7 +241,7 @@ def _require_tool_allowed(tool_name: str) -> None:
     agent_type = os.environ.get("MINIONS_AGENT_TYPE", "main").strip() or "main"
     if agent_type not in {"main", "subagent"}:
         agent_type = "main"
-    allowed = resolve_whitelist(role, cast(Literal["main", "subagent"], agent_type))
+    allowed = resolve_server_authz(role, cast(Literal["main", "subagent"], agent_type))
     if any(fnmatchcase(tool_name, pattern) for pattern in allowed):
         return
     raise PermissionError(f"Tool {tool_name!r} is not allowed for role {role!r} ({agent_type}).")
@@ -420,6 +428,13 @@ class SpawnExpertArgs(BaseModel):
     time_trigger_interval: str | None = Field(
         default=None,
         description="Optional periodic wakeup cadence.",
+    )
+    skill_node: str | None = Field(
+        default=None,
+        description=(
+            "Slug of a skill node under skill-nodes/ to attach. "
+            "Injects the node's MCP server, domain pack, and skills into this expert."
+        ),
     )
 
 
@@ -886,7 +901,23 @@ def mos_spawn_expert(args: SpawnExpertArgs) -> dict:
         name=args.name,
         init_brief=args.init_brief,
         time_trigger_interval=args.time_trigger_interval,
+        skill_node=args.skill_node,
     )
+
+
+@mcp.tool()
+def mos_list_skill_nodes() -> dict:
+    """List available skill nodes under ``skill-nodes/``.
+
+    Returns a list of registered skill node manifests with their slug,
+    name, description, and capability summary. Gru uses this to discover
+    what external workflows are available for spawning as Expert instances.
+    """
+    _require_tool_allowed("mos_list_skill_nodes")
+    from minions.lifecycle.skill_nodes import list_available
+
+    nodes = list_available()
+    return {"skill_nodes": nodes, "count": len(nodes)}
 
 
 @mcp.tool()
@@ -1418,10 +1449,99 @@ async def mos_wiki_hot_get() -> dict:
 
 
 @mcp.tool()
+async def mos_wiki_hot_update(
+    recent_ingests: list[dict[str, str]] | None = None,
+    active_hypotheses: int = 0,
+    recently_verified: list[str] | None = None,
+    recently_refuted: list[str] | None = None,
+    unresolved_contradictions: int = 0,
+) -> dict:
+    """Generate and publish Wiki hot cache; see minions.tools.wiki.mos_wiki_hot_update."""
+    _require_tool_allowed("mos_wiki_hot_update")
+    return _wiki.mos_wiki_hot_update(
+        recent_ingests=recent_ingests,
+        active_hypotheses=active_hypotheses,
+        recently_verified=recently_verified,
+        recently_refuted=recently_refuted,
+        unresolved_contradictions=unresolved_contradictions,
+    )
+
+
+@mcp.tool()
 async def mos_wiki_lint() -> dict:
     """Audit wiki/ structure. See wiki.mos_wiki_lint."""
     _require_tool_allowed("mos_wiki_lint")
     return _wiki.mos_wiki_lint()
+
+
+# ── Gru-only global graph tools ─────────────────────────────────────────
+
+
+@mcp.tool()
+async def mos_global_graph_register(port: int) -> dict:
+    """Register a project corpus graph; see minions.tools.global_graph."""
+    _require_tool_allowed("mos_global_graph_register")
+    return _global_graph.mos_global_graph_register(port=port)
+
+
+@mcp.tool()
+async def mos_global_graph_query(text: str, max_results: int = 10) -> dict:
+    """Query the Gru-only global graph; see minions.tools.global_graph."""
+    _require_tool_allowed("mos_global_graph_query")
+    return _global_graph.mos_global_graph_query(text=text, max_results=max_results)
+
+
+@mcp.tool()
+async def mos_global_graph_shared_concepts(
+    port_a: int,
+    port_b: int,
+    min_score: float = 0.5,
+) -> dict:
+    """Find shared concepts across two projects; see minions.tools.global_graph."""
+    _require_tool_allowed("mos_global_graph_shared_concepts")
+    return _global_graph.mos_global_graph_shared_concepts(
+        port_a=port_a,
+        port_b=port_b,
+        min_score=min_score,
+    )
+
+
+# ── mos_issue_report ───────────────────────────────────────────────────
+
+
+@mcp.tool()
+def mos_issue_report(args: _issues.IssueReportArgs) -> dict:
+    """File a runtime issue against MinionsOS scaffolding — fire-and-forget.
+
+    Drop a structured bug report when you notice something wrong with the
+    system itself: a tool that keeps failing, a SYSTEM.md instruction that
+    contradicts observed behavior, a referenced skill that does not exist,
+    a tool-surface gap, an environment misconfiguration, anything that
+    feels like the floor rather than the work.
+
+    Not for science questions, peer disagreement, or task-level blockers
+    — those go through EACN. This tool is strictly for "the scaffolding
+    is broken / unclear / missing".
+
+    Behavior:
+
+    1. Identity (role, project_port, phase) is read from the calling
+       process environment — you cannot file under another role's name.
+    2. The record is appended atomically to
+       ``project_{port}/issues/issues.jsonl`` under a per-project flock.
+    3. No coordination, no EACN traffic, no review. Filing succeeds or
+       raises; nobody else is notified.
+
+    The record uses the standard bug-report shape (title, severity P0-P3,
+    component, steps_to_reproduce, expected, actual, evidence, impact,
+    workaround) so a downstream triage agent can ingest the file
+    directly. On project close / dormant the lifecycle copies the file
+    to ``~/.minionsos/issues/{port}-{ts}.jsonl``.
+
+    Returns the persisted record (including its ``ISS-<port>-<n>`` id).
+    """
+    _require_tool_allowed("mos_issue_report")
+    return _issues.report_issue(args)
 
 
 # ── mos_reset_context ──────────────────────────────────────────────────────────

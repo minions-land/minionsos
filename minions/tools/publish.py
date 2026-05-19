@@ -271,6 +271,15 @@ def mos_publish_to_shared(
         commit_sha,
         pushed,
     )
+
+    # Nudge Noter to wake early so it ingests the new artifact promptly.
+    try:
+        from minions.tools.noter_wait import nudge_noter
+
+        nudge_noter(resolved_port)
+    except Exception:
+        pass
+
     return {
         "port": resolved_port,
         "role": role,

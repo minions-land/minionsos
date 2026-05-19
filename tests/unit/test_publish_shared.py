@@ -315,7 +315,7 @@ def test_create_shared_worktree_idempotent(shared_project: dict[str, object]) ->
 def test_create_shared_worktree_seeds_subdirs(shared_project: dict[str, object]) -> None:
     workspace = shared_project["shared_workspace"]
     seeded = sorted(p.name for p in workspace.iterdir() if p.is_dir())  # type: ignore[union-attr]
-    assert seeded == ["ethics", "exp", "exploration", "handoffs", "notes", "reviews"]
+    assert seeded == ["ethics", "exp", "exploration", "handoffs", "notes", "reviews", "wiki"]
     # Seed commit should exist on the shared branch.
     log = _git_log(workspace)  # type: ignore[arg-type]
     assert any("shared: seed cross-role layout" in line for line in log)

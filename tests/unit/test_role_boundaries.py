@@ -123,10 +123,13 @@ class TestEthicsWhitelist:
             assert "Task" in resolve_whitelist(role, "main")
 
     def test_ethics_has_no_write_tools(self) -> None:
-        tools = resolve_whitelist("ethics", "main")
-        assert "Write" not in tools
-        assert "Edit" not in tools
-        assert "Bash" not in tools
+        """Server-side authz blocks Ethics from Write/Edit/Bash."""
+        from minions.config import resolve_server_authz
+
+        authz = resolve_server_authz("ethics", "main")
+        assert "Write" not in authz
+        assert "Edit" not in authz
+        assert "Bash" not in authz
 
 
 class TestSubagentEacnInvisibility:
@@ -153,4 +156,29 @@ class TestSubagentEacnInvisibility:
             assert not leaks, (
                 f"{role} subagent whitelist leaks cross-project coordination tools {leaks}; "
                 "these are Gru-main coordination tools, not subagent execution tools."
+            )
+
+
+class TestIssueReportUniversallyAllowed:
+    """`mos_issue_report` is the runtime escape hatch for "the scaffolding
+    is broken / unclear / missing". It must be reachable from every Role
+    and every subagent, otherwise reports get lost behind boundary errors
+    at exactly the moments we most need them filed."""
+
+    _ALL_ROLES = ("gru", "noter", "coder", "writer", "ethics", "expert")
+
+    def test_main_roles_can_report(self) -> None:
+        for role in self._ALL_ROLES:
+            tools = resolve_whitelist(role, "main")
+            assert "mos_issue_report" in tools, (
+                f"{role}/main missing mos_issue_report — Roles must always be "
+                "able to file scaffolding issues."
+            )
+
+    def test_subagents_can_report(self) -> None:
+        for role in self._ALL_ROLES:
+            tools = resolve_whitelist(role, "subagent")
+            assert "mos_issue_report" in tools, (
+                f"{role}/subagent missing mos_issue_report — subagents that "
+                "hit broken scaffolding must be able to file too."
             )

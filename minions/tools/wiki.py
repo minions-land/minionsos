@@ -786,6 +786,121 @@ def _replace_lint_hot_block(existing: str, block: str) -> str:
     return _cap_hot_text(updated, block)
 
 
+def _read_existing_lint_hot_block(port: int) -> str:
+    hot_path = _wiki_root(port) / "hot.md"
+    existing = hot_path.read_text(encoding="utf-8") if hot_path.exists() else ""
+    match = _LINT_SUMMARY_BLOCK_RE.search(existing)
+    if match:
+        return match.group(0).rstrip() + "\n"
+    return "\n".join(
+        [
+            _LINT_SUMMARY_START,
+            "## Wiki Lint",
+            "No lint summary available.",
+            _LINT_SUMMARY_END,
+            "",
+        ]
+    )
+
+
+def _hot_ingest_value(ingest: dict[str, str], *keys: str, default: str) -> str:
+    for key in keys:
+        value = _oneline(ingest.get(key, ""))
+        if value:
+            return value
+    return default
+
+
+def _render_hot_update_text(
+    *,
+    recent_ingests: list[dict[str, str]],
+    active_hypotheses: int,
+    recently_verified: list[str],
+    recently_refuted: list[str],
+    unresolved_contradictions: int,
+    lint_block: str,
+) -> str:
+    lines = ["# Wiki Hot Cache", "", "## Recent activity", ""]
+    if recent_ingests:
+        for ingest in recent_ingests:
+            title = _hot_ingest_value(ingest, "title", "source_slug", "slug", default="Untitled")
+            role = _hot_ingest_value(ingest, "role", "source_role", default="unknown")
+            takeaway = _hot_ingest_value(
+                ingest,
+                "one-line",
+                "one_line",
+                "takeaway",
+                "summary",
+                default="No takeaway recorded.",
+            )
+            lines.append(f"- **{title}** ({role}): {takeaway}")
+    else:
+        lines.append("No ingests recorded this cycle.")
+
+    lines.extend(
+        [
+            "",
+            "## Research state",
+            "",
+            f"Active hypotheses: {max(0, active_hypotheses)}",
+            f"Verified this cycle: {len(recently_verified)}",
+        ]
+    )
+    lines.extend(f"- {_oneline(item)}" for item in recently_verified if _oneline(item))
+    lines.append(f"Refuted this cycle: {len(recently_refuted)}")
+    lines.extend(f"- {_oneline(item)}" for item in recently_refuted if _oneline(item))
+    lines.extend(
+        [
+            "",
+            "## Open contradictions",
+            "",
+            f"{max(0, unresolved_contradictions)} unresolved - Ethics reviewing.",
+            "",
+            lint_block.rstrip(),
+            "",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _render_capped_hot_update(
+    *,
+    recent_ingests: list[dict[str, str]],
+    active_hypotheses: int,
+    recently_verified: list[str],
+    recently_refuted: list[str],
+    unresolved_contradictions: int,
+    lint_block: str,
+) -> str:
+    ingests = list(recent_ingests[-5:])
+    text = _render_hot_update_text(
+        recent_ingests=ingests,
+        active_hypotheses=active_hypotheses,
+        recently_verified=recently_verified,
+        recently_refuted=recently_refuted,
+        unresolved_contradictions=unresolved_contradictions,
+        lint_block=lint_block,
+    )
+    while len(text.encode("utf-8")) > _MAX_HOT_BYTES and ingests:
+        ingests.pop(0)
+        text = _render_hot_update_text(
+            recent_ingests=ingests,
+            active_hypotheses=active_hypotheses,
+            recently_verified=recently_verified,
+            recently_refuted=recently_refuted,
+            unresolved_contradictions=unresolved_contradictions,
+            lint_block=lint_block,
+        )
+    if len(text.encode("utf-8")) <= _MAX_HOT_BYTES:
+        return text
+
+    suffix = "\n" + lint_block.rstrip() + "\n"
+    budget = max(0, _MAX_HOT_BYTES - len(suffix.encode("utf-8")) - 4)
+    encoded = text.replace(suffix.lstrip(), "").encode("utf-8")[:budget]
+    prefix = encoded.decode("utf-8", errors="ignore").rstrip()
+    return f"{prefix}\n...\n{lint_block.rstrip()}\n"
+
+
 def _publish_wiki_lint_outputs(port: int, result: dict[str, object]) -> None:
     wiki_root = _wiki_root(port)
     log_path = wiki_root / "log.md"
@@ -1093,6 +1208,44 @@ def mos_wiki_lint(*, port: int | None = None) -> dict[str, object]:
     return result
 
 
+def mos_wiki_hot_update(
+    recent_ingests: list[dict[str, str]] | None = None,
+    active_hypotheses: int = 0,
+    recently_verified: list[str] | None = None,
+    recently_refuted: list[str] | None = None,
+    unresolved_contradictions: int = 0,
+    *,
+    port: int | None = None,
+) -> dict[str, object]:
+    """Generate and publish wiki/hot.md rolling cache.
+
+    Called by Noter on each periodic wake. Composes a ~500-word summary
+    from the provided data and publishes it via mos_publish_to_shared.
+    """
+    resolved_port = _resolve_port(port)
+    lint_block = _read_existing_lint_hot_block(resolved_port)
+    hot_text = _render_capped_hot_update(
+        recent_ingests=recent_ingests or [],
+        active_hypotheses=active_hypotheses,
+        recently_verified=recently_verified or [],
+        recently_refuted=recently_refuted or [],
+        unresolved_contradictions=unresolved_contradictions,
+        lint_block=lint_block,
+    )
+    stage = _stage_text(resolved_port, "wiki-hot-update.md", hot_text)
+    _publish_file(resolved_port, stage, "hot.md", "noter: wiki hot update")
+    return {
+        "updated": True,
+        "bytes": len(hot_text.encode("utf-8")),
+        "sections": [
+            "Recent activity",
+            "Research state",
+            "Open contradictions",
+            "Wiki Lint",
+        ],
+    }
+
+
 def mos_wiki_hot_get(*, port: int | None = None) -> dict[str, object]:
     """Return current wiki/hot.md contents, or empty content if absent."""
     resolved_port = _resolve_port(port)
@@ -1110,6 +1263,7 @@ def mos_wiki_hot_get(*, port: int | None = None) -> dict[str, object]:
 __all__ = [
     "WikiError",
     "mos_wiki_hot_get",
+    "mos_wiki_hot_update",
     "mos_wiki_ingest",
     "mos_wiki_lint",
     "mos_wiki_query",

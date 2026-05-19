@@ -102,6 +102,15 @@ _KEEPALIVE_TOOLS = [
     "keepalive_now",
 ]
 
+# Issue-tracker tool. Universally available to every Role and every
+# subagent — when something feels wrong with the scaffolding (broken
+# tool, contradictory SYSTEM, missing skill, tool-surface gap), the
+# caller drops a structured report into project_{port}/issues/. No
+# coordination, no EACN traffic; the human triages later.
+_ISSUE_REPORT_TOOLS = [
+    "mos_issue_report",
+]
+
 # DAG tools every role uses to inspect/extend the buffered DAG. They are
 # explicitly listed (not via the ``mos_dag_*`` glob) because
 # ``mos_dag_commit_shared`` is reserved for Noter/Gru — committing the
@@ -132,11 +141,258 @@ _GRAPHIFY_READ_TOOLS = [
     "mcp__graphify__shortest_path",
 ]
 
+_GLOBAL_GRAPH_GRU_TOOLS = [
+    "mos_global_graph_query",
+    "mos_global_graph_shared_concepts",
+]
+
+_GLOBAL_GRAPH_REGISTER_TOOLS = [
+    "mos_global_graph_register",
+]
+
 # Maps (role_name, agent_type) → list of allowed tool prefixes / names.
 # "main" = the top-level role agent-host process; "subagent" = spawned sub-processes.
+#
+# Cache optimization (Tier 2): all EACN-visible roles share a single unified
+# "main" whitelist so their --allowed-tools CLI arg is byte-identical. This
+# makes the tool-definitions block in the system prompt identical across roles,
+# enabling cross-role KV cache sharing at the API level. Server-side authz in
+# _require_tool_allowed() still enforces the real per-role boundary — the
+# unified CLI whitelist is the "what the model can see" surface, while the
+# server-side check is the "what actually executes" boundary.
+#
+# Noter is excluded from unification because it runs on a different model
+# (Sonnet) and therefore occupies a separate cache namespace anyway.
+
+_EACN_ROLE_MAIN_TOOLS: list[str] = [
+    *_KEEPALIVE_TOOLS,
+    *_ISSUE_REPORT_TOOLS,
+    # EACN communication (all EACN roles)
+    "eacn3_*",
+    "mos_await_events",
+    "mos_get_events",
+    "mos_unread_summary",
+    # DAG (full access including commit for Gru/Noter)
+    "mos_dag_*",
+    # Wiki
+    *_WIKI_READ_TOOLS,
+    "mos_wiki_ingest",
+    "mos_wiki_lint",
+    "mos_wiki_hot_update",
+    # Graphify read
+    *_GRAPHIFY_READ_TOOLS,
+    # Global graph (Gru queries only; register is Noter-only)
+    *_GLOBAL_GRAPH_GRU_TOOLS,
+    # Shared branch publish
+    "mos_publish_to_shared",
+    # Signboard
+    "mos_signboard_read",
+    "mos_signboard_set",
+    "mos_signboard_evaluate",
+    "mos_signboard_consume",
+    "mos_signboard_reopen",
+    # Context management
+    "mos_reset_context",
+    "mos_compact_context",
+    # Project lifecycle (Gru-only at server side)
+    "mos_project_bridge",
+    "mos_project_checkpoint_workspace",
+    "mos_project_create",
+    "mos_project_kill",
+    "mos_project_close",
+    "mos_project_dormant",
+    "mos_project_revive",
+    "mos_project_set_phase",
+    "mos_project_list",
+    # Role management (Gru-only at server side)
+    "mos_attach_role",
+    "mos_kill_role",
+    "mos_spawn_role",
+    "mos_spawn_expert",
+    "mos_list_skill_nodes",
+    "mos_dismiss_role",
+    "mos_list_roles",
+    "mos_review_run",
+    "mos_start_monitor",
+    # Experiment tools (Coder-only at server side)
+    "mos_exp_run",
+    "mos_exp_status",
+    "mos_exp_wait",
+    "mos_exp_kill",
+    "mos_exp_list",
+    "mos_exp_put",
+    "mos_exp_get",
+    "mos_exp_tail",
+    "mos_query_gpus",
+    "mos_exp_queue_*",
+    "mos_exp_gpu_pool_*",
+    # Paper search
+    *_PAPER_SEARCH_TOOLS,
+    # Subagent dispatch
+    "Task",
+    *_CODEX_BRIDGE_TOOLS,
+    # General tools
+    "WebSearch",
+    "WebFetch",
+    "Bash",
+    "Read",
+    "Write",
+    "Edit",
+]
+
 _WHITELIST: dict[tuple[str, str], list[str]] = {
+    ("gru", "main"): _EACN_ROLE_MAIN_TOOLS,
+    ("gru", "subagent"): [
+        *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
+        "WebSearch",
+        "WebFetch",
+        "Bash",
+        "Read",
+        "Write",
+        "Edit",
+    ],
+    ("noter", "main"): [
+        *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
+        "mos_noter_wait",
+        "mos_dag_*",
+        "mos_wiki_ingest",
+        "mos_wiki_lint",
+        "mos_wiki_hot_update",
+        *_WIKI_READ_TOOLS,
+        *_GRAPHIFY_READ_TOOLS,
+        *_GLOBAL_GRAPH_REGISTER_TOOLS,
+        "mos_publish_to_shared",
+        "mos_signboard_read",
+        "mos_reset_context",
+        "mos_compact_context",
+        "Task",
+        "WebSearch",
+        "WebFetch",
+        "Read",
+    ],
+    ("noter", "subagent"): [
+        *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
+        "WebSearch",
+        "WebFetch",
+        "Read",
+        "Write",
+        "Edit",
+    ],
+    ("coder", "main"): _EACN_ROLE_MAIN_TOOLS,
+    ("coder", "subagent"): [
+        *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
+        *_CODEX_BRIDGE_TOOLS,
+        "mos_exp_run",
+        "mos_exp_status",
+        "mos_exp_wait",
+        "mos_exp_kill",
+        "mos_exp_list",
+        "mos_exp_put",
+        "mos_exp_get",
+        "mos_exp_tail",
+        "mos_query_gpus",
+        "mos_exp_queue_*",
+        "mos_exp_gpu_pool_*",
+        "WebSearch",
+        "WebFetch",
+        "Bash",
+        "Read",
+        "Write",
+        "Edit",
+    ],
+    ("writer", "main"): _EACN_ROLE_MAIN_TOOLS,
+    ("writer", "subagent"): [
+        *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
+        *_CODEX_BRIDGE_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
+        "WebSearch",
+        "WebFetch",
+        "Bash",
+        "Read",
+        "Write",
+        "Edit",
+    ],
+    ("expert", "main"): _EACN_ROLE_MAIN_TOOLS,
+    ("expert", "subagent"): [
+        *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
+        *_CODEX_BRIDGE_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
+        "WebSearch",
+        "WebFetch",
+        "Bash",
+        "Read",
+        "Write",
+        "Edit",
+    ],
+    ("ethics", "main"): _EACN_ROLE_MAIN_TOOLS,
+    ("ethics", "subagent"): [
+        *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
+        *_CODEX_BRIDGE_TOOLS,
+        "WebSearch",
+        "WebFetch",
+        "Read",
+        "Write",
+        "Edit",
+    ],
+}
+
+
+def resolve_whitelist(role: str, agent_type: Literal["main", "subagent"] = "main") -> list[str]:
+    """Return the allowed-tools list for *role* and *agent_type*.
+
+    This is the **CLI-visible** whitelist used for ``--allowed-tools``. All
+    EACN roles share the same unified list so their tool-definition blocks
+    are byte-identical for cross-role KV cache sharing. Server-side authz
+    (the real enforcement boundary) uses :func:`resolve_server_authz`.
+
+    Expert roles are stored as ``expert-<slug>``; this function normalises
+    them to ``expert`` before lookup. Removed roles (e.g. ``experimenter``)
+    are resolved through ``_REMOVED_ROLE_ALIASES`` so old env vars degrade
+    gracefully.
+
+    Args:
+        role: Role name, e.g. ``"noter"``, ``"expert-dl-arch"``.
+        agent_type: ``"main"`` or ``"subagent"``.
+
+    Returns:
+        List of tool name patterns (may contain ``*`` wildcards).
+    """
+    normalised = "expert" if role == "expert" or role.startswith("expert-") else role
+    normalised = _REMOVED_ROLE_ALIASES.get(normalised, normalised)
+    key = (normalised, agent_type)
+    if key not in _WHITELIST:
+        logger.warning(
+            "No whitelist entry for role=%s agent_type=%s; returning empty.", role, agent_type
+        )
+        return []
+    return list(_WHITELIST[key])
+
+
+def whitelist_csv(role: str, agent_type: Literal["main", "subagent"] = "main") -> str:
+    """Return the whitelist as a comma-separated string for ``--allowed-tools``."""
+    return ",".join(resolve_whitelist(role, agent_type))
+
+
+# ---------------------------------------------------------------------------
+# Server-side authorization (real enforcement boundary)
+# ---------------------------------------------------------------------------
+
+# The per-role authz table preserves the original fine-grained boundaries.
+# _require_tool_allowed() in mcp_server.py uses this to reject calls that
+# the model can "see" (via the unified CLI whitelist) but is not authorized
+# to execute for its role.
+_SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
     ("gru", "main"): [
         *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
         "mos_project_bridge",
         "mos_project_checkpoint_workspace",
         "mos_project_create",
@@ -146,16 +402,13 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "mos_project_revive",
         "mos_project_set_phase",
         "mos_project_list",
-        # Pull-mode event surface: Gru reads its queue on demand via
-        # mos_get_events / mos_unread_summary. It does NOT drive
-        # mos_await_events — that is the resident-Role tool. Outgoing
-        # messages, tasks, broadcasts, etc. go through native eacn3_*.
         "eacn3_*",
         "mos_get_events",
         "mos_unread_summary",
         "mos_dag_*",
         *_WIKI_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
+        *_GLOBAL_GRAPH_GRU_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_signboard_set",
@@ -168,6 +421,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "mos_kill_role",
         "mos_spawn_role",
         "mos_spawn_expert",
+        "mos_list_skill_nodes",
         "mos_dismiss_role",
         "mos_list_roles",
         "mos_review_run",
@@ -183,6 +437,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("gru", "subagent"): [
         *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
         *_PAPER_SEARCH_TOOLS,
         "WebSearch",
         "WebFetch",
@@ -193,11 +448,15 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("noter", "main"): [
         *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
         "mos_noter_wait",
         "mos_dag_*",
         "mos_wiki_ingest",
+        "mos_wiki_lint",
+        "mos_wiki_hot_update",
         *_WIKI_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
+        *_GLOBAL_GRAPH_REGISTER_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_reset_context",
@@ -207,9 +466,18 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "WebFetch",
         "Read",
     ],
-    ("noter", "subagent"): [*_KEEPALIVE_TOOLS, "WebSearch", "WebFetch", "Read", "Write", "Edit"],
+    ("noter", "subagent"): [
+        *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
+        "WebSearch",
+        "WebFetch",
+        "Read",
+        "Write",
+        "Edit",
+    ],
     ("coder", "main"): [
         *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
         "eacn3_*",
         "mos_await_events",
         *_DAG_RW_TOOLS,
@@ -243,6 +511,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("coder", "subagent"): [
         *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
         *_CODEX_BRIDGE_TOOLS,
         "mos_exp_run",
         "mos_exp_status",
@@ -264,6 +533,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("writer", "main"): [
         *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
         "eacn3_*",
         "mos_await_events",
         *_DAG_RW_TOOLS,
@@ -287,6 +557,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("writer", "subagent"): [
         *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
         *_CODEX_BRIDGE_TOOLS,
         *_PAPER_SEARCH_TOOLS,
         "WebSearch",
@@ -298,6 +569,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("expert", "main"): [
         *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
         "eacn3_*",
         "mos_await_events",
         *_DAG_RW_TOOLS,
@@ -321,6 +593,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("expert", "subagent"): [
         *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
         *_CODEX_BRIDGE_TOOLS,
         *_PAPER_SEARCH_TOOLS,
         "WebSearch",
@@ -332,6 +605,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("ethics", "main"): [
         *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
         "eacn3_*",
         "mos_await_events",
         *_DAG_RW_TOOLS,
@@ -351,6 +625,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ],
     ("ethics", "subagent"): [
         *_KEEPALIVE_TOOLS,
+        *_ISSUE_REPORT_TOOLS,
         *_CODEX_BRIDGE_TOOLS,
         "WebSearch",
         "WebFetch",
@@ -361,13 +636,12 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
 }
 
 
-def resolve_whitelist(role: str, agent_type: Literal["main", "subagent"] = "main") -> list[str]:
-    """Return the allowed-tools list for *role* and *agent_type*.
+def resolve_server_authz(role: str, agent_type: Literal["main", "subagent"] = "main") -> list[str]:
+    """Return the server-side authorization list for *role* and *agent_type*.
 
-    Expert roles are stored as ``expert-<slug>``; this function normalises
-    them to ``expert`` before lookup. Removed roles (e.g. ``experimenter``)
-    are resolved through ``_REMOVED_ROLE_ALIASES`` so old env vars degrade
-    gracefully.
+    This is the **real enforcement boundary** used by ``_require_tool_allowed``
+    in the MCP server. It preserves the original per-role tool restrictions
+    regardless of the unified CLI whitelist.
 
     Args:
         role: Role name, e.g. ``"noter"``, ``"expert-dl-arch"``.
@@ -379,17 +653,14 @@ def resolve_whitelist(role: str, agent_type: Literal["main", "subagent"] = "main
     normalised = "expert" if role == "expert" or role.startswith("expert-") else role
     normalised = _REMOVED_ROLE_ALIASES.get(normalised, normalised)
     key = (normalised, agent_type)
-    if key not in _WHITELIST:
+    if key not in _SERVER_AUTHZ:
         logger.warning(
-            "No whitelist entry for role=%s agent_type=%s; returning empty.", role, agent_type
+            "No server_authz entry for role=%s agent_type=%s; returning empty.",
+            role,
+            agent_type,
         )
         return []
-    return list(_WHITELIST[key])
-
-
-def whitelist_csv(role: str, agent_type: Literal["main", "subagent"] = "main") -> str:
-    """Return the whitelist as a comma-separated string for ``--allowed-tools``."""
-    return ",".join(resolve_whitelist(role, agent_type))
+    return list(_SERVER_AUTHZ[key])
 
 
 # ---------------------------------------------------------------------------
@@ -429,7 +700,7 @@ ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
         "branches/noter/ (drafts)",
         "branches/shared/notes/ (via mos_publish_to_shared)",
         "branches/shared/handoffs/ (via mos_publish_to_shared)",
-        "branches/shared/wiki/ (via mos_wiki_ingest + mos_publish_to_shared)",
+        "branches/shared/wiki/ (via mos_wiki_ingest + mos_wiki_hot_update)",
         "branches/shared/exploration/dag.json (via mos_dag_commit_shared)",
     ],
     "coder": [
@@ -552,7 +823,7 @@ class GruConfig(BaseModel):
         ),
     )
     noter_periodic_interval: str = Field(
-        default="5m",
+        default="3m",
         description=(
             "Cadence at which Noter wakes to flush the buffered Exploration "
             "DAG to a single commit on the shared branch and to take stock "
