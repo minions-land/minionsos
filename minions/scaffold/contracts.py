@@ -191,12 +191,29 @@ _TOOL_DECL_RE = re.compile(
 
 
 def list_registered_mcp_tools() -> list[str]:
-    """Parse ``minions/tools/mcp_server.py`` and return registered tool names."""
-    server = TOOLS_DIR / "mcp_server.py"
-    if not server.is_file():
-        return []
-    text = server.read_text(encoding="utf-8")
-    return sorted(set(_TOOL_DECL_RE.findall(text)))
+    """Parse MCP server source(s) and return registered @mcp.tool() function names.
+
+    The MCP server has been split from a single ``mcp_server.py`` file into
+    a ``mcp/`` package of domain submodules. We scan both shapes so this
+    works for the live production layout (package) and for test fixtures
+    that still seed a legacy single-file ``mcp_server.py``.
+    """
+    tools: set[str] = set()
+
+    legacy_server = TOOLS_DIR / "mcp_server.py"
+    if legacy_server.is_file():
+        text = legacy_server.read_text(encoding="utf-8")
+        tools.update(_TOOL_DECL_RE.findall(text))
+
+    mcp_pkg = TOOLS_DIR / "mcp"
+    if mcp_pkg.is_dir():
+        for pyfile in mcp_pkg.glob("*.py"):
+            if pyfile.name.startswith("_"):
+                continue
+            text = pyfile.read_text(encoding="utf-8")
+            tools.update(_TOOL_DECL_RE.findall(text))
+
+    return sorted(tools)
 
 
 def whitelist_table() -> dict[tuple[str, str], list[str]]:

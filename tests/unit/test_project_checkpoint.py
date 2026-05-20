@@ -163,10 +163,13 @@ def test_role_checkpoint_pushes_to_namespaced_remote(
 def test_checkpoint_tool_wrapper_delegates_to_lifecycle(monkeypatch: pytest.MonkeyPatch):
     out = {"port": 37596, "ok": True}
 
-    monkeypatch.setattr(mcp_server, "_project_checkpoint_workspace", lambda *a, **kw: out)
+    from minions.tools.mcp import project_tools
+    from minions.tools.mcp._common import ProjectCheckpointArgs
 
-    result = mcp_server.mos_project_checkpoint_workspace(
-        mcp_server.ProjectCheckpointArgs(port=37596, role_name="coder", message="hi")
+    monkeypatch.setattr(project_tools, "_project_checkpoint_workspace", lambda *a, **kw: out)
+
+    result = project_tools.mos_project_checkpoint_workspace(
+        ProjectCheckpointArgs(port=37596, role_name="coder", message="hi")
     )
 
     assert result is out
