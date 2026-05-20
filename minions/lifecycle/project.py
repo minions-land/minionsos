@@ -23,14 +23,13 @@ import httpx
 
 from minions.config import slugify
 from minions.errors import BackendError, ProjectError
-from minions.lifecycle import eacn_client
+from minions.lifecycle import (
+    _project_phase,
+    _project_templates,
+    _project_worktree,
+    eacn_client,
+)
 from minions.lifecycle.eacn_identity import identity_map_for_meta, upsert_agent_identity
-from minions.lifecycle.git_utils import (
-    git_ref_exists as _gu_git_ref_exists,
-)
-from minions.lifecycle.git_utils import (
-    is_git_dirty as _gu_is_git_dirty,
-)
 from minions.lifecycle.git_utils import (
     is_git_work_tree as _gu_is_git_work_tree,
 )
@@ -52,7 +51,6 @@ from minions.paths import (
     project_roles_workspace_dir,
     project_session_ledger,
     project_session_name,
-    project_shared_branch_name,
     project_shared_subdir,
     project_shared_workspace,
     project_state_dir,
@@ -820,145 +818,17 @@ def _seed_postfilter_tree(staging: Path) -> None:
 
 
 def _create_worktree(port: int, base_branch: str) -> str:
-    """Create the main worktree for *port* against its bare parent repo.
-
-    The seed step has already created branch ``minionsos/project-{port}``
-    in the bare repo, pointing at the seed commit. This function just
-    checks that branch out into ``branches/main/``.
-
-    *base_branch* is accepted for API compatibility (callers may pass
-    ``"HEAD"`` or a tag like the upstream branch name) but is currently
-    ignored — every project starts on its own freshly-seeded branch.
-    """
-    del base_branch  # reserved for future "fork from existing branch" support
-    branch = f"minionsos/project-{port}"
-    workspace = project_main_workspace(port)
-    workspace.parent.mkdir(parents=True, exist_ok=True)
-
-    parent_repo = project_parent_repo(port)
-
-    cmd = [
-        "git",
-        "worktree",
-        "add",
-        str(workspace),
-        branch,
-    ]
-    logger.info("Creating worktree: %s", " ".join(cmd))
-    result = subprocess.run(
-        cmd,
-        cwd=str(parent_repo),
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise ProjectError(f"git worktree add failed for port {port}: {result.stderr.strip()}")
-    return branch
+    """Re-export of :func:`_project_worktree.create_worktree`."""
+    return _project_worktree.create_worktree(port, base_branch)
 
 
-_SHARED_SUBDIRS = (
-    "scratchpad",
-    "notes",
-    "ethics",
-    "exp",
-    "reviews",
-    "handoffs",
-    "library",
-    "atlas",
-)
-_SHARED_README = """\
-# Project shared worktree
-
-This directory is the cross-role shared worktree for this project. It is its
-own git branch (`minionsos/project-{port}-shared`) checked out here.
-
-Roles do **not** `Write` here directly. All writes go through
-`mos_publish_to_shared`, which holds a project-local flock on
-`state/shared.lock` and commits each publish on the shared branch.
-
-## Subdirectories
-
-- `scratchpad/scratchpad.json` — L1 process graph. Buffered local writes via
-  `mos_scratchpad_append`; periodic commits by Noter on a cron through
-  `mos_publish_to_shared`.
-- `notes/` — Noter staged reports.
-- `ethics/` — Ethics published audit reports (flat: `report-*.md`,
-  `flag-*.md`, `mock-review-*.md`, `adjudication-*.md`).
-- `exp/` — Experimenter result bundles, one per experiment.
-- `reviews/round-<n>/` — `mos_review_run` output. The review tool owns this
-  surface directly; no other role writes here.
-- `handoffs/` — Free-form cross-role handoffs.
-- `library/` — L2 compiled knowledge base (Karpathy LLM Wiki pattern,
-  Noter-curated).
-- `atlas/atlas.json` — L3 structural index over project artefacts; rebuilt
-  by Noter on each periodic wake via the `graphify` extractor.
-"""
+_SHARED_SUBDIRS = _project_worktree.SHARED_SUBDIRS
+_SHARED_README = _project_worktree.SHARED_README
 
 
 def _create_shared_worktree(port: int) -> str:
-    """Create the cross-role shared worktree for *port*.
-
-    Branched off the project's main branch so role outputs published here
-    accumulate in one auditable git history. Seeds the standard subdir
-    layout and an initial commit so role-side publishes land on a populated
-    branch from the start.
-
-    Returns the shared branch name.
-    """
-    branch = project_shared_branch_name(port)
-    workspace = project_shared_workspace(port)
-    workspace.parent.mkdir(parents=True, exist_ok=True)
-
-    if workspace.exists() and _is_git_work_tree(workspace):
-        return branch
-    if workspace.exists():
-        # The directory was created earlier (e.g. by _ensure_workspace_layout)
-        # but is not a worktree. ``git worktree add`` refuses a non-empty
-        # target, so remove the empty placeholder before adding.
-        try:
-            workspace.rmdir()
-        except OSError as exc:
-            raise ProjectError(
-                f"Cannot create shared worktree at {workspace}: "
-                f"directory exists and is not empty: {exc}"
-            ) from exc
-
-    parent_repo = project_parent_repo(port)
-    base = project_branch_name(port)
-    cmd = [
-        "git",
-        "worktree",
-        "add",
-        "-b",
-        branch,
-        str(workspace),
-        base,
-    ]
-    logger.info("Creating shared worktree: %s", " ".join(cmd))
-    result = subprocess.run(
-        cmd,
-        cwd=str(parent_repo),
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise ProjectError(
-            f"git worktree add failed for shared on port {port}: {result.stderr.strip()}"
-        )
-
-    # Seed the canonical subdir layout with .gitkeep so an empty shared
-    # tree still tracks structure. README documents the surface for any
-    # operator dropping into the worktree.
-    for subdir in _SHARED_SUBDIRS:
-        sub = workspace / subdir
-        sub.mkdir(parents=True, exist_ok=True)
-        (sub / ".gitkeep").write_text("", encoding="utf-8")
-    (workspace / "README.md").write_text(_SHARED_README.format(port=port), encoding="utf-8")
-
-    seed_commit = _git_commit_workspace(workspace, "shared: seed cross-role layout")
-    if seed_commit is None:
-        logger.debug("shared worktree seed produced no commit (already clean)")
-    return branch
+    """Re-export of :func:`_project_worktree.create_shared_worktree`."""
+    return _project_worktree.create_shared_worktree(port)
 
 
 def _git_tag(port: int, tag: str) -> None:
@@ -969,46 +839,26 @@ def _git_tag(port: int, tag: str) -> None:
 
 
 def _git_ref_exists(repo: Path, ref: str) -> bool:
-    return _gu_git_ref_exists(repo, ref)
+    return _project_worktree.git_ref_exists(repo, ref)
 
 
 def _git_status_porcelain(workspace: Path) -> list[str]:
-    """Return the workspace's porcelain status lines."""
-    result = _gu_run_git(["status", "--porcelain"], workspace, action="status")
-    return [line for line in result.stdout.splitlines() if line.strip()]
+    """Re-export of :func:`_project_worktree.git_status_porcelain`."""
+    return _project_worktree.git_status_porcelain(workspace)
 
 
 def _is_git_dirty(workspace: Path) -> bool:
-    return _gu_is_git_dirty(workspace)
+    return _project_worktree.is_git_dirty(workspace)
 
 
 def _git_commit_workspace(workspace: Path, message: str) -> str | None:
-    """Commit the workspace if there are staged changes, returning HEAD sha."""
-    _gu_run_git(["add", "-A"], workspace, action="add")
-    commit_result = _gu_run_git(["commit", "-m", message], workspace, check=False)
-    if commit_result.returncode != 0:
-        output = f"{commit_result.stdout}\n{commit_result.stderr}".lower()
-        if "nothing to commit" in output or "nothing added to commit" in output:
-            return None
-        raise ProjectError(
-            f"git commit failed for workspace {workspace}: {commit_result.stderr.strip()}"
-        )
-    head = _gu_run_git(["rev-parse", "HEAD"], workspace, action="rev-parse")
-    return head.stdout.strip() or None
+    """Re-export of :func:`_project_worktree.git_commit_workspace`."""
+    return _project_worktree.git_commit_workspace(workspace, message)
 
 
 def _git_push_checkpoint(workspace: Path, target: str, remote_branch: str) -> None:
-    """Push the current HEAD to *target* under *remote_branch*."""
-    result = _gu_run_git(
-        ["push", target, f"HEAD:{remote_branch}"],
-        workspace,
-        check=False,
-    )
-    if result.returncode != 0:
-        raise ProjectError(
-            f"git push failed for workspace {workspace} -> {target}:{remote_branch}: "
-            f"{result.stderr.strip()}"
-        )
+    """Re-export of :func:`_project_worktree.git_push_checkpoint`."""
+    _project_worktree.git_push_checkpoint(workspace, target, remote_branch)
 
 
 def _checkpoint_remote_branch(
@@ -1256,43 +1106,18 @@ def _seed_claude_settings(workspace: Path) -> None:
 
 
 def project_phase_allows_role(entry: ProjectEntry, role_name: str) -> bool:
-    """Return True when the current phase allows *role_name* to run.
-
-    If no phase policy has been recorded yet, the project defaults to open
-    scheduling.
-    """
-    allowed = {str(role).strip() for role in getattr(entry, "phase_allowed_roles", []) or []}
-    if not allowed:
-        return True
-    if "*" in allowed or "all" in allowed:
-        return True
-    return role_name in allowed
+    """Re-export of :func:`_project_phase.project_phase_allows_role`."""
+    return _project_phase.project_phase_allows_role(entry, role_name)
 
 
 def project_phase_online_role_names(entry: ProjectEntry) -> list[str]:
-    """Return schedulable role names that are currently online-eligible."""
-    allowed = {str(role).strip() for role in getattr(entry, "phase_allowed_roles", []) or []}
-    online: list[str] = []
-    for role in entry.active_roles:
-        if role.state not in {"active", "sleeping"}:
-            continue
-        if role.name == "gru":
-            continue
-        if not allowed or "*" in allowed or "all" in allowed or role.name in allowed:
-            online.append(role.name)
-    return online
+    """Re-export of :func:`_project_phase.project_phase_online_role_names`."""
+    return _project_phase.project_phase_online_role_names(entry)
 
 
 def project_phase_snapshot(entry: ProjectEntry) -> ProjectPhaseSnapshot:
-    """Return a compact snapshot of the project's current phase state."""
-    return ProjectPhaseSnapshot(
-        {
-            "current_phase": getattr(entry, "current_phase", None),
-            "phase_version": int(getattr(entry, "phase_version", 0) or 0),
-            "phase_allowed_roles": list(getattr(entry, "phase_allowed_roles", []) or []),
-            "phase_online_roles": project_phase_online_role_names(entry),
-        }
-    )
+    """Re-export of :func:`_project_phase.project_phase_snapshot`."""
+    return _project_phase.project_phase_snapshot(entry)
 
 
 def project_set_phase(
@@ -1303,53 +1128,14 @@ def project_set_phase(
     reason: str | None = None,
     store: StateStore | None = None,
 ) -> ProjectEntry:
-    """Record the current project phase in the registry and meta state."""
-    _store = store or StateStore()
-    entry = _store.get_project(port)
-    if entry is None:
-        raise ProjectError(f"Project {port} not found.")
-
-    now = _now_iso()
-    phase_allowed_roles = [role for role in (allowed_roles or []) if str(role).strip()]
-    existing_allowed = [
-        str(role).strip()
-        for role in (getattr(entry, "phase_allowed_roles", []) or [])
-        if str(role).strip()
-    ]
-    if phase == getattr(entry, "current_phase", None) and phase_allowed_roles == existing_allowed:
-        logger.debug(
-            "project_set_phase no-op: port=%d phase=%r allowed_roles=%s",
-            port,
-            phase,
-            phase_allowed_roles,
-        )
-        return entry
-    updated = _store.update_project(
-        port,
-        current_phase=phase,
-        phase_version=int(getattr(entry, "phase_version", 0) or 0) + 1,
-        phase_allowed_roles=phase_allowed_roles,
-        phase_updated_at=now,
-        phase_reason=reason,
-    )
-    _write_meta(
-        port,
-        updated,
-        extras={
-            "current_phase": phase,
-            "phase_version": updated.phase_version,
-            "phase_allowed_roles": phase_allowed_roles,
-            "phase_updated_at": now,
-            "phase_reason": reason,
-        },
-    )
-    logger.info(
-        "project_set_phase done: port=%d phase=%r allowed_roles=%s",
+    """Re-export of :func:`_project_phase.project_set_phase`."""
+    return _project_phase.project_set_phase(
         port,
         phase,
-        phase_allowed_roles,
+        allowed_roles=allowed_roles,
+        reason=reason,
+        store=store,
     )
-    return updated
 
 
 _PROJECT_GITIGNORE = """\
@@ -1387,75 +1173,27 @@ def _render_project_claude_md(
     topic_doc: str | None,
     template_dir: str | None,
 ) -> str:
-    """Render a default project CLAUDE.md skeleton."""
-    lines: list[str] = []
-    lines.append(f"# {real_name} — Project CLAUDE.md")
-    lines.append("")
-    lines.append(
-        "> Project-scoped narrative. Authored jointly by the human and Gru; other Roles read-only."
+    """Re-export of :func:`_project_templates.render_project_claude_md`.
+
+    Kept here so ``from minions.lifecycle.project import _render_project_claude_md``
+    keeps working for tests and external callers. See the implementation in
+    :mod:`minions.lifecycle._project_templates`.
+    """
+    return _project_templates.render_project_claude_md(
+        port=port,
+        real_name=real_name,
+        venue=venue,
+        branch=branch,
+        workspace_abs=workspace_abs,
+        brief=brief,
+        topic_doc=topic_doc,
+        template_dir=template_dir,
     )
-    lines.append("")
-    lines.append("## Facts")
-    lines.append("")
-    lines.append(f"- **Port:** `{port}`")
-    lines.append(f"- **Real name:** {real_name}")
-    if venue:
-        lines.append(f"- **Venue:** {venue}")
-    lines.append(f"- **Git branch:** `{branch}`")
-    lines.append(f"- **Workspace (absolute):** `{workspace_abs}`")
-    if topic_doc:
-        lines.append(f"- **Topic doc:** `{topic_doc}`")
-    if template_dir:
-        lines.append(f"- **Venue template dir:** `{template_dir}`")
-    lines.append("")
-    lines.append("## Brief")
-    lines.append("")
-    lines.append(brief.strip() if brief else "_TODO: write a 1-3 paragraph project brief._")
-    lines.append("")
-    lines.append("## Working rules")
-    lines.append("")
-    lines.append("- All inter-Role communication goes through EACN3 on this port.")
-    lines.append(
-        "- Branch checkouts live under `branches/`: `branches/main/` is Gru's "
-        "branch (the primary integration tree); every other role has its own "
-        "branch at `branches/<role>/`; the shared cross-role tree lives at "
-        "`branches/shared/` on its own branch."
-    )
-    lines.append(
-        "- Cross-role artefacts (Ethics reports, Experimenter result bundles, "
-        "Noter notes, free-form handoffs) go to `branches/shared/<subdir>/` via "
-        "`mos_publish_to_shared`. Each role may only publish into its allowed "
-        "subdirs (see role boundary text). The Scratchpad (L1) at "
-        "`branches/shared/scratchpad/scratchpad.json` is updated in place by "
-        "`mos_scratchpad_append`/`mos_scratchpad_annotate` and committed by "
-        "Noter on a periodic cron via `mos_scratchpad_commit_shared`."
-    )
-    lines.append(
-        "- The review surface `branches/shared/reviews/round-<n>/` is reserved "
-        "for `mos_review_run`; the publish tool will reject any other caller."
-    )
-    lines.append(
-        "- Root constitution at repo `CLAUDE.md` always wins on conflicts (see Hard rules)."
-    )
-    lines.append("")
-    return "\n".join(lines)
 
 
 def _render_project_agents_md(real_name: str) -> str:
-    """Render a Codex-compatible project context shim."""
-    return "\n".join(
-        [
-            f"# {real_name} — Project Agent Context",
-            "",
-            "This project is managed by MinionsOS.",
-            "",
-            "Read `CLAUDE.md` in this directory for the project-scoped narrative, facts,",
-            "working rules, and current brief. In this repository, `CLAUDE.md` is kept",
-            "as the shared project context file for both Claude Code and Codex so the",
-            "two agent hosts see the same operating assumptions.",
-            "",
-        ]
-    )
+    """Re-export of :func:`_project_templates.render_project_agents_md`."""
+    return _project_templates.render_project_agents_md(real_name)
 
 
 def project_create(
