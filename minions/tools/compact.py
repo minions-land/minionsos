@@ -8,15 +8,15 @@ cold start (losing the prompt cache), this tool triggers Claude Code's native
 2. Replaces conversation history with a compressed summary.
 3. Keeps the process alive — no watchdog respawn, no cold start.
 
-The tool persists durable state to the Exploration DAG (same as
+The tool persists durable state to the Scratchpad (L1) (same as
 cognitive-checkpoint), then schedules ``/compact`` via tmux send-keys.
 The ``/compact`` fires as the next "user input" after the agent's current
 turn completes.
 
 PreCompact hook (``minions/hooks/pre_compact_science.py``) automatically
 injects science-aware retention instructions. PostCompact hook
-(``minions/hooks/post_compact_dag.py``) extracts DAG nodes from the
-resulting summary.
+(``minions/hooks/post_compact_scratchpad.py``) extracts Scratchpad nodes
+from the resulting summary.
 
 Cache interaction:
 - The 5-minute cache keepalive in ``mos_await_events`` is unaffected.
@@ -67,7 +67,7 @@ def mos_compact_context(
     reason: str = "",
     pending_plans: list[dict] | None = None,
 ) -> dict:
-    """Persist state to DAG, then schedule /compact via tmux send-keys.
+    """Persist state to Scratchpad, then schedule /compact via tmux send-keys.
 
     After this tool returns, the agent MUST produce no further tool calls
     or text output. The scheduled ``/compact`` fires as the next user input
@@ -77,11 +77,11 @@ def mos_compact_context(
     Args:
         reason: Why compact is happening (logged to journal).
         pending_plans: Optional list of pending plan dicts to persist to
-            the DAG before compacting. Each dict should have at minimum
-            ``type`` and ``text`` fields. These are written with
+            the Scratchpad before compacting. Each dict should have at
+            minimum ``type`` and ``text`` fields. These are written with
             ``metadata.pending_plan = true`` so the post-compact agent
             (same process, just compressed context) can find them via
-            ``mos_dag_summary()``.
+            ``mos_scratchpad_summary()``.
 
     Returns:
         Status dict with instructions for the agent.
@@ -92,9 +92,9 @@ def mos_compact_context(
     ts = datetime.now(UTC).isoformat(timespec="seconds")
 
     # 1. Journal the compact event (same location as reset journal)
-    exploration = project_shared_subdir(port, "exploration")
-    exploration.mkdir(parents=True, exist_ok=True)
-    journal_path = exploration / "journal.jsonl"
+    scratchpad_dir = project_shared_subdir(port, "scratchpad")
+    scratchpad_dir.mkdir(parents=True, exist_ok=True)
+    journal_path = scratchpad_dir / "journal.jsonl"
     entry = {"op": "compact", "role": role, "reason": reason, "timestamp": ts}
     try:
         with journal_path.open("a", encoding="utf-8") as f:
@@ -102,11 +102,11 @@ def mos_compact_context(
     except OSError as exc:
         logger.warning("Failed to log compact to journal: %s", exc)
 
-    # 2. Persist pending_plans to DAG if provided
-    dag_node_ids: list[str] = []
+    # 2. Persist pending_plans to Scratchpad if provided
+    scratchpad_node_ids: list[str] = []
     if pending_plans:
         try:
-            from minions.tools.exploration_dag import mos_dag_append
+            from minions.tools.scratchpad import mos_scratchpad_append
 
             nodes = []
             for plan in pending_plans:
@@ -121,10 +121,10 @@ def mos_compact_context(
                     },
                 }
                 nodes.append(node)
-            result = mos_dag_append(nodes=nodes)
-            dag_node_ids = result.get("node_ids", [])
+            result = mos_scratchpad_append(nodes=nodes)
+            scratchpad_node_ids = result.get("node_ids", [])
         except Exception as exc:
-            logger.warning("Failed to persist pending_plans to DAG: %s", exc)
+            logger.warning("Failed to persist pending_plans to Scratchpad: %s", exc)
 
     # 3. Schedule /compact via tmux send-keys
     # The /compact command will fire AFTER this tool returns and the agent's
@@ -142,7 +142,7 @@ def mos_compact_context(
 
     return {
         "status": "compact_scheduled" if compact_scheduled else "compact_failed",
-        "dag_nodes_persisted": dag_node_ids,
+        "scratchpad_nodes_persisted": scratchpad_node_ids,
         "instruction": (
             "STOP NOW. Do not call any more tools. Do not produce any more text. "
             "The /compact command has been scheduled and will fire as the next "

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import type { DagNode, DagEdge, DagData } from "@shared/types";
+import type { ScratchpadNode, ScratchpadEdge, ScratchpadData } from "@shared/types";
 import { useStore } from "./store";
 
 // ── Constants ─────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ interface SimNode {
   vy: number;
   fx: number | null;
   fy: number | null;
-  data: DagNode;
+  data: ScratchpadNode;
   timeRank: number;
   layer: number; // Hierarchical layer for better visual organization
 }
@@ -59,11 +59,11 @@ interface SimNode {
 interface SimEdge {
   source: string;
   target: string;
-  data: DagEdge;
+  data: ScratchpadEdge;
 }
 
 // Compute hierarchical layers using topological sort
-function computeHierarchicalLayers(nodes: DagNode[], edges: DagEdge[]): Map<string, number> {
+function computeHierarchicalLayers(nodes: ScratchpadNode[], edges: ScratchpadEdge[]): Map<string, number> {
   const layers = new Map<string, number>();
   const inDegree = new Map<string, number>();
   const outEdges = new Map<string, string[]>();
@@ -205,9 +205,9 @@ type FilterState = {
   search: string;
 };
 
-export default function DagView() {
+export default function ScratchpadView() {
   const store = useStore();
-  const [dag, setDag] = useState<DagData | null>(null);
+  const [scratchpad, setScratchpad] = useState<ScratchpadData | null>(null);
   const [simNodes, setSimNodes] = useState<SimNode[]>([]);
   const [simEdges, setSimEdges] = useState<SimEdge[]>([]);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
@@ -232,24 +232,24 @@ export default function DagView() {
   const gruId = store.selectedGruId;
   const port = store.selectedPort;
 
-  // Fetch DAG data
+  // Fetch scratchpad data
   useEffect(() => {
     if (!gruId || port == null) return;
     let cancelled = false;
-    const fetchDag = () => {
-      fetch(`/api/mos/project/${port}/dag?gru=${gruId}`)
+    const fetchScratchpad = () => {
+      fetch(`/api/mos/project/${port}/scratchpad?gru=${gruId}`)
         .then((r) => r.ok ? r.json() : null)
-        .then((data) => { if (!cancelled && data) setDag(data as DagData); })
+        .then((data) => { if (!cancelled && data) setScratchpad(data as ScratchpadData); })
         .catch(() => {});
     };
-    fetchDag();
-    const interval = setInterval(fetchDag, 8000);
+    fetchScratchpad();
+    const interval = setInterval(fetchScratchpad, 8000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [gruId, port]);
 
-  // Initialize simulation nodes when DAG changes
+  // Initialize simulation nodes when scratchpad changes
   useEffect(() => {
-    if (!dag || dag.nodes.length === 0) {
+    if (!scratchpad || scratchpad.nodes.length === 0) {
       nodesRef.current = [];
       edgesRef.current = [];
       setSimNodes([]);
@@ -260,23 +260,23 @@ export default function DagView() {
     const { width, height } = sizeRef.current;
 
     // Compute hierarchical layers
-    const layerMap = computeHierarchicalLayers(dag.nodes, dag.edges);
+    const layerMap = computeHierarchicalLayers(scratchpad.nodes, scratchpad.edges);
 
     // Compute rank based on sort mode
-    let ranked: DagNode[];
+    let ranked: ScratchpadNode[];
     if (sortMode === "type") {
       const typeOrder = Object.keys(NODE_TYPE_COLORS);
-      ranked = [...dag.nodes].sort((a, b) => typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type));
+      ranked = [...scratchpad.nodes].sort((a, b) => typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type));
     } else if (sortMode === "status") {
       const statusOrder = ["verified", "tentative", "unverified", "blocked", "refuted", "out_of_scope"];
-      ranked = [...dag.nodes].sort((a, b) => statusOrder.indexOf(a.support_status) - statusOrder.indexOf(b.support_status));
+      ranked = [...scratchpad.nodes].sort((a, b) => statusOrder.indexOf(a.support_status) - statusOrder.indexOf(b.support_status));
     } else {
-      ranked = [...dag.nodes].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+      ranked = [...scratchpad.nodes].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
     }
     const rankMap = new Map(ranked.map((n, i) => [n.id, i / Math.max(1, ranked.length - 1)]));
 
     const existingMap = new Map(nodesRef.current.map((n) => [n.id, n]));
-    const nodes: SimNode[] = dag.nodes.map((n) => {
+    const nodes: SimNode[] = scratchpad.nodes.map((n) => {
       const existing = existingMap.get(n.id);
       const layer = layerMap.get(n.id) || 0;
       if (existing) {
@@ -296,7 +296,7 @@ export default function DagView() {
       };
     });
 
-    const edges: SimEdge[] = dag.edges.map((e) => ({
+    const edges: SimEdge[] = scratchpad.edges.map((e) => ({
       source: e.from_id, target: e.to_id, data: e,
     }));
 
@@ -304,7 +304,7 @@ export default function DagView() {
     edgesRef.current = edges;
     setSimNodes([...nodes]);
     setSimEdges(edges);
-  }, [dag, sortMode]);
+  }, [scratchpad, sortMode]);
 
   // Animation loop
   useEffect(() => {
@@ -370,9 +370,9 @@ export default function DagView() {
   }, [selectedNode, simEdges]);
 
   // All unique types/statuses/roles for filter UI
-  const allTypes = useMemo(() => [...new Set(dag?.nodes.map((n) => n.type) ?? [])].sort(), [dag]);
-  const allStatuses = useMemo(() => [...new Set(dag?.nodes.map((n) => n.support_status) ?? [])].sort(), [dag]);
-  const allRoles = useMemo(() => [...new Set(dag?.nodes.map((n) => n.author_role).filter(Boolean) ?? [])].sort(), [dag]);
+  const allTypes = useMemo(() => [...new Set(scratchpad?.nodes.map((n) => n.type) ?? [])].sort(), [scratchpad]);
+  const allStatuses = useMemo(() => [...new Set(scratchpad?.nodes.map((n) => n.support_status) ?? [])].sort(), [scratchpad]);
+  const allRoles = useMemo(() => [...new Set(scratchpad?.nodes.map((n) => n.author_role).filter(Boolean) ?? [])].sort(), [scratchpad]);
 
   const selectedNodeData = useMemo(
     () => simNodes.find((n) => n.id === selectedNode)?.data ?? null,
@@ -513,85 +513,85 @@ export default function DagView() {
 
   const nodeMap = useMemo(() => new Map(simNodes.map((n) => [n.id, n])), [simNodes]);
 
-  if (!dag || (dag.nodes.length === 0 && !dag.root_question)) {
+  if (!scratchpad || (scratchpad.nodes.length === 0 && !scratchpad.root_question)) {
     return (
-      <div className="dag-wrap">
+      <div className="scratchpad-wrap">
         <div className="empty">
-          <span style={{ fontSize: 14 }}>No exploration DAG</span>
-          <span>This project hasn't started building its knowledge graph yet</span>
+          <span style={{ fontSize: 14 }}>No scratchpad</span>
+          <span>This project hasn't started building its scratchpad yet</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="dag-wrap" ref={containerRef}>
+    <div className="scratchpad-wrap" ref={containerRef}>
       {/* Toolbar */}
-      <div className="dag-toolbar">
+      <div className="scratchpad-toolbar">
         <input
-          className="dag-search"
+          className="scratchpad-search"
           placeholder="Search nodes..."
           value={filter.search}
           onChange={(e) => setFilter((f) => ({ ...f, search: e.target.value }))}
         />
-        <div className="dag-filters">
+        <div className="scratchpad-filters">
           {allTypes.map((t) => (
             <button
               key={t}
-              className={`dag-filter-chip ${filter.types.has(t) ? "active" : ""}`}
+              className={`scratchpad-filter-chip ${filter.types.has(t) ? "active" : ""}`}
               style={{ "--chip-color": NODE_TYPE_COLORS[t] || "#7a8aa8" } as React.CSSProperties}
               onClick={() => toggleFilter("types", t)}
             >
-              <span className="dag-chip-dot" />
+              <span className="scratchpad-chip-dot" />
               {t}
             </button>
           ))}
         </div>
-        <div className="dag-sort">
-          <span className="dag-sort-label">Layout</span>
+        <div className="scratchpad-sort">
+          <span className="scratchpad-sort-label">Layout</span>
           <div className="seg">
             <button className={sortMode === "time" ? "active" : ""} onClick={() => setSortMode("time")}>Time</button>
             <button className={sortMode === "type" ? "active" : ""} onClick={() => setSortMode("type")}>Type</button>
             <button className={sortMode === "status" ? "active" : ""} onClick={() => setSortMode("status")}>Status</button>
           </div>
         </div>
-        <div className="dag-stats">
-          <span className="dag-stat">{dag.nodes.length} nodes</span>
-          <span className="dag-stat">{dag.edges.length} edges</span>
+        <div className="scratchpad-stats">
+          <span className="scratchpad-stat">{scratchpad.nodes.length} nodes</span>
+          <span className="scratchpad-stat">{scratchpad.edges.length} edges</span>
         </div>
       </div>
 
       {/* Root question banner */}
-      {dag.root_question && (
-        <div className="dag-root-question">
-          <span className="dag-rq-label">Root Question</span>
-          <span className="dag-rq-text">{dag.root_question}</span>
+      {scratchpad.root_question && (
+        <div className="scratchpad-root-question">
+          <span className="scratchpad-rq-label">Root Question</span>
+          <span className="scratchpad-rq-text">{scratchpad.root_question}</span>
         </div>
       )}
 
       {/* SVG Canvas */}
       <svg
         ref={svgRef}
-        className="dag-canvas"
+        className="scratchpad-canvas"
         onMouseDown={handleBgMouseDown}
         onWheel={handleWheel}
       >
         <defs>
-          <filter id="dag-glow">
+          <filter id="scratchpad-glow">
             <feGaussianBlur stdDeviation="3" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <filter id="dag-glow-strong">
+          <filter id="scratchpad-glow-strong">
             <feGaussianBlur stdDeviation="6" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <marker id="dag-arrow" viewBox="0 0 10 10" refX="8" refY="5"
+          <marker id="scratchpad-arrow" viewBox="0 0 10 10" refX="8" refY="5"
             markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(160,180,220,0.5)" />
           </marker>
@@ -614,8 +614,8 @@ export default function DagView() {
                 strokeWidth={isHighlighted ? 2.5 : 1.5}
                 strokeDasharray={style.dash}
                 opacity={dimmed ? 0.15 : 1}
-                markerEnd="url(#dag-arrow)"
-                className="dag-edge"
+                markerEnd="url(#scratchpad-arrow)"
+                className="scratchpad-edge"
               />
             );
           })}
@@ -635,7 +635,7 @@ export default function DagView() {
                 key={node.id}
                 transform={`translate(${node.x},${node.y})`}
                 opacity={dimmed ? 0.25 : opacity}
-                className="dag-node-group"
+                className="scratchpad-node-group"
                 onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
                 onMouseEnter={() => setHoveredNode(node.id)}
                 onMouseLeave={() => setHoveredNode(null)}
@@ -644,7 +644,7 @@ export default function DagView() {
                 {/* Outer glow ring */}
                 {(isSelected || isHovered) && (
                   <circle r={radius + 6} fill="none" stroke={color}
-                    strokeWidth={1.5} opacity={0.4} filter="url(#dag-glow)" />
+                    strokeWidth={1.5} opacity={0.4} filter="url(#scratchpad-glow)" />
                 )}
                 {/* Node circle */}
                 <circle
@@ -652,7 +652,7 @@ export default function DagView() {
                   fill={`${color}22`}
                   stroke={color}
                   strokeWidth={isSelected ? 2.5 : 1.5}
-                  filter={isSelected ? "url(#dag-glow-strong)" : undefined}
+                  filter={isSelected ? "url(#scratchpad-glow-strong)" : undefined}
                 />
                 {/* Type icon (first letter) */}
                 <text
@@ -691,19 +691,19 @@ export default function DagView() {
 
       {/* Detail panel */}
       {selectedNodeData && (
-        <div className="dag-detail">
-          <div className="dag-detail-header">
-            <span className="dag-detail-id" style={{ color: NODE_TYPE_COLORS[selectedNodeData.type] || "#7a8aa8" }}>
+        <div className="scratchpad-detail">
+          <div className="scratchpad-detail-header">
+            <span className="scratchpad-detail-id" style={{ color: NODE_TYPE_COLORS[selectedNodeData.type] || "#7a8aa8" }}>
               {selectedNodeData.id}
             </span>
             <span className={`badge ${selectedNodeData.support_status === "verified" ? "active" : selectedNodeData.support_status === "blocked" ? "sleeping" : ""}`}>
               {selectedNodeData.support_status}
             </span>
-            <button className="dag-detail-close" onClick={() => setSelectedNode(null)}>×</button>
+            <button className="scratchpad-detail-close" onClick={() => setSelectedNode(null)}>×</button>
           </div>
-          <div className="dag-detail-body">
-            <div className="dag-detail-text">{selectedNodeData.text}</div>
-            <dl className="dag-detail-meta">
+          <div className="scratchpad-detail-body">
+            <div className="scratchpad-detail-text">{selectedNodeData.text}</div>
+            <dl className="scratchpad-detail-meta">
               <dt>Type</dt><dd>{selectedNodeData.type}</dd>
               <dt>Author</dt><dd>{selectedNodeData.author_role || "—"}</dd>
               <dt>Created</dt><dd>{selectedNodeData.created_at ? new Date(selectedNodeData.created_at).toLocaleString() : "—"}</dd>
@@ -712,8 +712,8 @@ export default function DagView() {
                 <><dt>Metadata</dt><dd className="mono" style={{ fontSize: 10 }}>{JSON.stringify(selectedNodeData.metadata, null, 1)}</dd></>
               )}
             </dl>
-            <div className="dag-detail-edges">
-              <span className="dag-detail-edges-title">Connections</span>
+            <div className="scratchpad-detail-edges">
+              <span className="scratchpad-detail-edges-title">Connections</span>
               {simEdges
                 .filter((e) => e.source === selectedNode || e.target === selectedNode)
                 .map((e, i) => {
@@ -721,12 +721,12 @@ export default function DagView() {
                   const otherNode = nodeMap.get(otherId);
                   const direction = e.source === selectedNode ? "→" : "←";
                   return (
-                    <div key={i} className="dag-detail-edge-row" onClick={() => setSelectedNode(otherId)}>
-                      <span className="dag-detail-edge-dir">{direction}</span>
-                      <span className="dag-detail-edge-rel">{e.data.relation}</span>
-                      <span className="dag-detail-edge-target">{otherId}</span>
+                    <div key={i} className="scratchpad-detail-edge-row" onClick={() => setSelectedNode(otherId)}>
+                      <span className="scratchpad-detail-edge-dir">{direction}</span>
+                      <span className="scratchpad-detail-edge-rel">{e.data.relation}</span>
+                      <span className="scratchpad-detail-edge-target">{otherId}</span>
                       {otherNode && (
-                        <span className="dag-detail-edge-text">
+                        <span className="scratchpad-detail-edge-text">
                           {otherNode.data.text.slice(0, 40)}
                         </span>
                       )}
@@ -739,12 +739,12 @@ export default function DagView() {
       )}
 
       {/* Legend */}
-      <div className="dag-legend">
-        <span className="dag-legend-title">Node Types</span>
-        <div className="dag-legend-items">
+      <div className="scratchpad-legend">
+        <span className="scratchpad-legend-title">Node Types</span>
+        <div className="scratchpad-legend-items">
           {Object.entries(NODE_TYPE_COLORS).map(([type, color]) => (
-            <div key={type} className="dag-legend-item">
-              <span className="dag-legend-dot" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+            <div key={type} className="scratchpad-legend-item">
+              <span className="scratchpad-legend-dot" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
               <span>{type}</span>
             </div>
           ))}

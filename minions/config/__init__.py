@@ -111,26 +111,29 @@ _ISSUE_REPORT_TOOLS = [
     "mos_issue_report",
 ]
 
-# DAG tools every role uses to inspect/extend the buffered DAG. They are
-# explicitly listed (not via the ``mos_dag_*`` glob) because
-# ``mos_dag_commit_shared`` is reserved for Noter/Gru — committing the
-# DAG is a curator action, not a per-role one.
-_DAG_RW_TOOLS = [
-    "mos_dag_annotate",
-    "mos_dag_append",
-    "mos_dag_path",
-    "mos_dag_query",
-    "mos_dag_summary",
+# Scratchpad (L1) tools every role uses to inspect/extend the buffered graph.
+# They are explicitly listed (not via the ``mos_scratchpad_*`` glob) because
+# ``mos_scratchpad_commit_shared`` is reserved for Noter/Gru — committing the
+# Scratchpad is a curator action, not a per-role one.
+_SCRATCHPAD_RW_TOOLS = [
+    "mos_scratchpad_annotate",
+    "mos_scratchpad_append",
+    "mos_scratchpad_path",
+    "mos_scratchpad_query",
+    "mos_scratchpad_summary",
 ]
 
-_WIKI_READ_TOOLS = [
-    "mos_wiki_query",
-    "mos_wiki_hot_get",
+_LIBRARY_READ_TOOLS = [
+    "mos_library_query",
+    "mos_library_hot_get",
 ]
 
-# Read-only graphify MCP tools — Layer 3 structural index over branches/shared/.
-# Built by Noter periodic, served by mcp-servers/graphify/launcher.sh. Whitelisted
-# universally because every read is non-destructive; Noter is the only writer.
+# Read-only graphify MCP tools — Atlas (L3) primitives over branches/shared/.
+# ``graphify`` is the underlying third-party Python library that backs the Atlas
+# layer; the package keyword and tool prefix stay ``graphify`` deliberately to
+# preserve the upstream import path. Built by Noter periodic, served by
+# mcp-servers/graphify/launcher.sh. Whitelisted universally because every read
+# is non-destructive; Noter is the only writer.
 _GRAPHIFY_READ_TOOLS = [
     "mcp__graphify__query_graph",
     "mcp__graphify__get_node",
@@ -141,13 +144,13 @@ _GRAPHIFY_READ_TOOLS = [
     "mcp__graphify__shortest_path",
 ]
 
-_GLOBAL_GRAPH_GRU_TOOLS = [
-    "mos_global_graph_query",
-    "mos_global_graph_shared_concepts",
+_ATLAS_GRU_TOOLS = [
+    "mos_atlas_query",
+    "mos_atlas_shared_concepts",
 ]
 
-_GLOBAL_GRAPH_REGISTER_TOOLS = [
-    "mos_global_graph_register",
+_ATLAS_REGISTER_TOOLS = [
+    "mos_atlas_register",
 ]
 
 # Maps (role_name, agent_type) → list of allowed tool prefixes / names.
@@ -172,17 +175,17 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     "mos_await_events",
     "mos_get_events",
     "mos_unread_summary",
-    # DAG (full access including commit for Gru/Noter)
-    "mos_dag_*",
-    # Wiki
-    *_WIKI_READ_TOOLS,
-    "mos_wiki_ingest",
-    "mos_wiki_lint",
-    "mos_wiki_hot_update",
-    # Graphify read
+    # Scratchpad (full access including commit for Gru/Noter)
+    "mos_scratchpad_*",
+    # Library
+    *_LIBRARY_READ_TOOLS,
+    "mos_library_ingest",
+    "mos_library_lint",
+    "mos_library_hot_update",
+    # Graphify read (Atlas primitives)
     *_GRAPHIFY_READ_TOOLS,
-    # Global graph (Gru queries only; register is Noter-only)
-    *_GLOBAL_GRAPH_GRU_TOOLS,
+    # Atlas (Gru queries only; register is Noter-only)
+    *_ATLAS_GRU_TOOLS,
     # Shared branch publish
     "mos_publish_to_shared",
     # Signboard
@@ -257,13 +260,13 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
         "mos_noter_wait",
-        "mos_dag_*",
-        "mos_wiki_ingest",
-        "mos_wiki_lint",
-        "mos_wiki_hot_update",
-        *_WIKI_READ_TOOLS,
+        "mos_scratchpad_*",
+        "mos_library_ingest",
+        "mos_library_lint",
+        "mos_library_hot_update",
+        *_LIBRARY_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
-        *_GLOBAL_GRAPH_REGISTER_TOOLS,
+        *_ATLAS_REGISTER_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_reset_context",
@@ -405,10 +408,10 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "eacn3_*",
         "mos_get_events",
         "mos_unread_summary",
-        "mos_dag_*",
-        *_WIKI_READ_TOOLS,
+        "mos_scratchpad_*",
+        *_LIBRARY_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
-        *_GLOBAL_GRAPH_GRU_TOOLS,
+        *_ATLAS_GRU_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_signboard_set",
@@ -450,13 +453,13 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
         "mos_noter_wait",
-        "mos_dag_*",
-        "mos_wiki_ingest",
-        "mos_wiki_lint",
-        "mos_wiki_hot_update",
-        *_WIKI_READ_TOOLS,
+        "mos_scratchpad_*",
+        "mos_library_ingest",
+        "mos_library_lint",
+        "mos_library_hot_update",
+        *_LIBRARY_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
-        *_GLOBAL_GRAPH_REGISTER_TOOLS,
+        *_ATLAS_REGISTER_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_reset_context",
@@ -480,8 +483,8 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_ISSUE_REPORT_TOOLS,
         "eacn3_*",
         "mos_await_events",
-        *_DAG_RW_TOOLS,
-        *_WIKI_READ_TOOLS,
+        *_SCRATCHPAD_RW_TOOLS,
+        *_LIBRARY_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
@@ -536,8 +539,8 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_ISSUE_REPORT_TOOLS,
         "eacn3_*",
         "mos_await_events",
-        *_DAG_RW_TOOLS,
-        *_WIKI_READ_TOOLS,
+        *_SCRATCHPAD_RW_TOOLS,
+        *_LIBRARY_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
@@ -572,8 +575,8 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_ISSUE_REPORT_TOOLS,
         "eacn3_*",
         "mos_await_events",
-        *_DAG_RW_TOOLS,
-        *_WIKI_READ_TOOLS,
+        *_SCRATCHPAD_RW_TOOLS,
+        *_LIBRARY_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
@@ -608,9 +611,9 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_ISSUE_REPORT_TOOLS,
         "eacn3_*",
         "mos_await_events",
-        *_DAG_RW_TOOLS,
-        *_WIKI_READ_TOOLS,
-        "mos_wiki_lint",
+        *_SCRATCHPAD_RW_TOOLS,
+        *_LIBRARY_READ_TOOLS,
+        "mos_library_lint",
         *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
@@ -700,8 +703,8 @@ ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
         "branches/noter/ (drafts)",
         "branches/shared/notes/ (via mos_publish_to_shared)",
         "branches/shared/handoffs/ (via mos_publish_to_shared)",
-        "branches/shared/wiki/ (via mos_wiki_ingest + mos_wiki_hot_update)",
-        "branches/shared/exploration/dag.json (via mos_dag_commit_shared)",
+        "branches/shared/library/ (via mos_library_ingest + mos_library_hot_update)",
+        "branches/shared/scratchpad/scratchpad.json (via mos_scratchpad_commit_shared)",
     ],
     "coder": [
         "branches/coder/",
@@ -942,24 +945,29 @@ class GruConfig(BaseModel):
             return self.agent_host
         return cast(Literal["claude", "codex"], host)
 
-    # --- Scratchpad size thresholds (as fractions of the model context window) ---
+    # --- Context-window size thresholds (as fractions of the model context window) ---
     # Rationale: Context Rot / NoLiMa research shows effective context degrades
-    # long before the nominal window is full, so we budget the scratchpad as a
-    # percentage of the window rather than as an absolute token count. This lets
-    # thresholds auto-scale with the underlying model.
+    # long before the nominal window is full, so we budget the agent's transcript
+    # as a percentage of the window rather than as an absolute token count. This
+    # lets thresholds auto-scale with the underlying model.
+    #
+    # NOTE: These are unrelated to the L1 Scratchpad on disk
+    # (``branches/shared/scratchpad/scratchpad.json``). The ``context_*_pct``
+    # names refer to the in-process transcript / context window of the
+    # agent-host model.
     model_context_window_tokens: int = Field(
         default=1_000_000,
         description="Assumed context-window size of the underlying agent-host model (tokens).",
     )
-    scratchpad_soft_pct: float = Field(
+    context_soft_pct: float = Field(
         default=0.10,
         description="Soft threshold (gentle compression hint on wake-up).",
     )
-    scratchpad_hard_pct: float = Field(
+    context_hard_pct: float = Field(
         default=0.15,
         description="Hard threshold (require compression before processing new events).",
     )
-    scratchpad_veto_pct: float = Field(
+    context_veto_pct: float = Field(
         default=0.20,
         description=(
             "Veto threshold (block normal event handling, attempt maintenance compaction, "

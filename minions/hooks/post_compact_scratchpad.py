@@ -5,25 +5,25 @@ Fires after Claude Code's ``/compact`` completes.  Reads the compact summary
 from stdin (JSON with a ``compact_summary`` field, possibly accompanied by
 others Claude Code may add later — extra keys are ignored).
 
-The summary is *pointer-shaped*: it cites DAG node IDs, wiki paths,
-experiment-report paths, EACN event ids, etc.  This hook does NOT try to
-materialise content from those pointers.  It only walks the summary,
-extracts:
+The summary is *pointer-shaped*: it cites Scratchpad node IDs, Library
+paths, experiment-report paths, EACN event ids, etc.  This hook does NOT
+try to materialise content from those pointers.  It only walks the
+summary, extracts:
 
-  - new / changed DAG node ids                 (## New_or_changed_nodes)
-  - pending-plan node ids restated by the LLM  (## Pending_plans)
+  - new / changed Scratchpad node ids           (## New_or_changed_nodes)
+  - pending-plan node ids restated by the LLM   (## Pending_plans)
   - bare ``[H-001]`` / ``[E-002]`` etc. node refs anywhere in the body
 
 …and appends a single ``post_compact_extract`` audit entry to the same
 project journal that ``mos_compact_context`` writes to:
 
-  project_<port>/branches/shared/exploration/journal.jsonl
+  project_<port>/branches/shared/scratchpad/journal.jsonl
 
-Why an audit-only entry rather than direct DAG mutation:
+Why an audit-only entry rather than direct Scratchpad mutation:
 
-  ``mos_compact_context`` already persists pending plans to the DAG
+  ``mos_compact_context`` already persists pending plans to the Scratchpad
   *before* scheduling ``/compact`` (see ``minions/tools/compact.py``).
-  Mutating the DAG again from the post-compact summary would risk
+  Mutating the Scratchpad again from the post-compact summary would risk
   duplicating those nodes, since the compact model legitimately restates
   them in its output.  We therefore treat this hook as an audit /
   recovery trail: if the agent later needs to reconstruct what was
@@ -47,10 +47,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(levelname)s: %(message)s")
-log = logging.getLogger("post_compact_dag")
+log = logging.getLogger("post_compact_scratchpad")
 
-# DAG node-id prefixes — must stay aligned with TYPE_PREFIX in
-# minions/tools/exploration_dag.py.  Keep this list permissive: missing a
+# Scratchpad node-id prefixes — must stay aligned with TYPE_PREFIX in
+# minions/tools/scratchpad.py.  Keep this list permissive: missing a
 # new prefix only makes the audit entry less informative; it never breaks
 # anything.
 NODE_PREFIXES = ("H", "E", "R", "D", "Q", "DEAD", "I", "M", "C", "A")
@@ -63,38 +63,38 @@ NEW_NODES_RE = re.compile(r"^##\s+New_or_changed_nodes\s*\n([\s\S]*?)(?=\n##\s|\
 DEAD_ENDS_RE = re.compile(r"^##\s+Dead_ends\s*\n([\s\S]*?)(?=\n##\s|\Z)", re.MULTILINE)
 
 
-def _exploration_dir(port: int) -> Path | None:
-    """Return ``project_<port>/branches/shared/exploration`` if locatable.
+def _scratchpad_dir(port: int) -> Path | None:
+    """Return ``project_<port>/branches/shared/scratchpad`` if locatable.
 
     Avoids importing ``minions.paths`` so the hook also works in raw
     operator shells where the package isn't on sys.path.  The repo root
     is the parent of the directory holding this file's parent (i.e.
-    ``minions/hooks/post_compact_dag.py`` → ``MinionsOS/``).
+    ``minions/hooks/post_compact_scratchpad.py`` → ``MinionsOS/``).
     """
     minions_root = os.environ.get("MINIONS_ROOT")
     if minions_root:
         repo_root = Path(minions_root).parent
     else:
         repo_root = Path(__file__).resolve().parent.parent.parent
-    candidate = repo_root / f"project_{port}" / "branches" / "shared" / "exploration"
+    candidate = repo_root / f"project_{port}" / "branches" / "shared" / "scratchpad"
     return candidate if candidate.is_dir() else None
 
 
-def _journal_path(exploration_dir: Path) -> Path:
-    return exploration_dir / "journal.jsonl"
+def _journal_path(scratchpad_dir: Path) -> Path:
+    return scratchpad_dir / "journal.jsonl"
 
 
-def _dag_path(exploration_dir: Path) -> Path:
-    return exploration_dir / "dag.json"
+def _scratchpad_path(scratchpad_dir: Path) -> Path:
+    return scratchpad_dir / "scratchpad.json"
 
 
-def _existing_node_ids(dag_path: Path) -> set[str]:
-    if not dag_path.exists():
+def _existing_node_ids(scratchpad_path: Path) -> set[str]:
+    if not scratchpad_path.exists():
         return set()
     try:
-        data = json.loads(dag_path.read_text(encoding="utf-8"))
+        data = json.loads(scratchpad_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
-        log.debug("could not read %s: %s", dag_path, exc)
+        log.debug("could not read %s: %s", scratchpad_path, exc)
         return set()
     ids: set[str] = set()
     for node in data.get("nodes", []):
@@ -110,7 +110,7 @@ def _section_text(summary: str, pattern: re.Pattern[str]) -> str:
 
 
 def _node_ids_in(text: str) -> list[str]:
-    """Return DAG node ids cited in ``text``, deduped, in order of first occurrence."""
+    """Return Scratchpad node ids cited in ``text``, deduped, in order of first occurrence."""
     seen: set[str] = set()
     out: list[str] = []
     for match in NODE_REF_RE.finditer(text):
@@ -132,7 +132,7 @@ def _structured_extract(summary: str) -> dict:
             "new_or_changed_node_ids": [...],
             "pending_plan_node_ids": [...],
             "dead_end_node_ids": [...],
-            "all_node_refs": [...],   # every DAG ref anywhere in the summary
+            "all_node_refs": [...],   # every Scratchpad ref anywhere in the summary
             "sections_seen": [...],   # which ## headings we found
         }
     """
@@ -182,17 +182,17 @@ def main() -> None:
         log.error("MINIONS_PROJECT_PORT=%r is not an integer", port_env)
         return
 
-    exploration = _exploration_dir(port)
-    if exploration is None:
-        log.debug("no exploration dir for project_%s, skipping", port)
+    scratchpad_dir = _scratchpad_dir(port)
+    if scratchpad_dir is None:
+        log.debug("no scratchpad dir for project_%s, skipping", port)
         return
 
     extract = _structured_extract(summary)
 
-    # Annotate which referenced ids already exist in the live DAG so a human
-    # auditor can immediately see whether the compact summary cited known
-    # nodes vs hallucinated ones.
-    known_ids = _existing_node_ids(_dag_path(exploration))
+    # Annotate which referenced ids already exist in the live Scratchpad so
+    # a human auditor can immediately see whether the compact summary cited
+    # known nodes vs hallucinated ones.
+    known_ids = _existing_node_ids(_scratchpad_path(scratchpad_dir))
     extract["unknown_node_refs"] = [n for n in extract["all_node_refs"] if n not in known_ids]
     extract["known_node_refs"] = [n for n in extract["all_node_refs"] if n in known_ids]
 
@@ -205,7 +205,7 @@ def main() -> None:
         "extract": extract,
     }
 
-    journal = _journal_path(exploration)
+    journal = _journal_path(scratchpad_dir)
     try:
         journal.parent.mkdir(parents=True, exist_ok=True)
         with journal.open("a", encoding="utf-8") as f:

@@ -1,4 +1,4 @@
-"""Unit tests for Phase 7 DAG↔Wiki status hooks."""
+"""Unit tests for Phase 7 Scratchpad↔Library status hooks."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 
-from minions.tools import exploration_dag as dag
-from minions.tools import wiki
+from minions.tools import scratchpad
+from minions.tools import library
 
 
 @pytest.fixture(autouse=True)
@@ -20,21 +20,21 @@ def _isolated_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[s
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
     monkeypatch.setenv("MINIONS_ROLE_NAME", "ethics")
     monkeypatch.setattr(
-        dag,
+        scratchpad,
         "project_shared_subdir",
         lambda p, subdir: tmp_path / f"project_{p}" / "branches" / "shared" / subdir,
     )
     monkeypatch.setattr(
-        dag,
-        "project_shared_dag_json",
-        lambda p: tmp_path / f"project_{p}" / "branches" / "shared" / "exploration" / "dag.json",
+        scratchpad,
+        "project_shared_scratchpad_json",
+        lambda p: tmp_path / f"project_{p}" / "branches" / "shared" / "scratchpad" / "dag.json",
     )
-    (shared / "exploration").mkdir(parents=True)
+    (shared / "scratchpad").mkdir(parents=True)
     return {"port": port, "shared": shared}
 
 
 def _append_hypothesis(text: str = "Test hypothesis") -> None:
-    dag.mos_dag_append(nodes=[{"type": "hypothesis", "text": text}])
+    scratchpad.mos_scratchpad_append(nodes=[{"type": "hypothesis", "text": text}])
 
 
 def test_verified_status_triggers_wiki_status_hook(
@@ -46,10 +46,10 @@ def test_verified_status_triggers_wiki_status_hook(
     def fake_emit(port: int, node_id: str, new_status: str, annotator: str) -> None:
         calls.append((port, node_id, new_status, annotator))
 
-    monkeypatch.setattr(dag, "_emit_wiki_status_event", fake_emit)
+    monkeypatch.setattr(scratchpad, "_emit_library_status_event", fake_emit)
     _append_hypothesis()
 
-    dag.mos_dag_annotate(node_id="H-001", support_status="verified")
+    scratchpad.mos_scratchpad_annotate(node_id="H-001", support_status="verified")
 
     assert calls == [(_isolated_project["port"], "H-001", "verified", "ethics")]
 
@@ -60,10 +60,10 @@ def test_tentative_status_does_not_trigger_wiki_status_hook(
     def fail_emit(port: int, node_id: str, new_status: str, annotator: str) -> None:
         raise AssertionError(f"unexpected wiki hook: {port} {node_id} {new_status} {annotator}")
 
-    monkeypatch.setattr(dag, "_emit_wiki_status_event", fail_emit)
+    monkeypatch.setattr(scratchpad, "_emit_library_status_event", fail_emit)
     _append_hypothesis()
 
-    dag.mos_dag_annotate(node_id="H-001", support_status="tentative")
+    scratchpad.mos_scratchpad_annotate(node_id="H-001", support_status="tentative")
 
 
 def test_refuted_status_triggers_wiki_status_hook(
@@ -75,10 +75,10 @@ def test_refuted_status_triggers_wiki_status_hook(
     def fake_emit(port: int, node_id: str, new_status: str, annotator: str) -> None:
         calls.append((port, node_id, new_status, annotator))
 
-    monkeypatch.setattr(dag, "_emit_wiki_status_event", fake_emit)
+    monkeypatch.setattr(scratchpad, "_emit_library_status_event", fake_emit)
     _append_hypothesis()
 
-    dag.mos_dag_annotate(node_id="H-001", support_status="refuted")
+    scratchpad.mos_scratchpad_annotate(node_id="H-001", support_status="refuted")
 
     assert calls == [(_isolated_project["port"], "H-001", "refuted", "ethics")]
 
@@ -90,10 +90,10 @@ def test_wiki_status_hook_exception_does_not_propagate(
         del port, node_id, new_status, annotator
         raise RuntimeError("wiki unavailable")
 
-    monkeypatch.setattr(dag, "_emit_wiki_status_event", fail_emit)
+    monkeypatch.setattr(scratchpad, "_emit_library_status_event", fail_emit)
     _append_hypothesis()
 
-    result = dag.mos_dag_annotate(node_id="H-001", support_status="verified")
+    result = scratchpad.mos_scratchpad_annotate(node_id="H-001", support_status="verified")
 
     assert result["changes"]["support_status"]["new"] == "verified"
 
@@ -106,7 +106,7 @@ def test_full_wiki_status_hook_calls_wiki_ingest(
     calls: list[dict[str, object]] = []
     captured = tmp_path / "captured-status-event.md"
 
-    def fake_mos_wiki_ingest(
+    def fake_mos_library_ingest(
         src_path: str,
         source_role: str,
         source_slug: str,
@@ -130,10 +130,10 @@ def test_full_wiki_status_hook_calls_wiki_ingest(
         )
         return {"slug": source_slug}
 
-    monkeypatch.setattr(wiki, "mos_wiki_ingest", fake_mos_wiki_ingest)
+    monkeypatch.setattr(library, "mos_library_ingest", fake_mos_library_ingest)
     _append_hypothesis("A long enough hypothesis for a wiki status update.")
 
-    dag.mos_dag_annotate(node_id="H-001", support_status="verified")
+    scratchpad.mos_scratchpad_annotate(node_id="H-001", support_status="verified")
 
     assert len(calls) == 1
     assert calls[0]["source_role"] == "noter"

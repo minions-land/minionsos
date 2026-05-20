@@ -1,14 +1,14 @@
-"""Gru-only cross-project global corpus graph.
+"""Gru-only cross-project global atlas.
 
-MinionsOS projects each own a local corpus graph under their shared branch.
+MinionsOS projects each own a local atlas under their shared branch.
 This module aggregates those per-project graphs into a single Gru-readable
-index at ``~/.minionsos/graphify-global.json``.
+index at ``~/.minionsos/atlas-global.json``.
 
 The boundary rules are strict: only Gru can query across projects; project
 internal Roles never see cross-project data; Gru can relay digested results
 back through ``mos_project_bridge``.
 
-Registration is project-local and performed by Noter after corpus graph
+Registration is project-local and performed by Noter after atlas
 rebuilds. Nodes are prefixed with ``p{port}_`` before merging so local graph
 IDs cannot collide across projects.
 """
@@ -30,18 +30,18 @@ logger = logging.getLogger(__name__)
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 
-def _global_graph_path() -> Path:
-    """Return the canonical global graph path."""
-    return Path.home() / ".minionsos" / "graphify-global.json"
+def _atlas_path() -> Path:
+    """Return the canonical global Atlas path."""
+    return Path.home() / ".minionsos" / "atlas-global.json"
 
 
-def _empty_global_graph() -> dict[str, object]:
+def _empty_atlas() -> dict[str, object]:
     return {"projects": {}, "nodes": [], "links": []}
 
 
-def _normalise_global_graph(data: object) -> dict[str, object]:
+def _normalise_atlas(data: object) -> dict[str, object]:
     if not isinstance(data, dict):
-        return _empty_global_graph()
+        return _empty_atlas()
     projects = data.get("projects")
     nodes = data.get("nodes")
     links = data.get("links")
@@ -52,21 +52,21 @@ def _normalise_global_graph(data: object) -> dict[str, object]:
     }
 
 
-def _load_global_graph() -> dict:
-    """Load the global graph, returning an empty structure when absent."""
-    path = _global_graph_path()
+def _load_atlas() -> dict:
+    """Load the global Atlas, returning an empty structure when absent."""
+    path = _atlas_path()
     if not path.exists() or path.stat().st_size == 0:
-        return _empty_global_graph()
+        return _empty_atlas()
     try:
-        return _normalise_global_graph(json.loads(path.read_text(encoding="utf-8")))
+        return _normalise_atlas(json.loads(path.read_text(encoding="utf-8")))
     except (OSError, json.JSONDecodeError) as exc:
-        logger.warning("failed to load global graph %s: %s", path, exc)
-        return _empty_global_graph()
+        logger.warning("failed to load global Atlas %s: %s", path, exc)
+        return _empty_atlas()
 
 
-def _save_global_graph(data: dict) -> None:
-    """Atomically save the global graph."""
-    path = _global_graph_path()
+def _save_atlas(data: dict) -> None:
+    """Atomically save the global Atlas."""
+    path = _atlas_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -78,7 +78,7 @@ def _tokens(text: str) -> set[str]:
 
 
 def _token_overlap_score(text_a: str, text_b: str) -> float:
-    """Return the wiki-style token overlap score for two strings."""
+    """Return the Library-style token overlap score for two strings."""
     tokens_a = _tokens(text_a)
     tokens_b = _tokens(text_b)
     if not tokens_a or not tokens_b:
@@ -133,7 +133,7 @@ def _link_touches_prefix(link: dict[str, Any], prefix: str) -> bool:
 
 
 def _project_graph_path(port: int) -> Path:
-    return project_shared_subdir(port, "exploration") / "corpus_graph.json"
+    return project_shared_subdir(port, "atlas") / "atlas.json"
 
 
 def _load_project_graph(port: int) -> dict[str, object] | None:
@@ -143,7 +143,7 @@ def _load_project_graph(port: int) -> dict[str, object] | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        logger.warning("failed to load project corpus graph %s: %s", path, exc)
+        logger.warning("failed to load project atlas %s: %s", path, exc)
         return None
     if not isinstance(payload, dict):
         return None
@@ -189,13 +189,13 @@ def _god_node_ids(data: dict[str, object]) -> set[str]:
     return {node_id for node_id, degree in degrees.items() if degree >= threshold and degree > 0}
 
 
-def mos_global_graph_register(port: int) -> dict[str, object]:
-    """Register a project's corpus_graph.json into the global graph.
+def mos_atlas_register(port: int) -> dict[str, object]:
+    """Register a project's atlas.json into the global Atlas.
 
-    Called by Noter after each corpus_graph rebuild (wired into noter_wait.py
-    alongside _maybe_rebuild_corpus_graph). Reads the project's
-    corpus_graph.json, prefixes all node IDs with `p{port}_` to avoid
-    collisions, and merges into ~/.minionsos/graphify-global.json.
+    Called by Noter after each atlas rebuild (wired into noter_wait.py
+    alongside _maybe_rebuild_atlas). Reads the project's
+    atlas.json, prefixes all node IDs with `p{port}_` to avoid
+    collisions, and merges into ~/.minionsos/atlas-global.json.
 
     Idempotent: re-registering the same port replaces its nodes/edges.
     """
@@ -238,7 +238,7 @@ def mos_global_graph_register(port: int) -> dict[str, object]:
         new_link["project_port"] = resolved_port
         new_links.append(new_link)
 
-    data = _load_global_graph()
+    data = _load_atlas()
     projects = dict(data.get("projects") if isinstance(data.get("projects"), dict) else {})
     nodes = _dict_items(data.get("nodes"))
     links = _dict_items(data.get("links"))
@@ -254,7 +254,7 @@ def mos_global_graph_register(port: int) -> dict[str, object]:
         "nodes": [node for node in nodes if not _node_id(node).startswith(prefix)] + new_nodes,
         "links": [link for link in links if not _link_touches_prefix(link, prefix)] + new_links,
     }
-    _save_global_graph(data)
+    _save_atlas(data)
     return {
         "registered": True,
         "port": resolved_port,
@@ -263,18 +263,18 @@ def mos_global_graph_register(port: int) -> dict[str, object]:
     }
 
 
-def mos_global_graph_query(text: str, max_results: int = 10) -> dict[str, object]:
-    """Query the global graph for cross-project concept overlap.
+def mos_atlas_query(text: str, max_results: int = 10) -> dict[str, object]:
+    """Query the global Atlas for cross-project concept overlap.
 
     Gru-only. Searches all registered projects' nodes by keyword overlap
-    (same algorithm as mos_wiki_query: split text into at least 3-char tokens,
+    (same algorithm as mos_library_query: split text into at least 3-char tokens,
     score by overlap, return top-N). Results include the project_port so
     Gru knows which project each node belongs to.
 
     Returns: {"matches": [{"node_id", "label", "project_port", "community",
                  "score", "is_god_node": bool}], "total": N, "projects_searched": M}.
     """
-    data = _load_global_graph()
+    data = _load_atlas()
     god_nodes = _god_node_ids(data)
     matches: list[dict[str, object]] = []
     for node in _dict_items(data.get("nodes")):
@@ -309,7 +309,7 @@ def mos_global_graph_query(text: str, max_results: int = 10) -> dict[str, object
     }
 
 
-def mos_global_graph_shared_concepts(
+def mos_atlas_shared_concepts(
     port_a: int,
     port_b: int,
     min_score: float = 0.5,
@@ -324,7 +324,7 @@ def mos_global_graph_shared_concepts(
     """
     resolved_a = int(port_a)
     resolved_b = int(port_b)
-    nodes = _dict_items(_load_global_graph().get("nodes"))
+    nodes = _dict_items(_load_atlas().get("nodes"))
     nodes_a = [node for node in nodes if _node_project_port(node) == resolved_a]
     nodes_b = [node for node in nodes if _node_project_port(node) == resolved_b]
 

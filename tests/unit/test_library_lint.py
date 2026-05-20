@@ -1,4 +1,4 @@
-"""Unit tests for the Phase 6 Wiki lint surface."""
+"""Unit tests for the Phase 6 Library lint surface."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 
 from minions.paths import project_shared_workspace, project_state_dir
-from minions.tools import wiki
+from minions.tools import library
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     shared.mkdir(parents=True, exist_ok=True)
     project_state_dir(port).mkdir(parents=True, exist_ok=True)
     _mock_publish_file(monkeypatch)
-    return {"port": port, "shared": shared, "wiki": shared / "wiki"}
+    return {"port": port, "shared": shared, "library": shared / "library"}
 
 
 def _mock_publish_file(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
@@ -32,22 +32,22 @@ def _mock_publish_file(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object
     def fake_publish_file(
         port: int,
         abs_src: Path,
-        rel_dst_under_wiki: str,
+        rel_dst_under_library: str,
         message: str,
     ) -> dict[str, object]:
-        assert message == "noter: wiki lint"
-        dst = project_shared_workspace(port) / "wiki" / rel_dst_under_wiki
+        assert message == "noter: library lint"
+        dst = project_shared_workspace(port) / "library" / rel_dst_under_library
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(abs_src, dst)
         result: dict[str, object] = {
             "port": port,
-            "dst_path": f"wiki/{rel_dst_under_wiki}",
+            "dst_path": f"library/{rel_dst_under_library}",
             "commit_sha": f"fake-{len(publish_results) + 1}",
         }
         publish_results.append(result)
         return result
 
-    monkeypatch.setattr(wiki, "_publish_file", fake_publish_file)
+    monkeypatch.setattr(library, "_publish_file", fake_publish_file)
     return publish_results
 
 
@@ -124,7 +124,7 @@ def _finding_set(result: dict[str, object]) -> set[tuple[object, ...]]:
 
 
 def test_wiki_lint_no_pages_returns_zero_counts(project: dict[str, Any]) -> None:
-    result = wiki.mos_wiki_lint()
+    result = library.mos_library_lint()
 
     assert result["orphan_pages"] == 0
     assert result["dead_links"] == 0
@@ -136,37 +136,37 @@ def test_wiki_lint_no_pages_returns_zero_counts(project: dict[str, Any]) -> None
 
 
 def test_wiki_lint_flags_source_without_inbound_link(project: dict[str, Any]) -> None:
-    _write_source(project["wiki"], "lonely")
+    _write_source(project["library"], "lonely")
 
-    result = wiki.mos_wiki_lint()
+    result = library.mos_library_lint()
 
     assert result["orphan_pages"] == 1
     assert _findings_for(result, "ORPHAN_PAGE") == [
         {
             "check": "ORPHAN_PAGE",
             "slug": "lonely",
-            "detail": "No inbound wikilink from another wiki page.",
-            "wiki_path": "wiki/sources/lonely.md",
+            "detail": "No inbound wikilink from another library page.",
+            "library_path": "library/sources/lonely.md",
             "severity": "info",
         }
     ]
 
 
 def test_wiki_lint_flags_dead_wikilink(project: dict[str, Any]) -> None:
-    _write_wiki_page(project["wiki"], "index.md", "# Wiki Index\n\nSee [[nonexistent]].\n")
+    _write_wiki_page(project["library"], "index.md", "# Wiki Index\n\nSee [[nonexistent]].\n")
 
-    result = wiki.mos_wiki_lint()
+    result = library.mos_library_lint()
 
     dead_links = _findings_for(result, "DEAD_LINK")
     assert result["dead_links"] == 1
     assert dead_links[0]["slug"] == "nonexistent"
-    assert dead_links[0]["wiki_path"] == "wiki/index.md"
+    assert dead_links[0]["library_path"] == "library/index.md"
     assert dead_links[0]["severity"] == "error"
 
 
 def test_wiki_lint_flags_repeated_index_title_token(project: dict[str, Any]) -> None:
     _write_wiki_page(
-        project["wiki"],
+        project["library"],
         "index.md",
         "\n".join(
             [
@@ -188,35 +188,35 @@ def test_wiki_lint_flags_repeated_index_title_token(project: dict[str, Any]) -> 
         ),
     )
 
-    result = wiki.mos_wiki_lint()
+    result = library.mos_library_lint()
 
     missing = _findings_for(result, "MISSING_CONCEPT_PAGE")
     assert result["missing_concept_pages"] == 1
     assert missing[0]["slug"] == "cache"
-    assert missing[0]["wiki_path"] == "wiki/index.md"
+    assert missing[0]["library_path"] == "library/index.md"
     assert missing[0]["severity"] == "info"
 
 
 def test_wiki_lint_flags_old_unresolved_contradiction(project: dict[str, Any]) -> None:
-    page = _write_contradiction(project["wiki"], "cache")
+    page = _write_contradiction(project["library"], "cache")
     old = time.time() - (73 * 60 * 60)
     os.utime(page, (old, old))
 
-    result = wiki.mos_wiki_lint()
+    result = library.mos_library_lint()
 
     stale = _findings_for(result, "STALE_CLAIM")
     assert result["stale_claims"] == 1
     assert stale[0]["slug"] == "contradiction-cache"
-    assert stale[0]["wiki_path"] == "wiki/contradictions/contradiction-cache.md"
+    assert stale[0]["library_path"] == "library/contradictions/contradiction-cache.md"
     assert stale[0]["severity"] == "warning"
 
 
 def test_wiki_lint_does_not_flag_fresh_unresolved_contradiction(
     project: dict[str, Any],
 ) -> None:
-    _write_contradiction(project["wiki"], "cache")
+    _write_contradiction(project["library"], "cache")
 
-    result = wiki.mos_wiki_lint()
+    result = library.mos_library_lint()
 
     assert result["stale_claims"] == 0
     assert _findings_for(result, "STALE_CLAIM") == []
@@ -224,7 +224,7 @@ def test_wiki_lint_does_not_flag_fresh_unresolved_contradiction(
 
 def test_wiki_lint_writes_and_updates_hot_summary_block(project: dict[str, Any]) -> None:
     hot = _write_wiki_page(
-        project["wiki"],
+        project["library"],
         "hot.md",
         "\n".join(
             [
@@ -240,7 +240,7 @@ def test_wiki_lint_writes_and_updates_hot_summary_block(project: dict[str, Any])
         ),
     )
 
-    wiki.mos_wiki_lint()
+    library.mos_library_lint()
 
     content = hot.read_text(encoding="utf-8")
     assert "<!-- lint-summary-start -->" in content
@@ -253,11 +253,11 @@ def test_wiki_lint_writes_and_updates_hot_summary_block(project: dict[str, Any])
 
 
 def test_wiki_lint_is_idempotent_for_finding_set(project: dict[str, Any]) -> None:
-    _write_source(project["wiki"], "lonely")
-    _write_wiki_page(project["wiki"], "index.md", "# Wiki Index\n\nSee [[missing]].\n")
+    _write_source(project["library"], "lonely")
+    _write_wiki_page(project["library"], "index.md", "# Wiki Index\n\nSee [[missing]].\n")
 
-    first = wiki.mos_wiki_lint()
-    second = wiki.mos_wiki_lint()
+    first = library.mos_library_lint()
+    second = library.mos_library_lint()
 
     assert _finding_set(second) == _finding_set(first)
     assert second["orphan_pages"] == first["orphan_pages"]

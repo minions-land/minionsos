@@ -1,19 +1,23 @@
-"""Build the project's corpus_graph.json by shelling out to ``graphify extract``.
+"""Build the project's atlas.json by shelling out to ``graphify extract``.
 
 Invoked by Noter's periodic wake when shared/ artifacts have changed since
-the last graph rebuild. See ``minions/tools/noter_wait.py`` →
-``_maybe_rebuild_corpus_graph``.
+the last Atlas (L3 structural index) rebuild. See
+``minions/tools/noter_wait.py`` → ``_maybe_rebuild_atlas``.
+
+The third-party ``graphify`` CLI is unchanged — this wrapper only renames
+the MinionsOS-side concept (Corpus Graph → Atlas) and re-routes output to
+``branches/shared/atlas/atlas.json``.
 
 Usage (from Noter cron, NOT directly):
     python mcp-servers/graphify/extract.py --port <port>
 
 The script:
   1. Resolves the project workspace from the port + repo root.
-  2. Walks branches/shared/{wiki,notes,ethics,exp} and feeds each
+  2. Walks branches/shared/{library,notes,ethics,exp} and feeds each
      existing subdir to graphify-extract via a temporary corpus root.
   3. Writes the merged graph.json atomically to
-     branches/shared/exploration/corpus_graph.json so a concurrent
-     graphify.serve MCP reader gets a clean swap.
+     branches/shared/atlas/atlas.json so a concurrent graphify.serve MCP
+     reader gets a clean swap.
 
 Notes:
   * Uses ``.venv/bin/graphify`` from this directory — must be installed
@@ -38,7 +42,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-_SHARED_SUBDIRS = ("wiki", "notes", "ethics", "exp")
+_SHARED_SUBDIRS = ("library", "notes", "ethics", "exp")
 
 _HERE = Path(__file__).resolve().parent
 _REPO_ROOT = _HERE.parent.parent
@@ -81,8 +85,8 @@ def _atomic_replace(src: Path, dst: Path) -> None:
     os.replace(tmp, dst)
 
 
-def rebuild_corpus_graph(port: int, *, timeout_s: int = 300) -> dict[str, object]:
-    """Run graphify extract over branches/shared/ and atomically install graph.json.
+def rebuild_atlas(port: int, *, timeout_s: int = 300) -> dict[str, object]:
+    """Run graphify extract over branches/shared/ and atomically install atlas.json.
 
     Returns a dict suitable for embedding in Noter's periodic-wake event:
         {"rebuilt": True, "node_count": N, "edge_count": M, "duration_s": float}
@@ -99,7 +103,7 @@ def rebuild_corpus_graph(port: int, *, timeout_s: int = 300) -> dict[str, object
         }
 
     workspace = _project_workspace(port)
-    target = workspace / "branches" / "shared" / "exploration" / "corpus_graph.json"
+    target = workspace / "branches" / "shared" / "atlas" / "atlas.json"
 
     import time
 
@@ -164,13 +168,13 @@ def rebuild_corpus_graph(port: int, *, timeout_s: int = 300) -> dict[str, object
 
 
 def _main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description="Rebuild a MinionsOS project's corpus graph.")
+    parser = argparse.ArgumentParser(description="Rebuild a MinionsOS project's Atlas (L3).")
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--timeout", type=int, default=300)
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO)
-    result = rebuild_corpus_graph(args.port, timeout_s=args.timeout)
+    result = rebuild_atlas(args.port, timeout_s=args.timeout)
     json.dump(result, sys.stdout)
     sys.stdout.write("\n")
     return 0 if result.get("rebuilt") else 1

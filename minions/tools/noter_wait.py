@@ -2,7 +2,8 @@
 
 Noter is not registered on EACN3 and does not use ``mos_await_events``.
 Instead it sleeps for a configurable interval (``noter_periodic_interval``,
-default 3 min) and wakes to flush the DAG and observe project state.
+default 3 min) and wakes to flush the Scratchpad (L1) and observe project
+state.
 
 This tool provides the same cache-keepalive guard as ``mos_await_events``
 so Noter's prompt cache stays warm during long idle periods. The keepalive
@@ -31,8 +32,8 @@ _KEEPALIVE_EVENT: dict[str, Any] = {
     "suggested_action": (
         "Cache keepalive — no work to do. Reply with a single short ack "
         "(e.g. 'ack') and immediately call mos_noter_wait() again. Do "
-        "not write to the DAG, do not send EACN messages, do not invoke "
-        "any other tool."
+        "not write to the Scratchpad, do not send EACN messages, do not "
+        "invoke any other tool."
     ),
 }
 
@@ -155,19 +156,19 @@ def nudge_noter(port: int) -> None:
         logger.debug("nudge_noter: failed to touch %s: %s", path, exc)
 
 
-_CORPUS_GRAPH_SOURCES = ("wiki", "notes", "ethics", "exp")
-_CORPUS_GRAPH_REBUILD_TIMEOUT = 300  # seconds
+_ATLAS_SOURCES = ("library", "notes", "ethics", "exp")
+_ATLAS_REBUILD_TIMEOUT = 300  # seconds
 
 
 def _newest_source_mtime(workspace: Path | None) -> float:
-    """Return the newest mtime under shared/{wiki,notes,ethics,exp}/, or 0.0."""
+    """Return the newest mtime under shared/{library,notes,ethics,exp}/, or 0.0."""
     if workspace is None:
         return 0.0
     shared = workspace.parent / "shared"
     if not shared.exists():
         return 0.0
     newest = 0.0
-    for sub in _CORPUS_GRAPH_SOURCES:
+    for sub in _ATLAS_SOURCES:
         root = shared / sub
         if not root.is_dir():
             continue
@@ -183,11 +184,11 @@ def _newest_source_mtime(workspace: Path | None) -> float:
     return newest
 
 
-def _maybe_rebuild_corpus_graph(workspace: Path | None) -> dict[str, Any]:
-    """Rebuild branches/shared/exploration/corpus_graph.json when stale.
+def _maybe_rebuild_atlas(workspace: Path | None) -> dict[str, Any]:
+    """Rebuild branches/shared/atlas/atlas.json when stale.
 
     Compares the existing graph's mtime against the newest source mtime
-    under shared/{wiki,notes,ethics,exp}/. Only invokes the heavy
+    under shared/{library,notes,ethics,exp}/. Only invokes the heavy
     `mcp-servers/graphify/extract.py` shell-out when sources are newer.
 
     Returns a dict embedded into the periodic-wake event:
@@ -200,7 +201,7 @@ def _maybe_rebuild_corpus_graph(workspace: Path | None) -> dict[str, Any]:
         if workspace is None:
             return {"rebuilt": False, "reason": "no workspace"}
         shared = workspace.parent / "shared"
-        graph_path = shared / "exploration" / "corpus_graph.json"
+        graph_path = shared / "atlas" / "atlas.json"
         newest_src = _newest_source_mtime(workspace)
         if newest_src == 0.0:
             return {"rebuilt": False, "reason": "no source files"}
@@ -212,7 +213,7 @@ def _maybe_rebuild_corpus_graph(workspace: Path | None) -> dict[str, Any]:
         # Resolve port from workspace path: project_{port}/branches/<role>
         port = int(workspace.parent.parent.name.removeprefix("project_"))
     except Exception as exc:
-        logger.warning("corpus_graph rebuild precheck failed: %s", exc)
+        logger.warning("atlas rebuild precheck failed: %s", exc)
         return {"rebuilt": False, "reason": f"precheck error: {exc}"}
 
     repo_root = Path(__file__).resolve().parent.parent.parent
@@ -234,23 +235,23 @@ def _maybe_rebuild_corpus_graph(workspace: Path | None) -> dict[str, Any]:
             cmd,
             capture_output=True,
             text=True,
-            timeout=_CORPUS_GRAPH_REBUILD_TIMEOUT,
+            timeout=_ATLAS_REBUILD_TIMEOUT,
             check=False,
         )
     except subprocess.TimeoutExpired:
-        logger.warning("corpus_graph rebuild timed out after %ds", _CORPUS_GRAPH_REBUILD_TIMEOUT)
+        logger.warning("atlas rebuild timed out after %ds", _ATLAS_REBUILD_TIMEOUT)
         return {
             "rebuilt": False,
-            "reason": f"timeout after {_CORPUS_GRAPH_REBUILD_TIMEOUT}s",
+            "reason": f"timeout after {_ATLAS_REBUILD_TIMEOUT}s",
         }
     except Exception as exc:
-        logger.warning("corpus_graph rebuild subprocess failed: %s", exc)
+        logger.warning("atlas rebuild subprocess failed: %s", exc)
         return {"rebuilt": False, "reason": f"subprocess error: {exc}"}
 
     duration = time.monotonic() - started
     if result.returncode != 0:
         tail = "\n".join((result.stderr or "").strip().splitlines()[-20:])
-        logger.info("corpus_graph rebuild non-zero exit (rc=%d): %s", result.returncode, tail)
+        logger.info("atlas rebuild non-zero exit (rc=%d): %s", result.returncode, tail)
         return {
             "rebuilt": False,
             "reason": f"extract exit {result.returncode}",
@@ -303,22 +304,22 @@ def noter_wait() -> dict[str, Any]:
             logger.info("noter_wait: nudge detected, waking early at %.1fs", elapsed)
             break
 
-    corpus_graph = _maybe_rebuild_corpus_graph(workspace)
-    # Register project graph into global cross-project index (Gru reads this).
+    atlas = _maybe_rebuild_atlas(workspace)
+    # Register project graph into global cross-project Atlas (Gru reads this).
     try:
-        from minions.tools.global_graph import mos_global_graph_register
+        from minions.tools.atlas import mos_atlas_register
 
-        global_reg = mos_global_graph_register(port)
+        atlas_global_reg = mos_atlas_register(port)
     except Exception as exc:
-        logger.warning("global graph registration failed: %s", exc)
-        global_reg = {"registered": False, "reason": str(exc)}
+        logger.warning("atlas registration failed: %s", exc)
+        atlas_global_reg = {"registered": False, "reason": str(exc)}
 
     try:
-        from minions.tools.wiki import mos_wiki_lint
+        from minions.tools.library import mos_library_lint
 
-        lint_result = mos_wiki_lint(port=port)
+        lint_result = mos_library_lint(port=port)
     except Exception as exc:
-        logger.warning("wiki lint failed: %s", exc)
+        logger.warning("library lint failed: %s", exc)
         lint_result = {"error": str(exc)}
 
     return {
@@ -330,14 +331,15 @@ def noter_wait() -> dict[str, Any]:
                 "delta": {
                     "shared_branch": _shared_branch_delta(workspace),
                     "events": _events_jsonl_delta(port),
-                    "corpus_graph": corpus_graph,
-                    "global_graph": global_reg,
-                    "wiki_lint": lint_result,
+                    "atlas": atlas,
+                    "atlas_global": atlas_global_reg,
+                    "library_lint": lint_result,
                 },
                 "suggested_action": (
-                    "Periodic wake. Flush the DAG (mos_dag_commit_shared), "
-                    "read recent EACN activity and shared branch changes, "
-                    "update the DAG if needed, and consider whether a fresh "
+                    "Periodic wake. Flush the Scratchpad "
+                    "(mos_scratchpad_commit_shared), read recent EACN "
+                    "activity and shared branch changes, update the "
+                    "Scratchpad if needed, and consider whether a fresh "
                     "observation report is due."
                 ),
             }

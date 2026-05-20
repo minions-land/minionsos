@@ -1,21 +1,21 @@
-"""Wiki Layer 2 durable product memory for MinionsOS projects.
+"""Library (L2) durable product memory for MinionsOS projects.
 
-The Exploration DAG is Layer 0: fast, mutable coordination state for what
-roles are testing, deciding, or handing off right now. The Wiki is Layer 2:
-durable product memory compiled from shared artefacts after they land.
+The Scratchpad is L1: fast, mutable coordination state for what roles are
+testing, deciding, or handing off right now. The Library is L2: durable
+product memory compiled from shared artefacts after they land.
 
 Phase 2 implements the minimum writable surface under
-``branches/shared/wiki/``. Noter is the only writer: other roles publish raw
+``branches/shared/library/``. Noter is the only writer: other roles publish raw
 artefacts to their own shared subdirs, then Noter ingest-compiles them into
-wiki pages using the shared publish lock and commit machinery.
+library pages using the shared publish lock and commit machinery.
 
 The full design follows the W1/W2/W3/W4/W5 mnemonic from the dev log:
 W1 ingest-time compilation, W2 contradiction callouts, W3 ``hot.md`` as a
 rolling wake-up cache, W4 lint, and W5 schema co-evolution. This phase ships
 W1's file surface plus simple read tools only. Phase 5 adds W2 lexical
-contradiction callouts. There are no LLM calls in the wiki layer.
+contradiction callouts. There are no LLM calls in the Library layer.
 
-Wiki pages live beside the raw Layer 1 artefacts in the shared worktree so
+Library pages live beside the raw L1 artefacts in the shared worktree so
 git history remains auditable. Writes are staged outside ``branches/shared``
 and published through ``mos_publish_to_shared(role="noter", ...)``.
 """
@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any
 
 from minions.paths import (
-    project_shared_dag_json,
+    project_shared_scratchpad_json,
     project_shared_subdir,
     project_shared_workspace,
     project_state_dir,
@@ -110,12 +110,12 @@ _MAX_HOT_BYTES = 4096
 _STALE_CLAIM_SECONDS = 72 * 60 * 60
 
 
-class WikiError(Exception):
-    """Raised when a wiki operation violates Phase 2 policy."""
+class LibraryError(Exception):
+    """Raised when a library operation violates Phase 2 policy."""
 
 
-def _wiki_root(port: int) -> Path:
-    return project_shared_subdir(port, "wiki")
+def _library_root(port: int) -> Path:
+    return project_shared_subdir(port, "library")
 
 
 def _env_port() -> int:
@@ -171,7 +171,7 @@ def _contradiction_slug(new_slug: str) -> str:
 
 def _validate_component(label: str, value: str) -> None:
     if not value or not _SAFE_COMPONENT_RE.fullmatch(value):
-        raise WikiError(
+        raise LibraryError(
             f"{label} must be a safe path component "
             "(letters, numbers, dot, underscore, hyphen; no slashes)."
         )
@@ -200,24 +200,24 @@ def _resolve_source_path(port: int, src_path: str) -> tuple[Path, str]:
             src = candidate.resolve()
             break
     if src is None:
-        raise WikiError(f"src_path does not exist: {src_path!r}")
+        raise LibraryError(f"src_path does not exist: {src_path!r}")
     if not src.is_file():
-        raise WikiError(f"src_path is not a file: {src}")
+        raise LibraryError(f"src_path is not a file: {src}")
 
     try:
         src.relative_to(shared_root)
     except ValueError as exc:
-        raise WikiError(f"src_path must be under branches/shared/: {src}") from exc
+        raise LibraryError(f"src_path must be under branches/shared/: {src}") from exc
 
     try:
         source_file = src.relative_to(workspace_root).as_posix()
     except ValueError as exc:
-        raise WikiError(f"src_path must be under project workspace root: {src}") from exc
+        raise LibraryError(f"src_path must be under project workspace root: {src}") from exc
     return src, source_file
 
 
 def _stage_path(port: int, name: str) -> Path:
-    return project_state_dir(port) / "wiki-staging" / name
+    return project_state_dir(port) / "library-staging" / name
 
 
 def _stage_text(port: int, name: str, text: str) -> Path:
@@ -310,8 +310,8 @@ def _detect_contradictions(
     body: str,
     source_role: str,
 ) -> list[dict[str, object]]:
-    """Find lexical contradictions between a new source body and existing wiki sources."""
-    source_dir = _wiki_root(port) / "sources"
+    """Find lexical contradictions between a new source body and existing library sources."""
+    source_dir = _library_root(port) / "sources"
     if not source_dir.exists():
         return []
 
@@ -335,7 +335,7 @@ def _detect_contradictions(
                     continue
                 contradictions.append(
                     {
-                        "opposing_page": f"wiki/sources/{page.name}",
+                        "opposing_page": f"library/sources/{page.name}",
                         "excerpts": {
                             "new": new_sentence,
                             "opposing": existing_sentence,
@@ -378,7 +378,7 @@ def _render_contradiction_page(
         "",
         f"# Contradiction: {new_slug}",
         "",
-        f"New source: `wiki/sources/{new_slug}.md`",
+        f"New source: `library/sources/{new_slug}.md`",
         "",
     ]
     for idx, contradiction in enumerate(contradictions, start=1):
@@ -418,15 +418,15 @@ def _parse_index_entries(text: str) -> list[dict[str, str]]:
             continue
         key, value = line.split(":", 1)
         key = key.strip()
-        if key in {"slug", "type", "page_kind", "wiki_path"}:
+        if key in {"slug", "type", "page_kind", "library_path"}:
             current[key] = value.strip().strip("`")
     if current is not None:
         entries.append(current)
-    return [entry for entry in entries if entry.get("slug") and entry.get("wiki_path")]
+    return [entry for entry in entries if entry.get("slug") and entry.get("library_path")]
 
 
 def _render_index(entries: list[dict[str, str]]) -> str:
-    lines = ["# Wiki Index", ""]
+    lines = ["# Library Index", ""]
     for entry in entries:
         title = entry.get("title", entry["slug"])
         page_type = entry.get("type", entry.get("page_kind", "source"))
@@ -437,19 +437,19 @@ def _render_index(entries: list[dict[str, str]]) -> str:
                 f"slug: {entry['slug']}",
                 f"type: {page_type}",
                 f"page_kind: {page_kind}",
-                f"wiki_path: {entry['wiki_path']}",
+                f"library_path: {entry['library_path']}",
                 "",
             ]
         )
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _wiki_path_for_page_kind(page_kind: str, slug: str) -> str:
+def _library_path_for_page_kind(page_kind: str, slug: str) -> str:
     if page_kind == "source":
-        return f"wiki/sources/{slug}.md"
+        return f"library/sources/{slug}.md"
     if page_kind == "contradiction":
-        return f"wiki/contradictions/{slug}.md"
-    raise WikiError(f"unsupported wiki page_kind: {page_kind!r}")
+        return f"library/contradictions/{slug}.md"
+    raise LibraryError(f"unsupported library page_kind: {page_kind!r}")
 
 
 def _index_entry(slug: str, title: str, page_kind: str) -> dict[str, str]:
@@ -458,7 +458,7 @@ def _index_entry(slug: str, title: str, page_kind: str) -> dict[str, str]:
         "title": title,
         "type": page_kind,
         "page_kind": page_kind,
-        "wiki_path": _wiki_path_for_page_kind(page_kind, slug),
+        "library_path": _library_path_for_page_kind(page_kind, slug),
     }
 
 
@@ -467,8 +467,8 @@ def _index_append_many(
     entries_to_append: list[tuple[str, str, str]],
 ) -> Path:
     if not entries_to_append:
-        raise WikiError("at least one wiki index entry is required")
-    index_path = _wiki_root(port) / "index.md"
+        raise LibraryError("at least one library index entry is required")
+    index_path = _library_root(port) / "index.md"
     existing = index_path.read_text(encoding="utf-8") if index_path.exists() else ""
     entries = _parse_index_entries(existing)
     next_entries = [
@@ -489,7 +489,7 @@ def _index_append_many(
         if entry["slug"] not in replaced:
             merged.append(entry)
 
-    return _stage_text(port, f"wiki-index-{next_entries[0]['slug']}.md", _render_index(merged))
+    return _stage_text(port, f"library-index-{next_entries[0]['slug']}.md", _render_index(merged))
 
 
 def _index_append(port: int, slug: str, title: str, page_kind: str) -> Path:
@@ -497,36 +497,38 @@ def _index_append(port: int, slug: str, title: str, page_kind: str) -> Path:
 
 
 def _log_append(port: int, op: str, slug: str, **fields: Any) -> Path:
-    log_path = _wiki_root(port) / "log.md"
+    log_path = _library_root(port) / "log.md"
     existing = log_path.read_text(encoding="utf-8") if log_path.exists() else ""
     if existing and not existing.endswith("\n"):
         existing += "\n"
     entry = {"timestamp": _now_iso(), "op": op, "slug": slug, **fields}
     text = existing + json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n"
-    return _stage_text(port, f"wiki-log-{slug}.md", text)
+    return _stage_text(port, f"library-log-{slug}.md", text)
 
 
 def _publish_file(
     port: int,
     abs_src: Path,
-    rel_dst_under_wiki: str,
+    rel_dst_under_library: str,
     message: str,
 ) -> dict[str, object]:
-    rel_dst = Path(rel_dst_under_wiki)
+    rel_dst = Path(rel_dst_under_library)
     if rel_dst.is_absolute() or any(part == ".." for part in rel_dst.parts):
-        raise WikiError(f"wiki destination may not escape wiki/: {rel_dst_under_wiki!r}")
+        raise LibraryError(
+            f"library destination may not escape library/: {rel_dst_under_library!r}"
+        )
     return mos_publish_to_shared(
         role="noter",
         src_path=str(abs_src.resolve()),
-        dst_subpath=f"wiki/{rel_dst.as_posix()}",
+        dst_subpath=f"library/{rel_dst.as_posix()}",
         commit_message=message,
         port=port,
     )
 
 
-def _wiki_rel_path(wiki_root: Path, path: Path) -> str:
+def _library_rel_path(library_root: Path, path: Path) -> str:
     try:
-        return f"wiki/{path.relative_to(wiki_root).as_posix()}"
+        return f"library/{path.relative_to(library_root).as_posix()}"
     except ValueError:
         return path.as_posix()
 
@@ -535,7 +537,7 @@ def _read_lint_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
-        logger.warning("wiki lint could not read %s: %s", path, exc)
+        logger.warning("library lint could not read %s: %s", path, exc)
         return ""
 
 
@@ -561,10 +563,10 @@ def _normalise_wikilink_slug(raw: str) -> str:
     return raw.split("|", 1)[0].split("#", 1)[0].strip().lower()
 
 
-def _wiki_markdown_files(wiki_root: Path) -> list[Path]:
-    if not wiki_root.exists():
+def _library_markdown_files(library_root: Path) -> list[Path]:
+    if not library_root.exists():
         return []
-    return sorted(path for path in wiki_root.rglob("*.md") if path.is_file())
+    return sorted(path for path in library_root.rglob("*.md") if path.is_file())
 
 
 def _wikilinks_by_page(pages: list[Path]) -> dict[Path, list[str]]:
@@ -581,11 +583,11 @@ def _wikilinks_by_page(pages: list[Path]) -> dict[Path, list[str]]:
     return links
 
 
-def _wiki_lint_target_exists(wiki_root: Path, slug: str) -> bool:
+def _library_lint_target_exists(library_root: Path, slug: str) -> bool:
     return (
-        (wiki_root / "sources" / f"{slug}.md").exists()
-        or (wiki_root / "contradictions" / f"contradiction-{slug}.md").exists()
-        or (wiki_root / "contradictions" / f"{slug}.md").exists()
+        (library_root / "sources" / f"{slug}.md").exists()
+        or (library_root / "contradictions" / f"contradiction-{slug}.md").exists()
+        or (library_root / "contradictions" / f"{slug}.md").exists()
     )
 
 
@@ -595,7 +597,7 @@ def _add_lint_finding(
     check: str,
     slug: str,
     detail: str,
-    wiki_path: str,
+    library_path: str,
     severity: str,
 ) -> None:
     if len(findings) >= _MAX_LINT_FINDINGS:
@@ -605,19 +607,19 @@ def _add_lint_finding(
             "check": check,
             "slug": slug,
             "detail": detail,
-            "wiki_path": wiki_path,
+            "library_path": library_path,
             "severity": severity,
         }
     )
 
 
-def _collect_wiki_lint_findings(port: int) -> list[dict[str, object]]:
-    wiki_root = _wiki_root(port)
-    pages = _wiki_markdown_files(wiki_root)
+def _collect_library_lint_findings(port: int) -> list[dict[str, object]]:
+    library_root = _library_root(port)
+    pages = _library_markdown_files(library_root)
     links_by_page = _wikilinks_by_page(pages)
     findings: list[dict[str, object]] = []
 
-    source_dir = wiki_root / "sources"
+    source_dir = library_root / "sources"
     source_pages = sorted(source_dir.glob("*.md")) if source_dir.exists() else []
     sources_by_slug = {path.stem.lower(): path for path in source_pages}
     inbound_source_slugs: set[str] = set()
@@ -634,15 +636,15 @@ def _collect_wiki_lint_findings(port: int) -> list[dict[str, object]]:
             findings,
             check="ORPHAN_PAGE",
             slug=slug,
-            detail="No inbound wikilink from another wiki page.",
-            wiki_path=_wiki_rel_path(wiki_root, source_page),
+            detail="No inbound wikilink from another library page.",
+            library_path=_library_rel_path(library_root, source_page),
             severity="info",
         )
 
     seen_dead_links: set[tuple[str, Path]] = set()
     for page, slugs in links_by_page.items():
         for slug in sorted(set(slugs)):
-            if _wiki_lint_target_exists(wiki_root, slug):
+            if _library_lint_target_exists(library_root, slug):
                 continue
             key = (slug, page)
             if key in seen_dead_links:
@@ -653,31 +655,31 @@ def _collect_wiki_lint_findings(port: int) -> list[dict[str, object]]:
                 check="DEAD_LINK",
                 slug=slug,
                 detail="No source or contradiction page exists for this wikilink slug.",
-                wiki_path=_wiki_rel_path(wiki_root, page),
+                library_path=_library_rel_path(library_root, page),
                 severity="error",
             )
 
-    index_path = wiki_root / "index.md"
+    index_path = library_root / "index.md"
     if index_path.exists():
         title_tokens: Counter[str] = Counter()
         for line in _read_lint_text(index_path).splitlines():
             if line.startswith("## "):
                 title_tokens.update(_TOKEN_RE.findall(line[3:].lower()))
         for slug, count in sorted(title_tokens.items()):
-            if count < 3 or (wiki_root / "sources" / f"{slug}.md").exists():
+            if count < 3 or (library_root / "sources" / f"{slug}.md").exists():
                 continue
             _add_lint_finding(
                 findings,
                 check="MISSING_CONCEPT_PAGE",
                 slug=slug,
                 detail=(
-                    f"Title token appears {count} times in wiki/index.md without a source page."
+                    f"Title token appears {count} times in library/index.md without a source page."
                 ),
-                wiki_path="wiki/index.md",
+                library_path="library/index.md",
                 severity="info",
             )
 
-    contradiction_dir = wiki_root / "contradictions"
+    contradiction_dir = library_root / "contradictions"
     now_ts = datetime.now(UTC).timestamp()
     contradiction_pages = (
         sorted(contradiction_dir.glob("contradiction-*.md")) if contradiction_dir.exists() else []
@@ -689,7 +691,7 @@ def _collect_wiki_lint_findings(port: int) -> list[dict[str, object]]:
         try:
             age_seconds = now_ts - page.stat().st_mtime
         except OSError as exc:
-            logger.warning("wiki lint could not stat %s: %s", page, exc)
+            logger.warning("library lint could not stat %s: %s", page, exc)
             continue
         if age_seconds <= _STALE_CLAIM_SECONDS:
             continue
@@ -700,14 +702,14 @@ def _collect_wiki_lint_findings(port: int) -> list[dict[str, object]]:
             detail=(
                 f"Unresolved contradiction is {int(age_seconds // 3600)}h old (older than 72h)."
             ),
-            wiki_path=_wiki_rel_path(wiki_root, page),
+            library_path=_library_rel_path(library_root, page),
             severity="warning",
         )
 
     return findings
 
 
-def _wiki_lint_result(findings: list[dict[str, object]]) -> dict[str, object]:
+def _library_lint_result(findings: list[dict[str, object]]) -> dict[str, object]:
     counts = Counter(str(finding.get("check", "")) for finding in findings)
     return {
         "orphan_pages": counts["ORPHAN_PAGE"],
@@ -729,7 +731,7 @@ def _short_lint_value(value: object, *, limit: int = 160) -> str:
 def _render_lint_hot_block(result: dict[str, object]) -> str:
     lines = [
         _LINT_SUMMARY_START,
-        "## Wiki Lint",
+        "## Library Lint",
         f"updated: {_now_iso()}",
         f"lint_count: {result.get('lint_count', 0)}",
         f"orphan_pages: {result.get('orphan_pages', 0)}",
@@ -750,9 +752,9 @@ def _render_lint_hot_block(result: dict[str, object]) -> str:
             severity = _short_lint_value(finding.get("severity", "info"), limit=24)
             check = _short_lint_value(finding.get("check", ""), limit=40)
             slug = _short_lint_value(finding.get("slug", ""), limit=80)
-            wiki_path = _short_lint_value(finding.get("wiki_path", ""), limit=120)
+            library_path = _short_lint_value(finding.get("library_path", ""), limit=120)
             detail = _short_lint_value(finding.get("detail", ""), limit=140)
-            lines.append(f"- {severity} {check}: `{slug}` at `{wiki_path}` - {detail}")
+            lines.append(f"- {severity} {check}: `{slug}` at `{library_path}` - {detail}")
     else:
         lines.extend(["", "No lint findings."])
 
@@ -787,7 +789,7 @@ def _replace_lint_hot_block(existing: str, block: str) -> str:
 
 
 def _read_existing_lint_hot_block(port: int) -> str:
-    hot_path = _wiki_root(port) / "hot.md"
+    hot_path = _library_root(port) / "hot.md"
     existing = hot_path.read_text(encoding="utf-8") if hot_path.exists() else ""
     match = _LINT_SUMMARY_BLOCK_RE.search(existing)
     if match:
@@ -795,7 +797,7 @@ def _read_existing_lint_hot_block(port: int) -> str:
     return "\n".join(
         [
             _LINT_SUMMARY_START,
-            "## Wiki Lint",
+            "## Library Lint",
             "No lint summary available.",
             _LINT_SUMMARY_END,
             "",
@@ -820,7 +822,7 @@ def _render_hot_update_text(
     unresolved_contradictions: int,
     lint_block: str,
 ) -> str:
-    lines = ["# Wiki Hot Cache", "", "## Recent activity", ""]
+    lines = ["# Library Hot Cache", "", "## Recent activity", ""]
     if recent_ingests:
         for ingest in recent_ingests:
             title = _hot_ingest_value(ingest, "title", "source_slug", "slug", default="Untitled")
@@ -901,9 +903,9 @@ def _render_capped_hot_update(
     return f"{prefix}\n...\n{lint_block.rstrip()}\n"
 
 
-def _publish_wiki_lint_outputs(port: int, result: dict[str, object]) -> None:
-    wiki_root = _wiki_root(port)
-    log_path = wiki_root / "log.md"
+def _publish_library_lint_outputs(port: int, result: dict[str, object]) -> None:
+    library_root = _library_root(port)
+    log_path = library_root / "log.md"
     existing_log = log_path.read_text(encoding="utf-8") if log_path.exists() else ""
     if existing_log and not existing_log.endswith("\n"):
         existing_log += "\n"
@@ -921,31 +923,34 @@ def _publish_wiki_lint_outputs(port: int, result: dict[str, object]) -> None:
 
     log_stage = _stage_text(
         port,
-        "wiki-log-lint.md",
+        "library-log-lint.md",
         existing_log + json.dumps(log_fields, ensure_ascii=False, sort_keys=True) + "\n",
     )
 
-    hot_path = wiki_root / "hot.md"
+    hot_path = library_root / "hot.md"
     existing_hot = hot_path.read_text(encoding="utf-8") if hot_path.exists() else ""
     hot_stage = _stage_text(
         port,
-        "wiki-hot-lint.md",
+        "library-hot-lint.md",
         _replace_lint_hot_block(existing_hot, _render_lint_hot_block(result)),
     )
 
-    message = "noter: wiki lint"
+    message = "noter: library lint"
     _publish_file(port, log_stage, "log.md", message)
     _publish_file(port, hot_stage, "hot.md", message)
 
 
 def _load_dag_for_match(port: int) -> dict[str, object]:
-    path = project_shared_dag_json(port)
+    path = project_shared_scratchpad_json(port)
     if not path.exists():
         return {"nodes": [], "edges": []}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
-        logger.warning("wiki contradiction DAG edge lookup skipped: invalid DAG JSON at %s", path)
+        logger.warning(
+            "library contradiction Scratchpad edge lookup skipped: invalid Scratchpad JSON at %s",
+            path,
+        )
         return {"nodes": [], "edges": []}
     if not isinstance(data, dict):
         return {"nodes": [], "edges": []}
@@ -956,11 +961,11 @@ def _normalise_match_text(text: object) -> str:
     return " ".join(str(text).lower().split())
 
 
-def _find_dag_node_id(dag: dict[str, object], excerpt: object) -> str | None:
+def _find_dag_node_id(scratchpad: dict[str, object], excerpt: object) -> str | None:
     needle = _normalise_match_text(excerpt)
     if not needle:
         return None
-    nodes = dag.get("nodes", [])
+    nodes = scratchpad.get("nodes", [])
     if not isinstance(nodes, list):
         return None
     for node in nodes:
@@ -982,8 +987,8 @@ def _emit_contradiction_dag_edges(port: int, contradictions: list[dict[str, obje
     if not contradictions:
         return 0
 
-    dag = _load_dag_for_match(port)
-    raw_edges = dag.get("edges", [])
+    scratchpad = _load_dag_for_match(port)
+    raw_edges = scratchpad.get("edges", [])
     if not isinstance(raw_edges, list):
         raw_edges = []
     existing_edges = {
@@ -1001,8 +1006,8 @@ def _emit_contradiction_dag_edges(port: int, contradictions: list[dict[str, obje
         excerpts = contradiction.get("excerpts", {})
         if not isinstance(excerpts, dict):
             continue
-        new_node_id = _find_dag_node_id(dag, excerpts.get("new", ""))
-        opposing_node_id = _find_dag_node_id(dag, excerpts.get("opposing", ""))
+        new_node_id = _find_dag_node_id(scratchpad, excerpts.get("new", ""))
+        opposing_node_id = _find_dag_node_id(scratchpad, excerpts.get("opposing", ""))
         if not new_node_id or not opposing_node_id or new_node_id == opposing_node_id:
             continue
         edge_key = (new_node_id, opposing_node_id, "contradicts")
@@ -1022,14 +1027,14 @@ def _emit_contradiction_dag_edges(port: int, contradictions: list[dict[str, obje
     if not edges:
         return 0
 
-    from minions.tools import exploration_dag
+    from minions.tools import scratchpad
 
     old_port = os.environ.get("MINIONS_PROJECT_PORT")
     os.environ["MINIONS_PROJECT_PORT"] = str(port)
     try:
-        result = exploration_dag.mos_dag_append(edges=edges)
+        result = scratchpad.mos_scratchpad_append(edges=edges)
     except Exception:
-        logger.exception("wiki contradiction DAG edge emission failed")
+        logger.exception("library contradiction Scratchpad edge emission failed")
         return 0
     finally:
         if old_port is None:
@@ -1039,7 +1044,7 @@ def _emit_contradiction_dag_edges(port: int, contradictions: list[dict[str, obje
     return int(result.get("created_edge_count", 0))
 
 
-def mos_wiki_ingest(
+def mos_library_ingest(
     src_path: str,
     source_role: str,
     source_slug: str,
@@ -1048,10 +1053,10 @@ def mos_wiki_ingest(
     *,
     port: int | None = None,
 ) -> dict[str, object]:
-    """Ingest a published shared/<role>/ artifact into the Wiki.
+    """Ingest a published shared/<role>/ artifact into the Library.
 
     Reads ``src_path`` under ``branches/shared/``, stages a source page,
-    idempotently merges ``wiki/index.md``, appends ``wiki/log.md``, and
+    idempotently merges ``library/index.md``, appends ``library/log.md``, and
     publishes the three files through ``mos_publish_to_shared`` as Noter.
     """
     resolved_port = _resolve_port(port)
@@ -1073,14 +1078,14 @@ def mos_wiki_ingest(
         )
         + body
     )
-    page_stage = _stage_text(resolved_port, f"wiki-source-{slug}.md", page)
+    page_stage = _stage_text(resolved_port, f"library-source-{slug}.md", page)
     contradictions = _detect_contradictions(resolved_port, slug, body, source_role)
     contradiction_stage: Path | None = None
     contradiction_slug = _contradiction_slug(slug)
     if contradictions:
         contradiction_stage = _stage_text(
             resolved_port,
-            f"wiki-contradiction-{slug}.md",
+            f"library-contradiction-{slug}.md",
             _render_contradiction_page(slug, contradictions, source_role, date_ingested),
         )
     index_entries = [(slug, resolved_title, "source")]
@@ -1117,7 +1122,7 @@ def mos_wiki_ingest(
     dag_edges_created = _emit_contradiction_dag_edges(resolved_port, contradictions)
 
     logger.info(
-        "wiki ingest: port=%d slug=%s source=%s publishes=%d contradictions=%d dag_edges=%d",
+        "library ingest: port=%d slug=%s source=%s publishes=%d contradictions=%d dag_edges=%d",
         resolved_port,
         slug,
         source_file,
@@ -1127,13 +1132,13 @@ def mos_wiki_ingest(
     )
     return {
         "slug": slug,
-        "wiki_path": f"wiki/sources/{slug}.md",
+        "library_path": f"library/sources/{slug}.md",
         "indexed": True,
         "logged": True,
         "contradictions": contradictions,
         "contradiction_count": len(contradictions),
         "contradiction_path": (
-            f"wiki/contradictions/{contradiction_slug}.md" if contradictions else None
+            f"library/contradictions/{contradiction_slug}.md" if contradictions else None
         ),
         "dag_edges_created": dag_edges_created,
         "publish_results": publish_results,
@@ -1144,23 +1149,23 @@ def _tokens(text: str) -> set[str]:
     return {token for token in _TOKEN_RE.findall(text.lower()) if len(token) >= 3}
 
 
-def mos_wiki_query(
+def mos_library_query(
     text: str,
     max_pages: int = 5,
     *,
     port: int | None = None,
 ) -> dict[str, object]:
-    """Keyword-only search over wiki/index.md headers + page filenames."""
+    """Keyword-only search over library/index.md headers + page filenames."""
     resolved_port = _resolve_port(port)
     query_tokens = _tokens(text)
-    index_path = _wiki_root(resolved_port) / "index.md"
+    index_path = _library_root(resolved_port) / "index.md"
     if not query_tokens or not index_path.exists():
         return {"matches": [], "total": 0, "queried": text}
 
     entries = _parse_index_entries(index_path.read_text(encoding="utf-8"))
     scored: list[dict[str, object]] = []
     for entry in entries:
-        haystack = f"{entry.get('title', '')} {Path(entry.get('wiki_path', '')).name}"
+        haystack = f"{entry.get('title', '')} {Path(entry.get('library_path', '')).name}"
         score = len(query_tokens & _tokens(haystack))
         if score <= 0:
             continue
@@ -1169,7 +1174,7 @@ def mos_wiki_query(
                 "slug": entry["slug"],
                 "title": entry.get("title", entry["slug"]),
                 "page_kind": entry.get("page_kind", entry.get("type", "")),
-                "wiki_path": entry["wiki_path"],
+                "library_path": entry["library_path"],
                 "score": score,
             }
         )
@@ -1180,35 +1185,35 @@ def mos_wiki_query(
     return {"matches": scored[:limit], "total": total, "queried": text}
 
 
-def mos_wiki_lint(*, port: int | None = None) -> dict[str, object]:
-    """Audit ``wiki/`` for structural health.
+def mos_library_lint(*, port: int | None = None) -> dict[str, object]:
+    """Audit ``library/`` for structural health.
 
     Returns ``{orphan_pages, dead_links, missing_concept_pages, stale_claims,
     lint_count, findings}``. This tool is filesystem-only and best-effort:
     failures are returned as ``error`` alongside any collected partial result.
     """
-    result: dict[str, object] = _wiki_lint_result([])
+    result: dict[str, object] = _library_lint_result([])
     resolved_port: int | None = None
     try:
         resolved_port = _resolve_port(port)
-        result = _wiki_lint_result(_collect_wiki_lint_findings(resolved_port))
+        result = _library_lint_result(_collect_library_lint_findings(resolved_port))
     except Exception as exc:
-        logger.warning("wiki lint failed: %s", exc)
+        logger.warning("library lint failed: %s", exc)
         result["error"] = str(exc)
 
     if resolved_port is None:
         return result
 
     try:
-        _publish_wiki_lint_outputs(resolved_port, result)
+        _publish_library_lint_outputs(resolved_port, result)
     except Exception as exc:
-        logger.warning("wiki lint publish failed: %s", exc)
+        logger.warning("library lint publish failed: %s", exc)
         existing = result.get("error")
         result["error"] = f"{existing}; publish failed: {exc}" if existing else str(exc)
     return result
 
 
-def mos_wiki_hot_update(
+def mos_library_hot_update(
     recent_ingests: list[dict[str, str]] | None = None,
     active_hypotheses: int = 0,
     recently_verified: list[str] | None = None,
@@ -1217,7 +1222,7 @@ def mos_wiki_hot_update(
     *,
     port: int | None = None,
 ) -> dict[str, object]:
-    """Generate and publish wiki/hot.md rolling cache.
+    """Generate and publish library/hot.md rolling cache.
 
     Called by Noter on each periodic wake. Composes a ~500-word summary
     from the provided data and publishes it via mos_publish_to_shared.
@@ -1232,8 +1237,8 @@ def mos_wiki_hot_update(
         unresolved_contradictions=unresolved_contradictions,
         lint_block=lint_block,
     )
-    stage = _stage_text(resolved_port, "wiki-hot-update.md", hot_text)
-    _publish_file(resolved_port, stage, "hot.md", "noter: wiki hot update")
+    stage = _stage_text(resolved_port, "library-hot-update.md", hot_text)
+    _publish_file(resolved_port, stage, "hot.md", "noter: library hot update")
     return {
         "updated": True,
         "bytes": len(hot_text.encode("utf-8")),
@@ -1241,15 +1246,15 @@ def mos_wiki_hot_update(
             "Recent activity",
             "Research state",
             "Open contradictions",
-            "Wiki Lint",
+            "Library Lint",
         ],
     }
 
 
-def mos_wiki_hot_get(*, port: int | None = None) -> dict[str, object]:
-    """Return current wiki/hot.md contents, or empty content if absent."""
+def mos_library_hot_get(*, port: int | None = None) -> dict[str, object]:
+    """Return current library/hot.md contents, or empty content if absent."""
     resolved_port = _resolve_port(port)
-    path = _wiki_root(resolved_port) / "hot.md"
+    path = _library_root(resolved_port) / "hot.md"
     if not path.exists():
         return {"content": "", "exists": False, "bytes": 0}
     content = path.read_text(encoding="utf-8")
@@ -1261,10 +1266,10 @@ def mos_wiki_hot_get(*, port: int | None = None) -> dict[str, object]:
 
 
 __all__ = [
-    "WikiError",
-    "mos_wiki_hot_get",
-    "mos_wiki_hot_update",
-    "mos_wiki_ingest",
-    "mos_wiki_lint",
-    "mos_wiki_query",
+    "LibraryError",
+    "mos_library_hot_get",
+    "mos_library_hot_update",
+    "mos_library_ingest",
+    "mos_library_lint",
+    "mos_library_query",
 ]

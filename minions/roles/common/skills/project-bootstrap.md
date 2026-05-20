@@ -226,6 +226,6 @@ The three gates are fixed, but the specific artifacts are stack-dependent:
 - **MinionsOS project:** Gate 2 docs go to `branches/shared/docs/`.
   Gate 3 structure lives on `branches/coder/`. Cross-role handoffs
   use `mos_publish_to_shared`. Architecture decisions are recorded in
-  the exploration DAG via `mos_dag_append` in addition to the decision log.
+  the Scratchpad via `mos_scratchpad_append` in addition to the decision log.
 
 The skill adapts to the stack; the gates do not change.

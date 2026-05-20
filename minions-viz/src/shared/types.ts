@@ -210,9 +210,9 @@ export interface NetworkSnapshot {
   grus: GruInfo[];
 }
 
-// ── DAG types ─────────────────────────────────────────────────────
+// ── Scratchpad types ──────────────────────────────────────────────
 
-export interface DagNode {
+export interface ScratchpadNode {
   id: string;
   type: string;
   text: string;
@@ -223,7 +223,7 @@ export interface DagNode {
   metadata: Record<string, unknown>;
 }
 
-export interface DagEdge {
+export interface ScratchpadEdge {
   from_id: string;
   to_id: string;
   relation: string;
@@ -232,11 +232,11 @@ export interface DagEdge {
   author_role: string;
 }
 
-export interface DagData {
+export interface ScratchpadData {
   project_port: number;
   root_question: string;
-  nodes: DagNode[];
-  edges: DagEdge[];
+  nodes: ScratchpadNode[];
+  edges: ScratchpadEdge[];
 }
 
 export type WsMessage =

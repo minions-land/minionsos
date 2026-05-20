@@ -2,7 +2,7 @@
 
 # MinionsOS
 
-<img src="dag-preview-full.png" width="720" alt="MinionsOS DAG preview" />
+<img src="scratchpad-preview-full.png" width="720" alt="MinionsOS Scratchpad preview" />
 
 **Local multi-agent OS for autonomous, paper-sized research projects.**
 
@@ -70,8 +70,8 @@ research projects.
   MCP server. Each Role owns `branches/<role>/`; cross-role artefacts always
   travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`.
 - **Layered memory.** Role context is reconstructed from the current
-  invocation, the Exploration DAG (`branches/shared/exploration/dag.json`),
-  the Compiled-Knowledge wiki (`branches/shared/wiki/`), shared artefacts under
+  invocation, the Scratchpad (`branches/shared/scratchpad/scratchpad.json`),
+  the compiled-knowledge Library (`branches/shared/library/`), shared artefacts under
   `branches/shared/<subdir>/`, EACN history, and project `CLAUDE.md`.
 - **Skill discovery and domain assets.** Role skills live in
   `minions/roles/{role}/skills/*.md`; Expert domain-pack assets live in
@@ -106,7 +106,7 @@ Gru
   |     |     +-- Expert-*       -> branches/expert-<slug>/ + domain pack
   |     |
   |     +-- Noter (NOT on EACN; timer-driven via mos_noter_wait)
-  |     |     -> branches/noter/ + branches/shared/notes/, exploration/dag.json, wiki/
+  |     |     -> branches/noter/ + branches/shared/notes/, scratchpad/, library/
   |     |
   |     +-- branches/                # one git worktree per role plus shared
   |     |     +-- main/, noter/, coder/, writer/, ethics/, expert-*/, shared/
@@ -263,7 +263,7 @@ Logs:
 | Role | Responsibility | Primary write scope |
 |---|---|---|
 | Gru | Global supervisor, human interface, project lifecycle, cross-project bridge | `branches/main/`, `branches/shared/<any>/` |
-| Noter | Timeline, checkpoints, summaries, Exploration DAG curation, wiki maintenance | `branches/noter/`, `branches/shared/notes/`, `branches/shared/exploration/dag.json`, `branches/shared/wiki/` |
+| Noter | Timeline, checkpoints, summaries, Scratchpad curation, Library maintenance | `branches/noter/`, `branches/shared/notes/`, `branches/shared/scratchpad/scratchpad.json`, `branches/shared/library/` |
 | Coder | Code maintenance, debugging, experiment dispatch, remote execution, result collection | `branches/coder/`, `branches/shared/exp/`, `branches/shared/handoffs/`, `branches/shared/governance/` |
 | Writer (on-demand) | Paper drafting, packaging, rebuttal, camera-ready work | `branches/writer/`, `branches/shared/handoffs/`, `branches/shared/governance/` |
 | Ethics | Evidence audit, unsupported-claim detection over Coder's code/experiments | `branches/ethics/`, `branches/shared/ethics/`, `branches/shared/handoffs/`, `branches/shared/governance/` |
@@ -314,12 +314,12 @@ mos_kill_role
 mos_list_roles
 ```
 
-**Gru-only — cross-project knowledge graph:**
+**Gru-only — cross-project Atlas (L3):**
 
 ```text
-mos_global_graph_register
-mos_global_graph_query
-mos_global_graph_shared_concepts
+mos_atlas_register
+mos_atlas_query
+mos_atlas_shared_concepts
 ```
 
 **Role event loop and context:**
@@ -340,25 +340,25 @@ mos_issue_report
 mos_publish_to_shared
 ```
 
-**Exploration DAG (Noter primary, Gru read):**
+**Scratchpad — L1 process memory (Noter primary, Gru read):**
 
 ```text
-mos_dag_append
-mos_dag_query
-mos_dag_summary
-mos_dag_annotate
-mos_dag_path
-mos_dag_commit_shared      # Noter periodic flush
+mos_scratchpad_append
+mos_scratchpad_query
+mos_scratchpad_summary
+mos_scratchpad_annotate
+mos_scratchpad_path
+mos_scratchpad_commit_shared      # Noter periodic flush
 ```
 
-**Compiled Knowledge wiki (Noter writes; all roles read via query/hot_get):**
+**Library — L2 compiled knowledge (Noter writes; all roles read via query/hot_get):**
 
 ```text
-mos_wiki_ingest
-mos_wiki_lint
-mos_wiki_query
-mos_wiki_hot_get
-mos_wiki_hot_update
+mos_library_ingest
+mos_library_lint
+mos_library_query
+mos_library_hot_get
+mos_library_hot_update
 ```
 
 **Phase-transition signboard (governance):**
@@ -434,19 +434,20 @@ project_{port}/
     noter/                      # Noter drafts
     coder/, writer/, ethics/, expert-<slug>/
     shared/                     # branch minionsos/project-{port}-shared
-      exploration/dag.json      # Noter-curated Exploration DAG
+      scratchpad/scratchpad.json # Noter-curated Scratchpad (L1)
       notes/                    # Noter staged reports
       ethics/                   # Ethics published reports
       exp/exp-<id>/             # Coder experiment result bundles
       reviews/round-<n>/        # mos_review_run output (tool-owned)
       handoffs/                 # cross-role handoffs
       governance/signboard.json # phase-transition consensus
-      wiki/                     # Layer 2 Compiled Knowledge
+      library/                  # Layer 2 — compiled knowledge
         index.md                #   Noter-maintained catalog
         hot.md                  #   ~500-word rolling cache, injected at wake-up
         log.md                  #   append-only ingest/lint journal
         sources/                #   one page per ingested artifact
         contradictions/         #   auto-detected claim conflicts
+      atlas/atlas.json          # Layer 3 — structural index (graphify-extracted)
   eacn3_data/eacn3.db           # per-project EACN3 SQLite database
   events/                       # per-agent EACN event JSONL audit stream
   state/                        # runtime control state (shared.lock, .reset_markers/)
@@ -455,10 +456,10 @@ project_{port}/
     role-{name}.log
 ```
 
-The persistent cross-cycle memory surfaces are the **Exploration DAG**
-(`branches/shared/exploration/dag.json`) and the **Compiled-Knowledge wiki**
-(`branches/shared/wiki/`). Roles do not keep per-role scratchpad files; they
-reconstruct context at wake-up from the current transcript, the DAG, the wiki
+The persistent cross-cycle memory surfaces are the **Scratchpad** (L1,
+`branches/shared/scratchpad/scratchpad.json`) and the **Library** (L2,
+`branches/shared/library/`). Roles do not keep per-role private memory files; they
+reconstruct context at wake-up from the current transcript, the Scratchpad, the Library
 hot cache, EACN history, shared artefacts, and project `CLAUDE.md`.
 
 ### MinionsVIZ
@@ -598,9 +599,9 @@ MCP 调用 **Codex GPT-5.5** 作为子代理。
   MinionsOS MCP server 在服务端额外执行项目生命周期工具授权。每个 Role 拥有
   自己的 `branches/<role>/`；跨角色产物始终经由 `branches/shared/<subdir>/`
   通过 `mos_publish_to_shared` 流转。
-- **分层记忆。** Role 上下文来自当前事件、Exploration DAG
-  （`branches/shared/exploration/dag.json`）、Compiled-Knowledge wiki
-  （`branches/shared/wiki/`）、`branches/shared/<subdir>/` 的共享产物、EACN
+- **分层记忆。** Role 上下文来自当前事件、Scratchpad
+  （`branches/shared/scratchpad/scratchpad.json`）、compiled-knowledge Library
+  （`branches/shared/library/`）、`branches/shared/<subdir>/` 的共享产物、EACN
   历史以及项目 `CLAUDE.md`。
 - **Skill 发现和领域资产。** Role 技能放在 `minions/roles/{role}/skills/*.md`；
   Expert 领域包资产放在 `minions/domains/*.md`。
@@ -632,7 +633,7 @@ Gru
   |     |     +-- Expert-*       -> branches/expert-<slug>/ + 领域包
   |     |
   |     +-- Noter（不在 EACN 上；由 mos_noter_wait 定时器驱动）
-  |     |     -> branches/noter/ + branches/shared/notes/, exploration/dag.json, wiki/
+  |     |     -> branches/noter/ + branches/shared/notes/, scratchpad/, library/
   |     |
   |     +-- branches/                # 每个 Role 一棵 worktree，加一棵 shared
   |     |     +-- main/, noter/, coder/, writer/, ethics/, expert-*/, shared/
@@ -783,7 +784,7 @@ Noter 摘要请求。
 | Role | 职责 | 主要可写范围 |
 |---|---|---|
 | Gru | 全局主管、人机接口、项目生命周期、跨项目桥接 | `branches/main/`、`branches/shared/<any>/` |
-| Noter | 时间线、checkpoint、总结、Exploration DAG 维护、wiki 维护 | `branches/noter/`、`branches/shared/notes/`、`branches/shared/exploration/dag.json`、`branches/shared/wiki/` |
+| Noter | 时间线、checkpoint、总结、Scratchpad 维护、Library 维护 | `branches/noter/`、`branches/shared/notes/`、`branches/shared/scratchpad/scratchpad.json`、`branches/shared/library/` |
 | Coder | 代码维护、调试、实验调度、远端执行、结果收集 | `branches/coder/`、`branches/shared/exp/`、`branches/shared/handoffs/`、`branches/shared/governance/` |
 | Writer（on-demand） | 论文撰写、打包、rebuttal、camera-ready | `branches/writer/`、`branches/shared/handoffs/`、`branches/shared/governance/` |
 | Ethics | 对 Coder 代码/实验进行证据审计、检测无依据论断 | `branches/ethics/`、`branches/shared/ethics/`、`branches/shared/handoffs/`、`branches/shared/governance/` |
@@ -833,12 +834,12 @@ mos_kill_role
 mos_list_roles
 ```
 
-**仅 Gru 可用——跨项目知识图谱：**
+**仅 Gru 可用——跨项目 Atlas（L3）：**
 
 ```text
-mos_global_graph_register
-mos_global_graph_query
-mos_global_graph_shared_concepts
+mos_atlas_register
+mos_atlas_query
+mos_atlas_shared_concepts
 ```
 
 **Role 事件循环与上下文：**
@@ -859,25 +860,25 @@ mos_issue_report
 mos_publish_to_shared
 ```
 
-**Exploration DAG（Noter 主写、Gru 可读）：**
+**Scratchpad — L1 进程记忆（Noter 主写、Gru 可读）：**
 
 ```text
-mos_dag_append
-mos_dag_query
-mos_dag_summary
-mos_dag_annotate
-mos_dag_path
-mos_dag_commit_shared      # Noter 周期性 flush
+mos_scratchpad_append
+mos_scratchpad_query
+mos_scratchpad_summary
+mos_scratchpad_annotate
+mos_scratchpad_path
+mos_scratchpad_commit_shared      # Noter 周期性 flush
 ```
 
-**Compiled Knowledge wiki（Noter 写；所有 Role 通过 query/hot_get 读）：**
+**Library — L2 编译知识（Noter 写；所有 Role 通过 query/hot_get 读）：**
 
 ```text
-mos_wiki_ingest
-mos_wiki_lint
-mos_wiki_query
-mos_wiki_hot_get
-mos_wiki_hot_update
+mos_library_ingest
+mos_library_lint
+mos_library_query
+mos_library_hot_get
+mos_library_hot_update
 ```
 
 **阶段切换 signboard（治理）：**
@@ -953,19 +954,20 @@ project_{port}/
     noter/                      # Noter 草稿
     coder/, writer/, ethics/, expert-<slug>/
     shared/                     # minionsos/project-{port}-shared 分支
-      exploration/dag.json      # Noter 维护的 Exploration DAG
+      scratchpad/scratchpad.json # Noter 维护的 Scratchpad（L1）
       notes/                    # Noter 已发布报告
       ethics/                   # Ethics 已发布报告
       exp/exp-<id>/             # Coder 实验结果包
       reviews/round-<n>/        # mos_review_run 输出（工具独占）
       handoffs/                 # 跨角色交接
       governance/signboard.json # 阶段切换共识
-      wiki/                     # Layer 2 Compiled Knowledge
+      library/                  # Layer 2 — 编译知识
         index.md                #   Noter 维护的目录
         hot.md                  #   ~500 字滚动缓存，在唤醒时注入
         log.md                  #   ingest/lint append-only 日志
         sources/                #   每个被收录工件一个页面
         contradictions/         #   自动检测的论断冲突
+      atlas/atlas.json          # Layer 3 — 结构索引（graphify 抽取）
   eacn3_data/eacn3.db           # 项目独立的 EACN3 SQLite 数据库
   events/                       # 每 agent 的 EACN 事件 JSONL 审计流
   state/                        # 运行时控制状态（shared.lock、.reset_markers/）
@@ -974,10 +976,10 @@ project_{port}/
     role-{name}.log
 ```
 
-跨周期持久化记忆面有两个：**Exploration DAG**
-（`branches/shared/exploration/dag.json`）与 **Compiled-Knowledge wiki**
-（`branches/shared/wiki/`）。Role 不维护任何 per-role scratchpad 文件；
-唤醒时它们从当前 transcript、DAG、wiki hot cache、EACN 历史、共享产物以及
+跨周期持久化记忆面有两个：**Scratchpad**（L1，
+`branches/shared/scratchpad/scratchpad.json`）与 **Library**（L2，
+`branches/shared/library/`）。Role 不维护任何 per-role 私有记忆文件；
+唤醒时它们从当前 transcript、Scratchpad、Library hot cache、EACN 历史、共享产物以及
 项目 `CLAUDE.md` 重建上下文。
 
 ### MinionsVIZ

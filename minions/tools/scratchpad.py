@@ -1,4 +1,4 @@
-"""Exploration DAG — project-level shared knowledge graph for autonomous discovery.
+"""Scratchpad (L1) — project-level shared process graph for autonomous discovery.
 
 Records hypotheses, experiments, results, dead ends, decisions, and their
 relationships.  All roles read/write through these functions; the MCP
@@ -8,16 +8,17 @@ Environment:
     MINIONS_PROJECT_PORT — identifies the project.
 
 Storage:
-    project_{port}/branches/shared/exploration/dag.json     — canonical graph state.
-    project_{port}/branches/shared/exploration/journal.jsonl — append-only mutation log.
+    project_{port}/branches/shared/scratchpad/scratchpad.json — canonical graph state.
+    project_{port}/branches/shared/scratchpad/journal.jsonl   — append-only mutation log.
 
-The DAG and journal live inside the cross-role shared worktree
+The Scratchpad and journal live inside the cross-role shared worktree
 (``branches/shared/`` on branch ``minionsos/project-{port}-shared``) so
-DAG history is auditable in git. ``mos_dag_append`` and
-``mos_dag_annotate`` write to the working tree only; commits happen on a
-cron through ``mos_dag_commit_shared``, which is owned by Noter and
-flushes the buffered DAG state via ``mos_publish_to_shared`` (single
-commit per cron tick, message "noter: dag flush <ts>").
+Scratchpad history is auditable in git. ``mos_scratchpad_append`` and
+``mos_scratchpad_annotate`` write to the working tree only; commits happen
+on a cron through ``mos_scratchpad_commit_shared``, which is owned by Noter
+and flushes the buffered Scratchpad state via ``mos_publish_to_shared``
+(single commit per cron tick, message
+"noter: scratchpad flush <ts>").
 """
 
 from __future__ import annotations
@@ -34,7 +35,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from minions.paths import project_shared_dag_json, project_shared_subdir
+from minions.paths import project_shared_scratchpad_json, project_shared_subdir
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +77,9 @@ PROVENANCES = (
 # inferred: derived from prior nodes (low-medium confidence)
 # speculative: agent's working hypothesis, not yet evidenced
 
-WIKI_STATUS_HOOK_STATUSES = frozenset({"verified", "refuted", "dead_end"})
-_WIKI_STATUS_EVENT_TARGET: ContextVar[dict[str, Any] | None] = ContextVar(
-    "_WIKI_STATUS_EVENT_TARGET",
+LIBRARY_STATUS_HOOK_STATUSES = frozenset({"verified", "refuted", "dead_end"})
+_LIBRARY_STATUS_EVENT_TARGET: ContextVar[dict[str, Any] | None] = ContextVar(
+    "_LIBRARY_STATUS_EVENT_TARGET",
     default=None,
 )
 
@@ -113,16 +114,16 @@ TYPE_PREFIX: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 
-def _exploration_dir(port: int) -> Path:
-    return project_shared_subdir(port, "exploration")
+def _scratchpad_dir(port: int) -> Path:
+    return project_shared_subdir(port, "scratchpad")
 
 
-def _dag_path(port: int) -> Path:
-    return project_shared_dag_json(port)
+def _scratchpad_path(port: int) -> Path:
+    return project_shared_scratchpad_json(port)
 
 
 def _journal_path(port: int) -> Path:
-    return _exploration_dir(port) / "journal.jsonl"
+    return _scratchpad_dir(port) / "journal.jsonl"
 
 
 def _env_port() -> int:
@@ -141,18 +142,18 @@ def _env_role() -> str:
     return os.environ.get("MINIONS_ROLE_NAME", "")
 
 
-def _load_dag(port: int) -> dict[str, Any]:
-    path = _dag_path(port)
+def _load_scratchpad(port: int) -> dict[str, Any]:
+    path = _scratchpad_path(port)
     if not path.exists():
         return {"project_port": port, "root_question": "", "nodes": [], "edges": []}
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _save_dag(port: int, dag: dict[str, Any]) -> None:
-    path = _dag_path(port)
+def _save_scratchpad(port: int, scratchpad: dict[str, Any]) -> None:
+    path = _scratchpad_path(port)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(dag, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp.write_text(json.dumps(scratchpad, indent=2, ensure_ascii=False), encoding="utf-8")
     os.replace(tmp, path)
 
 
@@ -163,10 +164,10 @@ def _append_journal(port: int, entry: dict[str, Any]) -> None:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
-def _next_id(dag: dict[str, Any], node_type: str) -> str:
+def _next_id(scratchpad: dict[str, Any], node_type: str) -> str:
     prefix = TYPE_PREFIX.get(node_type, node_type[:3].upper())
     existing_nums: list[int] = []
-    for node in dag["nodes"]:
+    for node in scratchpad["nodes"]:
         nid: str = node.get("id", "")
         if nid.startswith(prefix + "-"):
             suffix = nid[len(prefix) + 1 :]
@@ -186,17 +187,20 @@ def _validate_confidence(confidence: Any) -> float:
     return value
 
 
-def _emit_wiki_status_event(
+def _emit_library_status_event(
     port: int,
     node_id: str,
     new_status: str,
     annotator: str,
 ) -> None:
-    """Emit a best-effort Wiki ingest event for terminal hypothesis statuses."""
-    target = _WIKI_STATUS_EVENT_TARGET.get()
+    """Emit a best-effort Library ingest event for terminal hypothesis statuses."""
+    target = _LIBRARY_STATUS_EVENT_TARGET.get()
     if target is None or target.get("id") != node_id:
-        dag = _load_dag(port)
-        target = next((node for node in dag["nodes"] if node.get("id") == node_id), {})
+        scratchpad = _load_scratchpad(port)
+        target = next(
+            (node for node in scratchpad["nodes"] if node.get("id") == node_id),
+            {},
+        )
     node_text = str(target.get("text", ""))
     node_type = str(target.get("type", ""))
     date_updated = _now_iso()
@@ -204,7 +208,7 @@ def _emit_wiki_status_event(
         [
             "---",
             "type: hypothesis_status",
-            f"dag_node_id: {node_id}",
+            f"scratchpad_node_id: {node_id}",
             f"new_status: {new_status}",
             f"annotator_role: {annotator}",
             f"date_updated: {date_updated}",
@@ -218,37 +222,37 @@ def _emit_wiki_status_event(
             f"**Annotator**: {annotator}",
             f"**When**: {date_updated}",
             "",
-            "Auto-generated by Phase 7 DAG↔Wiki hook.",
+            "Auto-generated by Phase 7 Scratchpad↔Library hook.",
             "",
         ]
     )
     temp_path: Path | None = None
     try:
-        temp_dir = project_shared_subdir(port, "noter") / ".dag-status-events"
+        temp_dir = project_shared_subdir(port, "noter") / ".scratchpad-status-events"
         temp_dir.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(
             "w",
             encoding="utf-8",
             delete=False,
             dir=temp_dir,
-            prefix="dag-status-",
+            prefix="scratchpad-status-",
             suffix=".md",
         ) as temp_file:
             temp_file.write(blob)
             temp_path = Path(temp_file.name)
 
-        from minions.tools.wiki import mos_wiki_ingest
+        from minions.tools.library import mos_library_ingest
 
-        mos_wiki_ingest(
+        mos_library_ingest(
             src_path=str(temp_path),
             source_role="noter",
-            source_slug=f"dag-status-{node_id.replace('-', '').lower()[:30]}-{new_status}",
+            source_slug=(f"scratchpad-status-{node_id.replace('-', '').lower()[:30]}-{new_status}"),
             title=f"Status update: {node_id} → {new_status}",
             port=port,
         )
     except Exception as exc:
         logger.warning(
-            "wiki status event emission failed for node %s status %s: %s",
+            "library status event emission failed for node %s status %s: %s",
             node_id,
             new_status,
             exc,
@@ -258,7 +262,7 @@ def _emit_wiki_status_event(
             try:
                 temp_path.unlink(missing_ok=True)
             except OSError as exc:
-                logger.warning("failed to remove wiki status temp file %s: %s", temp_path, exc)
+                logger.warning("failed to remove library status temp file %s: %s", temp_path, exc)
 
 
 # ---------------------------------------------------------------------------
@@ -266,7 +270,7 @@ def _emit_wiki_status_event(
 # ---------------------------------------------------------------------------
 
 
-def mos_dag_query(
+def mos_scratchpad_query(
     node_type: str | None = None,
     support_status: str | None = None,
     author_role: str | None = None,
@@ -275,11 +279,11 @@ def mos_dag_query(
     limit: int = 50,
     max_tokens: int = 2000,
 ) -> dict[str, Any]:
-    """Query the DAG. Returns matching nodes and their immediate edges."""
+    """Query the Scratchpad. Returns matching nodes and their immediate edges."""
     port = _env_port()
-    dag = _load_dag(port)
-    nodes: list[dict] = dag["nodes"]
-    edges: list[dict] = dag["edges"]
+    scratchpad = _load_scratchpad(port)
+    nodes: list[dict] = scratchpad["nodes"]
+    edges: list[dict] = scratchpad["edges"]
 
     # If related_to is specified, return subgraph connected to that node.
     if related_to:
@@ -322,13 +326,13 @@ def mos_dag_query(
     return result
 
 
-def mos_dag_append(
+def mos_scratchpad_append(
     nodes: list[dict[str, Any]] | None = None,
     edges: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Add new nodes and/or edges. Auto-generates IDs if not provided."""
     port = _env_port()
-    dag = _load_dag(port)
+    scratchpad = _load_scratchpad(port)
     ts = _now_iso()
     created_node_ids: list[str] = []
     created_edge_count = 0
@@ -341,7 +345,7 @@ def mos_dag_append(
         if provenance not in PROVENANCES:
             logger.info("Custom provenance: %s (not in suggested provenances)", provenance)
         confidence = _validate_confidence(node.get("confidence", 1.0))
-        node_id = node.get("id") or _next_id(dag, ntype)
+        node_id = node.get("id") or _next_id(scratchpad, ntype)
         new_node = {
             "id": node_id,
             "type": ntype,
@@ -354,7 +358,7 @@ def mos_dag_append(
             "confidence": confidence,
             "metadata": node.get("metadata", {}),
         }
-        dag["nodes"].append(new_node)
+        scratchpad["nodes"].append(new_node)
         created_node_ids.append(node_id)
         _append_journal(
             port,
@@ -389,7 +393,7 @@ def mos_dag_append(
             "created_at": edge.get("created_at", ts),
             "author_role": edge.get("author_role", "") or batch_author,
         }
-        dag["edges"].append(new_edge)
+        scratchpad["edges"].append(new_edge)
         created_edge_count += 1
         _append_journal(
             port,
@@ -401,11 +405,11 @@ def mos_dag_append(
             },
         )
 
-    _save_dag(port, dag)
+    _save_scratchpad(port, scratchpad)
     return {"created_node_ids": created_node_ids, "created_edge_count": created_edge_count}
 
 
-def mos_dag_annotate(
+def mos_scratchpad_annotate(
     node_id: str,
     support_status: str | None = None,
     evidence_tag: str | None = None,
@@ -415,11 +419,11 @@ def mos_dag_annotate(
 ) -> dict[str, Any]:
     """Update an existing node's mutable fields. Type and text are immutable."""
     port = _env_port()
-    dag = _load_dag(port)
+    scratchpad = _load_scratchpad(port)
     ts = _now_iso()
 
     target = None
-    for node in dag["nodes"]:
+    for node in scratchpad["nodes"]:
         if node["id"] == node_id:
             target = node
             break
@@ -520,32 +524,32 @@ def mos_dag_annotate(
             },
         )
 
-    _save_dag(port, dag)
-    if support_status is not None and support_status in WIKI_STATUS_HOOK_STATUSES:
-        token = _WIKI_STATUS_EVENT_TARGET.set(target)
+    _save_scratchpad(port, scratchpad)
+    if support_status is not None and support_status in LIBRARY_STATUS_HOOK_STATUSES:
+        token = _LIBRARY_STATUS_EVENT_TARGET.set(target)
         try:
-            _emit_wiki_status_event(port, target["id"], support_status, annotator)
+            _emit_library_status_event(port, target["id"], support_status, annotator)
         except Exception as exc:
             logger.warning(
-                "wiki status hook failed for node %s status %s: %s",
+                "library status hook failed for node %s status %s: %s",
                 target["id"],
                 support_status,
                 exc,
             )
         finally:
-            _WIKI_STATUS_EVENT_TARGET.reset(token)
+            _LIBRARY_STATUS_EVENT_TARGET.reset(token)
     return {"node_id": node_id, "changes": changes}
 
 
-def mos_dag_path(
+def mos_scratchpad_path(
     target_node_id: str,
     from_node_id: str | None = None,
 ) -> dict[str, Any]:
     """Weighted shortest path (Dijkstra) preferring high-strength edges."""
     port = _env_port()
-    dag = _load_dag(port)
-    nodes_by_id: dict[str, dict] = {n["id"]: n for n in dag["nodes"]}
-    edges = dag["edges"]
+    scratchpad = _load_scratchpad(port)
+    nodes_by_id: dict[str, dict] = {n["id"]: n for n in scratchpad["nodes"]}
+    edges = scratchpad["edges"]
 
     if target_node_id not in nodes_by_id:
         raise ValueError(f"Target node not found: {target_node_id}")
@@ -561,9 +565,9 @@ def mos_dag_path(
     if from_node_id:
         start = from_node_id
     else:
-        if not dag["nodes"]:
-            raise ValueError("DAG is empty")
-        start = dag["nodes"][0]["id"]
+        if not scratchpad["nodes"]:
+            raise ValueError("Scratchpad is empty")
+        start = scratchpad["nodes"][0]["id"]
 
     if start not in nodes_by_id:
         raise ValueError(f"Start node not found: {start}")
@@ -615,17 +619,17 @@ def mos_dag_path(
     }
 
 
-def mos_dag_summary() -> dict[str, Any]:
-    """High-level DAG summary for role wakeup injection. Kept under 800 tokens.
+def mos_scratchpad_summary() -> dict[str, Any]:
+    """High-level Scratchpad summary for role wakeup injection. Kept under 800 tokens.
 
     Surfaces pending plans (nodes with metadata.pending_plan == true) at the
     top so a freshly respawned post-reset agent can see what its previous
     self had planned but not yet executed, and pick up without losing work.
     """
     port = _env_port()
-    dag = _load_dag(port)
-    nodes = dag["nodes"]
-    edges = dag["edges"]
+    scratchpad = _load_scratchpad(port)
+    nodes = scratchpad["nodes"]
+    edges = scratchpad["edges"]
 
     # Counts by type.
     by_type: dict[str, int] = defaultdict(int)
@@ -687,7 +691,7 @@ def mos_dag_summary() -> dict[str, Any]:
 
     return {
         "project_port": port,
-        "root_question": dag.get("root_question", ""),
+        "root_question": scratchpad.get("root_question", ""),
         "total_nodes": len(nodes),
         "total_edges": len(edges),
         "pending_plans": pending_view,
@@ -705,49 +709,49 @@ def mos_dag_summary() -> dict[str, Any]:
     }
 
 
-def mos_dag_commit_shared(message: str | None = None) -> dict[str, Any]:
-    """Flush the buffered DAG to a single commit on the shared branch.
+def mos_scratchpad_commit_shared(message: str | None = None) -> dict[str, Any]:
+    """Flush the buffered Scratchpad to a single commit on the shared branch.
 
-    Owned by Noter. The DAG file at
-    ``branches/shared/exploration/dag.json`` is updated freely by every
-    role through ``mos_dag_append`` / ``mos_dag_annotate`` (working tree
+    Owned by Noter. The Scratchpad file at
+    ``branches/shared/scratchpad/scratchpad.json`` is updated freely by every
+    role through ``mos_scratchpad_append`` / ``mos_scratchpad_annotate`` (working tree
     only, no commit). This tool performs one auditable commit per call by
-    publishing the current DAG state through ``mos_publish_to_shared``.
+    publishing the current Scratchpad state through ``mos_publish_to_shared``.
 
     Intended use: Noter cron tick (default every 5 minutes — configurable
     in ``gru.yaml``). Other roles must not call this themselves; the
     whitelist binds it to Noter and Gru only.
 
     Returns the publish result dict (``commit_sha``, ``branch``, etc.).
-    Raises if the DAG file does not exist or the publish fails.
+    Raises if the Scratchpad file does not exist or the publish fails.
     """
     from minions.tools.publish import mos_publish_to_shared
 
     port = _env_port()
-    dag_path = _dag_path(port)
-    if not dag_path.exists():
+    scratchpad_path = _scratchpad_path(port)
+    if not scratchpad_path.exists():
         return {
             "port": port,
             "role": _env_role() or "noter",
-            "dst_path": "exploration/dag.json",
+            "dst_path": "scratchpad/scratchpad.json",
             "commit_sha": None,
             "pushed": False,
             "push_branch": None,
             "branch": None,
-            "skipped": "dag.json does not exist yet",
+            "skipped": "scratchpad.json does not exist yet",
         }
-    msg = message or f"noter: dag flush {_now_iso()}"
+    msg = message or f"noter: scratchpad flush {_now_iso()}"
     return mos_publish_to_shared(
         role=_env_role() or "noter",
-        src_path=str(dag_path),
-        dst_subpath="exploration/dag.json",
+        src_path=str(scratchpad_path),
+        dst_subpath="scratchpad/scratchpad.json",
         commit_message=msg,
         port=port,
     )
 
 
-def mos_dag_relevant(context_text: str, max_nodes: int = 10) -> dict[str, Any]:
-    """Find DAG nodes relevant to a given context (event text, task description).
+def mos_scratchpad_relevant(context_text: str, max_nodes: int = 10) -> dict[str, Any]:
+    """Find Scratchpad nodes relevant to a given context (event text, task description).
 
     This is the PUSH mechanism: instead of the agent deciding what to query,
     the system finds relevant prior knowledge based on what the agent is
@@ -757,7 +761,7 @@ def mos_dag_relevant(context_text: str, max_nodes: int = 10) -> dict[str, Any]:
     No vector embeddings needed — simple but effective for structured nodes.
     """
     port = _env_port()
-    dag_data = _load_dag(port)
+    dag_data = _load_scratchpad(port)
     nodes = dag_data["nodes"]
     edges = dag_data["edges"]
 
@@ -836,15 +840,15 @@ def mos_dag_relevant(context_text: str, max_nodes: int = 10) -> dict[str, Any]:
     }
 
 
-def mos_dag_topic_index() -> dict[str, Any]:
-    """Return a topic-level index of the DAG.
+def mos_scratchpad_topic_index() -> dict[str, Any]:
+    """Return a topic-level index of the Scratchpad.
 
     Groups nodes by their metadata 'topic' field (if present) or by
     community membership. Provides a one-line orientation per topic
     so agents know what prior work exists without querying each topic.
     """
     port = _env_port()
-    dag_data = _load_dag(port)
+    dag_data = _load_scratchpad(port)
     nodes = dag_data["nodes"]
 
     # Group by topic metadata
@@ -879,7 +883,7 @@ def mos_dag_topic_index() -> dict[str, Any]:
     return {"topics": index, "total_topics": len(index)}
 
 
-def mos_dag_communities() -> dict[str, Any]:
+def mos_scratchpad_communities() -> dict[str, Any]:
     """Detect communities using connected components + label propagation.
 
     Phase 1: Find connected components (handles disconnected subgraphs).
@@ -889,7 +893,7 @@ def mos_dag_communities() -> dict[str, Any]:
     Returns clusters of related nodes that form coherent research threads.
     """
     port = _env_port()
-    dag_data = _load_dag(port)
+    dag_data = _load_scratchpad(port)
     nodes = dag_data["nodes"]
     edges = dag_data["edges"]
 
@@ -1006,16 +1010,16 @@ def mos_dag_communities() -> dict[str, Any]:
     }
 
 
-def mos_dag_god_nodes(top_n: int = 5) -> dict[str, Any]:
+def mos_scratchpad_god_nodes(top_n: int = 5) -> dict[str, Any]:
     """Identify hub nodes with highest connectivity (degree centrality).
 
     These are foundational assumptions or key results that many other
     nodes depend on. Changing a god node affects the whole graph.
     """
     port = _env_port()
-    dag = _load_dag(port)
-    nodes = dag["nodes"]
-    edges = dag["edges"]
+    scratchpad = _load_scratchpad(port)
+    nodes = scratchpad["nodes"]
+    edges = scratchpad["edges"]
 
     if not nodes:
         return {"god_nodes": []}

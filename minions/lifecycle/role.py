@@ -62,8 +62,8 @@ def _now_iso() -> str:
 def _resolve_time_trigger_interval(role_name: str, interval: str | None) -> str | None:
     """Resolve optional periodic wakeups for a role.
 
-    Noter gets a default cadence because periodic DAG flushes are part of its
-    core contract. Report publication is throttled separately by
+    Noter gets a default cadence because periodic Scratchpad flushes are part
+    of its core contract. Report publication is throttled separately by
     ``noter_report_interval``. Other roles remain event-driven unless
     explicitly configured. The cadence is recorded on the ``RoleEntry`` for
     the resident-Role launcher to consume; this module does not schedule
@@ -104,25 +104,27 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "roles' branches directly; ask the owning role through EACN instead. "
         "Cross-role artefacts go to `branches/shared/<subdir>/` via "
         "`mos_publish_to_shared` — Gru may publish into any subdir.\n"
-        "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
-        "`mos_dag_summary` / `mos_dag_query`) — Noter flushes it to the shared "
-        "branch on its periodic wake.\n"
+        "Cross-cycle memory: use the Scratchpad (`mos_scratchpad_append` / "
+        "`mos_scratchpad_summary` / `mos_scratchpad_query`) — Noter flushes "
+        "it to the shared branch on its periodic wake.\n"
     ),
     "noter": (
-        "[Role boundary: observer — DAG curator, NOT on EACN3]\n"
+        "[Role boundary: observer — Scratchpad curator, NOT on EACN3]\n"
         "You wake on a periodic timer (`mos_noter_wait`, default 5m) "
-        "to (a) flush the buffered Exploration DAG via `mos_dag_commit_shared` "
-        "and (b) consider whether a fresh staged report is due (target cadence "
-        "`noter_report_interval`, default 30m). You observe the project by "
-        "reading `events/*.jsonl` and `branches/shared/` — you do NOT have "
-        "EACN3 tools and are not registered on the network.\n"
+        "to (a) flush the buffered Scratchpad via "
+        "`mos_scratchpad_commit_shared` and (b) consider whether a fresh "
+        "staged report is due (target cadence `noter_report_interval`, "
+        "default 30m). You observe the project by reading `events/*.jsonl` "
+        "and `branches/shared/` — you do NOT have EACN3 tools and are not "
+        "registered on the network.\n"
         "Write boundaries: your drafts go in your branch `branches/noter/`; "
         "publish to `branches/shared/notes/<file>.md` via "
-        "`mos_publish_to_shared`. The DAG itself lives at "
-        "`branches/shared/exploration/dag.json` and is flushed by you.\n"
+        "`mos_publish_to_shared`. The Scratchpad itself lives at "
+        "`branches/shared/scratchpad/scratchpad.json` and is flushed by "
+        "you.\n"
         "Do NOT write to any other role's `branches/<role>/` directory. Do "
         "NOT publish into any shared subdir other than `notes/`, "
-        "`exploration/`, or `handoffs/`.\n"
+        "`scratchpad/`, `library/`, or `handoffs/`.\n"
     ),
     "coder": (
         "[Role boundary: EACN-visible agent]\n"
@@ -136,8 +138,8 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "MinionsOS repository runtime code only when Gru or the author "
         "explicitly assigns that implementation work through EACN and names the "
         "scope, allowed paths, and verification target.\n"
-        "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
-        "`mos_dag_summary` / `mos_dag_query`).\n"
+        "Cross-cycle memory: use the Scratchpad (`mos_scratchpad_append` / "
+        "`mos_scratchpad_summary` / `mos_scratchpad_query`).\n"
     ),
     "writer": (
         "[Role boundary: EACN-visible agent]\n"
@@ -149,8 +151,8 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "`branches/writer/paper/`). Publish cross-role handoffs (e.g. a "
         "submission package for review) to `branches/shared/handoffs/` via "
         "`mos_publish_to_shared`.\n"
-        "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
-        "`mos_dag_summary` / `mos_dag_query`).\n"
+        "Cross-cycle memory: use the Scratchpad (`mos_scratchpad_append` / "
+        "`mos_scratchpad_summary` / `mos_scratchpad_query`).\n"
     ),
     "ethics": (
         "[Role boundary: EACN-visible agent — continuous evidence validation]\n"
@@ -165,8 +167,8 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "`adjudication-<task-id>.md`) via `mos_publish_to_shared`. Do NOT "
         "publish into `branches/shared/reviews/` — that surface is reserved "
         "for `mos_review_run`.\n"
-        "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
-        "`mos_dag_summary` / `mos_dag_query`).\n"
+        "Cross-cycle memory: use the Scratchpad (`mos_scratchpad_append` / "
+        "`mos_scratchpad_summary` / `mos_scratchpad_query`).\n"
     ),
     "expert": (
         "[Role boundary: EACN-visible agent]\n"
@@ -175,8 +177,8 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "Write boundaries: your branch `branches/<expert>/` (sparingly, scientific "
         "scratch only). Publish cross-role handoffs to "
         "`branches/shared/handoffs/` via `mos_publish_to_shared`.\n"
-        "Cross-cycle memory: use the Exploration DAG (`mos_dag_append` / "
-        "`mos_dag_summary` / `mos_dag_query`).\n"
+        "Cross-cycle memory: use the Scratchpad (`mos_scratchpad_append` / "
+        "`mos_scratchpad_summary` / `mos_scratchpad_query`).\n"
     ),
 }
 

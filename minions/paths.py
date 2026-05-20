@@ -159,7 +159,9 @@ def project_shared_workspace(port: int) -> Path:
     Layout under ``branches/shared/`` (a git worktree on branch
     ``minionsos/project-{port}-shared``):
 
-    - ``exploration/dag.json``        Noter-curated Exploration DAG
+    - ``scratchpad/scratchpad.json``  L1 — Noter-curated process graph
+    - ``library/``                    L2 — Noter-curated source pages
+    - ``atlas/atlas.json``            L3 — concept structure index
     - ``notes/``                      Noter staged reports
     - ``ethics/``                     Ethics published audit reports (flat)
     - ``exp/``                        Experimenter result bundles
@@ -179,13 +181,14 @@ def project_shared_subdir(port: int, subdir: str) -> Path:
     return project_shared_workspace(port) / _safe_component(subdir)
 
 
-def project_shared_dag_json(port: int) -> Path:
-    """Return the canonical Exploration DAG path for *port*.
+def project_shared_scratchpad_json(port: int) -> Path:
+    """Return the canonical L1 Scratchpad path for *port*.
 
-    Lives at ``branches/shared/exploration/dag.json`` so DAG state is
-    durable, shared, and committed periodically by Noter on a cron.
+    Lives at ``branches/shared/scratchpad/scratchpad.json`` so the
+    process graph is durable, shared, and committed periodically by Noter
+    on a cron.
     """
-    return project_shared_subdir(port, "exploration") / "dag.json"
+    return project_shared_subdir(port, "scratchpad") / "scratchpad.json"
 
 
 def project_signboard_json(port: int) -> Path:
@@ -326,14 +329,15 @@ def common_role_system_md() -> Path:
     return ROLES_DIR / "SYSTEM.md"
 
 
-def project_exploration_dir(port: int) -> Path:
-    """Return the Exploration DAG directory for *port*.
+def project_scratchpad_dir(port: int) -> Path:
+    """Return the L1 Scratchpad directory for *port*.
 
-    Lives under ``branches/shared/exploration/`` so DAG state is captured
-    in git on the shared branch. Use :func:`project_shared_dag_json` for
-    the canonical ``dag.json`` path directly.
+    Lives under ``branches/shared/scratchpad/`` so Scratchpad state is
+    captured in git on the shared branch. Use
+    :func:`project_shared_scratchpad_json` for the canonical
+    ``scratchpad.json`` path directly.
     """
-    return project_shared_subdir(port, "exploration")
+    return project_shared_subdir(port, "scratchpad")
 
 
 def project_issues_dir(port: int) -> Path:

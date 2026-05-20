@@ -29,9 +29,10 @@ author_repo:
 projects_root:
 
 # Noter periodic wake cadence. Noter wakes every interval to flush the buffered
-# Exploration DAG to a single commit on the shared branch (mos_dag_commit_shared),
-# and to consider whether a fresh staged report is due. DAG flushes happen on
-# every periodic wake; reports are throttled by noter_report_interval below.
+# Scratchpad (L1) to a single commit on the shared branch
+# (mos_scratchpad_commit_shared), and to consider whether a fresh staged report
+# is due. Scratchpad flushes happen on every periodic wake; reports are
+# throttled by noter_report_interval below.
 noter_periodic_interval: 3m
 
 # Target cadence for Noter staged report publishes. Noter only publishes a new
@@ -70,7 +71,7 @@ experiment_reconcile_interval_seconds: 30
 cache_keepalive_seconds: 240
 
 # EACN agent_id used when system components (e.g. the Python-side wakeup
-# dispatcher posting scratchpad-veto warnings) address Gru. Change only if
+# dispatcher posting context-veto warnings) address Gru. Change only if
 # you have renamed the Gru agent on the EACN bus.
 gru_eacn_agent_id: gru
 
@@ -79,7 +80,9 @@ gru_eacn_agent_id: gru
 # with MINIONS_AGENT_HOST.
 agent_host: claude
 
-# Model for the Noter role. Noter does summarization and DAG maintenance —
+# Model for the Noter role. Noter does summarization and Scratchpad/Library
+# maintenance — Sonnet is sufficient and much cheaper than Opus. Accepts any
+# model alias or full name that the claude CLI understands.
 # Sonnet is sufficient and much cheaper than Opus. Accepts any model alias
 # or full name that the claude CLI understands.
 noter_model: sonnet
@@ -94,12 +97,20 @@ codex_bypass_approvals_and_sandbox: true
 codex_sandbox: danger-full-access  # used only when bypass is disabled
 codex_approval_policy: never
 
-# Scratchpad size thresholds, expressed as a fraction of the model context
+# Context-window size thresholds, expressed as a fraction of the model context
 # window so they auto-scale as we upgrade to larger-context models.
 # Rationale: Context Rot / NoLiMa research shows effective context degrades
-# well before the nominal window is full — keep the scratchpad well under it.
+# well before the nominal window is full — keep transcript usage well under it.
 # Defaults (1M-token window): soft=100k, hard=150k, veto=200k tokens.
+# These are unrelated to the on-disk L1 Scratchpad
+# (branches/shared/scratchpad/scratchpad.json).
+#
+# NOTE (2026-05-20): these thresholds are RESERVED for a future programmatic
+# compaction-gating path. Today, role agents decide when to call
+# mos_compact_context based on self-judgment; nothing in the runtime reads
+# these values. Tuning them here will not change behavior until the wiring
+# lands. See dev-log/2026-05.md "context_*_pct thresholds: dead config".
 model_context_window_tokens: 1000000
-scratchpad_soft_pct: 0.10   # gentle compression hint
-scratchpad_hard_pct: 0.15   # require compression before new events
-scratchpad_veto_pct: 0.20   # block normal work, try maintenance compaction, alert Gru
+context_soft_pct: 0.10   # gentle compression hint
+context_hard_pct: 0.15   # require compression before new events
+context_veto_pct: 0.20   # block normal work, try maintenance compaction, alert Gru

@@ -9,12 +9,13 @@ critical section, so a power cut between drain and LLM read leaves the
 disk copy intact.
 
 This guarantees post-mortem reconstruction: at the end of a project the
-union of every ``events/<agent>.jsonl`` plus each role's Exploration DAG
+union of every ``events/<agent>.jsonl`` plus each role's Scratchpad (L1)
 describes the complete network history exactly as the agents saw it.
 
 Roles do not read these files in normal operation — they consume events
-through the MCP return value and then look at the DAG and their
-scratchpad. The jsonl is for humans (and for any future replay tooling).
+through the MCP return value and then look at the Scratchpad and their
+in-context transcript. The jsonl is for humans (and for any future replay
+tooling).
 
 Gru additionally maintains a tiny ``{agent_id}.last_seen`` companion file
 holding the byte offset it has read up to. ``unread_count`` returns

@@ -38,7 +38,7 @@ minions/
 │   ├── personas/            # short reviewer stance files
 │   └── templates/           # aspect-note / reviewer-instance / fresh / revision_delta / consolidated / summary / submission-checklist
 ├── domains/                 # Expert domain-pack assets (not Python)
-├── hooks/                   # post_compact_dag.py, pre_compact_science.py
+├── hooks/                   # post_compact_scratchpad.py, pre_compact_science.py
 ├── config/
 │   ├── gru.yaml.example
 │   └── experiment_targets.yaml.example

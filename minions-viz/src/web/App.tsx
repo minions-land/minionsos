@@ -12,11 +12,11 @@ import AgentDetail from "./AgentDetail";
 import MetricHUD from "./MetricHUD";
 import EventLog from "./EventLog";
 import Adjudication from "./Adjudication";
-import DagView from "./DagView";
-import { WikiView } from "./WikiView";
-import { KnowledgeGraphView } from "./KnowledgeGraphView";
+import ScratchpadView from "./ScratchpadView";
+import { LibraryView } from "./LibraryView";
+import { AtlasView } from "./AtlasView";
 
-type View = "universe" | "tasks" | "terminals" | "events" | "adjudication" | "dag" | "wiki" | "knowledge";
+type View = "universe" | "tasks" | "terminals" | "events" | "adjudication" | "scratchpad" | "library" | "atlas";
 
 export default function App() {
   const store = useStore();
@@ -148,9 +148,9 @@ export default function App() {
               <Adjudication tasks={store.tasks} agents={store.agents} />
             )}
 
-            {view === "dag" && <DagView />}
-            {view === "wiki" && <WikiView />}
-            {view === "knowledge" && <KnowledgeGraphView />}
+            {view === "scratchpad" && <ScratchpadView />}
+            {view === "library" && <LibraryView />}
+            {view === "atlas" && <AtlasView />}
           </>
         )}
       </div>
@@ -192,25 +192,25 @@ export default function App() {
           Adjudication · {adjCount}
         </button>
         <button
-          className={"tab" + (view === "dag" ? " active" : "")}
-          onClick={() => setView("dag")}
+          className={"tab" + (view === "scratchpad" ? " active" : "")}
+          onClick={() => setView("scratchpad")}
           disabled={showPicker}
         >
-          DAG
+          Scratchpad
         </button>
         <button
-          className={"tab" + (view === "wiki" ? " active" : "")}
-          onClick={() => setView("wiki")}
+          className={"tab" + (view === "library" ? " active" : "")}
+          onClick={() => setView("library")}
           disabled={showPicker}
         >
-          📚 Wiki
+          📚 Library
         </button>
         <button
-          className={"tab" + (view === "knowledge" ? " active" : "")}
-          onClick={() => setView("knowledge")}
+          className={"tab" + (view === "atlas" ? " active" : "")}
+          onClick={() => setView("atlas")}
           disabled={showPicker}
         >
-          🧠 Knowledge
+          🧠 Atlas
         </button>
       </nav>
     </div>

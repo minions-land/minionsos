@@ -1,4 +1,4 @@
-"""Unit tests for Phase 5 wiki contradiction detection."""
+"""Unit tests for Phase 5 library contradiction detection."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ import pytest
 
 from minions.paths import (
     project_shared_branch_name,
-    project_shared_dag_json,
+    project_shared_scratchpad_json,
     project_shared_workspace,
     project_state_dir,
 )
-from minions.tools import wiki
+from minions.tools import library
 
 POSITIVE_SENTENCE = (
     "The transformer cache can improve latency because repeated retrieval keeps "
@@ -35,7 +35,7 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     shared = project_shared_workspace(port)
     (shared / "coder").mkdir(parents=True)
     (shared / "expert").mkdir(parents=True)
-    (shared / "wiki" / "sources").mkdir(parents=True)
+    (shared / "library" / "sources").mkdir(parents=True)
     project_state_dir(port).mkdir(parents=True)
     return {"port": port, "shared": shared}
 
@@ -55,7 +55,7 @@ def _mock_publish(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
         del store
         assert role == "noter"
         assert commit_message.startswith("noter: ingest ")
-        resolved_port = port or wiki._env_port()
+        resolved_port = port or library._env_port()
         src = Path(src_path)
         dst = project_shared_workspace(resolved_port) / dst_subpath
         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -72,12 +72,12 @@ def _mock_publish(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
         publish_results.append(result)
         return result
 
-    monkeypatch.setattr(wiki, "mos_publish_to_shared", fake_publish_to_shared)
+    monkeypatch.setattr(library, "mos_publish_to_shared", fake_publish_to_shared)
     return publish_results
 
 
 def _write_existing_source(shared: Path, slug: str, body: str, source_role: str = "expert") -> Path:
-    page = shared / "wiki" / "sources" / f"{slug}.md"
+    page = shared / "library" / "sources" / f"{slug}.md"
     page.write_text(
         "\n".join(
             [
@@ -110,11 +110,11 @@ def test_no_existing_pages_creates_no_contradiction_page(
     _mock_publish(monkeypatch)
     artifact = _write_artifact(project["shared"], "coder", "cache.md", NEGATIVE_SENTENCE)
 
-    result = wiki.mos_wiki_ingest(str(artifact), "coder", "cache", port=project["port"])
+    result = library.mos_library_ingest(str(artifact), "coder", "cache", port=project["port"])
 
     assert result["contradiction_count"] == 0
     assert result["contradiction_path"] is None
-    assert not (project["shared"] / "wiki" / "contradictions").exists()
+    assert not (project["shared"] / "library" / "contradictions").exists()
 
 
 def test_opposed_claims_create_contradiction_page_with_frontmatter(
@@ -125,13 +125,13 @@ def test_opposed_claims_create_contradiction_page_with_frontmatter(
     _write_existing_source(project["shared"], "expert-cache", POSITIVE_SENTENCE)
     artifact = _write_artifact(project["shared"], "coder", "cache.md", NEGATIVE_SENTENCE)
 
-    result = wiki.mos_wiki_ingest(str(artifact), "coder", "cache", port=project["port"])
+    result = library.mos_library_ingest(str(artifact), "coder", "cache", port=project["port"])
 
-    contradiction = project["shared"] / "wiki" / "contradictions" / "contradiction-coder-cache.md"
+    contradiction = project["shared"] / "library" / "contradictions" / "contradiction-coder-cache.md"
     assert contradiction.exists()
     text = contradiction.read_text(encoding="utf-8")
     assert result["contradiction_count"] == 1
-    assert result["contradiction_path"] == "wiki/contradictions/contradiction-coder-cache.md"
+    assert result["contradiction_path"] == "library/contradictions/contradiction-coder-cache.md"
     assert "type: contradiction" in text
     assert 'slug: "contradiction-coder-cache"' in text
     assert 'new_source: "coder-cache"' in text
@@ -141,7 +141,7 @@ def test_opposed_claims_create_contradiction_page_with_frontmatter(
     assert "page_kind: contradiction" in text
     assert "status: unresolved" in text
     assert "> [!contradiction]" in text
-    assert "Opposing page: `wiki/sources/expert-cache.md`" in text
+    assert "Opposing page: `library/sources/expert-cache.md`" in text
     assert "`improve`" in text
 
 
@@ -153,10 +153,10 @@ def test_non_opposed_pages_create_no_contradiction(
     _write_existing_source(project["shared"], "expert-cache", POSITIVE_SENTENCE)
     artifact = _write_artifact(project["shared"], "coder", "cache.md", POSITIVE_SENTENCE)
 
-    result = wiki.mos_wiki_ingest(str(artifact), "coder", "cache", port=project["port"])
+    result = library.mos_library_ingest(str(artifact), "coder", "cache", port=project["port"])
 
     assert result["contradiction_count"] == 0
-    assert not (project["shared"] / "wiki" / "contradictions").exists()
+    assert not (project["shared"] / "library" / "contradictions").exists()
 
 
 def test_short_sentences_are_ignored(
@@ -167,10 +167,10 @@ def test_short_sentences_are_ignored(
     _write_existing_source(project["shared"], "expert-cache", "Cache improves.")
     artifact = _write_artifact(project["shared"], "coder", "cache.md", "Cache does not improve.")
 
-    result = wiki.mos_wiki_ingest(str(artifact), "coder", "cache", port=project["port"])
+    result = library.mos_library_ingest(str(artifact), "coder", "cache", port=project["port"])
 
     assert result["contradiction_count"] == 0
-    assert not (project["shared"] / "wiki" / "contradictions").exists()
+    assert not (project["shared"] / "library" / "contradictions").exists()
 
 
 def test_reingest_is_idempotent_for_contradiction_index_entries(
@@ -181,10 +181,10 @@ def test_reingest_is_idempotent_for_contradiction_index_entries(
     _write_existing_source(project["shared"], "expert-cache", POSITIVE_SENTENCE)
     artifact = _write_artifact(project["shared"], "coder", "cache.md", NEGATIVE_SENTENCE)
 
-    wiki.mos_wiki_ingest(str(artifact), "coder", "cache", port=project["port"])
-    result = wiki.mos_wiki_ingest(str(artifact), "coder", "cache", port=project["port"])
+    library.mos_library_ingest(str(artifact), "coder", "cache", port=project["port"])
+    result = library.mos_library_ingest(str(artifact), "coder", "cache", port=project["port"])
 
-    index = (project["shared"] / "wiki" / "index.md").read_text(encoding="utf-8")
+    index = (project["shared"] / "library" / "index.md").read_text(encoding="utf-8")
     assert result["contradiction_count"] == 1
     assert index.count("slug: coder-cache") == 1
     assert index.count("slug: contradiction-coder-cache") == 1
@@ -197,7 +197,7 @@ def test_dag_edge_emitted_when_both_endpoints_exist(
     _mock_publish(monkeypatch)
     _write_existing_source(project["shared"], "expert-cache", POSITIVE_SENTENCE)
     artifact = _write_artifact(project["shared"], "coder", "cache.md", NEGATIVE_SENTENCE)
-    dag_path = project_shared_dag_json(project["port"])
+    dag_path = project_shared_scratchpad_json(project["port"])
     dag_path.parent.mkdir(parents=True, exist_ok=True)
     dag_path.write_text(
         json.dumps(
@@ -214,7 +214,7 @@ def test_dag_edge_emitted_when_both_endpoints_exist(
         encoding="utf-8",
     )
 
-    result = wiki.mos_wiki_ingest(str(artifact), "coder", "cache", port=project["port"])
+    result = library.mos_library_ingest(str(artifact), "coder", "cache", port=project["port"])
 
     dag = json.loads(dag_path.read_text(encoding="utf-8"))
     assert result["dag_edges_created"] == 1
@@ -237,7 +237,7 @@ def test_dag_edge_skipped_gracefully_when_no_match(
     _mock_publish(monkeypatch)
     _write_existing_source(project["shared"], "expert-cache", POSITIVE_SENTENCE)
     artifact = _write_artifact(project["shared"], "coder", "cache.md", NEGATIVE_SENTENCE)
-    dag_path = project_shared_dag_json(project["port"])
+    dag_path = project_shared_scratchpad_json(project["port"])
     dag_path.parent.mkdir(parents=True, exist_ok=True)
     dag_path.write_text(
         json.dumps(
@@ -251,7 +251,7 @@ def test_dag_edge_skipped_gracefully_when_no_match(
         encoding="utf-8",
     )
 
-    result = wiki.mos_wiki_ingest(str(artifact), "coder", "cache", port=project["port"])
+    result = library.mos_library_ingest(str(artifact), "coder", "cache", port=project["port"])
 
     dag = json.loads(dag_path.read_text(encoding="utf-8"))
     assert result["dag_edges_created"] == 0
@@ -259,7 +259,7 @@ def test_dag_edge_skipped_gracefully_when_no_match(
 
 
 def test_contradiction_index_entry_uses_contradictions_path(project: dict[str, Any]) -> None:
-    stage = wiki._index_append(
+    stage = library._index_append(
         project["port"],
         "contradiction-coder-cache",
         "Contradiction: coder-cache",
@@ -269,13 +269,13 @@ def test_contradiction_index_entry_uses_contradictions_path(project: dict[str, A
     text = stage.read_text(encoding="utf-8")
     assert "slug: contradiction-coder-cache" in text
     assert "page_kind: contradiction" in text
-    assert "wiki_path: wiki/contradictions/contradiction-coder-cache.md" in text
+    assert "library_path: library/contradictions/contradiction-coder-cache.md" in text
 
 
-def test_ethics_system_mentions_wiki_contradiction_workflow() -> None:
+def test_ethics_system_mentions_library_contradiction_workflow() -> None:
     text = Path("minions/roles/ethics/SYSTEM.md").read_text(encoding="utf-8")
 
-    assert "## Contradiction surface (Wiki Layer 2 — phase 5+)" in text
+    assert "## Contradiction surface (Library Layer 2 — phase 5+)" in text
     assert "primary hallucination audit feed" in text
     assert "resolved-in-favor-of-new" in text
     assert "resolved-in-favor-of-existing" in text
@@ -285,4 +285,4 @@ def test_ethics_system_mentions_wiki_contradiction_workflow() -> None:
     assert "branches/shared/ethics/contradiction-<slug>-verdict.md" in text
     assert "higher-precedence" in text
     assert "message-stream grepping" in text
-    assert "Do not modify `wiki/contradictions/*` or `wiki/index.md`" in text
+    assert "Do not modify `library/contradictions/*` or `library/index.md`" in text

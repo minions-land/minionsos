@@ -58,7 +58,7 @@ class TestWriteBoundaries:
         assert not any(p.startswith("branches/writer/") for p in allowed)
         assert any(p.startswith("branches/noter/") for p in allowed)
         assert any(p.startswith("branches/shared/notes/") for p in allowed)
-        assert any("branches/shared/exploration/dag.json" in p for p in allowed)
+        assert any("branches/shared/scratchpad/scratchpad.json" in p for p in allowed)
 
     def test_coder_owns_its_branch(self) -> None:
         allowed = ROLE_WRITE_BOUNDARIES["coder"]

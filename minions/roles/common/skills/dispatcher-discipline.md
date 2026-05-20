@@ -2,7 +2,7 @@
 slug: dispatcher-discipline
 summary: Main role is a pure dispatcher — Read/Bash/Edit/investigation always go to a Task subagent. Keeps the main session's prompt cache hot; subagent context is disposable.
 layer: logical
-tools: Task, mos_dag_append
+tools: Task, mos_scratchpad_append
 version: 1
 status: active
 supersedes:
@@ -140,10 +140,10 @@ files are summarized" / "after the bug is fixed and tests pass">
    "fixing it yourself" inline (that's the trap — you'd Read the file
    yourself, blowing up your context).
 
-5. **Persist findings to DAG.** When the subagent's summary contains
+5. **Persist findings to Scratchpad.** When the subagent's summary contains
    a structural finding (a hypothesis, a verified citation, a
-   refuted approach), `mos_dag_append` it. Future turns query the
-   DAG (~200 tokens) instead of re-Reading the file (~5k tokens).
+   refuted approach), `mos_scratchpad_append` it. Future turns query the
+   Scratchpad (~200 tokens) instead of re-Reading the file (~5k tokens).
 
 ## What this discipline trades
 
@@ -173,7 +173,7 @@ linear (not super-linear) per-turn cost as the project ages.
   exception exists for hosts that genuinely cannot spawn
   subagents, not as a license to skip dispatch on Claude Code.
 - **Reading files in the planning stage** (Plan stage of think-then-act).
-  Plans should be made from DAG queries, not from re-reading source
+  Plans should be made from Scratchpad queries, not from re-reading source
   files. If you need source to make a plan, dispatch a Task to
   produce a "what does this code do" summary first, then plan.
 
@@ -183,7 +183,7 @@ Every dispatch creates an evidence trail:
 - The subagent prompt (in your conversation history) names exactly
   what was investigated.
 - The subagent's compact return is your only kept artifact.
-- Material findings flow into the DAG via `mos_dag_append` with
+- Material findings flow into the Scratchpad via `mos_scratchpad_append` with
   `evidence_tag` pointing at the subagent's commit / file / line.
 
 Mark derived claims per the Evidence-first EACN convention:

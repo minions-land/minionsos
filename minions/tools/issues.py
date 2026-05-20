@@ -93,7 +93,8 @@ class IssueReportArgs(BaseModel):
 
     title: str = Field(
         description=(
-            "One-line summary in imperative mood (e.g. 'mos_dag_append rejects valid edges')."
+            "One-line summary in imperative mood "
+            "(e.g. 'mos_scratchpad_append rejects valid edges')."
         ),
         min_length=1,
         max_length=200,

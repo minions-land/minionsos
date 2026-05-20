@@ -12,7 +12,9 @@ minions/tools/                     # 14 sibling modules the server imports from
 ├── experiment_scheduler.py        # SQLite experiment queue
 ├── paper_search.py                # search_arxiv / search_pubmed / etc.
 ├── await_events.py                # mos_await_events
-├── exploration_dag.py             # mos_dag_*
+├── scratchpad.py                  # mos_scratchpad_*
+├── library.py                     # mos_library_*
+├── atlas.py                       # mos_atlas_*
 ├── project_bridge.py              # mos_project_bridge
 ├── reset.py                       # mos_reset_context
 ├── review.py                      # mos_review_run
@@ -60,7 +62,7 @@ See `minions/tools/mcp_server.py:_MINIONS_MCP_TOOL_NAMES` for the authoritative 
 
 - **Project lifecycle**: `mos_project_create`, `mos_project_close`, `mos_project_kill`, `mos_project_dormant`, `mos_project_revive`, `mos_project_list`, `mos_project_set_phase`, `mos_project_checkpoint_workspace`, `mos_project_bridge`.
 - **Role lifecycle**: `mos_spawn_role`, `mos_spawn_expert`, `mos_dismiss_role`, `mos_list_roles`.
-- **Cross-role IO**: `mos_publish_to_shared`, `mos_dag_append`, `mos_dag_query`, `mos_dag_summary`, `mos_dag_annotate`, `mos_dag_path`, `mos_dag_commit_shared`.
+- **Cross-role IO**: `mos_publish_to_shared`, `mos_scratchpad_append`, `mos_scratchpad_query`, `mos_scratchpad_summary`, `mos_scratchpad_annotate`, `mos_scratchpad_path`, `mos_scratchpad_commit_shared`, `mos_library_ingest`, `mos_library_query`, `mos_library_hot_get`, `mos_atlas_query`.
 - **Event loop**: `mos_await_events`, `mos_reset_context`.
 - **Review**: `mos_review_run`.
 - **Experiments**: `mos_exp_run`, `exp_queue_*`, `exp_gpu_pool_*`.

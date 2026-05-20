@@ -178,30 +178,30 @@ app.get("/api/mos/project/:port/log", (req, res) => {
   res.type("text/plain").send(content);
 });
 
-app.get("/api/mos/project/:port/dag", (req, res) => {
+app.get("/api/mos/project/:port/scratchpad", (req, res) => {
   const p = resolveGruAndPort(req, res); if (!p) return;
   const g = getGru(p.gruId);
   if (!g) return res.status(404).json({ error: "unknown gru" });
-  const dagFile = path.join(projectDirFor(g.rootPath, p.port), "exploration", "dag.json");
+  const scratchpadFile = path.join(projectDirFor(g.rootPath, p.port), "scratchpad", "scratchpad.json");
   try {
-    const raw = fs.readFileSync(dagFile, "utf8");
+    const raw = fs.readFileSync(scratchpadFile, "utf8");
     res.json(JSON.parse(raw));
   } catch {
     res.json({ project_port: p.port, root_question: "", nodes: [], edges: [] });
   }
 });
 
-app.get("/api/mos/project/:port/wiki", (req, res) => {
+app.get("/api/mos/project/:port/library", (req, res) => {
   const p = resolveGruAndPort(req, res); if (!p) return;
   const g = getGru(p.gruId);
   if (!g) return res.status(404).json({ error: "unknown gru" });
-  const wikiDir = path.join(projectDirFor(g.rootPath, p.port), "branches", "shared", "wiki");
+  const libraryDir = path.join(projectDirFor(g.rootPath, p.port), "branches", "shared", "library");
   const MAX_ENTRIES = 500;
   const MAX_BYTES_PER_FILE = 256 * 1024;
   try {
     const entries: any[] = [];
-    if (fs.existsSync(wikiDir)) {
-      const stack: string[] = [wikiDir];
+    if (fs.existsSync(libraryDir)) {
+      const stack: string[] = [libraryDir];
       while (stack.length && entries.length < MAX_ENTRIES) {
         const dir = stack.pop()!;
         for (const name of fs.readdirSync(dir)) {
@@ -210,7 +210,7 @@ app.get("/api/mos/project/:port/wiki", (req, res) => {
           if (st.isDirectory()) {
             stack.push(abs);
           } else if (st.isFile() && name.endsWith(".md") && st.size <= MAX_BYTES_PER_FILE) {
-            const rel = path.relative(wikiDir, abs).replace(/\\/g, "/");
+            const rel = path.relative(libraryDir, abs).replace(/\\/g, "/");
             const title = rel.replace(/\.md$/, "");
             const kind = rel.includes("/") ? rel.split("/")[0] : "root";
             entries.push({
@@ -231,16 +231,16 @@ app.get("/api/mos/project/:port/wiki", (req, res) => {
   }
 });
 
-app.get("/api/mos/project/:port/knowledge-graph", (req, res) => {
+app.get("/api/mos/project/:port/atlas", (req, res) => {
   const p = resolveGruAndPort(req, res); if (!p) return;
   const g = getGru(p.gruId);
   if (!g) return res.status(404).json({ error: "unknown gru" });
   const projectDir = projectDirFor(g.rootPath, p.port);
-  const corpusFile = path.join(projectDir, "branches", "shared", "exploration", "corpus_graph.json");
+  const atlasFile = path.join(projectDir, "branches", "shared", "atlas", "atlas.json");
   const legacyFile = path.join(projectDir, "knowledge-graph.json");
   const MAX_ENTITIES = 2000;
   try {
-    const file = fs.existsSync(corpusFile) ? corpusFile : legacyFile;
+    const file = fs.existsSync(atlasFile) ? atlasFile : legacyFile;
     const raw = fs.readFileSync(file, "utf8");
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const rawNodes = Array.isArray(parsed.nodes)

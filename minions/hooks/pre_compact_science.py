@@ -10,10 +10,11 @@ Design goals (in priority order):
 
 1. Cost.  The compact summary is paid as input tokens on every subsequent
    turn until the next compact.  We push the model to **cite IDs and paths**
-   instead of inlining node bodies, evidence text, wiki pages, or experiment
-   reports.  The agent re-fetches any of those in one MCP call
-   (``mos_dag_summary`` / ``mos_wiki_hot_get`` / ``mos_dag_query`` /
-   ``mos_global_graph_query``) far more cheaply than carrying them inline.
+   instead of inlining node bodies, evidence text, Library pages, or
+   experiment reports.  The agent re-fetches any of those in one MCP call
+   (``mos_scratchpad_summary`` / ``mos_library_hot_get`` /
+   ``mos_scratchpad_query`` / ``mos_atlas_query``) far more cheaply than
+   carrying them inline.
 
 2. Cache safety.  This hook does not touch settings, working directory,
    tool definitions, or the system prompt — only the compact output text.
@@ -23,15 +24,16 @@ Design goals (in priority order):
    reason.
 
 3. Recoverability.  ``mos_compact_context`` already persists pending plans
-   to the DAG **before** scheduling ``/compact``.  This hook trusts the DAG /
-   Wiki / corpus_graph / global_graph as ground truth and asks the compact
+   to the Scratchpad **before** scheduling ``/compact``.  This hook trusts
+   the Scratchpad / Library / Atlas as ground truth and asks the compact
    model to produce a *pointer-shaped* summary, not a reconstructable
    transcript.
 
-The output schema is parsed by ``post_compact_dag.py``.  Keep section
-headings (``## Working_on``, ``## Next_action``, ``## New_or_changed_nodes``,
-``## Pending_plans``, ``## Open_questions``, ``## Blocked_on``,
-``## Dead_ends``, ``## Notes``) byte-stable across edits.
+The output schema is parsed by ``post_compact_scratchpad.py``.  Keep
+section headings (``## Working_on``, ``## Next_action``,
+``## New_or_changed_nodes``, ``## Pending_plans``, ``## Open_questions``,
+``## Blocked_on``, ``## Dead_ends``, ``## Notes``) byte-stable across
+edits.
 """
 
 from __future__ import annotations
@@ -47,20 +49,20 @@ needed in one MCP call.
 
 The three on-disk memory layers (already persisted, NEVER duplicate):
 
-L1 — Exploration DAG  (branches/shared/exploration/dag.json)
+L1 — Scratchpad  (branches/shared/scratchpad/scratchpad.json)
      Node IDs: H-### (hypothesis), E-### (experiment), R-### (result),
        D-### (decision), Q-### (question), DEAD-### (dead_end),
        I-### (insight), M-### (method), C-### (citation), A-### (assumption).
 
-L2 — Wiki  (branches/shared/wiki/)
-     - wiki/index.md                 — Noter-maintained catalog
-     - wiki/hot.md                   — ~500-word rolling cache (auto-injected at wake)
-     - wiki/sources/<role>-<slug>.md — one page per ingested artifact
-     - wiki/contradictions/          — auto-detected claim conflicts (Ethics reads)
+L2 — Library  (branches/shared/library/)
+     - library/index.md                 — Noter-maintained catalog
+     - library/hot.md                   — ~500-word rolling cache (auto-injected at wake)
+     - library/sources/<role>-<slug>.md — one page per ingested artifact
+     - library/contradictions/          — auto-detected claim conflicts (Ethics reads)
 
-L3 — Structural index  (corpus_graph)
-     - branches/shared/exploration/corpus_graph.json — local; node IDs like n42_xxx
-     - ~/.minionsos/graphify-global.json — Gru-only cross-project; IDs prefixed p<port>_
+L3 — Atlas  (structural index)
+     - branches/shared/atlas/atlas.json — local; node IDs like n42_xxx
+     - ~/.minionsos/atlas-global.json   — Gru-only cross-project; IDs prefixed p<port>_
 
 ALSO durable (DO NOT inline):
      - EACN events at events/<agent>.jsonl (cite by event_id / timestamp).
@@ -70,11 +72,11 @@ ALSO durable (DO NOT inline):
 OUTPUT SHAPE — produce these sections in order, in markdown:
 
 ## Working_on
-- Single line. {node_id or wiki path the agent is currently driving}.
+- Single line. {node_id or library path the agent is currently driving}.
 
 ## Next_action
 - Single line. The exact next concrete step, ideally a tool call.
-  After wakeup the agent will call mos_dag_summary() then mos_await_events();
+  After wakeup the agent will call mos_scratchpad_summary() then mos_await_events();
   if a different first step is required, name it explicitly here.
 
 ## New_or_changed_nodes
@@ -85,7 +87,7 @@ OUTPUT SHAPE — produce these sections in order, in markdown:
 ## Pending_plans
 - {node_id} — {one-line label}  (already persisted with metadata.pending_plan=true)
   Single events the agent dequeued from EACN but did not execute. The
-  post-compact agent will see them via mos_dag_summary() and run them
+  post-compact agent will see them via mos_scratchpad_summary() and run them
   before mos_await_events().
 
 ## Open_questions
@@ -104,15 +106,15 @@ OUTPUT SHAPE — produce these sections in order, in markdown:
 
 HARD RULES
 - Target ~500 tokens, hard cap 2000 tokens. Tighter is better.
-- Reference IDs and paths only. NEVER paste node text, wiki page bodies,
+- Reference IDs and paths only. NEVER paste node text, library page bodies,
   experiment report content, code listings, or tool output bodies.
 - If you would write a paragraph of evidence, write the artifact path
   instead (e.g. "see exp/exp-042/report.md").
-- If you would summarize a wiki page, cite its path
-  (e.g. "see wiki/sources/coder-tokenizer.md").
+- If you would summarize a library page, cite its path
+  (e.g. "see library/sources/coder-tokenizer.md").
 - DISCARD: verbose tool outputs, intermediate chain-of-thought,
   repeated file contents, formatted code blocks, EACN message bodies,
-  anything already in dag.json or wiki/.
+  anything already in scratchpad.json or library/.
 """
 
 

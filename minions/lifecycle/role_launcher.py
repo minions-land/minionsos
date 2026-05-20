@@ -116,7 +116,7 @@ def launch_role_process(
     typically costs hundreds of thousands of tokens. Pass ``resume=True``
     only for explicit operator debugging; ``project_revive`` and the
     crash-watchdog respawn path both pass ``resume=False`` so Roles cold-
-    start and rebuild context from the Exploration DAG instead.
+    start and rebuild context from the Scratchpad (L1) instead.
 
     Returns a small status dict with ``session_name``, ``cwd``,
     ``log_path``, ``attach_cmd``, ``started`` (True if a fresh session was

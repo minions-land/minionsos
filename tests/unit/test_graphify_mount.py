@@ -1,8 +1,8 @@
-"""Tests for Phase 4 graphify Layer 3 mount.
+"""Tests for the Atlas (L3 structural index) graphify mount.
 
 Covers:
-- _maybe_rebuild_corpus_graph short-circuit when graph is fresh.
-- _maybe_rebuild_corpus_graph trigger path with mocked subprocess success.
+- _maybe_rebuild_atlas short-circuit when atlas is fresh.
+- _maybe_rebuild_atlas trigger path with mocked subprocess success.
 - subprocess failure / timeout never crashes the wake loop.
 - Whitelist exposes mcp__graphify__* read tools to every main role.
 """
@@ -26,18 +26,18 @@ def _make_project_layout(tmp_path: Path, port: int = 12345) -> Path:
     branches = project / "branches"
     main = branches / "main"
     shared = branches / "shared"
-    (shared / "wiki" / "sources").mkdir(parents=True, exist_ok=True)
+    (shared / "library" / "sources").mkdir(parents=True, exist_ok=True)
     (shared / "notes").mkdir(parents=True, exist_ok=True)
     (shared / "ethics").mkdir(parents=True, exist_ok=True)
     (shared / "exp").mkdir(parents=True, exist_ok=True)
-    (shared / "exploration").mkdir(parents=True, exist_ok=True)
+    (shared / "atlas").mkdir(parents=True, exist_ok=True)
     main.mkdir(parents=True, exist_ok=True)
     return main
 
 
-def _write_graph(shared: Path, *, mtime: float | None = None) -> Path:
-    """Write a corpus_graph.json large enough to be considered non-stub."""
-    p = shared / "exploration" / "corpus_graph.json"
+def _write_atlas(shared: Path, *, mtime: float | None = None) -> Path:
+    """Write an atlas.json large enough to be considered non-stub."""
+    p = shared / "atlas" / "atlas.json"
     payload = {
         "directed": True,
         "graph": {},
@@ -64,27 +64,27 @@ def _write_source(shared: Path, sub: str, name: str, *, mtime: float | None = No
     return p
 
 
-def test_rebuild_skipped_when_graph_is_fresh(tmp_path: Path) -> None:
+def test_rebuild_skipped_when_atlas_is_fresh(tmp_path: Path) -> None:
     main = _make_project_layout(tmp_path)
     shared = main.parent / "shared"
     now = time.time()
-    _write_source(shared, "wiki/sources", "noter-foo.md", mtime=now - 100)
-    _write_graph(shared, mtime=now)
+    _write_source(shared, "library/sources", "noter-foo.md", mtime=now - 100)
+    _write_atlas(shared, mtime=now)
 
-    result = noter_wait._maybe_rebuild_corpus_graph(main)
+    result = noter_wait._maybe_rebuild_atlas(main)
     assert result["rebuilt"] is False
     assert "fresh" in result["reason"]
 
 
 def test_rebuild_skipped_when_no_sources(tmp_path: Path) -> None:
     main = _make_project_layout(tmp_path)
-    result = noter_wait._maybe_rebuild_corpus_graph(main)
+    result = noter_wait._maybe_rebuild_atlas(main)
     assert result["rebuilt"] is False
     assert "no source files" in result["reason"]
 
 
 def test_rebuild_skipped_when_workspace_missing() -> None:
-    result = noter_wait._maybe_rebuild_corpus_graph(None)
+    result = noter_wait._maybe_rebuild_atlas(None)
     assert result["rebuilt"] is False
     assert "no workspace" in result["reason"]
 
@@ -95,8 +95,8 @@ def test_rebuild_triggers_when_source_newer(
     main = _make_project_layout(tmp_path)
     shared = main.parent / "shared"
     now = time.time()
-    _write_graph(shared, mtime=now - 100)
-    _write_source(shared, "wiki/sources", "noter-foo.md", mtime=now)
+    _write_atlas(shared, mtime=now - 100)
+    _write_source(shared, "library/sources", "noter-foo.md", mtime=now)
 
     fake_extract = tmp_path / "extract.py"
     fake_extract.write_text("# stub", encoding="utf-8")
@@ -108,8 +108,8 @@ def test_rebuild_triggers_when_source_newer(
 
     monkeypatch.setattr(
         noter_wait,
-        "_maybe_rebuild_corpus_graph",
-        noter_wait._maybe_rebuild_corpus_graph,  # keep real fn
+        "_maybe_rebuild_atlas",
+        noter_wait._maybe_rebuild_atlas,  # keep real fn
     )
     # Patch the path-resolution constants by patching subprocess
     captured: dict[str, Any] = {}
@@ -129,7 +129,7 @@ def test_rebuild_triggers_when_source_newer(
     if not venv_python.exists() or not extract_script.exists():
         pytest.skip("graphify venv not installed; run setup before this test")
 
-    result = noter_wait._maybe_rebuild_corpus_graph(main)
+    result = noter_wait._maybe_rebuild_atlas(main)
     assert result["rebuilt"] is True
     assert result["node_count"] == 7
     assert "duration_s" in result
@@ -153,7 +153,7 @@ def test_rebuild_handles_subprocess_failure(
         return subprocess.CompletedProcess(cmd, 2, stdout="", stderr="boom\n")
 
     monkeypatch.setattr(noter_wait.subprocess, "run", fake_run)
-    result = noter_wait._maybe_rebuild_corpus_graph(main)
+    result = noter_wait._maybe_rebuild_atlas(main)
     assert result["rebuilt"] is False
     assert "exit 2" in result["reason"]
     assert "boom" in result["stderr_tail"]
@@ -173,7 +173,7 @@ def test_rebuild_handles_timeout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout", 300))
 
     monkeypatch.setattr(noter_wait.subprocess, "run", fake_run)
-    result = noter_wait._maybe_rebuild_corpus_graph(main)
+    result = noter_wait._maybe_rebuild_atlas(main)
     assert result["rebuilt"] is False
     assert "timeout" in result["reason"]
 
@@ -182,7 +182,7 @@ def test_rebuild_skipped_when_venv_missing(tmp_path: Path, monkeypatch: pytest.M
     main = _make_project_layout(tmp_path)
     shared = main.parent / "shared"
     now = time.time()
-    _write_source(shared, "wiki/sources", "x.md", mtime=now)
+    _write_source(shared, "library/sources", "x.md", mtime=now)
 
     # Override the project-root resolution by pointing at a tmp_path with no venv.
     fake_root = tmp_path / "fake-repo"
@@ -191,7 +191,7 @@ def test_rebuild_skipped_when_venv_missing(tmp_path: Path, monkeypatch: pytest.M
     fake_module.write_text("# stub", encoding="utf-8")
     monkeypatch.setattr(noter_wait, "__file__", str(fake_module))
 
-    result = noter_wait._maybe_rebuild_corpus_graph(main)
+    result = noter_wait._maybe_rebuild_atlas(main)
     assert result["rebuilt"] is False
     assert "graphify venv not installed" in result["reason"]
 
@@ -215,7 +215,7 @@ def test_graphify_tools_in_main_whitelists() -> None:
 
 
 def test_graphify_tools_NOT_in_subagent_whitelists() -> None:
-    """Phase 4 keeps graphify off subagent surface; defer to later phases."""
+    """Atlas mount keeps graphify off subagent surface; defer to later phases."""
     from minions.config import resolve_whitelist
 
     for role in ("gru", "noter", "coder", "writer", "ethics", "expert"):

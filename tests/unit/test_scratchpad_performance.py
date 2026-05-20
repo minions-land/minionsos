@@ -1,4 +1,4 @@
-"""Performance comparison: DAG+compact vs long-running vs short-process.
+"""Performance comparison: Scratchpad+compact vs long-running vs short-process.
 
 Simulates a 10-step scientific exploration workflow and measures:
 - Token cost (context size at each step)
@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from minions.tools import exploration_dag as dag
+from minions.tools import scratchpad
 
 # --- Simulated exploration scenario ---
 # A 10-step scientific workflow where each step produces discoveries,
@@ -115,21 +115,21 @@ def _isolated_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     port = 9999
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
     monkeypatch.setattr(
-        dag,
+        scratchpad,
         "project_shared_subdir",
         lambda p, subdir: tmp_path / f"project_{p}" / "branches" / "shared" / subdir,
     )
     monkeypatch.setattr(
-        dag,
-        "project_shared_dag_json",
+        scratchpad,
+        "project_shared_scratchpad_json",
         lambda p: tmp_path
         / f"project_{p}"
         / "branches"
         / "shared"
-        / "exploration"
+        / "scratchpad"
         / "dag.json",
     )
-    exploration_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "exploration"
+    exploration_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "scratchpad"
     exploration_dir.mkdir(parents=True)
     return exploration_dir
 
@@ -192,11 +192,11 @@ class TestPerformanceComparison:
             )
             total_tokens += step_tokens
             # Persist to DAG (small overhead per step)
-            dag.mos_dag_append(nodes=[step["produces"]])
+            scratchpad.mos_scratchpad_append(nodes=[step["produces"]])
 
         # At step 10, query the DAG to verify knowledge retention
-        summary = dag.mos_dag_summary()
-        dead_ends = dag.mos_dag_query(node_type="dead_end")
+        summary = scratchpad.mos_scratchpad_summary()
+        dead_ends = scratchpad.mos_scratchpad_query(node_type="dead_end")
 
         return {
             "mode": "dag_compact",
@@ -260,10 +260,10 @@ class TestPerformanceComparison:
         """DAG dead_end nodes prevent redundant work."""
         # Simulate: agent at step 6 queries DAG before proposing new hypothesis
         for step in SCENARIO[:5]:
-            dag.mos_dag_append(nodes=[step["produces"]])
+            scratchpad.mos_scratchpad_append(nodes=[step["produces"]])
 
         # At step 6, check if random pruning is a known dead end
-        dead_ends = dag.mos_dag_query(node_type="dead_end")
+        dead_ends = scratchpad.mos_scratchpad_query(node_type="dead_end")
         assert len(dead_ends["nodes"]) == 1
         assert "random pruning" in dead_ends["nodes"][0]["text"].lower()
 
@@ -273,10 +273,10 @@ class TestPerformanceComparison:
     def test_paper_path_extraction(self):
         """DAG supports extracting a paper-worthy path."""
         for step in SCENARIO:
-            dag.mos_dag_append(nodes=[step["produces"]])
+            scratchpad.mos_scratchpad_append(nodes=[step["produces"]])
 
         # Add edges for the successful path
-        dag.mos_dag_append(
+        scratchpad.mos_scratchpad_append(
             edges=[
                 {"from_id": "Q-001", "to_id": "H-002", "relation": "refines"},
                 {"from_id": "H-002", "to_id": "E-002", "relation": "tests"},
@@ -286,7 +286,7 @@ class TestPerformanceComparison:
         )
 
         # Extract the paper path
-        path = dag.mos_dag_path(target_node_id="D-001")
+        path = scratchpad.mos_scratchpad_path(target_node_id="D-001")
         assert len(path["path_nodes"]) >= 3
         # The path should NOT include the dead end
         path_ids = {n["id"] for n in path["path_nodes"]}

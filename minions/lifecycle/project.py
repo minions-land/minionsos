@@ -324,11 +324,11 @@ def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
 def _default_noter_time_trigger_interval() -> str | None:
     """Return Noter's default periodic-wake cadence.
 
-    Noter wakes on this interval to flush the buffered Exploration DAG via
-    ``mos_dag_commit_shared`` and to consider whether a fresh staged report
-    is due (see ``noter_report_interval``). Defaults to ``5m`` so DAG
-    history accumulates with bounded latency without flooding the shared
-    branch with one commit per ``mos_dag_append`` call.
+    Noter wakes on this interval to flush the buffered Scratchpad (L1) via
+    ``mos_scratchpad_commit_shared`` and to consider whether a fresh staged
+    report is due (see ``noter_report_interval``). Defaults to ``5m`` so
+    Scratchpad history accumulates with bounded latency without flooding the
+    shared branch with one commit per ``mos_scratchpad_append`` call.
     """
     try:
         from minions.config import load_gru_config, parse_duration
@@ -856,7 +856,16 @@ def _create_worktree(port: int, base_branch: str) -> str:
     return branch
 
 
-_SHARED_SUBDIRS = ("exploration", "notes", "ethics", "exp", "reviews", "handoffs", "wiki")
+_SHARED_SUBDIRS = (
+    "scratchpad",
+    "notes",
+    "ethics",
+    "exp",
+    "reviews",
+    "handoffs",
+    "library",
+    "atlas",
+)
 _SHARED_README = """\
 # Project shared worktree
 
@@ -869,8 +878,8 @@ Roles do **not** `Write` here directly. All writes go through
 
 ## Subdirectories
 
-- `exploration/dag.json` — Noter-curated Exploration DAG. Buffered local
-  writes via `mos_dag_append`; periodic commits by Noter on a cron through
+- `scratchpad/scratchpad.json` — L1 process graph. Buffered local writes via
+  `mos_scratchpad_append`; periodic commits by Noter on a cron through
   `mos_publish_to_shared`.
 - `notes/` — Noter staged reports.
 - `ethics/` — Ethics published audit reports (flat: `report-*.md`,
@@ -879,7 +888,10 @@ Roles do **not** `Write` here directly. All writes go through
 - `reviews/round-<n>/` — `mos_review_run` output. The review tool owns this
   surface directly; no other role writes here.
 - `handoffs/` — Free-form cross-role handoffs.
-- `wiki/` — Noter-compiled knowledge base (Karpathy LLM Wiki pattern, Phase 2+).
+- `library/` — L2 compiled knowledge base (Karpathy LLM Wiki pattern,
+  Noter-curated).
+- `atlas/atlas.json` — L3 structural index over project artefacts; rebuilt
+  by Noter on each periodic wake via the `graphify` extractor.
 """
 
 
@@ -1211,7 +1223,7 @@ def _seed_claude_settings(workspace: Path) -> None:
     claude_dir.mkdir(parents=True, exist_ok=True)
     minions_root_str = str(MINIONS_ROOT)
     pre_compact_cmd = f"python3 {minions_root_str}/minions/hooks/pre_compact_science.py"
-    post_compact_cmd = f"python3 {minions_root_str}/minions/hooks/post_compact_dag.py"
+    post_compact_cmd = f"python3 {minions_root_str}/minions/hooks/post_compact_scratchpad.py"
     settings = {
         "hooks": {
             "PreCompact": [
@@ -1413,10 +1425,10 @@ def _render_project_claude_md(
         "- Cross-role artefacts (Ethics reports, Experimenter result bundles, "
         "Noter notes, free-form handoffs) go to `branches/shared/<subdir>/` via "
         "`mos_publish_to_shared`. Each role may only publish into its allowed "
-        "subdirs (see role boundary text). The Exploration DAG at "
-        "`branches/shared/exploration/dag.json` is updated in place by "
-        "`mos_dag_append`/`mos_dag_annotate` and committed by Noter on a "
-        "periodic cron via `mos_dag_commit_shared`."
+        "subdirs (see role boundary text). The Scratchpad (L1) at "
+        "`branches/shared/scratchpad/scratchpad.json` is updated in place by "
+        "`mos_scratchpad_append`/`mos_scratchpad_annotate` and committed by "
+        "Noter on a periodic cron via `mos_scratchpad_commit_shared`."
     )
     lines.append(
         "- The review surface `branches/shared/reviews/round-<n>/` is reserved "
@@ -1941,15 +1953,15 @@ def project_revive(
       project-local EACN AgentCard.
     - Re-launches each Role's long-lived ``claude`` process inside its
       tmux session as a **cold start** (no ``--resume``). Role context is
-      rebuilt from durable artefacts: the Exploration DAG, EACN history,
+      rebuilt from durable artefacts: the Scratchpad (L1), EACN history,
       and ``pending_plan`` nodes. We deliberately do NOT pass ``--resume``
       here because resuming a session forces Claude Code to rebuild its
       prompt cache from scratch (cache TTL is reset), which would erase
       the cache-warmth investment of the prior dormant period and re-pay
       hundreds of thousands of input tokens to replay history that is
-      mostly already encoded in the DAG. Cold start + DAG read-back is
-      cheaper and matches the dormant→revive semantics ("the project
-      restarts; agents reconstruct from durable state").
+      mostly already encoded in the Scratchpad. Cold start + Scratchpad
+      read-back is cheaper and matches the dormant→revive semantics
+      ("the project restarts; agents reconstruct from durable state").
     - If *external_feedback* is provided, archives it to
       ``branches/shared/handoffs/external-feedback/<ts>.md``.
     - Updates ``meta.json`` and ``projects.json``.
@@ -2052,11 +2064,11 @@ def project_revive(
     # Re-launch each Role's long-lived claude process as a COLD START
     # (resume=False). Resuming a session would force Claude Code to rebuild
     # its prompt cache from scratch and replay a large conversation history
-    # that is largely redundant with the DAG; cold start lets the Role do
-    # its own pending_plans drain + DAG summary on first wake. Failures
-    # here are logged but not fatal — the role state is already restored,
-    # and the operator can re-run mos role spawn / mos project repair to
-    # recover.
+    # that is largely redundant with the Scratchpad; cold start lets the
+    # Role do its own pending_plans drain + Scratchpad summary on first
+    # wake. Failures here are logged but not fatal — the role state is
+    # already restored, and the operator can re-run mos role spawn /
+    # mos project repair to recover.
     try:
         from minions.lifecycle.role_launcher import launch_role_process as _launch_role
     except Exception as exc:

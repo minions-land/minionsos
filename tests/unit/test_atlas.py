@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from minions.config import resolve_whitelist
-from minions.tools import global_graph
+from minions.tools import atlas
 
 
 @pytest.fixture
@@ -18,13 +18,13 @@ def graph_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> tuple[Path, Path]:
     projects_root = tmp_path / "projects"
-    global_path = tmp_path / ".minionsos" / "graphify-global.json"
+    global_path = tmp_path / ".minionsos" / "atlas-global.json"
     monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(projects_root))
-    monkeypatch.setattr(global_graph, "_global_graph_path", lambda: global_path)
+    monkeypatch.setattr(atlas, "_atlas_path", lambda: global_path)
     return projects_root, global_path
 
 
-def _write_corpus_graph(
+def _write_atlas(
     projects_root: Path,
     port: int,
     *,
@@ -36,8 +36,8 @@ def _write_corpus_graph(
         / f"project_{port}"
         / "branches"
         / "shared"
-        / "exploration"
-        / "corpus_graph.json"
+        / "atlas"
+        / "atlas.json"
     )
     graph_path.parent.mkdir(parents=True, exist_ok=True)
     graph_path.write_text(
@@ -51,11 +51,11 @@ def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def test_register_creates_global_graph_with_prefixed_node_ids(
+def test_register_creates_atlas_with_prefixed_node_ids(
     graph_env: tuple[Path, Path],
 ) -> None:
     projects_root, global_path = graph_env
-    _write_corpus_graph(
+    _write_atlas(
         projects_root,
         41001,
         nodes=[
@@ -65,7 +65,7 @@ def test_register_creates_global_graph_with_prefixed_node_ids(
         links=[{"source": "n1", "target": "n2"}],
     )
 
-    result = global_graph.mos_global_graph_register(41001)
+    result = atlas.mos_atlas_register(41001)
 
     assert result == {"registered": True, "port": 41001, "nodes_added": 2, "edges_added": 1}
     data = _load_json(global_path)
@@ -78,19 +78,19 @@ def test_reregister_same_port_replaces_nodes(
     graph_env: tuple[Path, Path],
 ) -> None:
     projects_root, global_path = graph_env
-    _write_corpus_graph(
+    _write_atlas(
         projects_root,
         41002,
         nodes=[{"id": "old", "label": "Old Concept"}],
     )
-    global_graph.mos_global_graph_register(41002)
-    _write_corpus_graph(
+    atlas.mos_atlas_register(41002)
+    _write_atlas(
         projects_root,
         41002,
         nodes=[{"id": "new", "label": "New Concept"}],
     )
 
-    result = global_graph.mos_global_graph_register(41002)
+    result = atlas.mos_atlas_register(41002)
 
     assert result["nodes_added"] == 1
     data = _load_json(global_path)
@@ -101,20 +101,20 @@ def test_query_returns_matching_nodes_with_project_port(
     graph_env: tuple[Path, Path],
 ) -> None:
     projects_root, _global_path = graph_env
-    _write_corpus_graph(
+    _write_atlas(
         projects_root,
         41003,
         nodes=[{"id": "n1", "label": "Transformer Attention"}],
     )
-    _write_corpus_graph(
+    _write_atlas(
         projects_root,
         41004,
         nodes=[{"id": "n2", "label": "Optimizer Schedule"}],
     )
-    global_graph.mos_global_graph_register(41003)
-    global_graph.mos_global_graph_register(41004)
+    atlas.mos_atlas_register(41003)
+    atlas.mos_atlas_register(41004)
 
-    result = global_graph.mos_global_graph_query("attention transformer")
+    result = atlas.mos_atlas_query("attention transformer")
 
     assert result["total"] == 1
     assert result["projects_searched"] == 2
@@ -134,14 +134,14 @@ def test_query_returns_empty_when_no_match(
     graph_env: tuple[Path, Path],
 ) -> None:
     projects_root, _global_path = graph_env
-    _write_corpus_graph(
+    _write_atlas(
         projects_root,
         41005,
         nodes=[{"id": "n1", "label": "Transformer Architecture"}],
     )
-    global_graph.mos_global_graph_register(41005)
+    atlas.mos_atlas_register(41005)
 
-    result = global_graph.mos_global_graph_query("optimizer")
+    result = atlas.mos_atlas_query("optimizer")
 
     assert result == {"matches": [], "total": 0, "projects_searched": 1}
 
@@ -150,20 +150,20 @@ def test_shared_concepts_finds_overlapping_labels(
     graph_env: tuple[Path, Path],
 ) -> None:
     projects_root, _global_path = graph_env
-    _write_corpus_graph(
+    _write_atlas(
         projects_root,
         41006,
         nodes=[{"id": "a", "label": "Transformer Attention Routing"}],
     )
-    _write_corpus_graph(
+    _write_atlas(
         projects_root,
         41007,
         nodes=[{"id": "b", "label": "Attention Routing Probe"}],
     )
-    global_graph.mos_global_graph_register(41006)
-    global_graph.mos_global_graph_register(41007)
+    atlas.mos_atlas_register(41006)
+    atlas.mos_atlas_register(41007)
 
-    result = global_graph.mos_global_graph_shared_concepts(41006, 41007)
+    result = atlas.mos_atlas_shared_concepts(41006, 41007)
 
     assert result["count"] == 1
     assert result["shared"] == [
@@ -183,35 +183,35 @@ def test_shared_concepts_returns_empty_without_overlap(
     graph_env: tuple[Path, Path],
 ) -> None:
     projects_root, _global_path = graph_env
-    _write_corpus_graph(
+    _write_atlas(
         projects_root,
         41008,
         nodes=[{"id": "a", "label": "Transformer Architecture"}],
     )
-    _write_corpus_graph(
+    _write_atlas(
         projects_root,
         41009,
         nodes=[{"id": "b", "label": "Optimizer Schedule"}],
     )
-    global_graph.mos_global_graph_register(41008)
-    global_graph.mos_global_graph_register(41009)
+    atlas.mos_atlas_register(41008)
+    atlas.mos_atlas_register(41009)
 
-    result = global_graph.mos_global_graph_shared_concepts(41008, 41009)
+    result = atlas.mos_atlas_shared_concepts(41008, 41009)
 
     assert result == {"shared": [], "count": 0}
 
 
-def test_global_graph_query_whitelisted_only_for_gru_main() -> None:
+def test_atlas_query_whitelisted_only_for_gru_main() -> None:
     from minions.config import resolve_server_authz
 
-    assert "mos_global_graph_query" in resolve_server_authz("gru", "main")
-    assert "mos_global_graph_query" not in resolve_server_authz("coder", "main")
-    assert "mos_global_graph_query" not in resolve_server_authz("ethics", "main")
+    assert "mos_atlas_query" in resolve_server_authz("gru", "main")
+    assert "mos_atlas_query" not in resolve_server_authz("coder", "main")
+    assert "mos_atlas_query" not in resolve_server_authz("ethics", "main")
 
 
-def test_global_graph_register_whitelisted_only_for_noter_main() -> None:
+def test_atlas_register_whitelisted_only_for_noter_main() -> None:
     from minions.config import resolve_server_authz
 
-    assert "mos_global_graph_register" in resolve_server_authz("noter", "main")
-    assert "mos_global_graph_register" not in resolve_server_authz("gru", "main")
-    assert "mos_global_graph_register" not in resolve_server_authz("coder", "main")
+    assert "mos_atlas_register" in resolve_server_authz("noter", "main")
+    assert "mos_atlas_register" not in resolve_server_authz("gru", "main")
+    assert "mos_atlas_register" not in resolve_server_authz("coder", "main")

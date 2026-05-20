@@ -3,7 +3,7 @@
 Covers:
 - reset writes journal + marker file
 - reset attempts tmux kill-session (mocked)
-- mos_dag_summary surfaces pending_plan nodes at the top
+- mos_scratchpad_summary surfaces pending_plan nodes at the top
 - summary pending_plans is sorted newest-first
 - pending_plan flag survives DAG round-trip (append → load → summary)
 """
@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 import pytest
 
-from minions.tools import exploration_dag, reset
+from minions.tools import scratchpad, reset
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def project_port(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> int:
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
     monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
     proj = tmp_path / f"project_{port}"
-    (proj / "branches" / "shared" / "exploration").mkdir(parents=True)
+    (proj / "branches" / "shared" / "scratchpad").mkdir(parents=True)
     return port
 
 
@@ -42,7 +42,7 @@ def test_reset_writes_journal_entry(project_port: int, tmp_path: Path) -> None:
         / f"project_{project_port}"
         / "branches"
         / "shared"
-        / "exploration"
+        / "scratchpad"
         / "journal.jsonl"
     )
     assert journal.exists()
@@ -89,7 +89,7 @@ def test_reset_returns_failure_when_kill_blows_up(project_port: int) -> None:
 
 def test_summary_surfaces_pending_plans(project_port: int) -> None:
     """A node with metadata.pending_plan=true must appear in summary.pending_plans."""
-    exploration_dag.mos_dag_append(
+    scratchpad.mos_scratchpad_append(
         nodes=[
             {
                 "type": "experiment",
@@ -99,7 +99,7 @@ def test_summary_surfaces_pending_plans(project_port: int) -> None:
             }
         ]
     )
-    summary = exploration_dag.mos_dag_summary()
+    summary = scratchpad.mos_scratchpad_summary()
     assert summary["pending_plans_total"] == 1
     assert len(summary["pending_plans"]) == 1
     assert summary["pending_plans"][0]["text"] == "Sweep LR for 12B variant"
@@ -109,7 +109,7 @@ def test_summary_surfaces_pending_plans(project_port: int) -> None:
 def test_summary_pending_plans_newest_first(project_port: int) -> None:
     """Multiple pending plans must be ordered newest-first so post-reset agents
     see the most recent intent first."""
-    exploration_dag.mos_dag_append(
+    scratchpad.mos_scratchpad_append(
         nodes=[
             {
                 "type": "experiment",
@@ -120,7 +120,7 @@ def test_summary_pending_plans_newest_first(project_port: int) -> None:
             }
         ]
     )
-    exploration_dag.mos_dag_append(
+    scratchpad.mos_scratchpad_append(
         nodes=[
             {
                 "type": "experiment",
@@ -131,7 +131,7 @@ def test_summary_pending_plans_newest_first(project_port: int) -> None:
             }
         ]
     )
-    summary = exploration_dag.mos_dag_summary()
+    summary = scratchpad.mos_scratchpad_summary()
     assert summary["pending_plans"][0]["text"] == "Newer plan"
     assert summary["pending_plans"][1]["text"] == "Older plan"
 
@@ -139,7 +139,7 @@ def test_summary_pending_plans_newest_first(project_port: int) -> None:
 def test_summary_excludes_executed_pending_plans(project_port: int) -> None:
     """Once a pending plan is annotated to verified/refuted, it stops being
     surfaced as pending — the agent already executed it."""
-    res = exploration_dag.mos_dag_append(
+    res = scratchpad.mos_scratchpad_append(
         nodes=[
             {
                 "type": "experiment",
@@ -150,17 +150,17 @@ def test_summary_excludes_executed_pending_plans(project_port: int) -> None:
         ]
     )
     node_id = res["created_node_ids"][0]
-    exploration_dag.mos_dag_annotate(
+    scratchpad.mos_scratchpad_annotate(
         node_id=node_id, support_status="verified", evidence_tag="commit:abc123"
     )
-    summary = exploration_dag.mos_dag_summary()
+    summary = scratchpad.mos_scratchpad_summary()
     assert summary["pending_plans_total"] == 0
 
 
 def test_summary_ignores_non_pending_unverified_nodes(project_port: int) -> None:
     """Ordinary unverified nodes (no pending_plan flag) must NOT pollute
     pending_plans — that field is reserved for explicit intent."""
-    exploration_dag.mos_dag_append(
+    scratchpad.mos_scratchpad_append(
         nodes=[
             {
                 "type": "hypothesis",
@@ -169,13 +169,13 @@ def test_summary_ignores_non_pending_unverified_nodes(project_port: int) -> None
             }
         ]
     )
-    summary = exploration_dag.mos_dag_summary()
+    summary = scratchpad.mos_scratchpad_summary()
     assert summary["pending_plans_total"] == 0
 
 
 def test_pending_plan_flag_survives_dag_round_trip(project_port: int, tmp_path: Path) -> None:
-    """metadata.pending_plan must persist to dag.json and reload intact."""
-    exploration_dag.mos_dag_append(
+    """metadata.pending_plan must persist to scratchpad.json and reload intact."""
+    scratchpad.mos_scratchpad_append(
         nodes=[
             {
                 "type": "question",
@@ -189,8 +189,8 @@ def test_pending_plan_flag_survives_dag_round_trip(project_port: int, tmp_path: 
         / f"project_{project_port}"
         / "branches"
         / "shared"
-        / "exploration"
-        / "dag.json"
+        / "scratchpad"
+        / "scratchpad.json"
     )
     raw = json.loads(dag_path.read_text())
     node = raw["nodes"][0]

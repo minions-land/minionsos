@@ -1,31 +1,31 @@
 import { useEffect, useState, useMemo } from "react";
 import { useStore } from "./store";
 
-interface KGNode {
+interface AtlasNode {
   id: string;
   name: string;
   type: string;
   properties?: Record<string, any>;
 }
 
-interface KGEdge {
+interface AtlasEdge {
   source: string;
   target: string;
   relation: string;
   properties?: Record<string, any>;
 }
 
-interface KnowledgeGraph {
-  nodes: KGNode[];
-  edges: KGEdge[];
+interface AtlasGraph {
+  nodes: AtlasNode[];
+  edges: AtlasEdge[];
 }
 
-export function KnowledgeGraphView() {
+export function AtlasView() {
   const store = useStore();
   const gruId = store.selectedGruId;
   const port = store.selectedPort;
-  const [graph, setGraph] = useState<KnowledgeGraph>({ nodes: [], edges: [] });
-  const [selectedNode, setSelectedNode] = useState<KGNode | null>(null);
+  const [graph, setGraph] = useState<AtlasGraph>({ nodes: [], edges: [] });
+  const [selectedNode, setSelectedNode] = useState<AtlasNode | null>(null);
   const [filterType, setFilterType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,7 +34,7 @@ export function KnowledgeGraphView() {
   useEffect(() => {
     if (!gruId || port == null) return;
     setLoading(true);
-    fetch(`/api/mos/project/${port}/knowledge-graph?gru=${gruId}`)
+    fetch(`/api/mos/project/${port}/atlas?gru=${gruId}`)
       .then((r) => r.json())
       .then((data) => {
         setGraph({
@@ -88,10 +88,10 @@ export function KnowledgeGraphView() {
 
   if (!gruId || port == null) {
     return (
-      <div className="knowledge-graph-view empty">
+      <div className="atlas-view empty">
         <div className="empty-state">
           <div className="icon">🧠</div>
-          <div className="message">Select a project to view knowledge graph</div>
+          <div className="message">Select a project to view atlas</div>
         </div>
       </div>
     );
@@ -99,25 +99,25 @@ export function KnowledgeGraphView() {
 
   if (loading) {
     return (
-      <div className="knowledge-graph-view loading">
-        <div className="spinner">Loading knowledge graph...</div>
+      <div className="atlas-view loading">
+        <div className="spinner">Loading atlas...</div>
       </div>
     );
   }
 
   return (
-    <div className="knowledge-graph-view">
-      <div className="kg-header">
-        <div className="kg-controls">
+    <div className="atlas-view">
+      <div className="atlas-header">
+        <div className="atlas-controls">
           <input
             type="text"
-            className="kg-search"
+            className="atlas-search"
             placeholder="Search nodes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           <select
-            className="kg-filter"
+            className="atlas-filter"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
           >
@@ -128,7 +128,7 @@ export function KnowledgeGraphView() {
             ))}
           </select>
           <select
-            className="kg-layout"
+            className="atlas-layout"
             value={layout}
             onChange={(e) => setLayout(e.target.value as any)}
           >
@@ -137,26 +137,26 @@ export function KnowledgeGraphView() {
             <option value="radial">Radial</option>
           </select>
         </div>
-        <div className="kg-stats">
+        <div className="atlas-stats">
           <span>{filteredGraph.nodes.length} nodes</span>
           <span>{filteredGraph.edges.length} edges</span>
           <span>{relationTypes.length} relation types</span>
         </div>
       </div>
 
-      <div className="kg-main">
-        <div className="kg-canvas">
+      <div className="atlas-main">
+        <div className="atlas-canvas">
           {filteredGraph.nodes.length === 0 ? (
             <div className="empty-state">
               <div className="icon">📭</div>
               <div className="message">
                 {searchQuery || filterType !== "all"
                   ? "No matching nodes found"
-                  : "No knowledge graph data yet"}
+                  : "No atlas data yet"}
               </div>
             </div>
           ) : (
-            <KGGraphCanvas
+            <AtlasGraphCanvas
               graph={filteredGraph}
               layout={layout}
               onNodeClick={setSelectedNode}
@@ -166,7 +166,7 @@ export function KnowledgeGraphView() {
         </div>
 
         {selectedNode && (
-          <div className="kg-detail-panel">
+          <div className="atlas-detail-panel">
             <div className="panel-header">
               <h3>{selectedNode.name}</h3>
               <button className="close-btn" onClick={() => setSelectedNode(null)}>
@@ -250,7 +250,7 @@ export function KnowledgeGraphView() {
         )}
       </div>
 
-      <div className="kg-legend">
+      <div className="atlas-legend">
         <h4>Node Types</h4>
         <div className="legend-items">
           {nodeTypes
@@ -270,20 +270,20 @@ export function KnowledgeGraphView() {
   );
 }
 
-function KGGraphCanvas({
+function AtlasGraphCanvas({
   graph,
   layout,
   onNodeClick,
   selectedNode,
 }: {
-  graph: KnowledgeGraph;
+  graph: AtlasGraph;
   layout: string;
-  onNodeClick: (node: KGNode) => void;
-  selectedNode: KGNode | null;
+  onNodeClick: (node: AtlasNode) => void;
+  selectedNode: AtlasNode | null;
 }) {
   useEffect(() => {
-    // TODO: Implement D3.js graph visualization
-    // Similar to DagView but for knowledge graph
+    // TODO: D3 force/hierarchical/radial layouts; mirror ScratchpadView
+    // Similar to ScratchpadView but for the corpus atlas
     // Support different layouts: force-directed, hierarchical, radial
   }, [graph, layout]);
 
@@ -291,7 +291,7 @@ function KGGraphCanvas({
     <div className="graph-canvas">
       <svg width="100%" height="100%">
         <text x="50%" y="50%" textAnchor="middle" fill="#666">
-          Knowledge graph visualization coming soon...
+          Atlas visualization coming soon...
         </text>
       </svg>
     </div>

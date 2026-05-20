@@ -22,7 +22,7 @@ from minions.paths import MINIONS_ROOT, project_shared_subdir
 logger = logging.getLogger(__name__)
 
 HOT_CACHE_BYTE_LIMIT = 4096
-HOT_CACHE_TRUNCATION_LINE = "(truncated for wake-up injection — see wiki/hot.md for full)"
+HOT_CACHE_TRUNCATION_LINE = "(truncated for wake-up injection — see library/hot.md for full)"
 
 
 @dataclass(frozen=True)
@@ -72,7 +72,7 @@ def build_role_invocation(
         ``resume=True`` resets the prompt cache. Claude Code rebuilds the
         cache from scratch on resume and replays the entire prior
         conversation history as new uncached input. For Roles whose
-        long-horizon memory already lives in the Exploration DAG, cold
+        long-horizon memory already lives in the Scratchpad (L1), cold
         start is strictly cheaper than ``--resume``. The MinionsOS revive
         flow therefore launches with ``resume=False``; ``resume=True`` is
         reserved for manual operator debugging.
@@ -151,14 +151,14 @@ def _build_noter_loop_prompt(
         "\n"
         f"{hot_cache_section}"
         "Cold start (this is your first cycle on a fresh process):\n"
-        "1. Call `mos_dag_summary()` first to orient on team state.\n"
+        "1. Call `mos_scratchpad_summary()` first to orient on team state.\n"
         "2. Inspect `pending_plans` in the summary. These are events your\n"
         "   previous self received but could not handle in its context;\n"
         "   it persisted them and reset so YOU could handle them.\n"
         "   Drain them now: for each pending_plan node:\n"
-        "     - read its full node via `mos_dag_query(related_to=<id>)`,\n"
+        "     - read its full node via `mos_scratchpad_query(related_to=<id>)`,\n"
         "     - perform the work,\n"
-        "     - call `mos_dag_annotate` (verified/refuted + evidence_tag)\n"
+        "     - call `mos_scratchpad_annotate` (verified/refuted + evidence_tag)\n"
         "       so it stops surfacing.\n"
         "3. Only after pending_plans is drained, call `mos_noter_wait()`\n"
         "   to enter the steady-state loop below.\n"
@@ -166,13 +166,13 @@ def _build_noter_loop_prompt(
         "Steady-state loop:\n"
         "1. Call `mos_noter_wait()`. It blocks for the configured interval\n"
         "   (default 5 min), writing heartbeat files during sleep.\n"
-        "2. On wake: flush the DAG (`mos_dag_commit_shared()`), then read\n"
-        "   recent project activity:\n"
+        "2. On wake: flush the Scratchpad (`mos_scratchpad_commit_shared()`),\n"
+        "   then read recent project activity:\n"
         "   - Check `branches/shared/` git log for new commits.\n"
         "   - Read `events/*.jsonl` for recent EACN traffic.\n"
         "   - Read any new artifacts in `branches/shared/exp/`,\n"
         "     `branches/shared/handoffs/`, etc.\n"
-        "3. Update the DAG with any new observations.\n"
+        "3. Update the Scratchpad with any new observations.\n"
         "4. Check whether enough time has elapsed since the last published\n"
         "   report (target cadence `noter_report_interval`). If due,\n"
         "   draft and publish a fresh observation report.\n"
@@ -182,15 +182,15 @@ def _build_noter_loop_prompt(
         "type `cache_keepalive`, that is a wall-clock cliff guard for the\n"
         "prompt cache, NOT a real event. Reply with exactly the literal\n"
         "string `ack` and immediately call `mos_noter_wait()` again. Do\n"
-        "not write to the DAG, do not invoke any other tool, do not vary\n"
-        "the ack text — keeping the reply byte-stable is what makes this\n"
-        "turn cacheable.\n"
+        "not write to the Scratchpad, do not invoke any other tool, do not\n"
+        "vary the ack text — keeping the reply byte-stable is what makes\n"
+        "this turn cacheable.\n"
         "\n"
         "Context management — compact vs reset:\n"
         "- `mos_compact_context(reason, pending_plans)`: PREFERRED. Persists\n"
-        "  pending plans to DAG, then triggers /compact. Process stays alive,\n"
-        "  prompt cache stays warm. Use when context is large but process is\n"
-        "  healthy. After calling, STOP — produce no more output.\n"
+        "  pending plans to Scratchpad, then triggers /compact. Process stays\n"
+        "  alive, prompt cache stays warm. Use when context is large but\n"
+        "  process is healthy. After calling, STOP — produce no more output.\n"
         "- `mos_reset_context(reason)`: HARD RESET. Kills the process entirely.\n"
         "  Use only when behavior has drifted or compact cannot recover.\n"
         "\n"
@@ -213,16 +213,16 @@ def _build_eacn_role_loop_prompt(
         "\n"
         f"{hot_cache_section}"
         "Cold start (this is your first cycle on a fresh process):\n"
-        "1. Call `mos_dag_summary()` first to orient on team state.\n"
+        "1. Call `mos_scratchpad_summary()` first to orient on team state.\n"
         "2. Inspect `pending_plans` in the summary. These are events your\n"
         "   previous self received but judged unrelated to its context;\n"
         "   it persisted them and reset so YOU could handle them. They\n"
         "   are already dequeued from EACN and will NOT be redelivered.\n"
         "   Drain them now: for each pending_plan node:\n"
-        "     - read its full node via `mos_dag_query(related_to=<id>)`,\n"
+        "     - read its full node via `mos_scratchpad_query(related_to=<id>)`,\n"
         "     - perform the work (Plan → Dispatch subagent → Verify →\n"
         "       emit any EACN response),\n"
-        "     - call `mos_dag_annotate` (verified/refuted + evidence_tag)\n"
+        "     - call `mos_scratchpad_annotate` (verified/refuted + evidence_tag)\n"
         "       so it stops surfacing.\n"
         "3. Only after pending_plans is drained, call `mos_await_events()`\n"
         "   to enter the steady-state loop below.\n"
@@ -250,7 +250,7 @@ def _build_eacn_role_loop_prompt(
         "4. Decide next step:\n"
         "   - No unrelated events → call `mos_await_events()` again.\n"
         "   - Unrelated events present → invoke `cognitive-checkpoint`:\n"
-        "     persist completed work to the DAG, AND persist each\n"
+        "     persist completed work to the Scratchpad, AND persist each\n"
         "     unrelated event as a node with\n"
         "     `metadata.pending_plan = true` (do NOT execute them now).\n"
         "     Then call `mos_compact_context(reason=..., pending_plans=[...])`\n"
@@ -263,15 +263,15 @@ def _build_eacn_role_loop_prompt(
         "type `cache_keepalive`, that is a wall-clock cliff guard for the\n"
         "prompt cache, NOT a real event. Reply with exactly the literal\n"
         "string `ack` and immediately call `mos_await_events()` again. Do\n"
-        "not write to the DAG, do not send EACN messages, do not invoke\n"
-        "any other tool, do not vary the ack text — keeping the reply\n"
-        "byte-stable is what makes this turn cacheable.\n"
+        "not write to the Scratchpad, do not send EACN messages, do not\n"
+        "invoke any other tool, do not vary the ack text — keeping the\n"
+        "reply byte-stable is what makes this turn cacheable.\n"
         "\n"
         "Context management — compact vs reset:\n"
         "- `mos_compact_context(reason, pending_plans)`: PREFERRED. Persists\n"
-        "  pending plans to DAG, then triggers /compact. Process stays alive,\n"
-        "  prompt cache stays warm (no cold start). Use when context is large\n"
-        "  but process is healthy. After calling, STOP — produce no more\n"
+        "  pending plans to Scratchpad, then triggers /compact. Process stays\n"
+        "  alive, prompt cache stays warm (no cold start). Use when context is\n"
+        "  large but process is healthy. After calling, STOP — produce no more\n"
         "  output. You wake up in compressed context; call mos_await_events().\n"
         "- `mos_reset_context(reason)`: HARD RESET. Kills the process entirely.\n"
         "  Use only when behavior has drifted, SYSTEM.md changed externally,\n"
@@ -324,14 +324,14 @@ def _hot_cache_block(port: int | None = None) -> str | None:
     if resolved_port is None:
         return None
 
-    path = project_shared_subdir(resolved_port, "wiki") / "hot.md"
+    path = project_shared_subdir(resolved_port, "library") / "hot.md"
     try:
         if not path.exists() or path.stat().st_size == 0:
             return None
         raw = path.read_bytes()
         full_content = raw.decode("utf-8")
     except (OSError, UnicodeDecodeError) as exc:
-        logger.warning("failed to read wiki hot cache from %s: %s", path, exc)
+        logger.warning("failed to read library hot cache from %s: %s", path, exc)
         return None
 
     if not full_content.strip():
@@ -358,13 +358,13 @@ def _hot_cache_block(port: int | None = None) -> str | None:
 
 
 def _resolve_hot_cache_port(port: int | None) -> int | None:
-    """Resolve the project port used to locate the wiki hot cache."""
+    """Resolve the project port used to locate the library hot cache."""
     if port is not None:
         return port
 
     raw = os.environ.get("MINIONS_PROJECT_PORT", "").strip()
     if not raw:
-        logger.debug("MINIONS_PROJECT_PORT not set; omitting wiki hot cache")
+        logger.debug("MINIONS_PROJECT_PORT not set; omitting library hot cache")
         return None
 
     try:

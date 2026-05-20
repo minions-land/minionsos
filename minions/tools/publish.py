@@ -7,7 +7,7 @@ land a file under ``project_{port}/branches/shared/``. The tool:
    publishes from different Roles serialize cleanly.
 2. Validates the destination subpath against the calling Role's allowed
    shared subdirs (e.g. only Noter may publish under ``notes/`` or
-   ``exploration/``; only Ethics may publish under ``ethics/``;
+   ``scratchpad/``; only Ethics may publish under ``ethics/``;
    ``reviews/`` is reserved for ``mos_review_run`` and rejected here).
 3. Copies the source file into the shared worktree.
 4. ``git add`` + ``git commit`` on the shared branch with the supplied
@@ -18,14 +18,15 @@ land a file under ``project_{port}/branches/shared/``. The tool:
 The shared worktree itself is created at ``project_create`` time
 (``minions/lifecycle/project.py:_create_shared_worktree``).
 
-DAG flushes
-===========
+Scratchpad flushes
+==================
 
-Noter's periodic DAG flush (``mos_dag_commit_shared``) is implemented on
-top of this tool: it publishes ``branches/shared/exploration/dag.json``
-in-place under itself. The DAG file is buffered to disk by
-``mos_dag_append`` between flushes and only commits when Noter's cron
-ticks, keeping shared-branch commit churn bounded.
+Noter's periodic Scratchpad flush (``mos_scratchpad_commit_shared``) is
+implemented on top of this tool: it publishes
+``branches/shared/scratchpad/scratchpad.json`` in-place under itself. The
+Scratchpad file is buffered to disk by ``mos_scratchpad_append`` between
+flushes and only commits when Noter's cron ticks, keeping shared-branch
+commit churn bounded.
 """
 
 from __future__ import annotations
@@ -60,13 +61,13 @@ logger = logging.getLogger(__name__)
 # - "reviews/" is intentionally absent everywhere — that surface is owned
 #   exclusively by ``mos_review_run`` which writes commits directly without
 #   going through this tool.
-# - "wiki/" is owned exclusively by Noter (Karpathy LLM Wiki pattern);
+# - "library/" is owned exclusively by Noter (Karpathy LLM Wiki pattern);
 #   other roles publish raw artefacts to their own subdir + Noter
-#   ingest-compiles them into wiki/.
+#   ingest-compiles them into library/.
 _ROLE_ALLOWED_SHARED_SUBDIRS: dict[str, set[str]] = {
     "gru": {"*"},
-    # Wiki ownership invariant: Noter is the only non-Gru role that may publish wiki/.
-    "noter": {"notes", "exploration", "handoffs", "wiki"},
+    # Library ownership invariant: Noter is the only non-Gru role that may publish library/.
+    "noter": {"notes", "scratchpad", "handoffs", "library"},
     "ethics": {"ethics", "handoffs", "governance"},
     "writer": {"handoffs", "governance"},
     "coder": {"exp", "handoffs", "governance"},
@@ -215,12 +216,12 @@ def mos_publish_to_shared(
         dst_abs.parent.mkdir(parents=True, exist_ok=True)
         if src.resolve() != dst_abs.resolve():
             shutil.copy2(src, dst_abs)
-        # If src == dst (in-place publish, e.g. DAG flush), skip the copy
+        # If src == dst (in-place publish, e.g. Scratchpad flush), skip the copy
         # and let the git diff check below decide whether to commit.
 
         # Scope ``add`` and dirty-check to ``rel_dst`` — never to the whole
         # worktree. Other roles may have uncommitted changes in unrelated
-        # paths (a DAG buffer file mid-flush, a partially-staged ethics
+        # paths (a Scratchpad buffer file mid-flush, a partially-staged ethics
         # report) that this publish must not absorb into its commit.
         run_git(["add", "--", str(rel_dst)], workspace, action="add")
         diff_check = run_git(

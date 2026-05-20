@@ -63,8 +63,8 @@ def test_initial_prompt_drives_forever_loop(tmp_path: Path) -> None:
     # Subagent dispatch path is named.
     assert "Task" in prompt or "subagent" in prompt.lower()
     # Cold start: orient on the DAG before calling mos_await_events.
-    assert "mos_dag_summary" in prompt
-    assert prompt.index("mos_dag_summary") < prompt.rindex("mos_await_events")
+    assert "mos_scratchpad_summary" in prompt
+    assert prompt.index("mos_scratchpad_summary") < prompt.rindex("mos_await_events")
 
 
 def test_forever_loop_prompt_is_role_specific() -> None:

@@ -54,19 +54,19 @@ from minions.lifecycle.role import (
 from minions.logging_setup import configure_logging
 from minions.paths import STATE_DIR
 from minions.state.store import StateStore
+from minions.tools import atlas as _atlas
 from minions.tools import await_events as _await_events
 from minions.tools import compact as _compact
 from minions.tools import experiment_ssh as _exp
-from minions.tools import exploration_dag as _dag
-from minions.tools import global_graph as _global_graph
 from minions.tools import issues as _issues
+from minions.tools import library as _library
 from minions.tools import noter_wait as _noter_wait
 from minions.tools import paper_search as _paper_search
 from minions.tools import publish as _publish
 from minions.tools import reset as _reset
 from minions.tools import review as _review
+from minions.tools import scratchpad as _scratchpad
 from minions.tools import signboard as _signboard
-from minions.tools import wiki as _wiki
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -79,15 +79,15 @@ mcp = FastMCP("minions")
 _MINIONS_MCP_TOOL_NAMES = {
     "mos_compact_context",
     "mos_reset_context",
-    "mos_dag_annotate",
-    "mos_dag_append",
-    "mos_dag_commit_shared",
-    "mos_dag_path",
-    "mos_dag_query",
-    "mos_dag_summary",
-    "mos_global_graph_query",
-    "mos_global_graph_register",
-    "mos_global_graph_shared_concepts",
+    "mos_scratchpad_annotate",
+    "mos_scratchpad_append",
+    "mos_scratchpad_commit_shared",
+    "mos_scratchpad_path",
+    "mos_scratchpad_query",
+    "mos_scratchpad_summary",
+    "mos_atlas_query",
+    "mos_atlas_register",
+    "mos_atlas_shared_concepts",
     "mos_issue_report",
     "mos_download_arxiv",
     "mos_download_biorxiv",
@@ -140,11 +140,11 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_signboard_consume",
     "mos_signboard_reopen",
     "mos_spawn_role",
-    "mos_wiki_hot_get",
-    "mos_wiki_hot_update",
-    "mos_wiki_ingest",
-    "mos_wiki_lint",
-    "mos_wiki_query",
+    "mos_library_hot_get",
+    "mos_library_hot_update",
+    "mos_library_ingest",
+    "mos_library_lint",
+    "mos_library_query",
     "mos_search_arxiv",
     "mos_search_biorxiv",
     "mos_search_google_scholar",
@@ -661,7 +661,7 @@ def mos_publish_to_shared(args: PublishToSharedArgs) -> dict:
        role may publish only into its own subdir(s):
 
        - Gru: any subdir
-       - Noter: ``notes/``, ``exploration/``, ``handoffs/``
+       - Noter: ``notes/``, ``scratchpad/``, ``library/``, ``handoffs/``
        - Ethics: ``ethics/``, ``handoffs/``
        - Experimenter: ``exp/``, ``handoffs/``
        - Writer / Coder / Expert: ``handoffs/`` only
@@ -1307,10 +1307,10 @@ def mos_noter_wait() -> dict:
     return _noter_wait.noter_wait()
 
 
-# ── Exploration DAG tools ──────────────────────────────────────────────
+# ── Scratchpad tools ──────────────────────────────────────────────
 
 
-class DagQueryArgs(BaseModel):
+class ScratchpadQueryArgs(BaseModel):
     node_type: str | None = Field(default=None, description="Filter by node type.")
     support_status: str | None = Field(default=None, description="Filter by support status.")
     author_role: str | None = Field(default=None, description="Filter by author role.")
@@ -1321,7 +1321,7 @@ class DagQueryArgs(BaseModel):
     limit: int = Field(default=50, description="Max nodes to return.")
 
 
-class DagAppendArgs(BaseModel):
+class ScratchpadAppendArgs(BaseModel):
     nodes: list[dict] | None = Field(
         default=None, description="Nodes to add (type+text required; id auto-gen)."
     )
@@ -1330,23 +1330,23 @@ class DagAppendArgs(BaseModel):
     )
 
 
-class DagAnnotateArgs(BaseModel):
+class ScratchpadAnnotateArgs(BaseModel):
     node_id: str = Field(description="ID of the node to annotate.")
     support_status: str | None = Field(default=None, description="New support status.")
     evidence_tag: str | None = Field(default=None, description="Evidence reference.")
     metadata_update: dict | None = Field(default=None, description="Metadata keys to merge.")
 
 
-class DagPathArgs(BaseModel):
+class ScratchpadPathArgs(BaseModel):
     target_node_id: str = Field(description="Target node ID.")
     from_node_id: str | None = Field(default=None, description="Start node (default: root).")
 
 
 @mcp.tool()
-def mos_dag_query(args: DagQueryArgs) -> dict:
-    """Query the Exploration DAG. Returns matching nodes and their edges."""
-    _require_tool_allowed("mos_dag_query")
-    return _dag.mos_dag_query(
+def mos_scratchpad_query(args: ScratchpadQueryArgs) -> dict:
+    """Query the Scratchpad. Returns matching nodes and their edges."""
+    _require_tool_allowed("mos_scratchpad_query")
+    return _scratchpad.mos_scratchpad_query(
         node_type=args.node_type,
         support_status=args.support_status,
         author_role=args.author_role,
@@ -1357,17 +1357,17 @@ def mos_dag_query(args: DagQueryArgs) -> dict:
 
 
 @mcp.tool()
-def mos_dag_append(args: DagAppendArgs) -> dict:
-    """Add nodes and/or edges to the Exploration DAG. IDs auto-generated if omitted."""
-    _require_tool_allowed("mos_dag_append")
-    return _dag.mos_dag_append(nodes=args.nodes, edges=args.edges)
+def mos_scratchpad_append(args: ScratchpadAppendArgs) -> dict:
+    """Add nodes and/or edges to the Scratchpad. IDs auto-generated if omitted."""
+    _require_tool_allowed("mos_scratchpad_append")
+    return _scratchpad.mos_scratchpad_append(nodes=args.nodes, edges=args.edges)
 
 
 @mcp.tool()
-def mos_dag_annotate(args: DagAnnotateArgs) -> dict:
+def mos_scratchpad_annotate(args: ScratchpadAnnotateArgs) -> dict:
     """Update a node's support_status, evidence_tag, or metadata."""
-    _require_tool_allowed("mos_dag_annotate")
-    return _dag.mos_dag_annotate(
+    _require_tool_allowed("mos_scratchpad_annotate")
+    return _scratchpad.mos_scratchpad_annotate(
         node_id=args.node_id,
         support_status=args.support_status,
         evidence_tag=args.evidence_tag,
@@ -1376,56 +1376,61 @@ def mos_dag_annotate(args: DagAnnotateArgs) -> dict:
 
 
 @mcp.tool()
-def mos_dag_path(args: DagPathArgs) -> dict:
+def mos_scratchpad_path(args: ScratchpadPathArgs) -> dict:
     """Extract the path from root (or from_node_id) to target_node_id."""
-    _require_tool_allowed("mos_dag_path")
-    return _dag.mos_dag_path(target_node_id=args.target_node_id, from_node_id=args.from_node_id)
-
-
-@mcp.tool()
-def mos_dag_summary() -> dict:
-    """Return a high-level DAG summary: node counts, active hypotheses, blocked paths."""
-    _require_tool_allowed("mos_dag_summary")
-    return _dag.mos_dag_summary()
-
-
-class DagCommitSharedArgs(BaseModel):
-    message: str | None = Field(
-        default=None,
-        description=("Optional git commit message; defaults to 'noter: dag flush <iso-ts>'."),
+    _require_tool_allowed("mos_scratchpad_path")
+    return _scratchpad.mos_scratchpad_path(
+        target_node_id=args.target_node_id,
+        from_node_id=args.from_node_id,
     )
 
 
 @mcp.tool()
-def mos_dag_commit_shared(args: DagCommitSharedArgs) -> dict:
-    """Flush the buffered DAG to a single commit on the shared branch.
-
-    Owned by Noter (whitelist also grants Gru). Other roles must not call
-    this — they update the DAG via ``mos_dag_append`` /
-    ``mos_dag_annotate`` and let Noter's cron flush the accumulated state.
-
-    Returns the publish result dict (port, role, dst_path, commit_sha,
-    pushed, push_branch, branch). ``commit_sha`` is None when the on-disk
-    DAG already matches HEAD (no diff).
-    """
-    _require_tool_allowed("mos_dag_commit_shared")
-    return _dag.mos_dag_commit_shared(message=args.message)
+def mos_scratchpad_summary() -> dict:
+    """Return a high-level Scratchpad summary: node counts, active hypotheses, blocked paths."""
+    _require_tool_allowed("mos_scratchpad_summary")
+    return _scratchpad.mos_scratchpad_summary()
 
 
-# ── Wiki Layer 2 tools ─────────────────────────────────────────────────
+class ScratchpadCommitSharedArgs(BaseModel):
+    message: str | None = Field(
+        default=None,
+        description=(
+            "Optional git commit message; defaults to 'noter: scratchpad flush <iso-ts>'."
+        ),
+    )
 
 
 @mcp.tool()
-async def mos_wiki_ingest(
+def mos_scratchpad_commit_shared(args: ScratchpadCommitSharedArgs) -> dict:
+    """Flush the buffered Scratchpad to a single commit on the shared branch.
+
+    Owned by Noter (whitelist also grants Gru). Other roles must not call
+    this — they update the Scratchpad via ``mos_scratchpad_append`` /
+    ``mos_scratchpad_annotate`` and let Noter's cron flush the accumulated state.
+
+    Returns the publish result dict (port, role, dst_path, commit_sha,
+    pushed, push_branch, branch). ``commit_sha`` is None when the on-disk
+    Scratchpad already matches HEAD (no diff).
+    """
+    _require_tool_allowed("mos_scratchpad_commit_shared")
+    return _scratchpad.mos_scratchpad_commit_shared(message=args.message)
+
+
+# ── Library Layer 2 tools ─────────────────────────────────────────────────
+
+
+@mcp.tool()
+async def mos_library_ingest(
     src_path: str,
     source_role: str,
     source_slug: str,
     title: str | None = None,
     summary: str | None = None,
 ) -> dict:
-    """Ingest a shared artifact into Wiki; see minions.tools.wiki.mos_wiki_ingest."""
-    _require_tool_allowed("mos_wiki_ingest")
-    return _wiki.mos_wiki_ingest(
+    """Ingest a shared artifact into Library; see minions.tools.library.mos_library_ingest."""
+    _require_tool_allowed("mos_library_ingest")
+    return _library.mos_library_ingest(
         src_path=src_path,
         source_role=source_role,
         source_slug=source_slug,
@@ -1435,30 +1440,30 @@ async def mos_wiki_ingest(
 
 
 @mcp.tool()
-async def mos_wiki_query(text: str, max_pages: int = 5) -> dict:
-    """Query Wiki index entries; see minions.tools.wiki.mos_wiki_query."""
-    _require_tool_allowed("mos_wiki_query")
-    return _wiki.mos_wiki_query(text=text, max_pages=max_pages)
+async def mos_library_query(text: str, max_pages: int = 5) -> dict:
+    """Query Library index entries; see minions.tools.library.mos_library_query."""
+    _require_tool_allowed("mos_library_query")
+    return _library.mos_library_query(text=text, max_pages=max_pages)
 
 
 @mcp.tool()
-async def mos_wiki_hot_get() -> dict:
-    """Read Wiki hot cache; see minions.tools.wiki.mos_wiki_hot_get."""
-    _require_tool_allowed("mos_wiki_hot_get")
-    return _wiki.mos_wiki_hot_get()
+async def mos_library_hot_get() -> dict:
+    """Read Library hot cache; see minions.tools.library.mos_library_hot_get."""
+    _require_tool_allowed("mos_library_hot_get")
+    return _library.mos_library_hot_get()
 
 
 @mcp.tool()
-async def mos_wiki_hot_update(
+async def mos_library_hot_update(
     recent_ingests: list[dict[str, str]] | None = None,
     active_hypotheses: int = 0,
     recently_verified: list[str] | None = None,
     recently_refuted: list[str] | None = None,
     unresolved_contradictions: int = 0,
 ) -> dict:
-    """Generate and publish Wiki hot cache; see minions.tools.wiki.mos_wiki_hot_update."""
-    _require_tool_allowed("mos_wiki_hot_update")
-    return _wiki.mos_wiki_hot_update(
+    """Generate and publish Library hot cache; see minions.tools.library.mos_library_hot_update."""
+    _require_tool_allowed("mos_library_hot_update")
+    return _library.mos_library_hot_update(
         recent_ingests=recent_ingests,
         active_hypotheses=active_hypotheses,
         recently_verified=recently_verified,
@@ -1468,38 +1473,38 @@ async def mos_wiki_hot_update(
 
 
 @mcp.tool()
-async def mos_wiki_lint() -> dict:
-    """Audit wiki/ structure. See wiki.mos_wiki_lint."""
-    _require_tool_allowed("mos_wiki_lint")
-    return _wiki.mos_wiki_lint()
+async def mos_library_lint() -> dict:
+    """Audit library/ structure. See library.mos_library_lint."""
+    _require_tool_allowed("mos_library_lint")
+    return _library.mos_library_lint()
 
 
-# ── Gru-only global graph tools ─────────────────────────────────────────
-
-
-@mcp.tool()
-async def mos_global_graph_register(port: int) -> dict:
-    """Register a project corpus graph; see minions.tools.global_graph."""
-    _require_tool_allowed("mos_global_graph_register")
-    return _global_graph.mos_global_graph_register(port=port)
+# ── Gru-only global Atlas tools ─────────────────────────────────────────
 
 
 @mcp.tool()
-async def mos_global_graph_query(text: str, max_results: int = 10) -> dict:
-    """Query the Gru-only global graph; see minions.tools.global_graph."""
-    _require_tool_allowed("mos_global_graph_query")
-    return _global_graph.mos_global_graph_query(text=text, max_results=max_results)
+async def mos_atlas_register(port: int) -> dict:
+    """Register a project atlas; see minions.tools.atlas."""
+    _require_tool_allowed("mos_atlas_register")
+    return _atlas.mos_atlas_register(port=port)
 
 
 @mcp.tool()
-async def mos_global_graph_shared_concepts(
+async def mos_atlas_query(text: str, max_results: int = 10) -> dict:
+    """Query the Gru-only global Atlas; see minions.tools.atlas."""
+    _require_tool_allowed("mos_atlas_query")
+    return _atlas.mos_atlas_query(text=text, max_results=max_results)
+
+
+@mcp.tool()
+async def mos_atlas_shared_concepts(
     port_a: int,
     port_b: int,
     min_score: float = 0.5,
 ) -> dict:
-    """Find shared concepts across two projects; see minions.tools.global_graph."""
-    _require_tool_allowed("mos_global_graph_shared_concepts")
-    return _global_graph.mos_global_graph_shared_concepts(
+    """Find shared concepts across two projects; see minions.tools.atlas."""
+    _require_tool_allowed("mos_atlas_shared_concepts")
+    return _atlas.mos_atlas_shared_concepts(
         port_a=port_a,
         port_b=port_b,
         min_score=min_score,
@@ -1558,8 +1563,8 @@ class MosResetArgs(BaseModel):
 def mos_reset_context(args: MosResetArgs) -> dict:
     """Clear conversation context and continue with fresh state.
 
-    Call AFTER persisting all discoveries to the DAG. After reset,
-    call mos_dag_summary() to re-orient, then mos_await_events().
+    Call AFTER persisting all discoveries to the Scratchpad. After reset,
+    call mos_scratchpad_summary() to re-orient, then mos_await_events().
     """
     _require_tool_allowed("mos_reset_context")
     return _reset.mos_reset_context(reason=args.reason)
@@ -1576,7 +1581,7 @@ class MosCompactArgs(BaseModel):
     pending_plans: list[dict] = Field(
         default_factory=list,
         description=(
-            "Events or planned steps to persist as pending_plan DAG nodes. "
+            "Events or planned steps to persist as pending_plan Scratchpad nodes. "
             "Each dict needs at minimum 'type' and 'text' fields."
         ),
     )
@@ -1586,7 +1591,7 @@ class MosCompactArgs(BaseModel):
 def mos_compact_context(args: MosCompactArgs) -> dict:
     """Compress conversation context without killing the process.
 
-    Persists pending plans to the DAG, then schedules /compact. Unlike
+    Persists pending plans to the Scratchpad, then schedules /compact. Unlike
     mos_reset_context, this preserves the prompt cache (no cold start).
     After calling this, STOP immediately — produce no more tool calls or
     text. The /compact fires as the next input after your turn ends.

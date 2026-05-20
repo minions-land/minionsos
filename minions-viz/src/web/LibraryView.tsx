@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useStore } from "./store";
 
-interface WikiEntry {
+interface LibraryEntry {
   title: string;
   content: string;
   tags?: string[];
@@ -10,17 +10,17 @@ interface WikiEntry {
   links?: string[];
 }
 
-interface WikiGraph {
+interface LibraryGraph {
   nodes: Array<{ id: string; label: string; type: string }>;
   edges: Array<{ source: string; target: string; label?: string }>;
 }
 
-export function WikiView() {
+export function LibraryView() {
   const store = useStore();
   const gruId = store.selectedGruId;
   const port = store.selectedPort;
-  const [entries, setEntries] = useState<WikiEntry[]>([]);
-  const [selectedEntry, setSelectedEntry] = useState<WikiEntry | null>(null);
+  const [entries, setEntries] = useState<LibraryEntry[]>([]);
+  const [selectedEntry, setSelectedEntry] = useState<LibraryEntry | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "graph">("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,7 +28,7 @@ export function WikiView() {
   useEffect(() => {
     if (!gruId || port == null) return;
     setLoading(true);
-    fetch(`/api/mos/project/${port}/wiki?gru=${gruId}`)
+    fetch(`/api/mos/project/${port}/library?gru=${gruId}`)
       .then((r) => r.json())
       .then((data) => {
         setEntries(data.entries || []);
@@ -51,11 +51,11 @@ export function WikiView() {
     );
   }, [entries, searchQuery]);
 
-  const wikiGraph = useMemo(() => {
+  const libraryGraph = useMemo(() => {
     const nodes = entries.map((e) => ({
       id: e.title,
       label: e.title,
-      type: "wiki-entry",
+      type: "library-entry",
     }));
     const edges: Array<{ source: string; target: string; label?: string }> = [];
     entries.forEach((e) => {
@@ -72,10 +72,10 @@ export function WikiView() {
 
   if (!gruId || port == null) {
     return (
-      <div className="wiki-view empty">
+      <div className="library-view empty">
         <div className="empty-state">
           <div className="icon">📚</div>
-          <div className="message">Select a project to view wiki entries</div>
+          <div className="message">Select a project to view library entries</div>
         </div>
       </div>
     );
@@ -83,20 +83,20 @@ export function WikiView() {
 
   if (loading) {
     return (
-      <div className="wiki-view loading">
-        <div className="spinner">Loading wiki...</div>
+      <div className="library-view loading">
+        <div className="spinner">Loading library...</div>
       </div>
     );
   }
 
   return (
-    <div className="wiki-view">
-      <div className="wiki-header">
-        <div className="wiki-controls">
+    <div className="library-view">
+      <div className="library-header">
+        <div className="library-controls">
           <input
             type="text"
-            className="wiki-search"
-            placeholder="Search wiki entries..."
+            className="library-search"
+            placeholder="Search library entries..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -115,26 +115,26 @@ export function WikiView() {
             </button>
           </div>
         </div>
-        <div className="wiki-stats">
+        <div className="library-stats">
           <span>{filteredEntries.length} entries</span>
           {searchQuery && <span>· filtered from {entries.length}</span>}
         </div>
       </div>
 
       {viewMode === "list" ? (
-        <div className="wiki-list">
+        <div className="library-list">
           {filteredEntries.length === 0 ? (
             <div className="empty-state">
               <div className="icon">📭</div>
               <div className="message">
-                {searchQuery ? "No matching entries found" : "No wiki entries yet"}
+                {searchQuery ? "No matching entries found" : "No library entries yet"}
               </div>
             </div>
           ) : (
             filteredEntries.map((entry, idx) => (
               <div
                 key={idx}
-                className={`wiki-entry ${selectedEntry === entry ? "selected" : ""}`}
+                className={`library-entry ${selectedEntry === entry ? "selected" : ""}`}
                 onClick={() => setSelectedEntry(entry)}
               >
                 <div className="entry-header">
@@ -163,13 +163,13 @@ export function WikiView() {
           )}
         </div>
       ) : (
-        <div className="wiki-graph-view">
-          <WikiGraphCanvas graph={wikiGraph} />
+        <div className="library-graph-view">
+          <LibraryGraphCanvas graph={libraryGraph} />
         </div>
       )}
 
       {selectedEntry && (
-        <div className="wiki-detail-panel">
+        <div className="library-detail-panel">
           <div className="panel-header">
             <h2>{selectedEntry.title}</h2>
             <button className="close-btn" onClick={() => setSelectedEntry(null)}>
@@ -206,10 +206,9 @@ export function WikiView() {
   );
 }
 
-function WikiGraphCanvas({ graph }: { graph: WikiGraph }) {
+function LibraryGraphCanvas({ graph }: { graph: LibraryGraph }) {
   useEffect(() => {
-    // TODO: Implement D3.js force-directed graph visualization
-    // Similar to DagView but for wiki entries
+    // TODO: D3 force-directed graph; mirror ScratchpadView style.
   }, [graph]);
 
   return (

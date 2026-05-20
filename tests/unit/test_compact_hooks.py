@@ -19,7 +19,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 PRE_HOOK = REPO_ROOT / "minions" / "hooks" / "pre_compact_science.py"
-POST_HOOK = REPO_ROOT / "minions" / "hooks" / "post_compact_dag.py"
+POST_HOOK = REPO_ROOT / "minions" / "hooks" / "post_compact_scratchpad.py"
 
 
 def _run(
@@ -52,9 +52,9 @@ class TestPreCompact:
         assert result.returncode == 0, result.stderr
         assert "## Working_on" in result.stdout
         assert "## Pending_plans" in result.stdout
-        assert "L1 — Exploration DAG" in result.stdout
-        assert "L2 — Wiki" in result.stdout
-        assert "L3 — Structural index" in result.stdout
+        assert "L1 — Scratchpad" in result.stdout
+        assert "L2 — Library" in result.stdout
+        assert "L3 — Atlas" in result.stdout
 
     def test_existing_instructions_are_prepended(self) -> None:
         payload = json.dumps({"trigger": "manual", "custom_instructions": "PRIOR-MARKER"})
@@ -92,7 +92,7 @@ SAMPLE_SUMMARY = """\
 - E-002 driving tokenizer ablation
 
 ## Next_action
-- mos_dag_summary() then mos_await_events()
+- mos_scratchpad_summary() then mos_await_events()
 
 ## New_or_changed_nodes
 - E-002 — tokenizer ablation (verified)
@@ -117,7 +117,7 @@ SAMPLE_SUMMARY = """\
 
 @pytest.fixture()
 def project_dir(tmp_path: Path) -> Path:
-    """Create a project_<port>/branches/shared/exploration/ tree mirroring
+    """Create a project_<port>/branches/shared/scratchpad/ tree mirroring
     the layout that lives under ``MINIONS_ROOT.parent``.
 
     The hook resolves the project dir relative to ``MINIONS_ROOT.parent``,
@@ -127,13 +127,15 @@ def project_dir(tmp_path: Path) -> Path:
     port = 99001
     fake_minions_root = tmp_path / "MinionsOS"
     fake_minions_root.mkdir()
-    (tmp_path / f"project_{port}" / "branches" / "shared" / "exploration").mkdir(parents=True)
+    (tmp_path / f"project_{port}" / "branches" / "shared" / "scratchpad").mkdir(parents=True)
     return tmp_path
 
 
-def _seed_dag(project_root: Path, port: int, ids: list[str]) -> None:
-    dag_path = project_root / f"project_{port}" / "branches" / "shared" / "exploration" / "dag.json"
-    dag_path.write_text(
+def _seed_scratchpad(project_root: Path, port: int, ids: list[str]) -> None:
+    sp_path = (
+        project_root / f"project_{port}" / "branches" / "shared" / "scratchpad" / "scratchpad.json"
+    )
+    sp_path.write_text(
         json.dumps({"nodes": [{"id": i, "type": "x", "text": ""} for i in ids], "edges": []}),
         encoding="utf-8",
     )
@@ -145,7 +147,7 @@ def _read_journal(project_root: Path, port: int) -> list[dict]:
         / f"project_{port}"
         / "branches"
         / "shared"
-        / "exploration"
+        / "scratchpad"
         / "journal.jsonl"
     )
     if not journal.exists():
@@ -168,7 +170,7 @@ class TestPostCompact:
 
     def test_writes_to_correct_journal_path(self, project_dir: Path) -> None:
         port = 99001
-        _seed_dag(project_dir, port, ["E-002"])
+        _seed_scratchpad(project_dir, port, ["E-002"])
         payload = json.dumps({"trigger": "auto", "compact_summary": SAMPLE_SUMMARY})
         result = _run(
             POST_HOOK,
@@ -190,7 +192,7 @@ class TestPostCompact:
 
     def test_extracts_pointer_shaped_fields(self, project_dir: Path) -> None:
         port = 99001
-        _seed_dag(project_dir, port, ["E-002"])
+        _seed_scratchpad(project_dir, port, ["E-002"])
         payload = json.dumps({"trigger": "auto", "compact_summary": SAMPLE_SUMMARY})
         _run(
             POST_HOOK,
@@ -205,7 +207,7 @@ class TestPostCompact:
         assert extract["pending_plan_node_ids"] == ["Q-007"]
         assert extract["dead_end_node_ids"] == ["DEAD-004"]
         assert "E-002" in extract["known_node_refs"]
-        # R-003 was cited but isn't in the seeded dag.json — must show up as unknown.
+        # R-003 was cited but isn't in the seeded scratchpad.json — must show up as unknown.
         assert "R-003" in extract["unknown_node_refs"]
 
     def test_no_journal_write_when_project_missing(self, tmp_path: Path) -> None:
@@ -224,7 +226,7 @@ class TestPostCompact:
         )
         assert result.returncode == 0
         # Nothing should have been created under tmp_path.
-        leaked = list(tmp_path.glob("project_*/branches/shared/exploration/journal.jsonl"))
+        leaked = list(tmp_path.glob("project_*/branches/shared/scratchpad/journal.jsonl"))
         assert leaked == []
 
     def test_malformed_json_does_not_crash(self, project_dir: Path) -> None:
