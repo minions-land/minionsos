@@ -314,7 +314,7 @@ def test_classify_tool_buckets() -> None:
     assert _classify_tool("mcp__codex-subagent__codex") == "dispatch"
 
     # Coordination (lightweight, not heavy work)
-    assert _classify_tool("mcp__minionsos__mos_scratchpad_append") == "coord"
+    assert _classify_tool("mcp__minionsos__mos_draft_append") == "coord"
     assert _classify_tool("mcp__eacn3__eacn3_send_message") == "coord"
 
     # Heavy self-execution (the canary)
@@ -347,7 +347,7 @@ def test_posture_aggregation_and_pct() -> None:
             "Read",  # 2 read_self
             "Task",  # 1 dispatch
             "ToolSearch",  # 1 misc
-            "mcp__minionsos__mos_scratchpad_append",  # 1 coord
+            "mcp__minionsos__mos_draft_append",  # 1 coord
         ]
     )
     assert posture.heavy_self == 3

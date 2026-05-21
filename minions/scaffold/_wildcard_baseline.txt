@@ -1,5 +1,5 @@
 # auto-generated baseline of how many @mcp.tool()s match each wildcard.
 # update via: mos audit --refresh-wildcards (or hand-edit after review).
-mos_scratchpad_*=6
+mos_scratchpad_*=7
 mos_exp_gpu_pool_*=2
 mos_exp_queue_*=4

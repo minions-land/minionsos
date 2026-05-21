@@ -24,7 +24,7 @@ Write multi-step plans to durable disk so a future wake can resume without re-de
 
 ## Key distinction
 
-This is distinct from the Scratchpad `pending_plan` flag (used by `cognitive-checkpoint` for deferred single events). An execution plan is your own multi-step roadmap; a `pending_plan` Scratchpad node is a deferred event. They coexist.
+This is distinct from the Draft `pending_plan` flag (used by `cognitive-checkpoint` for deferred single events). An execution plan is your own multi-step roadmap; a `pending_plan` Draft node is a deferred event. They coexist.
 
 ## Where to write
 

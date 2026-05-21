@@ -4,7 +4,7 @@
 import fs from "fs";
 import path from "path";
 import type {
-  MosOverview, MosScratchpad, MosArtifactNode, MosThresholdStatus,
+  MosOverview, MosDraft, MosArtifactNode, MosThresholdStatus,
 } from "../shared/types.js";
 import { getGru, getProjectFor, projectDirFor, gruLogPath } from "./grus.js";
 
@@ -51,7 +51,7 @@ export function getOverview(gruId: string, port: number): MosOverview | null {
   };
 }
 
-export function getScratchpads(gruId: string, port: number): MosScratchpad[] {
+export function getDrafts(gruId: string, port: number): MosDraft[] {
   const pdir = resolveProjectDir(gruId, port);
   if (!pdir) return [];
   const memDir = path.join(pdir, "memory");
@@ -74,7 +74,7 @@ export function getScratchpads(gruId: string, port: number): MosScratchpad[] {
   });
 }
 
-export function getScratchpad(gruId: string, port: number, role: string): string | null {
+export function getDraft(gruId: string, port: number, role: string): string | null {
   if (!CANONICAL_ROLES.includes(role)) return null;
   const pdir = resolveProjectDir(gruId, port);
   if (!pdir) return null;

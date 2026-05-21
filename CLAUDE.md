@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-MinionsOS is a local multi-agent operating system for running autonomous research projects. A persistent Gru process supervises many isolated paper-sized projects; each project has its own EACN3 backend, git worktree, artifacts, logs, role scratchpads, and long-lived Role processes hosted by Claude Code. Roles may delegate high-intensity execution to Codex GPT-5.5 through the `codex-subagent` MCP, but Codex never hosts a Role process directly.
+MinionsOS is a local multi-agent operating system for running autonomous research projects. A persistent Gru process supervises many isolated paper-sized projects; each project has its own EACN3 backend, git worktree, artifacts, logs, role drafts, and long-lived Role processes hosted by Claude Code. Roles may delegate high-intensity execution to Codex GPT-5.5 through the `codex-subagent` MCP, but Codex never hosts a Role process directly.
 
 `mcp-servers/eacn3/` is a local editable dependency pinned through `pyproject.toml` and `uv.lock`. Treat it as a dependency boundary during normal MinionsOS work: prefer EACN MCP tools and the MinionsOS adapter modules over hand-written HTTP calls or incidental edits inside `mcp-servers/eacn3/`.
 
@@ -111,17 +111,17 @@ project_{port}/
 │   ├── coder/                   # branch minionsos/project-{port}-coder
 │   ├── writer/                  # branch minionsos/project-{port}-writer
 │   ├── ethics/                  # Ethics drafts; published reports go to shared/ethics/
-│   ├── noter/                   # Noter drafts; published notes/Scratchpad go to shared/
+│   ├── noter/                   # Noter drafts; published notes/Draft go to shared/
 │   ├── expert-<slug>/           # one per Expert
 │   └── shared/                  # branch minionsos/project-{port}-shared
-│       ├── scratchpad/scratchpad.json # Noter-curated Scratchpad (L1 process memory)
+│       ├── draft/draft.json # Noter-curated Draft (L1 process memory)
 │       ├── notes/               # Noter staged reports
 │       ├── ethics/              # Ethics published reports (flat)
 │       ├── exp/exp-<id>/        # Coder experiment result bundles
 │       ├── reviews/round-<n>/   # mos_review_run output (tool-owned)
 │       ├── handoffs/            # cross-role handoffs
 │       ├── governance/          # signboard.json (phase-transition consensus)
-│       ├── library/                       ← Layer 2: Compiled Knowledge (Library)
+│       ├── book/                          ← Layer 2: Compiled Knowledge (Book)
 │       │   ├── index.md                    Noter-maintained catalog
 │       │   ├── hot.md                      ~500-word rolling cache, injected at role wake-up
 │       │   ├── log.md                      Append-only ingest/lint journal (JSONL)
@@ -136,7 +136,7 @@ project_{port}/
 └── logs/                        # backend.log and role-{name}.log (gitignored)
 ```
 
-Cross-role writes go through `mos_publish_to_shared(role, src_path, dst_subpath, commit_message)`, which holds `state/shared.lock`, copies the source file into `branches/shared/<dst_subpath>`, and commits on the shared branch. Per-role subdir policy lives in `minions/tools/publish.py` (`_ROLE_ALLOWED_SHARED_SUBDIRS`). The Scratchpad file is updated in place by `mos_scratchpad_append`/`mos_scratchpad_annotate` and flushed on a timer by Noter through `mos_scratchpad_commit_shared`. The review surface (`reviews/`) is reserved for `mos_review_run`, which writes there directly and commits the round at the end.
+Cross-role writes go through `mos_publish_to_shared(role, src_path, dst_subpath, commit_message)`, which holds `state/shared.lock`, copies the source file into `branches/shared/<dst_subpath>`, and commits on the shared branch. Per-role subdir policy lives in `minions/tools/publish.py` (`_ROLE_ALLOWED_SHARED_SUBDIRS`). The Draft file is updated in place by `mos_draft_append`/`mos_draft_annotate` and flushed on a timer by Noter through `mos_draft_commit_shared`. The review surface (`reviews/`) is reserved for `mos_review_run`, which writes there directly and commits the round at the end.
 
 The parent directory containing this repository is the **author seed repo**: at `mos_project_create` time, MinionsOS imports its current HEAD (excluding `MinionsOS/` itself and any file larger than 500 MB) into a per-project bare git repo at `project_{port}/parent_repo.git/`. All worktrees — main, role, shared — branch off that per-project bare repo, so the author repo is never written to and never gains `minionsos/*` branches. The seed source must be git-initialized; `./install.sh` warns about this and `./mos doctor` re-checks it. To override the seed source, set `gru.yaml:author_repo` (or `MINIONS_AUTHOR_REPO`).
 
@@ -157,14 +157,14 @@ Tool/write boundaries (main role write scope; subagents inherit from their paren
 | Agent | Project-local EACN access | Experiment tools | Codex subagent | Gru/project/spawn tools | Own branch | Shared subdirs (via mos_publish_to_shared) |
 |---|---|---|---|---|---|---|
 | Gru main | `eacn3_*` (events delivered by scheduler) | no | `codex` | yes | `branches/main/` | any subdir |
-| Noter main | `mos_noter_wait` (timer, no EACN) | no | no | no | `branches/noter/` (drafts) | `notes/`, `scratchpad/`, `handoffs/`, `library/` |
+| Noter main | `mos_noter_wait` (timer, no EACN) | no | no | no | `branches/noter/` (drafts) | `notes/`, `draft/`, `handoffs/`, `book/` |
 | Coder main | `eacn3_*` | yes | `codex` | no | `branches/coder/` | `exp/`, `handoffs/`, `governance/` |
 | Writer main (on-demand) | `eacn3_*` plus paper-search MCP tools | no | `codex` | no | `branches/writer/` | `handoffs/`, `governance/` |
 | Expert main | `eacn3_*` | no | `codex` | no | `branches/<expert>/` (read-mostly) | `handoffs/`, `governance/` |
 | Ethics main | `eacn3_*` | no | `codex` | no | `branches/ethics/` (drafts) | `ethics/`, `handoffs/`, `governance/` |
-| All roles (read) | - | - | - | - | - | `library/` (via `mos_library_query`/`hot_get`) |
+| All roles (read) | - | - | - | - | - | `book/` (via `mos_book_query`/`hot_get`) |
 
-`branches/shared/reviews/` is reserved for `mos_review_run` — the publish tool will reject any other caller. `branches/shared/scratchpad/scratchpad.json` is updated in-place by `mos_scratchpad_append` and committed on a Noter-driven cron through `mos_scratchpad_commit_shared` (whitelisted to Noter and Gru only). No role writes to another role's `branches/<role>/` directly; cross-role artefacts always travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`. The visual format-check tools (`mos_visual_render`, `mos_visual_inspect`, `mos_visual_check`) are available to every EACN-visible role (Gru, Coder, Writer, Ethics, Expert) and denied to Noter; reports persist under `branches/<role>/visual-reports/` and are referenced cross-role by EACN message rather than via a shared subdir.
+`branches/shared/reviews/` is reserved for `mos_review_run` — the publish tool will reject any other caller. `branches/shared/draft/draft.json` is updated in-place by `mos_draft_append` and committed on a Noter-driven cron through `mos_draft_commit_shared` (whitelisted to Noter and Gru only). No role writes to another role's `branches/<role>/` directly; cross-role artefacts always travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`. The visual format-check tools (`mos_visual_render`, `mos_visual_inspect`, `mos_visual_check`) are available to every EACN-visible role (Gru, Coder, Writer, Ethics, Expert) and denied to Noter; reports persist under `branches/<role>/visual-reports/` and are referenced cross-role by EACN message rather than via a shared subdir.
 
 ### Role skills and review workflow
 
@@ -181,12 +181,12 @@ A review round's Pass A must produce 3-5 independent reviewer-instance reports b
 
 ### Cross-cycle memory
 
-Roles are cold-started each invocation. There are no per-role private memory files. The only persistent cross-cycle memory is the **Scratchpad** (L1) at `project_{port}/branches/shared/scratchpad/scratchpad.json`, accessed via `mos_scratchpad_append` / `mos_scratchpad_query` / `mos_scratchpad_summary` / `mos_scratchpad_annotate` / `mos_scratchpad_path`. It is buffered to disk on every call and flushed to a single commit on the shared branch by Noter on its periodic wake (`noter_periodic_interval`, default 3m).
+Roles are cold-started each invocation. There are no per-role private memory files. The only persistent cross-cycle memory is the **Draft** (L1) at `project_{port}/branches/shared/draft/draft.json`, accessed via `mos_draft_append` / `mos_draft_query` / `mos_draft_summary` / `mos_draft_annotate` / `mos_draft_path`. It is buffered to disk on every call and flushed to a single commit on the shared branch by Noter on its periodic wake (`noter_periodic_interval`, default 3m).
 
 Roles reconstruct context at wake-up from:
 
 1. current transcript,
-2. the Scratchpad (especially `pending_plan` nodes left by their previous self before a `mos_reset_context`),
+2. the Draft (especially `pending_plan` nodes left by their previous self before a `mos_reset_context`),
 3. EACN history and shared `branches/shared/<subdir>/` artefacts,
 4. root and project `CLAUDE.md` files.
 

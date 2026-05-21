@@ -159,8 +159,8 @@ class MosResetArgs(BaseModel):
 def mos_reset_context(args: MosResetArgs) -> dict:
     """Clear conversation context and continue with fresh state.
 
-    Call AFTER persisting all discoveries to the Scratchpad. After reset,
-    call mos_scratchpad_summary() to re-orient, then mos_await_events().
+    Call AFTER persisting all discoveries to the Draft. After reset,
+    call mos_draft_summary() to re-orient, then mos_await_events().
     """
     _require_tool_allowed("mos_reset_context")
     return _reset.mos_reset_context(reason=args.reason)
@@ -177,7 +177,7 @@ class MosCompactArgs(BaseModel):
     pending_plans: list[dict] = Field(
         default_factory=list,
         description=(
-            "Events or planned steps to persist as pending_plan Scratchpad nodes. "
+            "Events or planned steps to persist as pending_plan Draft nodes. "
             "Each dict needs at minimum 'type' and 'text' fields."
         ),
     )
@@ -187,7 +187,7 @@ class MosCompactArgs(BaseModel):
 def mos_compact_context(args: MosCompactArgs) -> dict:
     """Compress conversation context without killing the process.
 
-    Persists pending plans to the Scratchpad, then schedules /compact. Unlike
+    Persists pending plans to the Draft, then schedules /compact. Unlike
     mos_reset_context, this preserves the prompt cache (no cold start).
     After calling this, STOP immediately — produce no more tool calls or
     text. The /compact fires as the next input after your turn ends.

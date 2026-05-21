@@ -111,7 +111,7 @@ def test_validate_dst_enforces_role_subdir_policy() -> None:
         _validate_dst("writer", "ethics/x.md")
     # Ethics may not publish into exploration/ (Noter-only).
     with pytest.raises(ProjectError, match="may not publish"):
-        _validate_dst("ethics", "scratchpad/scratchpad.json")
+        _validate_dst("ethics", "draft/draft.json")
     # Gru can publish anywhere.
     _validate_dst("gru", "ethics/foo.md")
     _validate_dst("gru", "exp/exp-1/report.md")
@@ -200,19 +200,19 @@ def test_publish_does_not_absorb_unrelated_dirty_paths(
     shared_project: dict[str, object], tmp_path: Path
 ) -> None:
     """A publish must commit ONLY its own dst_subpath. Other dirty files
-    in the shared worktree (e.g. an in-flight Scratchpad buffer or a partially
+    in the shared worktree (e.g. an in-flight Draft buffer or a partially
     staged ethics report) must remain uncommitted afterwards.
 
-    This guards the buffered-Scratchpad / committed-publish split: if publish
-    swept up everything dirty, every role's publish would absorb the Scratchpad
+    This guards the buffered-Draft / committed-publish split: if publish
+    swept up everything dirty, every role's publish would absorb the Draft
     buffer and Noter's flush would have nothing to commit.
     """
     workspace = shared_project["shared_workspace"]  # type: ignore[index]
-    # Simulate a dirty Scratchpad buffer in the shared worktree.
-    scratchpad_path = workspace / "scratchpad" / "scratchpad.json"  # type: ignore[operator]
-    scratchpad_path.parent.mkdir(parents=True, exist_ok=True)
-    scratchpad_path.write_text('{"nodes": [{"id": "H-001"}]}', encoding="utf-8")
-    assert scratchpad_path.exists()
+    # Simulate a dirty Draft buffer in the shared worktree.
+    draft_path = workspace / "draft" / "draft.json"  # type: ignore[operator]
+    draft_path.parent.mkdir(parents=True, exist_ok=True)
+    draft_path.write_text('{"nodes": [{"id": "H-001"}]}', encoding="utf-8")
+    assert draft_path.exists()
 
     # Writer publishes a totally unrelated handoff.
     src = tmp_path / "draft.md"
@@ -225,39 +225,39 @@ def test_publish_does_not_absorb_unrelated_dirty_paths(
     )
     assert res["commit_sha"] is not None
 
-    # The Scratchpad file must STILL be dirty (untracked or unstaged) — writer's
+    # The Draft file must STILL be dirty (untracked or unstaged) — writer's
     # publish must not have absorbed it.
     status = subprocess.run(
-        ["git", "status", "--porcelain", "--", "scratchpad/scratchpad.json"],
+        ["git", "status", "--porcelain", "--", "draft/draft.json"],
         cwd=str(workspace),
         capture_output=True,
         text=True,
         check=True,
     )
     assert status.stdout.strip(), (
-        "Scratchpad buffer should remain dirty after writer's unrelated publish, "
+        "Draft buffer should remain dirty after writer's unrelated publish, "
         f"but git reports clean: {status.stdout!r}"
     )
 
 
-def test_publish_in_place_scratchpad_flush_works(
+def test_publish_in_place_draft_flush_works(
     shared_project: dict[str, object],
 ) -> None:
-    """Source and destination resolving to the same file (Scratchpad flush) must
+    """Source and destination resolving to the same file (Draft flush) must
     not raise SameFileError."""
     workspace = shared_project["shared_workspace"]
-    scratchpad_path = workspace / "scratchpad" / "scratchpad.json"  # type: ignore[operator]
-    scratchpad_path.parent.mkdir(parents=True, exist_ok=True)
-    scratchpad_path.write_text(json.dumps({"nodes": [{"id": "H-001"}]}), encoding="utf-8")
+    draft_path = workspace / "draft" / "draft.json"  # type: ignore[operator]
+    draft_path.parent.mkdir(parents=True, exist_ok=True)
+    draft_path.write_text(json.dumps({"nodes": [{"id": "H-001"}]}), encoding="utf-8")
 
     result = mos_publish_to_shared(
         role="noter",
-        src_path=str(scratchpad_path),
-        dst_subpath="scratchpad/scratchpad.json",
-        commit_message="noter: scratchpad flush",
+        src_path=str(draft_path),
+        dst_subpath="draft/draft.json",
+        commit_message="noter: draft flush",
     )
     assert result["commit_sha"] is not None
-    assert scratchpad_path.exists()
+    assert draft_path.exists()
 
 
 def test_publish_requires_shared_worktree_present(
@@ -315,7 +315,8 @@ def test_create_shared_worktree_idempotent(shared_project: dict[str, object]) ->
 def test_create_shared_worktree_seeds_subdirs(shared_project: dict[str, object]) -> None:
     workspace = shared_project["shared_workspace"]
     seeded = sorted(p.name for p in workspace.iterdir() if p.is_dir())  # type: ignore[union-attr]
-    assert seeded == ["atlas", "ethics", "exp", "handoffs", "library", "notes", "reviews", "scratchpad"]
+    expected = sorted(["draft", "notes", "ethics", "exp", "reviews", "handoffs", "book", "atlas"])
+    assert seeded == expected
     # Seed commit should exist on the shared branch.
     log = _git_log(workspace)  # type: ignore[arg-type]
     assert any("shared: seed cross-role layout" in line for line in log)

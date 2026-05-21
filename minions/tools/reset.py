@@ -1,15 +1,15 @@
 """mos_reset_context — kill the current Role's tmux session for a clean restart.
 
 The agent calls this at a natural batch boundary after persisting durable
-state to the Scratchpad (L1). The session is killed; the Gru watchdog
+state to the Draft (L1). The session is killed; the Gru watchdog
 respawns a fresh ``claude`` process under the same session name with no
 ``--resume`` flag, so SYSTEM.md re-injects but conversation history starts
-empty. The Scratchpad is the external memory that bridges the gap.
+empty. The Draft is the external memory that bridges the gap.
 
 Why this is not Claude's compact:
 - Compact summarizes (costs tokens, lossy, can drift role contract).
 - Reset deletes (costs zero tokens, lossless because state lives in
-  Scratchpad).
+  Draft).
 
 A marker file under ``project_{port}/state/.reset_markers/{role}`` is
 written before the kill so the watchdog can distinguish a deliberate reset
@@ -46,9 +46,9 @@ def mos_reset_context(reason: str = "") -> dict:
     """Kill this Role's tmux session so the watchdog respawns it cold.
 
     The agent MUST have persisted all valuable state — including any
-    pending plans not yet executed — to the Scratchpad before calling
+    pending plans not yet executed — to the Draft before calling
     this. After respawn, conversation context is empty; the new
-    process re-orients via ``mos_scratchpad_summary()`` which surfaces
+    process re-orients via ``mos_draft_summary()`` which surfaces
     those pending plans, then enters its event loop.
 
     Args:
@@ -63,13 +63,13 @@ def mos_reset_context(reason: str = "") -> dict:
     role = _env_role()
     ts = datetime.now(UTC).isoformat(timespec="seconds")
 
-    # Journal lives in the audited shared tree alongside the Scratchpad,
+    # Journal lives in the audited shared tree alongside the Draft,
     # since it is genuine project history. Markers live in gitignored
     # state/.
-    scratchpad_dir = project_shared_subdir(port, "scratchpad")
-    scratchpad_dir.mkdir(parents=True, exist_ok=True)
+    draft_dir = project_shared_subdir(port, "draft")
+    draft_dir.mkdir(parents=True, exist_ok=True)
 
-    journal_path = scratchpad_dir / "journal.jsonl"
+    journal_path = draft_dir / "journal.jsonl"
     entry = {"op": "reset", "role": role, "reason": reason, "timestamp": ts}
     try:
         with journal_path.open("a", encoding="utf-8") as f:
@@ -107,7 +107,7 @@ def mos_reset_context(reason: str = "") -> dict:
             "error": str(exc),
             "instruction": (
                 "Reset could not kill the tmux session. Persist state to the "
-                "Scratchpad and exit your event loop manually if needed."
+                "Draft and exit your event loop manually if needed."
             ),
         }
 

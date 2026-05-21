@@ -125,6 +125,13 @@ def list_skills(role_name: str) -> list[tuple[str, str]]:
     readable ``.md`` files exist. Shared skills are listed before role-specific
     skills; slugs are the file stem and each directory is sorted
     alphabetically for determinism.
+
+    Discovery is intentionally **non-recursive**: only ``*.md`` directly under
+    each skills directory is enumerated. Subdirectories (``eacn3/``,
+    ``skillforge/``, etc.) are reserved for progressive-disclosure bundles
+    that a top-level skill must explicitly route into; loading them at
+    wake-up would balloon the init message and import role-irrelevant content.
+    Test ``test_subdirectory_skills_are_not_discovered`` pins this contract.
     """
     out: list[tuple[str, str]] = []
     seen: set[str] = set()
@@ -132,6 +139,8 @@ def list_skills(role_name: str) -> list[tuple[str, str]]:
         if not skills_dir.is_dir():
             continue
         for path in sorted(skills_dir.glob("*.md")):
+            if not path.is_file():
+                continue
             if path.stem in seen:
                 continue
             try:

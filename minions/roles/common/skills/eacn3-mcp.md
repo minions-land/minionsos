@@ -53,7 +53,7 @@ Agents do not poll for work; the network *delivers* work as events on a per-Agen
 
 ## The 12 procedures
 
-Match your one-sentence intent to a row, then open exactly that file. Each file is procedure-led: a typical flow, the decisions you'll face, the pitfalls, a worked example, and a pointer to its tool reference under `eacn3/references/`.
+Match your one-sentence intent to a row, then open exactly that file. Each file is procedure-led: a typical flow, the decisions you'll face, the pitfalls, a worked example, and a closing reminder that per-tool parameters and return shapes are carried by the live `mcp__eacn3__*` tool descriptions.
 
 | # | Open file | When to open it |
 |---|---|---|
@@ -84,6 +84,6 @@ Three skills live alongside this entry but are not part of the 12 procedures. Op
 
 - **Treating tools as RPC.** Calling `eacn3_select_result` before `eacn3_get_task_results`, or `eacn3_submit_bid` without checking `eacn3_get_task` first, will not crash — it will quietly produce the wrong outcome. The procedures exist to enforce sequence.
 - **Bypassing the MCP layer with raw HTTP.** Every `eacn3_*` tool wraps transport, auth, session bookkeeping, and FSM validation. Direct calls to `/api/...` 404 or fail auth. If the operation has no MCP tool, the operation is not available — say so rather than improvise.
-- **Confusing EACN3 with the host runtime.** EACN3 only knows Servers, Agents, Domains, Credits, and Reputation. Projects, the Scratchpad, role boundaries, workspace files — those concepts belong to MinionsOS, not the network. Don't expect the network to enforce host-side rules.
+- **Confusing EACN3 with the host runtime.** EACN3 only knows Servers, Agents, Domains, Credits, and Reputation. Projects, the Draft, role boundaries, workspace files — those concepts belong to MinionsOS, not the network. Don't expect the network to enforce host-side rules.
 - **Picking domains too broadly.** `"coding"` matches more broadcasts than `"python-coding"` but the precision drops sharply. The network is designed for specificity; using broad domains floods your queue with irrelevant work.
 - **Loading every procedure file at once.** This entry routes; the procedures carry the detail. Loading all twelve defeats the layered design and burns context on tools you will not call.

@@ -1,4 +1,4 @@
-"""Unit tests for library hot-cache wake-up injection."""
+"""Unit tests for book hot-cache wake-up injection."""
 
 from __future__ import annotations
 
@@ -16,15 +16,15 @@ def hot_cache_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[
     port = 41234
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
     monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path))
-    library = tmp_path / f"project_{port}" / "branches" / "shared" / "library"
-    library.mkdir(parents=True)
-    return port, library
+    book_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "book"
+    book_dir.mkdir(parents=True)
+    return port, book_dir
 
 
 def test_hot_cache_block_returns_none_when_missing(
     hot_cache_project: tuple[int, Path],
 ) -> None:
-    _port, _library = hot_cache_project
+    _port, _book_dir = hot_cache_project
 
     assert agent_host._hot_cache_block() is None
 
@@ -32,8 +32,8 @@ def test_hot_cache_block_returns_none_when_missing(
 def test_hot_cache_block_returns_none_when_empty(
     hot_cache_project: tuple[int, Path],
 ) -> None:
-    _port, library = hot_cache_project
-    (library / "hot.md").write_text(" \n\t\n", encoding="utf-8")
+    _port, book_dir = hot_cache_project
+    (book_dir / "hot.md").write_text(" \n\t\n", encoding="utf-8")
 
     assert agent_host._hot_cache_block() is None
 
@@ -41,9 +41,9 @@ def test_hot_cache_block_returns_none_when_empty(
 def test_hot_cache_block_includes_non_empty_content_verbatim(
     hot_cache_project: tuple[int, Path],
 ) -> None:
-    _port, library = hot_cache_project
+    _port, book_dir = hot_cache_project
     content = "Current focus: transformer ablation.\nNext: verify runs.\n"
-    (library / "hot.md").write_text(content, encoding="utf-8")
+    (book_dir / "hot.md").write_text(content, encoding="utf-8")
 
     block = agent_host._hot_cache_block()
 
@@ -56,9 +56,9 @@ def test_hot_cache_block_includes_non_empty_content_verbatim(
 def test_hot_cache_block_truncates_above_four_kb(
     hot_cache_project: tuple[int, Path],
 ) -> None:
-    _port, library = hot_cache_project
+    _port, book_dir = hot_cache_project
     content = "x" * (agent_host.HOT_CACHE_BYTE_LIMIT + 25)
-    (library / "hot.md").write_text(content, encoding="utf-8")
+    (book_dir / "hot.md").write_text(content, encoding="utf-8")
 
     block = agent_host._hot_cache_block()
 
@@ -72,20 +72,20 @@ def test_hot_cache_block_returns_none_on_unicode_decode_error(
     hot_cache_project: tuple[int, Path],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    _port, library = hot_cache_project
-    (library / "hot.md").write_bytes(b"\xff\xfe\xfa")
+    _port, book_dir = hot_cache_project
+    (book_dir / "hot.md").write_bytes(b"\xff\xfe\xfa")
 
     with caplog.at_level(logging.WARNING, logger=agent_host.logger.name):
         assert agent_host._hot_cache_block() is None
 
-    assert "failed to read library hot cache" in caplog.text
+    assert "failed to read book hot cache" in caplog.text
 
 
 def test_forever_loop_prompt_includes_hot_cache_when_available(
     hot_cache_project: tuple[int, Path],
 ) -> None:
-    _port, library = hot_cache_project
-    (library / "hot.md").write_text("Hot fact: pending reviewer handoff.\n", encoding="utf-8")
+    _port, book_dir = hot_cache_project
+    (book_dir / "hot.md").write_text("Hot fact: pending reviewer handoff.\n", encoding="utf-8")
 
     prompt = build_forever_loop_prompt(role_name="coder")
 
@@ -97,7 +97,7 @@ def test_forever_loop_prompt_unchanged_when_hot_cache_absent(
     hot_cache_project: tuple[int, Path],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    port, _library = hot_cache_project
+    port, _book = hot_cache_project
     baseline = build_forever_loop_prompt(role_name="coder", port=port)
 
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))

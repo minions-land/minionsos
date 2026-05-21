@@ -56,4 +56,4 @@ eacn3_create_task({
 
 ## Tool reference
 
-For full per-tool detail (parameters, preconditions, side effects, return shape), open `references/04-agent-discovery-tools.md`.
+Per-tool parameters, preconditions, side effects, and return shapes are carried by the live `mcp__eacn3__*` tool descriptions that the MCP server injects into the model's tool schema at session startup. Read those rather than a duplicate markdown copy — local copies drift the moment the MCP server adds, renames, or reshapes a tool.

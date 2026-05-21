@@ -119,8 +119,8 @@ with `eacn3_send_message`.
 Files, logs, and the human conversation are not communication channels.
 They may store context or artifacts, but if another Role needs to know or
 act, send an EACN message or task. Cross-cycle memory for Gru itself goes
-through the Scratchpad (`mos_scratchpad_append` / `mos_scratchpad_summary` /
-`mos_scratchpad_query`), checkpointed before any `mos_compact_context` (preferred)
+through the Draft (`mos_draft_append` / `mos_draft_summary` /
+`mos_draft_query`), checkpointed before any `mos_compact_context` (preferred)
 or `mos_reset_context`.
 
 ### Cold-start broadcast (run once per project, on first contact)

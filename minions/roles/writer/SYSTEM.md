@@ -80,7 +80,7 @@ These rules apply to every section, every figure, every commit. Sub-skills enfor
 4. **Don't compile the PDF unless explicitly asked.** Edit `.tex`; the user runs `latexmk`. QA-readiness check is the only exception.
 5. **Cross-section propagation on every fix.** A correction in one location must propagate to abstract / intro / discussion / capability tables / every appendix. Coexistence of corrected and uncorrected wording is Major-Revision-class.
 6. **Generic anything is fluff.** No "Common Development Tasks" / "Tips for Development" filler, no "we propose a novel framework that…", no lettered enumerations `(a)…(b)…(c)…` in body prose, no single-line contribution bullets.
-7. **Names bind method to object.** Not "Memory" but "Tri-Layer Memory (Scratchpad/Library/Atlas)". A name that does not bind a method is a renaming opportunity; rename, then propagate per rule 5.
+7. **Names bind method to object.** Not "Memory" but "Tri-Layer Memory (Draft/Book/Shelf)". A name that does not bind a method is a renaming opportunity; rename, then propagate per rule 5.
 
 When a quality issue is caught, open the relevant sub-skill: `claim-honesty-grading.md`, `submission-cleanup-audit.md`, `derivation-hygiene.md`, `insight-first-paragraph.md`, `venue-reformat-workflow.md`, `prl-letter-format.md`, or `hero-figure-prompt.md`.
 

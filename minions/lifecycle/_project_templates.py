@@ -57,10 +57,10 @@ def render_project_claude_md(
         "- Cross-role artefacts (Ethics reports, Experimenter result bundles, "
         "Noter notes, free-form handoffs) go to `branches/shared/<subdir>/` via "
         "`mos_publish_to_shared`. Each role may only publish into its allowed "
-        "subdirs (see role boundary text). The Scratchpad (L1) at "
-        "`branches/shared/scratchpad/scratchpad.json` is updated in place by "
-        "`mos_scratchpad_append`/`mos_scratchpad_annotate` and committed by "
-        "Noter on a periodic cron via `mos_scratchpad_commit_shared`."
+        "subdirs (see role boundary text). The Draft (L1) at "
+        "`branches/shared/draft/draft.json` is updated in place by "
+        "`mos_draft_append`/`mos_draft_annotate` and committed by "
+        "Noter on a periodic cron via `mos_draft_commit_shared`."
     )
     lines.append(
         "- The review surface `branches/shared/reviews/round-<n>/` is reserved "

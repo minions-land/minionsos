@@ -62,7 +62,7 @@ def _now_iso() -> str:
 def _resolve_time_trigger_interval(role_name: str, interval: str | None) -> str | None:
     """Resolve optional periodic wakeups for a role.
 
-    Noter gets a default cadence because periodic Scratchpad flushes are part
+    Noter gets a default cadence because periodic Draft flushes are part
     of its core contract. Report publication is throttled separately by
     ``noter_report_interval``. Other roles remain event-driven unless
     explicitly configured. The cadence is recorded on the ``RoleEntry`` for
@@ -104,27 +104,27 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "roles' branches directly; ask the owning role through EACN instead. "
         "Cross-role artefacts go to `branches/shared/<subdir>/` via "
         "`mos_publish_to_shared` — Gru may publish into any subdir.\n"
-        "Cross-cycle memory: use the Scratchpad (`mos_scratchpad_append` / "
-        "`mos_scratchpad_summary` / `mos_scratchpad_query`) — Noter flushes "
+        "Cross-cycle memory: use the Draft (`mos_draft_append` / "
+        "`mos_draft_summary` / `mos_draft_query`) — Noter flushes "
         "it to the shared branch on its periodic wake.\n"
     ),
     "noter": (
-        "[Role boundary: observer — Scratchpad curator, NOT on EACN3]\n"
+        "[Role boundary: observer — Draft curator, NOT on EACN3]\n"
         "You wake on a periodic timer (`mos_noter_wait`, default 5m) "
-        "to (a) flush the buffered Scratchpad via "
-        "`mos_scratchpad_commit_shared` and (b) consider whether a fresh "
+        "to (a) flush the buffered Draft via "
+        "`mos_draft_commit_shared` and (b) consider whether a fresh "
         "staged report is due (target cadence `noter_report_interval`, "
         "default 30m). You observe the project by reading `events/*.jsonl` "
         "and `branches/shared/` — you do NOT have EACN3 tools and are not "
         "registered on the network.\n"
         "Write boundaries: your drafts go in your branch `branches/noter/`; "
         "publish to `branches/shared/notes/<file>.md` via "
-        "`mos_publish_to_shared`. The Scratchpad itself lives at "
-        "`branches/shared/scratchpad/scratchpad.json` and is flushed by "
+        "`mos_publish_to_shared`. The Draft itself lives at "
+        "`branches/shared/draft/draft.json` and is flushed by "
         "you.\n"
         "Do NOT write to any other role's `branches/<role>/` directory. Do "
         "NOT publish into any shared subdir other than `notes/`, "
-        "`scratchpad/`, `library/`, or `handoffs/`.\n"
+        "`draft/`, `book/`, or `handoffs/`.\n"
     ),
     "coder": (
         "[Role boundary: EACN-visible agent]\n"
@@ -138,8 +138,8 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "MinionsOS repository runtime code only when Gru or the author "
         "explicitly assigns that implementation work through EACN and names the "
         "scope, allowed paths, and verification target.\n"
-        "Cross-cycle memory: use the Scratchpad (`mos_scratchpad_append` / "
-        "`mos_scratchpad_summary` / `mos_scratchpad_query`).\n"
+        "Cross-cycle memory: use the Draft (`mos_draft_append` / "
+        "`mos_draft_summary` / `mos_draft_query`).\n"
     ),
     "writer": (
         "[Role boundary: EACN-visible agent]\n"
@@ -151,8 +151,8 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "`branches/writer/paper/`). Publish cross-role handoffs (e.g. a "
         "submission package for review) to `branches/shared/handoffs/` via "
         "`mos_publish_to_shared`.\n"
-        "Cross-cycle memory: use the Scratchpad (`mos_scratchpad_append` / "
-        "`mos_scratchpad_summary` / `mos_scratchpad_query`).\n"
+        "Cross-cycle memory: use the Draft (`mos_draft_append` / "
+        "`mos_draft_summary` / `mos_draft_query`).\n"
     ),
     "ethics": (
         "[Role boundary: EACN-visible agent — continuous evidence validation]\n"
@@ -167,8 +167,8 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "`adjudication-<task-id>.md`) via `mos_publish_to_shared`. Do NOT "
         "publish into `branches/shared/reviews/` — that surface is reserved "
         "for `mos_review_run`.\n"
-        "Cross-cycle memory: use the Scratchpad (`mos_scratchpad_append` / "
-        "`mos_scratchpad_summary` / `mos_scratchpad_query`).\n"
+        "Cross-cycle memory: use the Draft (`mos_draft_append` / "
+        "`mos_draft_summary` / `mos_draft_query`).\n"
     ),
     "expert": (
         "[Role boundary: EACN-visible agent]\n"
@@ -177,8 +177,8 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "Write boundaries: your branch `branches/<expert>/` (sparingly, scientific "
         "scratch only). Publish cross-role handoffs to "
         "`branches/shared/handoffs/` via `mos_publish_to_shared`.\n"
-        "Cross-cycle memory: use the Scratchpad (`mos_scratchpad_append` / "
-        "`mos_scratchpad_summary` / `mos_scratchpad_query`).\n"
+        "Cross-cycle memory: use the Draft (`mos_draft_append` / "
+        "`mos_draft_summary` / `mos_draft_query`).\n"
     ),
 }
 
@@ -244,7 +244,7 @@ def register_expert(
     init_brief: str | None = None,
     store: StateStore | None = None,
     time_trigger_interval: str | None = None,
-    skill_node: str | None = None,
+    workflow_plugin: str | None = None,
 ) -> dict[str, object]:
     """Register an expert role for event-driven invocation."""
     slug = slugify(domain)
@@ -258,7 +258,7 @@ def register_expert(
         init_brief=brief,
         store=store or StateStore(),
         time_trigger_interval=time_trigger_interval,
-        skill_node_slug=skill_node,
+        workflow_plugin_slug=workflow_plugin,
     )
 
 
@@ -268,7 +268,7 @@ def _do_register(
     init_brief: str | None,
     store: StateStore,
     time_trigger_interval: str | None,
-    skill_node_slug: str | None = None,
+    workflow_plugin_slug: str | None = None,
 ) -> dict[str, object]:
     entry = store.get_project(project_port)
     if entry is None:
@@ -362,7 +362,7 @@ def _do_register(
         workspace_branch=workspace_branch,
         github_push_target=getattr(entry, "github_push_target", None),
         time_trigger_interval=resolved_time_trigger,
-        skill_node_slug=skill_node_slug,
+        workflow_plugin_slug=workflow_plugin_slug,
         eacn_agent_id=resolve_agent_id(project_port, role_name),
         eacn_agent_token=agent_token,
         eacn_registered_at=now,

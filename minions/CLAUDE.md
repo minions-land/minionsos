@@ -38,7 +38,7 @@ minions/
 │   ├── personas/            # short reviewer stance files
 │   └── templates/           # aspect-note / reviewer-instance / fresh / revision_delta / consolidated / summary / submission-checklist
 ├── domains/                 # Expert domain-pack assets (not Python)
-├── hooks/                   # post_compact_scratchpad.py, pre_compact_science.py
+├── hooks/                   # post_compact_draft.py, pre_compact_science.py
 ├── config/
 │   ├── gru.yaml.example
 │   └── experiment_targets.yaml.example
@@ -58,7 +58,7 @@ event loop by calling `mos_await_events` on their EACN3 queue; Noter uses
 - `minions/lifecycle/project.py` also exposes `mos_project_checkpoint_workspace(...)` for durable local commits and optional GitHub push when `github_push_target` is configured.
 - `minions/lifecycle/agent_host.py` is the only place that should know Claude Code CLI invocation details.
 - `minions/gru/loop.py` runs the Gru heartbeat monitor and experiment queue reconciliation.
-- Role `SYSTEM.md` files must not describe a polling loop. Shared role/subagent/scratchpad/EACN behavior lives in `minions/roles/SYSTEM.md`; review output formats live under `minions/review/templates/`.
+- Role `SYSTEM.md` files must not describe a polling loop. Shared role/subagent/draft/EACN behavior lives in `minions/roles/SYSTEM.md`; review output formats live under `minions/review/templates/`.
 
 Key design points:
 
@@ -71,7 +71,7 @@ Key design points:
 
 ## How to add a new Role template
 
-1. Create `minions/roles/{role}/SYSTEM.md`. Keep it lean: identity and scope, can do, cannot do, workspace constraints, collaboration rules, and role-specific deviations from the common contract. Do **not** redeclare the polling loop, generic subagent handoff rules, or scratchpad rules — those live in `minions/roles/SYSTEM.md`.
+1. Create `minions/roles/{role}/SYSTEM.md`. Keep it lean: identity and scope, can do, cannot do, workspace constraints, collaboration rules, and role-specific deviations from the common contract. Do **not** redeclare the polling loop, generic subagent handoff rules, or draft rules — those live in `minions/roles/SYSTEM.md`.
 2. Update `minions/config/__init__.py` `_WHITELIST` to add `main` and `subagent` entries for the new role.
 3. Add a row to the tool/write boundary table in root `CLAUDE.md`.
 4. If the new role registers via `mos_spawn_role`, add its name to `FIXED_ROLES` in `minions/lifecycle/role.py`.

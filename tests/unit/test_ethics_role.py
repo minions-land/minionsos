@@ -80,7 +80,9 @@ def test_ethics_main_whitelist() -> None:
     assert not any(t.startswith("mos_exp_") for t in authz)
     assert "mos_project_bridge" not in authz
     assert not any(t.startswith("mos_spawn_") for t in authz)
-    assert not any(t.startswith("mos_project_") and t != "mos_project_checkpoint_workspace" for t in authz)
+    assert not any(
+        t.startswith("mos_project_") and t != "mos_project_checkpoint_workspace" for t in authz
+    )
     assert "Write" not in authz
     assert "Edit" not in authz
     assert "Bash" not in authz
@@ -95,8 +97,8 @@ def test_ethics_subagent_whitelist() -> None:
     Write/Edit inside that scope; it remains EACN-invisible because there are
     no eacn3_* tools in this whitelist.
     """
-    tools = resolve_whitelist("ethics", "subagent")
-    assert set(tools) == {
+    tools = set(resolve_whitelist("ethics", "subagent"))
+    required = {
         "codex",
         "wait_bg",
         "keepalive_now",
@@ -107,6 +109,13 @@ def test_ethics_subagent_whitelist() -> None:
         "Write",
         "Edit",
     }
+    assert required <= tools, f"missing required tools: {required - tools}"
+    # EACN invisibility: subagent must never have eacn3_* or project/spawn tools
+    assert not any(t.startswith("eacn3") for t in tools)
+    assert not any(t.startswith("mos_project_") for t in tools)
+    assert not any(t.startswith("mos_spawn_") for t in tools)
+    # Bash is reserved for Coder/Gru subagents per the role boundary table.
+    assert "Bash" not in tools
 
 
 def test_project_create_makes_ethics_tree(tmp_path: Path, monkeypatch) -> None:

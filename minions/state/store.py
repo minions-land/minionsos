@@ -59,7 +59,7 @@ class RoleEntry(BaseModel):
     current_task: str | None = None
     blocked_reason: str | None = None
     time_trigger_interval: str | None = None
-    skill_node_slug: str | None = None
+    workflow_plugin_slug: str | None = None
     artifact_pointers: list[str] = Field(default_factory=list)
 
 

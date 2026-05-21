@@ -81,7 +81,5 @@ minions-viz-v2/.vite/
 # Stray dev log
 output.log
 
-# Local cleanup holding area
-other/generated/
-other/local/
-other/caches/
+# Local cleanup holding area (reference materials, not MinionsOS source)
+other/

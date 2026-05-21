@@ -144,8 +144,8 @@ mechanism:
   compounding cost exceeds the subagent dispatch overhead within ~30
   turns.
 - Non-destructive EACN3 reads (`eacn3_get_*`, `eacn3_list_*`,
-  `eacn3_get_messages`) and Scratchpad queries (`mos_scratchpad_summary`,
-  `mos_scratchpad_query`). These return compact structured summaries by
+  `eacn3_get_messages`) and Draft queries (`mos_draft_summary`,
+  `mos_draft_query`). These return compact structured summaries by
   design; they are the cache-friendly way to learn project state.
 - Short acknowledgement DMs and "received, will handle" replies via
   `eacn3_send_message`. These must be under ~30 words and carry no
@@ -268,7 +268,7 @@ cache stays warm (no cold start penalty). Use when context is large but
 the process is healthy and your role contract has not drifted.
 
 Call `mos_compact_context(reason=..., pending_plans=[...])`. It persists
-pending plans to the Scratchpad and schedules `/compact`. After calling it,
+pending plans to the Draft and schedules `/compact`. After calling it,
 STOP immediately — produce no more tool calls or text. You wake up in a
 compressed context. Your first action should be `mos_await_events()`.
 
@@ -287,34 +287,34 @@ tokens on cold start. Use only when:
 Before either option, follow the `cognitive-checkpoint` skill: persist
 completed work and mark pending plans with `metadata.pending_plan = true`
 so the post-compact or post-reset process surfaces them through
-`mos_scratchpad_summary()`.
+`mos_draft_summary()`.
 
-## Scratchpad — team cognitive memory (L1)
+## Draft — team cognitive memory (L1)
 
-The project maintains a shared Scratchpad at
-`project_{port}/branches/shared/scratchpad/scratchpad.json`. This is the team's
+The project maintains a shared Draft at
+`project_{port}/branches/shared/draft/draft.json`. This is the team's
 structural truth layer — it records what the team has discovered, what failed,
 what is tentative, and what is verified. It is NOT a communication channel
-(that is EACN) and NOT personal memory. Cross-cycle memory is the Scratchpad
-(`mos_scratchpad_append` / `mos_scratchpad_summary` / `mos_scratchpad_query`);
-Noter flushes the buffered Scratchpad to the shared branch on its periodic wake.
+(that is EACN) and NOT personal memory. Cross-cycle memory is the Draft
+(`mos_draft_append` / `mos_draft_summary` / `mos_draft_query`);
+Noter flushes the buffered Draft to the shared branch on its periodic wake.
 
-### Reading the Scratchpad
+### Reading the Draft
 
-When you need team context, call `mos_scratchpad_summary()` for a high-level
-overview or `mos_scratchpad_query()` with filters (type, status, author_role,
+When you need team context, call `mos_draft_summary()` for a high-level
+overview or `mos_draft_query()` with filters (type, status, author_role,
 related_to) for specific subgraphs. Do this early in your work to avoid
 re-exploring dead ends or duplicating existing hypotheses.
 
-### Writing to the Scratchpad
+### Writing to the Draft
 
 When you produce a meaningful cognitive result — a new hypothesis, an experiment
 outcome, a verified citation, a dead end, a decision — persist it with
-`mos_scratchpad_append`. Update existing nodes with `mos_scratchpad_annotate`
+`mos_draft_append`. Update existing nodes with `mos_draft_annotate`
 when evidence changes their status.
 
 Rules:
-- Each role writes its own discoveries. Noter maintains the Scratchpad's global
+- Each role writes its own discoveries. Noter maintains the Draft's global
   health but does not write content on behalf of other roles.
 - New nodes start as `unverified`. Only annotate to `verified` when you have
   a concrete evidence_tag pointing to a receipt or artifact.
@@ -325,7 +325,7 @@ Rules:
 
 ### Lifecycle
 
-1. **Orient**: call `mos_scratchpad_summary()` to understand team state. Inspect
+1. **Orient**: call `mos_draft_summary()` to understand team state. Inspect
    `pending_plans`: those are events your previous self had received but
    judged unrelated to its context — it persisted them and reset so a
    fresh process could handle them. They are **already dequeued from
@@ -336,7 +336,7 @@ Rules:
    `branches/<your-role>/plans/<your-role>-*.md`
    and find any with frontmatter `status: active`. These are multi-step
    plans your past self (or a previous process under your role) wrote
-   via think-then-act and did not finish. They are distinct from Scratchpad
+   via think-then-act and did not finish. They are distinct from Draft
    `pending_plans` — those are deferred single events, these are your
    own structured roadmaps. Resume the oldest active plan's next pending
    step before designing new work; only re-enter think-then-act when no
@@ -346,7 +346,7 @@ Rules:
    `branches/<your-role>/plans/archive/`.
 2. **Drain pending_plans first**: for each pending_plan node, do the
    planned work (Plan → Dispatch → Verify → emit any EACN response), then
-   `mos_scratchpad_annotate` the node so it stops surfacing.
+   `mos_draft_annotate` the node so it stops surfacing.
 3. **Receive**: call `mos_await_events()` to get a new batch.
 4. **Think-then-act on the batch — split before executing.** Do not act
    on the whole batch indiscriminately. For each event, classify it:
@@ -361,7 +361,7 @@ Rules:
      Stay in the same context. If context grows large enough to trigger the
      host's native compact, that is fine — it is a safety net, not a failure.
    - **Unrelated events present** → invoke `cognitive-checkpoint`:
-     persist completed work to the Scratchpad, AND persist each unrelated
+     persist completed work to the Draft, AND persist each unrelated
      event as a `pending_plan` node (`metadata.pending_plan = true`). The
      unrelated events are NOT executed in this process — they are
      handed off to the post-handoff process. Then exit the current

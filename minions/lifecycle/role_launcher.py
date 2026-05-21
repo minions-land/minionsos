@@ -116,7 +116,7 @@ def launch_role_process(
     typically costs hundreds of thousands of tokens. Pass ``resume=True``
     only for explicit operator debugging; ``project_revive`` and the
     crash-watchdog respawn path both pass ``resume=False`` so Roles cold-
-    start and rebuild context from the Scratchpad (L1) instead.
+    start and rebuild context from the Draft (L1) instead.
 
     Returns a small status dict with ``session_name``, ``cwd``,
     ``log_path``, ``attach_cmd``, ``started`` (True if a fresh session was
@@ -153,22 +153,22 @@ def launch_role_process(
     log_path = project_role_log(project_port, role_name)
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Skill-node injection: if this role has an associated skill node,
+    # Workflow-plugin injection: if this role has an associated workflow plugin,
     # generate a per-instance MCP config, resolve extra tools, and inject
     # skills into the workspace.
     mcp_config_path: Path | None = None
     extra_allowed: str = ""
     extra_domain_md: Path | None = None
 
-    if role_entry.skill_node_slug:
-        from minions.lifecycle.skill_nodes import (
+    if role_entry.workflow_plugin_slug:
+        from minions.lifecycle.workflow_plugins import (
             generate_instance_mcp_config,
             inject_skills_to_workspace,
             load_manifest,
             resolve_extra_allowed_tools,
         )
 
-        manifest = load_manifest(role_entry.skill_node_slug)
+        manifest = load_manifest(role_entry.workflow_plugin_slug)
         session = session_name(project_port, role_name)
         mcp_config_path = generate_instance_mcp_config(
             MINIONS_ROOT / ".mcp.json", manifest, session

@@ -5,7 +5,7 @@ Per-project graphify (Atlas — L3 structural index) for MinionsOS.
 ## Purpose
 
 Bottom-up structural index over a project's `branches/shared/{library,notes,ethics,exp}/`
-artifacts. Complements the Scratchpad (L1 — process memory) and the
+artifacts. Complements the Draft (L1 — process memory) and the
 Library (L2 — compiled product memory) by giving every Role a queryable
 graph of cross-document relationships, god-nodes, and communities.
 

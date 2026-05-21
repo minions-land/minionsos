@@ -50,13 +50,13 @@ def issue_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
 
 def _make_args(**overrides: object) -> IssueReportArgs:
     base = {
-        "title": "mos_scratchpad_append rejects valid edges",
+        "title": "mos_draft_append rejects valid edges",
         "severity": "P1",
         "component": "tool",
         "summary": (
-            "Calling mos_scratchpad_append with a hypothesis->experiment edge raises ValidationError."
+            "Calling mos_draft_append with a hypothesis->experiment edge raises ValidationError."
         ),
-        "steps_to_reproduce": ["call mos_scratchpad_append with edges=[{...}]"],
+        "steps_to_reproduce": ["call mos_draft_append with edges=[{...}]"],
         "expected": "edge appended",
         "actual": "ValidationError raised",
         "evidence": ["project_9001/logs/role-coder.log:142"],

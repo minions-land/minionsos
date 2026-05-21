@@ -44,3 +44,21 @@ End-to-end audit is `mos_visual_check`. Use the two-step path when reusing rende
 - **Single-column papers fail the `auto` heuristic for column-void**; pass `kind="figure"` explicitly when inspecting a single-column draft, or `kind="layout"` to force layout-mode regardless.
 - **Don't store rendered images in `branches/<role>/`.** Page PNGs are large and ephemeral; keep them under `state/` or the project tmp dir, only commit the JSON report.
 - **`mos_visual_*` tools never edit the PDF or source.** Fixes go through Writer / Coder using their existing workflows; this skill produces evidence, not patches.
+
+## Required coverage (R-future-5 lessons-learned)
+
+A bbox-overlap-only audit on `ax.texts` is **not sufficient**. R-future-5 saw a "0 defects" report on a figure that visibly had a global title crashing into panel A's subtitle and panel C items overflowing their boxes. The audit must inspect every text-bearing element class:
+
+| Coverage row | Source | What it catches |
+|---|---|---|
+| 1. `ax.texts` | per-axes | in-panel annotations (the only thing simple audits check) |
+| 2. `ax.title`, `ax.xaxis.label`, `ax.yaxis.label` | per-axes | titles + axis labels (often longer than expected) |
+| 3. `ax.get_xticklabels()` + `ax.get_yticklabels()` | per-axes | tick labels (long compartment names cross neighboring panels) |
+| 4. `fig.texts` | figure-level | global title/subtitle blocks (R-future-5 main miss; `fig.text(...)` does NOT show up in `ax.texts`) |
+| 5. inter-panel collision | every text from panel A vs every other panel's `get_window_extent()` | text from one panel bleeding into another |
+| 6. text-over-image | every text vs every `ax.images[*].get_window_extent()` | wet-lab raster covered by stray annotation |
+| 7. log-axis tick auto-extension | check `ax.get_xticks()` after `ax.set_xscale('log')` | matplotlib quietly adds 10^N ticks past `xlim`; pin with `FixedLocator` |
+
+A "clean" audit must show empty defect lists across **all seven rows**. Reporting clean on rows 1+2 alone is the failure mode that masked R-future-5.
+
+For local mos-tool-equivalent development (no MCP server available), implement these checks via matplotlib introspection. Reference implementation lives at `/Users/mjm/ZheMa Proposal/example001/visual_audit.py`. The `mos_visual_*` detectors implement the same coverage on rasterized pages via OpenCV.

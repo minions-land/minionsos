@@ -81,23 +81,23 @@ def mos_spawn_expert(args: SpawnExpertArgs) -> dict:
         name=args.name,
         init_brief=args.init_brief,
         time_trigger_interval=args.time_trigger_interval,
-        skill_node=args.skill_node,
+        workflow_plugin=args.workflow_plugin,
     )
 
 
 @mcp.tool()
-def mos_list_skill_nodes() -> dict:
-    """List available skill nodes under ``skill-nodes/``.
+def mos_list_workflow_plugins() -> dict:
+    """List available workflow plugins under ``workflow-plugins/``.
 
-    Returns a list of registered skill node manifests with their slug,
+    Returns a list of registered workflow plugin manifests with their slug,
     name, description, and capability summary. Gru uses this to discover
     what external workflows are available for spawning as Expert instances.
     """
-    _require_tool_allowed("mos_list_skill_nodes")
-    from minions.lifecycle.skill_nodes import list_available
+    _require_tool_allowed("mos_list_workflow_plugins")
+    from minions.lifecycle.workflow_plugins import list_available
 
-    nodes = list_available()
-    return {"skill_nodes": nodes, "count": len(nodes)}
+    plugins = list_available()
+    return {"workflow_plugins": plugins, "count": len(plugins)}
 
 
 @mcp.tool()

@@ -10,7 +10,7 @@ minions/tools/mcp/                 # package; each submodule registers its @mcp.
 ├── __init__.py                    # owns the FastMCP singleton; imports every submodule for side effects
 ├── _common.py                     # _MINIONS_MCP_TOOL_NAMES, _require_tool_allowed, shared arg models
 ├── experiment_tools.py            # mos_exp_* / exp_queue_* / exp_gpu_pool_*
-├── memory_tools.py                # mos_scratchpad_*, mos_atlas_*, mos_library_*
+├── memory_tools.py                # mos_draft_*, mos_atlas_*, mos_book_*
 ├── paper_tools.py                 # search_arxiv / search_pubmed / read_*_paper / download_*
 ├── project_tools.py               # mos_project_create / close / dormant / revive / kill / list / set_phase
 ├── publish_tools.py               # mos_publish_to_shared
@@ -24,8 +24,8 @@ minions/tools/                     # sibling implementation modules the MCP subm
 ├── experiment_scheduler.py        # SQLite experiment queue
 ├── paper_search.py                # backs paper_tools.py
 ├── await_events.py                # mos_await_events handler
-├── scratchpad.py                  # backs memory_tools.py (scratchpad portion)
-├── library.py                     # backs memory_tools.py (library portion)
+├── draft.py                  # backs memory_tools.py (draft portion)
+├── book.py                        # backs memory_tools.py (book portion)
 ├── atlas.py                       # backs memory_tools.py (atlas portion)
 ├── project_bridge.py              # mos_project_bridge
 ├── reset.py                       # mos_reset_context
@@ -74,14 +74,14 @@ See `minions/tools/mcp/_common.py:_MINIONS_MCP_TOOL_NAMES` for the authoritative
 
 - **Project lifecycle**: `mos_project_create`, `mos_project_close`, `mos_project_kill`, `mos_project_dormant`, `mos_project_revive`, `mos_project_list`, `mos_project_set_phase`, `mos_project_checkpoint_workspace`, `mos_project_bridge`.
 - **Role lifecycle**: `mos_spawn_role`, `mos_spawn_expert`, `mos_dismiss_role`, `mos_list_roles`, `mos_kill_role`, `mos_attach_role`.
-- **Cross-role IO**: `mos_publish_to_shared`, `mos_scratchpad_*`, `mos_library_ingest`, `mos_library_query`, `mos_library_hot_get`, `mos_library_hot_update`, `mos_library_lint`, `mos_atlas_query`, `mos_atlas_register`, `mos_atlas_shared_concepts`.
+- **Cross-role IO**: `mos_publish_to_shared`, `mos_draft_*`, `mos_book_ingest`, `mos_book_query`, `mos_book_hot_get`, `mos_book_hot_update`, `mos_book_lint`, `mos_atlas_query`, `mos_atlas_register`, `mos_atlas_shared_concepts`.
 - **Event loop**: `mos_await_events`, `mos_noter_wait`, `mos_get_events`, `mos_unread_summary`, `mos_reset_context`, `mos_compact_context`.
 - **Review**: `mos_review_run`.
 - **Experiments**: `mos_exp_run`, `mos_exp_status`, `mos_exp_wait`, `mos_exp_kill`, `mos_exp_list`, `mos_exp_put`, `mos_exp_get`, `mos_exp_tail`, `mos_query_gpus`, `mos_exp_queue_*`, `mos_exp_gpu_pool_*`.
 - **Paper search**: `mos_search_arxiv`, `mos_search_pubmed`, `mos_search_biorxiv`, `mos_search_medrxiv`, `mos_search_google_scholar`, `mos_search_semantic`, `mos_search_papers_federated`, `mos_resolve_arxiv_ids`, `mos_read_*_paper`, `mos_download_*`.
 - **Visual format-check**: `mos_visual_render`, `mos_visual_inspect`, `mos_visual_check` — Poppler rasterize + pixel-level defect detection (column void, edge overflow, trailing whitespace, column imbalance, float clustering, short lines). Available to all EACN-visible roles; denied to Noter.
 - **Signboard**: `mos_signboard_read`, `mos_signboard_set`, `mos_signboard_evaluate`, `mos_signboard_consume`, `mos_signboard_reopen`.
-- **Diagnostics**: `mos_issue_report`, `mos_start_monitor`, `mos_list_skill_nodes`.
+- **Diagnostics**: `mos_issue_report`, `mos_start_monitor`, `mos_list_workflow_plugins`.
 
 Access control is two-layered: `minions/config/__init__.py:resolve_whitelist` produces the `--allowed-tools` CLI surface (model-visible), and `minions/config/__init__.py:resolve_server_authz` produces the server-side enforcement set checked by `_require_tool_allowed` in `minions/tools/mcp/_common.py` before each call.
 

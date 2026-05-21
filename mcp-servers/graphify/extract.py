@@ -13,7 +13,7 @@ Usage (from Noter cron, NOT directly):
 
 The script:
   1. Resolves the project workspace from the port + repo root.
-  2. Walks branches/shared/{library,notes,ethics,exp} and feeds each
+  2. Walks branches/shared/{book,notes,ethics,exp} and feeds each
      existing subdir to graphify-extract via a temporary corpus root.
   3. Writes the merged graph.json atomically to
      branches/shared/atlas/atlas.json so a concurrent graphify.serve MCP
@@ -42,7 +42,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-_SHARED_SUBDIRS = ("library", "notes", "ethics", "exp")
+_SHARED_SUBDIRS = ("book", "notes", "ethics", "exp")
 
 _HERE = Path(__file__).resolve().parent
 _REPO_ROOT = _HERE.parent.parent

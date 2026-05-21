@@ -111,21 +111,21 @@ _ISSUE_REPORT_TOOLS = [
     "mos_issue_report",
 ]
 
-# Scratchpad (L1) tools every role uses to inspect/extend the buffered graph.
-# They are explicitly listed (not via the ``mos_scratchpad_*`` glob) because
-# ``mos_scratchpad_commit_shared`` is reserved for Noter/Gru — committing the
-# Scratchpad is a curator action, not a per-role one.
-_SCRATCHPAD_RW_TOOLS = [
-    "mos_scratchpad_annotate",
-    "mos_scratchpad_append",
-    "mos_scratchpad_path",
-    "mos_scratchpad_query",
-    "mos_scratchpad_summary",
+# Draft (L1) tools every role uses to inspect/extend the buffered graph.
+# They are explicitly listed (not via the ``mos_draft_*`` glob) because
+# ``mos_draft_commit_shared`` is reserved for Noter/Gru — committing the
+# Draft is a curator action, not a per-role one.
+_DRAFT_RW_TOOLS = [
+    "mos_draft_annotate",
+    "mos_draft_append",
+    "mos_draft_path",
+    "mos_draft_query",
+    "mos_draft_summary",
 ]
 
-_LIBRARY_READ_TOOLS = [
-    "mos_library_query",
-    "mos_library_hot_get",
+_BOOK_READ_TOOLS = [
+    "mos_book_query",
+    "mos_book_hot_get",
 ]
 
 # Visual format-check tools. Format-agnostic detectors over rendered PDF page
@@ -156,13 +156,13 @@ _GRAPHIFY_READ_TOOLS = [
     "mcp__graphify__shortest_path",
 ]
 
-_ATLAS_GRU_TOOLS = [
-    "mos_atlas_query",
-    "mos_atlas_shared_concepts",
+_SHELF_GRU_TOOLS = [
+    "mos_shelf_query",
+    "mos_shelf_shared_concepts",
 ]
 
-_ATLAS_REGISTER_TOOLS = [
-    "mos_atlas_register",
+_SHELF_REGISTER_TOOLS = [
+    "mos_shelf_register",
 ]
 
 # Maps (role_name, agent_type) → list of allowed tool prefixes / names.
@@ -187,17 +187,19 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     "mos_await_events",
     "mos_get_events",
     "mos_unread_summary",
-    # Scratchpad (full access including commit for Gru/Noter)
-    "mos_scratchpad_*",
-    # Library
-    *_LIBRARY_READ_TOOLS,
-    "mos_library_ingest",
-    "mos_library_lint",
-    "mos_library_hot_update",
+    # Draft (full access including commit for Gru/Noter)
+    "mos_draft_*",
+    # Book
+    *_BOOK_READ_TOOLS,
+    "mos_book_ingest",
+    "mos_book_lint",
+    "mos_book_hot_update",
+    "mos_book_promote_verified",
+    "mos_book_crystallize_session",
     # Graphify read (Atlas primitives)
     *_GRAPHIFY_READ_TOOLS,
     # Atlas (Gru queries only; register is Noter-only)
-    *_ATLAS_GRU_TOOLS,
+    *_SHELF_GRU_TOOLS,
     # Shared branch publish
     "mos_publish_to_shared",
     # Signboard
@@ -224,7 +226,7 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     "mos_kill_role",
     "mos_spawn_role",
     "mos_spawn_expert",
-    "mos_list_skill_nodes",
+    "mos_list_workflow_plugins",
     "mos_dismiss_role",
     "mos_list_roles",
     "mos_review_run",
@@ -274,13 +276,16 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
         "mos_noter_wait",
-        "mos_scratchpad_*",
-        "mos_library_ingest",
-        "mos_library_lint",
-        "mos_library_hot_update",
-        *_LIBRARY_READ_TOOLS,
+        "mos_draft_*",
+        "mos_book_ingest",
+        "mos_book_lint",
+        "mos_book_hot_update",
+        "mos_book_promote_verified",
+        "mos_book_crystallize_session",
+        *_BOOK_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
-        *_ATLAS_REGISTER_TOOLS,
+        *_SHELF_REGISTER_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_reset_context",
@@ -293,6 +298,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
     ("noter", "subagent"): [
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
         "WebSearch",
         "WebFetch",
         "Read",
@@ -304,6 +310,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
         *_CODEX_BRIDGE_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
         "mos_exp_run",
         "mos_exp_status",
         "mos_exp_wait",
@@ -353,6 +360,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
         *_CODEX_BRIDGE_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
         "WebSearch",
         "WebFetch",
         "Read",
@@ -422,10 +430,10 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "eacn3_*",
         "mos_get_events",
         "mos_unread_summary",
-        "mos_scratchpad_*",
-        *_LIBRARY_READ_TOOLS,
+        "mos_draft_*",
+        *_BOOK_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
-        *_ATLAS_GRU_TOOLS,
+        *_SHELF_GRU_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_signboard_set",
@@ -438,7 +446,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_kill_role",
         "mos_spawn_role",
         "mos_spawn_expert",
-        "mos_list_skill_nodes",
+        "mos_list_workflow_plugins",
         "mos_dismiss_role",
         "mos_list_roles",
         "mos_review_run",
@@ -468,13 +476,16 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
         "mos_noter_wait",
-        "mos_scratchpad_*",
-        "mos_library_ingest",
-        "mos_library_lint",
-        "mos_library_hot_update",
-        *_LIBRARY_READ_TOOLS,
+        "mos_draft_*",
+        "mos_book_ingest",
+        "mos_book_lint",
+        "mos_book_hot_update",
+        "mos_book_promote_verified",
+        "mos_book_crystallize_session",
+        *_BOOK_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
-        *_ATLAS_REGISTER_TOOLS,
+        *_SHELF_REGISTER_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_reset_context",
@@ -487,6 +498,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
     ("noter", "subagent"): [
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
         "WebSearch",
         "WebFetch",
         "Read",
@@ -498,8 +510,8 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_ISSUE_REPORT_TOOLS,
         "eacn3_*",
         "mos_await_events",
-        *_SCRATCHPAD_RW_TOOLS,
-        *_LIBRARY_READ_TOOLS,
+        *_DRAFT_RW_TOOLS,
+        *_BOOK_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
@@ -532,6 +544,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
         *_CODEX_BRIDGE_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
         "mos_exp_run",
         "mos_exp_status",
         "mos_exp_wait",
@@ -555,8 +568,8 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_ISSUE_REPORT_TOOLS,
         "eacn3_*",
         "mos_await_events",
-        *_SCRATCHPAD_RW_TOOLS,
-        *_LIBRARY_READ_TOOLS,
+        *_DRAFT_RW_TOOLS,
+        *_BOOK_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
@@ -592,8 +605,8 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_ISSUE_REPORT_TOOLS,
         "eacn3_*",
         "mos_await_events",
-        *_SCRATCHPAD_RW_TOOLS,
-        *_LIBRARY_READ_TOOLS,
+        *_DRAFT_RW_TOOLS,
+        *_BOOK_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
@@ -629,9 +642,9 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_ISSUE_REPORT_TOOLS,
         "eacn3_*",
         "mos_await_events",
-        *_SCRATCHPAD_RW_TOOLS,
-        *_LIBRARY_READ_TOOLS,
-        "mos_library_lint",
+        *_DRAFT_RW_TOOLS,
+        *_BOOK_READ_TOOLS,
+        "mos_book_lint",
         *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
@@ -649,6 +662,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
         *_CODEX_BRIDGE_TOOLS,
+        *_PAPER_SEARCH_TOOLS,
         "WebSearch",
         "WebFetch",
         "Read",
@@ -722,8 +736,8 @@ ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
         "branches/noter/ (drafts)",
         "branches/shared/notes/ (via mos_publish_to_shared)",
         "branches/shared/handoffs/ (via mos_publish_to_shared)",
-        "branches/shared/library/ (via mos_library_ingest + mos_library_hot_update)",
-        "branches/shared/scratchpad/scratchpad.json (via mos_scratchpad_commit_shared)",
+        "branches/shared/book/ (via mos_book_ingest + mos_book_hot_update)",
+        "branches/shared/draft/draft.json (via mos_draft_commit_shared)",
     ],
     "coder": [
         "branches/coder/",
@@ -970,8 +984,8 @@ class GruConfig(BaseModel):
     # as a percentage of the window rather than as an absolute token count. This
     # lets thresholds auto-scale with the underlying model.
     #
-    # NOTE: These are unrelated to the L1 Scratchpad on disk
-    # (``branches/shared/scratchpad/scratchpad.json``). The ``context_*_pct``
+    # NOTE: These are unrelated to the L1 Draft on disk
+    # (``branches/shared/draft/draft.json``). The ``context_*_pct``
     # names refer to the in-process transcript / context window of the
     # agent-host model.
     model_context_window_tokens: int = Field(

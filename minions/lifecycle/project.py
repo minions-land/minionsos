@@ -322,11 +322,11 @@ def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
 def _default_noter_time_trigger_interval() -> str | None:
     """Return Noter's default periodic-wake cadence.
 
-    Noter wakes on this interval to flush the buffered Scratchpad (L1) via
-    ``mos_scratchpad_commit_shared`` and to consider whether a fresh staged
+    Noter wakes on this interval to flush the buffered Draft (L1) via
+    ``mos_draft_commit_shared`` and to consider whether a fresh staged
     report is due (see ``noter_report_interval``). Defaults to ``5m`` so
-    Scratchpad history accumulates with bounded latency without flooding the
-    shared branch with one commit per ``mos_scratchpad_append`` call.
+    Draft history accumulates with bounded latency without flooding the
+    shared branch with one commit per ``mos_draft_append`` call.
     """
     try:
         from minions.config import load_gru_config, parse_duration
@@ -335,6 +335,58 @@ def _default_noter_time_trigger_interval() -> str | None:
         return interval if parse_duration(interval) > 0 else None
     except Exception:
         return "5m"
+
+
+def _migrate_legacy_memory_dirs(port: int) -> None:
+    """Rename legacy memory directories from v11 naming to v12 naming.
+
+    v11: branches/shared/scratchpad/ → v12: branches/shared/draft/
+    v11: branches/shared/library/   → v12: branches/shared/book/
+
+    Runs git mv inside the shared worktree so history is preserved.
+    Idempotent: skips if old dir doesn't exist or new dir already exists.
+    """
+    shared = project_shared_workspace(port)
+    if not shared.exists():
+        return
+    migrations = [
+        ("scratchpad", "draft"),
+        ("library", "book"),
+    ]
+    for old_name, new_name in migrations:
+        old_dir = shared / old_name
+        new_dir = shared / new_name
+        if old_dir.exists() and not new_dir.exists():
+            try:
+                result = subprocess.run(
+                    ["git", "mv", old_name, new_name],
+                    cwd=str(shared),
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if result.returncode == 0:
+                    subprocess.run(
+                        ["git", "commit", "-m", f"migrate: {old_name} → {new_name} (v12 rename)"],
+                        cwd=str(shared),
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    logger.info("migrated %s->%s port=%d", old_name, new_name, port)
+                else:
+                    old_dir.rename(new_dir)
+                    logger.info("renamed %s->%s (non-git) port=%d", old_name, new_name, port)
+            except (subprocess.TimeoutExpired, OSError) as exc:
+                logger.warning(
+                    "migration %s->%s failed port=%d: %s",
+                    old_name,
+                    new_name,
+                    port,
+                    exc,
+                )
+                if old_dir.exists() and not new_dir.exists():
+                    old_dir.rename(new_dir)
 
 
 def _normalise_revived_role(role: RoleEntry) -> RoleEntry:
@@ -1073,7 +1125,7 @@ def _seed_claude_settings(workspace: Path) -> None:
     claude_dir.mkdir(parents=True, exist_ok=True)
     minions_root_str = str(MINIONS_ROOT)
     pre_compact_cmd = f"python3 {minions_root_str}/minions/hooks/pre_compact_science.py"
-    post_compact_cmd = f"python3 {minions_root_str}/minions/hooks/post_compact_scratchpad.py"
+    post_compact_cmd = f"python3 {minions_root_str}/minions/hooks/post_compact_draft.py"
     settings = {
         "hooks": {
             "PreCompact": [
@@ -1691,13 +1743,13 @@ def project_revive(
       project-local EACN AgentCard.
     - Re-launches each Role's long-lived ``claude`` process inside its
       tmux session as a **cold start** (no ``--resume``). Role context is
-      rebuilt from durable artefacts: the Scratchpad (L1), EACN history,
+      rebuilt from durable artefacts: the Draft (L1), EACN history,
       and ``pending_plan`` nodes. We deliberately do NOT pass ``--resume``
       here because resuming a session forces Claude Code to rebuild its
       prompt cache from scratch (cache TTL is reset), which would erase
       the cache-warmth investment of the prior dormant period and re-pay
       hundreds of thousands of input tokens to replay history that is
-      mostly already encoded in the Scratchpad. Cold start + Scratchpad
+      mostly already encoded in the Draft. Cold start + Draft
       read-back is cheaper and matches the dormant→revive semantics
       ("the project restarts; agents reconstruct from durable state").
     - If *external_feedback* is provided, archives it to
@@ -1730,6 +1782,9 @@ def project_revive(
         except BackendError:
             proc.terminate()
             raise
+
+    # Migrate legacy directory names (v11→v12 rename).
+    _migrate_legacy_memory_dirs(port)
 
     # Re-register server with the fresh EACN3 backend (FATAL on failure).
     try:
@@ -1802,8 +1857,8 @@ def project_revive(
     # Re-launch each Role's long-lived claude process as a COLD START
     # (resume=False). Resuming a session would force Claude Code to rebuild
     # its prompt cache from scratch and replay a large conversation history
-    # that is largely redundant with the Scratchpad; cold start lets the
-    # Role do its own pending_plans drain + Scratchpad summary on first
+    # that is largely redundant with the Draft; cold start lets the
+    # Role do its own pending_plans drain + Draft summary on first
     # wake. Failures here are logged but not fatal — the role state is
     # already restored, and the operator can re-run mos role spawn /
     # mos project repair to recover.

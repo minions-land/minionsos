@@ -57,7 +57,7 @@ _KEEPALIVE_EVENT: dict[str, Any] = {
     "suggested_action": (
         "Cache keepalive — no work to do. Reply with a single short ack "
         "(e.g. 'ack') and immediately call mos_await_events() again. Do "
-        "not write to the Scratchpad, do not send EACN messages, do not "
+        "not write to the Draft, do not send EACN messages, do not "
         "invoke any other tool."
     ),
     "suggested_tool": "mos_await_events",

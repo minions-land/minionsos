@@ -28,7 +28,7 @@ export function LibraryView() {
   useEffect(() => {
     if (!gruId || port == null) return;
     setLoading(true);
-    fetch(`/api/mos/project/${port}/library?gru=${gruId}`)
+    fetch(`/api/mos/project/${port}/book?gru=${gruId}`)
       .then((r) => r.json())
       .then((data) => {
         setEntries(data.entries || []);
@@ -208,7 +208,7 @@ export function LibraryView() {
 
 function LibraryGraphCanvas({ graph }: { graph: LibraryGraph }) {
   useEffect(() => {
-    // TODO: D3 force-directed graph; mirror ScratchpadView style.
+    // TODO: D3 force-directed graph; mirror DraftView style.
   }, [graph]);
 
   return (

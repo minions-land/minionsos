@@ -1,6 +1,6 @@
 ---
 name: codex
-description: "Two-tier subagent dispatch. Tier 1 (Haiku alone) for trivial tasks. Tier 2 (Codex GPT-5.5 xhigh as the actor, wrapped in a thin Haiku Agent for first-class subagent plumbing) for everything else — Codex matches Opus 4.7 capability at lower cost than Sonnet, and the Haiku wrapper buys us run_in_background + wait_bg cache keepalive + clean summary. Triggers: /codex, user asks for codex / GPT-5.5 / second opinion / let GPT handle it / delegate this."
+description: "Two-tier subagent dispatch. Tier 1 (Haiku alone) for trivial tasks. Tier 2 (Codex GPT-5.5 xhigh as the actor, wrapped in a thin Haiku Agent for first-class subagent plumbing) for everything else — Codex matches Opus 4.7 capability at lower cost than Sonnet, and the Haiku wrapper buys us run_in_background + wait_bg cache keepalive + clean summary. Triggers: /codex; user asks for codex / GPT-5.5 / second opinion / let GPT handle it / delegate this; ANY Agent dispatch the main session would otherwise route to Sonnet (refactor, multi-file edit, debug, implement-from-spec, code review, deep investigation) — these are Tier 2 by default, NOT Sonnet. Sonnet is only the degraded fallback when codex itself is unreachable."
 ---
 
 # /codex — Two-tier subagent dispatch
@@ -197,10 +197,65 @@ the main agent should do — that is the main agent's call.
 )
 ```
 
+### Step 3-Mini — compact relay for short / read-only tasks
+
+When the task is read-only (analysis, lookup, "report X"), can't plausibly damage state, and the full Step-3 envelope feels heavyweight, use this stripped relay. It still gives you bg + wait_bg + a clean summary, just without the handbook-driven retry choreography. **First-attempt-or-fail**: any error escalates straight to the main agent's fallback decision (Step 5).
+
+```
+Agent(
+  description: "<3-5 word summary>",
+  subagent_type: "general-purpose",
+  model: "haiku",
+  run_in_background: true,
+  prompt: """
+ROLE: mechanical relay to codex MCP. No interpretation, no retries.
+
+STEP 1 — call mcp__codex-subagent__codex with EXACT args:
+  task: "<the user task — VERBATIM>"
+  cwd: "<absolute path>"
+  sandbox: "<read-only | danger-full-access>"
+  reasoning_effort: "xhigh"
+  timeout_seconds: <user-specified or 600>
+
+STEP 2 — report. No commentary.
+
+  IF status == "success" AND exit_code == 0:
+    STATUS: success
+    FILES_CHANGED: <files_changed comma-joined, or "none">
+    COMMANDS_RUN: <commands_run length>
+    TOKENS: input=<tokens.input> output=<tokens.output> cached=<tokens.cached or 0>
+    SUMMARY: <message verbatim, truncate to 4 sentences>
+
+  ELSE:
+    STATUS: codex_error
+    RAW_MESSAGE: <last 600 chars of message>
+    EXIT_CODE: <exit_code>
+    COMMANDS_RUN: <commands_run length>
+
+  End. Do not add anything else.
+""",
+  mode: "auto"
+)
+```
+
+**When to prefer Step 3-Mini over the full Step 3:**
+- Task is read-only (sandbox=read-only) or single-file write with low blast radius.
+- You don't expect the handbook's auto-fixes to help (e.g., already passing `skip_git_check` pre-emptively for non-git cwd).
+- You want minimal main-context cost on a routine dispatch.
+
+**When to use the full Step 3 instead:**
+- Multi-file refactor, multi-command debugging, anything where a transient 5xx retry meaningfully helps.
+- First time hitting a new cwd / new task type — let the handbook catch surprises.
+- Anything in danger-full-access mode that touches >2 files.
+
+---
+
 After the Agent dispatch returns its task_id, follow the wait_bg loop:
 
-1. `wait_bg(deadline_seconds=180, bg_ids=[<agent_task_id>])`
-2. When wait_bg ticks, call `TaskOutput(<agent_task_id>)` to check status.
+1. `wait_bg(deadline_seconds=45, bg_ids=[<agent_task_id>])`
+2. When wait_bg ticks, check `early_exit` field:
+   - If `early_exit=True`: task completed, call `TaskOutput(<agent_task_id>)` and process result.
+   - If `early_exit=False`: call `TaskOutput(<agent_task_id>)` to check progress; loop if still running.
 3. If still running: back to step 1.
 4. If done: parse the structured summary the relay produced. The shape depends on which terminal step the relay hit:
    - **STEP 4 success** — fields starting with `STATUS: success` plus `FILES_CHANGED`, `SUMMARY`, `KEY_FINDINGS`, `RETRIES_USED`, `RETRY_LOG`. Treat the work as done and present results (Step 6).
@@ -283,4 +338,5 @@ In your final user-facing summary, note "codex unavailable (<ROOT_CAUSE>); fell 
 - Include what "done" looks like (tests pass, type-checks clean, file produced, etc.).
 - Mention relevant files if the task is scoped.
 - Include constraints (don't touch X, must be backwards-compatible, etc.).
+- Spell out NON-GOALS explicitly for multi-file tasks — what NOT to touch / build / change. Often more useful than the goal list, because it stops Codex from drifting into "obviously also needed" adjacent work.
 - Keep prompts focused: a precise, well-bounded task finishes faster and more reliably than a vague one.

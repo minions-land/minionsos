@@ -41,6 +41,11 @@
             "type": "command",
             "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/long_subagent_advisor.py\"",
             "timeout": 3
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/agent_route_to_codex.py\"",
+            "timeout": 3
           }
         ]
       },
@@ -95,7 +100,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/post_compact_scratchpad.py\"",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/post_compact_draft.py\"",
             "timeout": 10
           }
         ]

@@ -24,7 +24,7 @@ def mos_publish_to_shared(args: PublishToSharedArgs) -> dict:
        role may publish only into its own subdir(s):
 
        - Gru: any subdir
-       - Noter: ``notes/``, ``scratchpad/``, ``library/``, ``handoffs/``
+       - Noter: ``notes/``, ``draft/``, ``book/``, ``handoffs/``
        - Ethics: ``ethics/``, ``handoffs/``
        - Experimenter: ``exp/``, ``handoffs/``
        - Writer / Coder / Expert: ``handoffs/`` only

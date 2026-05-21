@@ -12,11 +12,11 @@ import AgentDetail from "./AgentDetail";
 import MetricHUD from "./MetricHUD";
 import EventLog from "./EventLog";
 import Adjudication from "./Adjudication";
-import ScratchpadView from "./ScratchpadView";
+import DraftView from "./DraftView";
 import { LibraryView } from "./LibraryView";
 import { AtlasView } from "./AtlasView";
 
-type View = "universe" | "tasks" | "terminals" | "events" | "adjudication" | "scratchpad" | "library" | "atlas";
+type View = "universe" | "tasks" | "terminals" | "events" | "adjudication" | "draft" | "book" | "atlas";
 
 export default function App() {
   const store = useStore();
@@ -148,8 +148,8 @@ export default function App() {
               <Adjudication tasks={store.tasks} agents={store.agents} />
             )}
 
-            {view === "scratchpad" && <ScratchpadView />}
-            {view === "library" && <LibraryView />}
+            {view === "draft" && <DraftView />}
+            {view === "book" && <LibraryView />}
             {view === "atlas" && <AtlasView />}
           </>
         )}
@@ -192,18 +192,18 @@ export default function App() {
           Adjudication · {adjCount}
         </button>
         <button
-          className={"tab" + (view === "scratchpad" ? " active" : "")}
-          onClick={() => setView("scratchpad")}
+          className={"tab" + (view === "draft" ? " active" : "")}
+          onClick={() => setView("draft")}
           disabled={showPicker}
         >
-          Scratchpad
+          Draft
         </button>
         <button
-          className={"tab" + (view === "library" ? " active" : "")}
-          onClick={() => setView("library")}
+          className={"tab" + (view === "book" ? " active" : "")}
+          onClick={() => setView("book")}
           disabled={showPicker}
         >
-          📚 Library
+          📚 Book
         </button>
         <button
           className={"tab" + (view === "atlas" ? " active" : "")}

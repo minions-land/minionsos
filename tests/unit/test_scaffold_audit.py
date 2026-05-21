@@ -221,13 +221,13 @@ def test_list_registered_mcp_tools_finds_both_sync_and_async(fake_repo: Path) ->
 def test_audit_wildcard_match_passes(fake_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     server = fake_repo / "minions" / "tools" / "mcp_server.py"
     server.write_text(
-        "@mcp.tool()\ndef mos_scratchpad_append(args):\n    return {}\n",
+        "@mcp.tool()\ndef mos_draft_append(args):\n    return {}\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(
         contracts,
         "whitelist_table",
-        lambda: {("noter", "main"): ["mos_scratchpad_*"]},
+        lambda: {("noter", "main"): ["mos_draft_*"]},
     )
     issues = audit_module.check_mcp_tools_whitelisted()
     assert issues == []
@@ -257,11 +257,11 @@ def test_check_whitelist_entries_resolve_accepts_wildcard(
     fake_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     server = fake_repo / "minions" / "tools" / "mcp_server.py"
-    server.write_text("@mcp.tool()\ndef mos_scratchpad_append(args):\n    return {}\n", encoding="utf-8")
+    server.write_text("@mcp.tool()\ndef mos_draft_append(args):\n    return {}\n", encoding="utf-8")
     monkeypatch.setattr(
         contracts,
         "whitelist_table",
-        lambda: {("noter", "main"): ["mos_scratchpad_*"]},
+        lambda: {("noter", "main"): ["mos_draft_*"]},
     )
     assert audit_module.check_whitelist_entries_resolve() == []
 
@@ -281,7 +281,7 @@ def test_check_publish_policy_matches_boundaries_flags_extra_subdir(
             "noter": [
                 "branches/noter/",
                 "branches/shared/notes/",
-                "branches/shared/scratchpad/",
+                "branches/shared/draft/",
                 "branches/shared/handoffs/",
             ]
         },
@@ -351,19 +351,19 @@ def test_check_codex_silent_when_role_already_has_exec(
 def test_check_wildcard_baseline_drift(fake_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     baseline = fake_repo / "minions" / "scaffold" / "_wildcard_baseline.txt"
     baseline.parent.mkdir(parents=True, exist_ok=True)
-    baseline.write_text("mos_scratchpad_*=2\n", encoding="utf-8")
+    baseline.write_text("mos_draft_*=2\n", encoding="utf-8")
     monkeypatch.setattr(audit_module, "_KNOWN_WILDCARD_TOOL_COUNTS_PATH", baseline)
     server = fake_repo / "minions" / "tools" / "mcp_server.py"
     server.write_text(
-        "@mcp.tool()\ndef mos_scratchpad_append(args):\n    return {}\n"
-        "@mcp.tool()\ndef mos_scratchpad_query(args):\n    return {}\n"
-        "@mcp.tool()\ndef mos_scratchpad_nuke_all(args):\n    return {}\n",
+        "@mcp.tool()\ndef mos_draft_append(args):\n    return {}\n"
+        "@mcp.tool()\ndef mos_draft_query(args):\n    return {}\n"
+        "@mcp.tool()\ndef mos_draft_nuke_all(args):\n    return {}\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(
         contracts,
         "whitelist_table",
-        lambda: {("gru", "main"): ["mos_scratchpad_*"]},
+        lambda: {("gru", "main"): ["mos_draft_*"]},
     )
     issues = audit_module.check_wildcard_tool_set_unchanged()
     assert any("baseline 2" in i.message and "matches 3" in i.message for i in issues)

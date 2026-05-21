@@ -9,11 +9,11 @@ critical section, so a power cut between drain and LLM read leaves the
 disk copy intact.
 
 This guarantees post-mortem reconstruction: at the end of a project the
-union of every ``events/<agent>.jsonl`` plus each role's Scratchpad (L1)
+union of every ``events/<agent>.jsonl`` plus each role's Draft (L1)
 describes the complete network history exactly as the agents saw it.
 
 Roles do not read these files in normal operation — they consume events
-through the MCP return value and then look at the Scratchpad and their
+through the MCP return value and then look at the Draft and their
 in-context transcript. The jsonl is for humans (and for any future replay
 tooling).
 

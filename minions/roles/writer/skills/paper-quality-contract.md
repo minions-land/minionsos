@@ -45,7 +45,7 @@ These apply globally; sub-skills enforce them, but the contract is non-negotiabl
 4. **Don't compile the PDF unless asked.** Edit `.tex`; the user runs `latexmk`. QA-readiness check is the only exception.
 5. **Cross-section propagation on every fix.** A correction to one location must propagate to abstract / intro / discussion / capability table / every appendix. Coexistence of corrected and uncorrected is Major-Revision-class.
 6. **Generic anything is fluff.** No "Common Development Tasks", no "Tips for Development", no "we propose a novel framework that…", no lettered enumerations `(a)…(b)…(c)…` in body prose, no single-line contribution bullets.
-7. **Names bind method to object.** Not "Memory" but "Tri-Layer Memory (Scratchpad/Library/Atlas)". Not "Reflection" but "Two-Tier Reflection (Ethics + Reviewer)". A name that doesn't bind a method is a renaming opportunity.
+7. **Names bind method to object.** Not "Memory" but "Tri-Layer Memory (Draft/Book/Shelf)". Not "Reflection" but "Two-Tier Reflection (Ethics + Reviewer)". A name that doesn't bind a method is a renaming opportunity.
 
 ## How this composes with existing skills
 

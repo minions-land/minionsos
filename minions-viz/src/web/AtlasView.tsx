@@ -282,8 +282,8 @@ function AtlasGraphCanvas({
   selectedNode: AtlasNode | null;
 }) {
   useEffect(() => {
-    // TODO: D3 force/hierarchical/radial layouts; mirror ScratchpadView
-    // Similar to ScratchpadView but for the corpus atlas
+    // TODO: D3 force/hierarchical/radial layouts; mirror DraftView
+    // Similar to DraftView but for the corpus atlas
     // Support different layouts: force-directed, hierarchical, radial
   }, [graph, layout]);
 

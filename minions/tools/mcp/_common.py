@@ -27,15 +27,16 @@ logger = logging.getLogger(__name__)
 _MINIONS_MCP_TOOL_NAMES = {
     "mos_compact_context",
     "mos_reset_context",
-    "mos_scratchpad_annotate",
-    "mos_scratchpad_append",
-    "mos_scratchpad_commit_shared",
-    "mos_scratchpad_path",
-    "mos_scratchpad_query",
-    "mos_scratchpad_summary",
-    "mos_atlas_query",
-    "mos_atlas_register",
-    "mos_atlas_shared_concepts",
+    "mos_draft_annotate",
+    "mos_draft_append",
+    "mos_draft_commit_shared",
+    "mos_draft_decay_compute",
+    "mos_draft_path",
+    "mos_draft_query",
+    "mos_draft_summary",
+    "mos_shelf_query",
+    "mos_shelf_register",
+    "mos_shelf_shared_concepts",
     "mos_issue_report",
     "mos_download_arxiv",
     "mos_download_biorxiv",
@@ -60,7 +61,7 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_exp_tail",
     "mos_exp_wait",
     "mos_spawn_expert",
-    "mos_list_skill_nodes",
+    "mos_list_workflow_plugins",
     "mos_query_gpus",
     "mos_start_monitor",
     "mos_project_checkpoint_workspace",
@@ -88,11 +89,13 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_signboard_consume",
     "mos_signboard_reopen",
     "mos_spawn_role",
-    "mos_library_hot_get",
-    "mos_library_hot_update",
-    "mos_library_ingest",
-    "mos_library_lint",
-    "mos_library_query",
+    "mos_book_hot_get",
+    "mos_book_hot_update",
+    "mos_book_ingest",
+    "mos_book_lint",
+    "mos_book_promote_verified",
+    "mos_book_crystallize_session",
+    "mos_book_query",
     "mos_search_arxiv",
     "mos_search_biorxiv",
     "mos_search_google_scholar",
@@ -380,11 +383,11 @@ class SpawnExpertArgs(BaseModel):
         default=None,
         description="Optional periodic wakeup cadence.",
     )
-    skill_node: str | None = Field(
+    workflow_plugin: str | None = Field(
         default=None,
         description=(
-            "Slug of a skill node under skill-nodes/ to attach. "
-            "Injects the node's MCP server, domain pack, and skills into this expert."
+            "Slug of a workflow plugin under workflow-plugins/ to attach. "
+            "Injects the plugin's MCP server, domain pack, and skills into this expert."
         ),
     )
 

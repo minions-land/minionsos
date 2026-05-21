@@ -176,7 +176,7 @@ export interface MosOverview {
 
 export type MosThresholdStatus = "ok" | "soft" | "hard" | "veto";
 
-export interface MosScratchpad {
+export interface MosDraft {
   role: string;
   path: string;
   exists: boolean;
@@ -210,9 +210,9 @@ export interface NetworkSnapshot {
   grus: GruInfo[];
 }
 
-// ── Scratchpad types ──────────────────────────────────────────────
+// ── Draft types ──────────────────────────────────────────────
 
-export interface ScratchpadNode {
+export interface DraftNode {
   id: string;
   type: string;
   text: string;
@@ -223,7 +223,7 @@ export interface ScratchpadNode {
   metadata: Record<string, unknown>;
 }
 
-export interface ScratchpadEdge {
+export interface DraftEdge {
   from_id: string;
   to_id: string;
   relation: string;
@@ -232,11 +232,11 @@ export interface ScratchpadEdge {
   author_role: string;
 }
 
-export interface ScratchpadData {
+export interface DraftData {
   project_port: number;
   root_question: string;
-  nodes: ScratchpadNode[];
-  edges: ScratchpadEdge[];
+  nodes: DraftNode[];
+  edges: DraftEdge[];
 }
 
 export type WsMessage =

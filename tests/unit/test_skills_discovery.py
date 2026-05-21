@@ -150,3 +150,37 @@ def test_malformed_frontmatter_falls_back_to_body(fake_roles: Path) -> None:
     [(slug, summary)] = skills_mod.list_skills("writer")
     assert slug == "x"
     assert summary != ""
+
+
+def test_subdirectory_skills_are_not_discovered(fake_roles: Path) -> None:
+    """Discovery is non-recursive — bundles under skills/ subdirs stay opt-in.
+
+    Real-world callers: ``common/skills/eacn3/`` (12 EACN3 procedure files
+    routed through ``eacn3-mcp.md``) and ``common/skills/skillforge/``
+    (skill-authoring bundle a Role only opens when explicitly creating a
+    new skill). Loading them at every wake-up would balloon the init
+    message and import role-irrelevant content.
+    """
+    _write_skill(fake_roles, "writer", "top-level", "# Top\n\nVisible.\n")
+
+    # Bundle subdirectory under the role's skills/ directory.
+    bundle = fake_roles / "writer" / "skills" / "bundle"
+    bundle.mkdir(parents=True)
+    (bundle / "buried.md").write_text("# Buried\n\nShould not surface.\n", encoding="utf-8")
+    (bundle / "deep" / "nested.md").parent.mkdir(parents=True, exist_ok=True)
+    (bundle / "deep" / "nested.md").write_text(
+        "# Nested\n\nShould not surface.\n", encoding="utf-8"
+    )
+
+    # Bundle subdirectory under common/skills/ as well.
+    common_bundle = fake_roles / "common" / "skills" / "eacn3"
+    common_bundle.mkdir(parents=True)
+    (common_bundle / "01-procedure.md").write_text(
+        "# Procedure\n\nShould not surface.\n", encoding="utf-8"
+    )
+
+    slugs = [slug for slug, _ in skills_mod.list_skills("writer")]
+    assert slugs == ["top-level"]
+    assert "buried" not in slugs
+    assert "nested" not in slugs
+    assert "01-procedure" not in slugs

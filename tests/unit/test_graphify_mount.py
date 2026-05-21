@@ -1,8 +1,8 @@
 """Tests for the Atlas (L3 structural index) graphify mount.
 
 Covers:
-- _maybe_rebuild_atlas short-circuit when atlas is fresh.
-- _maybe_rebuild_atlas trigger path with mocked subprocess success.
+- _maybe_rebuild_shelf_graph short-circuit when atlas is fresh.
+- _maybe_rebuild_shelf_graph trigger path with mocked subprocess success.
 - subprocess failure / timeout never crashes the wake loop.
 - Whitelist exposes mcp__graphify__* read tools to every main role.
 """
@@ -26,7 +26,7 @@ def _make_project_layout(tmp_path: Path, port: int = 12345) -> Path:
     branches = project / "branches"
     main = branches / "main"
     shared = branches / "shared"
-    (shared / "library" / "sources").mkdir(parents=True, exist_ok=True)
+    (shared / "book" / "sources").mkdir(parents=True, exist_ok=True)
     (shared / "notes").mkdir(parents=True, exist_ok=True)
     (shared / "ethics").mkdir(parents=True, exist_ok=True)
     (shared / "exp").mkdir(parents=True, exist_ok=True)
@@ -68,23 +68,23 @@ def test_rebuild_skipped_when_atlas_is_fresh(tmp_path: Path) -> None:
     main = _make_project_layout(tmp_path)
     shared = main.parent / "shared"
     now = time.time()
-    _write_source(shared, "library/sources", "noter-foo.md", mtime=now - 100)
+    _write_source(shared, "book/sources", "noter-foo.md", mtime=now - 100)
     _write_atlas(shared, mtime=now)
 
-    result = noter_wait._maybe_rebuild_atlas(main)
+    result = noter_wait._maybe_rebuild_shelf_graph(main)
     assert result["rebuilt"] is False
     assert "fresh" in result["reason"]
 
 
 def test_rebuild_skipped_when_no_sources(tmp_path: Path) -> None:
     main = _make_project_layout(tmp_path)
-    result = noter_wait._maybe_rebuild_atlas(main)
+    result = noter_wait._maybe_rebuild_shelf_graph(main)
     assert result["rebuilt"] is False
     assert "no source files" in result["reason"]
 
 
 def test_rebuild_skipped_when_workspace_missing() -> None:
-    result = noter_wait._maybe_rebuild_atlas(None)
+    result = noter_wait._maybe_rebuild_shelf_graph(None)
     assert result["rebuilt"] is False
     assert "no workspace" in result["reason"]
 
@@ -96,7 +96,7 @@ def test_rebuild_triggers_when_source_newer(
     shared = main.parent / "shared"
     now = time.time()
     _write_atlas(shared, mtime=now - 100)
-    _write_source(shared, "library/sources", "noter-foo.md", mtime=now)
+    _write_source(shared, "book/sources", "noter-foo.md", mtime=now)
 
     fake_extract = tmp_path / "extract.py"
     fake_extract.write_text("# stub", encoding="utf-8")
@@ -108,8 +108,8 @@ def test_rebuild_triggers_when_source_newer(
 
     monkeypatch.setattr(
         noter_wait,
-        "_maybe_rebuild_atlas",
-        noter_wait._maybe_rebuild_atlas,  # keep real fn
+        "_maybe_rebuild_shelf_graph",
+        noter_wait._maybe_rebuild_shelf_graph,  # keep real fn
     )
     # Patch the path-resolution constants by patching subprocess
     captured: dict[str, Any] = {}
@@ -129,7 +129,7 @@ def test_rebuild_triggers_when_source_newer(
     if not venv_python.exists() or not extract_script.exists():
         pytest.skip("graphify venv not installed; run setup before this test")
 
-    result = noter_wait._maybe_rebuild_atlas(main)
+    result = noter_wait._maybe_rebuild_shelf_graph(main)
     assert result["rebuilt"] is True
     assert result["node_count"] == 7
     assert "duration_s" in result
@@ -153,7 +153,7 @@ def test_rebuild_handles_subprocess_failure(
         return subprocess.CompletedProcess(cmd, 2, stdout="", stderr="boom\n")
 
     monkeypatch.setattr(noter_wait.subprocess, "run", fake_run)
-    result = noter_wait._maybe_rebuild_atlas(main)
+    result = noter_wait._maybe_rebuild_shelf_graph(main)
     assert result["rebuilt"] is False
     assert "exit 2" in result["reason"]
     assert "boom" in result["stderr_tail"]
@@ -173,7 +173,7 @@ def test_rebuild_handles_timeout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout", 300))
 
     monkeypatch.setattr(noter_wait.subprocess, "run", fake_run)
-    result = noter_wait._maybe_rebuild_atlas(main)
+    result = noter_wait._maybe_rebuild_shelf_graph(main)
     assert result["rebuilt"] is False
     assert "timeout" in result["reason"]
 
@@ -182,7 +182,7 @@ def test_rebuild_skipped_when_venv_missing(tmp_path: Path, monkeypatch: pytest.M
     main = _make_project_layout(tmp_path)
     shared = main.parent / "shared"
     now = time.time()
-    _write_source(shared, "library/sources", "x.md", mtime=now)
+    _write_source(shared, "book/sources", "x.md", mtime=now)
 
     # Override the project-root resolution by pointing at a tmp_path with no venv.
     fake_root = tmp_path / "fake-repo"
@@ -191,7 +191,7 @@ def test_rebuild_skipped_when_venv_missing(tmp_path: Path, monkeypatch: pytest.M
     fake_module.write_text("# stub", encoding="utf-8")
     monkeypatch.setattr(noter_wait, "__file__", str(fake_module))
 
-    result = noter_wait._maybe_rebuild_atlas(main)
+    result = noter_wait._maybe_rebuild_shelf_graph(main)
     assert result["rebuilt"] is False
     assert "graphify venv not installed" in result["reason"]
 

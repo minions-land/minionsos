@@ -37,13 +37,13 @@ logger = logging.getLogger(__name__)
 
 
 SHARED_SUBDIRS = (
-    "scratchpad",
+    "draft",
     "notes",
     "ethics",
     "exp",
     "reviews",
     "handoffs",
-    "library",
+    "book",
     "atlas",
 )
 SHARED_README = """\
@@ -58,8 +58,8 @@ Roles do **not** `Write` here directly. All writes go through
 
 ## Subdirectories
 
-- `scratchpad/scratchpad.json` — L1 process graph. Buffered local writes via
-  `mos_scratchpad_append`; periodic commits by Noter on a cron through
+- `draft/draft.json` — L1 process graph. Buffered local writes via
+  `mos_draft_append`; periodic commits by Noter on a cron through
   `mos_publish_to_shared`.
 - `notes/` — Noter staged reports.
 - `ethics/` — Ethics published audit reports (flat: `report-*.md`,
@@ -68,7 +68,7 @@ Roles do **not** `Write` here directly. All writes go through
 - `reviews/round-<n>/` — `mos_review_run` output. The review tool owns this
   surface directly; no other role writes here.
 - `handoffs/` — Free-form cross-role handoffs.
-- `library/` — L2 compiled knowledge base (Karpathy LLM Wiki pattern,
+- `book/` — L2 compiled knowledge base (Karpathy LLM Wiki pattern,
   Noter-curated).
 - `atlas/atlas.json` — L3 structural index over project artefacts; rebuilt
   by Noter on each periodic wake via the `graphify` extractor.

@@ -2,7 +2,7 @@
 
 Noter is not registered on EACN3 and does not use ``mos_await_events``.
 Instead it sleeps for a configurable interval (``noter_periodic_interval``,
-default 3 min) and wakes to flush the Scratchpad (L1) and observe project
+default 3 min) and wakes to flush the Draft (L1) and observe project
 state.
 
 This tool provides the same cache-keepalive guard as ``mos_await_events``
@@ -32,7 +32,7 @@ _KEEPALIVE_EVENT: dict[str, Any] = {
     "suggested_action": (
         "Cache keepalive — no work to do. Reply with a single short ack "
         "(e.g. 'ack') and immediately call mos_noter_wait() again. Do "
-        "not write to the Scratchpad, do not send EACN messages, do not "
+        "not write to the Draft, do not send EACN messages, do not "
         "invoke any other tool."
     ),
 }
@@ -156,19 +156,19 @@ def nudge_noter(port: int) -> None:
         logger.debug("nudge_noter: failed to touch %s: %s", path, exc)
 
 
-_ATLAS_SOURCES = ("library", "notes", "ethics", "exp")
-_ATLAS_REBUILD_TIMEOUT = 300  # seconds
+_SHELF_GRAPH_SOURCES = ("book", "notes", "ethics", "exp")
+_SHELF_GRAPH_REBUILD_TIMEOUT = 300  # seconds
 
 
 def _newest_source_mtime(workspace: Path | None) -> float:
-    """Return the newest mtime under shared/{library,notes,ethics,exp}/, or 0.0."""
+    """Return the newest mtime under shared/{book,notes,ethics,exp}/, or 0.0."""
     if workspace is None:
         return 0.0
     shared = workspace.parent / "shared"
     if not shared.exists():
         return 0.0
     newest = 0.0
-    for sub in _ATLAS_SOURCES:
+    for sub in _SHELF_GRAPH_SOURCES:
         root = shared / sub
         if not root.is_dir():
             continue
@@ -184,11 +184,11 @@ def _newest_source_mtime(workspace: Path | None) -> float:
     return newest
 
 
-def _maybe_rebuild_atlas(workspace: Path | None) -> dict[str, Any]:
+def _maybe_rebuild_shelf_graph(workspace: Path | None) -> dict[str, Any]:
     """Rebuild branches/shared/atlas/atlas.json when stale.
 
     Compares the existing graph's mtime against the newest source mtime
-    under shared/{library,notes,ethics,exp}/. Only invokes the heavy
+    under shared/{book,notes,ethics,exp}/. Only invokes the heavy
     `mcp-servers/graphify/extract.py` shell-out when sources are newer.
 
     Returns a dict embedded into the periodic-wake event:
@@ -235,14 +235,14 @@ def _maybe_rebuild_atlas(workspace: Path | None) -> dict[str, Any]:
             cmd,
             capture_output=True,
             text=True,
-            timeout=_ATLAS_REBUILD_TIMEOUT,
+            timeout=_SHELF_GRAPH_REBUILD_TIMEOUT,
             check=False,
         )
     except subprocess.TimeoutExpired:
-        logger.warning("atlas rebuild timed out after %ds", _ATLAS_REBUILD_TIMEOUT)
+        logger.warning("atlas rebuild timed out after %ds", _SHELF_GRAPH_REBUILD_TIMEOUT)
         return {
             "rebuilt": False,
-            "reason": f"timeout after {_ATLAS_REBUILD_TIMEOUT}s",
+            "reason": f"timeout after {_SHELF_GRAPH_REBUILD_TIMEOUT}s",
         }
     except Exception as exc:
         logger.warning("atlas rebuild subprocess failed: %s", exc)
@@ -304,22 +304,22 @@ def noter_wait() -> dict[str, Any]:
             logger.info("noter_wait: nudge detected, waking early at %.1fs", elapsed)
             break
 
-    atlas = _maybe_rebuild_atlas(workspace)
+    shelf_graph = _maybe_rebuild_shelf_graph(workspace)
     # Register project graph into global cross-project Atlas (Gru reads this).
     try:
-        from minions.tools.atlas import mos_atlas_register
+        from minions.tools.shelf import mos_shelf_register
 
-        atlas_global_reg = mos_atlas_register(port)
+        shelf_global_reg = mos_shelf_register(port)
     except Exception as exc:
         logger.warning("atlas registration failed: %s", exc)
-        atlas_global_reg = {"registered": False, "reason": str(exc)}
+        shelf_global_reg = {"registered": False, "reason": str(exc)}
 
     try:
-        from minions.tools.library import mos_library_lint
+        from minions.tools.book import mos_book_lint
 
-        lint_result = mos_library_lint(port=port)
+        lint_result = mos_book_lint(port=port)
     except Exception as exc:
-        logger.warning("library lint failed: %s", exc)
+        logger.warning("book lint failed: %s", exc)
         lint_result = {"error": str(exc)}
 
     return {
@@ -331,15 +331,15 @@ def noter_wait() -> dict[str, Any]:
                 "delta": {
                     "shared_branch": _shared_branch_delta(workspace),
                     "events": _events_jsonl_delta(port),
-                    "atlas": atlas,
-                    "atlas_global": atlas_global_reg,
-                    "library_lint": lint_result,
+                    "shelf_graph": shelf_graph,
+                    "shelf_global": shelf_global_reg,
+                    "book_lint": lint_result,
                 },
                 "suggested_action": (
-                    "Periodic wake. Flush the Scratchpad "
-                    "(mos_scratchpad_commit_shared), read recent EACN "
+                    "Periodic wake. Flush the Draft "
+                    "(mos_draft_commit_shared), read recent EACN "
                     "activity and shared branch changes, update the "
-                    "Scratchpad if needed, and consider whether a fresh "
+                    "Draft if needed, and consider whether a fresh "
                     "observation report is due."
                 ),
             }

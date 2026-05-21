@@ -396,7 +396,7 @@ port plan.
 
 ### Principle 10: text economy — less annotation is more
 
-User feedback on figureX_v4: "文字内容稍微有点多" (text content is a bit too much).
+User feedback on figureX_v4: "the text content is a bit too much".
 
 **Rule:** every annotation, axis label, and in-panel text element must earn its place. Default to removing rather than adding.
 
@@ -412,7 +412,7 @@ Concrete checklist before finalising a figure:
 
 ### Principle 11: font unification — one font stack per figure, locked at script top
 
-User feedback on figureX_v4: "希望每一版画图最终的字体尽可能统一" (fonts should be as unified as possible across every version of the figure).
+User feedback on figureX_v4: "fonts should be as unified as possible across every version of the figure".
 
 **Rule:** the font stack is set ONCE in the `mpl.rcParams.update({...})` block at the top of the script and never overridden per-element. Every `ax.text`, `ax.annotate`, `ax.set_xlabel`, `ax.set_title`, and `fig.text` call inherits from rcParams — no `fontfamily=`, `fontname=`, or `font=` kwargs anywhere else in the script.
 
@@ -486,64 +486,88 @@ will MISS this defect. The audit must also iterate `fig.texts` and check
 each one against every panel's `get_window_extent()`. See the
 `visual-format-check` skill's coverage requirement.
 
-### Principle 13: drop the box, keep the text — when content > container
+### Principle 13 (revised after R-future-5b): use auto-sizing boxes — never fixed-width Rectangle around variable text
 
-User feedback on panel c (self-correction sankey): every middle-column item
-("Real-pancreas attrib.", "compute_l_rare clip", "ref_subsample_kNN")
-visually overflowed the rectangle drawn around it.
+User feedback on panel c: items were originally drawn as fixed-width
+`mpatches.Rectangle((x_mid-0.13, y-0.022), 0.26, 0.044, ...)` with text
+inside. Long labels ("Real-pancreas attrib.", "ref_subsample_kNN") visually
+overflowed the rectangle.
 
-**Rule:** if a label's natural width is ≥ 80 % of its container box's width
-at the chosen font size, **drop the box, color the text instead.** Boxes
-are decorative when they don't contain — at that point they read as
-"clipping artifacts" and undermine credibility ("if the figure is
-decorated, what is being hidden?" — P2 corollary).
+First-attempt fix (DROP the box, use bare colored text): user rejected as
+ugly — user said "removing the boxes makes it ugly too". Correct fix:
 
-**Replacement pattern:** color the text with the kind/category color
-directly (e.g. red text for retracted items, amber text for bugs). The
-legend then encodes "red = retracted, amber = bug" once. Cleaner, more
-P10-compliant (less ink), and immune to the overflow problem because text
-has no container.
+**Rule:** never draw a fixed-width Rectangle/FancyBboxPatch and then place
+text inside via a separate `ax.text()` call. Always use the `bbox=` kwarg
+on `ax.text()`, which auto-sizes the box around the rendered text width:
 
-**When boxes ARE legitimate:** small fixed-width tags (≤ 16 chars at
-fontsize 7), enum-like labels where the box is a chip (e.g. "Detector"
-column tags). The test is `len(label) * char_width < box_width * 0.85`.
-If it ever fails for any element in the column, drop the boxes for the
-whole column.
-
-### Principle 14: legend must encode the visual variable users will read
-
-User feedback on panel c: "下方的 Legend（包括 Retraction、Drypack、Bug 等
-项）完全看不懂，不明白这个 Legend 是什么意思。"
-
-After P13 removed the boxes around items, the kind information is now
-encoded by **text color** (red=retract, amber=bug). The legend therefore
-has to encode "red = retracted, amber = bug" — but the original legend
-showed two thin colored RECTANGLES with text labels, which the reader
-parses as "two things drawn in red and amber" without knowing what either
-of those colors means in the figure.
-
-**Rule:** the legend's visual primitive must match the encoding it
-explains. If items are color-coded text, the legend swatch should be a
-filled square (▪) in the same color, IMMEDIATELY adjacent to the
-explanation text, in a single bbox to avoid swatch-text alignment drift.
-
-**Anti-pattern (R-future-5):**
 ```python
-ax.add_patch(Rectangle((0.08, 0.04), 0.012, 0.012, edgecolor=ACCENT,
-                       facecolor="white", lw=0.7))
-ax.text(0.10, 0.046, "Retraction (4)", fontsize=7, color=INK)
-```
-Two separate primitives, no semantic link, the rectangle has white fill
-which doesn't match the colored text it claims to legend.
+# WRONG — fixed width, text overflows long labels
+ax.add_patch(Rectangle((x-0.13, y-0.022), 0.26, 0.044,
+                        facecolor="white", edgecolor=color, lw=0.7))
+ax.text(x, y, name, fontsize=7, ...)
 
-**Correct (R-future-5 fix):**
-```python
-ax.text(x, y, "▪ retracted claim (4)", fontsize=7, color=ACCENT,
-        fontweight="bold")
+# RIGHT — auto-sized box hugs the text
+ax.text(x, y, name, fontsize=7, color=text_color,
+        ha="center", va="center", fontweight="bold",
+        bbox=dict(facecolor=soft_fill, edgecolor=accent_color, lw=0.7,
+                  boxstyle="round,pad=0.30"))
 ```
-Single bbox, swatch is in the SAME color as the encoding it explains, the
-text "retracted claim" inherits the color so the reader can't lose the
-mapping.
+
+**The box still carries semantic meaning** when the encoding is per-item
+kind (e.g. retracted-claim items wear a red soft-fill box, bug items wear
+an amber soft-fill box). The box is not decoration — it is the kind
+glyph. Removing it leaves only the text color encoding the kind, which
+the user found visually empty.
+
+**Soft-fill + dark-text pattern** for kind-coded items:
+- Retracted claim: `facecolor="#f6dcd5"` (soft red), `edgecolor=ACCENT`,
+  text color `"#7a2a20"` (dark red)
+- Bug: `facecolor="#f3e3c5"` (soft amber), `edgecolor="#b07d2f"`,
+  text color `"#6b4818"` (dark amber)
+
+Soft fill keeps P2 (reduced saturation) compliant; dark text keeps
+contrast readable; the auto-sized box can never overflow because it grows
+with content.
+
+### Principle 14 (revised after R-future-5b): legend swatch is a real filled patch, color-matched to the encoding
+
+User feedback on panel c: "the legend has some issues".
+
+The legend has to show "this red soft-fill box = retracted claim" — and
+the user must read that mapping at a glance. Three failure modes accrue:
+
+1. **Two separate primitives** (Rectangle + Text) drift apart on different
+   matplotlib backends.
+2. **Unicode swatch (▪)** is too small to read as a "swatch", and its
+   antialiasing depends on the font.
+3. **White-fill swatch + colored edge** doesn't match the actual item
+   style (which uses soft fill + colored edge), so the reader has to
+   re-derive the encoding.
+
+**Rule:** the legend swatch must be drawn with the same primitive and
+same fill/edge colors as the item it explains:
+
+```python
+# Item style:
+ax.text(x, y, name, ..., bbox=dict(facecolor="#f6dcd5", edgecolor=ACCENT, ...))
+
+# Legend swatch — same fill, same edge:
+ax.add_patch(mpatches.FancyBboxPatch(
+    (lx, ly - h/2), w, h,
+    boxstyle="round,pad=0.005,rounding_size=0.005",
+    facecolor="#f6dcd5", edgecolor=ACCENT, lw=0.7))
+ax.text(lx + w + 0.02, ly, "retracted claim (4)", ...)
+```
+
+The reader sees a small chip in the same color and shape as the item
+chips, with a label next to it. The mapping is now graphical, not
+textual.
+
+**Anti-patterns:**
+- White-fill swatch ("two thin colored rectangles" with no fill).
+- Unicode ▪ as swatch.
+- Rectangle that doesn't match the item's `boxstyle` (e.g. sharp-cornered
+  legend swatch when items use rounded corners).
 
 ## R-future-5 audit-coverage gap
 
