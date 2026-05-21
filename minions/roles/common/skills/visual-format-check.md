@@ -61,4 +61,4 @@ A bbox-overlap-only audit on `ax.texts` is **not sufficient**. R-future-5 saw a 
 
 A "clean" audit must show empty defect lists across **all seven rows**. Reporting clean on rows 1+2 alone is the failure mode that masked R-future-5.
 
-For local mos-tool-equivalent development (no MCP server available), implement these checks via matplotlib introspection. Reference implementation lives at `/Users/mjm/ZheMa Proposal/example001/visual_audit.py`. The `mos_visual_*` detectors implement the same coverage on rasterized pages via OpenCV.
+For local mos-tool-equivalent development (no MCP server available), implement these checks via matplotlib introspection. Reference implementation: `minions/tools/visual_audit_reference.py` (generic detection functions extracted from a real figure audit). The `mos_visual_*` detectors implement the same coverage on rasterized pages via OpenCV.

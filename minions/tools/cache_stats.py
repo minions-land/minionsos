@@ -43,6 +43,8 @@ import sys
 from pathlib import Path
 from typing import NamedTuple
 
+from minions.paths import MINIONS_ROOT
+
 
 class _Turn(NamedTuple):
     when: dt.datetime
@@ -543,7 +545,7 @@ def _format_dispatch_posture(posture: _DispatchPosture) -> str:
 # --------------------------------------------------------------------------
 
 
-_DEFAULT_REPO_ROOT = Path("/Users/mjm/MinionsOS")
+_DEFAULT_REPO_ROOT = MINIONS_ROOT
 _DEFAULT_CLAUDE_ROOT = Path.home() / ".claude" / "projects"
 
 

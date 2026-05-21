@@ -30,13 +30,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path("/Users/mjm/Skill/SkillTest")
-AUDIT_PY = REPO_ROOT / "synthesis/proposed-skills/figure-aesthetic-exemplars/workflow/figure_audit.py"
+_HERE = Path(__file__).parent.resolve()
+AUDIT_PY = _HERE / "figure_audit.py"
 
 
 def run_audit(png, svg, exemplar=None):
     """Invoke figure_audit.py and return parsed JSON."""
-    cmd = ["/Users/mjm/miniconda3/bin/python3", str(AUDIT_PY), str(png)]
+    cmd = [sys.executable, str(AUDIT_PY), str(png)]
     if svg: cmd.extend(["--svg", str(svg)])
     if exemplar: cmd.extend(["--exemplar", str(exemplar)])
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -50,7 +50,7 @@ def render(plot_script, out_dir):
     env_mpl = "/private/tmp/mpl-vision-loop"
     Path(env_mpl).mkdir(exist_ok=True)
     subprocess.run(
-        ["/Users/mjm/miniconda3/bin/python3", str(plot_script)],
+        [sys.executable, str(plot_script)],
         cwd=out_dir,
         env={"MPLCONFIGDIR": env_mpl, "PATH": "/usr/bin:/bin"},
         check=True,

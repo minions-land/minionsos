@@ -134,4 +134,3 @@ Skill management here draws on three 2026 papers:
 - **ARA** (MIT / Michigan / Stanford, April 2026) — `provenance` and `supersedes` conventions for lineage.
 - **SkillOS** (UIUC / Google, May 2026) — the lifecycle view: ADD / QUERY / MODIFY / DELETE / EVOLVE as first-class library verbs.
 
-A full walkthrough is in `/Users/mjm/Skill/research-report.html`.

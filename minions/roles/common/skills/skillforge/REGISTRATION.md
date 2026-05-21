@@ -1,6 +1,6 @@
 # skillforge Registration Entry for CLAUDE.md
 
-Add this to `/Users/mjm/.claude/CLAUDE.md`:
+Add this to `~/.claude/CLAUDE.md`:
 
 ```markdown
 # skillforge
@@ -207,16 +207,16 @@ No scripts, no agents, no assets — pure orchestration.
 ## Related Documentation
 
 - **Your tools:**
-  - `/Users/mjm/.claude/skills/skill-edit/SKILL.md`
-  - `/Users/mjm/.claude/skills/skill-evaluator-by-metaharness/SKILL.md`
-  - `/Users/mjm/.claude/skills/codex/SKILL.md`
+  - `~/.claude/skills/skill-edit/SKILL.md`
+  - `~/.claude/skills/skill-evaluator-by-metaharness/SKILL.md`
+  - `~/.claude/skills/codex/SKILL.md`
 
 - **Official tools:**
-  - `/Users/mjm/.codex/skills/.system/skill-creator/SKILL.md`
-  - `/Users/mjm/.codex/skills/.system/skill-creator/scripts/`
+  - `~/.codex/skills/.system/skill-creator/SKILL.md`
+  - `~/.codex/skills/.system/skill-creator/scripts/`
 
 - **Examples:**
-  - `/Users/mjm/MinionsOS/minions/roles/common/SKILL_BEHAVIORAL_EVAL.md`
+  - `minions/roles/common/SKILL_BEHAVIORAL_EVAL.md`
 
 ---
 

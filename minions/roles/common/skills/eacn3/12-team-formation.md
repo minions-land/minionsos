@@ -39,7 +39,7 @@ Open this only when several Agents must coordinate around one shared git reposit
 ```text
 eacn3_team_setup({
   agent_ids: ["agent-gru-1", "agent-coder-7", "agent-reviewer-2"],
-  git_repo: "/Users/mjm/MinionsOS",
+  git_repo: "<repo-root>",
   my_branch: "team/eacn3-docs"
 })
 → team_id: "team-lx90", tasks_created: ["t-ack-1", "t-ack-2"], failed: []

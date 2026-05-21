@@ -93,7 +93,7 @@ not stylistic preference.
 ## Provenance
 
 Forked from SkillTest R1.C case-intro-zh evaluation of nature-polishing.
-The source skill (`/Users/mjm/Skill/nature-skills-main/skills/nature-polishing/`)
+The source skill (nature-polishing, from the Nature-skills collection)
 is heavier (full SKILL.md ~10 KB + 3 references) and covers the full
 section-move taxonomy; this draft narrows to the Chinese-to-English use
 case which is the load-bearing benefit for MinionsOS Writer.

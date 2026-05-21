@@ -234,7 +234,7 @@ No scripts, no agents, no assets — pure orchestration.
 ## Next Steps
 
 ### 1. Register in CLAUDE.md
-Add this entry to `/Users/mjm/.claude/CLAUDE.md`:
+Add this entry to `~/.claude/CLAUDE.md`:
 
 ```markdown
 # skillforge
@@ -282,16 +282,16 @@ The name evokes the full lifecycle (从诞生到成熟的完整生命周期) whi
 ## Related Documentation
 
 **Your custom tools:**
-- `/Users/mjm/.claude/skills/skill-edit/SKILL.md` (150 lines)
-- `/Users/mjm/.claude/skills/skill-evaluator-by-metaharness/SKILL.md` (215 lines)
-- `/Users/mjm/.claude/skills/codex/SKILL.md`
+- `~/.claude/skills/skill-edit/SKILL.md` (150 lines)
+- `~/.claude/skills/skill-evaluator-by-metaharness/SKILL.md` (215 lines)
+- `~/.claude/skills/codex/SKILL.md`
 
 **Official tools:**
-- `/Users/mjm/.codex/skills/.system/skill-creator/SKILL.md`
-- `/Users/mjm/.codex/skills/.system/skill-creator/scripts/`
+- `~/.codex/skills/.system/skill-creator/SKILL.md`
+- `~/.codex/skills/.system/skill-creator/scripts/`
 
 **Examples:**
-- `/Users/mjm/MinionsOS/minions/roles/common/SKILL_BEHAVIORAL_EVAL.md`
+- `minions/roles/common/SKILL_BEHAVIORAL_EVAL.md`
 
 ---
 

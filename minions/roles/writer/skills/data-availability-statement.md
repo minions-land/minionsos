@@ -125,7 +125,7 @@ the next pass (author / Reviewer) can verify or fill.
 ## Provenance
 
 Forked from SkillTest R3.A `case-mixed-restrictions` evaluation of
-nature-data. Source skill at `/Users/mjm/Skill/nature-skills-main/skills/nature-data/`.
+nature-data (from the Nature-skills collection).
 Largest single-case Δ in SkillTest history (18/18 vs 8/18 baseline) on a
 Nature-family fixture mixing patient ECG + RNA-seq + public data + patent-
 pending code. R5.A multi-skill orchestration confirmed the skill applies

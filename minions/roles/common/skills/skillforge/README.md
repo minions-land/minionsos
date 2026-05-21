@@ -113,10 +113,10 @@ skillforge **adds** orchestration:
 
 ## Related Documentation
 
-- `/Users/mjm/.claude/skills/skill-edit/SKILL.md` — Form validation details
-- `/Users/mjm/.claude/skills/skill-evaluator-by-metaharness/SKILL.md` — Behavioral validation details
-- `/Users/mjm/.codex/skills/.system/skill-creator/SKILL.md` — Official skill-creator documentation
-- `/Users/mjm/MinionsOS/minions/roles/common/SKILL_BEHAVIORAL_EVAL.md` — Full-library eval example
+- `~/.claude/skills/skill-edit/SKILL.md` — Form validation details
+- `~/.claude/skills/skill-evaluator-by-metaharness/SKILL.md` — Behavioral validation details
+- `~/.codex/skills/.system/skill-creator/SKILL.md` — Official skill-creator documentation
+- `minions/roles/common/SKILL_BEHAVIORAL_EVAL.md` — Full-library eval example
 
 ---
 

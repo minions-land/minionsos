@@ -1040,7 +1040,7 @@ def cache_stats_cmd(
     role: str | None = typer.Argument(None, help="Role name. Omit to list all Roles."),
     session: Path | None = typer.Option(None, "--session", help="Single jsonl path."),  # noqa: B008
     repo_root: Path = typer.Option(  # noqa: B008
-        Path("/Users/mjm/MinionsOS"),
+        MINIONS_ROOT,
         "--repo-root",
         help="MinionsOS repo root (where project_{port}/ lives).",
     ),
