@@ -128,6 +128,18 @@ _LIBRARY_READ_TOOLS = [
     "mos_library_hot_get",
 ]
 
+# Visual format-check tools. Format-agnostic detectors over rendered PDF page
+# images (column voids, edge overflow, trailing whitespace, column imbalance,
+# float clustering, short lines). Whitelisted to every EACN-visible main role
+# so Writer can verify paper PDFs, Coder can inspect generated figures/plots,
+# Ethics can audit figure-quality claims, and Experts can spot-check visuals.
+# Noter is excluded — it is human-facing and does not run detectors.
+_VISUAL_CHECK_TOOLS = [
+    "mos_visual_render",
+    "mos_visual_inspect",
+    "mos_visual_check",
+]
+
 # Read-only graphify MCP tools — Atlas (L3) primitives over branches/shared/.
 # ``graphify`` is the underlying third-party Python library that backs the Atlas
 # layer; the package keyword and tool prefix stay ``graphify`` deliberately to
@@ -231,6 +243,8 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     "mos_exp_gpu_pool_*",
     # Paper search
     *_PAPER_SEARCH_TOOLS,
+    # Visual format-check (renders + detectors over PDF page images)
+    *_VISUAL_CHECK_TOOLS,
     # Subagent dispatch
     "Task",
     *_CODEX_BRIDGE_TOOLS,
@@ -431,6 +445,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_start_monitor",
         *_CODEX_BRIDGE_TOOLS,
         *_PAPER_SEARCH_TOOLS,
+        *_VISUAL_CHECK_TOOLS,
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -505,6 +520,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_query_gpus",
         "mos_exp_queue_*",
         "mos_exp_gpu_pool_*",
+        *_VISUAL_CHECK_TOOLS,
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -551,6 +567,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "Task",
         "mos_project_checkpoint_workspace",
         *_CODEX_BRIDGE_TOOLS,
+        *_VISUAL_CHECK_TOOLS,
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -587,6 +604,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_project_checkpoint_workspace",
         *_CODEX_BRIDGE_TOOLS,
         *_PAPER_SEARCH_TOOLS,
+        *_VISUAL_CHECK_TOOLS,
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -622,6 +640,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_compact_context",
         "Task",
         *_CODEX_BRIDGE_TOOLS,
+        *_VISUAL_CHECK_TOOLS,
         "WebSearch",
         "WebFetch",
         "Read",

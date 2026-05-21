@@ -70,6 +70,20 @@ If preconditions are not met: do not write. Send an EACN message asking the resp
 
 When submitting a manuscript for review, send Gru an EACN message naming the submission package directory; the package must contain the manuscript and a `submission-checklist.md` (see `minions/review/templates/submission-checklist.md`). Gru's `mos_review_run` rejects incomplete submissions without spawning a review.
 
+## Quality contract (hard rules)
+
+These rules apply to every section, every figure, every commit. Sub-skills enforce procedure; this list is the minimum the manuscript must clear. The full posture toolkit lives in `paper-quality-contract.md`.
+
+1. **No fake citations, no invented bibkeys.** Web search → reverse-lookup `references/*.bib` → cite only if entry exists, else add entry first. See `citation-audit.md` for the bidirectional cite↔bib sweep.
+2. **No engineering details in the body.** Paths, version numbers, code identifiers, git branch names, agent IDs go to the appendix.
+3. **No checkmark / half-checkmark capability tables.** Replace ✓/½/✗ with per-feature explicit content (numbers, scopes, names). See `latex-typography.md`.
+4. **Don't compile the PDF unless explicitly asked.** Edit `.tex`; the user runs `latexmk`. QA-readiness check is the only exception.
+5. **Cross-section propagation on every fix.** A correction in one location must propagate to abstract / intro / discussion / capability tables / every appendix. Coexistence of corrected and uncorrected wording is Major-Revision-class.
+6. **Generic anything is fluff.** No "Common Development Tasks" / "Tips for Development" filler, no "we propose a novel framework that…", no lettered enumerations `(a)…(b)…(c)…` in body prose, no single-line contribution bullets.
+7. **Names bind method to object.** Not "Memory" but "Tri-Layer Memory (Scratchpad/Library/Atlas)". A name that does not bind a method is a renaming opportunity; rename, then propagate per rule 5.
+
+When a quality issue is caught, open the relevant sub-skill: `claim-honesty-grading.md`, `submission-cleanup-audit.md`, `derivation-hygiene.md`, `insight-first-paragraph.md`, `venue-reformat-workflow.md`, `prl-letter-format.md`, or `hero-figure-prompt.md`.
+
 ## End-to-end paper workflow
 
 When the user provides an experiment description and result artifacts, the goal is a complete compiled manuscript PDF, not only section drafts. A normal paper workflow is:

@@ -42,11 +42,44 @@ This is the **Writer-side full pre-submission sweep**. Ethics independently runs
 | ACL Anthology | — |
 | OpenReview | — |
 
+## Bidirectional bib ↔ cite check
+
+Reviewer-facing audit category from EACN-005-PRL: every bib entry must be cited in the body, AND every `\cite{X}` must resolve to a bib entry. Orphans on either side are findings.
+
+```bash
+# Cite → Bib: every key cited must exist in .bib
+grep -hroE '\\cite[tp]?\{[^}]+\}' branches/writer/paper/ | grep -oE '\{[^}]+\}' | tr -d '{}' | tr ',' '\n' | sed 's/^ *//' | sort -u > /tmp/cited.txt
+grep -h '^@' references/*.bib | grep -oE '\{[^,]+' | tr -d '{ ' | sort -u > /tmp/in_bib.txt
+comm -23 /tmp/cited.txt /tmp/in_bib.txt   # cited but missing from bib (MISSING)
+comm -13 /tmp/cited.txt /tmp/in_bib.txt   # in bib but never cited (ORPHAN_BIB)
+```
+
+The "cited but missing" class is `MISSING`. The "in bib but never cited" class is `ORPHAN_BIB` — either delete the entry or add the citation.
+
+## No-fake-bibkey rule
+
+Never invent a bib key. Hard workflow:
+
+1. Web search for the paper → find canonical metadata.
+2. Reverse-lookup `references/*.bib` for an existing entry.
+3. If the entry exists → use that key.
+4. If the entry does NOT exist → **add the entry first**, then cite.
+
+Inventing a key (`\cite{Wang2024Foo}` when no `Wang2024Foo` is in the bib) compiles as `[?]`, which then either ships as `[?]` (catastrophic) or gets silently "fixed" by adding a fabricated entry. The user has called this a "fireable offense."
+
+## Agent-internal artifact leakage
+
+Bib entries with internal-pipeline artifacts (git branch paths, agent IDs, tool slugs, draft-only labels, `/tmp/` paths) must never appear in any submission.
+
+Check: `grep -E '(branch|agent-|/tmp/|claude-|gpt-|@.*-draft)' references/*.bib`. Each match either gets cleaned (replace with the canonical key) or deleted (if the entry is a draft-only fabrication).
+
+See `submission-cleanup-audit.md` category 3 for the full cleanup pass.
+
 ## Procedure
 
 1. **Gate timing** — after draft stable and numeric audit done; before final compile.
 
-2. **Extract `(key, context)` pairs.** For every `\cite{...}` in `branches/writer/paper/`, record key, file, line, full surrounding sentence. Build inverse index (bib entry → cite sites).
+2. **Extract `(key, context)` pairs.** For every `\cite{...}` in `branches/writer/paper/`, record key, file, line, full surrounding sentence. Build inverse index (bib entry → cite sites). Run the bidirectional check above; both `MISSING` and `ORPHAN_BIB` are findings.
 
 3. **Verify existence.** Resolve arXiv ID / DOI / venue URL via web search. If unresolvable, emit `[needs verification]` rather than fabricating; mark verdict `MISSING` and pass to next round / author.
 

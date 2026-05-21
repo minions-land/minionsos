@@ -389,3 +389,199 @@ The skill now has:
 
 9 principles + ~12 sub-rules. The skill is now mature for the SkillTest
 port plan.
+
+---
+
+## R-future-4 user feedback (2026-05-21, from EACN3 figure review)
+
+### Principle 10: text economy — less annotation is more
+
+User feedback on figureX_v4: "文字内容稍微有点多" (text content is a bit too much).
+
+**Rule:** every annotation, axis label, and in-panel text element must earn its place. Default to removing rather than adding.
+
+Concrete checklist before finalising a figure:
+- Can this annotation be replaced by a well-chosen axis tick or a legend entry? If yes, remove it.
+- Does this label repeat information already in the panel title or caption? If yes, remove it.
+- Are there more than 2 annotation arrows on a single panel? If yes, keep only the 2 most load-bearing events; move the rest to the caption.
+- Is the annotation text longer than ~4 words? Shorten to a noun phrase or abbreviation.
+
+**Anti-pattern (from figureX_v4):** panel b had 4 annotation arrows (Math joins, Immuno frozen, kNN bias, 4 version stars) plus a gap label — borderline too dense. Panel d had 3 annotation arrows + a v3.0 diamond label. Acceptable for a first draft; trim before camera-ready.
+
+**Sub-rule — panel c sankey:** detector/item/artifact labels were shortened from full sentences to noun phrases (e.g. "Marker Jaccard claim" → "Marker Jaccard") specifically to respect this principle. Apply the same shortening discipline to any flow/sankey diagram.
+
+### Principle 11: font unification — one font stack per figure, locked at script top
+
+User feedback on figureX_v4: "希望每一版画图最终的字体尽可能统一" (fonts should be as unified as possible across every version of the figure).
+
+**Rule:** the font stack is set ONCE in the `mpl.rcParams.update({...})` block at the top of the script and never overridden per-element. Every `ax.text`, `ax.annotate`, `ax.set_xlabel`, `ax.set_title`, and `fig.text` call inherits from rcParams — no `fontfamily=`, `fontname=`, or `font=` kwargs anywhere else in the script.
+
+```python
+# CORRECT — set once, inherit everywhere
+mpl.rcParams.update({
+    "font.family": "sans-serif",
+    "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "Liberation Sans"],
+    "pdf.fonttype": 42,
+    "svg.fonttype": "none",
+})
+```
+
+**Anti-pattern:** calling `ax.set_title("...", fontfamily="Times New Roman")` or `ax.text(..., font="Courier")` anywhere in the script. These per-call overrides create font inconsistency that is invisible in the script but visible in the rendered PDF.
+
+**Verification:** after rendering, run `grep -c '<text' fig.svg` to confirm all text nodes are present, then open the SVG in a text editor and spot-check that no `font-family` attribute appears on individual `<text>` elements (they should all inherit from the `<style>` block at the top).
+
+**Cross-version consistency:** if the figure is regenerated across multiple sessions or by different people, the rcParams block is the single source of truth. Pin it in a comment:
+```python
+# Font stack: Arial → Helvetica → DejaVu Sans → Liberation Sans
+# Do NOT override per element — all text inherits from here.
+```
+
+## Updated principle list (R-future-4)
+
+- P1 hue coherence (family-coherent, ≥3 distinct hues OK)
+- P2 reduced saturation (with stroke compensation sub-rule)
+- P3 effective display area (with negative-value patch + scatter-point-size sub-rule)
+- P4 backpack packing (with image-plate-gutter sub-rule)
+- P5 form novelty (manifold > flat when geometry is the message)
+- P6 polar > grouped bar for N×M cross-comparison
+- P7 legend off-plot for polar / dense overlay
+- P8 manifold carries 1-2 information dimensions max
+- P9 comparison_radar is the "beyond human" anchor (literal template for radar)
+- **P10 text economy — annotate less; every text element must earn its place**
+- **P11 font unification — one font stack in rcParams, never overridden per element**
+
+---
+
+## R-future-5 user feedback (2026-05-21, second EACN3 figure review)
+
+This round caught failure modes that programmatic text-bbox audits miss when
+they only inspect `ax.texts`. The lessons feed both new principles (P12-P14)
+and the visual-format-check skill's audit-coverage requirements.
+
+### Principle 12: layout budgets reserve space for figure-level chrome BEFORE
+laying out panels
+
+User feedback: the global title "Eight-agent collaboration on EACN3..." and
+its subtitle line ("T0=... TEND=... wall-clock 64.9 h ...") collided with
+the top row's panel titles ("Eight-agent collaboration on EACN3" repeated
+in panel a, "Real-time commit stream (n=487)" in panel b). All three layers
+of text rendered into the same 2 % strip at the top of the figure and read
+as visual mush.
+
+**Rule:** when a figure has both a global `fig.text` title block AND
+per-panel `ax.set_title` calls, the gridspec must reserve **at least
+5 % of figure height** above the top row for the global block. Concretely:
+`fig.add_gridspec(..., top=0.92)` or lower if the title block is
+multi-line, NOT `top=0.965`. The default matplotlib `figure.subplotpars.top
+= 0.88` is right; the temptation to push it higher to "use the space"
+is wrong.
+
+**Anti-pattern:** `top=0.965` + `fig.text(0.05, 0.985, ...)` (title) +
+`fig.text(0.05, 0.972, ...)` (subtitle) + `ax.set_title(...)` per panel —
+all four lines collapse into a 1.5 % strip. R-future-5 reproducer.
+
+**Companion sub-rule for the audit pipeline:** any audit that only checks
+`ax.texts`/`ax.title`/`ax.xaxis.label`/`ax.yaxis.label`/`ax.get_xticklabels`
+will MISS this defect. The audit must also iterate `fig.texts` and check
+each one against every panel's `get_window_extent()`. See the
+`visual-format-check` skill's coverage requirement.
+
+### Principle 13: drop the box, keep the text — when content > container
+
+User feedback on panel c (self-correction sankey): every middle-column item
+("Real-pancreas attrib.", "compute_l_rare clip", "ref_subsample_kNN")
+visually overflowed the rectangle drawn around it.
+
+**Rule:** if a label's natural width is ≥ 80 % of its container box's width
+at the chosen font size, **drop the box, color the text instead.** Boxes
+are decorative when they don't contain — at that point they read as
+"clipping artifacts" and undermine credibility ("if the figure is
+decorated, what is being hidden?" — P2 corollary).
+
+**Replacement pattern:** color the text with the kind/category color
+directly (e.g. red text for retracted items, amber text for bugs). The
+legend then encodes "red = retracted, amber = bug" once. Cleaner, more
+P10-compliant (less ink), and immune to the overflow problem because text
+has no container.
+
+**When boxes ARE legitimate:** small fixed-width tags (≤ 16 chars at
+fontsize 7), enum-like labels where the box is a chip (e.g. "Detector"
+column tags). The test is `len(label) * char_width < box_width * 0.85`.
+If it ever fails for any element in the column, drop the boxes for the
+whole column.
+
+### Principle 14: legend must encode the visual variable users will read
+
+User feedback on panel c: "下方的 Legend（包括 Retraction、Drypack、Bug 等
+项）完全看不懂，不明白这个 Legend 是什么意思。"
+
+After P13 removed the boxes around items, the kind information is now
+encoded by **text color** (red=retract, amber=bug). The legend therefore
+has to encode "red = retracted, amber = bug" — but the original legend
+showed two thin colored RECTANGLES with text labels, which the reader
+parses as "two things drawn in red and amber" without knowing what either
+of those colors means in the figure.
+
+**Rule:** the legend's visual primitive must match the encoding it
+explains. If items are color-coded text, the legend swatch should be a
+filled square (▪) in the same color, IMMEDIATELY adjacent to the
+explanation text, in a single bbox to avoid swatch-text alignment drift.
+
+**Anti-pattern (R-future-5):**
+```python
+ax.add_patch(Rectangle((0.08, 0.04), 0.012, 0.012, edgecolor=ACCENT,
+                       facecolor="white", lw=0.7))
+ax.text(0.10, 0.046, "Retraction (4)", fontsize=7, color=INK)
+```
+Two separate primitives, no semantic link, the rectangle has white fill
+which doesn't match the colored text it claims to legend.
+
+**Correct (R-future-5 fix):**
+```python
+ax.text(x, y, "▪ retracted claim (4)", fontsize=7, color=ACCENT,
+        fontweight="bold")
+```
+Single bbox, swatch is in the SAME color as the encoding it explains, the
+text "retracted claim" inherits the color so the reader can't lose the
+mapping.
+
+## R-future-5 audit-coverage gap
+
+This round revealed that the previous audit pass reported "0 defects"
+while the figure had visible overflow. The audit was incomplete. Required
+coverage:
+
+| Coverage | Check |
+|---|---|
+| `ax.texts` | in-panel annotations |
+| `ax.title` / `ax.xaxis.label` / `ax.yaxis.label` | titles + axis labels |
+| `ax.get_xticklabels()` + `ax.get_yticklabels()` | tick labels (long compartment names cross neighboring panels) |
+| `fig.texts` | global title/subtitle blocks (R-future-5 main miss) |
+| Inter-panel collision | text from panel A's bbox overlapping panel B's bbox |
+| Text-over-image | text from panel A overlapping an image in panel B |
+| Auto-extending log axes | `ax.set_xscale("log")` adds 10^N ticks past `xlim` — pin ticks with `FixedLocator` |
+
+Defect counts at any stage should not be trusted as "clean" unless ALL
+seven coverage rows have fired their checks. See visual-format-check
+skill's "Required coverage" appendix.
+
+## R-future-5 final principle list
+
+- P1 — P9 unchanged (hue / saturation / area / packing / form / polar /
+  legend-off-plot / manifold-dim / radar template)
+- P10 text economy
+- P11 font unification (rcParams pinned, no per-element override)
+- **P12 layout budget — reserve ≥5 % top for global chrome before panels**
+- **P13 drop boxes when content overflows them — color text instead**
+- **P14 legend swatch matches the encoding it explains (color-on-color, single bbox)**
+
+Updated grading anchors:
+
+| User grade | Aesthetic-principle compliance |
+|---|---|
+| "most perfect" / "genuinely beautiful" (= comparison_radar tier) | ALL of P1-P14 + matches P9 anchor |
+| "very beautiful" / "genuinely beautiful" | ≥12 of P1-P14 |
+| "pretty solid" / "looks good" | 8-11 of P1-P14 |
+| "passable" / "tidy" | 5-7 of P1-P14 |
+| "too generic" / "okay" | 3-4 of P1-P14 |
+| "too messy" / "a pile of garbage" | <3 of P1-P14 OR contradicts a principle |

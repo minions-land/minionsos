@@ -164,7 +164,7 @@ Tool/write boundaries (main role write scope; subagents inherit from their paren
 | Ethics main | `eacn3_*` | no | `codex` | no | `branches/ethics/` (drafts) | `ethics/`, `handoffs/`, `governance/` |
 | All roles (read) | - | - | - | - | - | `library/` (via `mos_library_query`/`hot_get`) |
 
-`branches/shared/reviews/` is reserved for `mos_review_run` — the publish tool will reject any other caller. `branches/shared/scratchpad/scratchpad.json` is updated in-place by `mos_scratchpad_append` and committed on a Noter-driven cron through `mos_scratchpad_commit_shared` (whitelisted to Noter and Gru only). No role writes to another role's `branches/<role>/` directly; cross-role artefacts always travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`.
+`branches/shared/reviews/` is reserved for `mos_review_run` — the publish tool will reject any other caller. `branches/shared/scratchpad/scratchpad.json` is updated in-place by `mos_scratchpad_append` and committed on a Noter-driven cron through `mos_scratchpad_commit_shared` (whitelisted to Noter and Gru only). No role writes to another role's `branches/<role>/` directly; cross-role artefacts always travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`. The visual format-check tools (`mos_visual_render`, `mos_visual_inspect`, `mos_visual_check`) are available to every EACN-visible role (Gru, Coder, Writer, Ethics, Expert) and denied to Noter; reports persist under `branches/<role>/visual-reports/` and are referenced cross-role by EACN message rather than via a shared subdir.
 
 ### Role skills and review workflow
 

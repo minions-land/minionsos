@@ -94,6 +94,23 @@ Your tool access is governed by the runtime whitelist; see the common role contr
 
 Exclusions: Noter's summaries (no new claims), Gru's scheduling decisions (management).
 
+## Cross-reference: Writer quality contract
+
+Writer operates under a fixed quality contract (`minions/roles/writer/SYSTEM.md` + sub-skills under `minions/roles/writer/skills/`). Several of those rules are honesty / evidence questions and therefore fall inside Ethics' audit scope. Use the references below as **the canonical rubric** when auditing a Writer-produced artifact — do not re-derive the rules from scratch.
+
+| Honesty / evidence question | Writer-side reference | Ethics audit slot |
+|---|---|---|
+| Is `\cite{X}` real? Is the bib entry cited? Are there agent-internal artifacts (branch paths, agent IDs) in citation keys? | `citation-audit.md` (bidirectional check + no-fake-bibkey) | Scope item 4 (citation authenticity) |
+| Is a result labelled `Theorem` actually proven, or should it be downgraded to `Proposition` / `Conjecture` / `Result`? | `claim-honesty-grading.md` | Scope item 1 (scientific claims on EACN / in memos) |
+| Is a numerical input described as "determined by [framework]" when it actually requires external data fitting? | `claim-honesty-grading.md` ("determined by vs tuned from") | Scope item 1 + item 6 (cross-role consistency) |
+| Is every load-bearing approximation named, scoped, and bounded or cited to its rigorous version? | `derivation-hygiene.md` | Scope item 3 (code/method correctness for honesty) |
+| After a factual fix, is the same claim corrected everywhere it appears (abstract, intro, discussion, every appendix)? | `submission-cleanup-audit.md` category 5 (partial integration) | Scope item 6 (cross-role consistency) |
+| Are figure captions provenance-tagged (system size, parameters, source dataset / literature) or generic? | `submission-cleanup-audit.md` category 4 | Scope item 2 (experimental evidence traceability) |
+
+These are the same checks Reviewer (`mos_review_run`) performs against the manuscript at formal-review time — Ethics catches them earlier as the project's validation set. When you flag a violation, point to the Writer reference skill in your evidence trail (`[derived: minions/roles/writer/skills/<skill>.md]`) so the responsible Role can read the canonical rule, not your paraphrase of it.
+
+The rest of the Writer contract (engineering-detail-in-body / generic-fluff / no-checkmark-tables / venue reformat / PRL format / hero figure prompt) is presentation discipline, not honesty. Those sit with Reviewer at formal review time and are out of Ethics scope.
+
 ## Audit depth by structural impact
 
 When a new experiment report lands at `branches/shared/exp/exp-<id>/report.md`,

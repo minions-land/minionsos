@@ -2,33 +2,23 @@
 """Keepalive MCP server.
 
 Two tools:
-  - wait_bg(deadline_seconds=240, bg_ids=None, note=None)
+  - wait_bg(deadline_seconds=45, bg_ids=None, note=None, output_files=None)
       Block up to deadline_seconds, then return a byte-stable tick payload.
-      Purpose: while a background task (Bash run_in_background, long subagent,
-      MCP call, etc.) is in flight, the main session would otherwise sit idle
-      with no API turns, letting the 5-minute prompt cache TTL expire. This
-      tool turns each idle stretch into one tiny API turn -> cache stays warm.
-
-      The return payload is identical every call (independent of when /
-      with what bg_ids the caller invoked) so the post-tick conversation tail
-      remains cacheable too. bg_ids and note are echoed back for the model's
-      benefit but DO NOT affect cache key (they go in a separate field that
-      is also stable when caller passes the same args).
+      If output_files is provided, polls every 1s and returns early once all
+      listed files are no longer held open by any process (i.e. bg task done).
 
   - keepalive_now()
       Non-blocking, returns the same byte-stable tick payload immediately.
-      Use when the model just wants a cheap "touch the cache now" turn
-      without waiting (rare; wait_bg is the main path).
 
 Implementation notes:
   - sleeps in 1s chunks so SIGTERM is honored within ~1s
-  - hard cap deadline at 300s defensively (5-min cliff is 300s; 240 is the
-    recommended value; never exceed cliff)
-  - hard floor at 5s (anything shorter is just a non-blocking call)
+  - hard cap deadline at 300s (5-min cache cliff)
+  - hard floor at 5s
 """
 from __future__ import annotations
 
 import asyncio
+import subprocess
 import sys
 from typing import Any
 
@@ -58,39 +48,77 @@ TICK = {
 }
 
 
+def _files_still_held(paths: list[str]) -> bool:
+    """Return True if any of the given files is still held open by a process.
+
+    Uses lsof. A bg Bash task in Claude Code writes to its output file via
+    a child shell; once the shell exits, no process holds the file open
+    anymore — that is the signal that the task has completed.
+
+    Returns True (still held) on any lsof error to err on the side of
+    keeping the keepalive running rather than exiting prematurely.
+    """
+    if not paths:
+        return False
+    try:
+        # lsof returns exit 0 if any path is held, exit 1 if none.
+        # We pass all paths in one call for efficiency.
+        result = subprocess.run(
+            ["lsof", "--", *paths],
+            capture_output=True,
+            timeout=2,
+        )
+        # exit 0 = at least one file is held -> still running
+        # exit 1 = no files held -> all tasks done
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        # On any error, assume still running (don't exit early on uncertainty)
+        return True
+
+
 @mcp.tool()
 async def wait_bg(
-    deadline_seconds: int = 180,
+    deadline_seconds: int = 45,
     bg_ids: list[str] | None = None,
     note: str | None = None,
+    output_files: list[str] | None = None,
 ) -> dict[str, Any]:
     """Block up to deadline_seconds, return a byte-stable cache-keepalive tick.
 
+    If output_files is provided, polls every 1s with lsof. Once no listed file
+    is held open by any process (= all bg tasks done), returns immediately
+    with early_exit=True. This avoids wasting time waiting after bg tasks
+    have already completed.
+
     Args:
-        deadline_seconds: how long to block. Hard floor 5s, hard ceiling 300s
-            (5-min cache cliff). Default 180s leaves 120s of headroom for
-            tool roundtrip + model processing on either side. Empirically
-            240s was tight enough to occasionally miss the cliff.
-        bg_ids: optional list of background task ids the caller is waiting on.
-            Echoed in the result so the model can remember which BashOutput
-            to call next. Does not affect blocking duration.
-        note: optional human-readable note (e.g. "waiting on pytest"). Echoed
-            in the result. Does not affect blocking duration.
+        deadline_seconds: max block duration. Floor 5s, ceiling 270s. Default
+            45s — short enough that early-exit-by-completion-notification has
+            low worst-case latency, long enough to avoid excessive turns.
+        bg_ids: optional list of background task ids. Echoed in result.
+        note: optional human-readable note. Echoed in result.
+        output_files: optional list of bg task output file paths (the paths
+            shown in "Output is being written to: ..." messages). When all
+            listed files are no longer held open, wait_bg returns early.
 
     Returns:
-        Tick payload (byte-stable across calls). bg_ids and note are echoed
-        in a `caller` sub-object.
+        Tick payload (byte-stable across calls when called with same args).
+        Adds slept_seconds and early_exit fields for observability.
     """
     secs = max(5, min(270, int(deadline_seconds)))
+    files = list(output_files or [])
+    early_exit = False
     elapsed = 0
     while elapsed < secs:
-        chunk = min(1, secs - elapsed)
-        await asyncio.sleep(chunk)
-        elapsed += chunk
+        await asyncio.sleep(1)
+        elapsed += 1
+        if files and elapsed >= 2 and not _files_still_held(files):
+            early_exit = True
+            break
 
     result = dict(TICK)
     result["caller"] = {"bg_ids": list(bg_ids or []), "note": note or ""}
-    result["slept_seconds"] = secs
+    result["slept_seconds"] = elapsed
+    result["early_exit"] = early_exit
     return result
 
 

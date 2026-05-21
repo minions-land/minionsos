@@ -34,11 +34,13 @@ NUDGE_TEMPLATE = (
     "expire on long-running tasks unless you keep it warm.\n"
     "\n"
     "Pattern to follow:\n"
-    "  1. Call `wait_bg(deadline_seconds=180, bg_ids=[{id_value}])` to block "
-    "and refresh the cache.\n"
-    "  2. When wait_bg returns its tick, call `{check_tool}({id_value})` to "
-    "check progress. If completed, process the result. If still running, "
-    "call wait_bg again.\n"
+    "  1. Call `wait_bg(deadline_seconds=45, bg_ids=[{id_value}]{output_arg})` "
+    "to block and refresh the cache. wait_bg will return early if the task "
+    "completes before the deadline.\n"
+    "  2. When wait_bg returns, check `early_exit` in the result:\n"
+    "     - If early_exit=True: task completed, process the result.\n"
+    "     - If early_exit=False: deadline reached, call `{check_tool}({id_value})` "
+    "to check progress. If still running, call wait_bg again.\n"
     "  3. Repeat until done.\n"
     "\n"
     "Do NOT just sit and wait without calling wait_bg — you will pay a full "
@@ -64,6 +66,9 @@ RESPONSE_ID_KEYS = (
     "id",
 )
 
+# Field carrying the output file path (for Bash bg tasks)
+OUTPUT_FILE_KEY = "output_file"
+
 
 def main() -> int:
     try:
@@ -79,19 +84,25 @@ def main() -> int:
         return 0
 
     bg_id = None
+    output_file = None
     resp = payload.get("tool_response") or {}
     if isinstance(resp, dict):
         for k in RESPONSE_ID_KEYS:
             if resp.get(k):
                 bg_id = str(resp[k])
                 break
+        output_file = resp.get(OUTPUT_FILE_KEY)
 
     id_label = f"id={bg_id}" if bg_id else "id unknown — find it in the tool result"
     id_value = f'"{bg_id}"' if bg_id else "<task_id>"
+
+    output_arg = f', output_files=["{output_file}"]' if output_file else ""
+
     nudge = NUDGE_TEMPLATE.format(
         tool=tool,
         id_label=id_label,
         id_value=id_value,
+        output_arg=output_arg,
         check_tool=CHECK_TOOL.get(tool, "BashOutput"),
     )
 

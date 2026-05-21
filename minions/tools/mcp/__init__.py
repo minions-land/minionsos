@@ -32,6 +32,7 @@ from minions.tools.mcp import (  # noqa: E402, F401
     runtime_tools,
     signboard_tools,
     spawn_tools,
+    visual_tools,
 )
 from minions.tools.mcp._common import (  # noqa: E402
     _MINIONS_MCP_TOOL_NAMES,

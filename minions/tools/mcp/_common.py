@@ -101,6 +101,9 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_search_papers_federated",
     "mos_search_semantic",
     "mos_resolve_arxiv_ids",
+    "mos_visual_render",
+    "mos_visual_inspect",
+    "mos_visual_check",
 }
 
 

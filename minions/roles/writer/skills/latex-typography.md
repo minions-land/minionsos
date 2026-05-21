@@ -74,6 +74,18 @@ one-line edit:
 \newcommand{\pillarB}{\textbf{Tri-Layer Memory}\xspace}
 ```
 
+The user treats *method naming as a correctness contract* — a name that doesn't bind a method to an object (e.g. bare "Memory" or "Skill") is a renaming opportunity, and renaming may happen multiple times during writing as scope clarifies. The `\newcommand` discipline makes each rename a one-line edit. After a rename of a `\modelname` / pillar / component, run a propagation sweep:
+
+1. The `\newcommand` definition.
+2. Every Abstract mention.
+3. Every Introduction contribution bullet.
+4. Every Discussion mention.
+5. Every capability / comparison table.
+6. Every figure caption that names it.
+7. External mentions outside the .tex (talk titles, README, repo name, GitHub URL, arXiv title) — `\newcommand` does not reach these; sweep manually.
+
+If `\newcommand` discipline was followed, the body is updated by the definition change alone. The propagation sweep is for the surfaces the macro can't reach.
+
 Avoid these macro-specific pitfalls:
 
 - Defining a macro and then sometimes typing the literal name, which defeats the
@@ -95,6 +107,49 @@ Avoid these macro-specific pitfalls:
 **Bold** is reserved for the first definition of a term. Do not scatter `\textbf{}` throughout the text for emphasis — sentence structure and position should carry emphasis, not formatting.
 
 **Italic** is reserved for mathematical variables and foreign-language terms only.
+
+## Comparison-table style recipe
+
+Capability and benchmark comparison tables follow this recipe:
+
+```latex
+\newcommand{\best}[1]{\textbf{\textcolor{red}{#1}}}
+\newcommand{\second}[1]{\underline{\textcolor{blue}{#1}}}
+
+\begin{tabular}{c|cccc}
+\diagbox{Method}{Property} & \textbf{P1} & \textbf{P2} & \textbf{P3} & \textbf{P4} \\
+\hline
+Baseline-A    & 0.42 & 0.31 & \best{0.71} & 0.29 \\
+\rowcolor{gray!10} Baseline-B & 0.51 & \second{0.45} & 0.62 & 0.34 \\
+\rowcolor{pink!20} \textbf{Ours} & \best{0.68} & \best{0.52} & 0.69 & \best{0.41} \\
+\end{tabular}
+```
+
+Where:
+- `\diagbox{}{}` for the corner cell (split label).
+- `\rowcolor{gray!10}` for alternating bands.
+- `\rowcolor{pink!20}` for the "Ours" row.
+- Best result: bold red via `\best{}`. Second-best: underlined blue via `\second{}`.
+
+Iterate the rendered output 3–5 times to converge on the user's mental model of the table; do not propose alternative styles unless asked.
+
+## No checkmark / half-checkmark capability tables
+
+`✓` / `½` / `✗` capability tables are visually noisy and rarely orthogonal. Replace with **per-feature explicit content** — feature value or scope, not an opinion glyph.
+
+Wrong:
+| Method      | Multi-agent | Async | Verification |
+|-------------|-------------|-------|--------------|
+| Baseline-A  | ✓           | ½     | ✗            |
+| Ours        | ✓           | ✓     | ½            |
+
+Right:
+| Method      | Agent count | Concurrency       | Verification     |
+|-------------|-------------|-------------------|------------------|
+| Baseline-A  | 4 fixed     | sync rounds       | none             |
+| Ours        | dynamic     | event-driven      | code review only |
+
+The right form makes orthogonality visible. The wrong form invites reviewers to ask "what does ½ mean exactly".
 
 ## Pitfalls
 

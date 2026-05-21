@@ -53,3 +53,19 @@ def test_mcp_authz_denies_noter_experiment_queue_tool() -> None:
 def test_mcp_authz_allows_empty_role_for_interactive_or_tests() -> None:
     with patch.dict(os.environ, {"MINIONS_ROLE_NAME": ""}, clear=False):
         _require_tool_allowed("mos_project_create")
+
+
+def test_mcp_authz_visual_tools_allowed_for_eacn_roles() -> None:
+    for role in ("gru", "coder", "writer", "ethics", "expert"):
+        with patch.dict(os.environ, {"MINIONS_ROLE_NAME": role}, clear=False):
+            _require_tool_allowed("mos_visual_render")
+            _require_tool_allowed("mos_visual_inspect")
+            _require_tool_allowed("mos_visual_check")
+
+
+def test_mcp_authz_visual_tools_denied_for_noter() -> None:
+    with (
+        patch.dict(os.environ, {"MINIONS_ROLE_NAME": "noter"}, clear=False),
+        pytest.raises(PermissionError),
+    ):
+        _require_tool_allowed("mos_visual_render")
