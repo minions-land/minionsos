@@ -34,6 +34,8 @@ If your question is fact-shaped ("what did exp-042 report?", "which paper does D
 
 Writes to L3 happen by writing to L2 and waiting for Noter's next extract cycle, never by calling a graphify tool. The Shelf trails the Book; do not treat absence of a node as evidence the concept is missing — it may not have been re-extracted yet.
 
+There is a parallel L3 surface for **code** — the Coder graph at `mcp__codegraph__*`, indexed at `<scope>/.codegraph/codegraph.db`. The Shelf (this skill) answers prose-shaped structural questions (which concepts cluster, which are load-bearing); the Coder graph answers code-shaped ones (what calls X, what breaks if X changes, where is X defined). See [[coder-graph-mcp]] for routing. The two graphs are disjoint in coverage and update on different clocks: graphify uses LLM-backed extraction on Noter's cron; codegraph uses tree-sitter AST + a bundled OS-event watcher (~1s debounce, $0 in API spend).
+
 ## The seven tools, by question shape
 
 | Tool | The question it answers |

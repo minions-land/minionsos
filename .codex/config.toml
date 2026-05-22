@@ -30,3 +30,8 @@ enabled = true
 command = "bash"
 args = ["mcp-servers/graphify/launcher.sh"]
 enabled = true
+
+[mcp_servers.codegraph]
+command = "bash"
+args = ["mcp-servers/codegraph/launcher.sh"]
+enabled = true

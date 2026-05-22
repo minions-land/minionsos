@@ -128,7 +128,7 @@ def list_skills(role_name: str) -> list[tuple[str, str]]:
 
     Discovery is intentionally **non-recursive**: only ``*.md`` directly under
     each skills directory is enumerated. Subdirectories (``eacn3/``,
-    ``skillforge/``, etc.) are reserved for progressive-disclosure bundles
+    ``skill-forge/``, etc.) are reserved for progressive-disclosure bundles
     that a top-level skill must explicitly route into; loading them at
     wake-up would balloon the init message and import role-irrelevant content.
     Test ``test_subdirectory_skills_are_not_discovered`` pins this contract.

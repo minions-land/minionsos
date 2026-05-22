@@ -147,6 +147,44 @@ else
     fi
     ok "EACN3 MCP plugin built: $PLUGIN_DIST"
 
+    # ── 5a-codegraph. Install codegraph MCP dependencies ────────────────
+    # The codegraph MCP wraps `@colbymchenry/codegraph` (npm). It is a
+    # prebuilt package — no `npm run build` needed; `npm install` populates
+    # node_modules/.bin/codegraph which the launcher exec's.
+    CG_DIR="$ROOT/mcp-servers/codegraph"
+    if [ -d "$CG_DIR" ] && [ -f "$CG_DIR/package.json" ]; then
+        info "Installing codegraph MCP dependencies (npm)..."
+        if ! npm_project_install "$CG_DIR"; then
+            die "codegraph npm install failed.\n       Inspect the output above; fix the error, then re-run ./install.sh."
+        fi
+        CG_BIN="$CG_DIR/node_modules/.bin/codegraph"
+        if [ ! -x "$CG_BIN" ]; then
+            die "codegraph npm install reported success but $CG_BIN is missing or not executable."
+        fi
+        ok "codegraph MCP installed: $CG_BIN"
+
+        # Warm up the repo-scope codegraph index so the launcher does not
+        # block on a multi-second tree-sitter extraction during the first
+        # MCP handshake (system-maintenance work runs without
+        # MINIONS_PROJECT_PORT, hitting repo scope). `init -i` runs both
+        # init and the initial index pass; without `-i`, init only writes
+        # the .codegraph/ scaffolding and serve --mcp would expose an
+        # empty graph. Project-scope first-run is bootstrapped by the
+        # operator (or a future project_create lifecycle hook) — those
+        # scopes are tiny so the latency is acceptable on first connect.
+        if [ ! -d "$ROOT/.codegraph" ]; then
+            info "Warming repo-scope codegraph index (one-time, ~30s on this repo)..."
+            if (cd "$ROOT" && "$CG_BIN" init -i); then
+                ok "Repo-scope codegraph index built: $ROOT/.codegraph"
+            else
+                warn "codegraph init failed at repo scope; the MCP launcher will refuse to start until you bootstrap manually:"
+                warn "  cd $ROOT && $CG_BIN init -i"
+            fi
+        else
+            ok "Repo-scope codegraph index already present: $ROOT/.codegraph"
+        fi
+    fi
+
     # ── 5b. Build minions-viz Observatory ───────────────────────────────
     VIZ_DIR="$ROOT/minions-viz"
     VIZ_MARKER="$VIZ_DIR/dist/web/index.html"

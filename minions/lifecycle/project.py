@@ -1103,7 +1103,54 @@ def ensure_role_workspace(
     """Public wrapper that returns the role branch and workspace path."""
     branch, workspace = _create_role_worktree(port, role_name, base_branch=base_branch)
     _seed_claude_settings(workspace)
+    if role_name == "coder":
+        _bootstrap_coder_graph(workspace)
     return branch, workspace
+
+
+def _bootstrap_coder_graph(workspace: Path) -> None:
+    """One-shot ``codegraph init -i`` over the Coder branch.
+
+    Mechanical bootstrap so the project's codegraph MCP launcher (which
+    fail-fasts on a missing index) has something to serve from the first
+    Coder wake. Roles autonomously decide *when* to query the graph; the
+    lifecycle decides *where* the index lives, identical to how
+    ``_seed_claude_settings`` seeds hooks without consulting any LLM.
+
+    Idempotent: skips if ``.codegraph/`` already exists. Non-fatal: a
+    failed bootstrap warns and continues — the launcher's bootstrap
+    instruction tells the operator how to recover, and Coder can still
+    do everything else (write code, run experiments) without the graph.
+    """
+    if (workspace / ".codegraph").exists():
+        return
+    cg_bin = MINIONS_ROOT / "mcp-servers" / "codegraph" / "node_modules" / ".bin" / "codegraph"
+    if not cg_bin.is_file() or not os.access(cg_bin, os.X_OK):
+        logger.warning(
+            "codegraph binary missing at %s; skipping Coder graph bootstrap. "
+            "Run ./install.sh to populate node_modules.",
+            cg_bin,
+        )
+        return
+    logger.info("Bootstrapping Coder graph at %s (codegraph init -i)", workspace)
+    result = subprocess.run(
+        [str(cg_bin), "init", "-i"],
+        cwd=str(workspace),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.returncode != 0:
+        logger.warning(
+            "codegraph init -i failed at %s (exit %d); Coder will see an "
+            "index-missing error from the MCP launcher until the operator "
+            "runs the bootstrap manually. stderr: %s",
+            workspace,
+            result.returncode,
+            result.stderr.strip()[:500],
+        )
+        return
+    logger.info("Coder graph bootstrapped: %s/.codegraph/", workspace)
 
 
 def _seed_claude_settings(workspace: Path) -> None:

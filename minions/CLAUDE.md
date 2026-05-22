@@ -105,6 +105,99 @@ Applies to any Role (Writer, Noter, Coder, Ethics, Gru).
 5. Update the tool/write boundary table in root `CLAUDE.md` to specify which agents may use it.
 6. Write a unit test in `tests/unit/`.
 
+## Skill and Agent population evolution
+
+The four "How to add ..." sections above describe the *human-driven* path for introducing a new Role, skill, domain pack, or MCP tool. The system also has an **autonomous evolution path** that runs continuously inside an active project. It evolves on two axes simultaneously, fed by one trajectory source.
+
+### Two axes, one trajectory source
+
+| Axis | What evolves | Operations |
+|---|---|---|
+| **Knowledge** | Individual Skills inside the library | `add` / `revise` / `merge` / `split` / `drop` |
+| **Agent** | Expert population (count, scope, identity) | `spawn` / `dismiss` / `merge` / `split` |
+
+Both axes consume the same raw trajectory (Draft + EACN events + shared artefacts). They are conceptually distinct but architecturally co-equal.
+
+The **Agent-axis** `split` is a permanent topology change — one Expert is dismissed and two are spawned with disjoint domain partitions. It is **not** the same as a sub-agent: a sub-agent is a within-task executor that disappears when the task ends. Split changes the project's permanent Expert roster and creates two AgentCards on EACN where there was one.
+
+The **Agent-axis** `merge` collapses two Experts whose domains and bid patterns have converged. The **Knowledge-axis** `merge` collapses two Skills whose triggers have converged.
+
+### Four-stage pipeline (decorrelated)
+
+```
+   raw trajectory  (Draft, EACN events, shared artefacts)
+        │
+        ▼
+   skill-curator              ← Noter operates this
+   (~/.claude/skills/skill-curator/)
+        │  branches/shared/library/skill-proposals.md
+        ▼
+   skill-audit                ← Ethics operates this
+   (minions/roles/ethics/skills/skill-audit.md)
+        │  accepted subset  →  notify Gru
+        ▼
+   skill-forge (Knowledge) │ mos_spawn_role / mos_dismiss_role / future Agent-axis tools
+   (~/.claude/skills/skill-forge/)
+        │
+        ▼
+   Library / Expert roster
+        │  use telemetry, failure events
+        ▼
+   feeds back into trajectory for the next curation pass
+```
+
+The four stages are **structurally decorrelated**: Noter (proposer) is on a different backbone and never makes business decisions; Ethics (auditor) reads the proposal artefact, not Noter's reasoning; skill-forge (validator) runs blind A/B with Codex as judge; the operating Roles (consumer) only see admitted artefacts. This satisfies the decorrelation principle that makes the multi-agent error rate fall below the single-agent rate (see [research-report.html §XIII-A](../../Skill/research-report.html) for the framework).
+
+### Implementation status
+
+| Component | Status |
+|---|---|
+| Noter `skill-curator-loop` skill | Implemented (`minions/roles/noter/skills/skill-curator-loop.md`) |
+| Global `skill-curator` skill | Implemented (`~/.claude/skills/skill-curator/SKILL.md`) |
+| Ethics `skill-audit` skill | Implemented (`minions/roles/ethics/skills/skill-audit.md`) |
+| `skill-forge` orchestrator | Implemented (`~/.claude/skills/skill-forge/`) |
+| Knowledge-axis ops (add/revise/merge/split/drop) | Routed through skill-forge — operational |
+| Agent-axis `spawn` / `dismiss` | Existing MCP tools (`mos_spawn_role`, `mos_dismiss_role`, `mos_spawn_expert`) |
+| Agent-axis `merge` / `split` | **Design only** — no MCP tool yet; Gru would need to enact via paired `mos_dismiss_role` + `mos_spawn_*` calls plus Signboard sign-off until proper tooling lands |
+
+The Agent-axis `merge` and `split` operations are the open implementation work. They are the most consequential operations in the system and require Signboard consensus before they can be enacted (see Ethics' `skill-audit` for the per-op acceptance criteria).
+
+### Gru intake contract
+
+Ethics' audit pass ends with one EACN message to Gru. Gru is then the routing authority — it (and only it) maps accepted proposals to enactment surfaces. The message and routing table:
+
+**EACN message Ethics sends to Gru (schema):**
+
+```json
+{
+  "type": "skill-audit-complete",
+  "audit_path": "branches/shared/ethics/skill-audit-YYYY-MM-DD.md",
+  "proposals_path": "branches/shared/library/skill-proposals.md",
+  "accepted": [
+    {"proposal_id": "proposal-20260523-0001", "op": "add", "axis": "knowledge"},
+    {"proposal_id": "proposal-20260523-0002", "op": "spawn", "axis": "agent"}
+  ],
+  "rejected_count": <int>,
+  "held_count": <int>
+}
+```
+
+**Gru routing table (proposal → enactment surface):**
+
+| `axis` | `op` | Gru action | Notes |
+|---|---|---|---|
+| knowledge | `add` | `Skill(skill-forge)` with `mode=create`, draft_skill_md from proposal | Runs full Stage 1–6 |
+| knowledge | `revise` | `Skill(skill-forge)` with `mode=improve`, target_skill_path from proposal | Runs Stage 2 + 3 minimum |
+| knowledge | `merge` | `Skill(skill-forge)` with `mode=create` against the union, plus `drop` of source_a + source_b after admission | Two-phase: admit new, then drop sources only if new passes |
+| knowledge | `split` | Two `Skill(skill-forge)` create runs (one per decision class), then `drop` of source after both admit | Three-phase; if either child fails Stage 3, no drop |
+| knowledge | `drop` | Direct removal from library + commit on shared branch | No skill-forge run needed; audit already verified `unique_coverage_check` |
+| agent | `spawn` | `mos_spawn_role` or `mos_spawn_expert` with proposed_domain_pack + proposed_tool_whitelist from proposal | Existing MCP tools cover this |
+| agent | `dismiss` | `mos_dismiss_role` against target_expert_id | Existing MCP tool |
+| agent | `merge` | **Deferred** — Gru must signal Signboard for consensus, then enact via paired `mos_dismiss_role` (×2) + `mos_spawn_expert` (×1) | No native tool yet; Signboard sign-off required |
+| agent | `split` | **Deferred + Signboard-required** — same paired-call pattern in reverse | No native tool yet; the proposal's `requires_signboard: true` is enforced here |
+
+**Post-enactment.** After Gru completes enactment for a proposal, it appends an `### enactment (by gru on YYYY-MM-DD)` sub-block to that proposal in `branches/shared/library/skill-proposals.md`, closing the lifecycle (see [[skill-curator]] §5 lifecycle annotations). The proposal's `status` flips to `enacted`. If enactment fails (e.g. skill-forge Stage 3 rejects), `status` becomes `superseded` and Gru explains in the enactment block.
+
 ## Running tests
 
 ```bash

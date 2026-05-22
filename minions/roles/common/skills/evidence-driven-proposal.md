@@ -65,4 +65,4 @@ The cost of a probe is ≤5 s. The cost of a wrong armchair sanity check is desi
 
 In every proposal, mark load-bearing sentences inline using the EACN evidence-first convention (`CLAUDE.md` → "Evidence-first EACN communication"): `[evidence: <command + 1-line outcome>]`, `[derived: <basis>]`, or `[speculation]`. The user (and Ethics audit, where relevant) reads the markers to calibrate which sentences to verify before acting on them.
 
-Related: [[think-then-act]] (planning toolkit; this skill is its publication gate), [[goal-setting]] (verification contract for execution), [[dialectical-synthesis]] (predict before publishing), [[think-in-parallel]] (multi-chain disagreement), [[skill-evaluator-by-metaharness]] (A/B harness used to validate this skill itself).
+Related: [[think-then-act]] (planning toolkit; this skill is its publication gate), [[goal-setting]] (verification contract for execution), [[dialectical-synthesis]] (predict before publishing), [[think-in-parallel]] (multi-chain disagreement), [[skill-evaluator]] (A/B harness used to validate this skill itself).

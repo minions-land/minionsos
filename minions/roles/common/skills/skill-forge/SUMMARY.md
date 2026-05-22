@@ -1,4 +1,4 @@
-# skillforge — Executive Summary
+# skill-forge — Executive Summary
 
 **Created:** 2026-05-21  
 **Status:** Ready for production use  
@@ -6,7 +6,7 @@
 
 ---
 
-## What is skillforge?
+## What is skill-forge?
 
 A meta-skill that orchestrates the complete skill development lifecycle — from initial concept through creation, validation, testing, iteration, optimization, and packaging. It acts as a **conductor**, not a monolith, delegating to specialized tools at each stage.
 
@@ -14,7 +14,7 @@ A meta-skill that orchestrates the complete skill development lifecycle — from
 
 ## The Problem It Solves
 
-**Before skillforge:**
+**Before skill-forge:**
 - Skill development was manual and ad-hoc
 - No standardized pipeline
 - Tools (skill-edit, skill-evaluator, official skill-creator) used in isolation
@@ -22,7 +22,7 @@ A meta-skill that orchestrates the complete skill development lifecycle — from
 - No trigger accuracy optimization
 - Manual packaging and distribution
 
-**After skillforge:**
+**After skill-forge:**
 - One command triggers the full pipeline
 - Six-stage lifecycle with clear handoffs
 - Integrated tool ecosystem
@@ -45,7 +45,7 @@ Stage 2: Form Validation
   └─ quick_validate.py + /skill-edit (structural consistency)
 
 Stage 3: Behavioral Validation
-  ├─ Option A: /skill-evaluator-by-metaharness (deep dive)
+  ├─ Option A: /skill-evaluator (deep dive)
   └─ Option B: Official eval pipeline (benchmarking)
 
 Stage 4: Iteration (Optional)
@@ -63,9 +63,9 @@ Stage 6: Packaging
 ## What Makes It Unique?
 
 ### 1. **Orchestration, Not Duplication**
-skillforge doesn't reimplement existing tools. It routes work to:
+skill-forge doesn't reimplement existing tools. It routes work to:
 - `skill-edit` (form validation)
-- `skill-evaluator-by-metaharness` (behavioral validation)
+- `skill-evaluator` (behavioral validation)
 - Official skill-creator scripts (description optimization, packaging)
 - `codex` (expensive subagent operations)
 
@@ -88,7 +88,7 @@ Next: <recommended next stage>
 ```
 
 ### 4. **Context Preservation**
-Between stages, skillforge preserves:
+Between stages, skill-forge preserves:
 - Skill path
 - Eval set path
 - Validation results (pass rate, token efficiency, timing)
@@ -98,9 +98,9 @@ This allows resuming from any stage without re-running earlier work.
 
 ---
 
-## Comparison: Your Tools vs. Official vs. skillforge
+## Comparison: Your Tools vs. Official vs. skill-forge
 
-| Feature | skill-edit | skill-evaluator | Official skill-creator | skillforge |
+| Feature | skill-edit | skill-evaluator | Official skill-creator | skill-forge |
 |---------|-----------|-----------------|----------------------|-----------|
 | Form validation | ✅ Core | ❌ | ✅ Basic | ✅ Integrated |
 | Behavioral validation | ❌ | ✅ Core (3 stages) | ✅ Basic | ✅ Integrated (both) |
@@ -120,7 +120,7 @@ This allows resuming from any stage without re-running earlier work.
 ```
 User: "Create a skill that analyzes git commit patterns and generates insights"
 
-skillforge executes:
+skill-forge executes:
   Stage 1: Research similar skills, draft SKILL.md, write test cases
   Stage 2: Run skill-edit for form validation
   Stage 3: Run skill-evaluator for behavioral validation
@@ -134,7 +134,7 @@ Output: Packaged .skill file + validation report
 ```
 User: "This skill isn't triggering reliably when users ask about data visualization"
 
-skillforge executes:
+skill-forge executes:
   Stage 5: Generate 20 test queries (10 should-trigger, 10 should-not)
           Human reviews queries
           Run 5 rounds of description optimization
@@ -147,7 +147,7 @@ Output: Optimized description + trigger accuracy report
 ```
 User: "Test this skill thoroughly before I ship it to the team"
 
-skillforge executes:
+skill-forge executes:
   Stage 2: Form validation (skill-edit)
   Stage 3: Behavioral validation (both Option A and Option B)
   Stage 4: Iteration loop with eval set splitting
@@ -159,7 +159,7 @@ Output: Form report + behavioral report + iteration history
 ```
 User: "Package this skill for distribution"
 
-skillforge executes:
+skill-forge executes:
   Stage 6: Final validation check
           Gather dependencies
           Generate metadata
@@ -174,10 +174,10 @@ Output: .skill file + installation instructions
 
 ### 1. **Delegation Over Implementation**
 ```
-skillforge (orchestrator)
+skill-forge (orchestrator)
     │
     ├─ Delegates to: skill-edit
-    ├─ Delegates to: skill-evaluator-by-metaharness
+    ├─ Delegates to: skill-evaluator
     ├─ Delegates to: codex (for expensive ops)
     └─ Invokes: official skill-creator scripts
 ```
@@ -203,7 +203,7 @@ Consistent format across all stages makes chained outputs readable as one docume
 ## File Structure
 
 ```
-~/.claude/skills/skillforge/
+~/.claude/skills/skill-forge/
 ├── SKILL.md              # Main orchestration logic (404 lines)
 ├── README.md             # User-facing documentation
 ├── REGISTRATION.md       # CLAUDE.md entry + architecture diagrams
@@ -216,13 +216,13 @@ No scripts, no agents, no assets — pure orchestration.
 
 ## Integration with Existing Infrastructure
 
-### What skillforge PRESERVES:
+### What skill-forge PRESERVES:
 - skill-edit still works standalone
 - skill-evaluator still works standalone
 - Official skill-creator tools still work standalone
 - All 38 existing skills remain unchanged
 
-### What skillforge ADDS:
+### What skill-forge ADDS:
 - Automatic stage sequencing
 - Handoff between tools
 - Unified reporting
@@ -237,14 +237,14 @@ No scripts, no agents, no assets — pure orchestration.
 Add this entry to `~/.claude/CLAUDE.md`:
 
 ```markdown
-# skillforge
-- **skillforge** (`~/.claude/skills/skillforge/SKILL.md`) - complete skill lifecycle orchestration from concept to deployment. Orchestrates creation, form validation (skill-edit), behavioral validation (skill-evaluator), iteration, description optimization, and packaging. Trigger: `/skillforge`
-When the user types `/skillforge`, invoke the Skill tool with `skill: "skillforge"` before doing anything else.
+# skill-forge
+- **skill-forge** (`~/.claude/skills/skill-forge/SKILL.md`) - complete skill lifecycle orchestration from concept to deployment. Orchestrates creation, form validation (skill-edit), behavioral validation (skill-evaluator), iteration, description optimization, and packaging. Trigger: `/skill-forge`
+When the user types `/skill-forge`, invoke the Skill tool with `skill: "skill-forge"` before doing anything else.
 Also invoke proactively when the user asks to "create a new skill", "forge a skill", "develop a skill end-to-end", "optimize this skill", "improve this skill", "test this skill thoroughly", "run the full pipeline", "package this skill for distribution", or "take this skill through the full lifecycle".
 ```
 
 ### 2. Test the Pipeline
-Run `/skillforge` on an existing skill to validate all stages work correctly.
+Run `/skill-forge` on an existing skill to validate all stages work correctly.
 
 ### 3. Create Test Cases
 Write `evals/evals.json` for a few skills to enable quantitative validation.
@@ -254,7 +254,7 @@ Refine stage transitions based on real usage patterns.
 
 ---
 
-## Why "skillforge"?
+## Why "skill-forge"?
 
 A **forge** is where raw material becomes refined tools through iterative cycles of heating, hammering, and cooling. The metaphor captures:
 
@@ -283,7 +283,7 @@ The name evokes the full lifecycle (从诞生到成熟的完整生命周期) whi
 
 **Your custom tools:**
 - `~/.claude/skills/skill-edit/SKILL.md` (150 lines)
-- `~/.claude/skills/skill-evaluator-by-metaharness/SKILL.md` (215 lines)
+- `~/.claude/skills/skill-evaluator/SKILL.md` (215 lines)
 - `~/.claude/skills/codex/SKILL.md`
 
 **Official tools:**

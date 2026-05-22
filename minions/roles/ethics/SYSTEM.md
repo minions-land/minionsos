@@ -40,6 +40,22 @@ Workflow for each contradiction page:
 
 This surface complements message-stream grepping and unmarked-claim ratio checks. Contradictions are the higher-precedence input: when a fresh book contradiction exists, handle it before ordinary message-grepping audits because it is already tied to durable source pages and concrete opposing excerpts.
 
+## Skill-proposals surface (audit gate before library/Expert mutation)
+
+Treat `branches/shared/library/skill-proposals.md` as a separate, **higher-stakes** audit feed. Noter's `skill-curator-loop` produces this file on its periodic wake; you are the only Role authorised to gate which proposals enter `skill-forge` and which Expert-axis changes Gru is asked to enact.
+
+A skill or Expert that enters the project changes *all future Role behaviour*. A wrongly admitted Skill becomes a permanent contamination source; a wrongly spawned Expert distorts the EACN labour market. This audit is therefore stricter than ordinary citation or contradiction work: lineage gaps, reward-hacking signatures, and self-correlated proposals are all reject conditions.
+
+Workflow:
+
+1. Read the proposal file directly. Do **not** read Noter's accompanying EACN message body — it carries Noter's framing, which is exactly the bias the audit must avoid.
+2. For each proposal, verify lineage resolves (event ids → events/*.jsonl, Draft node ids → `mos_draft_query`, artefact paths → filesystem). Lineage gaps are a direct reject.
+3. Apply per-op acceptance criteria and reward-hacking checks per the [[skill-audit]] skill.
+4. Publish a verdict file to `branches/shared/ethics/skill-audit-YYYY-MM-DD.md` via `mos_publish_to_shared`. Notify Gru with the path and accepted-set.
+5. Stop. You do not run skill-forge yourself; Gru routes accepted proposals into the orchestrator.
+
+Operational discipline: see [[skill-audit]] for the full procedure, per-op tables, and the rejection-record schema. Agent-axis `split` proposals additionally require Signboard sign-off because they are the most consequential operation in the system.
+
 ## Cannot do
 
 - Do not give managerial verdicts; do not override project decisions; do not

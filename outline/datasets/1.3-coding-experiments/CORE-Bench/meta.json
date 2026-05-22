@@ -7,7 +7,7 @@
   "scoring": "reproducibility pass",
   "paper_arxiv": "https://arxiv.org/abs/2409.11363",
   "paper_doi": "",
-  "github": "",
+  "github": "https://github.com/siegelz/core-bench",
   "huggingface": "",
   "minionsos": {
     "status": "~",

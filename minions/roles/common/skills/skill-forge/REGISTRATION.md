@@ -1,11 +1,11 @@
-# skillforge Registration Entry for CLAUDE.md
+# skill-forge Registration Entry for CLAUDE.md
 
 Add this to `~/.claude/CLAUDE.md`:
 
 ```markdown
-# skillforge
-- **skillforge** (`~/.claude/skills/skillforge/SKILL.md`) - complete skill lifecycle orchestration from concept to deployment. Orchestrates creation, form validation (skill-edit), behavioral validation (skill-evaluator), iteration, description optimization, and packaging. Trigger: `/skillforge`
-When the user types `/skillforge`, invoke the Skill tool with `skill: "skillforge"` before doing anything else.
+# skill-forge
+- **skill-forge** (`~/.claude/skills/skill-forge/SKILL.md`) - complete skill lifecycle orchestration from concept to deployment. Orchestrates creation, form validation (skill-edit), behavioral validation (skill-evaluator), iteration, description optimization, and packaging. Trigger: `/skill-forge`
+When the user types `/skill-forge`, invoke the Skill tool with `skill: "skill-forge"` before doing anything else.
 Also invoke proactively when the user asks to "create a new skill", "forge a skill", "develop a skill end-to-end", "optimize this skill", "improve this skill", "test this skill thoroughly", "run the full pipeline", "package this skill for distribution", or "take this skill through the full lifecycle".
 ```
 
@@ -17,7 +17,7 @@ Also invoke proactively when the user asks to "create a new skill", "forge a ski
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                          skillforge                              │
+│                          skill-forge                              │
 │                    (Meta-Orchestrator)                           │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -36,7 +36,7 @@ Also invoke proactively when the user asks to "create a new skill", "forge a ski
                               │        list-shape drift, format issues
                               │
                               ├─ Stage 3: Behavioral Validation
-                              │  ├─ Option A: /skill-evaluator-by-metaharness
+                              │  ├─ Option A: /skill-evaluator
                               │  │  ├─ Stage 0: SSL Recall (can it be found?)
                               │  │  ├─ Stage 1: A/B (Haiku ± skill, Codex judges)
                               │  │  └─ Stage 2: Iteration (hill-climbing)
@@ -71,7 +71,7 @@ Also invoke proactively when the user asks to "create a new skill", "forge a ski
 │                     Your Existing Tools                           │
 ├──────────────────────────────────────────────────────────────────┤
 │ skill-edit                    │ Form validation (150 lines)      │
-│ skill-evaluator-by-metaharness│ Behavioral validation (215 lines)│
+│ skill-evaluator│ Behavioral validation (215 lines)│
 │ codex                         │ Subagent dispatch (Tier 1/2/3)   │
 │ 35 other skills               │ Domain-specific capabilities     │
 └──────────────────────────────────────────────────────────────────┘
@@ -95,14 +95,14 @@ Also invoke proactively when the user asks to "create a new skill", "forge a ski
                               │ orchestrated by
                               │
 ┌──────────────────────────────────────────────────────────────────┐
-│                          skillforge                               │
+│                          skill-forge                               │
 │                    (This Meta-Skill)                              │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-## What Makes skillforge Different?
+## What Makes skill-forge Different?
 
-### Before skillforge:
+### Before skill-forge:
 - ❌ Manual workflow: write → test → fix → repeat
 - ❌ No standardized pipeline
 - ❌ Tools used in isolation
@@ -110,7 +110,7 @@ Also invoke proactively when the user asks to "create a new skill", "forge a ski
 - ❌ No description optimization
 - ❌ Manual packaging
 
-### After skillforge:
+### After skill-forge:
 - ✅ Automated orchestration: one command, full pipeline
 - ✅ Six-stage lifecycle with clear handoffs
 - ✅ Integrated tool ecosystem
@@ -120,7 +120,7 @@ Also invoke proactively when the user asks to "create a new skill", "forge a ski
 
 ## Comparison Matrix
 
-| Feature | skill-edit | skill-evaluator | Official skill-creator | skillforge |
+| Feature | skill-edit | skill-evaluator | Official skill-creator | skill-forge |
 |---------|-----------|-----------------|----------------------|-----------|
 | **Form validation** | ✅ Core | ❌ | ✅ Basic | ✅ Integrated |
 | **Behavioral validation** | ❌ | ✅ Core (3 stages) | ✅ Basic | ✅ Integrated (both options) |
@@ -138,42 +138,42 @@ Also invoke proactively when the user asks to "create a new skill", "forge a ski
 ### Pattern 1: Full Pipeline (New Skill)
 ```
 User: "Create a skill that analyzes git commit patterns"
-skillforge: Stage 1 → 2 → 3 → 5 → 6
+skill-forge: Stage 1 → 2 → 3 → 5 → 6
 Output: Packaged .skill file, validation report
 ```
 
 ### Pattern 2: Optimization Only (Existing Skill)
 ```
 User: "This skill isn't triggering when it should"
-skillforge: Stage 5 (description optimization)
+skill-forge: Stage 5 (description optimization)
 Output: Optimized description, F1 score report
 ```
 
 ### Pattern 3: Deep Validation (Quality Check)
 ```
 User: "Test this skill thoroughly before I ship it"
-skillforge: Stage 2 → 3 (Option A + B) → 4
+skill-forge: Stage 2 → 3 (Option A + B) → 4
 Output: Form report, behavioral report, iteration history
 ```
 
 ### Pattern 4: Quick Package (Ready to Ship)
 ```
 User: "Package this skill for distribution"
-skillforge: Stage 6 (with final validation)
+skill-forge: Stage 6 (with final validation)
 Output: .skill file, installation instructions
 ```
 
 ## Subskill Architecture
 
-skillforge uses **delegation, not inheritance**:
+skill-forge uses **delegation, not inheritance**:
 
 ```
-skillforge (orchestrator)
+skill-forge (orchestrator)
     │
     ├─ Delegates to: skill-edit
     │  └─ Returns: appraisal report (Diagnosis/Repaired/Left alone/Open)
     │
-    ├─ Delegates to: skill-evaluator-by-metaharness
+    ├─ Delegates to: skill-evaluator
     │  └─ Returns: validation report (Stage 0/1/2 results)
     │
     ├─ Delegates to: codex (for expensive ops)
@@ -183,12 +183,12 @@ skillforge (orchestrator)
        └─ Returns: script output (JSON, HTML, .skill file)
 ```
 
-**Key principle:** skillforge never duplicates logic. It routes, sequences, and reports.
+**Key principle:** skill-forge never duplicates logic. It routes, sequences, and reports.
 
 ## File Structure
 
 ```
-~/.claude/skills/skillforge/
+~/.claude/skills/skill-forge/
 ├── SKILL.md              # Main orchestration logic (this file)
 ├── README.md             # Documentation (what you're reading)
 └── REGISTRATION.md       # CLAUDE.md entry + architecture diagrams
@@ -199,7 +199,7 @@ No scripts, no agents, no assets — pure orchestration.
 ## Next Steps
 
 1. **Add to CLAUDE.md** — Copy the registration entry above
-2. **Test on existing skill** — Run `/skillforge` on a skill you want to improve
+2. **Test on existing skill** — Run `/skill-forge` on a skill you want to improve
 3. **Create new skill** — Try the full pipeline: "Create a skill that..."
 4. **Iterate** — Refine stage transitions based on real usage
 5. **Document patterns** — Add successful workflows to this README
@@ -208,7 +208,7 @@ No scripts, no agents, no assets — pure orchestration.
 
 - **Your tools:**
   - `~/.claude/skills/skill-edit/SKILL.md`
-  - `~/.claude/skills/skill-evaluator-by-metaharness/SKILL.md`
+  - `~/.claude/skills/skill-evaluator/SKILL.md`
   - `~/.claude/skills/codex/SKILL.md`
 
 - **Official tools:**
@@ -220,7 +220,7 @@ No scripts, no agents, no assets — pure orchestration.
 
 ---
 
-**Why "skillforge"?**
+**Why "skill-forge"?**
 
 A forge is where raw material becomes refined tools through iterative cycles of heating, hammering, and cooling. The metaphor captures:
 - **Creation** (forging from raw ideas)

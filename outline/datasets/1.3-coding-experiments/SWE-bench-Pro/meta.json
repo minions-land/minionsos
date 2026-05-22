@@ -7,7 +7,7 @@
   "scoring": "resolved rate",
   "paper_arxiv": "https://arxiv.org/abs/2509.16941",
   "paper_doi": "",
-  "github": "",
+  "github": "https://github.com/scaleapi/SWE-bench_Pro-os",
   "huggingface": "",
   "minionsos": {
     "status": "~",

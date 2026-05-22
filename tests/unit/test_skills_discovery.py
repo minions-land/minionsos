@@ -156,7 +156,7 @@ def test_subdirectory_skills_are_not_discovered(fake_roles: Path) -> None:
     """Discovery is non-recursive — bundles under skills/ subdirs stay opt-in.
 
     Real-world callers: ``common/skills/eacn3/`` (12 EACN3 procedure files
-    routed through ``eacn3-mcp.md``) and ``common/skills/skillforge/``
+    routed through ``eacn3-mcp.md``) and ``common/skills/skill-forge/``
     (skill-authoring bundle a Role only opens when explicitly creating a
     new skill). Loading them at every wake-up would balloon the init
     message and import role-irrelevant content.

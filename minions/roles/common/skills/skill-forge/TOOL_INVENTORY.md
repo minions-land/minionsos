@@ -44,7 +44,7 @@ The plugin cache has the complete set, but they're scattered across 18 versions.
 
 **Action needed:**
 1. Copy missing scripts from plugin cache to ~/.codex/skills/.system/skill-creator/scripts/
-2. Update skillforge SKILL.md to reference both locations as fallbacks
+2. Update skill-forge SKILL.md to reference both locations as fallbacks
 3. Test all scripts are executable and have correct dependencies
 
 ---
@@ -76,7 +76,7 @@ Stage 6 (Packaging):
 
 ---
 
-## Path Strategy for skillforge
+## Path Strategy for skill-forge
 
 Use this fallback chain:
 

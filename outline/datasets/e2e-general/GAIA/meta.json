@@ -10,9 +10,10 @@
   "github": "",
   "huggingface": "https://huggingface.co/datasets/gaia-benchmark/GAIA",
   "minionsos": {
-    "status": "✓",
+    "status": "\u2713",
     "status_meaning": "directly evaluable, no adapter needed",
-    "evaluation_flow": "Gru routes to Role; web tool + paper-search joint"
+    "evaluation_flow": "Gru routes to Role; web tool + paper-search joint",
+    "notes": "GAIA is gated on HuggingFace. Requires HF token + terms acceptance at https://huggingface.co/datasets/gaia-benchmark/GAIA. Cannot be pulled without VPN + browser to accept terms."
   },
   "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
 }

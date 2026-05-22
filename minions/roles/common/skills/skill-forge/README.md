@@ -1,14 +1,14 @@
-# skillforge — Complete Skill Lifecycle Management
+# skill-forge — Complete Skill Lifecycle Management
 
 A unified meta-skill that orchestrates the entire skill development pipeline from concept to deployment.
 
-## What is skillforge?
+## What is skill-forge?
 
-**skillforge** is a conductor, not a monolith. It delegates to specialized tools at each stage of the skill lifecycle:
+**skill-forge** is a conductor, not a monolith. It delegates to specialized tools at each stage of the skill lifecycle:
 
 - **Stage 1: Creation** — Generate initial SKILL.md from requirements
 - **Stage 2: Form Validation** — Structural consistency (via `skill-edit`)
-- **Stage 3: Behavioral Validation** — Does it change agent behavior? (via `skill-evaluator-by-metaharness` or official eval pipeline)
+- **Stage 3: Behavioral Validation** — Does it change agent behavior? (via `skill-evaluator` or official eval pipeline)
 - **Stage 4: Iteration** — Hill-climbing with eval sets
 - **Stage 5: Description Optimization** — Maximize trigger accuracy
 - **Stage 6: Packaging** — Ship as .skill file
@@ -16,13 +16,13 @@ A unified meta-skill that orchestrates the entire skill development pipeline fro
 ## Architecture
 
 ```
-skillforge (orchestrator)
+skill-forge (orchestrator)
 ├── Stage 1: Creation
 │   └── Uses: init_skill.py (official) or manual drafting
 ├── Stage 2: Form Validation
 │   └── Delegates to: /skill-edit
 ├── Stage 3: Behavioral Validation
-│   ├── Option A: /skill-evaluator-by-metaharness (deep dive)
+│   ├── Option A: /skill-evaluator (deep dive)
 │   └── Option B: official eval pipeline (benchmarking)
 ├── Stage 4: Iteration
 │   ├── Option A: skill-evaluator Stage 2 (hill-climbing)
@@ -43,7 +43,7 @@ skillforge (orchestrator)
 
 ## What's New vs. Existing Tools?
 
-| Capability | Before | After (skillforge) |
+| Capability | Before | After (skill-forge) |
 |------------|--------|-------------------|
 | **Creation** | Manual drafting | Guided intake + template generation |
 | **Form validation** | skill-edit (standalone) | Integrated as Stage 2 |
@@ -59,25 +59,25 @@ skillforge (orchestrator)
 ### Create a new skill from scratch
 ```
 User: "I want to create a skill that converts CSV data to interactive charts"
-skillforge: [Runs Stage 1 → 2 → 3 → 5 → 6]
+skill-forge: [Runs Stage 1 → 2 → 3 → 5 → 6]
 ```
 
 ### Improve an existing skill
 ```
 User: "This skill isn't triggering reliably, can you optimize it?"
-skillforge: [Runs Stage 5 (description optimization)]
+skill-forge: [Runs Stage 5 (description optimization)]
 ```
 
 ### Validate a skill thoroughly
 ```
 User: "Test this skill end-to-end"
-skillforge: [Runs Stage 2 → 3 → 4]
+skill-forge: [Runs Stage 2 → 3 → 4]
 ```
 
 ### Package for distribution
 ```
 User: "Package this skill for release"
-skillforge: [Runs Stage 6 (with final validation)]
+skill-forge: [Runs Stage 6 (with final validation)]
 ```
 
 ## Tool Locations
@@ -88,17 +88,17 @@ skillforge: [Runs Stage 6 (with final validation)]
 
 **Your custom skills:**
 - `~/.claude/skills/skill-edit/` — Form validation
-- `~/.claude/skills/skill-evaluator-by-metaharness/` — Behavioral validation
+- `~/.claude/skills/skill-evaluator/` — Behavioral validation
 - `~/.claude/skills/codex/` — Subagent dispatch
 
 ## Integration with Existing Infrastructure
 
-skillforge **preserves** your existing workflow:
+skill-forge **preserves** your existing workflow:
 - skill-edit still works standalone
 - skill-evaluator still works standalone
 - Official skill-creator tools still work standalone
 
-skillforge **adds** orchestration:
+skill-forge **adds** orchestration:
 - Automatic stage sequencing
 - Handoff between tools
 - Unified reporting
@@ -114,7 +114,7 @@ skillforge **adds** orchestration:
 ## Related Documentation
 
 - `~/.claude/skills/skill-edit/SKILL.md` — Form validation details
-- `~/.claude/skills/skill-evaluator-by-metaharness/SKILL.md` — Behavioral validation details
+- `~/.claude/skills/skill-evaluator/SKILL.md` — Behavioral validation details
 - `~/.codex/skills/.system/skill-creator/SKILL.md` — Official skill-creator documentation
 - `minions/roles/common/SKILL_BEHAVIORAL_EVAL.md` — Full-library eval example
 

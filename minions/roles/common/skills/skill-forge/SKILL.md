@@ -1,19 +1,19 @@
 ---
-name: skillforge
+name: skill-forge
 description: Complete skill lifecycle orchestration — from initial concept through creation, validation, testing, iteration, optimization, and packaging. Delegates to specialized subskills (skill-edit for form, skill-evaluator for behavior, official skill-creator tools for description optimization and packaging). Use when the user wants to create a new skill, improve an existing one, or run the full development pipeline. Trigger phrases include "create a skill", "forge a skill", "skill lifecycle", "develop a skill end-to-end", "optimize this skill", "package this skill".
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   layer: meta-orchestration
-  references: [skill-edit, skill-evaluator-by-metaharness, codex]
+  references: [skill-edit, skill-evaluator, skill-curator, codex]
 allowed-tools: [Agent, Bash, Read, Write, Edit, Skill]
 ---
 
-# skillforge — Complete Skill Lifecycle Orchestration
+# skill-forge — Complete Skill Lifecycle Orchestration
 
 **What this does:** Orchestrates the entire skill development lifecycle from concept to deployment. Acts as a conductor that delegates to specialized subskills and tools at each stage.
 
 **When to invoke:**
-- User types `/skillforge`
+- User types `/skill-forge`
 - User asks to "create a new skill", "forge a skill", "develop a skill end-to-end"
 - User wants to "improve/optimize/iterate on this skill"
 - User asks to "test this skill thoroughly", "run the full pipeline"
@@ -162,8 +162,8 @@ Read the appraisal report from skill-edit. Apply recommended changes.
 
 **Step 3.1 — Choose validation approach:**
 
-**Option A: Use skill-evaluator-by-metaharness** (recommended for single-skill deep dive):
-- Invoke `/skill-evaluator-by-metaharness` with the skill path
+**Option A: Use skill-evaluator** (recommended for single-skill deep dive):
+- Invoke `/skill-evaluator` with the skill path
 - This runs:
   - **Stage 0 (SSL Recall):** Can the skill be discovered from its description?
   - **Stage 1 (Behavioral A/B):** Does it change behavior? (Haiku with/without skill, Codex blind-judges)
@@ -358,7 +358,7 @@ skill-evaluator is calibrated for Haiku. Using Sonnet wastes compute and produce
 ## Related Skills
 
 - [[skill-edit]] — Form validation (Stage 2)
-- [[skill-evaluator-by-metaharness]] — Behavioral validation (Stage 3, Option A)
+- [[skill-evaluator]] — Behavioral validation (Stage 3, Option A)
 - [[codex]] — Subagent dispatch for expensive operations
 - [[dev-log]] — Record design decisions and dead ends during skill development
 

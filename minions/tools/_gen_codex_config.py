@@ -22,6 +22,22 @@ def main() -> None:
         'command = "node"\n'
         'args = ["mcp-servers/eacn3/plugin/dist/server.js"]\n'
         "enabled = true\n"
+        "\n"
+        "[mcp_servers.keepalive]\n"
+        'command = "uv"\n'
+        'args = ["run", "--quiet", "--no-project", "--with", "mcp[cli]",'
+        ' "python", "mcp-servers/keepalive/server.py"]\n'
+        "enabled = true\n"
+        "\n"
+        "[mcp_servers.graphify]\n"
+        'command = "bash"\n'
+        'args = ["mcp-servers/graphify/launcher.sh"]\n'
+        "enabled = true\n"
+        "\n"
+        "[mcp_servers.codegraph]\n"
+        'command = "bash"\n'
+        'args = ["mcp-servers/codegraph/launcher.sh"]\n'
+        "enabled = true\n"
     )
     output.write_text(config, encoding="utf-8")
 

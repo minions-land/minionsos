@@ -1,7 +1,7 @@
 """Generate .mcp.json for Claude Code — conditional MCP server registration.
 
-minionsos, eacn3, keepalive, and graphify are always registered (core stack).
-codex-subagent is only registered if its dist/server.js exists.
+minionsos, eacn3, keepalive, graphify, and codegraph are always registered
+(core stack). codex-subagent is only registered if its dist/server.js exists.
 """
 
 from __future__ import annotations
@@ -61,6 +61,12 @@ def main() -> None:
         "type": "stdio",
         "command": "bash",
         "args": ["mcp-servers/graphify/launcher.sh"],
+        "env": {},
+    }
+    servers["codegraph"] = {
+        "type": "stdio",
+        "command": "bash",
+        "args": ["mcp-servers/codegraph/launcher.sh"],
         "env": {},
     }
 

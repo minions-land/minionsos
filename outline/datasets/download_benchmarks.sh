@@ -1,17 +1,24 @@
 #!/usr/bin/env bash
 # Download all 73 auto-research benchmarks
-# Usage: ./download_benchmarks.sh [--tier1-only] [--dry-run]
+# Usage: ./download_benchmarks.sh [--tier1-only] [--dry-run] [--clone-timeout=SEC]
+#
+# Network notes (verified 2026-05-22):
+#   - github.com HTTPS throttled; gh-cli rewrites to SSH (insteadOf)
+#   - SSH can stall on big repos; --clone-timeout kills stuck clones
+#   - huggingface.co is TCP-reset; pull_hf uses hf-mirror.com via curl
 
-set -euo pipefail
+set -uo pipefail
 
 BASE="$(cd "$(dirname "$0")" && pwd)"
 DRY_RUN=false
 TIER1_ONLY=false
+CLONE_TIMEOUT=${CLONE_TIMEOUT:-300}
 
 while [[ $# -gt 0 ]]; do
   case $1 in
     --dry-run) DRY_RUN=true; shift ;;
     --tier1-only) TIER1_ONLY=true; shift ;;
+    --clone-timeout=*) CLONE_TIMEOUT="${1#*=}"; shift ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
@@ -26,6 +33,25 @@ run() {
   fi
 }
 
+# Cross-platform timeout (no GNU coreutils on macOS).
+# Runs cmd in background, kills it after $1 seconds.
+run_timed() {
+  local secs="$1"; shift
+  if command -v gtimeout &>/dev/null; then
+    gtimeout --kill-after=10 "$secs" "$@"
+    return $?
+  fi
+  "$@" &
+  local pid=$!
+  ( sleep "$secs"; kill -TERM "$pid" 2>/dev/null; sleep 5; kill -KILL "$pid" 2>/dev/null ) &
+  local watcher=$!
+  wait "$pid" 2>/dev/null
+  local rc=$?
+  kill -TERM "$watcher" 2>/dev/null
+  wait "$watcher" 2>/dev/null
+  return $rc
+}
+
 clone_repo() {
   local repo="$1"
   local target="$2"
@@ -33,14 +59,23 @@ clone_repo() {
     log "  ⊘ No repo URL"
     return
   fi
-  # Clone into target/repo/ so meta.json can coexist
   local repo_dir="$target/repo"
   if [[ -d "$repo_dir/.git" ]]; then
     log "  ✓ Already cloned: $repo_dir"
     return
   fi
   mkdir -p "$target"
-  run gh repo clone "$repo" "$repo_dir" -- --depth=1 || log "  ✗ Clone failed for $repo"
+  if $DRY_RUN; then
+    echo "[DRY] gh repo clone $repo $repo_dir --depth=1"
+    return
+  fi
+  log "  ↓ cloning $repo (timeout=${CLONE_TIMEOUT}s)"
+  if run_timed "$CLONE_TIMEOUT" gh repo clone "$repo" "$repo_dir" -- --depth=1; then
+    log "  ✓ cloned"
+  else
+    log "  ✗ clone failed/timed out: $repo"
+    rm -rf "$repo_dir"
+  fi
 }
 
 pull_hf() {
@@ -128,7 +163,7 @@ TIER2=(
   "1.2-literature-review/DeepScholar-Bench|https://github.com/guestrin-lab/deepscholar-bench|"
   "1.2-literature-review/ReportBench|https://github.com/ByteDance-BandAI/ReportBench|"
   "1.2-literature-review/ScholarGym||"
-  "1.3-coding-experiments/SWE-bench-Pro||"
+  "1.3-coding-experiments/SWE-bench-Pro|https://github.com/scaleapi/SWE-bench_Pro-os|"
   "1.3-coding-experiments/ResearchCodeBench|https://github.com/PatrickHua/ResearchCodeBench|"
   "1.3-coding-experiments/SciReplicate-Bench|https://github.com/xyzCS/SciReplicate-Bench|"
   "1.3-coding-experiments/MLE-Bench|https://github.com/openai/mle-bench|"
@@ -137,7 +172,7 @@ TIER2=(
   "1.3-coding-experiments/DiscoveryBench|https://github.com/allenai/discoverybench|"
   "1.3-coding-experiments/LAB-Bench|https://github.com/Future-House/LAB-Bench|"
   "1.3-coding-experiments/RE-Bench|https://github.com/METR/RE-Bench|"
-  "1.3-coding-experiments/CORE-Bench||"
+  "1.3-coding-experiments/CORE-Bench|https://github.com/siegelz/core-bench|"
   "1.4-tables-figures/ArxivDIGESTables|https://github.com/bnewm0609/arxivDIGESTables|"
   "1.4-tables-figures/Chain-of-Table|https://github.com/google-research/chain-of-table|"
   "1.4-tables-figures/AbGen|https://github.com/yale-nlp/AbGen|"
@@ -167,7 +202,7 @@ TIER3=(
   "1.3-coding-experiments/SWE-EVO||"
   "1.3-coding-experiments/PaperBench|https://github.com/openai/preparedness|"
   "1.3-coding-experiments/MLGym|https://github.com/facebookresearch/MLGym|"
-  "1.3-coding-experiments/MLR-Bench||"
+  "1.3-coding-experiments/MLR-Bench|https://github.com/chchenhui/mlrbench|"
   "1.3-coding-experiments/DiscoveryWorld|https://github.com/allenai/discoveryworld|"
   "1.3-coding-experiments/AstaBench|https://github.com/allenai/asta-bench|"
   "1.3-coding-experiments/ResearchClawBench|https://github.com/InternScience/ResearchClawBench|"

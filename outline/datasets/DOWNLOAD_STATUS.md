@@ -1,128 +1,87 @@
 # Auto-Research Benchmarks Download Status
 
-**Date:** 2026-05-22
+**Date:** 2026-05-22 (refreshed)
 **Source:** AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)
 
 ## Summary
 
 - **Total benchmarks catalogued:** 73 (74 dirs incl. summary)
-- **Repos successfully cloned:** 29 (1 partial: PaperBench needs git-lfs)
-- **Total size on disk:** 6.2 GB
-- **meta.json files:** 74 (one per benchmark with paper / repo / scoring / MinionsOS adapter status)
+- **Repos cloned successfully (smoke-test PASS):** 48 — 46 GitHub + 2 HF datasets
+- **Total size on disk:** ~7.7 GB
+- **Smoke test:** `./smoke_test.sh` returns `PASS: 48, FAIL: 0`
+- **HuggingFace path:** `pull_hf` in `download_benchmarks.sh` now uses `hf-mirror.com` via system curl; full skill at `~/.claude/skills/huggingface-fetch/SKILL.md`
 
-## Successfully cloned (29 repos, 6.2 GB)
+## What's PASSing (48 entries)
 
-### Tier 1 — directly evaluable (✓), 7 repos
-- LitSearch (208K), SWE-bench (6.0M), SciCode (344K)
-- MLAgentBench (5.9M), KernelBench (5.9M), TritonBench (156M)
-- AutoSurvey (1.8M)
+### Tier 1 ✓ — directly evaluable (12 of 18 cloned)
 
-### Tier 2 — light adapter (~), 11 repos
-- AI-Idea-Bench-2025 (325M)
-- DeepScholar-Bench (46M), ReportBench (11M)
-- SciReplicate-Bench (3.3M), EXP-Bench (47M), PostTrainBench (18M)
-- DiscoveryBench (69M), LAB-Bench (512M)
-- FigureBench (159M)
-- RebuttalAgent (3.6M), DRPG (3.8M)
+| Bench | Type | Size | Notes |
+|---|---|---|---|
+| LitSearch | repo | 208K | princeton-nlp |
+| CiteME | repo | 516K | bethgelab |
+| SWE-bench | repo + HF | 6.0M + 113M | princeton-nlp; HF parquet (train/test) via mirror |
+| SciCode | repo | 344K | scicode-bench |
+| MLAgentBench | repo | 5.8M | snap-stanford |
+| ScienceAgentBench | repo | 444K | OSU-NLP-Group |
+| KernelBench | repo | 5.5M | ScalingIntelligence |
+| TritonBench | repo | 155M | thunlp |
+| InfiAgent-DABench | repo | 111M | InfiAgent |
+| SUPER | repo | 93M | allenai/super-benchmark |
+| TeXpert | repo | 4.1M | knowledge-verse-ai |
+| AutoSurvey | repo | 1.8M | AutoSurveys |
+| GAIA | HF | 476K | gaia-benchmark via mirror |
+| SimpleQA | repo | 512K | openai/simple-evals |
 
-### Tier 3 — medium refactor (!), 6 repos
-- HeurekaBench (358M)
-- **PaperBench** (39M, partial — needs `git lfs pull`)
-- DiscoveryWorld (58M), AstaBench (4.2M), ResearchClawBench (2.5G)
-- HLE (364K)
+**Tier 1 paper-only (no public release):** SciIG, ClaimCheck.
+**Tier 1 timed out (large LFS-heavy GitHub repos):** ChartQA (vis-nlp), PeerRead (allenai). Source URLs are now in the script — re-run on a faster network or with longer `--clone-timeout` to fetch them.
 
-### Tier 4 — not covered (✗), 5 repos cloned anyway
-- Paper2Poster (1.1G), PPTAgent-PPTEval (157M), Paper2Video (64M), Paper2Web (528M), PresentEval (152M)
-- These are dissemination benchmarks MinionsOS doesn't cover yet, but repos cloned for future reference.
+### Tier 2 ~ — light adapter (16 of 35 cloned)
 
-## Not downloaded (44 benchmarks)
+AI-Idea-Bench-2025 (313M), LiveIdeaBench (81M), DeepScholar-Bench (46M), ReportBench (11M), ResearchCodeBench (6.7M), SciReplicate-Bench (3.3M), MLE-Bench (6.1M, code only — Kaggle data behind LFS), EXP-Bench (47M), PostTrainBench (18M), DiscoveryBench (68M), LAB-Bench (505M), RE-Bench (3.3M), ArxivDIGESTables (38M), Chain-of-Table (1.1M), FigureBench (154M), ReviewMT (3.4M), AgentReview (6.1M), Breaking-the-Reviewer (14M), RebuttalAgent (2.8M), DRPG (3.3M), HLE (364K).
 
-Reasons:
-- **Paper-only / proprietary** (no public repo): CiteME, PeerRead, ClaimCheck, SimpleQA, SciIG, TeXpert, ChartQA, ScienceAgentBench, InfiAgent-DABench, SUPER, MLE-Bench, RE-Bench, CORE-Bench, etc.
-- **HuggingFace dataset, no CLI installed**: GAIA, SWE-bench HF dataset, etc.
-- **Future-dated / placeholder arXiv IDs** (need manual verification): IDRBench, ScholarGym, SciNetBench, FrontierScience, RATE, ICLR-2025-Study, etc.
+**Tier 2 paper-only:** IdeaBench, HindSight, ScholarGym, SWE-bench-Pro, CORE-Bench, AbGen (timeout but search succeeded), PaperWritingBench, ReviewAgents, AI-Detection, Prompt-Injection, Re2, Commitment-Checklist, BrowseComp, AAAR-1.0.
+**Tier 2 timed out:** AbGen.
 
-## Directory layout
+### Tier 3 ! — medium refactor (8 of 15 cloned)
 
-```
-outline/datasets/
-├── README.md                         # User-facing intro
-├── DOWNLOAD_STATUS.md                # This file
-├── download_benchmarks.sh            # Re-runnable downloader
-├── 1.1-idea-generation/              # 6 benchmarks
-│   ├── IdeaBench/meta.json
-│   ├── AI-Idea-Bench-2025/
-│   │   ├── meta.json
-│   │   └── repo/                     # ← cloned source
-│   └── ...
-├── 1.2-literature-review/            # 7 benchmarks
-├── 1.3-coding-experiments/           # 25 benchmarks (most repos here)
-├── 1.4-tables-figures/               # 7
-├── 2-paper-writing/                  # 3
-├── 3.1-peer-review/                  # 10
-├── 3.2-rebuttal/                     # 4
-├── 4-dissemination/                  # 6 (NOT COVERED)
-└── e2e-general/                      # 5
-```
+HeurekaBench (346M), PaperBench (1.0G — incl. ICML papers + judge_eval tarballs after `git lfs pull`), MLGym (in progress), DiscoveryWorld (57M), AstaBench (4.2M), ResearchClawBench (2.5G), FrontierScience (888K).
 
-Every benchmark dir has a `meta.json` with:
-- `name`, `stage`, `year`, `venue`
-- `what_it_tests`, `scoring`
-- `paper_arxiv`, `paper_doi`, `github`, `huggingface`
-- `minionsos.status` (✓/~/!✗) + `minionsos.evaluation_flow` (specific Roles + tools to use)
+**Tier 3 paper-only:** ResearchBench, IDRBench, SciNetBench, SWE-EVO, MLR-Bench, SciFlow-Bench, ICLR-2025-Study, RATE.
 
-## Next steps
+### Tier 4 ✗ — Paper2X dissemination (5 of 6 cloned)
 
-1. **Fix PaperBench (GOLD STANDARD)**:
-   ```bash
-   brew install git-lfs  # or apt-get install git-lfs
-   cd 1.3-coding-experiments/PaperBench/repo
-   git lfs pull
-   ```
+Paper2Poster (1.0G), PPTAgent-PPTEval (147M), Paper2Video (64M), Paper2Web (528M), PresentEval (138M).
+**Tier 4 paper-only:** P2P.
 
-2. **Install HuggingFace CLI** to pull HF-hosted datasets:
-   ```bash
-   pip install huggingface_hub[cli]
-   ./download_benchmarks.sh    # re-run; will skip already-cloned repos
-   ```
+## Failure modes encountered (and how they're handled)
 
-3. **Manually fetch paper-only benchmarks** as appendices/supplementary materials are released. Track in each benchmark's `meta.json`.
+1. **github.com SSH stalls on multi-GB repos.** `download_benchmarks.sh` now wraps every clone in `run_timed` with a `--clone-timeout` (default 300s); stuck clones are SIGKILLed and the partial directory removed. Six repos timed out: ChartQA, PeerRead, AbGen, plus the original MLE-Bench attempt (which we recovered separately with `GIT_LFS_SKIP_SMUDGE=1`).
+2. **PaperBench LFS data subtree was missing after shallow clone.** `git clone --depth=1` doesn't materialize the `data/` subtree because of the `.lfsconfig` `fetchexclude` rule. Fix: unset `lfs.fetchexclude`, run `git lfs fetch --include "project/paperbench/data/**"`, then `git restore --source=HEAD -- project/paperbench/data` to inflate the subtree, then `git lfs pull`. Captured in this session for the next time we touch PaperBench. Result: 524M of real LFS data, 442 LFS pointer files resolved.
+3. **`huggingface.co` is fully TCP-reset on this host.** Verified: every Python HTTP client (requests/urllib/httpx) AND the new `hf` CLI fail with `[SSL: UNEXPECTED_EOF_WHILE_READING]`; raw curl returns `(35) Recv failure: Connection reset by peer`. Workaround: `hf-mirror.com` via **system** curl (LibreSSL). Recipe documented in `~/.claude/skills/huggingface-fetch/SKILL.md` and mirrored at `minions/roles/common/skills/huggingface-fetch.md`.
+4. **HF Xet-bridge LFS files fail through the mirror** (e.g., SWE-bench `dev-00000-of-00001.parquet` returns NXDOMAIN on `cas-bridge.xethub.hf.co`). Train/test parquet succeeded; only the dev split is missing. Documented as a known limitation in the skill.
 
-4. **Run Tier 1 evaluations** (17 directly evaluable):
-   - Each `meta.json.minionsos.evaluation_flow` describes the exact MinionsOS Role + tool sequence.
+## Operational artifacts
 
-5. **Write Tier 2 adapters** (34 benchmarks, ~100-300 LoC each):
-   - Drop into `<benchmark>/adapter.py` next to `meta.json`.
+- `download_benchmarks.sh` — re-runnable, idempotent, with `--clone-timeout` and `--dry-run`. Skips already-cloned repos. Handles HF via the mirror.
+- `smoke_test.sh` — verifies every meta.json directory has a non-empty `repo/` and/or `hf_data/`. Outputs PASS/FAIL/SKIP and a verbose detail flag.
+- `~/.claude/skills/huggingface-fetch/SKILL.md` (and project mirror) — captures the host-specific HF download recipe with self-update protocol.
+- `~/.claude/skills/github-fetch/SKILL.md` — already-existing GitHub fetch skill (untouched, still load-bearing).
+- `~/.claude/projects/-Users-mjm-MinionsOS/memory/reference_huggingface_fetch_recipe.md` — pointer in auto-memory so future sessions land on the recipe immediately.
 
-6. **Extend modules for Tier 3** (16 benchmarks):
-   - Most need either project_bridge expansion (cross-project test) or a new tool.
+## Next steps to fully cover the catalog
 
-## Recommended priority order
+1. **Re-clone the 6 timed-out repos** with longer timeout or smaller `--filter=blob:none --no-checkout` then sparse-checkout: ChartQA, PeerRead, AbGen, possibly others. Add `GIT_LFS_SKIP_SMUDGE=1` for any LFS-heavy repo.
+2. **Hydrate MLE-Bench Kaggle data** separately — it's behind LFS and sits inside the cloned repo at `data/`. Check the repo's `data/README.md` for Kaggle credential setup.
+3. **Manually fetch the 32 paper-only benchmarks** as supplementary materials are released; track each in its `meta.json`.
+4. **Run Tier 1 evaluations** — each benchmark dir has `meta.json` with the MinionsOS Role + tool sequence to drive an end-to-end eval.
+5. **Write Tier 2 adapters** (~100-300 LoC each) under `<benchmark>/adapter.py`.
 
-| # | Benchmark | Tier | Why |
-|---|-----------|------|-----|
-| 1 | **PaperBench** | ! | GOLD — 8316 rubric leaves, end-to-end test |
-| 2 | **SWE-bench** | ✓ | Industry standard; baseline number |
-| 3 | **MLE-Bench** | ~ | 75 Kaggle competitions, medal rate metric |
-| 4 | **ClaimCheck** | ✓ | Direct test of Ethics + mos_review_run |
-| 5 | **RE-Bench** | ~ | 4h vs human researcher — best long-horizon test |
-| 6 | **MLR-Bench** | ! | Open-ended; tests Role evolution split/merge |
-| 7 | **AutoSurvey** | ✓ | De-facto long-form metric |
-| 8 | **HeurekaBench** | ! | Full idea→experiment closed loop |
+## How to use the skills going forward
 
-## Coverage matrix (final)
+- For any new GitHub clone on this host: `gh repo clone --depth=1` (already SSH-rewritten via global insteadOf). Wrap with timeout if the repo is multi-GB.
+- For any new HuggingFace pull: invoke the **`/huggingface-fetch`** skill, never the `hf` / `huggingface-cli` binaries directly. The skill walks through hf-mirror.com via curl.
+- For Git LFS material outside HF (e.g., PaperBench): run `git clone --filter=blob:none` first, then targeted `git lfs fetch --include` + `git lfs checkout` to avoid pulling everything.
 
-| Stage | Tier 1 ✓ | Tier 2 ~ | Tier 3 ! | Tier 4 ✗ | Total |
-|-------|---------|---------|---------|---------|-------|
-| 1.1 Idea Generation | 0 | 4 | 2 | 0 | 6 |
-| 1.2 Literature Review | 2 | 3 | 2 | 0 | 7 |
-| 1.3 Coding & Experiments | 7 | 9 | 9 | 0 | 25 |
-| 1.4 Tables & Figures | 2 | 4 | 1 | 0 | 7 |
-| 2 Paper Writing | 2 | 1 | 0 | 0 | 3 |
-| 3.1 Peer Review | 2 | 6 | 2 | 0 | 10 |
-| 3.2 Rebuttal | 0 | 4 | 0 | 0 | 4 |
-| 4 Dissemination | 0 | 0 | 0 | 6 | 6 |
-| E2E General | 2 | 3 | 0 | 0 | 5 |
-| **Total** | **17** | **34** | **16** | **6** | **73** |
+---
 
-**MinionsOS-evaluable: 67 / 73 (92%)** — only Stage 4 (Paper2X dissemination) fully uncovered.
+Last refresh: 2026-05-22.

@@ -83,3 +83,8 @@ output.log
 
 # Local cleanup holding area (reference materials, not MinionsOS source)
 other/
+
+# codegraph repo-scope index — built by install.sh's warmup step.
+# Project-scope indexes live under project_*/branches/coder/.codegraph/ and
+# are covered by the existing project_* ignore.
+.codegraph/

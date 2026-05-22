@@ -50,6 +50,14 @@
         "mcp-servers/graphify/launcher.sh"
       ],
       "env": {}
+    },
+    "codegraph": {
+      "type": "stdio",
+      "command": "bash",
+      "args": [
+        "mcp-servers/codegraph/launcher.sh"
+      ],
+      "env": {}
     }
   }
 }

@@ -8,11 +8,11 @@
 
 ## 新增内容
 
-### 1. skillforge — Skill 生命周期管理系统
+### 1. skill-forge — Skill 生命周期管理系统
 
-**位置:** `minions/roles/common/skills/skillforge/`
+**位置:** `minions/roles/common/skills/skill-forge/`
 
-**核心定位：** skillforge 让每个 skill 都成为一个持续进化的生命周期对象。它不是「专家用来生成新 skill 的工具」，而是「skill 本身的生命周期基础设施」—— skill 沿着 6 阶段成长，从粗糙草稿到成熟工具，再迭代到下一代。
+**核心定位：** skill-forge 让每个 skill 都成为一个持续进化的生命周期对象。它不是「专家用来生成新 skill 的工具」，而是「skill 本身的生命周期基础设施」—— skill 沿着 6 阶段成长，从粗糙草稿到成熟工具，再迭代到下一代。
 
 **6 阶段生命周期：**
 - ✅ Stage 0: 需求理解与模式选择
@@ -32,7 +32,7 @@
 - `MINIONSOS_INTEGRATION.md` — MinionsOS 集成说明
 
 **工具整合:**
-- 自定义工具: skill-edit, skill-evaluator-by-metaharness, codex
+- 自定义工具: skill-edit, skill-evaluator, codex
 - 官方工具: 8 个 Python 脚本（init_skill.py, quick_validate.py, run_eval.py, improve_description.py, aggregate_benchmark.py, generate_report.py, package_skill.py, run_loop.py）
 - 评估代理: grader, comparator, analyzer
 
@@ -42,7 +42,7 @@
 
 **功能:** 格式化 JSON 数据，添加缩进和语法高亮
 
-**作为 skillforge 进化生命周期的首个示范：**
+**作为 skill-forge 进化生命周期的首个示范：**
 - Stage 1 → 2 完整跑通
 - Stage 2 通过 quick_validate.py + skill-edit（0 个结构问题）
 - 从粗糙草稿到形式合格 skill，全程 < 5 分钟
@@ -69,7 +69,7 @@
 - 整个 skill 库无法作为整体演进
 - skill 一旦写完就停滞，使用中暴露的弱点没有路径修复
 
-### 解决方案：skillforge 让 skill 持续进化
+### 解决方案：skill-forge 让 skill 持续进化
 
 **现在每个 skill 都进入生命周期：**
 1. 出生：Stage 1 → 6（< 10 分钟）
@@ -94,7 +94,7 @@
 ```
 某个能力缺口被识别 → 一个新 skill 被构思
 
-skillforge 推动这个 skill 经历：
+skill-forge 推动这个 skill 经历：
   Stage 1: 研究类似 skills，起草 SKILL.md
   Stage 2: 结构验证（form 干净）
   Stage 3: 行为验证（确实改变 agent 行为）
@@ -109,7 +109,7 @@ skillforge 推动这个 skill 经历：
 一个生产中的 skill 暴露问题
 （例如 editorial-html 在用户说「生成报告」时不触发）
 
-skillforge 推动这个 skill 进化：
+skill-forge 推动这个 skill 进化：
   Stage 5: 生成 20 条测试 query（10 正例 + 10 负例）
           5 轮优化循环
           选择 F1 分数最高的 description
@@ -122,7 +122,7 @@ skillforge 推动这个 skill 进化：
 ```
 一个候选 skill 等待加入 MinionsOS skill 库
 
-skillforge 推动它通过质量验证：
+skill-forge 推动它通过质量验证：
   Stage 2: 形式验证（结构、frontmatter、触发短语）
   Stage 3: 行为验证（A/B 测试，Codex 盲评）
   生成量化报告（通过率、token 效率、耗时）
@@ -136,7 +136,7 @@ skillforge 推动它通过质量验证：
 ## 技术亮点
 
 ### 1. 编排而非重复
-skillforge 不重新实现功能，而是编排现有工具：
+skill-forge 不重新实现功能，而是编排现有工具：
 - skill-edit（形式验证）
 - skill-evaluator（行为验证）
 - 官方 skill-creator 脚本（描述优化、打包）
@@ -198,14 +198,14 @@ Next: <recommended next stage>
 ```
 新 skill 被构思
     ↓
-/skillforge Stage 1 → 6（首次出生）
+/skill-forge Stage 1 → 6（首次出生）
     ↓
 skill 进入 MinionsOS 生产
     ↓
 角色使用中暴露 skill 的弱点
 （触发不准 / 行为不到位 / 描述歧义）
     ↓
-/skillforge Stage 4 或 Stage 5（迭代进化）
+/skill-forge Stage 4 或 Stage 5（迭代进化）
     ↓
 改进版 skill 替换旧版本
     ↓
@@ -219,7 +219,7 @@ skill 进入 MinionsOS 生产
 ### 新增文件
 
 ```
-minions/roles/common/skills/skillforge/
+minions/roles/common/skills/skill-forge/
 ├── SKILL.md                      # 主逻辑（404 行）
 ├── README.md                     # 架构文档
 ├── REGISTRATION.md               # CLAUDE.md 注册条目
@@ -235,7 +235,7 @@ minions/roles/common/skills/json-format/
 
 **已有工具（无需修改）:**
 - `~/.claude/skills/skill-edit/`
-- `~/.claude/skills/skill-evaluator-by-metaharness/`
+- `~/.claude/skills/skill-evaluator/`
 - `~/.claude/skills/codex/`
 
 **官方工具（已整合）:**
@@ -246,7 +246,7 @@ minions/roles/common/skills/json-format/
 ## 下一步计划
 
 ### 短期（1-2 周）
-1. ✅ 集成 skillforge 到 MinionsOS
+1. ✅ 集成 skill-forge 到 MinionsOS
 2. ✅ 创建示例 skill（json-format）
 3. ⏳ 选 3-5 个现有 skill 跑完整生命周期，建立成熟度基线
 4. ⏳ 编写完整的测试用例（evals.json）
@@ -277,7 +277,7 @@ minions/roles/common/skills/json-format/
 
 ## 测试状态
 
-### skillforge 本身
+### skill-forge 本身
 - ✅ quick_validate.py 通过
 - ✅ skill-edit 深度检查通过（0 个结构问题）
 - ✅ 所有 6 个阶段的逻辑已验证
