@@ -29,6 +29,8 @@ from minions.tools.mcp import (  # noqa: E402, F401
     paper_tools,
     project_tools,
     publish_tools,
+    reel_tools,
+    role_evolution_tools,
     runtime_tools,
     signboard_tools,
     spawn_tools,

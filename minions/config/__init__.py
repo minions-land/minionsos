@@ -128,6 +128,22 @@ _BOOK_READ_TOOLS = [
     "mos_book_hot_get",
 ]
 
+# Book synthesis-write tool: any role can save its own question→answer
+# synthesis as a compounding Book page (Wiki V2 W7). Mechanical write —
+# the role brings the synthesis, this tool only persists it.
+_BOOK_SYNTHESIS_WRITE_TOOLS = [
+    "mos_book_save_synthesis",
+]
+
+# Book audit tools: Ethics primary entry points for the dynamic-walk
+# audit workflow. ``mos_book_audit_walk`` lists unresolved contradictions
+# with their reel_refs surfaced; ``mos_book_resolve_contradiction``
+# writes the verdict back. Whitelisted to Ethics + Gru only.
+_BOOK_AUDIT_TOOLS = [
+    "mos_book_audit_walk",
+    "mos_book_resolve_contradiction",
+]
+
 # Visual format-check tools. Format-agnostic detectors over rendered PDF page
 # images (column voids, edge overflow, trailing whitespace, column imbalance,
 # float clustering, short lines). Whitelisted to every EACN-visible main role
@@ -138,6 +154,15 @@ _VISUAL_CHECK_TOOLS = [
     "mos_visual_render",
     "mos_visual_inspect",
     "mos_visual_check",
+]
+
+# Reel (L0) tools. Raw session-level execution traces for drill-down audit.
+# Whitelisted to every EACN-visible main role so any role can inspect its own
+# reel and Gru can read cross-role reels. Server-side authz enforces the
+# role-private boundary (non-Gru roles can only read their own reels).
+_REEL_TOOLS = [
+    "mos_reel_get",
+    "mos_reel_window",
 ]
 
 # Read-only graphify MCP tools — Atlas (L3) primitives over branches/shared/.
@@ -192,10 +217,17 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     # Book
     *_BOOK_READ_TOOLS,
     "mos_book_ingest",
+    "mos_book_ingest_batch",
     "mos_book_lint",
     "mos_book_hot_update",
     "mos_book_promote_verified",
     "mos_book_crystallize_session",
+    # Book synthesis-write (compounding queries; any role can save its
+    # own synthesis as a Book page).
+    *_BOOK_SYNTHESIS_WRITE_TOOLS,
+    # Book audit tools (Ethics/Gru-only at server side; appear in CLI
+    # whitelist for KV cache parity).
+    *_BOOK_AUDIT_TOOLS,
     # Graphify read (Atlas primitives)
     *_GRAPHIFY_READ_TOOLS,
     # Atlas (Gru queries only; register is Noter-only)
@@ -229,6 +261,10 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     "mos_list_workflow_plugins",
     "mos_dismiss_role",
     "mos_list_roles",
+    "mos_role_evolve_evaluate",
+    "mos_role_split",
+    "mos_role_merge",
+    "mos_role_evolve_dismiss",
     "mos_review_run",
     "mos_start_monitor",
     # Experiment tools (Coder-only at server side)
@@ -247,6 +283,8 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     *_PAPER_SEARCH_TOOLS,
     # Visual format-check (renders + detectors over PDF page images)
     *_VISUAL_CHECK_TOOLS,
+    # Reel (L0) — raw session traces for drill-down audit
+    *_REEL_TOOLS,
     # Subagent dispatch
     "Task",
     *_CODEX_BRIDGE_TOOLS,
@@ -278,6 +316,7 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "mos_noter_wait",
         "mos_draft_*",
         "mos_book_ingest",
+        "mos_book_ingest_batch",
         "mos_book_lint",
         "mos_book_hot_update",
         "mos_book_promote_verified",
@@ -432,6 +471,8 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_unread_summary",
         "mos_draft_*",
         *_BOOK_READ_TOOLS,
+        *_BOOK_SYNTHESIS_WRITE_TOOLS,  # Gru can materialize syntheses
+        *_BOOK_AUDIT_TOOLS,  # Gru is the only role besides Ethics that audits
         *_GRAPHIFY_READ_TOOLS,
         *_SHELF_GRU_TOOLS,
         "mos_publish_to_shared",
@@ -449,11 +490,16 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_list_workflow_plugins",
         "mos_dismiss_role",
         "mos_list_roles",
+        "mos_role_evolve_evaluate",
+        "mos_role_split",
+        "mos_role_merge",
+        "mos_role_evolve_dismiss",
         "mos_review_run",
         "mos_start_monitor",
         *_CODEX_BRIDGE_TOOLS,
         *_PAPER_SEARCH_TOOLS,
         *_VISUAL_CHECK_TOOLS,
+        *_REEL_TOOLS,  # Gru can read any role's reel
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -479,9 +525,11 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_draft_*",
         "mos_book_ingest",
         "mos_book_lint",
+        "mos_book_ingest_batch",
         "mos_book_hot_update",
         "mos_book_promote_verified",
         "mos_book_crystallize_session",
+        *_BOOK_SYNTHESIS_WRITE_TOOLS,  # Noter materializes role-supplied syntheses
         *_BOOK_READ_TOOLS,
         *_GRAPHIFY_READ_TOOLS,
         *_SHELF_REGISTER_TOOLS,
@@ -533,6 +581,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_exp_queue_*",
         "mos_exp_gpu_pool_*",
         *_VISUAL_CHECK_TOOLS,
+        *_REEL_TOOLS,  # Coder can read own reel
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -581,6 +630,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_project_checkpoint_workspace",
         *_CODEX_BRIDGE_TOOLS,
         *_VISUAL_CHECK_TOOLS,
+        *_REEL_TOOLS,  # Writer can read own reel
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -618,6 +668,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_CODEX_BRIDGE_TOOLS,
         *_PAPER_SEARCH_TOOLS,
         *_VISUAL_CHECK_TOOLS,
+        *_REEL_TOOLS,  # Expert can read own reel
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -644,6 +695,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_await_events",
         *_DRAFT_RW_TOOLS,
         *_BOOK_READ_TOOLS,
+        *_BOOK_AUDIT_TOOLS,  # Ethics is the primary auditor
         "mos_book_lint",
         *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
@@ -654,6 +706,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "Task",
         *_CODEX_BRIDGE_TOOLS,
         *_VISUAL_CHECK_TOOLS,
+        *_REEL_TOOLS,  # Ethics can read own reel
         "WebSearch",
         "WebFetch",
         "Read",
@@ -842,6 +895,25 @@ class GruConfig(BaseModel):
     experiment_reconcile_interval_seconds: int = Field(
         default=30,
         description="Python-side Experimenter queue reconcile cadence in seconds.",
+    )
+    role_evolution_interval_seconds: int = Field(
+        default=900,
+        description=(
+            "How often Gru evaluates whether any role should split or merge. "
+            "Recommendations are always logged to "
+            "branches/shared/governance/role_evolution.jsonl; whether they are "
+            "auto-applied is gated on role_evolution_auto_apply. Default 15 min."
+        ),
+    )
+    role_evolution_auto_apply: bool = Field(
+        default=False,
+        description=(
+            "When True, Gru automatically calls mos_role_split / mos_role_merge "
+            "for every recommendation produced by the periodic evaluation. "
+            "Default False: the operator inspects the JSONL log and applies "
+            "the decision manually. Set True only after the evidence-gated "
+            "recommendation stream has been validated on a real workload."
+        ),
     )
     cache_keepalive_seconds: int = Field(
         default=240,

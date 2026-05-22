@@ -177,6 +177,7 @@ def test_wiki_query_returns_matching_index_entry(project: dict[str, Any]) -> Non
             "page_kind": "source",
             "book_path": "book/sources/coder-transformer.md",
             "score": 1,
+            "status": "",
         }
     ]
 

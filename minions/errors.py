@@ -45,3 +45,7 @@ class ExperimentError(MinionsError):
 
 class CircuitBreakError(ExperimentError):
     """Raised when 3 consecutive same-script failures trip the circuit breaker."""
+
+
+class PermissionError(MinionsError):
+    """Authorization / role-boundary violation in MinionsOS internals."""

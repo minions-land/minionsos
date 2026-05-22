@@ -14,6 +14,7 @@ minions/tools/mcp/                 # package; each submodule registers its @mcp.
 ├── paper_tools.py                 # search_arxiv / search_pubmed / read_*_paper / download_*
 ├── project_tools.py               # mos_project_create / close / dormant / revive / kill / list / set_phase
 ├── publish_tools.py               # mos_publish_to_shared
+├── reel_tools.py                  # mos_reel_get / mos_reel_window
 ├── runtime_tools.py               # mos_await_events, mos_reset_context, mos_compact_context, mos_review_run
 ├── signboard_tools.py             # mos_signboard_*
 ├── spawn_tools.py                 # mos_spawn_role / spawn_expert / dismiss_role / list_roles / kill_role / attach_role
@@ -27,6 +28,7 @@ minions/tools/                     # sibling implementation modules the MCP subm
 ├── draft.py                  # backs memory_tools.py (draft portion)
 ├── book.py                        # backs memory_tools.py (book portion)
 ├── atlas.py                       # backs memory_tools.py (atlas portion)
+├── reel.py                        # backs reel_tools.py — L0 raw session traces
 ├── project_bridge.py              # mos_project_bridge
 ├── reset.py                       # mos_reset_context
 ├── review.py                      # mos_review_run
@@ -80,6 +82,7 @@ See `minions/tools/mcp/_common.py:_MINIONS_MCP_TOOL_NAMES` for the authoritative
 - **Experiments**: `mos_exp_run`, `mos_exp_status`, `mos_exp_wait`, `mos_exp_kill`, `mos_exp_list`, `mos_exp_put`, `mos_exp_get`, `mos_exp_tail`, `mos_query_gpus`, `mos_exp_queue_*`, `mos_exp_gpu_pool_*`.
 - **Paper search**: `mos_search_arxiv`, `mos_search_pubmed`, `mos_search_biorxiv`, `mos_search_medrxiv`, `mos_search_google_scholar`, `mos_search_semantic`, `mos_search_papers_federated`, `mos_resolve_arxiv_ids`, `mos_read_*_paper`, `mos_download_*`.
 - **Visual format-check**: `mos_visual_render`, `mos_visual_inspect`, `mos_visual_check` — Poppler rasterize + pixel-level defect detection (column void, edge overflow, trailing whitespace, column imbalance, float clustering, short lines). Available to all EACN-visible roles; denied to Noter.
+- **Reel (L0) drill-down**: `mos_reel_get`, `mos_reel_window` — read raw session traces archived under `branches/<role>/reel/<session_id>/` by the `reel_capture` PostToolUse hook. Available to all EACN-visible roles for their own reel; Gru can read cross-role reels. Noter is excluded — it does not consume reel-level data.
 - **Signboard**: `mos_signboard_read`, `mos_signboard_set`, `mos_signboard_evaluate`, `mos_signboard_consume`, `mos_signboard_reopen`.
 - **Diagnostics**: `mos_issue_report`, `mos_start_monitor`, `mos_list_workflow_plugins`.
 

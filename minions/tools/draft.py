@@ -168,6 +168,24 @@ def _env_role() -> str:
     return os.environ.get("MINIONS_ROLE_NAME", "")
 
 
+def _env_reel_context() -> str | None:
+    """Return the current reel context as '<role>/<session_id>' or None.
+
+    The reel context identifies the role's current session so that Draft
+    nodes can carry a ``reel_ref`` pointer back to the raw transcripts that
+    led to the node's creation. The full reel_ref includes a task_id, but
+    that's set per-tool-call by the PostToolUse hook — at Draft-append time
+    we only know role and session.
+
+    Returns None if either MINIONS_ROLE_NAME or MINIONS_SESSION_ID is unset.
+    """
+    role = os.environ.get("MINIONS_ROLE_NAME", "").strip()
+    session = os.environ.get("MINIONS_SESSION_ID", "").strip()
+    if not role or not session:
+        return None
+    return f"{role}/{session}"
+
+
 def _load_draft(port: int) -> dict[str, Any]:
     path = _draft_path(port)
     if not path.exists():
@@ -485,6 +503,16 @@ def mos_draft_append(
             logger.info("Custom provenance: %s (not in suggested provenances)", provenance)
         confidence = _validate_confidence(node.get("confidence", 1.0))
         node_id = node.get("id") or _next_id(draft, ntype)
+
+        # Auto-inject reel_ref into metadata if available and not already set.
+        # This links the Draft node to the raw session transcripts that
+        # produced it, enabling drill-down audit via mos_reel_get / window.
+        node_metadata = dict(node.get("metadata", {}))
+        if "reel_ref" not in node_metadata:
+            reel_ctx = _env_reel_context()
+            if reel_ctx:
+                node_metadata["reel_ref"] = reel_ctx
+
         new_node = {
             "id": node_id,
             "type": ntype,
@@ -495,7 +523,7 @@ def mos_draft_append(
             "evidence_tag": node.get("evidence_tag", ""),
             "provenance": provenance,
             "confidence": confidence,
-            "metadata": node.get("metadata", {}),
+            "metadata": node_metadata,
         }
         draft["nodes"].append(new_node)
         created_node_ids.append(node_id)

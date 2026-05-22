@@ -109,10 +109,16 @@ project_{port}/
 ├── branches/                    # git worktrees, one per role plus a shared tree
 │   ├── main/                    # Gru — branch minionsos/project-{port}
 │   ├── coder/                   # branch minionsos/project-{port}-coder
+│   │   └── reel/<session_id>/   ← Layer 0: raw session traces (Reel)
+│   │       ├── index.jsonl       JSONL index of captured subagent/codex outputs
+│   │       └── transcripts/      Verbatim *.jsonl transcripts per task_id
 │   ├── writer/                  # branch minionsos/project-{port}-writer
+│   │   └── reel/<session_id>/   ← Layer 0: same shape as coder/reel/
 │   ├── ethics/                  # Ethics drafts; published reports go to shared/ethics/
+│   │   └── reel/<session_id>/   ← Layer 0: same shape
 │   ├── noter/                   # Noter drafts; published notes/Draft go to shared/
 │   ├── expert-<slug>/           # one per Expert
+│   │   └── reel/<session_id>/   ← Layer 0: same shape
 │   └── shared/                  # branch minionsos/project-{port}-shared
 │       ├── draft/draft.json # Noter-curated Draft (L1 process memory)
 │       ├── notes/               # Noter staged reports
@@ -125,7 +131,7 @@ project_{port}/
 │       │   ├── index.md                    Noter-maintained catalog
 │       │   ├── hot.md                      ~500-word rolling cache, injected at role wake-up
 │       │   ├── log.md                      Append-only ingest/lint journal (JSONL)
-│       │   ├── sources/{role}-{slug}.md    One page per ingested artifact
+│       │   ├── sources/{role}-{slug}.md    One page per ingested artifact (carries reel_ref)
 │       │   └── contradictions/             Auto-detected claim conflicts (Ethics reads)
 │       └── atlas/atlas.json               ← Layer 3: structural index (graphify-extracted)
 ├── eacn3_data/eacn3.db          # project-local EACN3 SQLite state (gitignored)
@@ -166,6 +172,27 @@ Tool/write boundaries (main role write scope; subagents inherit from their paren
 
 `branches/shared/reviews/` is reserved for `mos_review_run` — the publish tool will reject any other caller. `branches/shared/draft/draft.json` is updated in-place by `mos_draft_append` and committed on a Noter-driven cron through `mos_draft_commit_shared` (whitelisted to Noter and Gru only). No role writes to another role's `branches/<role>/` directly; cross-role artefacts always travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`. The visual format-check tools (`mos_visual_render`, `mos_visual_inspect`, `mos_visual_check`) are available to every EACN-visible role (Gru, Coder, Writer, Ethics, Expert) and denied to Noter; reports persist under `branches/<role>/visual-reports/` and are referenced cross-role by EACN message rather than via a shared subdir.
 
+**Reel (L0) layer.** Every EACN-visible role gets `mos_reel_get` / `mos_reel_window` for drill-down access into its own raw session transcripts at `branches/<role>/reel/<session_id>/`. Gru holds cross-role read permission (so it can audit any role's reasoning when bridging projects or evaluating role evolution); non-Gru roles can only read their own reel. Noter is excluded from the reel surface — it observes the project through events/* and the Draft, not through other roles' transcripts. Capture is automatic: the `reel_capture` PostToolUse hook archives every `Agent` / `Task` / `mcp__codex-subagent__codex` output into the calling role's reel directory; roles never call reel-write tools directly. Draft / Book frontmatter carries a `reel_ref` pointer that auditors can follow back to the original execution frame.
+
+### Evidence-gated Role evolution (SPLIT / MERGE / DISMISS)
+
+Roles are not fixed in number for the lifetime of a project. Gru can grow, fuse, or retire Roles based on artifact-grounded evidence. The mechanism lives in `minions/lifecycle/role_evolution.py` and is exposed through four Gru-only MCP tools:
+
+- `mos_role_evolve_evaluate` — read-only; reads recent artifacts under `branches/shared/` (Ethics reports, review packets, experiment failures) and per-role activity stats; returns `SplitDecision` per active role plus `MergeDecision` (convergence-only) and `DismissDecision` (starvation-only) candidates.
+- `mos_role_split` — realises a SPLIT decision: spawns each specialist via `register_expert`, then dismisses the source role. Requires non-empty `evidence_refs`. On partial spawn failure the source role is **kept alive** to preserve coverage.
+- `mos_role_merge` — realises a MERGE decision: spawns the unified role, dismisses the sources. Used **only for behavioural convergence** between two active Roles. Source roles do **not** need to share a SPLIT lineage; convergence merge applies to independently-spawned Experts whose artifact overlap exceeds `merge_convergence_threshold`.
+- `mos_role_evolve_dismiss` — realises a DISMISS decision: retires a Role with no recent work. Distinct from the generic `mos_dismiss_role` because it requires non-empty `evidence_refs` and writes to the role-evolution audit log. **No replacement is implied.** If new work appears later that no active Role can cover, a separate spawn trigger handles it.
+
+Triggers are evidence-gated, not diversity-gated:
+
+- **SPLIT**: ≥ `split_min_failures` (default 5) attributable failures in the recent window, partitioned into ≥ `split_min_subdomains` (default 2) labeled clusters each ≥ `split_min_per_subdomain` (default 3) large.
+- **MERGE-by-convergence**: any pair of active roles whose `convergence_score` (Jaccard of artifact basenames + directory-prefix overlap) ≥ `merge_convergence_threshold` (default 0.75).
+- **DISMISS-by-starvation**: a role active ≥ `dismiss_starve_min_age_hours` (default 6h) with ≤ `dismiss_starve_max_tasks` (default 1) tasks in the recent window. Starvation goes to DISMISS, **not** MERGE — a Role with no work should be retired, not fused into another Role's scope.
+
+A protective cooldown after any SPLIT/MERGE/DISMISS prevents oscillation: a role just evolved cannot be re-evaluated for `cooldown_after_split_hours` (12h), `cooldown_after_merge_hours` (6h), or `cooldown_after_dismiss_hours` (6h).
+
+Every recommendation and apply event writes one line to `branches/shared/governance/role_evolution.jsonl`. The Gru loop runs `mos_role_evolve_evaluate` on a `role_evolution_interval_seconds` cadence (default 15 min) and **logs recommendations only** unless `role_evolution_auto_apply: true` is set in `gru.yaml`. Default is recommend-only — operators inspect the JSONL log and apply manually until the recommendation stream has been validated on real workloads.
+
 ### Role skills and review workflow
 
 Role skills are markdown procedure guides under `minions/roles/{role}/skills/`. `minions.lifecycle.skills.list_skills` discovers them at wake-up, extracts one-line summaries, and injects a `[Skills]` block pointing to the full files. Skills should stay procedural and cross-domain; put domain-specific content under `minions/domains/`.
@@ -181,7 +208,13 @@ A review round's Pass A must produce 3-5 independent reviewer-instance reports b
 
 ### Cross-cycle memory
 
-Roles are cold-started each invocation. There are no per-role private memory files. The only persistent cross-cycle memory is the **Draft** (L1) at `project_{port}/branches/shared/draft/draft.json`, accessed via `mos_draft_append` / `mos_draft_query` / `mos_draft_summary` / `mos_draft_annotate` / `mos_draft_path`. It is buffered to disk on every call and flushed to a single commit on the shared branch by Noter on its periodic wake (`noter_periodic_interval`, default 3m).
+Roles are cold-started each invocation. There are no per-role private memory files. Persistent memory spans four layers (L0 → L3) plus a federated future (L4):
+
+- **L0 Reel** — raw verbatim session traces at `project_{port}/branches/<role>/reel/<session_id>/`. Captured automatically by the `reel_capture` PostToolUse hook on every `Agent` / `Task` / `mcp__codex-subagent__codex` invocation. Each session directory holds an `index.jsonl` and a `transcripts/<task_id>.jsonl` per dispatched subagent. **Role-private by default**; Gru can read any role's reel. Read via `mos_reel_get(ref)` / `mos_reel_window(ref, span)` where `ref = "<role>/<session_id>/<task_id>"`. Reel is **not** injected at wake-up; it is drill-down only — Draft / Book / Shelf metadata carry a `reel_ref` pointer that any auditor can follow back to the original execution frame.
+- **L1 Draft** — Noter-curated process graph at `project_{port}/branches/shared/draft/draft.json`. Accessed via `mos_draft_append` / `mos_draft_query` / `mos_draft_summary` / `mos_draft_annotate` / `mos_draft_path`. Buffered to disk on every call and flushed to a single commit on the shared branch by Noter on its periodic wake (`noter_periodic_interval`, default 3m). **Auto-injects `reel_ref` into every appended node's metadata** when `MINIONS_ROLE_NAME` and `MINIONS_SESSION_ID` env are set.
+- **L2 Book** — durable compiled knowledge at `project_{port}/branches/shared/book/`. Noter-owned. Source pages carry `reel_ref` frontmatter when ingested by a role that had a session active.
+- **L3 Shelf** — Gru-only cross-project structural index at `~/.minionsos/shelf.json`.
+- **L4 Library** (vision, not yet implemented) — federated global EACN3 network where projects are pluggable, shareable, evolvable, executable, recoverable. L4's "executable + recoverable" requirement is exactly why L0 must store full-fidelity transcripts.
 
 Roles reconstruct context at wake-up from:
 

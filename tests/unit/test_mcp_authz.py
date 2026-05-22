@@ -69,3 +69,21 @@ def test_mcp_authz_visual_tools_denied_for_noter() -> None:
         pytest.raises(PermissionError),
     ):
         _require_tool_allowed("mos_visual_render")
+
+
+def test_mcp_authz_reel_tools_allowed_for_eacn_roles() -> None:
+    """Reel read tools are allowed for all EACN-visible roles (server-side
+    authz at the role-private boundary is enforced in reel.py itself, not here)."""
+    for role in ("gru", "coder", "writer", "ethics", "expert"):
+        with patch.dict(os.environ, {"MINIONS_ROLE_NAME": role}, clear=False):
+            _require_tool_allowed("mos_reel_get")
+            _require_tool_allowed("mos_reel_window")
+
+
+def test_mcp_authz_reel_tools_denied_for_noter() -> None:
+    """Noter does not capture reels — it observes via events/* and Draft."""
+    with (
+        patch.dict(os.environ, {"MINIONS_ROLE_NAME": "noter"}, clear=False),
+        pytest.raises(PermissionError),
+    ):
+        _require_tool_allowed("mos_reel_get")

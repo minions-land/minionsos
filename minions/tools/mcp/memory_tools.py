@@ -143,8 +143,20 @@ async def mos_book_ingest(
     source_slug: str,
     title: str | None = None,
     summary: str | None = None,
+    reel_ref: str | None = None,
+    claim_refs: dict[str, str] | None = None,
 ) -> dict:
-    """Ingest a shared artifact into Book; see minions.tools.book.mos_book_ingest."""
+    """Ingest a shared artifact into Book; see minions.tools.book.mos_book_ingest.
+
+    If ``reel_ref`` is provided (form: ``<role>/<session_id>[/<task_id>]``),
+    it is embedded in the source page frontmatter AND appended as
+    ``^[reel_ref]`` to every substantive claim line for drill-down audit.
+    Defaults to the caller's MINIONS_ROLE_NAME + MINIONS_SESSION_ID env vars.
+
+    If ``claim_refs`` is provided, it overrides the page default for specific
+    claims: ``{sentence_prefix: reel_ref}``. Use this when sentences in one
+    summary come from different subagent transcripts.
+    """
     _require_tool_allowed("mos_book_ingest")
     return _book.mos_book_ingest(
         src_path=src_path,
@@ -152,14 +164,114 @@ async def mos_book_ingest(
         source_slug=source_slug,
         title=title,
         summary=summary,
+        reel_ref=reel_ref,
+        claim_refs=claim_refs,
     )
 
 
 @mcp.tool()
-async def mos_book_query(text: str, max_pages: int = 5) -> dict:
-    """Query Book index entries; see minions.tools.book.mos_book_query."""
+async def mos_book_ingest_batch(sources: list[dict]) -> dict:
+    """Ingest multiple shared artifacts into Book as one ordered batch.
+
+    Each entry in ``sources`` is a dict with keys ``src_path``,
+    ``source_role``, ``source_slug``, plus optional ``title``, ``summary``,
+    ``reel_ref``, ``claim_refs`` (same shape as :func:`mos_book_ingest`).
+
+    **Why batch:** single-source ingest is order-dependent — contradiction
+    detection only sees pages already on disk. Batch ingest stages all
+    sources in memory first, then runs contradiction detection over the
+    full set (existing pages + entire incoming batch). Use this when
+    publishing several related artifacts (e.g. a Coder experiment plus its
+    Ethics audit at the same time).
+
+    Returns:
+        {"ingested": [<per-source result>, ...], "total_contradictions": N}
+    """
+    _require_tool_allowed("mos_book_ingest_batch")
+    return _book.mos_book_ingest_batch(sources=sources)
+
+
+@mcp.tool()
+async def mos_book_query(
+    text: str,
+    max_pages: int = 5,
+    include_status: bool = True,
+) -> dict:
+    """Query Book index entries with progressive disclosure.
+
+    Each match includes ``status`` (frontmatter ``status:`` value) when
+    ``include_status=True`` (default), so a role can see at a glance
+    whether a hit is contradicted/resolved/active before opening it.
+    """
     _require_tool_allowed("mos_book_query")
-    return _book.mos_book_query(text=text, max_pages=max_pages)
+    return _book.mos_book_query(text=text, max_pages=max_pages, include_status=include_status)
+
+
+@mcp.tool()
+async def mos_book_save_synthesis(
+    question: str,
+    answer: str,
+    sources: list[str] | None = None,
+    slug: str | None = None,
+    reel_ref: str | None = None,
+) -> dict:
+    """Save a synthesized question→answer as a compounding Book page.
+
+    The caller (a role) does the synthesis; this tool only writes it
+    verbatim to ``book/queries/<slug>.md``. Future ``mos_book_query``
+    calls match the question text and surface this answer first, so
+    knowledge compounds across sessions.
+    """
+    _require_tool_allowed("mos_book_save_synthesis")
+    return _book.mos_book_save_synthesis(
+        question=question,
+        answer=answer,
+        sources=sources,
+        slug=slug,
+        reel_ref=reel_ref,
+    )
+
+
+@mcp.tool()
+async def mos_book_audit_walk(
+    status_filter: str | None = "unresolved",
+    max_pages: int = 20,
+) -> dict:
+    """List Book pages awaiting audit, with reel_refs surfaced for drill-down.
+
+    Ethics primary entry point: returns every page matching the status
+    filter together with all reel_ref pointers (frontmatter + inline
+    ``^[ref]`` markers). Walk the refs via ``mos_reel_get`` to drill
+    from a flagged claim to its raw execution context, then write a
+    verdict via ``mos_book_resolve_contradiction``.
+    """
+    _require_tool_allowed("mos_book_audit_walk")
+    return _book.mos_book_audit_walk(status_filter=status_filter, max_pages=max_pages)
+
+
+@mcp.tool()
+async def mos_book_resolve_contradiction(
+    slug: str,
+    verdict: str,
+    rationale: str,
+    auditor_role: str | None = None,
+) -> dict:
+    """Ethics writes a verdict on a contradiction page.
+
+    Flips the page frontmatter ``status:`` and appends a verdict section
+    verbatim. The original detection block stays untouched so the audit
+    trail is replayable.
+
+    Standard verdict values: ``"resolved"``, ``"superseded"``,
+    ``"out_of_scope"``, ``"escalate"``.
+    """
+    _require_tool_allowed("mos_book_resolve_contradiction")
+    return _book.mos_book_resolve_contradiction(
+        slug=slug,
+        verdict=verdict,
+        rationale=rationale,
+        auditor_role=auditor_role,
+    )
 
 
 @mcp.tool()

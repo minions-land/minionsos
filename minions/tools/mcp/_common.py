@@ -83,6 +83,10 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_dismiss_role",
     "mos_kill_role",
     "mos_list_roles",
+    "mos_role_evolve_evaluate",
+    "mos_role_split",
+    "mos_role_merge",
+    "mos_role_evolve_dismiss",
     "mos_signboard_read",
     "mos_signboard_set",
     "mos_signboard_evaluate",
@@ -92,10 +96,14 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_book_hot_get",
     "mos_book_hot_update",
     "mos_book_ingest",
+    "mos_book_ingest_batch",
     "mos_book_lint",
     "mos_book_promote_verified",
     "mos_book_crystallize_session",
     "mos_book_query",
+    "mos_book_save_synthesis",
+    "mos_book_audit_walk",
+    "mos_book_resolve_contradiction",
     "mos_search_arxiv",
     "mos_search_biorxiv",
     "mos_search_google_scholar",
@@ -107,6 +115,8 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_visual_render",
     "mos_visual_inspect",
     "mos_visual_check",
+    "mos_reel_get",
+    "mos_reel_window",
 }
 
 
@@ -448,3 +458,67 @@ class ArxivIdsArgs(BaseModel):
             "and batch-resolve here for structured citation metadata."
         ),
     )
+
+
+class RoleEvolveEvaluateArgs(BaseModel):
+    project_port: int
+
+
+class _RoleSpec(BaseModel):
+    name: str = Field(description="New role name slug.")
+    charter: str = Field(description="One-line description of what the role handles.")
+    pitfalls: str = Field(
+        default="", description="Observed failure modes the role's prompt should guard against."
+    )
+
+
+class RoleSplitArgs(BaseModel):
+    project_port: int
+    source_role: str = Field(description="Currently active role to be split.")
+    into_specs: list[_RoleSpec] = Field(
+        description="At least 2 specialist specs to spawn in place of source_role.",
+        min_length=2,
+    )
+    evidence_refs: list[str] = Field(
+        description=(
+            "Required. Paths under branches/shared/ (or full URLs) pointing at "
+            "the failure artifacts that justify this split. An empty list will "
+            "be rejected."
+        ),
+        min_length=1,
+    )
+    reason: str = Field(default="", description="Free-text rationale for the audit log.")
+    dry_run: bool = Field(
+        default=False,
+        description="If true, log the decision but do not actually spawn or dismiss.",
+    )
+
+
+class RoleMergeArgs(BaseModel):
+    project_port: int
+    source_roles: list[str] = Field(
+        description="One or more currently active roles to merge.",
+        min_length=1,
+    )
+    into_spec: _RoleSpec = Field(description="Spec for the unified role.")
+    evidence_refs: list[str] = Field(
+        description="Required. Paths to artifacts justifying the merge.",
+        min_length=1,
+    )
+    reason: str = Field(default="", description="Free-text rationale for the audit log.")
+    dry_run: bool = Field(default=False)
+
+
+class RoleDismissEvolveArgs(BaseModel):
+    project_port: int
+    role_name: str = Field(description="Active role to dismiss.")
+    evidence_refs: list[str] = Field(
+        description=(
+            "Required. Reference(s) to the artifact(s) that justify the dismiss "
+            "(typically 'auto:starvation:<role>' from the periodic Gru "
+            "evaluator, or a governance-log line ref from a manual review)."
+        ),
+        min_length=1,
+    )
+    reason: str = Field(default="", description="Free-text rationale for the audit log.")
+    dry_run: bool = Field(default=False)

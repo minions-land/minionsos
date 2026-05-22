@@ -114,3 +114,40 @@ model_context_window_tokens: 1000000
 context_soft_pct: 0.10   # gentle compression hint
 context_hard_pct: 0.15   # require compression before new events
 context_veto_pct: 0.20   # block normal work, try maintenance compaction, alert Gru
+
+
+# Evidence-gated Role evolution. Three primitives:
+#   - SPLIT:   one Role becomes >=2 specialists when artifact-grounded
+#              failures partition into distinct sub-domains.
+#   - MERGE:   two active Roles fuse into one when their behaviour has
+#              converged (artifact-overlap >= threshold). Roles need NOT
+#              share a SPLIT lineage.
+#   - DISMISS: a Role with no recent work is retired. Distinct from
+#              MERGE because a starved Role should not be fused into
+#              another Role's scope — it should stop existing. If new
+#              work needs that scope later, a separate spawn trigger
+#              handles it.
+#
+# Default is recommend-only — Gru writes recommendations to
+# branches/shared/governance/role_evolution.jsonl every interval, but
+# does NOT actually spawn / merge / dismiss anything until
+# role_evolution_auto_apply is set true. Turn on auto_apply only after the
+# recommendation stream has been validated on a real workload; the
+# experimental pilot under experiments/expert_split_merge/ shows split can
+# hurt accuracy when the trigger fires too eagerly.
+role_evolution_interval_seconds: 900     # 15 min between evaluation passes
+role_evolution_auto_apply: false         # recommend-only by default
+
+# Per-trigger thresholds. Override individually under the
+# `role_evolution:` key when needed.
+# role_evolution:
+#   split_min_failures: 5
+#   split_min_subdomains: 2
+#   split_min_per_subdomain: 3
+#   split_recent_window_hours: 24
+#   dismiss_starve_min_age_hours: 6
+#   dismiss_starve_max_tasks: 1
+#   merge_convergence_threshold: 0.75
+#   cooldown_after_split_hours: 12
+#   cooldown_after_merge_hours: 6
+#   cooldown_after_dismiss_hours: 6

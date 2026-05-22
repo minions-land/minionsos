@@ -387,12 +387,20 @@ def _role_env(
     EACN3 plugin state dir.
     """
     eacn_agent_id = role_entry.eacn_agent_id or resolve_agent_id(project_port, role_name)
+    # Generate a unique session ID for this role process. Used by the Reel
+    # (L0) layer to organize captured transcripts under a stable session
+    # directory. Session IDs are timestamped at launch and remain constant
+    # for the lifetime of the tmux session.
+    from datetime import UTC, datetime
+
+    session_id = f"sess-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
     return {
         "MINIONS_AGENT_HOST": "claude",
         "MINIONS_ROLE_NAME": role_name,
         "MINIONS_AGENT_TYPE": "main",
         "MINIONS_PROJECT_PORT": str(project_port),
         "MINIONS_AGENT_ID": eacn_agent_id,
+        "MINIONS_SESSION_ID": session_id,
         "MINIONS_WORKSPACE": str(workspace),
         "MINIONS_WORKSPACE_ROOT": str(project_workspace_root(project_port)),
         "MINIONS_WORKSPACE_MAIN": str(project_workspace(project_port)),

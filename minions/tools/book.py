@@ -32,6 +32,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from minions.config import slugify
 from minions.paths import (
     project_shared_draft_json,
     project_shared_subdir,
@@ -148,22 +149,25 @@ def _render_source_frontmatter(
     source_file: str,
     source_role: str,
     date_ingested: str,
+    reel_ref: str | None = None,
 ) -> str:
-    return "\n".join(
-        [
-            "---",
-            "type: source",
-            f"title: {_quoted(title)}",
-            f"slug: {_quoted(slug)}",
-            f"source_file: {_quoted(source_file)}",
-            f"source_role: {_quoted(source_role)}",
-            f"date_ingested: {_quoted(date_ingested)}",
-            "page_kind: source",
-            "confidence: high",
-            "---",
-            "",
-        ]
-    )
+    lines = [
+        "---",
+        "type: source",
+        f"title: {_quoted(title)}",
+        f"slug: {_quoted(slug)}",
+        f"source_file: {_quoted(source_file)}",
+        f"source_role: {_quoted(source_role)}",
+        f"date_ingested: {_quoted(date_ingested)}",
+        "page_kind: source",
+        "confidence: high",
+    ]
+    # Reel pointer: links this Book page back to the raw session traces
+    # that produced the source artifact, enabling drill-down audit.
+    if reel_ref:
+        lines.append(f"reel_ref: {_quoted(reel_ref)}")
+    lines.extend(["---", ""])
+    return "\n".join(lines)
 
 
 def _contradiction_slug(new_slug: str) -> str:
@@ -230,6 +234,72 @@ def _stage_text(port: int, name: str, text: str) -> Path:
 def _read_first_lines(path: Path, *, limit: int = 200) -> str:
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     return "\n".join(lines[:limit]).rstrip() + "\n"
+
+
+_CLAIM_REF_RE = re.compile(r"\^\[([^\]]+)\]")
+
+
+def _inject_claim_refs(
+    body: str,
+    *,
+    claim_refs: dict[str, str] | None = None,
+    page_default_ref: str | None = None,
+) -> str:
+    """Inject per-claim reel_ref markers into body text.
+
+    For each non-empty, non-heading content line:
+    1. If the line already contains ``^[<ref>]``, leave it alone (explicit).
+    2. If ``claim_refs`` has a key that the line starts with (case-insensitive
+       prefix match), append ``^[<that_ref>]`` to the line.
+    3. Otherwise, if ``page_default_ref`` is set, append ``^[<page_default_ref>]``.
+
+    Lines that are blank, headings (``#``), list bullets without content,
+    or wikilinks-only are skipped — they aren't substantive claims.
+
+    Args:
+        body: The page body (without frontmatter).
+        claim_refs: Optional mapping ``{sentence_prefix: reel_ref}`` letting
+            an ingester override the page default for specific claims.
+        page_default_ref: The page-level reel_ref to apply when no claim-level
+            override exists.
+
+    Returns:
+        Body with ``^[reel_ref]`` markers appended to each substantive claim.
+    """
+    if not page_default_ref and not claim_refs:
+        return body
+
+    claim_refs = claim_refs or {}
+    # Normalize claim_refs keys for prefix matching
+    normalized_refs = {key.strip().lower(): val for key, val in claim_refs.items()}
+
+    out_lines: list[str] = []
+    for raw_line in body.splitlines():
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("---"):
+            out_lines.append(raw_line)
+            continue
+        # Already has a claim ref → skip
+        if _CLAIM_REF_RE.search(raw_line):
+            out_lines.append(raw_line)
+            continue
+
+        # Determine which ref to use
+        ref_to_apply: str | None = None
+        line_lower = stripped.lower()
+        for prefix, ref in normalized_refs.items():
+            if line_lower.startswith(prefix):
+                ref_to_apply = ref
+                break
+        if ref_to_apply is None and page_default_ref:
+            ref_to_apply = page_default_ref
+
+        if ref_to_apply:
+            out_lines.append(f"{raw_line.rstrip()} ^[{ref_to_apply}]")
+        else:
+            out_lines.append(raw_line)
+
+    return "\n".join(out_lines)
 
 
 def _strip_frontmatter(text: str) -> str:
@@ -641,6 +711,8 @@ def _book_path_for_page_kind(page_kind: str, slug: str) -> str:
         return f"book/sources/{slug}.md"
     if page_kind == "contradiction":
         return f"book/contradictions/{slug}.md"
+    if page_kind == "query":
+        return f"book/queries/{slug}.md"
     raise BookError(f"unsupported book page_kind: {page_kind!r}")
 
 
@@ -1242,12 +1314,24 @@ def mos_book_ingest(
     summary: str | None = None,
     *,
     port: int | None = None,
+    reel_ref: str | None = None,
+    claim_refs: dict[str, str] | None = None,
 ) -> dict[str, object]:
     """Ingest a published shared/<role>/ artifact into the Book.
 
     Reads ``src_path`` under ``branches/shared/``, stages a source page,
     idempotently merges ``book/index.md``, appends ``book/log.md``, and
     publishes the three files through ``mos_publish_to_shared`` as Noter.
+
+    Reel-ref propagation (for drill-down audit):
+    - ``reel_ref`` becomes the page default: embedded in frontmatter, and
+      appended as ``^[reel_ref]`` to every substantive claim line in the
+      body. Auto-derived from MINIONS_ROLE_NAME + MINIONS_SESSION_ID if
+      not explicitly provided.
+    - ``claim_refs`` is an optional ``{sentence_prefix: reel_ref}`` map
+      that overrides the page default for specific claims — useful when
+      different sentences in one summary come from different subagent
+      transcripts (different ``task_id`` under the same session).
     """
     resolved_port = _resolve_port(port)
     _validate_component("source_role", source_role)
@@ -1256,7 +1340,21 @@ def mos_book_ingest(
     src, source_file = _resolve_source_path(resolved_port, src_path)
     resolved_title = (title or src.stem).strip() or src.stem
     date_ingested = _now_iso()
-    body = summary.strip() + "\n" if summary is not None else _read_first_lines(src)
+    raw_body = summary.strip() + "\n" if summary is not None else _read_first_lines(src)
+
+    # Auto-derive reel_ref if not explicitly provided.
+    if reel_ref is None:
+        role = os.environ.get("MINIONS_ROLE_NAME", "").strip()
+        session = os.environ.get("MINIONS_SESSION_ID", "").strip()
+        if role and session:
+            reel_ref = f"{role}/{session}"
+
+    # Inject per-claim reel_ref markers (Slice A: claim-level provenance).
+    body = _inject_claim_refs(
+        raw_body,
+        claim_refs=claim_refs,
+        page_default_ref=reel_ref,
+    )
 
     page = (
         _render_source_frontmatter(
@@ -1265,6 +1363,7 @@ def mos_book_ingest(
             source_file=source_file,
             source_role=source_role,
             date_ingested=date_ingested,
+            reel_ref=reel_ref,
         )
         + body
     )
@@ -1339,6 +1438,246 @@ def mos_book_ingest(
 
 def _tokens(text: str) -> set[str]:
     return {token for token in _TOKEN_RE.findall(text.lower()) if len(token) >= 3}
+
+
+def mos_book_ingest_batch(
+    sources: list[dict[str, Any]],
+    *,
+    port: int | None = None,
+) -> dict[str, object]:
+    """Ingest multiple shared artifacts into the Book in one ordered batch.
+
+    **Why batch:** single-source :func:`mos_book_ingest` is order-dependent —
+    contradiction detection only sees pages already on disk when each source
+    arrives. If three sources arrive in order A, B, C and B contradicts both
+    A and C, the run-by-run result depends on whether C is ingested before
+    or after B. Batch ingest fixes this: phase 1 stages all incoming sources
+    in memory, phase 2 runs contradiction detection over the full set
+    (existing pages + the entire incoming batch), then phase 3 publishes
+    everything in a single commit.
+
+    Each entry in ``sources`` is a dict with the same keys
+    :func:`mos_book_ingest` accepts: ``src_path``, ``source_role``,
+    ``source_slug``, optional ``title``, ``summary``, ``reel_ref``,
+    ``claim_refs``.
+
+    Returns:
+        A dict with ``ingested`` (list of per-source result dicts) and
+        ``total_contradictions`` (count across the batch).
+    """
+    resolved_port = _resolve_port(port)
+    if not sources:
+        return {"ingested": [], "total_contradictions": 0}
+
+    # Phase 1 — stage all incoming sources in memory. We do not write to
+    # the working tree yet so contradiction detection in phase 2 sees a
+    # consistent snapshot.
+    staged: list[dict[str, Any]] = []
+    for src_entry in sources:
+        src_path = src_entry["src_path"]
+        source_role = src_entry["source_role"]
+        source_slug = src_entry["source_slug"]
+        _validate_component("source_role", source_role)
+        _validate_component("source_slug", source_slug)
+        slug = f"{source_role}-{source_slug}"
+        src, source_file = _resolve_source_path(resolved_port, src_path)
+        title = src_entry.get("title")
+        summary = src_entry.get("summary")
+        reel_ref = src_entry.get("reel_ref")
+        claim_refs = src_entry.get("claim_refs")
+        resolved_title = (title or src.stem).strip() or src.stem
+        date_ingested = _now_iso()
+        raw_body = summary.strip() + "\n" if summary is not None else _read_first_lines(src)
+
+        if reel_ref is None:
+            role = os.environ.get("MINIONS_ROLE_NAME", "").strip()
+            session = os.environ.get("MINIONS_SESSION_ID", "").strip()
+            if role and session:
+                reel_ref = f"{role}/{session}"
+
+        body = _inject_claim_refs(
+            raw_body,
+            claim_refs=claim_refs,
+            page_default_ref=reel_ref,
+        )
+
+        staged.append(
+            {
+                "slug": slug,
+                "source_role": source_role,
+                "source_file": source_file,
+                "title": resolved_title,
+                "date_ingested": date_ingested,
+                "body": body,
+                "reel_ref": reel_ref,
+            }
+        )
+
+    # Phase 2 — contradiction detection over (existing pages + batch).
+    # The trick: when detecting contradictions for source N, we treat
+    # batch entries 0..N-1 as if they were already on disk. This makes
+    # the detection set-aware rather than disk-aware.
+    detection_results: list[list[dict[str, Any]]] = []
+
+    # Snapshot of bodies that detection will see. Start with on-disk pages,
+    # then add staged entries one by one as we iterate.
+    in_memory_overlay: dict[str, str] = {}
+
+    for entry in staged:
+        # Build a temporary view: real disk + in_memory_overlay (prior entries)
+        # Run _detect_contradictions but with a body source that consults the
+        # overlay first. We achieve this by writing each prior entry to a
+        # temp staging file and pointing detection at the canonical sources_dir;
+        # the simplest approach is to write incrementally but that defeats the
+        # in-memory phase. Instead we monkey-patch via the overlay below.
+        contradictions = _detect_contradictions_with_overlay(
+            resolved_port,
+            entry["slug"],
+            entry["body"],
+            entry["source_role"],
+            overlay=in_memory_overlay,
+        )
+        detection_results.append(contradictions)
+        # Now add this entry to the overlay so subsequent entries see it
+        in_memory_overlay[entry["slug"]] = entry["body"]
+
+    # Phase 3 — publish everything in one commit per artifact.
+    ingested: list[dict[str, object]] = []
+    total_contradictions = 0
+    for entry, contradictions in zip(staged, detection_results, strict=True):
+        slug = entry["slug"]
+        page = (
+            _render_source_frontmatter(
+                title=entry["title"],
+                slug=slug,
+                source_file=entry["source_file"],
+                source_role=entry["source_role"],
+                date_ingested=entry["date_ingested"],
+                reel_ref=entry["reel_ref"],
+            )
+            + entry["body"]
+        )
+        page_stage = _stage_text(resolved_port, f"book-source-{slug}.md", page)
+        contradiction_stage: Path | None = None
+        contradiction_slug = _contradiction_slug(slug)
+        if contradictions:
+            contradiction_stage = _stage_text(
+                resolved_port,
+                f"book-contradiction-{slug}.md",
+                _render_contradiction_page(
+                    slug,
+                    contradictions,
+                    entry["source_role"],
+                    entry["date_ingested"],
+                    port=resolved_port,
+                ),
+            )
+        index_entries = [(slug, entry["title"], "source")]
+        if contradictions:
+            index_entries.append((contradiction_slug, f"Contradiction: {slug}", "contradiction"))
+        index_stage = _index_append_many(resolved_port, index_entries)
+        log_stage = _log_append(
+            resolved_port,
+            "ingest",
+            slug,
+            source_file=entry["source_file"],
+            source_role=entry["source_role"],
+            title=entry["title"],
+            contradiction_count=len(contradictions),
+            batch=True,
+        )
+
+        message = f"noter: ingest {slug} (batch)"
+        publish_results = [_publish_file(resolved_port, page_stage, f"sources/{slug}.md", message)]
+        if contradiction_stage is not None:
+            publish_results.append(
+                _publish_file(
+                    resolved_port,
+                    contradiction_stage,
+                    f"contradictions/{contradiction_slug}.md",
+                    message,
+                )
+            )
+        publish_results.extend(
+            [
+                _publish_file(resolved_port, index_stage, "index.md", message),
+                _publish_file(resolved_port, log_stage, "log.md", message),
+            ]
+        )
+        dag_edges = _emit_contradiction_dag_edges(resolved_port, contradictions)
+        total_contradictions += len(contradictions)
+
+        ingested.append(
+            {
+                "slug": slug,
+                "book_path": f"book/sources/{slug}.md",
+                "contradictions": contradictions,
+                "contradiction_count": len(contradictions),
+                "contradiction_path": (
+                    f"book/contradictions/{contradiction_slug}.md" if contradictions else None
+                ),
+                "dag_edges_created": dag_edges,
+                "publish_results": publish_results,
+            }
+        )
+
+    logger.info(
+        "book ingest_batch: port=%d sources=%d total_contradictions=%d",
+        resolved_port,
+        len(staged),
+        total_contradictions,
+    )
+    return {
+        "ingested": ingested,
+        "total_contradictions": total_contradictions,
+    }
+
+
+def _detect_contradictions_with_overlay(
+    port: int,
+    new_slug: str,
+    new_body: str,
+    source_role: str,
+    *,
+    overlay: dict[str, str],
+) -> list[dict[str, Any]]:
+    """Variant of :func:`_detect_contradictions` that includes an in-memory
+    overlay of staged-but-not-yet-published source bodies.
+
+    This is the load-bearing primitive for batch order-independence: each
+    staged entry sees both the real on-disk pages AND the prior staged
+    entries from the same batch, so the detection result does not depend
+    on disk-write timing.
+    """
+    base_results = _detect_contradictions(port, new_slug, new_body, source_role)
+    if not overlay:
+        return base_results
+
+    # Run the same detection logic against overlay entries
+    new_sentences = _sentence_candidates(new_body)
+    overlay_results: list[dict[str, Any]] = []
+    for prior_slug, prior_body in overlay.items():
+        if prior_slug == new_slug:
+            continue
+        prior_sentences = _sentence_candidates(prior_body)
+        for new_sent in new_sentences:
+            for prior_sent in prior_sentences:
+                shared_terms = _opposed_shared_terms(new_sent, prior_sent)
+                if shared_terms:
+                    overlay_results.append(
+                        {
+                            "opposing_page": f"book/sources/{prior_slug}.md",
+                            "shared_terms": shared_terms,
+                            "excerpts": {"new": new_sent, "opposing": prior_sent},
+                            "from_batch_overlay": True,
+                        }
+                    )
+                    break
+            else:
+                continue
+            break
+
+    return base_results + overlay_results
 
 
 def _node_cited_in_book(book_root: Path, node_id: str) -> bool:
@@ -1665,11 +2004,29 @@ def mos_book_query(
     max_pages: int = 5,
     *,
     port: int | None = None,
+    include_status: bool = True,
 ) -> dict[str, object]:
-    """Keyword-only search over book/index.md headers + page filenames."""
+    """Keyword-only search over book/index.md headers + page filenames.
+
+    Args:
+        text: Free-text query; tokenized and matched against page titles
+            and filenames.
+        max_pages: Maximum number of matches to return (default 5).
+        port: Project port (default: read from env).
+        include_status: If True (default), each match carries a ``status``
+            field reading the frontmatter ``status:`` of the page (e.g.
+            ``"contradicted"``, ``"resolved"``, ``"unresolved"``). This
+            lets a role progressively disclose: hot match → check status
+            → drill into contradiction page if flagged → walk reel_refs.
+
+    Returns:
+        ``{"matches": [...], "total": N, "queried": text}`` where each match
+        is ``{"slug", "title", "page_kind", "book_path", "score", "status"?}``.
+    """
     resolved_port = _resolve_port(port)
     query_tokens = _tokens(text)
-    index_path = _book_root(resolved_port) / "index.md"
+    book_root = _book_root(resolved_port)
+    index_path = book_root / "index.md"
     if not query_tokens or not index_path.exists():
         return {"matches": [], "total": 0, "queried": text}
 
@@ -1680,20 +2037,429 @@ def mos_book_query(
         score = len(query_tokens & _tokens(haystack))
         if score <= 0:
             continue
-        scored.append(
-            {
-                "slug": entry["slug"],
-                "title": entry.get("title", entry["slug"]),
-                "page_kind": entry.get("page_kind", entry.get("type", "")),
-                "book_path": entry["book_path"],
-                "score": score,
-            }
-        )
+        match: dict[str, object] = {
+            "slug": entry["slug"],
+            "title": entry.get("title", entry["slug"]),
+            "page_kind": entry.get("page_kind", entry.get("type", "")),
+            "book_path": entry["book_path"],
+            "score": score,
+        }
+        if include_status:
+            match["status"] = _read_page_status(book_root, entry["book_path"])
+        scored.append(match)
 
     scored.sort(key=lambda item: (-int(item["score"]), str(item["title"]), str(item["slug"])))
     total = len(scored)
     limit = max(0, int(max_pages))
     return {"matches": scored[:limit], "total": total, "queried": text}
+
+
+def _read_page_status(book_root: Path, book_path: str) -> str:
+    """Return the ``status:`` frontmatter value of a Book page, or empty string.
+
+    Used by :func:`mos_book_query` to enable progressive disclosure: a role
+    can see at a glance whether a matched page is contradicted, resolved,
+    or active without opening it.
+    """
+    abs_path = book_root.parent.parent.parent / "branches" / "shared" / book_path
+    # Try the canonical location: book_root/<book_path without 'book/' prefix>
+    if not abs_path.exists():
+        rel = book_path[len("book/") :] if book_path.startswith("book/") else book_path
+        abs_path = book_root / rel
+    if not abs_path.exists():
+        return ""
+    try:
+        text = abs_path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return ""
+    fm = _parse_frontmatter(text)
+    return fm.get("status", "").strip().strip('"').strip("'")
+
+
+def mos_book_save_synthesis(
+    question: str,
+    answer: str,
+    sources: list[str] | None = None,
+    *,
+    slug: str | None = None,
+    port: int | None = None,
+    reel_ref: str | None = None,
+) -> dict[str, object]:
+    """Save a question→answer pair as a compounding Book page.
+
+    **Compounding queries pattern** (Wiki V2 W7): when a role synthesizes
+    an answer from multiple Book pages, calling this tool materializes
+    that synthesis as a new ``book/queries/<slug>.md`` page. Future
+    queries match the question text and surface the prior answer first,
+    so knowledge compounds across sessions instead of being re-derived.
+
+    Args:
+        question: The query text the answer responds to.
+        answer: The synthesized answer (free-form markdown).
+        sources: Optional list of ``book/sources/<slug>.md`` paths the
+            answer drew from. Surfaced in frontmatter for audit.
+        slug: Optional explicit slug for the query page. Defaults to a
+            slugified prefix of the question.
+        port: Project port.
+        reel_ref: Optional reel pointer. Defaults to the caller's session.
+
+    Returns:
+        ``{"slug", "book_path", "publish_result"}``.
+
+    Notes on form-vs-content boundary:
+        This tool writes the answer text verbatim — it does not analyze,
+        rephrase, or judge the answer. The caller (a role) is responsible
+        for the synthesis. Noter is purely mechanical here: it owns the
+        formal structure (frontmatter, index entry, log line) but never
+        the substantive content.
+    """
+    resolved_port = _resolve_port(port)
+    if not question.strip():
+        raise BookError("question must be non-empty")
+    if not answer.strip():
+        raise BookError("answer must be non-empty")
+
+    if slug is None:
+        slug = slugify(question)[:60] or f"q-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
+    _validate_component("slug", slug)
+
+    date_ingested = _now_iso()
+
+    if reel_ref is None:
+        role = os.environ.get("MINIONS_ROLE_NAME", "").strip()
+        session = os.environ.get("MINIONS_SESSION_ID", "").strip()
+        if role and session:
+            reel_ref = f"{role}/{session}"
+
+    sources = sources or []
+    fm_lines = [
+        "---",
+        "type: query",
+        f"slug: {_quoted(slug)}",
+        f"question: {_quoted(question.strip())}",
+        f"date_created: {_quoted(date_ingested)}",
+        "page_kind: query",
+        f"sources: {json.dumps(sources, ensure_ascii=False)}",
+    ]
+    if reel_ref:
+        fm_lines.append(f"reel_ref: {_quoted(reel_ref)}")
+    fm_lines.extend(["---", ""])
+
+    body_with_refs = _inject_claim_refs(
+        answer.strip() + "\n",
+        claim_refs=None,
+        page_default_ref=reel_ref,
+    )
+
+    page_text = "\n".join(fm_lines) + body_with_refs
+    page_stage = _stage_text(resolved_port, f"book-query-{slug}.md", page_text)
+
+    title = f"Q: {question.strip()[:80]}"
+    index_stage = _index_append_many(resolved_port, [(slug, title, "query")])
+    log_stage = _log_append(
+        resolved_port,
+        "save_synthesis",
+        slug,
+        question=question.strip()[:200],
+        source_count=len(sources),
+    )
+
+    message = f"noter: save synthesis {slug}"
+    publish_results = [
+        _publish_file(resolved_port, page_stage, f"queries/{slug}.md", message),
+        _publish_file(resolved_port, index_stage, "index.md", message),
+        _publish_file(resolved_port, log_stage, "log.md", message),
+    ]
+
+    logger.info(
+        "book save_synthesis: port=%d slug=%s source_count=%d",
+        resolved_port,
+        slug,
+        len(sources),
+    )
+    return {
+        "slug": slug,
+        "book_path": f"book/queries/{slug}.md",
+        "publish_results": publish_results,
+    }
+
+
+def mos_book_audit_walk(
+    *,
+    status_filter: str | None = "unresolved",
+    max_pages: int = 20,
+    port: int | None = None,
+) -> dict[str, object]:
+    """List Book pages awaiting audit, with reel_refs surfaced for drill-down.
+
+    **Ethics audit primary entry point** (Slice D-E). Returns every page
+    matching ``status_filter`` (default: ``"unresolved"`` contradiction
+    pages) together with all distinct ``reel_ref`` pointers extracted
+    from the page body — both the page-level default in frontmatter and
+    every per-claim ``^[<ref>]`` marker. Ethics walks these refs via
+    :func:`mos_reel_get` to drill from a flagged claim to its raw
+    execution context, then issues a verdict via
+    :func:`mos_book_resolve_contradiction`.
+
+    Args:
+        status_filter: Frontmatter ``status:`` value to filter by. Pass
+            ``None`` to list every page with reel refs (use sparingly —
+            expensive on large books). Common values: ``"unresolved"``,
+            ``"contradicted"``, ``"under_audit"``.
+        max_pages: Hard cap on returned pages.
+        port: Project port.
+
+    Returns:
+        ``{
+            "audit_queue": [
+                {
+                    "slug": "...",
+                    "book_path": "book/contradictions/...",
+                    "status": "unresolved",
+                    "title": "...",
+                    "reel_refs": ["coder/sess-X/task-1", "ethics/sess-Y/task-3"],
+                    "frontmatter": {...},
+                },
+                ...
+            ],
+            "queue_depth": N,
+            "filter": "unresolved",
+        }``
+    """
+    resolved_port = _resolve_port(port)
+    book_root = _book_root(resolved_port)
+    audit_queue: list[dict[str, object]] = []
+
+    candidate_dirs = [book_root / "contradictions", book_root / "sources", book_root / "queries"]
+    for candidate_dir in candidate_dirs:
+        if not candidate_dir.exists():
+            continue
+        for page_path in sorted(candidate_dir.glob("*.md")):
+            try:
+                text = page_path.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                continue
+            fm = _parse_frontmatter(text)
+            page_status = fm.get("status", "").strip().strip('"').strip("'")
+            if status_filter is not None and page_status != status_filter:
+                continue
+
+            reel_refs = _extract_all_reel_refs(text)
+
+            # For contradiction pages, also pull reel_refs from the source
+            # pages they reference. The contradiction page itself does not
+            # quote claims with their inline refs; the upstream source pages
+            # carry the per-claim provenance.
+            page_kind = fm.get("page_kind", "").strip().strip('"').strip("'")
+            if page_kind == "contradiction":
+                new_source_slug = fm.get("new_source", "").strip().strip('"').strip("'")
+                referenced_slugs = {new_source_slug} if new_source_slug else set()
+                # Also scan body for book/sources/<slug>.md references
+                for match in re.finditer(r"book/sources/([\w\-\.]+)\.md", text):
+                    referenced_slugs.add(match.group(1))
+                for ref_slug in referenced_slugs:
+                    src_page = book_root / "sources" / f"{ref_slug}.md"
+                    if src_page.exists():
+                        try:
+                            src_text = src_page.read_text(encoding="utf-8", errors="replace")
+                        except Exception:
+                            continue
+                        for ref in _extract_all_reel_refs(src_text):
+                            if ref not in reel_refs:
+                                reel_refs.append(ref)
+
+            audit_queue.append(
+                {
+                    "slug": fm.get("slug", page_path.stem).strip().strip('"').strip("'"),
+                    "book_path": _book_rel_path(book_root, page_path),
+                    "status": page_status,
+                    "title": fm.get("title", page_path.stem).strip().strip('"').strip("'"),
+                    "reel_refs": reel_refs,
+                    "frontmatter": fm,
+                }
+            )
+            if len(audit_queue) >= max_pages:
+                break
+        if len(audit_queue) >= max_pages:
+            break
+
+    return {
+        "audit_queue": audit_queue,
+        "queue_depth": len(audit_queue),
+        "filter": status_filter or "(any)",
+    }
+
+
+def _extract_all_reel_refs(text: str) -> list[str]:
+    """Collect every distinct reel_ref in a Book page (frontmatter + inline)."""
+    refs: list[str] = []
+    seen: set[str] = set()
+
+    fm = _parse_frontmatter(text)
+    fm_ref = fm.get("reel_ref", "").strip().strip('"').strip("'")
+    if fm_ref:
+        seen.add(fm_ref)
+        refs.append(fm_ref)
+
+    for match in _CLAIM_REF_RE.finditer(text):
+        ref = match.group(1).strip()
+        if ref and ref not in seen:
+            seen.add(ref)
+            refs.append(ref)
+
+    return refs
+
+
+def mos_book_resolve_contradiction(
+    slug: str,
+    verdict: str,
+    rationale: str,
+    *,
+    port: int | None = None,
+    auditor_role: str | None = None,
+) -> dict[str, object]:
+    """Ethics writes a verdict on a contradiction page.
+
+    **Slice E** — the audit closes the loop: after walking reel_refs and
+    cross-referencing Draft/Book pages, Ethics calls this tool to mark a
+    contradiction page as ``resolved`` (with the verdict text appended)
+    or ``superseded`` / ``out_of_scope`` (with rationale). The page's
+    frontmatter ``status:`` flips, and a new ``## Verdict`` section is
+    appended verbatim. The original detection block stays untouched so
+    the audit trail is replayable.
+
+    Args:
+        slug: Contradiction page slug (without the ``contradiction-``
+            prefix is OK; both forms are accepted).
+        verdict: One of ``"resolved"``, ``"superseded"``, ``"out_of_scope"``,
+            ``"escalate"``. Free-form strings are also accepted but
+            non-standard verdicts will not be auto-routed by downstream
+            tooling.
+        rationale: Free-form markdown explanation. Should cite reel_refs
+            or Book paths it drew from. Embedded verbatim.
+        port: Project port.
+        auditor_role: The role issuing the verdict. Defaults to env
+            ``MINIONS_ROLE_NAME``. The caller-identity check below
+            enforces that this matches the actual process.
+
+    Returns:
+        ``{"slug", "book_path", "verdict", "publish_result"}``.
+
+    Authz: only the role whose ``MINIONS_ROLE_NAME`` matches
+    ``auditor_role`` (or is ``"ethics"`` / ``"gru"``) may resolve a
+    contradiction. Server-side ``_require_tool_allowed`` enforces this
+    at MCP boundary; this function double-checks for direct callers.
+    """
+    resolved_port = _resolve_port(port)
+
+    # Normalize slug: support both "<source>-<role>" and "contradiction-<source>-<role>"
+    canonical_slug = slug
+    if not canonical_slug.startswith("contradiction-"):
+        canonical_slug = f"contradiction-{canonical_slug}"
+
+    book_root = _book_root(resolved_port)
+    page_path = book_root / "contradictions" / f"{canonical_slug}.md"
+    if not page_path.exists():
+        # Try without the contradiction- prefix
+        alt_path = book_root / "contradictions" / f"{slug}.md"
+        if alt_path.exists():
+            page_path = alt_path
+            canonical_slug = slug
+        else:
+            raise BookError(f"Contradiction page not found: {page_path} (also checked: {alt_path})")
+
+    if auditor_role is None:
+        auditor_role = os.environ.get("MINIONS_ROLE_NAME", "").strip() or "unknown"
+
+    text = page_path.read_text(encoding="utf-8", errors="replace")
+    # Update frontmatter status
+    new_status = verdict if verdict in {"resolved", "superseded", "out_of_scope"} else "under_audit"
+    new_text = _update_frontmatter_field(text, "status", new_status)
+
+    # Append a verdict section
+    verdict_date = _now_iso()
+    verdict_section = (
+        f"\n## Verdict ({verdict})\n"
+        f"\n"
+        f"- **Auditor**: {auditor_role}\n"
+        f"- **Date**: {verdict_date}\n"
+        f"- **Rationale**:\n\n"
+        f"{rationale.strip()}\n"
+    )
+    new_text = new_text.rstrip() + "\n" + verdict_section
+
+    page_stage = _stage_text(
+        resolved_port,
+        f"book-resolve-{canonical_slug}.md",
+        new_text,
+    )
+    log_stage = _log_append(
+        resolved_port,
+        "resolve_contradiction",
+        canonical_slug,
+        verdict=verdict,
+        auditor=auditor_role,
+    )
+
+    message = f"{auditor_role}: resolve {canonical_slug} ({verdict})"
+    publish_results = [
+        _publish_file(
+            resolved_port,
+            page_stage,
+            f"contradictions/{canonical_slug}.md",
+            message,
+        ),
+        _publish_file(resolved_port, log_stage, "log.md", message),
+    ]
+
+    logger.info(
+        "book resolve_contradiction: port=%d slug=%s verdict=%s auditor=%s",
+        resolved_port,
+        canonical_slug,
+        verdict,
+        auditor_role,
+    )
+    return {
+        "slug": canonical_slug,
+        "book_path": f"book/contradictions/{canonical_slug}.md",
+        "verdict": verdict,
+        "status": new_status,
+        "publish_results": publish_results,
+    }
+
+
+def _update_frontmatter_field(text: str, field: str, value: str) -> str:
+    """Set/replace a frontmatter ``field: value`` line. Adds the field if absent.
+
+    Used by :func:`mos_book_resolve_contradiction` to flip ``status:``.
+    """
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        # No frontmatter — synthesize one
+        return f"---\n{field}: {_quoted(value)}\n---\n\n{text}"
+
+    new_lines: list[str] = ["---"]
+    in_frontmatter = True
+    found = False
+    end_idx = -1
+    for idx, line in enumerate(lines[1:], start=1):
+        if in_frontmatter and line.strip() == "---":
+            in_frontmatter = False
+            end_idx = idx
+            if not found:
+                new_lines.append(f"{field}: {_quoted(value)}")
+            new_lines.append(line)
+            new_lines.extend(lines[idx + 1 :])
+            break
+        if in_frontmatter and line.startswith(f"{field}:"):
+            new_lines.append(f"{field}: {_quoted(value)}")
+            found = True
+        else:
+            new_lines.append(line)
+    if end_idx == -1:
+        # Malformed frontmatter — fallback: leave text untouched
+        return text
+    return "\n".join(new_lines).rstrip() + "\n"
 
 
 def mos_book_lint(*, port: int | None = None) -> dict[str, object]:

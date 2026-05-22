@@ -82,6 +82,16 @@
             "timeout": 3
           }
         ]
+      },
+      {
+        "matcher": "Agent|Task|mcp__codex-subagent__codex",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/reel_capture.py\"",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreCompact": [

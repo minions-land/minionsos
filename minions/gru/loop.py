@@ -41,6 +41,8 @@ class GruLoop:
         cfg = load_gru_config()
         self.interval: int = heartbeat_interval or cfg.heartbeat_interval_seconds
         self.experiment_reconcile_interval: int = cfg.experiment_reconcile_interval_seconds
+        self.role_evolution_interval: int = cfg.role_evolution_interval_seconds
+        self.role_evolution_auto_apply: bool = cfg.role_evolution_auto_apply
         self._store = StateStore()
         self._crash_counter = CrashCounter()
         self._last_report_ts: float = 0.0
@@ -70,12 +72,29 @@ class GruLoop:
                         break
                     time.sleep(0.5)
 
+        def _role_evolution_thread() -> None:
+            while not self._stopped:
+                try:
+                    self._evaluate_role_evolution()
+                except Exception as exc:
+                    logger.error("role_evolution tick error: %s", exc, exc_info=True)
+                for _ in range(max(1, self.role_evolution_interval) * 2):
+                    if self._stopped:
+                        break
+                    time.sleep(0.5)
+
         exp_t = threading.Thread(
             target=_experiment_scheduler_thread,
             daemon=True,
             name="experiment-scheduler",
         )
         exp_t.start()
+        evo_t = threading.Thread(
+            target=_role_evolution_thread,
+            daemon=True,
+            name="role-evolution",
+        )
+        evo_t.start()
         logger.info("Gru monitor loop started (interval=%ds).", self.interval)
         try:
             while not self._stopped:
@@ -296,6 +315,108 @@ class GruLoop:
                     )
             except Exception as exc:
                 logger.debug("Experiment queue reconcile skipped port=%d: %s", project.port, exc)
+
+    def _evaluate_role_evolution(self) -> None:
+        """Periodic evidence-gated role-evolution evaluation.
+
+        Reads recent artifacts under each project's branches/shared/, runs
+        ``role_evolution.evaluate``, and writes one audit-log line per
+        evaluation. When ``role_evolution_auto_apply`` is enabled, also
+        invokes the corresponding apply_split / apply_merge / apply_dismiss
+        for each non-KEEP recommendation. Default is recommend-only.
+        """
+        from minions.lifecycle import role_evolution as RE
+
+        projects = self._store.list_projects(filter="active")
+        for project in projects:
+            try:
+                report = RE.evaluate(project.port, store=self._store)
+            except Exception as exc:
+                logger.debug("role_evolution.evaluate skipped port=%d: %s", project.port, exc)
+                continue
+
+            non_keep_splits = [s for s in report.splits if s.decision != "KEEP"]
+            non_keep_merges = [m for m in report.merges if m.decision != "KEEP"]
+            non_keep_dismisses = [d for d in report.dismisses if d.decision != "KEEP"]
+            if not non_keep_splits and not non_keep_merges and not non_keep_dismisses:
+                continue
+
+            # Always log to the governance audit so operators can see what
+            # the supervisor would have done — even when auto-apply is off.
+            try:
+                RE.append_audit(
+                    project_port=project.port,
+                    kind="evaluate",
+                    roles_in=[s.role for s in non_keep_splits]
+                    + [r for m in non_keep_merges for r in m.roles]
+                    + [d.role for d in non_keep_dismisses],
+                    roles_out=[
+                        spec["name"] for s in non_keep_splits for spec in s.proposed_specialists
+                    ]
+                    + [m.proposed_role["name"] for m in non_keep_merges if m.proposed_role],
+                    reason="periodic-evaluate",
+                    extra={
+                        "splits": [{"role": s.role, "reason": s.reason} for s in non_keep_splits],
+                        "merges": [
+                            {"roles": m.roles, "kind": m.kind, "reason": m.reason}
+                            for m in non_keep_merges
+                        ],
+                        "dismisses": [
+                            {"role": d.role, "reason": d.reason} for d in non_keep_dismisses
+                        ],
+                        "auto_apply": self.role_evolution_auto_apply,
+                    },
+                )
+            except Exception as exc:
+                logger.warning("role_evolution audit write failed: %s", exc)
+
+            if not self.role_evolution_auto_apply:
+                continue
+
+            # Auto-apply branch — splits, then merges, then dismisses.
+            # Order matters: split is the only growth move, so do it before
+            # any retraction to maximise coverage; merges close redundancy;
+            # dismisses retire what is left starved. Each application is
+            # best-effort and continues on failure.
+            for s in non_keep_splits:
+                try:
+                    RE.apply_split(
+                        project_port=project.port,
+                        source_role=s.role,
+                        into_specs=s.proposed_specialists,
+                        evidence_refs=[ev.artifact_path for c in s.clusters for ev in c.events[:3]],
+                        reason=f"auto-apply: {s.reason}",
+                        store=self._store,
+                    )
+                except Exception as exc:
+                    logger.error("auto-apply split failed for %s: %s", s.role, exc)
+
+            for m in non_keep_merges:
+                if not m.proposed_role:
+                    continue
+                try:
+                    RE.apply_merge(
+                        project_port=project.port,
+                        source_roles=m.roles,
+                        into_spec=m.proposed_role,
+                        evidence_refs=["auto:" + m.kind],
+                        reason=f"auto-apply: {m.reason}",
+                        store=self._store,
+                    )
+                except Exception as exc:
+                    logger.error("auto-apply merge failed for %s: %s", m.roles, exc)
+
+            for d in non_keep_dismisses:
+                try:
+                    RE.apply_dismiss(
+                        project_port=project.port,
+                        role_name=d.role,
+                        evidence_refs=[f"auto:starvation:{d.role}"],
+                        reason=f"auto-apply: {d.reason}",
+                        store=self._store,
+                    )
+                except Exception as exc:
+                    logger.error("auto-apply dismiss failed for %s: %s", d.role, exc)
 
     def _emit_health_event(
         self,
