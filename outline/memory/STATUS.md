@@ -41,7 +41,7 @@ Updated: 2026-05-22
 ## How to Run the Smoke Test
 
 ```bash
-cd /Users/mjm/MinionsOS/outline/memory
+cd outline/memory  # from MinionsOS repo root
 python3 smoke_test.py
 ```
 

@@ -6,7 +6,7 @@ tools: pikepdf, pillow, poppler (pdftocairo, pdftotext)
 version: 1
 status: active
 references: academic-plotting, figure-layout-defaults, figure-aesthetic-exemplars, package-pdf-compile, paper-compile, submission-cleanup-audit
-provenance: human + Codex 湿实验/v8/v16 sessions + verified by /Users/mjm/Skill/Layout regression run
+provenance: human + Codex 湿实验/v8/v16 sessions + verified by external Layout regression run
 ---
 
 # Skill — PDF Vector Layout

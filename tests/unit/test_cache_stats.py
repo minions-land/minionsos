@@ -175,13 +175,13 @@ def test_load_session_extracts_cwd_and_session_id(tmp_path: Path) -> None:
     p = tmp_path / "s.jsonl"
     _make_role_session(
         p,
-        cwd="/Users/mjm/MinionsOS/project_37596/branches/coder",
+        cwd="/tmp/repo/project_37596/branches/coder",
         session_id="aaa-111",
         turns=[{"timestamp": "2026-05-18T00:00:01Z", "read": 100, "create": 10}],
     )
     sess = _load_session(p)
     assert sess is not None
-    assert sess.cwd == "/Users/mjm/MinionsOS/project_37596/branches/coder"
+    assert sess.cwd == "/tmp/repo/project_37596/branches/coder"
     assert sess.session_id == "aaa-111"
     assert len(sess.turns) == 1
 

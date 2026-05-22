@@ -193,5 +193,5 @@ fi
 log "━━━ DONE ━━━"
 log "Next steps:"
 log "  1. Check meta.json in each benchmark dir for evaluation flow"
-log "  2. Run MinionsOS evaluation: cd /Users/mjm/MinionsOS && python -m minions.eval --benchmark <name>"
+log "  2. Run MinionsOS evaluation: cd <MinionsOS repo> && python -m minions.eval --benchmark <name>"
 log "  3. Results will be written to outline/index.html automatically"
