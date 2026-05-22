@@ -83,9 +83,9 @@ Default roles are not auto-spawned by `project_create`. Inside a Gru
 session, spawn the standard set:
 
 ```python
-spawn_role(port=<PORT>, role_name="noter")
-spawn_role(port=<PORT>, role_name="coder")
-spawn_expert(port=<PORT>, expert_slug="dl-arch")
+mos_spawn_role(port=<PORT>, role_name="noter")
+mos_spawn_role(port=<PORT>, role_name="coder")
+mos_spawn_expert(port=<PORT>, expert_slug="dl-arch")
 ```
 
 Expected: `./mos role list <PORT>` lists `noter`, `coder`, `expert-dl-arch`
