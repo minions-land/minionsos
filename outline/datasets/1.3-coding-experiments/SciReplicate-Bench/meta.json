@@ -1,0 +1,18 @@
+{
+  "name": "SciReplicate-Bench",
+  "stage": "1.3-coding-experiments",
+  "year": 2025,
+  "venue": "arXiv '25",
+  "what_it_tests": "Agent-driven algorithmic reproduction",
+  "scoring": "algorithm fidelity",
+  "paper_arxiv": "https://arxiv.org/abs/2504.00255",
+  "paper_doi": "",
+  "github": "https://github.com/xyzCS/SciReplicate-Bench",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "+ Reel records reasoning steps for fidelity match"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

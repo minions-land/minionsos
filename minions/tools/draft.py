@@ -190,7 +190,18 @@ def _load_draft(port: int) -> dict[str, Any]:
     path = _draft_path(port)
     if not path.exists():
         return {"project_port": port, "root_question": "", "nodes": [], "edges": []}
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        # Corrupt draft.json would otherwise crash every Role op. Surface a
+        # warning and fall back to an empty stub so the Role can keep operating;
+        # the next _save_draft will rewrite the file with valid JSON.
+        logger.warning(
+            "draft.json corrupt for port %s (%s); falling back to empty stub",
+            port,
+            exc,
+        )
+        return {"project_port": port, "root_question": "", "nodes": [], "edges": []}
 
 
 def _save_draft(port: int, draft: dict[str, Any]) -> None:

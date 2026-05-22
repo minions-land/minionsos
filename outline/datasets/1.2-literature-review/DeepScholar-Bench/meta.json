@@ -1,0 +1,18 @@
+{
+  "name": "DeepScholar-Bench",
+  "stage": "1.2-literature-review",
+  "year": 2025,
+  "venue": "arXiv '25",
+  "what_it_tests": "Live benchmark for research synthesis",
+  "scoring": "built-in evaluator",
+  "paper_arxiv": "https://arxiv.org/abs/2508.20033",
+  "paper_doi": "",
+  "github": "https://github.com/guestrin-lab/deepscholar-bench",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "Writer (deep-research mode) end-to-end"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

@@ -6,7 +6,7 @@ tools:
 version: 2
 status: active
 supersedes:
-references: academic-plotting
+references: academic-plotting, pdf-vector-layout
 provenance: SkillTest-R1.A-and-R1.B-case-multi-panel
 ---
 

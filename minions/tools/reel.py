@@ -78,6 +78,22 @@ def _reel_dir(port: int, role: str) -> Path:
     return project_role_workspace(port, role) / "reel"
 
 
+def _validate_ref_component(value: str, label: str) -> str:
+    """Reject path components that could escape the reel root.
+
+    Reel refs come from model output (``mos_reel_get(ref)``); a malicious or
+    confused ref like ``coder/../foo/bar`` could otherwise resolve outside the
+    project's reel directory. Reject path separators, parent traversal, and
+    leading dots so every component is a single safe directory name.
+    """
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError(f"Invalid reel ref {label}: empty")
+    if cleaned in {".", ".."} or "/" in cleaned or "\\" in cleaned or cleaned.startswith("."):
+        raise ValueError(f"Invalid reel ref {label}: {value!r}")
+    return cleaned
+
+
 def _reel_session_dir(port: int, role: str, session_id: str) -> Path:
     """Return the session directory for *(port, role, session_id)*."""
     return _reel_dir(port, role) / session_id
@@ -280,6 +296,9 @@ def mos_reel_get(ref: str) -> dict[str, Any]:
     if len(parts) != 3:
         raise ValueError(f"Invalid reel ref format: {ref} (expected <role>/<session>/<task>)")
     role, session_id, task_id = parts
+    role = _validate_ref_component(role, "role")
+    session_id = _validate_ref_component(session_id, "session_id")
+    task_id = _validate_ref_component(task_id, "task_id")
 
     # Check permission
     _check_reel_read_permission(port, role)
@@ -359,6 +378,9 @@ def mos_reel_window(ref: str, span: int = 5) -> list[dict[str, Any]]:
     if len(parts) != 3:
         raise ValueError(f"Invalid reel ref format: {ref} (expected <role>/<session>/<task>)")
     role, session_id, task_id = parts
+    role = _validate_ref_component(role, "role")
+    session_id = _validate_ref_component(session_id, "session_id")
+    task_id = _validate_ref_component(task_id, "task_id")
 
     # Check permission
     _check_reel_read_permission(port, role)

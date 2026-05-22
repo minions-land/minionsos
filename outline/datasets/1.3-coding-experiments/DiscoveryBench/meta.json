@@ -1,0 +1,18 @@
+{
+  "name": "DiscoveryBench",
+  "stage": "1.3-coding-experiments",
+  "year": 2024,
+  "venue": "arXiv '24",
+  "what_it_tests": "Data-driven scientific discovery",
+  "scoring": "hypothesis correctness",
+  "paper_arxiv": "https://arxiv.org/abs/2407.01725",
+  "paper_doi": "",
+  "github": "https://github.com/allenai/discoverybench",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "Full project on dataset → hypothesis; Ethics validates falsifiability"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

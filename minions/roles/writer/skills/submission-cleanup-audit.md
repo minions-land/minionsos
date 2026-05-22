@@ -5,7 +5,7 @@ layer: logical
 tools:
 version: 1
 status: active
-references: paper-compile, citation-audit, package-submission, claim-honesty-grading
+references: paper-compile, citation-audit, package-submission, claim-honesty-grading, pdf-vector-layout
 provenance: human + EACN-005-PRL Round 1-4 review rounds
 ---
 

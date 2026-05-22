@@ -1,0 +1,18 @@
+{
+  "name": "AbGen",
+  "stage": "1.4-tables-figures",
+  "year": 2025,
+  "venue": "ACL '25",
+  "what_it_tests": "Ablation study design and evaluation",
+  "scoring": "ablation coverage",
+  "paper_arxiv": "https://arxiv.org/abs/2507.13300",
+  "paper_doi": "",
+  "github": "",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "Coder + scheduler auto-design ablation combinations"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

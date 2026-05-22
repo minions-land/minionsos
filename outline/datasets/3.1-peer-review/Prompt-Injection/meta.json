@@ -1,0 +1,18 @@
+{
+  "name": "Prompt-Injection",
+  "stage": "3.1-peer-review",
+  "year": 2025,
+  "venue": "arXiv '25",
+  "what_it_tests": "Prompt injection on review",
+  "scoring": "injection success",
+  "paper_arxiv": "https://arxiv.org/abs/2509.10248",
+  "paper_doi": "",
+  "github": "",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "Red-team Reviewer subagent specifically"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

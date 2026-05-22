@@ -1,0 +1,18 @@
+{
+  "name": "AutoSurvey",
+  "stage": "2-paper-writing",
+  "year": 2024,
+  "venue": "NeurIPS '24",
+  "what_it_tests": "Long-form scholarly generation, de-facto metric",
+  "scoring": "4-axis (recall/precision/coverage/coherence)",
+  "paper_arxiv": "https://arxiv.org/abs/2406.10252",
+  "paper_doi": "",
+  "github": "https://github.com/AutoSurveys/AutoSurvey",
+  "huggingface": "",
+  "minionsos": {
+    "status": "✓",
+    "status_meaning": "directly evaluable, no adapter needed",
+    "evaluation_flow": "Writer survey → AutoSurvey eval"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

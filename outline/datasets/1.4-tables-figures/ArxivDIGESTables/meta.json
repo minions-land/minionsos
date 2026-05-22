@@ -1,0 +1,18 @@
+{
+  "name": "ArxivDIGESTables",
+  "stage": "1.4-tables-figures",
+  "year": 2024,
+  "venue": "EMNLP '24",
+  "what_it_tests": "Synthesize literature into tables",
+  "scoring": "cell-level F1",
+  "paper_arxiv": "https://arxiv.org/abs/2410.22360",
+  "paper_doi": "",
+  "github": "",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "Writer combines paper-search results into comparison table"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

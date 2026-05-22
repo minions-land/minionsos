@@ -1,0 +1,18 @@
+{
+  "name": "AstaBench",
+  "stage": "1.3-coding-experiments",
+  "year": 2025,
+  "venue": "arXiv '25",
+  "what_it_tests": "Scientific research agent suite",
+  "scoring": "multi-task aggregate",
+  "paper_arxiv": "https://arxiv.org/abs/2510.21652",
+  "paper_doi": "",
+  "github": "https://github.com/allenai/asta-bench",
+  "huggingface": "",
+  "minionsos": {
+    "status": "!",
+    "status_meaning": "medium refactor required (extend module / add tool)",
+    "evaluation_flow": "Hook Asta tasks into MinionsOS; cross-stage score"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

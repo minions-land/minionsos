@@ -1,0 +1,18 @@
+{
+  "name": "Re2",
+  "stage": "3.2-rebuttal",
+  "year": 2025,
+  "venue": "arXiv '25",
+  "what_it_tests": "Rebuttal effectiveness assessment",
+  "scoring": "score lift after rebuttal",
+  "paper_arxiv": "https://arxiv.org/abs/2505.07920",
+  "paper_doi": "",
+  "github": "",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "Writer rebuttal → mos_review_run Pass C measures score lift"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

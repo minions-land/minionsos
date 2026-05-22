@@ -1,0 +1,18 @@
+{
+  "name": "Commitment-Checklist",
+  "stage": "3.2-rebuttal",
+  "year": 2026,
+  "venue": "arXiv '26",
+  "what_it_tests": "Audit author commitments in peer review",
+  "scoring": "commitment-honored ratio",
+  "paper_arxiv": "https://arxiv.org/abs/2603.00003",
+  "paper_doi": "",
+  "github": "",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "Extract commits from rebuttal vs revision diff"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

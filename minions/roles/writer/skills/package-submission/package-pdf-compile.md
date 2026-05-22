@@ -4,6 +4,7 @@ summary: Clean PDF compile from scratch — delete build artifacts, run paper-co
 layer: logical
 version: 1
 status: active
+references: paper-compile, pdf-vector-layout
 provenance: human
 ---
 

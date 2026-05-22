@@ -5,7 +5,7 @@ layer: logical
 tools:
 version: 3
 status: active
-references: paper-compile, end-to-end-paper-workflow
+references: paper-compile, end-to-end-paper-workflow, pdf-vector-layout
 provenance: human
 ---
 

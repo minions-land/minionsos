@@ -1,0 +1,18 @@
+{
+  "name": "EXP-Bench",
+  "stage": "1.3-coding-experiments",
+  "year": 2026,
+  "venue": "ICLR '26",
+  "what_it_tests": "AI conducts AI research experiments",
+  "scoring": "end-to-end success rate",
+  "paper_arxiv": "",
+  "paper_doi": "",
+  "github": "https://github.com/Just-Curieous/Curie/tree/main/benchmark/exp_bench",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "Coder receives experiment design → scheduler exec → Ethics audit"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

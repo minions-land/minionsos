@@ -1,0 +1,18 @@
+{
+  "name": "HindSight",
+  "stage": "1.1-idea-generation",
+  "year": 2026,
+  "venue": "arXiv '26",
+  "what_it_tests": "Idea evaluation via future citation impact",
+  "scoring": "oracle citation count",
+  "paper_arxiv": "https://arxiv.org/abs/2603.15164",
+  "paper_doi": "",
+  "github": "",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "Run idea-gen on past Library snapshot, oracle on 2026 citations"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

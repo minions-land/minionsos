@@ -1,0 +1,18 @@
+{
+  "name": "GAIA",
+  "stage": "e2e-general",
+  "year": 2023,
+  "venue": "arXiv '23",
+  "what_it_tests": "450 real-world QA, 3 difficulty tiers",
+  "scoring": "exact match",
+  "paper_arxiv": "https://arxiv.org/abs/2311.12983",
+  "paper_doi": "",
+  "github": "",
+  "huggingface": "https://huggingface.co/datasets/gaia-benchmark/GAIA",
+  "minionsos": {
+    "status": "✓",
+    "status_meaning": "directly evaluable, no adapter needed",
+    "evaluation_flow": "Gru routes to Role; web tool + paper-search joint"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

@@ -128,9 +128,12 @@ _BOOK_READ_TOOLS = [
     "mos_book_hot_get",
 ]
 
-# Book synthesis-write tool: any role can save its own question→answer
-# synthesis as a compounding Book page (Wiki V2 W7). Mechanical write —
-# the role brings the synthesis, this tool only persists it.
+# Book synthesis-write tool: persists a question→answer synthesis as a
+# compounding Book page (Wiki V2 W7). Whitelisted to Noter and Gru only —
+# Noter materializes role-supplied syntheses verbatim. The synthesis content
+# itself can come from any role's reasoning (delivered via EACN message),
+# but the persist call goes through Noter to honor the Book ownership
+# invariant in publish.py: only Noter publishes to branches/shared/book/.
 _BOOK_SYNTHESIS_WRITE_TOOLS = [
     "mos_book_save_synthesis",
 ]

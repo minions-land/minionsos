@@ -1,0 +1,18 @@
+{
+  "name": "RebuttalAgent",
+  "stage": "3.2-rebuttal",
+  "year": 2026,
+  "venue": "ICLR '26",
+  "what_it_tests": "Strategic rebuttal with theory of mind",
+  "scoring": "acceptance lift",
+  "paper_arxiv": "https://arxiv.org/abs/2601.15715",
+  "paper_doi": "",
+  "github": "https://github.com/Zhitao-He/RebuttalAgent",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "Writer models reviewer stance explicitly during rebuttal"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

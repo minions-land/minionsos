@@ -1,0 +1,18 @@
+{
+  "name": "HLE",
+  "stage": "e2e-general",
+  "year": 2025,
+  "venue": "arXiv '25",
+  "what_it_tests": "3000+ expert-grade cross-disciplinary",
+  "scoring": "correct rate",
+  "paper_arxiv": "",
+  "paper_doi": "",
+  "github": "https://github.com/centerforaisafety/hle",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "Multi-Expert collab; Role evolution split match subdomain"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

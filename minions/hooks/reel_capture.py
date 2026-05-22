@@ -52,6 +52,8 @@ def main() -> int:
         return 0
 
     tool_response = payload.get("tool_response", {})
+    if not isinstance(tool_response, dict):
+        return 0
     output_file = tool_response.get("output_file")
     if not output_file:
         return 0

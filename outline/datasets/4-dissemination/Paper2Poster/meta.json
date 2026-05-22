@@ -1,0 +1,18 @@
+{
+  "name": "Paper2Poster",
+  "stage": "4-dissemination",
+  "year": 2025,
+  "venue": "NeurIPS '25",
+  "what_it_tests": "Multimodal poster automation",
+  "scoring": "poster rubric",
+  "paper_arxiv": "",
+  "paper_doi": "",
+  "github": "https://github.com/Paper2Poster/Paper2Poster",
+  "huggingface": "",
+  "minionsos": {
+    "status": "✗",
+    "status_meaning": "NOT COVERED — MinionsOS lacks corresponding module",
+    "evaluation_flow": "NOT COVERED"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

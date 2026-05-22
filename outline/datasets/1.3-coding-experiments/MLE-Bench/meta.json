@@ -1,0 +1,18 @@
+{
+  "name": "MLE-Bench",
+  "stage": "1.3-coding-experiments",
+  "year": 2024,
+  "venue": "arXiv '24",
+  "what_it_tests": "75 Kaggle competitions",
+  "scoring": "medal rate vs human percentile",
+  "paper_arxiv": "https://arxiv.org/abs/2410.07095",
+  "paper_doi": "",
+  "github": "",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "Coder + experiment_scheduler async; vs AIDE/OpenHands"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

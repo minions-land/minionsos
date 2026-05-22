@@ -1,0 +1,18 @@
+{
+  "name": "SciFlow-Bench",
+  "stage": "1.4-tables-figures",
+  "year": 2026,
+  "venue": "arXiv '26",
+  "what_it_tests": "Structure-aware diagram generation (inverse parsing)",
+  "scoring": "structure recall",
+  "paper_arxiv": "https://arxiv.org/abs/2602.09809",
+  "paper_doi": "",
+  "github": "",
+  "huggingface": "",
+  "minionsos": {
+    "status": "!",
+    "status_meaning": "medium refactor required (extend module / add tool)",
+    "evaluation_flow": "visual_check loop; replay original logical structure"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

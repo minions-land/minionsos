@@ -1,0 +1,18 @@
+{
+  "name": "SWE-bench-Pro",
+  "stage": "1.3-coding-experiments",
+  "year": 2025,
+  "venue": "arXiv '25",
+  "what_it_tests": "Long-horizon software engineering",
+  "scoring": "resolved rate",
+  "paper_arxiv": "https://arxiv.org/abs/2509.16941",
+  "paper_doi": "",
+  "github": "",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "+ test mos_reset_context Draft recovery, Reel L0 replay"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

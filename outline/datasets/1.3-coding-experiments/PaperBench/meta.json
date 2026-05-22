@@ -1,0 +1,18 @@
+{
+  "name": "PaperBench",
+  "stage": "1.3-coding-experiments",
+  "year": 2025,
+  "venue": "arXiv '25",
+  "what_it_tests": "Replicate ICML 2024 papers from scratch",
+  "scoring": "8316 rubric leaves",
+  "paper_arxiv": "https://arxiv.org/abs/2504.01848",
+  "paper_doi": "",
+  "github": "https://github.com/openai/preparedness",
+  "huggingface": "",
+  "minionsos": {
+    "status": "!",
+    "status_meaning": "medium refactor required (extend module / add tool)",
+    "evaluation_flow": "GOLD STANDARD. Full project: Gru→Coder→Ethics→Writer→Reviewer end-to-end"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

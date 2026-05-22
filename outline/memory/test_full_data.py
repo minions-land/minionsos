@@ -52,6 +52,41 @@ def test_locomo_full() -> Dict[str, Any]:
     except Exception as e:
         return {"status": "FAIL", "error": str(e)}
 
+def _count_membench_items(data: Any) -> tuple:
+    """Count roles/events/QA pairs from a MemBench file regardless of top-level shape.
+
+    Handles two shapes:
+    - {'roles': [...], 'events': [...]}   — most task files
+    - {'movie': {...}, 'food': {...}, ...} — highlevel.json (nested by domain)
+    """
+    if not isinstance(data, dict):
+        return 0, 0, 0
+
+    # Shape 1: top-level has 'roles' key
+    if 'roles' in data:
+        roles = data['roles']
+        events = data.get('events', [])
+        qa_count = sum(len(r.get('QA', [])) for r in roles if isinstance(r, dict))
+        return len(roles), len(events), qa_count
+
+    # Shape 2: domain-keyed dict (e.g. highlevel.json: {'movie': {…}, 'food': {…}})
+    total_roles = total_events = total_qa = 0
+    for domain_val in data.values():
+        if isinstance(domain_val, dict):
+            if 'roles' in domain_val:
+                sub_roles, sub_events, sub_qa = _count_membench_items(domain_val)
+                total_roles += sub_roles
+                total_events += sub_events
+                total_qa += sub_qa
+            else:
+                # domain_val itself might be a list of role dicts
+                pass
+        elif isinstance(domain_val, list):
+            total_roles += len(domain_val)
+            total_qa += sum(len(r.get('QA', [])) for r in domain_val if isinstance(r, dict))
+    return total_roles, total_events, total_qa
+
+
 def test_membench_full() -> Dict[str, Any]:
     """Test loading full MemBench dataset (all task types)."""
     base_dir = DATASETS_DIR / "membench_repo" / "MemData" / "FirstAgent"
@@ -72,24 +107,14 @@ def test_membench_full() -> Dict[str, Any]:
             with open(task_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
-            if not isinstance(data, dict) or 'roles' not in data:
-                return {"status": "FAIL", "error": f"{task_file.name} invalid format"}
+            if not isinstance(data, dict):
+                return {"status": "FAIL", "error": f"{task_file.name}: expected dict, got {type(data).__name__}"}
 
-            roles = data['roles']
-            events = data.get('events', [])
-
-            total_roles += len(roles)
-            total_events += len(events)
-
-            # Count QA pairs
-            for role in roles:
-                if 'QA' in role:
-                    total_qa += len(role['QA'])
-
-            task_counts[task_file.stem] = {
-                'roles': len(roles),
-                'events': len(events),
-            }
+            roles, events, qa = _count_membench_items(data)
+            total_roles += roles
+            total_events += events
+            total_qa += qa
+            task_counts[task_file.stem] = {'roles': roles, 'events': events, 'qa': qa}
 
         return {
             "status": "PASS",
@@ -113,46 +138,43 @@ def test_memoryagentbench_full() -> Dict[str, Any]:
         }
 
     try:
-        # Look for JSONL files
-        jsonl_files = list(data_dir.glob("*.jsonl"))
-        if not jsonl_files:
-            # Maybe it's in a subdirectory
-            jsonl_files = list(data_dir.rglob("*.jsonl"))
+        import pandas as pd
 
-        if not jsonl_files:
+        # Data is in Parquet format under raw/data/
+        data_subdir = data_dir / "data"
+        parquet_files = list(data_subdir.glob("*.parquet")) if data_subdir.exists() else []
+        if not parquet_files:
+            parquet_files = list(data_dir.rglob("*.parquet"))
+
+        if not parquet_files:
             return {
                 "status": "FAIL",
-                "error": f"No .jsonl files found in {data_dir}",
-                "hint": "Check if download completed successfully",
+                "error": f"No .parquet files found under {data_dir}",
+                "hint": "Check if HuggingFace download completed successfully",
             }
 
         file_stats = {}
-        total_lines = 0
+        total_rows = 0
 
-        for jsonl_file in jsonl_files:
-            line_count = 0
-            with open(jsonl_file, 'r', encoding='utf-8') as f:
-                for line in f:
-                    if line.strip():
-                        # Validate it's valid JSON
-                        try:
-                            json.loads(line)
-                            line_count += 1
-                        except json.JSONDecodeError as e:
-                            return {
-                                "status": "FAIL",
-                                "error": f"{jsonl_file.name} line {line_count+1}: {e}",
-                            }
-
-            file_stats[jsonl_file.name] = line_count
-            total_lines += line_count
+        for pf in parquet_files:
+            df = pd.read_parquet(pf)
+            file_stats[pf.name] = len(df)
+            total_rows += len(df)
+            # Validate at least one row can be read
+            if len(df) > 0:
+                row = df.iloc[0].to_dict()
+                # Just check it's a non-empty dict
+                if not row:
+                    return {"status": "FAIL", "error": f"{pf.name}: empty first row"}
 
         return {
             "status": "PASS",
-            "files": len(jsonl_files),
-            "total_samples": total_lines,
+            "files": len(parquet_files),
+            "total_samples": total_rows,
             "breakdown": file_stats,
         }
+    except ImportError:
+        return {"status": "FAIL", "error": "pandas not installed — run: pip install pandas pyarrow"}
     except Exception as e:
         return {"status": "FAIL", "error": str(e)}
 

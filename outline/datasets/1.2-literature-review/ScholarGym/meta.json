@@ -1,0 +1,18 @@
+{
+  "name": "ScholarGym",
+  "stage": "1.2-literature-review",
+  "year": 2026,
+  "venue": "arXiv '26",
+  "what_it_tests": "Info-gathering stage of deep research",
+  "scoring": "retrieval recall",
+  "paper_arxiv": "https://arxiv.org/abs/2601.21654",
+  "paper_doi": "",
+  "github": "",
+  "huggingface": "",
+  "minionsos": {
+    "status": "~",
+    "status_meaning": "light adapter required (~100-300 LoC Python)",
+    "evaluation_flow": "Strip generation, pure paper-search test vs Tongyi"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

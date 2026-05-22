@@ -1,0 +1,18 @@
+{
+  "name": "P2P",
+  "stage": "4-dissemination",
+  "year": 2026,
+  "venue": "ICLR '26",
+  "what_it_tests": "Paper-to-poster + fine-grained benchmark",
+  "scoring": "poster rubric",
+  "paper_arxiv": "",
+  "paper_doi": "",
+  "github": "",
+  "huggingface": "",
+  "minionsos": {
+    "status": "✗",
+    "status_meaning": "NOT COVERED — MinionsOS lacks corresponding module",
+    "evaluation_flow": "NOT COVERED — no Paper2X module"
+  },
+  "source": "AI for Auto-Research: Roadmap & User Guide (Kong et al., 2026, arXiv:2605.18661)"
+}

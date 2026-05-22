@@ -6,7 +6,7 @@ tools:
 version: 3
 status: active
 supersedes:
-references: figure-spec, interactive-figure-prototype, figure-layout-defaults
+references: figure-spec, interactive-figure-prototype, figure-layout-defaults, pdf-vector-layout
 provenance: human + SkillTest-R1.A+R1.B-merged
 ---
 

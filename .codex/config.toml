@@ -20,3 +20,13 @@ enabled = true
 command = "node"
 args = ["mcp-servers/codex-subagent/dist/server.js"]
 enabled = true
+
+[mcp_servers.keepalive]
+command = "uv"
+args = ["run", "--quiet", "--no-project", "--with", "mcp[cli]", "python", "mcp-servers/keepalive/server.py"]
+enabled = true
+
+[mcp_servers.graphify]
+command = "bash"
+args = ["mcp-servers/graphify/launcher.sh"]
+enabled = true
