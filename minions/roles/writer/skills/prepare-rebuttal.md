@@ -25,7 +25,7 @@ Issue clusters (method / experiments / clarity / related work / claims scope), e
 
 | Type | Handling |
 |---|---|
-| `new evidence` | Experimenter runs or Expert analyses via EACN task |
+| `new evidence` | Coder runs or Expert analyses via EACN task |
 | `clarification` | Prose fix, no new experiment |
 | `scope adjustment` | Concede and tighten the claim |
 | `disagreement` | Rebut with citation / derivation |
@@ -58,7 +58,7 @@ Composite labels (`DISAGREE + SOFTEN`, `ACCEPT_EXPERIMENT + SOFTEN_CLAIM`) are a
 
 3. **Group issues.** Cluster by topic; within each cluster rank by severity and number of reviewers. Shared concerns across reviewers = top priority.
 
-4. **Coordinate evidence requests via EACN.** For each `ACCEPT_EXPERIMENT` or `ACCEPT_ANALYSIS` issue, open a targeted request to Experimenter or Expert with the exact question and the deadline. Do not wait on speculative experiments outside the rebuttal window.
+4. **Coordinate evidence requests via EACN.** For each `ACCEPT_EXPERIMENT` or `ACCEPT_ANALYSIS` issue, open a targeted request to Coder or Expert with the exact question and the deadline. Do not wait on speculative experiments outside the rebuttal window.
 
 5. **Flag AUTHOR_INPUT_NEEDED at the top of the letter.** When ANY comment is `AUTHOR_INPUT_NEEDED`, name this in the opening paragraph of the response letter so the editor catches it on first read. Do NOT bury the flag inside the per-comment section — editors triage cover letters; an unresolved point in the body is a submission-quality failure.
 

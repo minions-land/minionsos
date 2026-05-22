@@ -46,7 +46,7 @@ Revision state lives in `branches/writer/paper/revisions/round-<n>.md` — a che
 
 5. **Apply Results vs Discussion verb taxonomy.** Results sentences use observation verbs: `was detected`, `increased`, `decreased`, `showed`, `enabled`, `achieved`, `abolished`, `replicated`. Discussion sentences use interpretive verbs: `may reflect`, `suggests`, `could indicate`, `is likely due to`, `may facilitate`, `would support`, `is consistent with`. A Results paragraph drifting into Discussion syntax (and vice versa) is a register failure that no amount of polish can fix at the sentence level — the paragraph needs to be re-anchored to the right section first.
 
-6. **Handle evidence-dependent edits.** If an entry requires a new experimental run or analysis (rare at this stage), open a targeted EACN task to Experimenter or Expert per `prepare-rebuttal`'s rules. Mark the checklist entry `pending` with a blocker note until evidence lands.
+6. **Handle evidence-dependent edits.** If an entry requires a new experimental run or analysis (rare at this stage), open a targeted EACN task to Coder or Expert per `prepare-rebuttal`'s rules. Mark the checklist entry `pending` with a blocker note until evidence lands.
 
 7. **Re-run `citation-audit`** after any bibliography or citation-context changes.
 

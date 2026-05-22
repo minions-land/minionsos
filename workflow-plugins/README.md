@@ -117,7 +117,7 @@ The spawned Expert gets:
 
 - Workflow plugin Experts write only to their own branch
 - Cross-role output goes through `mos_publish_to_shared` → `handoffs/` only
-- They do NOT write to `exploration/`, `notes/`, `wiki/`, or other native surfaces
+- They do NOT write to `draft/`, `notes/`, `book/`, `atlas/`, or other native surfaces
 - MinionsOS's own Scientific Discovery workflow is sovereign — workflow plugins
   provide capabilities but never replace or overwrite the native system
 - Dismiss removes the process; no explicit MCP unload needed

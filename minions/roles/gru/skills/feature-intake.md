@@ -12,7 +12,7 @@ provenance: human
 
 # Skill — Feature Intake
 
-Gru owns intake and coordination; Coder, Writer, Experimenter, and Reviewer own execution. Intake is not implementation.
+Gru owns intake and coordination; Coder, Writer, and Reviewer own execution. Intake is not implementation.
 
 ## When to invoke
 

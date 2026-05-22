@@ -20,7 +20,7 @@ A complete evidence-grounded paper-writing pipeline. Stop only when there is a c
 - A project has stable experimental results and a target venue.
 - Re-running after a major revision that changes claims, results, or venue.
 
-If evidence is missing, stop and ask Expert / Experimenter / Coder / Gru / user through EACN — do not invent or rerun results inside Writer.
+If evidence is missing, stop and ask Expert / Coder / Gru / user through EACN — do not invent or rerun results inside Writer.
 
 ## Structure
 

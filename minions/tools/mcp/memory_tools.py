@@ -1,4 +1,4 @@
-"""Memory layer tools: Draft, Book, Atlas."""
+"""Memory layer tools: Draft, Book, Shelf."""
 
 from __future__ import annotations
 
@@ -354,7 +354,7 @@ async def mos_book_crystallize_session(
     )
 
 
-# ── Gru-only global Atlas tools ─────────────────────────────────────────
+# ── Gru-only global Shelf tools ─────────────────────────────────────────
 
 
 @mcp.tool()
@@ -366,7 +366,7 @@ async def mos_shelf_register(port: int) -> dict:
 
 @mcp.tool()
 async def mos_shelf_query(text: str, max_results: int = 10) -> dict:
-    """Query the Gru-only global Atlas; see minions.tools.shelf."""
+    """Query the Gru-only global Shelf; see minions.tools.shelf."""
     _require_tool_allowed("mos_shelf_query")
     return _shelf.mos_shelf_query(text=text, max_results=max_results)
 

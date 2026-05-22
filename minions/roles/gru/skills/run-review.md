@@ -25,7 +25,7 @@ Do **not** invoke review for:
 
 ## Structure
 
-One call to `mos_review_run`. The tool gate-checks the checklist; if it rejects, the review is not run. If it completes, the tool returns a decision label, the path to `consolidated.md`, and the rolling summary path. Gru relays both to Writer (and to anyone with actionable follow-ups: Coder for code revisions, Experimenter for re-runs, Expert for claim adjustments).
+One call to `mos_review_run`. The tool gate-checks the checklist; if it rejects, the review is not run. If it completes, the tool returns a decision label, the path to `consolidated.md`, and the rolling summary path. Gru relays both to Writer (and to anyone with actionable follow-ups: Coder for code revisions, Coder for re-runs, Expert for claim adjustments).
 
 ## Procedure
 
@@ -36,7 +36,7 @@ One call to `mos_review_run`. The tool gate-checks the checklist; if it rejects,
    - `status == "rejected"`: relay `missing_required` to Writer with a brief EACN message; do not paraphrase or soften. The author needs to know exactly which items are missing.
    - `status == "completed"`: post an EACN message to Writer with the decision label, `consolidated_path`, and `summary_path`. Include the consolidated.md content inline when small; otherwise just the pointer.
    - `status == "error"`: surface the failure to the author. Do not retry blindly — diagnose first.
-5. **Route actionable dependencies.** If the decision contains required revisions that obviously belong to another Role (code change → Coder, re-run → Experimenter, claim adjustment → Expert), publish targeted EACN follow-up tasks. Do not let everything funnel back through Writer.
+5. **Route actionable dependencies.** If the decision contains required revisions that obviously belong to another Role (code change → Coder, re-run → Coder, claim adjustment → Expert), publish targeted EACN follow-up tasks. Do not let everything funnel back through Writer.
 6. **Stop.** No further review-related action until Writer publishes a new submission.
 
 ## Pitfalls

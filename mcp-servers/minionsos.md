@@ -10,7 +10,7 @@ minions/tools/mcp/                 # package; each submodule registers its @mcp.
 ├── __init__.py                    # owns the FastMCP singleton; imports every submodule for side effects
 ├── _common.py                     # _MINIONS_MCP_TOOL_NAMES, _require_tool_allowed, shared arg models
 ├── experiment_tools.py            # mos_exp_* / exp_queue_* / exp_gpu_pool_*
-├── memory_tools.py                # mos_draft_*, mos_atlas_*, mos_book_*
+├── memory_tools.py                # mos_draft_*, mos_shelf_*, mos_book_*
 ├── paper_tools.py                 # search_arxiv / search_pubmed / read_*_paper / download_*
 ├── project_tools.py               # mos_project_create / close / dormant / revive / kill / list / set_phase
 ├── publish_tools.py               # mos_publish_to_shared
@@ -27,7 +27,7 @@ minions/tools/                     # sibling implementation modules the MCP subm
 ├── await_events.py                # mos_await_events handler
 ├── draft.py                  # backs memory_tools.py (draft portion)
 ├── book.py                        # backs memory_tools.py (book portion)
-├── atlas.py                       # backs memory_tools.py (atlas portion)
+├── shelf.py                       # backs memory_tools.py (shelf/atlas portion)
 ├── reel.py                        # backs reel_tools.py — L0 raw session traces
 ├── project_bridge.py              # mos_project_bridge
 ├── reset.py                       # mos_reset_context
@@ -76,7 +76,7 @@ See `minions/tools/mcp/_common.py:_MINIONS_MCP_TOOL_NAMES` for the authoritative
 
 - **Project lifecycle**: `mos_project_create`, `mos_project_close`, `mos_project_kill`, `mos_project_dormant`, `mos_project_revive`, `mos_project_list`, `mos_project_set_phase`, `mos_project_checkpoint_workspace`, `mos_project_bridge`.
 - **Role lifecycle**: `mos_spawn_role`, `mos_spawn_expert`, `mos_dismiss_role`, `mos_list_roles`, `mos_kill_role`, `mos_attach_role`.
-- **Cross-role IO**: `mos_publish_to_shared`, `mos_draft_*`, `mos_book_ingest`, `mos_book_query`, `mos_book_hot_get`, `mos_book_hot_update`, `mos_book_lint`, `mos_atlas_query`, `mos_atlas_register`, `mos_atlas_shared_concepts`.
+- **Cross-role IO**: `mos_publish_to_shared`, `mos_draft_*`, `mos_book_ingest`, `mos_book_ingest_batch`, `mos_book_query`, `mos_book_save_synthesis`, `mos_book_hot_get`, `mos_book_hot_update`, `mos_book_lint`, `mos_book_audit_walk`, `mos_book_resolve_contradiction`, `mos_book_promote_verified`, `mos_book_crystallize_session`, `mos_shelf_query`, `mos_shelf_register`, `mos_shelf_shared_concepts`.
 - **Event loop**: `mos_await_events`, `mos_noter_wait`, `mos_get_events`, `mos_unread_summary`, `mos_reset_context`, `mos_compact_context`.
 - **Review**: `mos_review_run`.
 - **Experiments**: `mos_exp_run`, `mos_exp_status`, `mos_exp_wait`, `mos_exp_kill`, `mos_exp_list`, `mos_exp_put`, `mos_exp_get`, `mos_exp_tail`, `mos_query_gpus`, `mos_exp_queue_*`, `mos_exp_gpu_pool_*`.

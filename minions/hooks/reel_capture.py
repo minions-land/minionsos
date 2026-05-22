@@ -65,6 +65,10 @@ def main() -> int:
         # Not in a MinionsOS role context; skip silently
         return 0
 
+    if role == "noter":
+        # Noter is excluded from the reel surface by design
+        return 0
+
     if not session_id:
         # Generate a session ID if not set
         session_id = _generate_session_id()

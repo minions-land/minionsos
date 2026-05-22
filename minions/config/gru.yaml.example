@@ -29,9 +29,9 @@ author_repo:
 projects_root:
 
 # Noter periodic wake cadence. Noter wakes every interval to flush the buffered
-# Scratchpad (L1) to a single commit on the shared branch
-# (mos_scratchpad_commit_shared), and to consider whether a fresh staged report
-# is due. Scratchpad flushes happen on every periodic wake; reports are
+# Draft (L1) to a single commit on the shared branch
+# (mos_draft_commit_shared), and to consider whether a fresh staged report
+# is due. Draft flushes happen on every periodic wake; reports are
 # throttled by noter_report_interval below.
 noter_periodic_interval: 3m
 
@@ -53,8 +53,8 @@ health_event_eacn_notifications: false
 # Minimum seconds between any two dispatches for the same role.
 role_cooldown_seconds: 30
 
-# Python-side Experimenter queue reconcile cadence. This keeps queued experiment
-# units flowing onto newly-free GPUs without waking Experimenter just to schedule.
+# Python-side experiment queue reconcile cadence. This keeps queued experiment
+# units flowing onto newly-free GPUs without waking Coder just to schedule.
 experiment_reconcile_interval_seconds: 30
 
 # Wall-clock seconds of silence after which mos_await_events returns a stable
@@ -80,11 +80,9 @@ gru_eacn_agent_id: gru
 # with MINIONS_AGENT_HOST.
 agent_host: claude
 
-# Model for the Noter role. Noter does summarization and Scratchpad/Library
+# Model for the Noter role. Noter does summarization and Draft/Book
 # maintenance — Sonnet is sufficient and much cheaper than Opus. Accepts any
 # model alias or full name that the claude CLI understands.
-# Sonnet is sufficient and much cheaper than Opus. Accepts any model alias
-# or full name that the claude CLI understands.
 noter_model: sonnet
 
 # Optional Codex model. Leave null to use the Codex CLI profile/default.
@@ -102,8 +100,8 @@ codex_approval_policy: never
 # Rationale: Context Rot / NoLiMa research shows effective context degrades
 # well before the nominal window is full — keep transcript usage well under it.
 # Defaults (1M-token window): soft=100k, hard=150k, veto=200k tokens.
-# These are unrelated to the on-disk L1 Scratchpad
-# (branches/shared/scratchpad/scratchpad.json).
+# These are unrelated to the on-disk L1 Draft
+# (branches/shared/draft/draft.json).
 #
 # NOTE (2026-05-20): these thresholds are RESERVED for a future programmatic
 # compaction-gating path. Today, role agents decide when to call

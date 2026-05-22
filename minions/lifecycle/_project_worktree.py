@@ -64,7 +64,7 @@ Roles do **not** `Write` here directly. All writes go through
 - `notes/` — Noter staged reports.
 - `ethics/` — Ethics published audit reports (flat: `report-*.md`,
   `flag-*.md`, `mock-review-*.md`, `adjudication-*.md`).
-- `exp/` — Experimenter result bundles, one per experiment.
+- `exp/` — Coder experiment result bundles, one per experiment.
 - `reviews/round-<n>/` — `mos_review_run` output. The review tool owns this
   surface directly; no other role writes here.
 - `handoffs/` — Free-form cross-role handoffs.
