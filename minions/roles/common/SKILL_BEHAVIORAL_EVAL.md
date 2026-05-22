@@ -80,7 +80,7 @@ For the remaining 10 "no effect" skills, more difficult scenarios might surface 
 
 - **Keep all 49 skills**. None had a net-negative effect after the `coding-methodology` fix.
 - **The EACN3 cluster is the highest-ROI sub-library**. Every skill in it earned its keep against haiku-class executors.
-- **The workflow orchestration skills (writer + experimenter + reviewer) are the second-highest-ROI sub-library**, especially for tasks where right-answer = "stop and scope".
+- **The workflow orchestration skills (writer + coder + reviewer) are the second-highest-ROI sub-library**, especially for tasks where right-answer = "stop and scope".
 - **The reasoning-discipline skills (first-principles, dialectics, karpathy-codified-as-coding-methodology) provide calibration value, not error-prevention value**. They make answers more defensible but don't typically flip a wrong decision to right.
 
 ## Methodology recap

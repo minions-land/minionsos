@@ -201,7 +201,7 @@ def test_shared_concepts_returns_empty_without_overlap(
     assert result == {"shared": [], "count": 0}
 
 
-def test_atlas_query_whitelisted_only_for_gru_main() -> None:
+def test_shelf_query_whitelisted_only_for_gru_main() -> None:
     from minions.config import resolve_server_authz
 
     assert "mos_shelf_query" in resolve_server_authz("gru", "main")
@@ -209,7 +209,7 @@ def test_atlas_query_whitelisted_only_for_gru_main() -> None:
     assert "mos_shelf_query" not in resolve_server_authz("ethics", "main")
 
 
-def test_atlas_register_whitelisted_only_for_noter_main() -> None:
+def test_shelf_register_whitelisted_only_for_noter_main() -> None:
     from minions.config import resolve_server_authz
 
     assert "mos_shelf_register" in resolve_server_authz("noter", "main")

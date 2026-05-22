@@ -1,6 +1,6 @@
 """Experiment execution MCP tools for the Coder role.
 
-These tools are loaded for the ``coder`` role (formerly ``experimenter``).
+These tools are loaded for the ``coder`` role.
 Runtime whitelisting is enforced by MinionsOS; Claude also receives the
 allowlist at spawn time via ``--allowed-tools``, while Codex is constrained
 by MCP server-side authorization.

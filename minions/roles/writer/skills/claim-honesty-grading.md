@@ -6,7 +6,7 @@ tools:
 version: 1
 status: active
 references: theoretical-justification, paper-quality-contract, submission-cleanup-audit
-provenance: human + EACN-005-PRL Round 1-2 + MinionsOS-Paper Reviewer-Atlas overclaim
+provenance: human + EACN-005-PRL Round 1-2 + MinionsOS-Paper Reviewer-Shelf overclaim
 ---
 
 # Skill — Claim Honesty Grading
@@ -49,7 +49,7 @@ Before sending a manuscript or comparison table, walk these four locations and c
 3. Discussion / "what this enables" prose.
 4. Capability comparison table (if any).
 
-Flag any claim that would not survive a one-sentence challenge from a reviewer who has read the system implementation. Specific failure mode: Reviewer claimed "audits Atlas"; actual scope is "audits submission package" (Reviewer-Atlas overclaim, MinionsOS-Paper). The mirror failure is *underclaim*: a pillar originally called "Pluggable Skill Nodes" was renamed to "Workflow Plugin" once the actual scope (external workflow + MCP server + domain pack + skills, registered as a full EACN3 Agent) was verified to be broader than "skills".
+Flag any claim that would not survive a one-sentence challenge from a reviewer who has read the system implementation. Specific failure mode: Reviewer claimed "audits Shelf"; actual scope is "audits submission package" (Reviewer-Shelf overclaim, MinionsOS-Paper). The mirror failure is *underclaim*: a pillar originally called "Pluggable Skill Nodes" was renamed to "Workflow Plugin" once the actual scope (external workflow + MCP server + domain pack + skills, registered as a full EACN3 Agent) was verified to be broader than "skills".
 
 ## Propagation on fix
 

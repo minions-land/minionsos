@@ -314,9 +314,9 @@ def test_shelf_aggregates_multiple_projects(project_env, tmp_path: Path, monkeyp
     monkeypatch.setattr(shelf, "_shelf_path", lambda: shelf_path)
 
     def _project_graph_path(p):
-        d = tmp_path / f"project_{p}" / "branches" / "shared" / "atlas"
+        d = tmp_path / f"project_{p}" / "branches" / "shared" / "shelf"
         d.mkdir(parents=True, exist_ok=True)
-        return d / "atlas.json"
+        return d / "shelf.json"
 
     monkeypatch.setattr(shelf, "_project_graph_path", _project_graph_path)
 

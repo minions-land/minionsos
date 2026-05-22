@@ -64,7 +64,7 @@ def _write_source(shared: Path, sub: str, name: str, *, mtime: float | None = No
     return p
 
 
-def test_rebuild_skipped_when_atlas_is_fresh(tmp_path: Path) -> None:
+def test_rebuild_skipped_when_shelf_is_fresh(tmp_path: Path) -> None:
     main = _make_project_layout(tmp_path)
     shared = main.parent / "shared"
     now = time.time()
@@ -215,7 +215,7 @@ def test_graphify_tools_in_main_whitelists() -> None:
 
 
 def test_graphify_tools_NOT_in_subagent_whitelists() -> None:
-    """Atlas mount keeps graphify off subagent surface; defer to later phases."""
+    """Shelf mount keeps graphify off subagent surface; defer to later phases."""
     from minions.config import resolve_whitelist
 
     for role in ("gru", "noter", "coder", "writer", "ethics", "expert"):

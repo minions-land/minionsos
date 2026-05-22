@@ -301,7 +301,7 @@ def mos_shelf_query(text: str, max_results: int = 10) -> dict[str, object]:
 
     # 1-hop expansion: adjacent nodes inherit 0.4x the best direct score they
     # connect to. This catches "self-attention" when the query said "attention",
-    # so long as some Library page already linked the two concepts. Direct
+    # so long as some Book page already linked the two concepts. Direct
     # matches always win ties.
     if direct:
         adj: dict[str, list[str]] = {}

@@ -5,7 +5,7 @@ Covers:
 - Knowledge promotion (mos_book_promote_verified)
 - Session crystallization (mos_book_crystallize_session)
 - Contradiction statistical signals
-- Atlas 2-hop expansion
+- Shelf 2-hop expansion
 
 Each test uses a tmp project workspace and stubs out mos_publish_to_shared
 so commits don't actually run — we only verify the staging output and the

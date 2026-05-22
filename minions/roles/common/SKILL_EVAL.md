@@ -9,7 +9,7 @@ Per-batch reports live under `minions/roles/common/_evals/`.
 - **Files graded:** 60
 - **KEEP:** 49 (82 %)
 - **TUNE:** 9 (15 %)
-- **MERGE:** 2 (3 %) — `experimenter/execution-guide` + the three `karpathy-coding-guidelines` copies
+- **MERGE:** 2 (3 %) — `coder/execution-guide` + the three `karpathy-coding-guidelines` copies
 - **REWRITE / DROP:** 0
 
 The library is fundamentally sound. The SSL four-section discipline reaches the agent without translation losses. No skill scored below 2.8 mean. No skill is judged misleading or actively harmful.
@@ -21,7 +21,7 @@ The library is fundamentally sound. The SSL four-section discipline reaches the 
 | common (EACN3 manual) | 14 | 4.49 | eacn3-state-machines (4.8) | eacn3-economy (3.8) |
 | coder | 10 | 4.50 | bounded-repair-loop / silent-failure-audit (4.8) | karpathy-coding-guidelines (4.0) |
 | writer | 13 | 4.43 | citation-audit (5.0) | imported-paper-skill-catalog (2.8) |
-| experimenter + ethics | 10 | 4.52 | citation-authenticity-audit (5.0) | karpathy-coding-guidelines (3.6) |
+| coder + ethics | 10 | 4.52 | citation-authenticity-audit (5.0) | karpathy-coding-guidelines (3.6) |
 | reviewer + gru + expert + noter | 13 | 4.40 | role-session-diff-timeline (5.0) | simulate-reviewer-instance (3.8) |
 
 Three skills hit the perfect 5.0: `citation-audit`, `citation-authenticity-audit`, `role-session-diff-timeline`. They share three traits — concrete classification scheme, exact output paths, self-application rule — which the meta layer flags as the **house style** to enforce on weaker skills.
@@ -48,15 +48,15 @@ This is the single most-quoted batch-level observation. A fresh Role cannot matc
 
 ### 3. The three `karpathy-coding-guidelines` copies are the worst-grading skills in the library and need restructuring
 
-Both batch reports that touched it (coder, experimenter, gru/reviewer-side) scored it lowest in their batch. Three concrete defects:
+Both batch reports that touched it (coder, gru/reviewer-side) scored it lowest in their batch. Three concrete defects:
 
 - **Slug is a proper noun.** "Karpathy" means nothing to a fresh agent who does not know the provenance. Rename to `coding-discipline`.
 - **Structure section absent.** The four guidelines live inline under `## Procedure` with `### 1.`-style sub-headers, breaking the SSL template. Two batch reports flagged this independently.
-- **Trigger is "always".** "Open whenever Coder, Experimenter, or Gru is about to produce non-trivial code" is a background rule, not a situational skill. Compounds issue #2.
+- **Trigger is "always".** "Open whenever Coder or Gru is about to produce non-trivial code" is a background rule, not a situational skill. Compounds issue #2.
 
-Plus `experimenter/execution-guide` shares ~70 % of the body. Both batch4 reports recommend MERGE.
+Plus `coder/execution-guide` shares ~70 % of the body. Both batch4 reports recommend MERGE.
 
-**Action.** Rename to `coding-discipline`. Rewrite to four-section template. Fold `experimenter/execution-guide`'s unique content (Experimenter / subagent dispatch split) in as a `## Experimenter application` subsection. Three role copies stay synced via the existing copy mechanism.
+**Action.** Rename to `coding-discipline`. Rewrite to four-section template. Fold `coder/execution-guide`'s unique content (Coder / subagent dispatch split) in as a `## Coder application` subsection. Three role copies stay synced via the existing copy mechanism.
 
 ### 4. MinionsOS-specific guidance is buried mid-paragraph in 3 EACN3 cluster skills
 
@@ -75,7 +75,7 @@ Plus `experimenter/execution-guide` shares ~70 % of the body. Both batch4 report
 ## Lower-priority observations (not blocking; useful for polish)
 
 - **One factual error.** `coder/static-type-check` recommends Pyright; the project actually uses `uv run ty check minions` per `CLAUDE.md`. Single-line fix.
-- **Two undefined paths.** `archive-execution` references `branches/experimenter/experiments/notes/` which appears nowhere else in docs. `triage-request` does not name the canonical location of `experiment_targets.yaml`. One-line fixes.
+- **Two undefined paths.** `archive-execution` references `branches/coder/experiments/notes/` which appears nowhere else in docs. `triage-request` does not name the canonical location of `experiment_targets.yaml`. One-line fixes.
 - **Two `[derived: ...] root §9` references** in expert skills (`dialectics`, `first-principles`) point at a SYSTEM.md section a fresh agent cannot resolve. Replace with path or quote.
 - **Pitfall platitudes** in ~6 files (e.g. `change-review`'s "Reporting speculative issues without file/line evidence" duplicates step 6). Pattern: pitfall restates the procedure's own correct behavior negatively, which adds no new failure-mode information. Replace with concrete bug patterns.
 - **Coverage gap (writer):** no skill covers the camera-ready *manuscript revision* cycle between rebuttal acceptance and final bundle. `prepare-rebuttal` ends at the response; `package-submission` starts at the bundle.

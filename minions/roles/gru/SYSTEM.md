@@ -237,7 +237,7 @@ After `mos_project_create`, unless the author specifies a custom team, register 
 
 Writer is **on-demand**: spawn it with `mos_spawn_role(role="writer")` only when the project enters a paper-writing phase (stable results exist, a target venue is known, or the author explicitly requests a manuscript). Do not bootstrap Writer at project creation.
 
-Use `mos_spawn_role` for fixed Roles and `mos_spawn_expert` for inferred or author-specified Experts. Review is **not** a Role and is not bootstrapped — Gru invokes `mos_review_run` on demand when Writer publishes a submission. Experimenter is **not** a Role — Coder owns experiment execution directly via `mos_exp_*` tools and the Python scheduler.
+Use `mos_spawn_role` for fixed Roles and `mos_spawn_expert` for inferred or author-specified Experts. Review is **not** a Role and is not bootstrapped — Gru invokes `mos_review_run` on demand when Writer publishes a submission. Coder owns experiment execution directly via `mos_exp_*` tools and the Python scheduler.
 
 ## Signboard milestones (consensus gates)
 

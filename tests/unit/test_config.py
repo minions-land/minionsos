@@ -159,12 +159,6 @@ class TestWhitelistResolver:
         assert "mos_exp_queue_*" in tools
         assert "mos_exp_gpu_pool_*" in tools
 
-    def test_experimenter_alias_resolves_to_coder(self) -> None:
-        """Experimenter was removed; its alias degrades to coder's whitelist."""
-        tools = resolve_allowed_tools("experimenter")
-        assert "mos_exp_queue_*" in tools
-        assert "mos_exp_run" in tools
-
     def test_writer_has_paper_search_mcp_tools(self) -> None:
         tools = resolve_allowed_tools("writer")
         assert "mos_search_arxiv" in tools

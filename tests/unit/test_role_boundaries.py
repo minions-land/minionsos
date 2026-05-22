@@ -30,8 +30,8 @@ class TestRoleType:
     def test_coder_is_eacn_visible(self) -> None:
         assert ROLE_CLASSIFICATION["coder"] == RoleType.eacn_visible
 
-    def test_experimenter_removed(self) -> None:
-        """Experimenter role has been retired; its tools moved to Coder."""
+    def test_no_experimenter_role(self) -> None:
+        """Coder owns experiment execution; there is no separate experimenter role."""
         assert "experimenter" not in ROLE_CLASSIFICATION
 
     def test_ethics_is_eacn_visible(self) -> None:

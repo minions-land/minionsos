@@ -180,7 +180,7 @@ def test_pending_plan_flag_survives_dag_round_trip(project_port: int, tmp_path: 
             {
                 "type": "question",
                 "text": "Is FlashAttn-3 stable on H200?",
-                "metadata": {"pending_plan": True, "owner": "experimenter"},
+                "metadata": {"pending_plan": True, "owner": "coder"},
             }
         ]
     )
@@ -195,4 +195,4 @@ def test_pending_plan_flag_survives_dag_round_trip(project_port: int, tmp_path: 
     raw = json.loads(dag_path.read_text())
     node = raw["nodes"][0]
     assert node["metadata"]["pending_plan"] is True
-    assert node["metadata"]["owner"] == "experimenter"
+    assert node["metadata"]["owner"] == "coder"

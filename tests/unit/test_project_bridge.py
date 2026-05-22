@@ -48,9 +48,9 @@ class TestModeParaphrase:
             content="Some message",
             mode="paraphrase",
             from_port=37596,
-            source_note="Experimenter",
+            source_note="Coder",
         )
-        assert "Experimenter" in result
+        assert "Coder" in result
 
 
 class TestModeAuto:

@@ -165,8 +165,8 @@ _REEL_TOOLS = [
     "mos_reel_window",
 ]
 
-# Read-only graphify MCP tools — Atlas (L3) primitives over branches/shared/.
-# ``graphify`` is the underlying third-party Python library that backs the Atlas
+# Read-only graphify MCP tools — Shelf (L3) primitives over branches/shared/.
+# ``graphify`` is the underlying third-party Python library that backs the Shelf
 # layer; the package keyword and tool prefix stay ``graphify`` deliberately to
 # preserve the upstream import path. Built by Noter periodic, served by
 # mcp-servers/graphify/launcher.sh. Whitelisted universally because every read
@@ -228,9 +228,9 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     # Book audit tools (Ethics/Gru-only at server side; appear in CLI
     # whitelist for KV cache parity).
     *_BOOK_AUDIT_TOOLS,
-    # Graphify read (Atlas primitives)
+    # Graphify read (Shelf L3 primitives)
     *_GRAPHIFY_READ_TOOLS,
-    # Atlas (Gru queries only; register is Noter-only)
+    # Shelf (Gru queries only; register is Noter-only)
     *_SHELF_GRU_TOOLS,
     # Shared branch publish
     "mos_publish_to_shared",
@@ -418,9 +418,7 @@ def resolve_whitelist(role: str, agent_type: Literal["main", "subagent"] = "main
     (the real enforcement boundary) uses :func:`resolve_server_authz`.
 
     Expert roles are stored as ``expert-<slug>``; this function normalises
-    them to ``expert`` before lookup. Removed roles (e.g. ``experimenter``)
-    are resolved through ``_REMOVED_ROLE_ALIASES`` so old env vars degrade
-    gracefully.
+    them to ``expert`` before lookup.
 
     Args:
         role: Role name, e.g. ``"noter"``, ``"expert-dl-arch"``.
@@ -430,7 +428,6 @@ def resolve_whitelist(role: str, agent_type: Literal["main", "subagent"] = "main
         List of tool name patterns (may contain ``*`` wildcards).
     """
     normalised = "expert" if role == "expert" or role.startswith("expert-") else role
-    normalised = _REMOVED_ROLE_ALIASES.get(normalised, normalised)
     key = (normalised, agent_type)
     if key not in _WHITELIST:
         logger.warning(
@@ -740,7 +737,6 @@ def resolve_server_authz(role: str, agent_type: Literal["main", "subagent"] = "m
         List of tool name patterns (may contain ``*`` wildcards).
     """
     normalised = "expert" if role == "expert" or role.startswith("expert-") else role
-    normalised = _REMOVED_ROLE_ALIASES.get(normalised, normalised)
     key = (normalised, agent_type)
     if key not in _SERVER_AUTHZ:
         logger.warning(
@@ -771,13 +767,6 @@ ROLE_CLASSIFICATION: dict[str, RoleType] = {
     "writer": RoleType.eacn_visible,
     "ethics": RoleType.eacn_visible,
     "expert": RoleType.eacn_visible,
-}
-
-# Legacy alias kept for backward-compat in tests/tools that still reference
-# the removed Experimenter role by name.  Resolves to "coder" in whitelist
-# lookups so old MINIONS_ROLE_NAME=experimenter env vars degrade gracefully.
-_REMOVED_ROLE_ALIASES: dict[str, str] = {
-    "experimenter": "coder",
 }
 
 ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
