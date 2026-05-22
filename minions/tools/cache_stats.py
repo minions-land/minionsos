@@ -413,7 +413,6 @@ def _recommendation(overall: float, totals: dict[str, int]) -> str:
 
 # Backward-compat shim: keep the name the existing tests import.
 _format_report = _format_session_report
-_summarize = _bucket_summary
 
 
 # --------------------------------------------------------------------------
