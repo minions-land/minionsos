@@ -8,7 +8,7 @@ import type {
 } from "../shared/types.js";
 import { getGru, getProjectFor, projectDirFor, gruLogPath } from "./grus.js";
 
-export const CANONICAL_ROLES = ["gru", "noter", "coder", "writer", "reviewer", "expert", "ethics"];
+export const CANONICAL_ROLES = ["gru", "noter", "coder", "writer", "expert", "ethics"];
 
 const CONTEXT_WINDOW_TOKENS = 1_000_000;
 const SOFT_TOKENS = 0.10 * CONTEXT_WINDOW_TOKENS;

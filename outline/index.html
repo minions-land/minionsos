@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MinionsOS — 模块评测证据</title>
+<style>
+:root {
+  --bg: #faf8f5;
+  --text: #2d2a26;
+  --accent: #c0392b;
+  --accent2: #2980b9;
+  --border: #e0dcd6;
+  --code-bg: #f4f1ec;
+  --card-bg: #ffffff;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --green: #27ae60;
+  --orange: #e67e22;
+  --red: #c0392b;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", Georgia, serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.85;
+  padding: 2rem 1rem;
+}
+.container { max-width: 900px; margin: 0 auto; }
+h1 { font-size: 2rem; margin-bottom: 0.5rem; border-bottom: 3px solid var(--accent); padding-bottom: 0.5rem; }
+h2 { font-size: 1.5rem; margin-top: 2.5rem; margin-bottom: 1rem; color: var(--accent); border-left: 4px solid var(--accent); padding-left: 0.75rem; }
+h3 { font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 0.75rem; color: var(--accent2); }
+p { margin-bottom: 1rem; }
+.subtitle { color: #666; font-size: 1rem; margin-bottom: 2rem; }
+.nav { position: sticky; top: 0; background: var(--bg); border-bottom: 1px solid var(--border); padding: 0.75rem 0; margin-bottom: 2rem; z-index: 100; display: flex; gap: 1.5rem; flex-wrap: wrap; }
+.nav a { color: var(--accent2); text-decoration: none; font-size: 0.9rem; font-family: sans-serif; }
+.nav a:hover { text-decoration: underline; }
+.nav a.active { color: var(--accent); font-weight: bold; }
+.card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: var(--shadow); }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+th, td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; }
+th { background: var(--code-bg); font-weight: 600; }
+tr:nth-child(even) { background: #fdfcfa; }
+code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.85em; font-family: "JetBrains Mono", "Fira Code", monospace; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; line-height: 1.5; }
+.tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 3px; font-size: 0.75rem; font-weight: 600; font-family: sans-serif; }
+.tag-green { background: #d4efdf; color: #1e8449; }
+.tag-orange { background: #fdebd0; color: #b9770e; }
+.tag-red { background: #fadbd8; color: #922b21; }
+.tag-blue { background: #d6eaf8; color: #1a5276; }
+.evidence-box { border-left: 4px solid var(--accent2); background: #f8f9fa; padding: 1rem 1.25rem; margin: 1rem 0; border-radius: 0 6px 6px 0; }
+.verdict { font-weight: 600; font-family: sans-serif; font-size: 0.9rem; }
+.verdict-yes { color: var(--green); }
+.verdict-no { color: var(--red); }
+.verdict-partial { color: var(--orange); }
+.flow-diagram { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; font-family: "JetBrains Mono", monospace; font-size: 0.8rem; line-height: 1.6; overflow-x: auto; white-space: pre; }
+.section-divider { text-align: center; margin: 3rem 0; color: var(--border); font-size: 1.5rem; letter-spacing: 1rem; }
+ul, ol { margin: 0.5rem 0 1rem 1.5rem; }
+li { margin-bottom: 0.4rem; }
+.placeholder { border: 2px dashed var(--border); border-radius: 8px; padding: 2rem; text-align: center; color: #999; font-style: italic; margin: 1.5rem 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>MinionsOS — 模块评测证据</h1>
+<p class="subtitle">自主科学发现 · 论文 Claims 证据收集 · 2026-05</p>
+
+<nav class="nav">
+  <a href="#methodology" class="active">评测方法论</a>
+  <a href="#skills">Skills 技能</a>
+  <a href="#memory">记忆机制 (TBD)</a>
+  <a href="#review">双重审查 (TBD)</a>
+  <a href="#writing">写作机制 (TBD)</a>
+</nav>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="methodology">评测方法论：MetaHarness 行为 A/B 框架</h2>
+
+<p>MetaHarness 是一个行为级 A/B 评测框架，测试的是一个 skill <em>是否真的改变了 agent 的行为</em>，而不是文档写得好不好。它使用两阶段流水线：召回测试（skill 能不能被找到？）+ 行为对比（加载后有没有帮助？）。</p>
+
+<h3>设计哲学</h3>
+<div class="card">
+<p><strong>核心问题：</strong>把这段 skill 文本注入 agent 的上下文后，它的决策质量是否可测量地优于没有 skill 的同一个 agent？</p>
+<p><strong>为什么不直接读 skill？</strong>一个 skill 可以写得很漂亮但行为效果为零。反过来，一个粗糙但决策边界正确的 skill 可以防止灾难性错误。MetaHarness 测量的是<em>效果</em>，不是<em>形式</em>。</p>
+<p><strong>目标模型：</strong>Haiku（小、快、便宜）。这是刻意的选择——Sonnet/Opus 本身已经能做到 skill 所规定的大部分事情，差异消失在噪声中。Skill 的设计目标是提升低成本执行器的下限。</p>
+</div>
+
+<h3>两阶段流水线</h3>
+<div class="flow-diagram">阶段 0：SSL 召回测试                      阶段 1：行为 A/B 对比
+┌───────────────────────────────┐          ┌───────────────────────────────┐
+│ 输入：所有 skill 的 summary    │          │ 对每个 probe：                 │
+│ + 场景描述                     │          │                               │
+│                               │          │  Haiku A（注入 skill 文本）    │
+│ 问："为这个场景选 top-3 skill" │          │  Haiku B（无 skill，基线）     │
+│                               │          │                               │
+│ 指标：Recall@3, MRR           │   通过    │  两者收到完全相同的场景        │
+│                               │ ──────▶  │  唯一区别：有无 skill 文本     │
+│ 如果 Recall@3 = 0：           │          │                               │
+│   停止。先修 summary。         │          │  Codex GPT-5.5 盲评           │
+│                               │          │  （随机 RED/BLUE 标签）        │
+└───────────────────────────────┘          └───────────────────────────────┘</div>
+
+<h3>阶段 0：SSL 召回测试</h3>
+<div class="card">
+<p><strong>测什么：</strong>给定一个场景，agent 的 skill 选择步骤能否把目标 skill 放进 top-K？</p>
+<p><strong>为什么重要：</strong>一个<em>找不到</em>的 skill 就<em>帮不上忙</em>。如果 summary 太泛、用了内部术语、或者和兄弟 skill 重叠，agent 会选错——Stage 1 的结果就变成假阳性。</p>
+
+<table>
+<tr><th>指标</th><th>阈值</th><th>动作</th></tr>
+<tr><td>Recall@3 = 1, MRR ≥ 0.5</td><td>健康</td><td>进入 Stage 1</td></tr>
+<tr><td>Recall@3 = 1, MRR &lt; 0.5</td><td>边缘</td><td>标记干扰项；谨慎进入 Stage 1</td></tr>
+<tr><td>Recall@3 = 0</td><td>失败</td><td><strong>停止。</strong>先重写 summary 再做 Stage 1</td></tr>
+</table>
+
+<p><strong>成本：</strong>~60 次 Haiku 调用 × ~3K tokens = ~180K tokens。约 5 分钟。便宜的保险——避免在不可达的 skill 上浪费 Stage 1 预算。</p>
+</div>
+
+<h3>阶段 1：行为 A/B 对比</h3>
+<div class="card">
+<p><strong>协议：</strong></p>
+<ol>
+<li><strong>设计 probe</strong>——≤300 字的场景提示，有明确正确答案。每个 probe 包含：具体角色、具体场景（文件路径、数字、状态值）、具体问题（"你的下一步行动是什么？"）。</li>
+<li><strong>生成 Haiku 对</strong>——每个 probe 两个 agent，除了一个注入了 skill 文本外完全相同。后台运行，≤200 字回复。</li>
+<li><strong>Codex 盲评</strong>——GPT-5.5 以 <code>reasoning_effort: low</code> 用随机 RED/BLUE 标签评判。无法识别哪个回复有 skill。输出严格 JSON：<code>{winner, reasoning, skill_effect_estimate, confidence}</code>。</li>
+<li><strong>分桶</strong>——每个 skill 被归入四种结果之一。</li>
+</ol>
+
+<table>
+<tr><th>分桶</th><th>含义</th><th>示例</th></tr>
+<tr><td><span class="tag tag-green">防止真实错误</span></td><td>没有 skill 时，基线做出错误决策</td><td>编造不存在的 API 名、过度执行、调用禁止的工具</td></tr>
+<tr><td><span class="tag tag-blue">校准回复</span></td><td>两者都答对；有 skill 的版本论证更充分</td><td>引用权威来源、使用结构化格式</td></tr>
+<tr><td><span class="tag tag-orange">与基线持平</span></td><td>无可测量差异</td><td>probe 太简单，或 skill 与训练冗余</td></tr>
+<tr><td><span class="tag tag-red">过度干预</span></td><td>有 skill 的版本比基线更差</td><td>自动触发用户未请求的工作</td></tr>
+</table>
+</div>
+
+<h3>Probe 设计原则</h3>
+<div class="card">
+<p><strong>标准 probe</strong> 测试 skill 应该触发的常见场景。</p>
+<p><strong>困难 probe</strong> 测试边界情况——skill 的价值在于<em>克制</em>（不行动），而朴素 agent 会行动。例如：</p>
+<ul>
+<li>"测试在第 2 次迭代后通过了，但你改了 47 行，最小修复只需 5 行。"</li>
+<li>"用户说的是'直接实现'，不是'实现并清理'。"</li>
+<li>"审稿人 1 = 强接受；审稿人 2 = 拒绝。继续还是停止？"</li>
+</ul>
+<p><strong>反模式：</strong>"你醒来发现有事件"（太模糊）、"帮用户处理论文"（没有可判定的问题）、正确答案是"问一个澄清问题"的 probe（A 和 B 都会问）。</p>
+</div>
+
+<h3>全库运行统计</h3>
+<div class="card">
+<table>
+<tr><th>指标</th><th>数值</th></tr>
+<tr><td>测试 skill 数</td><td>49</td></tr>
+<tr><td>总 probe 数</td><td>61（部分 skill 有标准 + 困难两个 probe）</td></tr>
+<tr><td>Haiku 调用次数</td><td>122（每 probe 2 次）</td></tr>
+<tr><td>Codex 评判次数</td><td>61</td></tr>
+<tr><td>Token 成本</td><td>~14M Haiku + ~3M Codex</td></tr>
+<tr><td>墙钟时间</td><td>~3 小时</td></tr>
+<tr><td>Codex 正确识别率</td><td>~60%</td></tr>
+</table>
+</div>
+
+<div class="section-divider">• • •</div>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="skills">模块 1：Skills 技能（Think-Then-Act）</h2>
+
+<h3>Think-Then-Act 是什么</h3>
+<div class="card">
+<p>一个结构化规划技能，提供五个可组合的"思维姿态"，让自主 agent 在行动前先推理。Agent 自己决定用哪些姿态、用几个、什么顺序。思考完毕后，所有执行都派发给子 agent——永远不自己动手。</p>
+
+<table>
+<tr><th>姿态</th><th>何时使用</th><th>何时跳过</th></tr>
+<tr><td><strong>未陈述前提</strong></td><td>任务有未说明的约束</td><td>规格具体且可验证</td></tr>
+<tr><td><strong>第一性原理</strong></td><td>"大家都这么做"是最强论据时</td><td>惯例本身就是承重的</td></tr>
+<tr><td><strong>辩证综合</strong></td><td>两种方案冲突</td><td>没有真正的对立面</td></tr>
+<tr><td><strong>目标设定</strong></td><td>派发前需要验收标准</td><td>二元检查就够了</td></tr>
+<tr><td><strong>计划持久化</strong></td><td>多步工作跨越上下文重置</td><td>单步任务</td></tr>
+</table>
+
+<p><strong>核心设计原则：</strong>上下文分离——思考上下文保持干净用于协调；执行上下文是一次性的。这防止了上下文膨胀在多任务会话中降低规划质量。</p>
+</div>
+
+<h3>证据 1：MetaHarness 行为 A/B（全库运行）</h3>
+<div class="evidence-box">
+<p><strong>设置：</strong>49 个 skill × 1-2 个 probe，Haiku 执行器，Codex 盲评</p>
+<p><strong>TTA 子姿态测试结果：</strong></p>
+<table>
+<tr><th>子姿态</th><th>分桶</th><th>细节</th></tr>
+<tr><td><code>first-principles</code></td><td><span class="tag tag-blue">校准回复</span></td><td>保持校准；不会滑入偏执模式</td></tr>
+<tr><td><code>dialectical-synthesis</code></td><td><span class="tag tag-blue">校准回复</span></td><td>正题/反题/合题结构，带条件性解决</td></tr>
+<tr><td><code>coding-methodology</code></td><td><span class="tag tag-green">防止真实错误</span></td><td>没有它时，基线会过度执行</td></tr>
+</table>
+
+<p><strong>总体发现：</strong>32/49 个 skill（65%）有可测量的正面行为效果。18 个"防止真实错误"的案例是承重核心。</p>
+
+<p><strong>Haiku 的三种失败模式（skill 可以纠正的）：</strong></p>
+<ol>
+<li><strong>不确定时编造工具名</strong>——skill 充当词汇锚点</li>
+<li><strong>上下文不足时默认"问用户"</strong>——skill 提供脚手架让 agent 自主行动</li>
+<li><strong>开放式任务上过度执行</strong>——带澄清门控的 skill 防止静默猜测范围</li>
+</ol>
+<p>Think-then-act 直接解决失败模式 #2 和 #3。</p>
+</div>
+
+<h3>证据 2：竞品对比评测（2026-05-17）</h3>
+<div class="evidence-box">
+<p><strong>设置：</strong>3 个 probe × 4 个变体（TTA v3、brainstorming、writing-plans、ultrathink）</p>
+
+<table>
+<tr><th>Probe</th><th>类型</th><th>TTA v3 结果</th><th>胜者</th></tr>
+<tr><td>P1</td><td>具体规格</td><td><span class="verdict verdict-no">败</span>——在简单任务上搞仪式</td><td>brainstorming</td></tr>
+<tr><td>P2</td><td>模糊架构</td><td><span class="verdict verdict-no">败</span>——给离线角色发消息而不是查代码库</td><td>writing-plans</td></tr>
+<tr><td>P3</td><td>多角色启动</td><td><span class="verdict verdict-no">败</span>——在交接时软化了阈值</td><td>writing-plans</td></tr>
+</table>
+
+<p><strong>ultrathink 三局全败</strong>——没有结构的纯算力不管用。</p>
+
+<p><strong>修复措施（v3 → v6）：</strong></p>
+<table>
+<tr><th>修复</th><th>内容</th><th>解决</th></tr>
+<tr><td>(a) 跳过触发器</td><td>"规格具体时直接跳过"</td><td>P1</td></tr>
+<tr><td>(b) 证据优先</td><td>先在代码库上跑 codex/Task，再发 EACN 消息</td><td>P2</td></tr>
+<tr><td>(c) 逐字传递目标</td><td>"TBD"、"合理的"都算计划失败</td><td>P3</td></tr>
+<tr><td>(d) 具体示例</td><td>纯文字规则在 v5 无效；加了具体失败模式示例后生效</td><td>P2</td></tr>
+</table>
+
+<p><strong>修复后结果：</strong>P2 重测 → Haiku 正确地用 codex 查了具体文件（<code>role.py</code>、<code>whitelist.py</code>、<code>eacn3.db</code>），而不是给离线 Writer 发消息。</p>
+</div>
+
+<h3>证据 3：自评功能移除（负面结果）</h3>
+<div class="evidence-box">
+<p><strong>设置：</strong>5 个 probe 的 Haiku A/B（4 难 + 1 简单），测试"推荐自我评估"功能</p>
+<p><strong>结果：</strong><span class="verdict verdict-no">2/5 胜，且有混淆因素。功能已移除。</span></p>
+<p><strong>失败模式：</strong></p>
+<ul>
+<li>Haiku 写的是<em>防御性复述</em>而非诚实反思（3/5 被 Codex 标记为"无新洞察"）</li>
+<li>在简单任务上，反思提示推动 agent 过度执行（P5：自动提交超出范围）</li>
+<li>Sonnet/Opus 天然会自我评估——显式提示对大模型冗余，对小模型有害</li>
+</ul>
+<p><strong>意义：</strong>证明 skill 设计过程有移除机制，不只是堆积。功能基于证据被测试和拒绝。</p>
+</div>
+
+<h3>证据 4：姿态 4 漂移修复（2026-05-19）</h3>
+<div class="evidence-box">
+<p><strong>观察：</strong>在一个投票机制设计问题上，姿态 4（目标设定）坍缩成了"工程性结论"，而不是产出规范的 5 要素 Goal 块。</p>
+<p><strong>漂移模式：</strong>综合以"所以我们应该建 X"结尾 → agent 把目标设定当成"展开推荐" → 产出 yes/no 判断，没有传感器、阈值或停止规则。</p>
+<p><strong>修复：</strong>显式失败模式提示："如果你的输出读起来像执行摘要，你跳过了姿态 4。"</p>
+<p><strong>意义：</strong>Skill 需要反漂移机制。自然语言流（综合→结论）会绕过结构化输出要求，除非显式守卫。</p>
+</div>
+
+<h3>Claims 评估</h3>
+<div class="card">
+<h3 style="margin-top:0">✅ 我们能说的</h3>
+<table>
+<tr><th>Claim</th><th>证据</th><th>强度</th></tr>
+<tr><td>结构化规划 skill 可测量地改善 Haiku 级 agent 的决策</td><td>MetaHarness A/B：65% 正面效果</td><td><span class="tag tag-green">强</span></td></tr>
+<tr><td>"先 scope 再 act"防止过度执行错误</td><td>coding-methodology 进入"防止真实错误"桶</td><td><span class="tag tag-green">强</span></td></tr>
+<tr><td>Skill 可通过 A/B 测试经验性改进</td><td>v3→v6 演化，P2 重测确认</td><td><span class="tag tag-blue">中等</span></td></tr>
+<tr><td>具体示例优于纯文字规则（对 Haiku）</td><td>v5 纯文字失败；v6 具体示例成功</td><td><span class="tag tag-blue">中等</span></td></tr>
+<tr><td>结构优于纯推理算力</td><td>ultrathink 三局全败</td><td><span class="tag tag-blue">中等</span></td></tr>
+<tr><td>设计过程包含基于证据的功能移除</td><td>自评 A/B：2/5，功能移除</td><td><span class="tag tag-green">强</span></td></tr>
+</table>
+
+<h3>❌ 我们不能说的</h3>
+<table>
+<tr><th>Claim</th><th>缺口</th></tr>
+<tr><td>TTA 改善了端到端科学发现</td><td>没有系统级实验</td></tr>
+<tr><td>TTA 在 Sonnet/Opus 级模型上有效</td><td>MetaHarness 明确说差异消失</td></tr>
+<tr><td>完整 5 姿态流水线优于单姿态</td><td>没有流水线 vs 单姿态的 A/B</td></tr>
+<tr><td>计划持久化改善多会话任务完成率</td><td>没有受控的重置恢复实验</td></tr>
+<tr><td>可推广到 MinionsOS 架构之外</td><td>所有测试都在 EACN + Claude Code + Haiku 上</td></tr>
+</table>
+</div>
+
+<h3>论文关键洞察</h3>
+<div class="card" style="border-left: 4px solid var(--accent);">
+<p><em>"纯文字规则无法覆盖 Haiku 的默认行为。当行为纠正需要覆盖模型的强先验（'问澄清问题'）时，仅靠文字规则不够——必须包含一个具体的失败模式示例。成本：+9 行。这是一个关于小模型 prompt-based skill 设计的可推广发现。"</em></p>
+</div>
+
+<div class="section-divider">• • •</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="memory">模块 2：三层记忆机制 (TBD)</h2>
+<div class="placeholder">
+Scratchpad (L1) + Library (L2) + Atlas (L3)<br>
+证据收集中
+</div>
+
+<h2 id="review">模块 3：双重审查降幻觉 (TBD)</h2>
+<div class="placeholder">
+Ethics 审计 + Reviewer 审稿<br>
+证据收集中
+</div>
+
+<h2 id="writing">模块 4：写作机制 (TBD)</h2>
+<div class="placeholder">
+Writer 工作流 + 审稿驱动修订<br>
+证据收集中
+</div>
+
+<div class="section-divider">• • •</div>
+
+<p style="text-align:center; color:#999; font-size:0.85rem; margin-top:3rem;">
+MinionsOS 评测证据 · 最后更新：2026-05-20 · 内部讨论用
+</p>
+
+</div>
+</body>
+</html>

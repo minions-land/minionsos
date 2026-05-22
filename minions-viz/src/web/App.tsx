@@ -14,9 +14,8 @@ import EventLog from "./EventLog";
 import Adjudication from "./Adjudication";
 import DraftView from "./DraftView";
 import { LibraryView } from "./LibraryView";
-import { AtlasView } from "./AtlasView";
 
-type View = "universe" | "tasks" | "terminals" | "events" | "adjudication" | "draft" | "book" | "atlas";
+type View = "universe" | "tasks" | "terminals" | "events" | "adjudication" | "draft" | "book";
 
 export default function App() {
   const store = useStore();
@@ -150,7 +149,6 @@ export default function App() {
 
             {view === "draft" && <DraftView />}
             {view === "book" && <LibraryView />}
-            {view === "atlas" && <AtlasView />}
           </>
         )}
       </div>
@@ -204,13 +202,6 @@ export default function App() {
           disabled={showPicker}
         >
           📚 Book
-        </button>
-        <button
-          className={"tab" + (view === "atlas" ? " active" : "")}
-          onClick={() => setView("atlas")}
-          disabled={showPicker}
-        >
-          🧠 Atlas
         </button>
       </nav>
     </div>

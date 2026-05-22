@@ -231,57 +231,6 @@ app.get("/api/mos/project/:port/book", (req, res) => {
   }
 });
 
-app.get("/api/mos/project/:port/atlas", (req, res) => {
-  const p = resolveGruAndPort(req, res); if (!p) return;
-  const g = getGru(p.gruId);
-  if (!g) return res.status(404).json({ error: "unknown gru" });
-  const projectDir = projectDirFor(g.rootPath, p.port);
-  const atlasFile = path.join(projectDir, "branches", "shared", "atlas", "atlas.json");
-  const legacyFile = path.join(projectDir, "knowledge-graph.json");
-  const MAX_ENTITIES = 2000;
-  try {
-    const file = fs.existsSync(atlasFile) ? atlasFile : legacyFile;
-    const raw = fs.readFileSync(file, "utf8");
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const rawNodes = Array.isArray(parsed.nodes)
-      ? (parsed.nodes as Array<Record<string, unknown>>)
-      : Array.isArray(parsed.entities)
-        ? (parsed.entities as Array<Record<string, unknown>>)
-        : [];
-    const rawLinks = Array.isArray(parsed.links)
-      ? (parsed.links as Array<Record<string, unknown>>)
-      : Array.isArray(parsed.relations)
-        ? (parsed.relations as Array<Record<string, unknown>>)
-        : [];
-    const entities = rawNodes.slice(0, MAX_ENTITIES).map((n) => {
-      const id = String(n.id ?? n.name ?? "");
-      const labelKey = ["name", "label", "title", "text"].find((k) => n[k] != null);
-      return {
-        id,
-        name: labelKey ? String(n[labelKey]) : id,
-        type: String(n.type ?? "node"),
-        properties: typeof n.properties === "object" ? n.properties : undefined,
-      };
-    });
-    const allowed = new Set(entities.map((e) => e.id));
-    const endpointId = (v: unknown): string => {
-      if (v && typeof v === "object" && "id" in v) return String((v as Record<string, unknown>).id ?? "");
-      return v == null ? "" : String(v);
-    };
-    const relations = rawLinks
-      .map((l) => ({
-        source: endpointId(l.source),
-        target: endpointId(l.target),
-        relation: String(l.relation ?? l.label ?? l.type ?? "related"),
-        properties: typeof l.properties === "object" ? l.properties : undefined,
-      }))
-      .filter((r) => r.source && r.target && allowed.has(r.source) && allowed.has(r.target));
-    res.json({ entities, relations });
-  } catch {
-    res.json({ entities: [], relations: [] });
-  }
-});
-
 app.get("/api/mos/project/:port/role-log/:role", (req, res) => {
   const p = resolveGruAndPort(req, res); if (!p) return;
   const role = req.params.role;

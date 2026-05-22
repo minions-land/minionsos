@@ -272,7 +272,7 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
     )
     assert "opposing_age_d" in page_text
     assert "opposing_unmarked" in page_text
-    assert "draft_matches" in page_text  # renamed from scratchpad_matches
+    assert "draft_matches" in page_text
     assert "supports" in page_text
     assert "avg_eff_conf" in page_text
 
@@ -367,7 +367,7 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
     # ─── Phase 8: Verify boundary invariants ──────────────────────────────
     # ⭐ ASSERTION 8a: Noter cannot publish to shared/ethics/ directly
     # mos_publish_to_shared is allowed but server enforces role identity
-    # (noter's allowed shared subdirs are notes/scratchpad/handoffs/library/book)
+    # (noter's allowed shared subdirs are notes/draft/handoffs/book)
     # — this is enforced in publish.py's _ROLE_ALLOWED_SHARED_SUBDIRS
 
     # ⭐ ASSERTION 8b: Ethics cannot promote/crystallize Books (Noter-only)
