@@ -1,6 +1,6 @@
 ---
 slug: skill-curator-loop
-summary: On periodic wake, scan the Draft and recent EACN events for repeating success/failure patterns and emit a Skill / Agent evolution proposal via the global skill-curator skill. Output goes to branches/shared/library/skill-proposals.md for Ethics audit.
+summary: On periodic wake, scan the Draft and recent EACN events for repeating success/failure patterns and emit a Skill / Agent evolution proposal via the global skill-curator skill. Output goes to branches/shared/notes/skill-proposals.md for Ethics audit.
 layer: meta-orchestration
 tools: mos_draft_query, mos_draft_summary, Skill (skill-curator), Read, Write
 version: 1
@@ -36,7 +36,7 @@ Do NOT run during micro-dream. Curation needs the consolidated, post-maintenance
 
 4. **Persist the proposal.** All paths below are **relative to the project root** (`project_{port}/`). Write the curator's output to:
    ```
-   branches/shared/library/skill-proposals.md
+   branches/shared/notes/skill-proposals.md
    ```
    If a previous proposal file exists and is *unaudited* (Ethics has not yet processed it), append a new section dated for this pass rather than overwriting. Do not delete unaudited proposals.
 

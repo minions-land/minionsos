@@ -42,7 +42,7 @@ This surface complements message-stream grepping and unmarked-claim ratio checks
 
 ## Skill-proposals surface (audit gate before library/Expert mutation)
 
-Treat `branches/shared/library/skill-proposals.md` as a separate, **higher-stakes** audit feed. Noter's `skill-curator-loop` produces this file on its periodic wake; you are the only Role authorised to gate which proposals enter `skill-forge` and which Expert-axis changes Gru is asked to enact.
+Treat `branches/shared/notes/skill-proposals.md` as a separate, **higher-stakes** audit feed. Noter's `skill-curator-loop` produces this file on its periodic wake; you are the only Role authorised to gate which proposals enter `skill-forge` and which Expert-axis changes Gru is asked to enact.
 
 A skill or Expert that enters the project changes *all future Role behaviour*. A wrongly admitted Skill becomes a permanent contamination source; a wrongly spawned Expert distorts the EACN labour market. This audit is therefore stricter than ordinary citation or contradiction work: lineage gaps, reward-hacking signatures, and self-correlated proposals are all reject conditions.
 

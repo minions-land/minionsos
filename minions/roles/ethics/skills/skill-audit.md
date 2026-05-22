@@ -17,7 +17,7 @@ Skills and Experts entering the project change *all future Role behaviour*. A ba
 ## Position in the Skill family
 
 ```
-Noter (skill-curator-loop) → branches/shared/library/skill-proposals.md
+Noter (skill-curator-loop) → branches/shared/notes/skill-proposals.md
                                           │
                                           ▼
                                   this skill (skill-audit)
@@ -41,7 +41,7 @@ Skip when the proposal file is identical to a previously-audited version (compar
 
 ## Procedure
 
-1. **Read the proposal file independently.** Open `branches/shared/library/skill-proposals.md` directly. Do NOT read Noter's accompanying EACN message body for context — that bypasses the decorrelation gate. The proposal must stand on its own.
+1. **Read the proposal file independently.** Open `branches/shared/notes/skill-proposals.md` directly. Do NOT read Noter's accompanying EACN message body for context — that bypasses the decorrelation gate. The proposal must stand on its own.
 
 2. **Verify lineage for every proposal.** For each `proposal-NNNN`:
    - Each cited event id must resolve in `events/*.jsonl` and must contain content consistent with the rationale.
@@ -71,7 +71,7 @@ Skip when the proposal file is identical to a previously-audited version (compar
 
 5. **Emit the audit verdict.** All paths below are **relative to the project root** (`project_{port}/`), matching the convention in [[skill-curator]] §5.
 
-   Write a per-pass summary file to `branches/shared/ethics/skill-audit-YYYY-MM-DD.md` and publish via `mos_publish_to_shared`. **Also append an inline `### audit (by ethics on YYYY-MM-DD)` sub-block under each proposal** in `branches/shared/library/skill-proposals.md` so the proposals file remains a self-contained ledger. The sub-block schema matches [[skill-curator]] §5 lifecycle annotations:
+   Write a per-pass summary file to `branches/shared/ethics/skill-audit-YYYY-MM-DD.md` and publish via `mos_publish_to_shared`. **Also append an inline `### audit (by ethics on YYYY-MM-DD)` sub-block under each proposal** in `branches/shared/notes/skill-proposals.md` so the proposals file remains a self-contained ledger. The sub-block schema matches [[skill-curator]] §5 lifecycle annotations:
 
    ```markdown
    ### audit (by ethics on YYYY-MM-DD)

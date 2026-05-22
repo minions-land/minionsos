@@ -39,6 +39,7 @@ research projects.
 - [Configure](#configure)
 - [Run](#run)
 - [Roles](#roles)
+- [Skill family and autonomous evolution](#skill-family-and-autonomous-evolution)
 - [MCP Surface](#mcp-surface)
 - [Runtime Project Structure](#runtime-project-structure)
 - [MinionsVIZ](#minionsviz)
@@ -70,12 +71,25 @@ research projects.
   MCP server. Each Role owns `branches/<role>/`; cross-role artefacts always
   travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`.
 - **Layered memory.** Role context is reconstructed from the current
-  invocation, the Draft (`branches/shared/draft/draft.json`),
-  the compiled-knowledge Book (`branches/shared/book/`), shared artefacts under
-  `branches/shared/<subdir>/`, EACN history, and project `CLAUDE.md`.
+  invocation, the Reel (L0, raw verbatim transcripts), the Draft
+  (`branches/shared/draft/draft.json`), the compiled-knowledge Book
+  (`branches/shared/book/`), the cross-project Shelf, shared artefacts
+  under `branches/shared/<subdir>/`, EACN history, and project `CLAUDE.md`.
+  See [docs/reel-l0-memory.md](docs/reel-l0-memory.md) for the L0 design.
 - **Skill discovery and domain assets.** Role skills live in
   `minions/roles/{role}/skills/*.md`; Expert domain-pack assets live in
   `minions/domains/*.md`.
+- **Two-axis autonomous evolution.** A four-stage decorrelated pipeline —
+  `skill-curator` (Noter proposes) → `skill-audit` (Ethics gates) →
+  `skill-forge` (orchestrator validates) → Library / Expert roster — evolves
+  Skills (add/revise/merge/split/drop) and Experts (spawn/dismiss/merge/split)
+  from project trajectory. Backed by `mos_role_split`, `mos_role_merge`,
+  `mos_role_evolve_evaluate`, `mos_role_evolve_dismiss` MCP tools. See
+  `docs/research/role-evolution-experiments.md` for the empirical basis.
+- **Visual format check.** `mos_visual_render` / `mos_visual_inspect` /
+  `mos_visual_check` rasterize a PDF and detect layout defects (column void,
+  trailing whitespace, edge overflow, float clustering). Available to every
+  EACN-visible Role; reports persist under `branches/<role>/visual-reports/`.
 - **Structured review.** Paper review runs through Gru's `mos_review_run` MCP
   tool, not through a long-lived Role. Its prompt assets (SYSTEM.md, procedural
   skills, reviewer personas, output templates) live under `minions/review/`,
@@ -143,6 +157,11 @@ minions-viz/                # read-only React/Vite dashboard
 mcp-servers/                # standalone MCP servers
   eacn3/                    # local editable EACN3 dependency (Python + Node plugin)
   codex-subagent/           # Codex GPT-5.5 sub-agent bridge (Node)
+  codegraph/                # Coder repo-graph MCP (Node)
+docs/                       # delivery docs
+  reel-l0-memory.md         #   L0 Reel layer design + tool surface
+  integrations/             #   plug-in guides (claude-code, codex, eacn3, graphify)
+  research/                 #   empirical bases for runtime decisions
 tests/unit/                 # fast behavior tests
 tests/smoke/                # integration-style smoke checks
 ```
@@ -282,6 +301,39 @@ Gru's `mos_review_run` MCP tool which writes `reviewer-instance.md`,
 audits Writer's paper submissions; Ethics audits Coder's code and experiments
 — do not conflate the two.
 
+**Stewardship layer.** Two of the Roles also act as the system's stewardship
+layer for the autonomous-evolution pipeline below: Noter's
+`skill-curator-loop` skill emits Skill / Expert evolution proposals to
+`branches/shared/notes/skill-proposals.md` on its periodic wake; Ethics'
+`skill-audit` skill is the only authorised gate before those proposals can
+mutate the Library or roster. Both are non-business Roles by design — they
+do not bid on tasks, which keeps their judgements decorrelated from the
+producers being evolved.
+
+### Skill family and autonomous evolution
+
+Beyond the human-driven extension paths (add a Role, add a skill, add a
+domain pack, add an MCP tool), MinionsOS runs a **four-stage decorrelated
+pipeline** that evolves the Skill library and the Expert roster from project
+trajectory itself. The four components live at distinct authority levels:
+
+| Stage | Component | Operator | Output |
+|---|---|---|---|
+| 1. Propose | `~/.claude/skills/skill-curator/` | Noter (via `skill-curator-loop`) | `branches/shared/notes/skill-proposals.md` — append-only ledger of add/revise/merge/split/drop (Knowledge axis) and spawn/dismiss/merge/split (Agent axis) proposals |
+| 2. Audit | `minions/roles/ethics/skills/skill-audit.md` | Ethics | Per-pass verdict file under `branches/shared/ethics/`, plus inline `### audit` sub-block under each proposal |
+| 3. Validate + ship | `~/.claude/skills/skill-forge/` (orchestrates `skill-edit` for form, `skill-evaluator` for behavioral A/B) | Gru routes accepted Knowledge-axis proposals here | Validated SKILL.md admitted to library |
+| 4. Enact (Agent axis) | `mos_role_split`, `mos_role_merge`, `mos_role_evolve_evaluate`, `mos_role_evolve_dismiss`, `mos_spawn_role`, `mos_dismiss_role` | Gru | Updated Expert roster on EACN |
+
+The decorrelation is structural, not procedural: the proposer (Noter, on
+Sonnet, never makes business decisions), the auditor (Ethics, reads
+artefacts not prompts), the validator (skill-forge, blind A/B with Codex as
+judge), and the consumer Roles all draw from different parametric
+distributions, which is the property the pipeline needs to actually reduce
+multi-agent error rates. See `docs/research/role-evolution-experiments.md`
+for the empirical findings that motivated the Agent-axis triggers, and
+`minions/CLAUDE.md` "Skill and Agent population evolution" for the full Gru
+intake contract.
+
 ### MCP Surface
 
 The MinionsOS MCP server exposes lifecycle and execution tools from
@@ -340,6 +392,13 @@ mos_issue_report
 mos_publish_to_shared
 ```
 
+**Reel — L0 raw verbatim transcripts (auto-captured; read-only for roles):**
+
+```text
+mos_reel_get
+mos_reel_window
+```
+
 **Draft — L1 process memory (Noter primary, Gru read):**
 
 ```text
@@ -348,17 +407,33 @@ mos_draft_query
 mos_draft_summary
 mos_draft_annotate
 mos_draft_path
-mos_draft_commit_shared      # Noter periodic flush
+mos_draft_decay_compute       # half-life-based confidence decay
+mos_draft_commit_shared       # Noter periodic flush
 ```
 
 **Book — L2 compiled knowledge (Noter writes; all roles read via query/hot_get):**
 
 ```text
 mos_book_ingest
+mos_book_ingest_batch
 mos_book_lint
 mos_book_query
 mos_book_hot_get
 mos_book_hot_update
+mos_book_save_synthesis
+mos_book_promote_verified
+mos_book_crystallize_session
+mos_book_audit_walk           # Ethics: list unresolved contradictions
+mos_book_resolve_contradiction
+```
+
+**Role evolution (Agent-axis ops, gated by Ethics' `skill-audit`):**
+
+```text
+mos_role_evolve_evaluate      # produce evidence summary for split/merge/dismiss
+mos_role_split                # one Expert → two with disjoint domains
+mos_role_merge                # two Experts → one with union domain
+mos_role_evolve_dismiss       # evidence-gated dismiss (distinct from mos_dismiss_role)
 ```
 
 **Phase-transition signboard (governance):**
@@ -397,6 +472,14 @@ mos_exp_gpu_pool_get
 mos_list_workflow_plugins
 ```
 
+**Visual format check (every EACN-visible Role; denied to Noter):**
+
+```text
+mos_visual_render             # PDF → page_NNN.png via Poppler
+mos_visual_inspect            # detectors on PDF / image / page directory
+mos_visual_check              # end-to-end: render + inspect + persist report
+```
+
 **Writer — paper search and retrieval:**
 
 ```text
@@ -433,10 +516,14 @@ project_{port}/
     main/                       # Gru — branch minionsos/project-{port}
     noter/                      # Noter drafts
     coder/, writer/, ethics/, expert-<slug>/
+      reel/                     # Layer 0 — raw verbatim transcripts (per role)
+        <session_id>/
+          index.jsonl
+          transcripts/<task_id>.jsonl
     shared/                     # branch minionsos/project-{port}-shared
       draft/draft.json # Noter-curated Draft (L1)
-      notes/                    # Noter staged reports
-      ethics/                   # Ethics published reports
+      notes/                    # Noter staged reports (incl. skill-proposals.md)
+      ethics/                   # Ethics published reports (incl. skill-audit-*.md)
       exp/exp-<id>/             # Coder experiment result bundles
       reviews/round-<n>/        # mos_review_run output (tool-owned)
       handoffs/                 # cross-role handoffs
@@ -456,11 +543,14 @@ project_{port}/
     role-{name}.log
 ```
 
-The persistent cross-cycle memory surfaces are the **Draft** (L1,
-`branches/shared/draft/draft.json`) and the **Book** (L2,
-`branches/shared/book/`). Roles do not keep per-role private memory files; they
-reconstruct context at wake-up from the current transcript, the Draft, the Book
-hot cache, EACN history, shared artefacts, and project `CLAUDE.md`.
+The persistent cross-cycle memory surfaces are the **Reel** (L0,
+`branches/<role>/reel/`, raw verbatim), the **Draft** (L1,
+`branches/shared/draft/draft.json`, working coordination graph), the
+**Book** (L2, `branches/shared/book/`, compiled durable knowledge), and the
+**Shelf** (L3, project-local + Gru-only cross-project structural index).
+Roles do not keep per-role private memory files; they reconstruct context at
+wake-up from the current transcript, the Draft, the Book hot cache, EACN
+history, shared artefacts, and project `CLAUDE.md`.
 
 ### MinionsVIZ
 
@@ -573,6 +663,7 @@ MCP 调用 **Codex GPT-5.5** 作为子代理。
 - [配置](#配置)
 - [运行](#运行)
 - [Roles](#roles-1)
+- [Skill 家族与自演化](#skill-家族与自演化)
 - [MCP 工具面](#mcp-工具面)
 - [运行时项目结构](#运行时项目结构)
 - [MinionsVIZ](#minionsviz-1)
@@ -599,12 +690,24 @@ MCP 调用 **Codex GPT-5.5** 作为子代理。
   MinionsOS MCP server 在服务端额外执行项目生命周期工具授权。每个 Role 拥有
   自己的 `branches/<role>/`；跨角色产物始终经由 `branches/shared/<subdir>/`
   通过 `mos_publish_to_shared` 流转。
-- **分层记忆。** Role 上下文来自当前事件、Draft
-  （`branches/shared/draft/draft.json`）、compiled-knowledge Book
-  （`branches/shared/book/`）、`branches/shared/<subdir>/` 的共享产物、EACN
-  历史以及项目 `CLAUDE.md`。
+- **分层记忆。** Role 上下文来自当前事件、Reel（L0，`branches/<role>/reel/`
+  原始 verbatim 转录）、Draft（`branches/shared/draft/draft.json`）、
+  compiled-knowledge Book（`branches/shared/book/`）、跨项目 Shelf、
+  `branches/shared/<subdir>/` 的共享产物、EACN 历史以及项目 `CLAUDE.md`。
+  L0 设计见 [docs/reel-l0-memory.md](docs/reel-l0-memory.md)。
 - **Skill 发现和领域资产。** Role 技能放在 `minions/roles/{role}/skills/*.md`；
   Expert 领域包资产放在 `minions/domains/*.md`。
+- **双轴自演化。** 一条 4 阶段去相关流水线 —— `skill-curator`（Noter 提案）
+  → `skill-audit`（Ethics 审计）→ `skill-forge`（编排器验证）→ Library /
+  Expert roster —— 从项目轨迹中演化 Skill（add/revise/merge/split/drop）和
+  Expert（spawn/dismiss/merge/split）。背后由 `mos_role_split`、
+  `mos_role_merge`、`mos_role_evolve_evaluate`、`mos_role_evolve_dismiss`
+  等 MCP 工具支持。经验依据见
+  `docs/research/role-evolution-experiments.md`。
+- **视觉格式检查。** `mos_visual_render` / `mos_visual_inspect` /
+  `mos_visual_check` 把 PDF 栅格化并检测版式缺陷（栏内空洞、尾部留白、
+  越界、浮动堆积等）。所有 EACN 上的 Role 都可调用，报告留存于
+  `branches/<role>/visual-reports/`。
 - **结构化评审。** 论文评审通过 Gru 的 `mos_review_run` MCP 工具运行，而不是
   常驻 Role。其提示资产（SYSTEM.md、流程 skill、reviewer persona、输出
   template）位于 `minions/review/`，单轮评审会产出 3-5 份独立 reviewer
@@ -669,6 +772,11 @@ minions-viz/                # 只读 React/Vite 仪表盘
 mcp-servers/                # 独立 MCP server
   eacn3/                    # 本地 editable EACN3 依赖（Python + Node 插件）
   codex-subagent/           # Codex GPT-5.5 子代理桥接（Node）
+  codegraph/                # Coder 仓库代码图 MCP（Node）
+docs/                       # 交付文档
+  reel-l0-memory.md         #   L0 Reel 层设计与工具面
+  integrations/             #   集成指南（claude-code / codex / eacn3 / graphify）
+  research/                 #   运行时设计决策的经验依据
 tests/unit/                 # 快速单元测试
 tests/smoke/                # 集成式 smoke 检查
 ```
@@ -802,6 +910,33 @@ Role 提示词位于 `minions/roles/{role}/SYSTEM.md`。共享 Role contract 位
 `summaries/round-<n>.md`。Reviewer 审核 Writer 的论文提交，Ethics 审核
 Coder 的代码与实验——切勿混淆。
 
+**维稳层。** 其中两个 Role 同时承担下文自演化流水线的维稳职责：Noter 的
+`skill-curator-loop` skill 在周期性唤醒时把 Skill / Expert 演化提案写入
+`branches/shared/notes/skill-proposals.md`；Ethics 的 `skill-audit` skill
+是这些提案进入 Library 或 roster 之前唯一的授权闸门。两个 Role 都不参与
+具体业务竞标——这种"非业务"位置正是它们能为被演化对象提供独立判断的
+结构性前提。
+
+### Skill 家族与自演化
+
+除了人工驱动的扩展路径（新增 Role、skill、领域包、MCP 工具），MinionsOS
+还运行一条**4 阶段去相关流水线**，由项目轨迹本身驱动 Skill 库与 Expert
+roster 的演化。四个组件分布在不同的权限层：
+
+| 阶段 | 组件 | 操作者 | 输出 |
+|---|---|---|---|
+| 1. 提案 | `~/.claude/skills/skill-curator/` | Noter（通过 `skill-curator-loop`） | `branches/shared/notes/skill-proposals.md` —— append-only 提案 ledger，覆盖 add/revise/merge/split/drop（Knowledge 轴）和 spawn/dismiss/merge/split（Agent 轴） |
+| 2. 审计 | `minions/roles/ethics/skills/skill-audit.md` | Ethics | `branches/shared/ethics/` 下的 per-pass 裁决文件，并在每条 proposal 下追加 `### audit` 子块 |
+| 3. 验证 + 入库 | `~/.claude/skills/skill-forge/`（编排 `skill-edit`、`skill-evaluator`） | Gru 把通过审计的 Knowledge-轴提案路由到此 | 验证通过的 SKILL.md 入库 |
+| 4. 落地（Agent 轴） | `mos_role_split`、`mos_role_merge`、`mos_role_evolve_evaluate`、`mos_role_evolve_dismiss`、`mos_spawn_role`、`mos_dismiss_role` | Gru | EACN 上 Expert roster 更新 |
+
+去相关性是结构性的，不是流程上的：提案者（Noter，跑在 Sonnet 上、不参与
+业务决策）、审计者（Ethics，读工件而非 prompt）、验证者（skill-forge，
+让 Codex 做盲判 A/B）和被演化的消费 Role 之间，参数分布各不相同——这正
+是一条流水线真能压低多智能体错误率所需要的。Agent 轴触发条件的实证依据
+位于 `docs/research/role-evolution-experiments.md`，完整的 Gru intake
+contract 见 `minions/CLAUDE.md` 的 "Skill and Agent population evolution"。
+
 ### MCP 工具面
 
 MinionsOS MCP server 从 `minions/tools/mcp_server.py` 暴露生命周期和执行
@@ -860,7 +995,14 @@ mos_issue_report
 mos_publish_to_shared
 ```
 
-**Draft — L1 进程记忆（Noter 主写、Gru 可读）：**
+**Reel —— L0 verbatim 转录（自动捕获，Role 只读）：**
+
+```text
+mos_reel_get
+mos_reel_window
+```
+
+**Draft —— L1 进程记忆（Noter 主写、Gru 可读）：**
 
 ```text
 mos_draft_append
@@ -868,17 +1010,33 @@ mos_draft_query
 mos_draft_summary
 mos_draft_annotate
 mos_draft_path
-mos_draft_commit_shared      # Noter 周期性 flush
+mos_draft_decay_compute       # 半衰期 confidence 衰减
+mos_draft_commit_shared       # Noter 周期性 flush
 ```
 
-**Book — L2 编译知识（Noter 写；所有 Role 通过 query/hot_get 读）：**
+**Book —— L2 编译知识（Noter 写；所有 Role 通过 query/hot_get 读）：**
 
 ```text
 mos_book_ingest
+mos_book_ingest_batch
 mos_book_lint
 mos_book_query
 mos_book_hot_get
 mos_book_hot_update
+mos_book_save_synthesis
+mos_book_promote_verified
+mos_book_crystallize_session
+mos_book_audit_walk           # Ethics：列出未解决的矛盾
+mos_book_resolve_contradiction
+```
+
+**Role 演化（Agent 轴操作，由 Ethics 的 `skill-audit` 闸门授权）：**
+
+```text
+mos_role_evolve_evaluate      # 为 split/merge/dismiss 产出证据汇总
+mos_role_split                # 一个 Expert → 两个、领域不重叠
+mos_role_merge                # 两个 Expert → 一个、合并领域
+mos_role_evolve_dismiss       # 证据闸控的 dismiss（区别于 mos_dismiss_role）
 ```
 
 **阶段切换 signboard（治理）：**
@@ -917,6 +1075,14 @@ mos_exp_gpu_pool_get
 mos_list_workflow_plugins
 ```
 
+**视觉格式检查（所有 EACN 上的 Role 可用，Noter 除外）：**
+
+```text
+mos_visual_render             # PDF → page_NNN.png（Poppler）
+mos_visual_inspect            # 在 PDF / 单图 / 页面目录上跑检测器
+mos_visual_check              # 端到端：渲染 + 检测 + 持久化报告
+```
+
 **Writer——论文检索与下载：**
 
 ```text
@@ -953,10 +1119,14 @@ project_{port}/
     main/                       # Gru — minionsos/project-{port}
     noter/                      # Noter 草稿
     coder/, writer/, ethics/, expert-<slug>/
+      reel/                     # Layer 0 — 原始 verbatim 转录（每 Role 私有）
+        <session_id>/
+          index.jsonl
+          transcripts/<task_id>.jsonl
     shared/                     # minionsos/project-{port}-shared 分支
       draft/draft.json # Noter 维护的 Draft（L1）
-      notes/                    # Noter 已发布报告
-      ethics/                   # Ethics 已发布报告
+      notes/                    # Noter 已发布报告（含 skill-proposals.md）
+      ethics/                   # Ethics 已发布报告（含 skill-audit-*.md）
       exp/exp-<id>/             # Coder 实验结果包
       reviews/round-<n>/        # mos_review_run 输出（工具独占）
       handoffs/                 # 跨角色交接
@@ -976,11 +1146,12 @@ project_{port}/
     role-{name}.log
 ```
 
-跨周期持久化记忆面有两个：**Draft**（L1，
-`branches/shared/draft/draft.json`）与 **Book**（L2，
-`branches/shared/book/`）。Role 不维护任何 per-role 私有记忆文件；
-唤醒时它们从当前 transcript、Draft、Book hot cache、EACN 历史、共享产物以及
-项目 `CLAUDE.md` 重建上下文。
+跨周期持久化记忆面共有四层：**Reel**（L0，`branches/<role>/reel/`，原始
+verbatim 转录）、**Draft**（L1，`branches/shared/draft/draft.json`，
+工作协调图）、**Book**（L2，`branches/shared/book/`，编译后的稳定知识）、
+**Shelf**（L3，项目内 + Gru-only 的跨项目结构索引）。Role 不维护任何
+per-role 私有记忆文件；唤醒时它们从当前 transcript、Draft、Book hot cache、
+EACN 历史、共享产物以及项目 `CLAUDE.md` 重建上下文。
 
 ### MinionsVIZ
 
