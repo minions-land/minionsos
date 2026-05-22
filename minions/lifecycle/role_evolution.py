@@ -1,6 +1,6 @@
 """Role evolution: data-driven SPLIT, MERGE, and DISMISS for Roles.
 
-Design (matches the experiments/expert_split_merge/REPORT.md findings):
+Design (matches the docs/research/role-evolution-experiments.md findings):
 
   - Trigger is **evidence-gated, not diversity-gated**. Three primitives:
 

@@ -320,8 +320,8 @@ class TestRealEventBeatsKeepalive:
     cap rather than wall-clock timeout. A mutation that makes ``await_events``
     ignore real events would otherwise loop forever and (because the polling
     is patched with a ``MagicMock`` whose ``call_args_list`` grows unbounded)
-    allocate ~500 MB/s until the host OOMs. See ``dev-log/2026-05.md``
-    2026-05-19 entry on the 16 GB pytest orphan incident.
+    allocate ~500 MB/s until the host OOMs — the iteration cap is the
+    safety floor preventing that pathology in CI.
     """
 
     def test_real_event_returned_when_present_past_threshold(self, _await_env):
