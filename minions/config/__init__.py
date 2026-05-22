@@ -894,7 +894,7 @@ class GruConfig(BaseModel):
     )
     experiment_reconcile_interval_seconds: int = Field(
         default=30,
-        description="Python-side Experimenter queue reconcile cadence in seconds.",
+        description="Python-side Coder experiment queue reconcile cadence in seconds.",
     )
     role_evolution_interval_seconds: int = Field(
         default=900,

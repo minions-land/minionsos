@@ -35,8 +35,8 @@ def _write_shelf(
         / f"project_{port}"
         / "branches"
         / "shared"
-        / "atlas"
-        / "atlas.json"
+        / "shelf"
+        / "shelf.json"
     )
     graph_path.parent.mkdir(parents=True, exist_ok=True)
     graph_path.write_text(

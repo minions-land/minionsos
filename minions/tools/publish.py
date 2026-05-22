@@ -61,9 +61,9 @@ logger = logging.getLogger(__name__)
 # - "reviews/" is intentionally absent everywhere — that surface is owned
 #   exclusively by ``mos_review_run`` which writes commits directly without
 #   going through this tool.
-# - "book/" is owned exclusively by Noter (Karpathy LLM Wiki pattern);
-#   other roles publish raw artefacts to their own subdir + Noter
-#   ingest-compiles them into book/.
+# - "book/" is owned exclusively by Noter (Book pattern: one curated page
+#   per ingested artefact, Noter-compiled); other roles publish raw artefacts
+#   to their own subdir + Noter ingest-compiles them into book/.
 _ROLE_ALLOWED_SHARED_SUBDIRS: dict[str, set[str]] = {
     "gru": {"*"},
     # Book ownership invariant: Noter is the only non-Gru role that may publish book/.

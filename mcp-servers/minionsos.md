@@ -27,7 +27,7 @@ minions/tools/                     # sibling implementation modules the MCP subm
 ├── await_events.py                # mos_await_events handler
 ├── draft.py                  # backs memory_tools.py (draft portion)
 ├── book.py                        # backs memory_tools.py (book portion)
-├── shelf.py                       # backs memory_tools.py (shelf/atlas portion)
+├── shelf.py                       # backs memory_tools.py (shelf portion)
 ├── reel.py                        # backs reel_tools.py — L0 raw session traces
 ├── project_bridge.py              # mos_project_bridge
 ├── reset.py                       # mos_reset_context

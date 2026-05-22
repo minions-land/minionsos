@@ -27,7 +27,7 @@ You do not publish on EACN. You have no EACN tools. The orchestrator process is 
 | Decision | Gru relay action |
 |---|---|
 | `Strong Accept` / `Accept` | Notify Writer; suggest camera-ready cleanup |
-| `Weak Accept` / `Borderline` | Notify Writer with revision asks; route evidence/code/experiment follow-ups to Expert / Coder / Experimenter |
+| `Weak Accept` / `Borderline` | Notify Writer with revision asks; route evidence/code/experiment follow-ups to Expert / Coder |
 | `Weak Reject` / `Reject` / `Strong Reject` | Notify Writer with substantive revision requirements |
 
 ## Procedure

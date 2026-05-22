@@ -314,12 +314,12 @@ mos_kill_role
 mos_list_roles
 ```
 
-**Gru-only — cross-project Atlas (L3):**
+**Gru-only — cross-project Shelf (L3):**
 
 ```text
-mos_atlas_register
-mos_atlas_query
-mos_atlas_shared_concepts
+mos_shelf_register
+mos_shelf_query
+mos_shelf_shared_concepts
 ```
 
 **Role event loop and context:**
@@ -447,7 +447,7 @@ project_{port}/
         log.md                  #   append-only ingest/lint journal
         sources/                #   one page per ingested artifact
         contradictions/         #   auto-detected claim conflicts
-      atlas/atlas.json          # Layer 3 — structural index (graphify-extracted)
+      shelf/shelf.json          # Layer 3 — structural index (graphify-extracted)
   eacn3_data/eacn3.db           # per-project EACN3 SQLite database
   events/                       # per-agent EACN event JSONL audit stream
   state/                        # runtime control state (shared.lock, .reset_markers/)
@@ -834,12 +834,12 @@ mos_kill_role
 mos_list_roles
 ```
 
-**仅 Gru 可用——跨项目 Atlas（L3）：**
+**仅 Gru 可用——跨项目 Shelf（L3）：**
 
 ```text
-mos_atlas_register
-mos_atlas_query
-mos_atlas_shared_concepts
+mos_shelf_register
+mos_shelf_query
+mos_shelf_shared_concepts
 ```
 
 **Role 事件循环与上下文：**
@@ -967,7 +967,7 @@ project_{port}/
         log.md                  #   ingest/lint append-only 日志
         sources/                #   每个被收录工件一个页面
         contradictions/         #   自动检测的论断冲突
-      atlas/atlas.json          # Layer 3 — 结构索引（graphify 抽取）
+      shelf/shelf.json          # Layer 3 — 结构索引（graphify 抽取）
   eacn3_data/eacn3.db           # 项目独立的 EACN3 SQLite 数据库
   events/                       # 每 agent 的 EACN 事件 JSONL 审计流
   state/                        # 运行时控制状态（shared.lock、.reset_markers/）

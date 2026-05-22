@@ -161,10 +161,10 @@ def project_shared_workspace(port: int) -> Path:
 
     - ``draft/draft.json``  L1 — Noter-curated process graph
     - ``book/``                       L2 — Noter-curated source pages
-    - ``atlas/atlas.json``            L3 — concept structure index
+    - ``shelf/shelf.json``            L3 — concept structure index
     - ``notes/``                      Noter staged reports
     - ``ethics/``                     Ethics published audit reports (flat)
-    - ``exp/``                        Experimenter result bundles
+    - ``exp/``                        Coder experiment result bundles
     - ``reviews/round-<n>/``          ``mos_review_run`` output
     - ``handoffs/``                   free-form cross-role handoffs
 

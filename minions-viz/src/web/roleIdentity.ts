@@ -47,15 +47,6 @@ export const ROLE_BUCKETS: Record<string, RoleBucket> = {
     orbitIndex: 2,
     baseOrbitPeriod: 18,
   },
-  experimenter: {
-    key: "experimenter",
-    label: "Experimenter",
-    color: "#F97316",
-    colorRgb: "249,115,22",
-    accent: "var(--role-exp)",
-    orbitIndex: 3,
-    baseOrbitPeriod: 22,
-  },
   writer: {
     key: "writer",
     label: "Writer",
@@ -106,9 +97,8 @@ export const ROLE_BUCKETS: Record<string, RoleBucket> = {
 const LOOKUP: [string, string][] = [
   ["noter", "noter"],
   ["coder", "coder"],
-  ["experimenter", "experimenter"],
-  ["experiment", "experimenter"],
-  ["exp-", "experimenter"],
+  ["experiment", "coder"],
+  ["exp-", "coder"],
   ["writer", "writer"],
   ["reviewer", "reviewer"],
   ["review", "reviewer"],

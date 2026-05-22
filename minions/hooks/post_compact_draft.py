@@ -5,7 +5,7 @@ Fires after Claude Code's ``/compact`` completes.  Reads the compact summary
 from stdin (JSON with a ``compact_summary`` field, possibly accompanied by
 others Claude Code may add later — extra keys are ignored).
 
-The summary is *pointer-shaped*: it cites Draft node IDs, Library
+The summary is *pointer-shaped*: it cites Draft node IDs, Book
 paths, experiment-report paths, EACN event ids, etc.  This hook does NOT
 try to materialise content from those pointers.  It only walks the
 summary, extracts:

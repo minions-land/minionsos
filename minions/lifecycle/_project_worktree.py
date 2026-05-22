@@ -43,8 +43,9 @@ SHARED_SUBDIRS = (
     "exp",
     "reviews",
     "handoffs",
+    "governance",
     "book",
-    "atlas",
+    "shelf",
 )
 SHARED_README = """\
 # Project shared worktree
@@ -68,9 +69,11 @@ Roles do **not** `Write` here directly. All writes go through
 - `reviews/round-<n>/` — `mos_review_run` output. The review tool owns this
   surface directly; no other role writes here.
 - `handoffs/` — Free-form cross-role handoffs.
-- `book/` — L2 compiled knowledge base (Karpathy LLM Wiki pattern,
-  Noter-curated).
-- `atlas/atlas.json` — L3 structural index over project artefacts; rebuilt
+- `governance/` — Signboard consensus state (`signboard.json`) and
+  role-evolution audit log (`role_evolution.jsonl`).
+- `book/` — L2 compiled knowledge base (Book pattern: one curated page per
+  ingested artefact, Noter-compiled).
+- `shelf/shelf.json` — L3 structural index over project artefacts; rebuilt
   by Noter on each periodic wake via the `graphify` extractor.
 """
 

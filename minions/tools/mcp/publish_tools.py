@@ -25,9 +25,9 @@ def mos_publish_to_shared(args: PublishToSharedArgs) -> dict:
 
        - Gru: any subdir
        - Noter: ``notes/``, ``draft/``, ``book/``, ``handoffs/``
-       - Ethics: ``ethics/``, ``handoffs/``
-       - Experimenter: ``exp/``, ``handoffs/``
-       - Writer / Coder / Expert: ``handoffs/`` only
+       - Ethics: ``ethics/``, ``handoffs/``, ``governance/``
+       - Coder: ``exp/``, ``handoffs/``, ``governance/``
+       - Writer / Expert: ``handoffs/``, ``governance/``
        - ``reviews/`` is reserved for ``mos_review_run`` and rejected here.
 
     3. Copy ``src_path`` into ``branches/shared/<dst_subpath>``.

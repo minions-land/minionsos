@@ -383,7 +383,7 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
     )
     assert not crystallize_for_ethics
 
-    # ⭐ ASSERTION 8c: Noter cannot read other roles' private Scratchpads ...
+    # ⭐ ASSERTION 8c: Noter cannot read other roles' private Drafts ...
     # actually Noter reads ALL Drafts because it curates the shared one.
     # The forbidden one is Ethics reading another role's private reasoning.
     # In current arch: Drafts are project-shared (single draft.json), so
@@ -457,9 +457,9 @@ def test_shelf_aggregates_books_across_projects(sim_project, tmp_path, monkeypat
     monkeypatch.setattr(shelf, "_shelf_path", lambda: shelf_path)
 
     def _project_graph_path(p):
-        d = tmp_path / f"project_{p}" / "branches" / "shared" / "atlas"
+        d = tmp_path / f"project_{p}" / "branches" / "shared" / "shelf"
         d.mkdir(parents=True, exist_ok=True)
-        return d / "atlas.json"
+        return d / "shelf.json"
 
     monkeypatch.setattr(shelf, "_project_graph_path", _project_graph_path)
 

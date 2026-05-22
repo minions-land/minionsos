@@ -56,7 +56,7 @@ Every periodic wake (default every 3 minutes, configured by
 
 **Automatic per-wake side-effects of `mos_noter_wait()`**: the wake tool itself
 runs two extra steps before returning the wake event — (a) the project-local
-graphify graph at `branches/shared/atlas/atlas.json` is rebuilt if any source
+graphify graph at `branches/shared/shelf/shelf.json` is rebuilt if any source
 under `book/`, `notes/`, `ethics/`, or `exp/` is newer; (b) the rebuilt graph
 is registered into the cross-project Shelf via `mos_shelf_register(port)` so
 Gru can see this project from the L3 Shelf. You do not call these tools

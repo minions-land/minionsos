@@ -1,29 +1,29 @@
 # mcp-servers/graphify
 
-Per-project graphify (Atlas — L3 structural index) for MinionsOS.
+Per-project graphify (project-local Shelf graph — L3 structural index) for MinionsOS.
 
 ## Purpose
 
-Bottom-up structural index over a project's `branches/shared/{library,notes,ethics,exp}/`
+Bottom-up structural index over a project's `branches/shared/{book,notes,ethics,exp}/`
 artifacts. Complements the Draft (L1 — process memory) and the
-Library (L2 — compiled product memory) by giving every Role a queryable
+Book (L2 — compiled product memory) by giving every Role a queryable
 graph of cross-document relationships, god-nodes, and communities.
 
 The third-party CLI is still called `graphify`; the MinionsOS-side
-concept it produces is the **Atlas**, written to
-`branches/shared/atlas/atlas.json`.
+concept it produces is the project's **Shelf graph**, written to
+`branches/shared/shelf/shelf.json`.
 
-See dev-log entry `dev-log/2026-05.md` → "Library-as-L2 design + phased plan".
+See dev-log entry `dev-log/2026-05.md` → "Book pattern (L2) + Shelf (L3) phased plan".
 
 ## Lifecycle
 
 - **Build**: Noter's periodic wake (`mos_noter_wait`) calls `extract.py`
-  if any source file under `branches/shared/{library,notes,ethics,exp}/`
-  is newer than the existing `atlas.json`. Extract is gated behind a
+  if any source file under `branches/shared/{book,notes,ethics,exp}/`
+  is newer than the existing `shelf.json`. Extract is gated behind a
   5-minute subprocess timeout.
 - **Serve**: `.mcp.json` registers `graphify` as a stdio MCP server
   pointing at `launcher.sh`. The launcher resolves
-  `project_${MINIONS_PROJECT_PORT}/branches/shared/atlas/atlas.json`
+  `project_${MINIONS_PROJECT_PORT}/branches/shared/shelf/shelf.json`
   and execs `python -m graphify.serve` from the local `.venv`.
 
 ## Setup (one-time)
@@ -57,6 +57,8 @@ Roles see them as `mcp__graphify__<name>`. The whitelist is in
 
 ## Non-goals
 
-- No write-back to `atlas.json` from MCP — only Noter rebuilds.
-- No cross-project graph (deferred to Phase 9 / global atlas).
+- No write-back to `shelf.json` from MCP — only Noter rebuilds.
+- No cross-project graph at this layer (the global L3 Shelf at
+  `~/.minionsos/shelf.json` is built by `mos_shelf_register` aggregating
+  per-project graphs).
 - No `graphify prs` integration (deferred to Phase 8 / review-scope decider).

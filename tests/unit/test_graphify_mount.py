@@ -1,7 +1,7 @@
-"""Tests for the Atlas (L3 structural index) graphify mount.
+"""Tests for the Shelf (L3 structural index) graphify mount.
 
 Covers:
-- _maybe_rebuild_shelf_graph short-circuit when atlas is fresh.
+- _maybe_rebuild_shelf_graph short-circuit when shelf graph is fresh.
 - _maybe_rebuild_shelf_graph trigger path with mocked subprocess success.
 - subprocess failure / timeout never crashes the wake loop.
 - Whitelist exposes mcp__graphify__* read tools to every main role.
@@ -30,14 +30,14 @@ def _make_project_layout(tmp_path: Path, port: int = 12345) -> Path:
     (shared / "notes").mkdir(parents=True, exist_ok=True)
     (shared / "ethics").mkdir(parents=True, exist_ok=True)
     (shared / "exp").mkdir(parents=True, exist_ok=True)
-    (shared / "atlas").mkdir(parents=True, exist_ok=True)
+    (shared / "shelf").mkdir(parents=True, exist_ok=True)
     main.mkdir(parents=True, exist_ok=True)
     return main
 
 
-def _write_atlas(shared: Path, *, mtime: float | None = None) -> Path:
-    """Write an atlas.json large enough to be considered non-stub."""
-    p = shared / "atlas" / "atlas.json"
+def _write_shelf_graph(shared: Path, *, mtime: float | None = None) -> Path:
+    """Write a shelf.json large enough to be considered non-stub."""
+    p = shared / "shelf" / "shelf.json"
     payload = {
         "directed": True,
         "graph": {},
@@ -69,7 +69,7 @@ def test_rebuild_skipped_when_atlas_is_fresh(tmp_path: Path) -> None:
     shared = main.parent / "shared"
     now = time.time()
     _write_source(shared, "book/sources", "noter-foo.md", mtime=now - 100)
-    _write_atlas(shared, mtime=now)
+    _write_shelf_graph(shared, mtime=now)
 
     result = noter_wait._maybe_rebuild_shelf_graph(main)
     assert result["rebuilt"] is False
@@ -95,7 +95,7 @@ def test_rebuild_triggers_when_source_newer(
     main = _make_project_layout(tmp_path)
     shared = main.parent / "shared"
     now = time.time()
-    _write_atlas(shared, mtime=now - 100)
+    _write_shelf_graph(shared, mtime=now - 100)
     _write_source(shared, "book/sources", "noter-foo.md", mtime=now)
 
     fake_extract = tmp_path / "extract.py"

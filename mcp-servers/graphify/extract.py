@@ -1,12 +1,12 @@
-"""Build the project's atlas.json by shelling out to ``graphify extract``.
+"""Build the project's shelf.json by shelling out to ``graphify extract``.
 
 Invoked by Noter's periodic wake when shared/ artifacts have changed since
-the last Atlas (L3 structural index) rebuild. See
-``minions/tools/noter_wait.py`` → ``_maybe_rebuild_atlas``.
+the last Shelf (L3 structural index) rebuild. See
+``minions/tools/noter_wait.py`` → ``_maybe_rebuild_shelf_graph``.
 
 The third-party ``graphify`` CLI is unchanged — this wrapper only renames
-the MinionsOS-side concept (Corpus Graph → Atlas) and re-routes output to
-``branches/shared/atlas/atlas.json``.
+the MinionsOS-side concept (Corpus Graph → Shelf) and re-routes output to
+``branches/shared/shelf/shelf.json``.
 
 Usage (from Noter cron, NOT directly):
     python mcp-servers/graphify/extract.py --port <port>
@@ -16,7 +16,7 @@ The script:
   2. Walks branches/shared/{book,notes,ethics,exp} and feeds each
      existing subdir to graphify-extract via a temporary corpus root.
   3. Writes the merged graph.json atomically to
-     branches/shared/atlas/atlas.json so a concurrent graphify.serve MCP
+     branches/shared/shelf/shelf.json so a concurrent graphify.serve MCP
      reader gets a clean swap.
 
 Notes:
@@ -85,8 +85,8 @@ def _atomic_replace(src: Path, dst: Path) -> None:
     os.replace(tmp, dst)
 
 
-def rebuild_atlas(port: int, *, timeout_s: int = 300) -> dict[str, object]:
-    """Run graphify extract over branches/shared/ and atomically install atlas.json.
+def rebuild_shelf_graph(port: int, *, timeout_s: int = 300) -> dict[str, object]:
+    """Run graphify extract over branches/shared/ and atomically install shelf.json.
 
     Returns a dict suitable for embedding in Noter's periodic-wake event:
         {"rebuilt": True, "node_count": N, "edge_count": M, "duration_s": float}
@@ -103,7 +103,7 @@ def rebuild_atlas(port: int, *, timeout_s: int = 300) -> dict[str, object]:
         }
 
     workspace = _project_workspace(port)
-    target = workspace / "branches" / "shared" / "atlas" / "atlas.json"
+    target = workspace / "branches" / "shared" / "shelf" / "shelf.json"
 
     import time
 
@@ -168,13 +168,13 @@ def rebuild_atlas(port: int, *, timeout_s: int = 300) -> dict[str, object]:
 
 
 def _main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description="Rebuild a MinionsOS project's Atlas (L3).")
+    parser = argparse.ArgumentParser(description="Rebuild a MinionsOS project's Shelf graph (L3).")
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--timeout", type=int, default=300)
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO)
-    result = rebuild_atlas(args.port, timeout_s=args.timeout)
+    result = rebuild_shelf_graph(args.port, timeout_s=args.timeout)
     json.dump(result, sys.stdout)
     sys.stdout.write("\n")
     return 0 if result.get("rebuilt") else 1

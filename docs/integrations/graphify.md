@@ -61,7 +61,7 @@ cd mcp-servers/graphify && VIRTUAL_ENV=$PWD/.venv uv venv && VIRTUAL_ENV=$PWD/.v
 
 ## Fallback when unavailable
 
-`_maybe_rebuild_atlas` in `noter_wait.py` returns `{"rebuilt": False, "reason": "graphify venv not installed"}`. All roles still function — they just can't query the Atlas. The Library layer (Layer 2) works independently.
+`_maybe_rebuild_shelf_graph` in `noter_wait.py` returns `{"rebuilt": False, "reason": "graphify venv not installed"}`. All roles still function — they just can't query the Shelf. The Book layer (Layer 2) works independently.
 
 ## Key upstream references
 

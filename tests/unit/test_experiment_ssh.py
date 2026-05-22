@@ -1,4 +1,4 @@
-"""Unit tests for the fire-and-poll Experimenter tool surface."""
+"""Unit tests for the fire-and-poll Coder experiment tool surface."""
 
 from __future__ import annotations
 

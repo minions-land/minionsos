@@ -193,7 +193,7 @@ def test_wiki_query_returns_empty_when_no_entries_match(project: dict[str, Any])
                 "slug: coder-transformer",
                 "type: source",
                 "page_kind: source",
-                "wiki_path: wiki/sources/coder-transformer.md",
+                "book_path: book/sources/coder-transformer.md",
                 "",
             ]
         ),

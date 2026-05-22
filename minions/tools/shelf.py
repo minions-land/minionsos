@@ -8,7 +8,7 @@ The boundary rules are strict: only Gru can query across projects; project
 internal Roles never see cross-project data; Gru can relay digested results
 back through ``mos_project_bridge``.
 
-Registration is project-local and performed by Noter after atlas
+Registration is project-local and performed by Noter after Shelf graph
 rebuilds. Nodes are prefixed with ``p{port}_`` before merging so local graph
 IDs cannot collide across projects.
 """
@@ -78,7 +78,7 @@ def _tokens(text: str) -> set[str]:
 
 
 def _token_overlap_score(text_a: str, text_b: str) -> float:
-    """Return the Library-style token overlap score for two strings."""
+    """Return the Book-style token overlap score for two strings."""
     tokens_a = _tokens(text_a)
     tokens_b = _tokens(text_b)
     if not tokens_a or not tokens_b:
@@ -133,7 +133,7 @@ def _link_touches_prefix(link: dict[str, Any], prefix: str) -> bool:
 
 
 def _project_graph_path(port: int) -> Path:
-    return project_shared_subdir(port, "atlas") / "atlas.json"
+    return project_shared_subdir(port, "shelf") / "shelf.json"
 
 
 def _load_project_graph(port: int) -> dict[str, object] | None:
@@ -143,7 +143,7 @@ def _load_project_graph(port: int) -> dict[str, object] | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        logger.warning("failed to load project atlas %s: %s", path, exc)
+        logger.warning("failed to load project shelf graph %s: %s", path, exc)
         return None
     if not isinstance(payload, dict):
         return None
@@ -190,11 +190,11 @@ def _god_node_ids(data: dict[str, object]) -> set[str]:
 
 
 def mos_shelf_register(port: int) -> dict[str, object]:
-    """Register a project's atlas.json into the global Shelf.
+    """Register a project's shelf.json into the global Shelf.
 
-    Called by Noter after each atlas rebuild (wired into noter_wait.py
-    alongside _maybe_rebuild_atlas). Reads the project's
-    atlas.json, prefixes all node IDs with `p{port}_` to avoid
+    Called by Noter after each Shelf graph rebuild (wired into noter_wait.py
+    alongside _maybe_rebuild_shelf_graph). Reads the project's
+    shelf.json, prefixes all node IDs with `p{port}_` to avoid
     collisions, and merges into ~/.minionsos/shelf.json.
 
     Idempotent: re-registering the same port replaces its nodes/edges.

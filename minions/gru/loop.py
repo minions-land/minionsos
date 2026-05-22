@@ -290,7 +290,7 @@ class GruLoop:
             await asyncio.sleep(max(1, self.experiment_reconcile_interval))
 
     def _reconcile_experiment_queues(self) -> None:
-        """Run Python-side Experimenter queue scheduling for active projects."""
+        """Run Python-side Coder experiment queue scheduling for active projects."""
         try:
             from minions.tools.experiment_scheduler import ExperimentScheduler, default_db_path
         except Exception as exc:

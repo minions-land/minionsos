@@ -117,7 +117,7 @@ The spawned Expert gets:
 
 - Workflow plugin Experts write only to their own branch
 - Cross-role output goes through `mos_publish_to_shared` → `handoffs/` only
-- They do NOT write to `draft/`, `notes/`, `book/`, `atlas/`, or other native surfaces
+- They do NOT write to `draft/`, `notes/`, `book/`, `shelf/`, or other native surfaces
 - MinionsOS's own Scientific Discovery workflow is sovereign — workflow plugins
   provide capabilities but never replace or overwrite the native system
 - Dismiss removes the process; no explicit MCP unload needed
@@ -193,9 +193,9 @@ integrate as MCP servers that the Expert can query.
 | [Zep](https://help.getzep.com) | Same — temporal knowledge graph as MCP |
 | [Letta](https://docs.letta.com) | Stateful agent memory as MCP |
 
-**Key principle**: memory MCP servers complement MinionsOS's native wiki and
-DAG. The Expert uses them for its own recall; promotion into the project's
-shared surfaces still goes through `mos_publish_to_shared`.
+**Key principle**: memory MCP servers complement MinionsOS's native Book (L2)
+and Draft (L1). The Expert uses them for its own recall; promotion into the
+project's shared surfaces still goes through `mos_publish_to_shared`.
 
 ### Category 5: Multi-agent writing workflows
 

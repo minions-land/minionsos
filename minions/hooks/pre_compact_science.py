@@ -60,9 +60,9 @@ L2 — Book  (branches/shared/book/)
      - book/sources/<role>-<slug>.md — one page per ingested artifact
      - book/contradictions/          — auto-detected claim conflicts (Ethics reads)
 
-L3 — Atlas  (structural index)
-     - branches/shared/atlas/atlas.json — local; node IDs like n42_xxx
-     - ~/.minionsos/atlas-global.json   — Gru-only cross-project; IDs prefixed p<port>_
+L3 — Shelf  (structural index)
+     - branches/shared/shelf/shelf.json — local; node IDs like n42_xxx
+     - ~/.minionsos/shelf.json          — Gru-only cross-project; IDs prefixed p<port>_
 
 ALSO durable (DO NOT inline):
      - EACN events at events/<agent>.jsonl (cite by event_id / timestamp).

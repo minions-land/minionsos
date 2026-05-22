@@ -118,7 +118,7 @@ The rest of the Writer contract (engineering-detail-in-body / generic-fluff / no
 
 When a new experiment report lands at `branches/shared/exp/exp-<id>/report.md`,
 use the project graph (the graphify-extracted view of the project's Books at
-`branches/shared/atlas/atlas.json`) to gauge its structural impact before
+`branches/shared/shelf/shelf.json`) to gauge its structural impact before
 deciding audit depth. This local graph is the per-project source that, after
 Noter calls `mos_shelf_register`, also feeds the cross-project Shelf (L3).
 

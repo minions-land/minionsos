@@ -403,8 +403,8 @@ class TestContradictionSignals:
 
 class TestShelfTwoHop:
     def test_one_hop_neighbour_surfaces_at_lower_score(self, tmp_path, monkeypatch):
-        # Override atlas global path to tmp.
-        global_path = tmp_path / "atlas-global.json"
+        # Override shelf global path to tmp.
+        global_path = tmp_path / "shelf-global.json"
         global_path.write_text(
             json.dumps(
                 {

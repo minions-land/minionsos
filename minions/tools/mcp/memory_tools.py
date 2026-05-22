@@ -359,7 +359,7 @@ async def mos_book_crystallize_session(
 
 @mcp.tool()
 async def mos_shelf_register(port: int) -> dict:
-    """Register a project atlas; see minions.tools.shelf."""
+    """Register a project shelf graph; see minions.tools.shelf."""
     _require_tool_allowed("mos_shelf_register")
     return _shelf.mos_shelf_register(port=port)
 

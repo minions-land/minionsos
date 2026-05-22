@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Launcher for graphify MCP stdio server, scoped to a MinionsOS project.
 #
-# Resolves the per-project Atlas (atlas.json) from MINIONS_PROJECT_PORT
+# Resolves the per-project Shelf graph (shelf.json) from MINIONS_PROJECT_PORT
 # and execs `python -m graphify.serve` from this directory's .venv.
 #
-# If the atlas.json does not yet exist (project freshly created, Noter has
+# If the shelf.json does not yet exist (project freshly created, Noter has
 # not run extract yet), an empty stub graph is written so graphify.serve
-# starts cleanly and hot-reloads when Noter writes the real atlas later.
+# starts cleanly and hot-reloads when Noter writes the real graph later.
 #
 # Wired into .mcp.json as the `graphify` server entry. Read-only MCP tools
 # (query_graph / get_node / get_neighbors / get_community / god_nodes /
@@ -32,7 +32,7 @@ if [[ -z "$PORT" ]]; then
     exit 1
 fi
 
-GRAPH_PATH="$REPO_ROOT/project_${PORT}/branches/shared/atlas/atlas.json"
+GRAPH_PATH="$REPO_ROOT/project_${PORT}/branches/shared/shelf/shelf.json"
 mkdir -p "$(dirname "$GRAPH_PATH")"
 
 if [[ ! -s "$GRAPH_PATH" ]]; then

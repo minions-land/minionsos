@@ -54,7 +54,7 @@ def render_project_claude_md(
         "`branches/shared/` on its own branch."
     )
     lines.append(
-        "- Cross-role artefacts (Ethics reports, Experimenter result bundles, "
+        "- Cross-role artefacts (Ethics reports, Coder experiment result bundles, "
         "Noter notes, free-form handoffs) go to `branches/shared/<subdir>/` via "
         "`mos_publish_to_shared`. Each role may only publish into its allowed "
         "subdirs (see role boundary text). The Draft (L1) at "

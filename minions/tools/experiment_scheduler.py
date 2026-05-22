@@ -1,6 +1,6 @@
 """Project-level experiment queue and GPU packing scheduler.
 
-The Experimenter role should not spend context manually deciding which GPU gets
+The Coder role should not spend context manually deciding which GPU gets
 the next run. This module keeps a durable project queue in SQLite and performs a
 simple "fluid gravity" reconcile: every pending unit is considered against the
 current fleet, and any allowed GPU with capacity can absorb the next runnable
@@ -175,7 +175,7 @@ def _resolve_project_port(project_port: int | None = None) -> int:
 
 def default_db_path(project_port: int) -> Path:
     """Return the durable scheduler DB path for a project."""
-    return project_artifacts_dir(project_port) / "experimenter" / "scheduler.sqlite"
+    return project_artifacts_dir(project_port) / "experiment-queue" / "scheduler.sqlite"
 
 
 class ExperimentScheduler:

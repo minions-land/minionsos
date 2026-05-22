@@ -170,19 +170,19 @@ def test_wiki_lint_flags_repeated_index_title_token(project: dict[str, Any]) -> 
         "index.md",
         "\n".join(
             [
-                "# Wiki Index",
+                "# Book Index",
                 "",
                 "## Cache alpha",
                 "slug: alpha",
-                "wiki_path: wiki/sources/alpha.md",
+                "book_path: book/sources/alpha.md",
                 "",
                 "## Cache beta",
                 "slug: beta",
-                "wiki_path: wiki/sources/beta.md",
+                "book_path: book/sources/beta.md",
                 "",
                 "## Cache gamma",
                 "slug: gamma",
-                "wiki_path: wiki/sources/gamma.md",
+                "book_path: book/sources/gamma.md",
                 "",
             ]
         ),

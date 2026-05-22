@@ -27,7 +27,6 @@ interface Props {
  *
  *   - Coder       → icosahedron (faceted crystal)
  *   - Noter       → octahedron (diamond)
- *   - Experimenter→ torus (ring)
  *   - Writer      → tetrahedron (pen-tip cone)
  *   - Reviewer    → low-res sphere (lens)
  *   - Expert      → dodecahedron (dense crystal)
@@ -49,8 +48,6 @@ function RoleGeometry({
       return <icosahedronGeometry args={[size, 0]} />;
     case "noter":
       return <octahedronGeometry args={[size, 0]} />;
-    case "experimenter":
-      return <torusGeometry args={[size * 0.9, size * 0.35, 8, 20]} />;
     case "writer":
       return <tetrahedronGeometry args={[size * 1.15, 0]} />;
     case "reviewer":

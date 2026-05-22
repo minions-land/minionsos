@@ -185,7 +185,7 @@ def _newest_source_mtime(workspace: Path | None) -> float:
 
 
 def _maybe_rebuild_shelf_graph(workspace: Path | None) -> dict[str, Any]:
-    """Rebuild branches/shared/atlas/atlas.json when stale.
+    """Rebuild branches/shared/shelf/shelf.json when stale.
 
     Compares the existing graph's mtime against the newest source mtime
     under shared/{book,notes,ethics,exp}/. Only invokes the heavy
@@ -201,7 +201,7 @@ def _maybe_rebuild_shelf_graph(workspace: Path | None) -> dict[str, Any]:
         if workspace is None:
             return {"rebuilt": False, "reason": "no workspace"}
         shared = workspace.parent / "shared"
-        graph_path = shared / "atlas" / "atlas.json"
+        graph_path = shared / "shelf" / "shelf.json"
         newest_src = _newest_source_mtime(workspace)
         if newest_src == 0.0:
             return {"rebuilt": False, "reason": "no source files"}
@@ -213,7 +213,7 @@ def _maybe_rebuild_shelf_graph(workspace: Path | None) -> dict[str, Any]:
         # Resolve port from workspace path: project_{port}/branches/<role>
         port = int(workspace.parent.parent.name.removeprefix("project_"))
     except Exception as exc:
-        logger.warning("atlas rebuild precheck failed: %s", exc)
+        logger.warning("shelf graph rebuild precheck failed: %s", exc)
         return {"rebuilt": False, "reason": f"precheck error: {exc}"}
 
     repo_root = Path(__file__).resolve().parent.parent.parent
@@ -239,19 +239,19 @@ def _maybe_rebuild_shelf_graph(workspace: Path | None) -> dict[str, Any]:
             check=False,
         )
     except subprocess.TimeoutExpired:
-        logger.warning("atlas rebuild timed out after %ds", _SHELF_GRAPH_REBUILD_TIMEOUT)
+        logger.warning("shelf graph rebuild timed out after %ds", _SHELF_GRAPH_REBUILD_TIMEOUT)
         return {
             "rebuilt": False,
             "reason": f"timeout after {_SHELF_GRAPH_REBUILD_TIMEOUT}s",
         }
     except Exception as exc:
-        logger.warning("atlas rebuild subprocess failed: %s", exc)
+        logger.warning("shelf graph rebuild subprocess failed: %s", exc)
         return {"rebuilt": False, "reason": f"subprocess error: {exc}"}
 
     duration = time.monotonic() - started
     if result.returncode != 0:
         tail = "\n".join((result.stderr or "").strip().splitlines()[-20:])
-        logger.info("atlas rebuild non-zero exit (rc=%d): %s", result.returncode, tail)
+        logger.info("shelf graph rebuild non-zero exit (rc=%d): %s", result.returncode, tail)
         return {
             "rebuilt": False,
             "reason": f"extract exit {result.returncode}",
@@ -305,13 +305,13 @@ def noter_wait() -> dict[str, Any]:
             break
 
     shelf_graph = _maybe_rebuild_shelf_graph(workspace)
-    # Register project graph into global cross-project Atlas (Gru reads this).
+    # Register project graph into global cross-project Shelf (Gru reads this).
     try:
         from minions.tools.shelf import mos_shelf_register
 
         shelf_global_reg = mos_shelf_register(port)
     except Exception as exc:
-        logger.warning("atlas registration failed: %s", exc)
+        logger.warning("shelf global registration failed: %s", exc)
         shelf_global_reg = {"registered": False, "reason": str(exc)}
 
     try:

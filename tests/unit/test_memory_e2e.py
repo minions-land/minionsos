@@ -200,10 +200,10 @@ def test_full_memory_pipeline_e2e(project_env, tmp_path: Path, monkeypatch):
     assert "I-001" not in crystallize_result["cited_node_ids"]
 
     # Step 9: Shelf registration aggregates project graph for Gru
-    # First create a project atlas/atlas.json (graphify output)
-    project_graph_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "atlas"
+    # First create a project shelf/shelf.json (graphify output)
+    project_graph_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "shelf"
     project_graph_dir.mkdir(parents=True, exist_ok=True)
-    (project_graph_dir / "atlas.json").write_text(
+    (project_graph_dir / "shelf.json").write_text(
         json.dumps(
             {
                 "nodes": [
@@ -222,7 +222,7 @@ def test_full_memory_pipeline_e2e(project_env, tmp_path: Path, monkeypatch):
 
     # Override project graph path to use our temp project location
     def _project_graph_path(p):
-        return tmp_path / f"project_{p}" / "branches" / "shared" / "atlas" / "atlas.json"
+        return tmp_path / f"project_{p}" / "branches" / "shared" / "shelf" / "shelf.json"
 
     monkeypatch.setattr(shelf, "_project_graph_path", _project_graph_path)
 

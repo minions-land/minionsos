@@ -53,11 +53,11 @@ def test_verified_status_triggers_wiki_status_hook(
     assert calls == [(_isolated_project["port"], "H-001", "verified", "ethics")]
 
 
-def test_tentative_status_does_not_trigger_wiki_status_hook(
+def test_tentative_status_does_not_trigger_book_status_hook(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def fail_emit(port: int, node_id: str, new_status: str, annotator: str) -> None:
-        raise AssertionError(f"unexpected wiki hook: {port} {node_id} {new_status} {annotator}")
+        raise AssertionError(f"unexpected book hook: {port} {node_id} {new_status} {annotator}")
 
     monkeypatch.setattr(draft, "_emit_book_status_event", fail_emit)
     _append_hypothesis()
@@ -87,7 +87,7 @@ def test_wiki_status_hook_exception_does_not_propagate(
 ) -> None:
     def fail_emit(port: int, node_id: str, new_status: str, annotator: str) -> None:
         del port, node_id, new_status, annotator
-        raise RuntimeError("wiki unavailable")
+        raise RuntimeError("book unavailable")
 
     monkeypatch.setattr(draft, "_emit_book_status_event", fail_emit)
     _append_hypothesis()
@@ -130,7 +130,7 @@ def test_full_wiki_status_hook_calls_wiki_ingest(
         return {"slug": source_slug}
 
     monkeypatch.setattr(book, "mos_book_ingest", fake_mos_book_ingest)
-    _append_hypothesis("A long enough hypothesis for a wiki status update.")
+    _append_hypothesis("A long enough hypothesis for a book status update.")
 
     draft.mos_draft_annotate(node_id="H-001", support_status="verified")
 
