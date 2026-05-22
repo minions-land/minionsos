@@ -2,8 +2,7 @@
 
 The Reel layer captures verbatim transcripts of role sessions and subagent
 dispatches, providing the lowest-level audit trail for all reasoning that
-produces Draft nodes, Book pages, and Shelf entries. It is the foundation
-for Library's "executable + recoverable" properties.
+produces Draft nodes, Book pages, and Shelf entries.
 
 **Design principles:**
 
@@ -41,10 +40,6 @@ Draft/Book/Shelf metadata carries ``reel_ref`` strings in the form:
 **Lifecycle:**
 
 - Transcripts are written once and never modified.
-- Noter periodic lint marks sessions as ``archived: true`` after 30 days
-  if no verified Draft nodes reference them.
-- Archived sessions remain readable (for Library export) but disappear
-  from ``mos_unread_summary``.
 
 Environment:
     MINIONS_PROJECT_PORT — identifies the project.

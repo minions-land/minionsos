@@ -51,7 +51,7 @@ class TestDoctorAgentHost:
         names = {c["name"] for c in checks}
         assert "codex-cli" in names
         assert "codex-automation" in names
-        assert "codex-mcp-config-mounts-eacn3" in names
+        assert "codex-mcp-config-mounts-core" in names
         assert "codex-mcp-eacn3-direct" in names
         host = next(c for c in checks if c["name"] == "agent-host")
         assert host["detail"] == "codex"

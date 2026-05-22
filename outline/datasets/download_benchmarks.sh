@@ -54,64 +54,100 @@ pull_hf() {
     log "  ✓ Already downloaded: $target"
     return
   fi
-  if command -v huggingface-cli &>/dev/null; then
-    run huggingface-cli download "$dataset" --repo-type dataset --local-dir "$target"
-  else
-    log "  ⚠ huggingface-cli not found, skipping HF dataset"
+  # Use hf-mirror.com (huggingface.co is TCP-reset on this host).
+  # Approach: enumerate files via /api/datasets/.../tree/main?recursive=true,
+  # then curl each blob through /datasets/.../resolve/main/<path>.
+  # See ~/.claude/skills/huggingface-fetch/SKILL.md for full recipe.
+  local mirror="${HF_MIRROR:-https://hf-mirror.com}"
+  mkdir -p "$target"
+  log "  ↓ HF dataset $dataset → $target (via $mirror)"
+
+  local listing
+  listing=$(curl -sSL --max-time 30 \
+    "$mirror/api/datasets/$dataset/tree/main?recursive=true" 2>/dev/null) || {
+    log "  ✗ tree API failed for $dataset"
+    return
+  }
+  if [[ -z "$listing" ]] || [[ "$listing" == *'"error"'* ]]; then
+    log "  ✗ tree API: $(echo "$listing" | head -c 100)"
+    return
   fi
+
+  echo "$listing" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for f in data:
+    if f.get('type') == 'file':
+        print(f['path'])
+" 2>/dev/null | while read -r path; do
+    [[ -z "$path" ]] && continue
+    out="$target/$path"
+    mkdir -p "$(dirname "$out")"
+    if [[ -s "$out" ]]; then
+      continue
+    fi
+    if $DRY_RUN; then
+      echo "[DRY] curl $mirror/datasets/$dataset/resolve/main/$path"
+    else
+      curl -sSL --max-time 300 ${HF_TOKEN:+-H "Authorization: Bearer $HF_TOKEN"} \
+        -o "$out" "$mirror/datasets/$dataset/resolve/main/$path" \
+        || log "    ✗ failed: $path"
+    fi
+  done
+  log "  ✓ HF dataset $dataset done"
 }
 
 # Tier 1: 17 benchmarks that can be evaluated immediately (status: ✓)
 TIER1=(
   "1.2-literature-review/LitSearch|https://github.com/princeton-nlp/LitSearch|"
-  "1.2-literature-review/CiteME||"
+  "1.2-literature-review/CiteME|https://github.com/bethgelab/CiteME|"
   "1.3-coding-experiments/SWE-bench|https://github.com/princeton-nlp/SWE-bench|princeton-nlp/SWE-bench"
   "1.3-coding-experiments/SciCode|https://github.com/scicode-bench/SciCode|"
   "1.3-coding-experiments/MLAgentBench|https://github.com/snap-stanford/MLAgentBench|"
-  "1.3-coding-experiments/ScienceAgentBench||"
+  "1.3-coding-experiments/ScienceAgentBench|https://github.com/OSU-NLP-Group/ScienceAgentBench|"
   "1.3-coding-experiments/KernelBench|https://github.com/ScalingIntelligence/KernelBench|"
   "1.3-coding-experiments/TritonBench|https://github.com/thunlp/TritonBench|"
-  "1.3-coding-experiments/InfiAgent-DABench||"
-  "1.3-coding-experiments/SUPER||"
-  "1.4-tables-figures/TeXpert||"
-  "1.4-tables-figures/ChartQA||"
+  "1.3-coding-experiments/InfiAgent-DABench|https://github.com/InfiAgent/InfiAgent|"
+  "1.3-coding-experiments/SUPER|https://github.com/allenai/super-benchmark|"
+  "1.4-tables-figures/TeXpert|https://github.com/knowledge-verse-ai/TeXpert|"
+  "1.4-tables-figures/ChartQA|https://github.com/vis-nlp/ChartQA|"
   "2-paper-writing/SciIG||"
   "2-paper-writing/AutoSurvey|https://github.com/AutoSurveys/AutoSurvey|"
-  "3.1-peer-review/PeerRead||"
+  "3.1-peer-review/PeerRead|https://github.com/allenai/PeerRead|"
   "3.1-peer-review/ClaimCheck||"
   "e2e-general/GAIA||gaia-benchmark/GAIA"
-  "e2e-general/SimpleQA||"
+  "e2e-general/SimpleQA|https://github.com/openai/simple-evals|"
 )
 
 # Tier 2: 34 benchmarks needing light adapter (status: ~)
 TIER2=(
   "1.1-idea-generation/IdeaBench||"
-  "1.1-idea-generation/LiveIdeaBench||"
+  "1.1-idea-generation/LiveIdeaBench|https://github.com/x66ccff/liveideabench|"
   "1.1-idea-generation/AI-Idea-Bench-2025|https://github.com/yansheng-qiu/AI_Idea_Bench_2025|"
   "1.1-idea-generation/HindSight||"
   "1.2-literature-review/DeepScholar-Bench|https://github.com/guestrin-lab/deepscholar-bench|"
   "1.2-literature-review/ReportBench|https://github.com/ByteDance-BandAI/ReportBench|"
   "1.2-literature-review/ScholarGym||"
   "1.3-coding-experiments/SWE-bench-Pro||"
-  "1.3-coding-experiments/ResearchCodeBench||"
+  "1.3-coding-experiments/ResearchCodeBench|https://github.com/PatrickHua/ResearchCodeBench|"
   "1.3-coding-experiments/SciReplicate-Bench|https://github.com/xyzCS/SciReplicate-Bench|"
-  "1.3-coding-experiments/MLE-Bench||"
+  "1.3-coding-experiments/MLE-Bench|https://github.com/openai/mle-bench|"
   "1.3-coding-experiments/EXP-Bench|https://github.com/Just-Curieous/Curie|"
   "1.3-coding-experiments/PostTrainBench|https://github.com/aisa-group/PostTrainBench|"
   "1.3-coding-experiments/DiscoveryBench|https://github.com/allenai/discoverybench|"
   "1.3-coding-experiments/LAB-Bench|https://github.com/Future-House/LAB-Bench|"
-  "1.3-coding-experiments/RE-Bench||"
+  "1.3-coding-experiments/RE-Bench|https://github.com/METR/RE-Bench|"
   "1.3-coding-experiments/CORE-Bench||"
-  "1.4-tables-figures/ArxivDIGESTables||"
-  "1.4-tables-figures/Chain-of-Table||"
-  "1.4-tables-figures/AbGen||"
+  "1.4-tables-figures/ArxivDIGESTables|https://github.com/bnewm0609/arxivDIGESTables|"
+  "1.4-tables-figures/Chain-of-Table|https://github.com/google-research/chain-of-table|"
+  "1.4-tables-figures/AbGen|https://github.com/yale-nlp/AbGen|"
   "1.4-tables-figures/FigureBench|https://github.com/ResearAI/AutoFigure|"
   "2-paper-writing/PaperWritingBench||"
-  "3.1-peer-review/ReviewMT||"
-  "3.1-peer-review/AgentReview||"
+  "3.1-peer-review/ReviewMT|https://github.com/chengtan9907/ReviewMT|"
+  "3.1-peer-review/AgentReview|https://github.com/Ahren09/AgentReview|"
   "3.1-peer-review/ReviewAgents||"
   "3.1-peer-review/AI-Detection||"
-  "3.1-peer-review/Breaking-the-Reviewer||"
+  "3.1-peer-review/Breaking-the-Reviewer|https://github.com/Lin-TzuLing/Breaking-the-Reviewer|"
   "3.1-peer-review/Prompt-Injection||"
   "3.2-rebuttal/Re2||"
   "3.2-rebuttal/RebuttalAgent|https://github.com/Zhitao-He/RebuttalAgent|"
@@ -130,12 +166,12 @@ TIER3=(
   "1.2-literature-review/SciNetBench||"
   "1.3-coding-experiments/SWE-EVO||"
   "1.3-coding-experiments/PaperBench|https://github.com/openai/preparedness|"
-  "1.3-coding-experiments/MLGym||"
+  "1.3-coding-experiments/MLGym|https://github.com/facebookresearch/MLGym|"
   "1.3-coding-experiments/MLR-Bench||"
   "1.3-coding-experiments/DiscoveryWorld|https://github.com/allenai/discoveryworld|"
   "1.3-coding-experiments/AstaBench|https://github.com/allenai/asta-bench|"
   "1.3-coding-experiments/ResearchClawBench|https://github.com/InternScience/ResearchClawBench|"
-  "1.3-coding-experiments/FrontierScience||"
+  "1.3-coding-experiments/FrontierScience|https://github.com/medicalsphere/FrontierScience|"
   "1.4-tables-figures/SciFlow-Bench||"
   "3.1-peer-review/ICLR-2025-Study||"
   "3.1-peer-review/RATE||"

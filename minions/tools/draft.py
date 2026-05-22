@@ -281,9 +281,9 @@ def _effective_confidence(
     """Compute effective_confidence from stored confidence, age, and topology.
 
     Pure function — no IO, no LLM. Each support edge resets ~half the elapsed
-    age (reinforcement); each contradicts edge accelerates decay. The Ebbinghaus
-    pattern from LLM Wiki V2: decay is exponential with half-life by type,
-    reinforcement effectively rolls back the clock.
+    age (reinforcement); each contradicts edge accelerates decay. Ebbinghaus
+    pattern: decay is exponential with half-life by type, reinforcement
+    effectively rolls back the clock.
     """
     half_life = DECAY_HALF_LIFE_DAYS.get(node_type, DECAY_HALF_LIFE_DEFAULT)
     reinforced_age = max(0.0, age_days - 0.5 * half_life * supports)

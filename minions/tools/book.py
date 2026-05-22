@@ -1706,7 +1706,7 @@ def mos_book_promote_verified(
 ) -> dict[str, object]:
     """Promote verified Draft insights to durable Book pages.
 
-    Knowledge promotion (LLM Wiki V2 consolidation tier): when a Draft
+    Knowledge promotion (Book consolidation tier): when a Draft
     node of type ∈ {insight, method, result} reaches support_status=verified,
     has at least ``min_supporting_edges`` ``supports`` edges, has been stable
     for ``min_age_days`` days, and isn't already cited by any Book page,
@@ -2087,7 +2087,7 @@ def mos_book_save_synthesis(
 ) -> dict[str, object]:
     """Save a question→answer pair as a compounding Book page.
 
-    **Compounding queries pattern** (Wiki V2 W7): when a role synthesizes
+    **Compounding queries pattern**: when a role synthesizes
     an answer from multiple Book pages, calling this tool materializes
     that synthesis as a new ``book/queries/<slug>.md`` page. Future
     queries match the question text and surface the prior answer first,

@@ -171,7 +171,3 @@ class TestRegister:
         ):
             role_mod.register_role(37596, "coder", store=store)
         assert store.upserts == []
-
-    def test_spawn_role_alias(self) -> None:
-        assert role_mod.spawn_role is role_mod.register_role
-        assert role_mod.spawn_expert is role_mod.register_expert

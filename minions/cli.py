@@ -286,14 +286,14 @@ def doctor(
 
         mcp_cfg = _json.loads((MINIONS_ROOT / ".mcp.json").read_text(encoding="utf-8"))
         servers = set(mcp_cfg.get("mcpServers", {}).keys())
-        missing = {"minionsos", "eacn3"} - servers
+        missing = {"minionsos", "eacn3", "keepalive", "graphify"} - servers
         _check(
-            "mcp-config-mounts-eacn3",
+            "mcp-config-mounts-core",
             not missing,
             f"present: {sorted(servers)}" if not missing else f"missing: {sorted(missing)}",
         )
     except Exception as exc:
-        _check("mcp-config-mounts-eacn3", False, str(exc))
+        _check("mcp-config-mounts-core", False, str(exc))
 
     # Codex project MCP config mounts the same servers for Codex host sessions.
     try:
@@ -302,9 +302,9 @@ def doctor(
         codex_cfg_path = MINIONS_ROOT / ".codex" / "config.toml"
         codex_cfg = tomllib.loads(codex_cfg_path.read_text(encoding="utf-8"))
         servers = set((codex_cfg.get("mcp_servers") or {}).keys())
-        missing = {"minionsos", "eacn3"} - servers
+        missing = {"minionsos", "eacn3", "keepalive", "graphify"} - servers
         _check(
-            "codex-mcp-config-mounts-eacn3",
+            "codex-mcp-config-mounts-core",
             not missing,
             f"present: {sorted(servers)}" if not missing else f"missing: {sorted(missing)}",
         )
@@ -324,7 +324,7 @@ def doctor(
             ),
         )
     except Exception as exc:
-        _check("codex-mcp-config-mounts-eacn3", False, str(exc))
+        _check("codex-mcp-config-mounts-core", False, str(exc))
         _check("codex-mcp-eacn3-direct", False, str(exc))
 
     # Port range probe. The allocator can skip an occupied first port, so

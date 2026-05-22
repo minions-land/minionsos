@@ -74,7 +74,7 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/domains/*.md` — Expert domain packs used as reusable specialty assets.
 - `minions-viz/` — read-only Observatory dashboard, Express/WebSocket server plus React/Vite frontend.
 - `EACN3` — local editable EACN3 dependency (lives at `mcp-servers/eacn3/`).
-- `mcp-servers/` — standalone MCP servers registered in `.mcp.json`. `mcp-servers/README.md` is the canonical registry. Currently houses `eacn3/` (the EACN3 dep + its Node plugin) and `codex-subagent/` (Node bridge to Codex GPT-5.5). The `minionsos` MCP server itself lives inside the Python package at `minions/tools/mcp_server.py` for import-graph reasons; see `mcp-servers/minionsos.md` for why.
+- `mcp-servers/` — standalone MCP servers registered in `.mcp.json`. `mcp-servers/README.md` is the canonical registry. Currently houses `eacn3/` (the EACN3 dep + its Node plugin), `codex-subagent/` (Node bridge to Codex GPT-5.5), `keepalive/` (Python FastMCP — `wait_bg` cache-keepalive + `keepalive_now`), and `graphify/` (Python — read-only L3 Shelf graph queries). The `minionsos` MCP server itself lives inside the Python package at `minions/tools/mcp/` (with a 50-line shim at `minions/tools/mcp_server.py`) for import-graph reasons; see `mcp-servers/minionsos.md` for why.
 - `project_{port}/` — runtime projects created by Gru; gitignored.
 
 ### Python package responsibilities

@@ -63,8 +63,8 @@ class TestDoctorEacn3Checks:
         for name in (
             "eacn3-plugin-built",
             "node>=16",
-            "mcp-config-mounts-eacn3",
-            "codex-mcp-config-mounts-eacn3",
+            "mcp-config-mounts-core",
+            "codex-mcp-config-mounts-core",
             "codex-mcp-eacn3-direct",
         ):
             assert name in text, f"doctor lost check: {name}"

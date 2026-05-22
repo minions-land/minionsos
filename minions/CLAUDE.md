@@ -8,7 +8,7 @@ This file is shown when you `cd minions/ && claude` to hack MinionsOS itself. It
 minions/
 ├── __init__.py              # package root; exports version
 ├── bin/gru                  # shell launcher (Claude Code host)
-├── cli.py                   # `mos` CLI entrypoint (argparse); dispatches subcommands
+├── cli.py                   # `mos` CLI entrypoint (Typer); dispatches subcommands
 ├── gru/
 │   ├── __init__.py
 │   └── loop.py              # Gru heartbeat/health loop plus experiment queue reconciliation

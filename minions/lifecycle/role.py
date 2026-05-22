@@ -6,14 +6,14 @@ surface used at project bootstrap and by the ``mos`` CLI:
 
 - ``register_role`` / ``register_expert`` register a project-local EACN3
   AgentCard, prepare the Role's workspace, and record a named host session in
-  ``projects.json``. They do NOT start an agent-host subprocess.
+  ``projects.json``. They do NOT start an agent-host subprocess. The MCP
+  layer imports them as ``mos_spawn_role`` / ``mos_spawn_expert``.
 - ``dismiss_role`` marks a role dismissed and unregisters it from the
   project's EACN3 network.
 - ``list_roles`` returns the current registry.
 
-The public ``spawn_role`` / ``spawn_expert`` names are the MCP-facing aliases
-for ``register_role`` / ``register_expert``. Resident-Role process startup is
-owned by the resident-Role launcher and not by this module.
+Resident-Role process startup is owned by the resident-Role launcher and
+not by this module.
 """
 
 from __future__ import annotations
@@ -434,11 +434,6 @@ def _do_register(
         "attach_cmd": launch_status.get("attach_cmd"),
         "launch_started": launch_status.get("started"),
     }
-
-
-# Public aliases used by the MCP surface.
-spawn_role = register_role
-spawn_expert = register_expert
 
 
 # ---------------------------------------------------------------------------

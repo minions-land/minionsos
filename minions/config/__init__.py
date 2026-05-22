@@ -129,7 +129,7 @@ _BOOK_READ_TOOLS = [
 ]
 
 # Book synthesis-write tool: persists a question→answer synthesis as a
-# compounding Book page (Wiki V2 W7). Whitelisted to Noter and Gru only —
+# compounding Book page. Whitelisted to Noter and Gru only —
 # Noter materializes role-supplied syntheses verbatim. The synthesis content
 # itself can come from any role's reasoning (delivered via EACN message),
 # but the persist call goes through Noter to honor the Book ownership

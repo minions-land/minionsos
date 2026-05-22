@@ -9,10 +9,10 @@ from minions.lifecycle.role import (
     list_roles as _list_roles,
 )
 from minions.lifecycle.role import (
-    spawn_expert as _spawn_expert,
+    register_expert as _spawn_expert,
 )
 from minions.lifecycle.role import (
-    spawn_role as _spawn_role,
+    register_role as _spawn_role,
 )
 from minions.tools.mcp import mcp
 from minions.tools.mcp._common import (
