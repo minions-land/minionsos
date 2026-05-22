@@ -314,3 +314,64 @@ def test_archive_transcript_missing_source(mock_project_port, monkeypatch, caplo
         tmp_path / f"project_{port}" / "branches" / "coder" / "reel" / session_id / "index.jsonl"
     )
     assert not index_path.exists()
+
+
+def test_validate_ref_component_accepts_normal_values():
+    """Sanity check: normal component values pass validation."""
+    from minions.tools.reel import _validate_ref_component
+
+    assert _validate_ref_component("coder", "role") == "coder"
+    assert _validate_ref_component("sess-20260522-123456", "session_id") == "sess-20260522-123456"
+    assert _validate_ref_component("a1b2c3d4e5f6", "task_id") == "a1b2c3d4e5f6"
+    # Whitespace is stripped.
+    assert _validate_ref_component("  coder  ", "role") == "coder"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        " ",
+        ".",
+        "..",
+        "../etc",
+        "..\\etc",
+        "foo/bar",
+        "foo\\bar",
+        ".hidden",
+        ".env",
+    ],
+)
+def test_validate_ref_component_rejects_traversal_patterns(value):
+    """Path-traversal guard: reject any component that could escape the reel root.
+
+    Added in v13.5 after pass-2 audit identified that mos_reel_get(ref) accepted
+    refs from model output with only a count check; a malicious ref like
+    'coder/../foo/bar' would resolve outside the project's reel directory.
+    """
+    from minions.tools.reel import _validate_ref_component
+
+    with pytest.raises(ValueError, match="Invalid reel ref"):
+        _validate_ref_component(value, "test_label")
+
+
+def test_mos_reel_get_rejects_traversal_ref(mock_project_port, monkeypatch):
+    """End-to-end: mos_reel_get(ref) rejects path-traversal in any component."""
+    monkeypatch.setenv("MINIONS_ROLE_NAME", "gru")  # Gru can read any role's reel
+
+    with pytest.raises(ValueError, match="Invalid reel ref"):
+        mos_reel_get("coder/../foo/bar")
+
+    with pytest.raises(ValueError, match="Invalid reel ref"):
+        mos_reel_get("coder/sess-1/..")
+
+    with pytest.raises(ValueError, match="Invalid reel ref"):
+        mos_reel_get("../etc/sess-1/task-1")
+
+
+def test_mos_reel_window_rejects_traversal_ref(mock_project_port, monkeypatch):
+    """End-to-end: mos_reel_window(ref) rejects path-traversal in any component."""
+    monkeypatch.setenv("MINIONS_ROLE_NAME", "gru")
+
+    with pytest.raises(ValueError, match="Invalid reel ref"):
+        mos_reel_window("coder/../foo/bar")

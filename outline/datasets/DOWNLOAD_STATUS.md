@@ -6,39 +6,36 @@
 ## Summary
 
 - **Total benchmarks catalogued:** 73 (74 dirs incl. summary)
-- **Repos successfully cloned:** 24
-- **Total size on disk:** 2.6 GB
+- **Repos successfully cloned:** 29 (1 partial: PaperBench needs git-lfs)
+- **Total size on disk:** 6.2 GB
 - **meta.json files:** 74 (one per benchmark with paper / repo / scoring / MinionsOS adapter status)
 
-## Successfully cloned (24 repos)
+## Successfully cloned (29 repos, 6.2 GB)
 
 ### Tier 1 — directly evaluable (✓), 7 repos
-- LitSearch (princeton-nlp)
-- SWE-bench (princeton-nlp)
-- SciCode (scicode-bench)
-- MLAgentBench (snap-stanford)
-- KernelBench (ScalingIntelligence)
-- TritonBench (thunlp)
-- AutoSurvey (AutoSurveys)
+- LitSearch (208K), SWE-bench (6.0M), SciCode (344K)
+- MLAgentBench (5.9M), KernelBench (5.9M), TritonBench (156M)
+- AutoSurvey (1.8M)
 
 ### Tier 2 — light adapter (~), 11 repos
-- AI-Idea-Bench-2025
-- DeepScholar-Bench, ReportBench
-- SciReplicate-Bench, EXP-Bench (Curie), PostTrainBench
-- DiscoveryBench, LAB-Bench
-- FigureBench (AutoFigure)
-- RebuttalAgent, DRPG
+- AI-Idea-Bench-2025 (325M)
+- DeepScholar-Bench (46M), ReportBench (11M)
+- SciReplicate-Bench (3.3M), EXP-Bench (47M), PostTrainBench (18M)
+- DiscoveryBench (69M), LAB-Bench (512M)
+- FigureBench (159M)
+- RebuttalAgent (3.6M), DRPG (3.8M)
 
 ### Tier 3 — medium refactor (!), 6 repos
-- HeurekaBench
-- **PaperBench** (openai/preparedness — GOLD STANDARD)
-- DiscoveryWorld, AstaBench, ResearchClawBench
-- HLE (Humanity's Last Exam)
+- HeurekaBench (358M)
+- **PaperBench** (39M, partial — needs `git lfs pull`)
+- DiscoveryWorld (58M), AstaBench (4.2M), ResearchClawBench (2.5G)
+- HLE (364K)
 
-### Tier 4 — not covered (✗), 0 repos
-None cloned. All 6 dissemination benchmarks (P2P, Paper2Poster, PPTAgent, Paper2Video, Paper2Web, PresentEval) require Paper2X module which MinionsOS doesn't have.
+### Tier 4 — not covered (✗), 5 repos cloned anyway
+- Paper2Poster (1.1G), PPTAgent-PPTEval (157M), Paper2Video (64M), Paper2Web (528M), PresentEval (152M)
+- These are dissemination benchmarks MinionsOS doesn't cover yet, but repos cloned for future reference.
 
-## Not downloaded (49 benchmarks)
+## Not downloaded (44 benchmarks)
 
 Reasons:
 - **Paper-only / proprietary** (no public repo): CiteME, PeerRead, ClaimCheck, SimpleQA, SciIG, TeXpert, ChartQA, ScienceAgentBench, InfiAgent-DABench, SUPER, MLE-Bench, RE-Bench, CORE-Bench, etc.
@@ -76,21 +73,28 @@ Every benchmark dir has a `meta.json` with:
 
 ## Next steps
 
-1. **Install HuggingFace CLI** to pull HF-hosted datasets:
+1. **Fix PaperBench (GOLD STANDARD)**:
+   ```bash
+   brew install git-lfs  # or apt-get install git-lfs
+   cd 1.3-coding-experiments/PaperBench/repo
+   git lfs pull
+   ```
+
+2. **Install HuggingFace CLI** to pull HF-hosted datasets:
    ```bash
    pip install huggingface_hub[cli]
    ./download_benchmarks.sh    # re-run; will skip already-cloned repos
    ```
 
-2. **Manually fetch paper-only benchmarks** as appendices/supplementary materials are released. Track in each benchmark's `meta.json`.
+3. **Manually fetch paper-only benchmarks** as appendices/supplementary materials are released. Track in each benchmark's `meta.json`.
 
-3. **Run Tier 1 evaluations** (17 directly evaluable):
+4. **Run Tier 1 evaluations** (17 directly evaluable):
    - Each `meta.json.minionsos.evaluation_flow` describes the exact MinionsOS Role + tool sequence.
 
-4. **Write Tier 2 adapters** (34 benchmarks, ~100-300 LoC each):
+5. **Write Tier 2 adapters** (34 benchmarks, ~100-300 LoC each):
    - Drop into `<benchmark>/adapter.py` next to `meta.json`.
 
-5. **Extend modules for Tier 3** (16 benchmarks):
+6. **Extend modules for Tier 3** (16 benchmarks):
    - Most need either project_bridge expansion (cross-project test) or a new tool.
 
 ## Recommended priority order

@@ -24,12 +24,7 @@ def _isolated_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         draft,
         "project_shared_draft_json",
-        lambda p: tmp_path
-        / f"project_{p}"
-        / "branches"
-        / "shared"
-        / "draft"
-        / "draft.json",
+        lambda p: tmp_path / f"project_{p}" / "branches" / "shared" / "draft" / "draft.json",
     )
     draft_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "draft"
     draft_dir.mkdir(parents=True)
@@ -107,7 +102,7 @@ class TestMosDraftAppend:
 
     @pytest.mark.parametrize("confidence", [-0.1, 1.1])
     def test_append_rejects_out_of_range_confidence(self, confidence: float):
-        with pytest.raises(ValueError, match="Node confidence must be 0.0-1.0"):
+        with pytest.raises(ValueError, match=r"Node confidence must be 0\.0-1\.0"):
             draft.mos_draft_append(
                 nodes=[{"type": "hypothesis", "text": "Invalid", "confidence": confidence}]
             )
@@ -182,9 +177,7 @@ class TestMosDraftQuery:
         assert "E-001" in ids
         assert "R-001" not in ids
 
-    def test_legacy_dag_without_provenance_confidence_still_works(
-        self, _isolated_project: Path
-    ):
+    def test_legacy_dag_without_provenance_confidence_still_works(self, _isolated_project: Path):
         _write_legacy_draft(
             _isolated_project,
             [
@@ -345,3 +338,62 @@ class TestMosDraftSummary:
             "speculative": 1,
             "inferred": 1,
         }
+
+
+class TestLoadDraftRobustness:
+    """Boundary cases for _load_draft — corrupt JSON should not crash the role."""
+
+    def test_load_draft_corrupt_json_falls_back_to_stub(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ):
+        """If draft.json is corrupt, _load_draft warns + returns empty stub
+        rather than crashing every Role op. Added in v13.5 after pass-2 audit
+        identified this latent gap."""
+        port = 9999
+        draft_path = draft._draft_path(port)
+        draft_path.parent.mkdir(parents=True, exist_ok=True)
+        draft_path.write_text("this is not { valid json", encoding="utf-8")
+
+        with caplog.at_level(logging.WARNING):
+            result = draft._load_draft(port)
+
+        assert result == {
+            "project_port": port,
+            "root_question": "",
+            "nodes": [],
+            "edges": [],
+        }
+        assert any("corrupt" in rec.message for rec in caplog.records)
+
+    def test_load_draft_missing_file_returns_stub(self, tmp_path: Path):
+        """When draft.json doesn't exist yet, _load_draft returns the empty stub."""
+        port = 9999
+        result = draft._load_draft(port)
+        assert result == {
+            "project_port": port,
+            "root_question": "",
+            "nodes": [],
+            "edges": [],
+        }
+
+    def test_load_draft_valid_json_preserved(self, tmp_path: Path):
+        """Valid draft.json is loaded unchanged — sanity check."""
+        port = 9999
+        draft_path = draft._draft_path(port)
+        draft_path.parent.mkdir(parents=True, exist_ok=True)
+        draft_path.write_text(
+            json.dumps(
+                {
+                    "project_port": port,
+                    "root_question": "Q",
+                    "nodes": [{"id": "H-1", "type": "hypothesis"}],
+                    "edges": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = draft._load_draft(port)
+        assert result["root_question"] == "Q"
+        assert len(result["nodes"]) == 1
+        assert result["nodes"][0]["id"] == "H-1"

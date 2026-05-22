@@ -273,7 +273,9 @@ fi
 
 # ── 9. Claude Code hooks verification ────────────────────────────────────────
 # Verify that the project Python can import all hook dependencies.
-# This catches the "system python3 is 3.9 but hooks need 3.11+" failure mode.
+# This catches the "system python3 is 3.9 but hooks need 3.11+" failure mode,
+# and that PostToolUse hooks survive MCP-shaped tool_response payloads
+# (which arrive as a list of content blocks, not a dict).
 info "Verifying Claude Code hooks..."
 HOOKS_DIR="$ROOT/minions/hooks"
 HOOK_VERIFY_FAILED=0
@@ -295,6 +297,22 @@ if ! "$PROJECT_PYTHON" -c "from datetime import UTC" 2>/dev/null; then
     warn "Project Python cannot import datetime.UTC (requires 3.11+)"
     HOOK_VERIFY_FAILED=1
 fi
+# PostToolUse smoke test: MCP tools (e.g. mcp__codex-subagent__codex) deliver
+# tool_response as a list of content blocks, not a dict. Hooks that read
+# tool_response.get(...) without a type guard crash with AttributeError on
+# every codex call. Verify the affected hooks survive the list shape.
+MCP_PAYLOAD='{"tool_name":"mcp__codex-subagent__codex","tool_input":{},"tool_response":[{"type":"text","text":"x"}]}'
+for hookname in bg_keepalive_nudge.py reel_capture.py; do
+    hook="$HOOKS_DIR/$hookname"
+    [ -f "$hook" ] || continue
+    err=$(printf '%s' "$MCP_PAYLOAD" | "$PROJECT_PYTHON" "$hook" 2>&1 >/dev/null) || true
+    if printf '%s' "$err" | grep -q "Traceback"; then
+        warn "Hook $hookname crashes on MCP-shaped tool_response (list, not dict)."
+        warn "First lines of traceback:"
+        printf '%s\n' "$err" | head -3 | sed 's/^/         /'
+        HOOK_VERIFY_FAILED=1
+    fi
+done
 if [ "$HOOK_VERIFY_FAILED" = "0" ]; then
     ok "All hooks verified with project Python ($("$PROJECT_PYTHON" --version 2>&1))"
 else
