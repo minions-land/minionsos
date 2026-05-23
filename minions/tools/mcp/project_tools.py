@@ -65,15 +65,18 @@ def mos_project_create(args: ProjectCreateArgs) -> dict:
         brief=args.brief,
         topic_doc=args.topic_doc,
         template_dir=args.template_dir,
+        profile=args.profile,
     )
     pdir = _pdir(entry.port).resolve()
     ws = _pws(entry.port).resolve()
+    profile_name = getattr(entry, "profile", None) or args.profile or "scientific-paper"
     return {
         "port": entry.port,
         "branch": entry.current_branch,
         "workspace_path": str(ws),
         "project_dir": str(pdir),
         "claude_md": str(pdir / "CLAUDE.md"),
+        "profile": profile_name,
     }
 
 

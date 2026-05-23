@@ -117,6 +117,8 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_visual_check",
     "mos_reel_get",
     "mos_reel_window",
+    "mos_submit",
+    "mos_evaluate",
 }
 
 
@@ -286,6 +288,14 @@ class ProjectCreateArgs(BaseModel):
         default=None,
         description=(
             "Absolute path to venue formatting templates; recorded in meta.json & CLAUDE.md."
+        ),
+    )
+    profile: str | None = Field(
+        default=None,
+        description=(
+            "Mission profile name (e.g. 'scientific-paper', 'hle-answer'). "
+            "Defaults to 'scientific-paper'. See minions/profiles/ for available options. "
+            "Profile selects which roles spawn, deliverable schema, and evaluator."
         ),
     )
 

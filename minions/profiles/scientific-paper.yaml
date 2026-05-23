@@ -1,0 +1,76 @@
+# scientific-paper.yaml
+# Default Mission Profile for MinionsOS — packages the original
+# Autonomous Scientific Discovery behavior with zero functional change.
+#
+# This profile is loaded when no --profile is specified, preserving
+# backward compatibility for every existing project workflow:
+# Noter + Coder + Ethics + Writer pipeline producing peer-reviewed paper PDFs.
+
+name: scientific-paper
+lightweight: false
+
+# Roles spawned at project_create time. Writer is on-demand (Gru spawns it
+# when the project enters writing phase) so it's not in the initial roster.
+# Experts are spawned by Gru via mos_spawn_expert based on project needs.
+roles_active:
+  - gru
+  - noter
+  - coder
+  - ethics
+
+# No role prompt overlays for the default scientific-paper profile.
+# The standard SYSTEM.md files under minions/roles/<role>/ already encode
+# the scientific discovery context.
+role_prompt_overlay: {}
+
+deliverable_schema:
+  # Paths under branches/shared/ where the final deliverable artefacts live.
+  # Required artefacts that mos_evaluate will verify exist before scoring.
+  required:
+    - branches/shared/notes/  # Noter-curated synthesis notes
+    - branches/shared/exp/    # Coder experiment bundles
+  # Optional artefacts that are part of a complete deliverable but not required.
+  optional:
+    - branches/shared/ethics/
+    - branches/shared/reviews/
+  # Per-role publish whitelist. Lists the subdirs under branches/shared/
+  # each role may publish into via mos_publish_to_shared.
+  # "*" means any subdir (Gru only).
+  publish_whitelist:
+    gru:
+      - "*"
+    noter:
+      - notes
+      - draft
+      - handoffs
+      - book
+    ethics:
+      - ethics
+      - handoffs
+      - governance
+    writer:
+      - handoffs
+      - governance
+    coder:
+      - exp
+      - handoffs
+      - governance
+    expert:
+      - handoffs
+      - governance
+
+evaluation:
+  # Strategy for evaluating the deliverable. The scientific-paper strategy
+  # delegates to mos_review_run for full peer-review with reviewer-instance
+  # multi-pass simulation.
+  strategy: scientific_peer_review
+  # Number of review rounds to run (mos_review_run round_number).
+  default_rounds: 1
+
+# Phase schema: scientific projects progress exploration → experiment →
+# writing → review. Lives in minions/lifecycle/_project_phase.py.
+phase_schema: scientific_three_stage
+
+# Default behavior on deliverable submission: leave the project active so
+# Gru can iterate (revisions, follow-up rounds). Operators close manually.
+on_done: none

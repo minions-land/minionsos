@@ -1303,23 +1303,40 @@ def project_create(
     brief: str | None = None,
     topic_doc: str | None = None,
     template_dir: str | None = None,
+    profile: str | None = None,
     store: StateStore | None = None,
 ) -> ProjectEntry:
     """Create a new project, start its EACN3 backend, and register it.
 
     Steps:
     1. Allocate a free port.
-    2. Create ``project_{port}/`` directory tree.
-    3. Create git worktree on branch ``minionsos/project-{port}``.
-    4. Start EACN3 backend subprocess; health-probe up to 20 s.
-    5. Write ``meta.json``.
-    6. Register in ``projects.json``.
+    2. Load the mission profile (defaults to "scientific-paper").
+    3. Create ``project_{port}/`` directory tree.
+    4. Create git worktree on branch ``minionsos/project-{port}``.
+    5. Start EACN3 backend subprocess; health-probe up to 20 s.
+    6. Write ``meta.json`` with profile metadata.
+    7. Register in ``projects.json``.
+
+    Args:
+        profile: Mission profile name (e.g., "scientific-paper", "hle-answer").
+                 Defaults to "scientific-paper" if not specified.
 
     Returns the ``ProjectEntry`` for the new project.
     """
+    from minions.profiles import get_default_profile, load_profile
+
+    profile_name = profile or get_default_profile()
+    mission_profile = load_profile(profile_name)
+
     _store = store or StateStore()
     port = _store.find_next_port()
-    logger.info("project_create name=%r port=%d venue=%r", real_name, port, venue)
+    logger.info(
+        "project_create name=%r port=%d venue=%r profile=%s",
+        real_name,
+        port,
+        venue,
+        profile_name,
+    )
 
     try:
         from minions.config import load_gru_config
@@ -1428,6 +1445,15 @@ def project_create(
     entry_dict["workspace_shared"] = str(project_shared_workspace(port).resolve())
     entry_dict["github_push_target"] = github_push_target
     entry_dict["github_push_branch_prefix"] = github_push_branch_prefix
+    # Persist mission profile so revive / role launch / evaluator can read it.
+    entry_dict["profile"] = profile_name
+    entry_dict["profile_roles_active"] = list(mission_profile.roles_active)
+    entry_dict["profile_lightweight"] = mission_profile.lightweight
+    entry_dict["profile_phase_schema"] = mission_profile.phase_schema
+    entry_dict["profile_on_done"] = mission_profile.on_done
+    entry_dict["profile_evaluation"] = dict(mission_profile.evaluation)
+    entry_dict["profile_deliverable_schema"] = dict(mission_profile.deliverable_schema)
+    entry_dict["profile_role_prompt_overlay"] = dict(mission_profile.role_prompt_overlay)
     # Persist external resource pointers so revive / downstream tools can see them.
     if topic_doc:
         entry_dict["topic_doc"] = topic_doc
