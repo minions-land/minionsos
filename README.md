@@ -19,12 +19,21 @@
 ## English
 
 **MinionsOS** is a local multi-agent operating system for running isolated,
-paper-sized research projects. A persistent **Gru** supervisor manages projects;
+research-grade projects. A persistent **Gru** supervisor manages projects;
 each project owns its own **EACN3** coordination backend; long-lived
 agent-host **Roles** wake up on event arrival, process work, and stay resident
 across many cycles. Claude Code is the only Role host; **Codex GPT-5.5** is
 reachable as a sub-agent through the `codex-subagent` MCP server when a Role
 wants to delegate high-intensity execution.
+
+The runtime topology of each project is selected by a *Mission Profile*
+(`minions/profiles/<name>.yaml`). The default `scientific-paper` profile drives
+the full Autonomous Scientific Discovery pipeline (paper-sized projects with
+Noter + Coder + Ethics + Writer producing peer-reviewed PDFs). Lightweight
+profiles like `hle-answer` enable benchmark/leaderboard scenarios (HLE, MMLU,
+GPQA, SWE-bench) by spawning a smaller role roster and evaluating against a
+reference answer instead of running peer review. The full ASD capability is
+preserved as the default — switching to benchmarks is opt-in via `--profile`.
 
 The design goal is simple: one author, one checkout, one Gru, many isolated
 research projects.
@@ -53,6 +62,14 @@ research projects.
 - **Project isolation.** Every project has its own `project_{port}/` directory,
   EACN3 backend, SQLite state, per-project bare git repo, role worktrees, logs,
   artifacts, and event audit stream.
+- **Mission Profiles.** Each project is parameterised by a *Mission Profile*
+  (`minions/profiles/<name>.yaml`) declaring `roles_active`, `deliverable_schema`,
+  `evaluation` strategy, `phase_schema`, and `on_done` behaviour. The default
+  `scientific-paper` profile preserves the original Autonomous Scientific
+  Discovery pipeline; `hle-answer` runs lightweight benchmark Q&A. New profiles
+  ship as a single YAML file plus optional role-prompt overlays. Drives the
+  `mos_submit` / `mos_evaluate` MCP tools and the `mos benchmark run` CLI for
+  打榜 / leaderboard sweeps.
 - **Long-lived Roles.** Noter, Coder, Writer, Ethics, and Expert run as
   resident `claude` processes inside named tmux sessions
   (`mos-{port}-{role}`). EACN-registered roles drive their event loop with
@@ -676,6 +693,14 @@ MCP 调用 **Codex GPT-5.5** 作为子代理。
 
 - **项目隔离。** 每个项目都有独立的 `project_{port}/`、EACN3 后端、SQLite
   状态、独立 bare git 仓库、Role worktree、日志、产物以及事件审计流。
+- **任务剖面（Mission Profile）。** 每个项目由一份 YAML 任务剖面
+  (`minions/profiles/<name>.yaml`) 决定其角色阵容、产物 schema、评估策略、
+  阶段调度和完成后行为。默认 `scientific-paper` 完整保留 Autonomous
+  Scientific Discovery 流水线（Noter + Coder + Ethics + Writer 同行评议）；
+  `hle-answer` 等轻量剖面用于打榜场景（HLE / MMLU / GPQA 等单题答案）。
+  剖面切换通过 `mos_project_create(profile=...)` 或 CLI `--profile` 完成；
+  原 ASD 能力作为默认行为完整保留，零破坏性变化。配套的 `mos_submit` /
+  `mos_evaluate` MCP 工具与 `mos benchmark run <jsonl>` CLI 用于批量打榜。
 - **常驻 Role。** Noter、Coder、Writer、Ethics 和 Expert 都是常驻 `claude`
   进程，运行在各自命名的 tmux 会话（`mos-{port}-{role}`）中。注册到 EACN
   的 Role 通过 `mos_await_events()` 驱动事件循环；Noter 是例外，它不注册到

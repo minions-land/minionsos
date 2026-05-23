@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MinionsOS is a local multi-agent operating system for running autonomous research projects. A persistent Gru process supervises many isolated paper-sized projects; each project has its own EACN3 backend, git worktree, artifacts, logs, role drafts, and long-lived Role processes hosted by Claude Code. Roles may delegate high-intensity execution to Codex GPT-5.5 through the `codex-subagent` MCP, but Codex never hosts a Role process directly.
 
+**Mission Profiles (v15+).** A project's behaviour is controlled by a *Mission Profile* (`minions/profiles/<name>.yaml`) selected at `mos_project_create` time. Profiles declare which Roles spawn, what the deliverable is, and how it's evaluated. The default `scientific-paper` profile preserves the original Autonomous Scientific Discovery pipeline (Noter + Coder + Ethics + Writer → peer-reviewed paper PDF). Lightweight profiles like `hle-answer` enable benchmark/leaderboard scenarios (HLE, MMLU, GPQA, SWE-bench) by spawning a smaller role roster (Gru + Expert + Coder), persisting deliverables under `branches/shared/submissions/`, and evaluating via `mos_evaluate` strategies (`answer_grader`, `test_runner`, or `scientific_peer_review`). The original Autonomous Scientific Discovery capability is fully preserved as the default profile; no breaking changes to existing projects.
+
 `mcp-servers/eacn3/` is a local editable dependency pinned through `pyproject.toml` and `uv.lock`. Treat it as a dependency boundary during normal MinionsOS work: prefer EACN MCP tools and the MinionsOS adapter modules over hand-written HTTP calls or incidental edits inside `mcp-servers/eacn3/`.
 
 ## Common commands
@@ -146,6 +148,33 @@ Cross-role writes go through `mos_publish_to_shared(role, src_path, dst_subpath,
 
 The parent directory containing this repository is the **author seed repo**: at `mos_project_create` time, MinionsOS imports its current HEAD (excluding `MinionsOS/` itself and any file larger than 500 MB) into a per-project bare git repo at `project_{port}/parent_repo.git/`. All worktrees — main, role, shared — branch off that per-project bare repo, so the author repo is never written to and never gains `minionsos/*` branches. The seed source must be git-initialized; `./install.sh` warns about this and `./mos doctor` re-checks it. To override the seed source, set `gru.yaml:author_repo` (or `MINIONS_AUTHOR_REPO`).
 
+### Mission profiles
+
+A *Mission Profile* is a project-level YAML manifest under `minions/profiles/<name>.yaml` that decouples the runtime topology from the "always a paper" assumption. Each profile declares:
+
+- `roles_active`: which Roles spawn at `mos_project_create` time (e.g. scientific-paper spawns `gru/noter/coder/ethics`; hle-answer only spawns `gru/expert/coder`).
+- `role_prompt_overlay`: per-role markdown overlay paths appended to the role's `SYSTEM.md` so a profile can reshape Role focus without forking prompts.
+- `deliverable_schema`: required output paths under `branches/shared/`, plus a per-role `publish_whitelist` overriding the default scientific-paper baseline. The default whitelist (in `minions/tools/publish.py`) is the fallback when no profile is set.
+- `evaluation`: strategy + reference path. Strategies dispatch through `mos_evaluate`: `scientific_peer_review` (delegates to `mos_review_run`), `answer_grader` (compares `branches/shared/submissions/answer.json` to `input/expected.json`), `test_runner` (reserved for SWE-bench).
+- `phase_schema`: `scientific_three_stage` (exploration → experiment → writing → review) or `minimal` (no phase progression).
+- `on_done`: `none` (default), `dormant`, or `shutdown_project` once the deliverable is submitted+evaluated.
+
+The two MCP entry points that close the deliverable lifecycle:
+
+- `mos_submit(port, payload, kind)` — Role asks Gru to persist a deliverable (kinds: `answer` / `paper` / `patch` / `report`) under `branches/shared/submissions/` and commit on the shared branch.
+- `mos_evaluate(port)` — Gru runs the project's profile-defined evaluation strategy and returns `{score, verdict, details}`.
+
+For batch leaderboard / 打榜 scenarios, `mos benchmark run <jsonl>` (or `minions.tools.benchmark.benchmark_run_from_jsonl`) creates one project per task, evaluates each, and writes a single aggregate JSON under `minions/state/benchmark_runs/run-<id>.json`.
+
+Available profiles ship in `minions/profiles/`:
+
+| Profile | Use case | Roles | Evaluation | Deliverable |
+|---|---|---|---|---|
+| `scientific-paper` (default) | Full Autonomous Scientific Discovery — peer-reviewed paper | gru, noter, coder, ethics (writer on-demand) | `scientific_peer_review` (mos_review_run) | `branches/shared/notes/`, `exp/`, `ethics/`, `reviews/` |
+| `hle-answer` | Single-question benchmarks (HLE, MMLU, GPQA) | gru, expert, coder | `answer_grader` (exact match / numeric close) | `branches/shared/submissions/answer.json` |
+
+To add a new profile: drop `minions/profiles/<name>.yaml` matching the `MissionProfile` schema in `minions/profiles/__init__.py`, optionally add a role-prompt overlay, and (if needed) extend `mos_evaluate` with a new strategy in `minions/tools/evaluator.py`.
+
 ### Role lifecycle and boundaries
 
 Each Role is a long-lived `claude` process running inside its own tmux session named `mos-{port}-{role}`. EACN-registered roles drive their event loop with `mos_await_events()` (in `minions/tools/await_events.py`), which wraps the project-local 60-second `GET /api/events/{agent_id}` long-poll, drains events on read, runs an idle-check after ~5 minutes of silence, and only returns when there is actionable content. Heartbeat writes happen between polls so the Gru sidecar watchdog can spot a dead session and respawn it. Roles respond with raw `eacn3_send_message` / `eacn3_create_task` / `eacn3_submit_bid` / `eacn3_submit_result` and stay resident across many cycles. They do not call `eacn3_await_events` / `eacn3_next` / `eacn3_get_events` directly — that bypasses the wrapper and drops the suggested-action annotations.
@@ -170,7 +199,9 @@ Tool/write boundaries (main role write scope; subagents inherit from their paren
 | Ethics main | `eacn3_*` | no | `codex` | no | `branches/ethics/` (drafts) | `ethics/`, `handoffs/`, `governance/` |
 | All roles (read) | - | - | - | - | - | `book/` (via `mos_book_query`/`hot_get`/`save_synthesis`/`audit_walk`/`resolve_contradiction`) |
 
-`branches/shared/reviews/` is reserved for `mos_review_run` — the publish tool will reject any other caller. `branches/shared/draft/draft.json` is updated in-place by `mos_draft_append` and committed on a Noter-driven cron through `mos_draft_commit_shared` (whitelisted to Noter and Gru only). No role writes to another role's `branches/<role>/` directly; cross-role artefacts always travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`. The visual format-check tools (`mos_visual_render`, `mos_visual_inspect`, `mos_visual_check`) are available to every EACN-visible role (Gru, Coder, Writer, Ethics, Expert) and denied to Noter; reports persist under `branches/<role>/visual-reports/` and are referenced cross-role by EACN message rather than via a shared subdir.
+`branches/shared/reviews/` is reserved for `mos_review_run` — the publish tool will reject any other caller. `branches/shared/submissions/` is reserved for `mos_submit`; any role's profile may grant the role access to it via the profile's `publish_whitelist[role]` list (e.g. `hle-answer` grants `expert` and `coder` write access; `scientific-paper` grants nobody by default — paper deliverables go through Writer + `mos_review_run` instead). `branches/shared/draft/draft.json` is updated in-place by `mos_draft_append` and committed on a Noter-driven cron through `mos_draft_commit_shared` (whitelisted to Noter and Gru only). No role writes to another role's `branches/<role>/` directly; cross-role artefacts always travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`. The visual format-check tools (`mos_visual_render`, `mos_visual_inspect`, `mos_visual_check`) are available to every EACN-visible role (Gru, Coder, Writer, Ethics, Expert) and denied to Noter; reports persist under `branches/<role>/visual-reports/` and are referenced cross-role by EACN message rather than via a shared subdir.
+
+**Deliverable lifecycle tools.** `mos_submit` and `mos_evaluate` are Gru-only (whitelist + server-side authz). Other Roles must surface a deliverable to Gru by EACN message; Gru then calls `mos_submit` to persist it under `branches/shared/submissions/` and `mos_evaluate` to score it via the profile-defined strategy. The lifecycle separation matches the existing "Gru is the control plane" rule.
 
 **Reel (L0) layer.** Every EACN-visible role gets `mos_reel_get` / `mos_reel_window` for drill-down access into its own raw session transcripts at `branches/<role>/reel/<session_id>/`. Gru holds cross-role read permission (so it can audit any role's reasoning when bridging projects or evaluating role evolution); non-Gru roles can only read their own reel. Noter is excluded from the reel surface — it observes the project through events/* and the Draft, not through other roles' transcripts. Capture is automatic: the `reel_capture` PostToolUse hook archives every `Agent` / `Task` / `mcp__codex-subagent__codex` output into the calling role's reel directory; roles never call reel-write tools directly. Draft / Book frontmatter carries a `reel_ref` pointer that auditors can follow back to the original execution frame.
 
@@ -272,3 +303,4 @@ Relevant files:
 - New review output shape: update the relevant `minions/review/templates/*.md`, the matching review skill in `minions/review/skills/`, and the test pinning the `mos_review_run` invariants.
 - New Expert domain: add `minions/domains/{slug}.md`; keep it as a reusable prompt asset and add discovery/injection tests if runtime behavior changes.
 - New MCP tool: add it under `minions/tools/`, register it in the MCP server, update whitelist rules, and add tests.
+- New mission profile: add `minions/profiles/{name}.yaml` (and any role overlays under `minions/profiles/{name}/`), validate it loads via `minions.profiles.load_profile`, and add tests under `tests/unit/test_profiles.py`. If the profile needs a new evaluation strategy, extend `minions/tools/evaluator.py`.

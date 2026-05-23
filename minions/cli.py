@@ -1117,6 +1117,88 @@ def wipe(
 
 
 # ---------------------------------------------------------------------------
+# benchmark subcommands
+# ---------------------------------------------------------------------------
+
+benchmark_app = typer.Typer(help="Run benchmark suites (HLE, MMLU, etc.).")
+app.add_typer(benchmark_app, name="benchmark")
+
+
+@benchmark_app.command(name="run")
+def benchmark_run(
+    jsonl_path: Path = typer.Argument(..., help="JSONL file with one task per line."),  # noqa: B008
+    profile: str = typer.Option("hle-answer", "--profile", "-P", help="Mission profile name."),
+    name_prefix: str | None = typer.Option(
+        None, "--prefix", help="Project name prefix (defaults to JSONL stem)."
+    ),
+    auto_evaluate: bool = typer.Option(
+        True, "--auto-eval/--no-auto-eval", help="Run mos_evaluate after submissions."
+    ),
+    output_dir: Path | None = typer.Option(  # noqa: B008
+        None, "--output", "-o", help="Where to save the run summary JSON."
+    ),
+    json_flag: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """Run a benchmark from a JSONL task file.
+
+    Each line should be a JSON object with: task_id, question, expected.
+    Optional: metadata.
+
+    Example::
+
+        mos benchmark run hle_easy.jsonl --profile hle-answer
+    """
+    from minions.tools.benchmark import benchmark_run_from_jsonl, benchmark_save_run
+
+    try:
+        run = benchmark_run_from_jsonl(
+            jsonl_path,
+            profile=profile,
+            name_prefix=name_prefix,
+            auto_evaluate=auto_evaluate,
+        )
+    except MinionsError as e:
+        raise _fail(str(e)) from e
+
+    saved_path = benchmark_save_run(run, output_dir=output_dir)
+
+    if json_flag:
+        _json_out(run.model_dump())
+        return
+
+    console.print(f"[green]Benchmark run {run.run_id}[/green] saved to {saved_path}")
+    if run.aggregate:
+        agg = run.aggregate
+        console.print(
+            f"  total={agg.get('total_tasks')} "
+            f"correct={agg.get('correct')} "
+            f"incorrect={agg.get('incorrect')} "
+            f"failed={agg.get('failed')} "
+            f"accuracy={agg.get('accuracy', 0):.2%}"
+        )
+
+
+@benchmark_app.command(name="list-profiles")
+def benchmark_list_profiles() -> None:
+    """List available mission profiles."""
+    from minions.profiles import list_profiles
+
+    profiles = list_profiles()
+    if not profiles:
+        console.print("[yellow]No profiles available.[/yellow]")
+        return
+
+    table = Table(title="Available Mission Profiles", show_lines=True)
+    table.add_column("Name", style="cyan")
+    table.add_column("Path")
+    from minions.profiles import PROFILES_DIR
+
+    for name in profiles:
+        table.add_row(name, str(PROFILES_DIR / f"{name}.yaml"))
+    console.print(table)
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
