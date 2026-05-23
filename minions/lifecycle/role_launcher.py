@@ -153,6 +153,14 @@ def launch_role_process(
     log_path = project_role_log(project_port, role_name)
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Pre-allocate a Claude Code session UUID so we can lock its registry
+    # entry BEFORE claude starts. This prevents any host-side auto-rename
+    # hook from overwriting the deliberate ``mos-{port}-{role}`` label
+    # under /resume. See minions/lifecycle/sidecar_lock.py.
+    from minions.lifecycle.sidecar_lock import allocate_session_id
+
+    claude_session_id = allocate_session_id()
+
     # Workflow-plugin injection: if this role has an associated workflow plugin,
     # generate a per-instance MCP config, resolve extra tools, and inject
     # skills into the workspace.
@@ -192,7 +200,15 @@ def launch_role_process(
         model=_role_model(cfg, role_name),
         mcp_config_path=mcp_config_path,
         role_system_paths=_role_system_paths(role_name, extra_domain_md=extra_domain_md),
+        claude_session_id=claude_session_id,
     )
+
+    # Lock the registry entry BEFORE the claude process starts so the
+    # auto_title hooks (if installed) see locked=true on their first
+    # SessionStart and never overwrite the title.
+    from minions.lifecycle.sidecar_lock import lock_session_title
+
+    lock_session_title(claude_session_id, name)
 
     env = _role_env(
         role_name=role_name,

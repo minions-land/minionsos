@@ -285,8 +285,17 @@ def _spawn_claude_adjudicate(
     workspace: Path,
     prompt: str,
     timeout: int,
+    lock_label: str | None = None,
 ) -> tuple[bool, str | None]:
-    """Run a single ``claude --print`` adjudication pass."""
+    """Run a single ``claude --print`` adjudication pass.
+
+    When *lock_label* is set, allocates a Claude Code ``--session-id`` UUID
+    and pre-locks its title in the global sidecar registry so any host-side
+    auto-rename hook leaves the run alone. The lock is best-effort; failure
+    never blocks the spawn.
+    """
+    from minions.lifecycle.sidecar_lock import allocate_session_id, lock_session_title
+
     system_path = REVIEW_DIR / "SYSTEM.md"
     cmd = [
         "uv",
@@ -304,6 +313,10 @@ def _spawn_claude_adjudicate(
         "--permission-mode",
         "bypassPermissions",
     ]
+    if lock_label:
+        sid = allocate_session_id()
+        cmd += ["--session-id", sid]
+        lock_session_title(sid, lock_label)
     model = os.environ.get("MOS_ADJUDICATE_MODEL", "").strip()
     if model:
         cmd += ["--model", model]
@@ -328,7 +341,12 @@ def _spawn_claude_adjudicate(
 # at call time, so test code can replace it for the duration of one test.
 class Spawner(Protocol):
     def __call__(
-        self, *, workspace: Path, prompt: str, timeout: int = ...
+        self,
+        *,
+        workspace: Path,
+        prompt: str,
+        timeout: int = ...,
+        lock_label: str | None = ...,
     ) -> tuple[bool, str | None]: ...
 
 
@@ -385,7 +403,10 @@ def _stage_adjudicator_instance(
     )
     spawner = get_spawner()
     ok, err = spawner(
-        workspace=workspace, prompt=prompt, timeout=_ADJUDICATOR_STAGE_TIMEOUT_SECONDS
+        workspace=workspace,
+        prompt=prompt,
+        timeout=_ADJUDICATOR_STAGE_TIMEOUT_SECONDS,
+        lock_label=f"mos-adjudicate-p{port}-r{round_num}-adj{adjudicator_index}",
     )
     if not ok:
         return False, err
@@ -424,7 +445,10 @@ def _stage_consolidation(
     )
     spawner = get_spawner()
     ok, err = spawner(
-        workspace=workspace, prompt=prompt, timeout=_CONSOLIDATE_STAGE_TIMEOUT_SECONDS
+        workspace=workspace,
+        prompt=prompt,
+        timeout=_CONSOLIDATE_STAGE_TIMEOUT_SECONDS,
+        lock_label=f"mos-adjudicate-p{port}-r{round_num}-consolidate",
     )
     if not ok:
         return False, err

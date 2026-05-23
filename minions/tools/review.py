@@ -291,13 +291,21 @@ def _spawn_claude_review(
     workspace: Path,
     prompt: str,
     timeout: int = _FALLBACK_STAGE_TIMEOUT_SECONDS,
+    lock_label: str | None = None,
 ) -> tuple[bool, str | None]:
     """Run a single ``claude --print`` review pass. Returns (ok, error_reason).
 
     Reads ``MOS_REVIEW_MODEL`` from the environment to pick the model. Defaults
     to whatever the user's claude session would pick; set ``MOS_REVIEW_MODEL=haiku``
     for fast / cheap runs where review-quality details are not the goal.
+
+    When *lock_label* is set, allocates a Claude Code ``--session-id`` UUID
+    and pre-locks its title in the global sidecar registry so any host-side
+    auto-rename hook leaves the run alone. The lock is best-effort; failure
+    never blocks the spawn.
     """
+    from minions.lifecycle.sidecar_lock import allocate_session_id, lock_session_title
+
     system_path = REVIEW_DIR / "SYSTEM.md"
     cmd = [
         "uv",
@@ -315,6 +323,10 @@ def _spawn_claude_review(
         "--permission-mode",
         "bypassPermissions",
     ]
+    if lock_label:
+        sid = allocate_session_id()
+        cmd += ["--session-id", sid]
+        lock_session_title(sid, lock_label)
     model = os.environ.get("MOS_REVIEW_MODEL", "").strip()
     if model:
         cmd += ["--model", model]
@@ -339,7 +351,12 @@ def _spawn_claude_review(
 # at call time, so test code can replace it for the duration of one test.
 class Spawner(Protocol):
     def __call__(
-        self, *, workspace: Path, prompt: str, timeout: int = ...
+        self,
+        *,
+        workspace: Path,
+        prompt: str,
+        timeout: int = ...,
+        lock_label: str | None = ...,
     ) -> tuple[bool, str | None]: ...
 
 
@@ -466,7 +483,12 @@ def _stage_pass_a_reviewer(
         round_num,
         _REVIEWER_STAGE_TIMEOUT_SECONDS,
     )
-    ok, err = spawner(workspace=workspace, prompt=prompt, timeout=_REVIEWER_STAGE_TIMEOUT_SECONDS)
+    ok, err = spawner(
+        workspace=workspace,
+        prompt=prompt,
+        timeout=_REVIEWER_STAGE_TIMEOUT_SECONDS,
+        lock_label=f"mos-review-p{port}-r{round_num}-rev{reviewer_index}",
+    )
     if not ok:
         return False, err
     if not target.exists():
@@ -505,7 +527,12 @@ def _stage_revision_delta(
         round_num,
         _REVIEWER_STAGE_TIMEOUT_SECONDS,
     )
-    ok, err = spawner(workspace=workspace, prompt=prompt, timeout=_REVIEWER_STAGE_TIMEOUT_SECONDS)
+    ok, err = spawner(
+        workspace=workspace,
+        prompt=prompt,
+        timeout=_REVIEWER_STAGE_TIMEOUT_SECONDS,
+        lock_label=f"mos-review-p{port}-r{round_num}-delta",
+    )
     if not ok:
         return False, err
     if not target.exists():
@@ -541,7 +568,10 @@ def _stage_consolidation(
         _CONSOLIDATE_STAGE_TIMEOUT_SECONDS,
     )
     ok, err = spawner(
-        workspace=workspace, prompt=prompt, timeout=_CONSOLIDATE_STAGE_TIMEOUT_SECONDS
+        workspace=workspace,
+        prompt=prompt,
+        timeout=_CONSOLIDATE_STAGE_TIMEOUT_SECONDS,
+        lock_label=f"mos-review-p{port}-r{round_num}-consolidate",
     )
     if not ok:
         return False, err

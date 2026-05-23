@@ -72,13 +72,20 @@ class FakeSpawner:
         self.scripts = scripts
         self.calls: list[tuple[Path, str]] = []
         self.timeouts: list[int] = []
+        self.lock_labels: list[str | None] = []
 
     def __call__(
-        self, *, workspace: Path, prompt: str, timeout: int = 0
+        self,
+        *,
+        workspace: Path,
+        prompt: str,
+        timeout: int = 0,
+        lock_label: str | None = None,
     ) -> tuple[bool, str | None]:
         idx = len(self.calls)
         self.calls.append((workspace, prompt))
         self.timeouts.append(timeout)
+        self.lock_labels.append(lock_label)
         if idx >= len(self.scripts):
             return False, f"FakeSpawner: no script for call {idx}"
         return self.scripts[idx](workspace, prompt, idx)

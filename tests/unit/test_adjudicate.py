@@ -128,7 +128,7 @@ def test_adjudicate_single_spawns_one_instance(mock_adjudication_project):
 
     spawned_prompts: list[str] = []
 
-    def fake_spawner(*, workspace: Path, prompt: str, timeout: int):
+    def fake_spawner(*, workspace: Path, prompt: str, timeout: int, lock_label=None):
         spawned_prompts.append(prompt)
         # Write the expected outputs
         round_dir = project_root / "branches" / "shared" / "reviews" / "round-1"
@@ -174,7 +174,7 @@ def test_adjudicate_panel_spawns_three_instances(mock_adjudication_project):
 
     spawned_prompts: list[str] = []
 
-    def fake_spawner(*, workspace: Path, prompt: str, timeout: int):
+    def fake_spawner(*, workspace: Path, prompt: str, timeout: int, lock_label=None):
         spawned_prompts.append(prompt)
         round_dir = project_root / "branches" / "shared" / "reviews" / "round-1"
         round_dir.mkdir(parents=True, exist_ok=True)

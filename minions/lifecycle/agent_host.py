@@ -50,6 +50,7 @@ def build_role_invocation(
     model: str | None = None,
     mcp_config_path: Path | None = None,
     role_system_paths: list[Path] | None = None,
+    claude_session_id: str | None = None,
 ) -> RoleInvocation:
     """Build the ``claude`` invocation for a long-lived Role.
 
@@ -66,6 +67,10 @@ def build_role_invocation(
     When ``resume=True``, ``--resume <session_name>`` is appended so Claude
     Code reattaches to the prior conversation (Claude Code resolves the value
     against existing session titles in the current cwd's project index).
+
+    When ``claude_session_id`` is provided, ``--session-id <uuid>`` is appended
+    so MinionsOS can pre-lock the registry entry against any host-side
+    auto-rename hook (see ``minions.lifecycle.sidecar_lock``).
 
     .. warning::
 
@@ -89,6 +94,8 @@ def build_role_invocation(
         cmd += ["--model", model]
     if session_name:
         cmd += ["--name", session_name]
+    if claude_session_id:
+        cmd += ["--session-id", claude_session_id]
     if system_path and system_path.exists():
         cmd += ["--append-system-prompt", f"@{system_path}"]
     cmd += [
