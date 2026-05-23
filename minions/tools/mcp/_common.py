@@ -119,6 +119,7 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_reel_window",
     "mos_submit",
     "mos_evaluate",
+    "mos_adjudicate",
 }
 
 

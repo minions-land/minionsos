@@ -307,3 +307,126 @@ def test_paper_submit_missing_pdf_path_rejected(mock_hle_project):
 
     with pytest.raises(ProjectError, match=r"requires payload\.pdf_path"):
         mos_submit(submit_args)
+
+
+def test_evaluate_with_adjudication_gate_accept(mock_hle_project, monkeypatch):
+    """mos_evaluate with adjudication depth=single should run adjudicator first."""
+    port, project_root = mock_hle_project
+
+    # Update meta to include adjudication
+    meta_path = project_root / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["profile_evaluation"]["adjudication"] = {"depth": "single"}
+    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+
+    # Submit correct answer
+    submit_args = SubmitArgs(port=port, payload={"answer": 42}, kind="answer")
+    mos_submit(submit_args)
+
+    # Mock adjudicator to return Accept
+    def mock_adjudicate(args):
+        return {
+            "status": "completed",
+            "decision": "Accept",
+            "confidence": 0.9,
+            "evidence_refs": ["ref1"],
+            "consolidated_path": "/fake/path",
+            "summary_path": "/fake/summary",
+        }
+
+    import minions.tools.adjudicator
+
+    monkeypatch.setattr(minions.tools.adjudicator, "mos_adjudicate", mock_adjudicate)
+
+    # Evaluate
+    eval_args = EvaluateArgs(port=port)
+    result = mos_evaluate(eval_args)
+
+    assert result["port"] == port
+    assert result["strategy"] == "answer_grader"
+    assert result["score"] == 1.0
+    assert result["verdict"] == "correct"
+    assert "adjudication" in result["details"]
+    assert result["details"]["adjudication"]["decision"] == "Accept"
+
+
+def test_evaluate_with_adjudication_gate_reject(mock_hle_project, monkeypatch):
+    """mos_evaluate with adjudication Reject should short-circuit to score=0."""
+    port, project_root = mock_hle_project
+
+    # Update meta to include adjudication
+    meta_path = project_root / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["profile_evaluation"]["adjudication"] = {"depth": "panel"}
+    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+
+    # Submit answer
+    submit_args = SubmitArgs(port=port, payload={"answer": 99}, kind="answer")
+    mos_submit(submit_args)
+
+    # Mock adjudicator to return Reject
+    def mock_adjudicate(args):
+        return {
+            "status": "completed",
+            "decision": "Reject",
+            "confidence": 0.8,
+            "evidence_refs": ["counterexample"],
+            "consolidated_path": "/fake/path",
+            "summary_path": "/fake/summary",
+        }
+
+    import minions.tools.adjudicator
+
+    monkeypatch.setattr(minions.tools.adjudicator, "mos_adjudicate", mock_adjudicate)
+
+    # Evaluate
+    eval_args = EvaluateArgs(port=port)
+    result = mos_evaluate(eval_args)
+
+    assert result["port"] == port
+    assert result["strategy"] == "answer_grader"
+    assert result["score"] == 0.0
+    assert result["verdict"] == "rejected"
+    assert result["details"]["reason"] == "adjudication_rejected"
+    assert result["details"]["adjudication"]["decision"] == "Reject"
+
+
+def test_evaluate_with_adjudication_gate_revise(mock_hle_project, monkeypatch):
+    """mos_evaluate with adjudication Revise should short-circuit to revise_required."""
+    port, project_root = mock_hle_project
+
+    # Update meta to include adjudication
+    meta_path = project_root / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["profile_evaluation"]["adjudication"] = {"depth": "panel"}
+    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+
+    # Submit answer
+    submit_args = SubmitArgs(port=port, payload={"answer": 42}, kind="answer")
+    mos_submit(submit_args)
+
+    # Mock adjudicator to return Revise
+    def mock_adjudicate(args):
+        return {
+            "status": "completed",
+            "decision": "Revise",
+            "confidence": 0.6,
+            "evidence_refs": ["missing_step"],
+            "consolidated_path": "/fake/path",
+            "summary_path": "/fake/summary",
+        }
+
+    import minions.tools.adjudicator
+
+    monkeypatch.setattr(minions.tools.adjudicator, "mos_adjudicate", mock_adjudicate)
+
+    # Evaluate
+    eval_args = EvaluateArgs(port=port)
+    result = mos_evaluate(eval_args)
+
+    assert result["port"] == port
+    assert result["strategy"] == "answer_grader"
+    assert result["score"] is None
+    assert result["verdict"] == "revise_required"
+    assert result["details"]["reason"] == "adjudication_revise_required"
+    assert result["details"]["adjudication"]["decision"] == "Revise"

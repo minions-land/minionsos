@@ -152,6 +152,13 @@ def mos_evaluate(args: EvaluateArgs) -> dict[str, object]:
     Reads the project's mission profile from meta.json, dispatches to the
     appropriate evaluator, and returns a score/verdict.
 
+    If the profile declares ``evaluation.adjudication.depth`` as ``single`` or
+    ``panel``, runs ``mos_adjudicate`` first as a gate. The grader only fires
+    when adjudication returns ``decision=Accept``; ``Reject`` short-circuits
+    to ``{score=0, verdict=rejected}`` and ``Revise`` short-circuits to
+    ``{verdict=revise_required}``. Adjudication depth ``none`` (default for
+    scientific-paper) skips the gate and goes straight to the grader.
+
     Returns ``{port, strategy, score, verdict, details}``.
     """
     port = args.port
@@ -165,14 +172,93 @@ def mos_evaluate(args: EvaluateArgs) -> dict[str, object]:
 
     logger.info("mos_evaluate: port=%d strategy=%s", port, strategy)
 
+    # Adjudication gate (runs before the grader when depth != none).
+    adjudication_block = profile_eval.get("adjudication") or {}
+    adj_depth = str(adjudication_block.get("depth", "none")).strip().lower()
+    adjudication_result: dict[str, object] | None = None
+    if adj_depth in {"single", "panel"}:
+        from minions.tools.adjudicator import AdjudicateArgs, mos_adjudicate
+
+        logger.info("mos_evaluate: adjudication gate depth=%s", adj_depth)
+        adjudication_result = mos_adjudicate(
+            AdjudicateArgs(port=port, depth=adj_depth)  # type: ignore[arg-type]
+        )
+        decision = adjudication_result.get("decision")
+        if decision == "Reject":
+            return {
+                "port": port,
+                "strategy": strategy,
+                "score": 0.0,
+                "verdict": "rejected",
+                "details": {
+                    "adjudication": adjudication_result,
+                    "reason": "adjudication_rejected",
+                },
+            }
+        if decision == "Revise":
+            return {
+                "port": port,
+                "strategy": strategy,
+                "score": None,
+                "verdict": "revise_required",
+                "details": {
+                    "adjudication": adjudication_result,
+                    "reason": "adjudication_revise_required",
+                },
+            }
+        # decision == "Accept" or status="skipped" / "error" — fall through to
+        # the grader. An adjudication error must not silently bypass scoring;
+        # the grader still runs and reports its own verdict, with the
+        # adjudication payload preserved in details.
+
     if strategy == "scientific_peer_review":
-        return _evaluate_scientific_peer_review(port, meta, args.reference_override)
+        result = _evaluate_scientific_peer_review(port, meta, args.reference_override)
     elif strategy == "answer_grader":
-        return _evaluate_answer_grader(port, meta, args.reference_override)
+        result = _evaluate_answer_grader(port, meta, args.reference_override)
     elif strategy == "test_runner":
-        return _evaluate_test_runner(port, meta, args.reference_override)
+        result = _evaluate_test_runner(port, meta, args.reference_override)
     else:
         raise ProjectError(f"Unknown evaluation strategy: {strategy}")
+
+    if adjudication_result is not None:
+        details = result.setdefault("details", {})
+        if isinstance(details, dict):
+            details["adjudication"] = adjudication_result
+
+    # on_done wiring: if profile declares shutdown_project / dormant and the
+    # grader returned a passing verdict, transition the project. Failures and
+    # revise_required leave the project active so the team can iterate.
+    on_done = str(meta.get("profile_on_done", "none")).strip().lower()
+    verdict = result.get("verdict")
+    score = result.get("score")
+    passed = verdict in {"correct", "Accept"} or (isinstance(score, (int, float)) and score >= 1.0)
+    if passed and on_done in {"shutdown_project", "dormant"}:
+        try:
+            _apply_on_done(port, on_done)
+            details = result.setdefault("details", {})
+            if isinstance(details, dict):
+                details["on_done"] = on_done
+        except Exception as exc:
+            logger.warning("mos_evaluate: on_done=%s failed for port=%d: %s", on_done, port, exc)
+
+    return result
+
+
+def _apply_on_done(port: int, on_done: str) -> None:
+    """Transition the project according to the profile's on_done setting.
+
+    Best-effort: failures are logged at the call site but do not raise so a
+    successful evaluation is never reported as failed because of a shutdown
+    hiccup.
+    """
+    if on_done == "shutdown_project":
+        from minions.lifecycle.project import project_close
+
+        project_close(port)
+    elif on_done == "dormant":
+        from minions.lifecycle.project import project_dormant
+
+        project_dormant(port)
 
 
 def _evaluate_scientific_peer_review(

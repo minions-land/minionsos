@@ -303,6 +303,7 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     "mos_review_run",
     "mos_submit",
     "mos_evaluate",
+    "mos_adjudicate",
     "mos_start_monitor",
     # Experiment tools (Coder-only at server side)
     "mos_exp_run",
@@ -535,6 +536,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_review_run",
         "mos_submit",
         "mos_evaluate",
+        "mos_adjudicate",
         "mos_start_monitor",
         *_CODEX_BRIDGE_TOOLS,
         *_PAPER_SEARCH_TOOLS,

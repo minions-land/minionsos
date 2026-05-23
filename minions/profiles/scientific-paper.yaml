@@ -66,6 +66,9 @@ evaluation:
   strategy: scientific_peer_review
   # Number of review rounds to run (mos_review_run round_number).
   default_rounds: 1
+  # Adjudication: scientific_peer_review IS the adjudication, so depth=none.
+  adjudication:
+    depth: none
 
 # Phase schema: scientific projects progress exploration → experiment →
 # writing → review. Lives in minions/lifecycle/_project_phase.py.

@@ -1,7 +1,13 @@
-"""Evaluator MCP tools: mos_submit and mos_evaluate."""
+"""Evaluator MCP tools: mos_submit, mos_evaluate, and mos_adjudicate."""
 
 from __future__ import annotations
 
+from minions.tools.adjudicator import (
+    AdjudicateArgs,
+)
+from minions.tools.adjudicator import (
+    mos_adjudicate as _mos_adjudicate,
+)
 from minions.tools.evaluator import (
     EvaluateArgs,
     SubmitArgs,
@@ -49,3 +55,17 @@ def mos_evaluate(args: EvaluateArgs) -> dict:
     """
     _require_tool_allowed("mos_evaluate")
     return _mos_evaluate(args)
+
+
+@mcp.tool()
+def mos_adjudicate(args: AdjudicateArgs) -> dict:
+    """Run fine-grained adjudication on a submitted answer.
+
+    Spawns 1-3 independent adjudicator instances (depending on profile depth)
+    that audit the submitted answer's reasoning chain, search counterexamples,
+    check self-consistency, and ground external claims.
+
+    Returns ``{status, decision, confidence, evidence_refs, consolidated_path}``.
+    """
+    _require_tool_allowed("mos_adjudicate")
+    return _mos_adjudicate(args)
