@@ -24,6 +24,7 @@ mcp = FastMCP("minions")
 
 # Importing submodules triggers @mcp.tool() side effects.
 from minions.tools.mcp import (  # noqa: E402, F401
+    evaluator_tools,
     experiment_tools,
     memory_tools,
     paper_tools,

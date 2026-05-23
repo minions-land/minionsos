@@ -56,7 +56,10 @@ logger = logging.getLogger(__name__)
 # Per-role allowed shared subdirs
 # ---------------------------------------------------------------------------
 
-# Tier 1: subdirs each role may publish into.
+# Default per-role policy (scientific-paper profile baseline).
+# Can be overridden per-project by setting ``profile_deliverable_schema``
+# in meta.json (loaded from the project's mission profile at create time).
+#
 # - "*" means any subdir is allowed (Gru only).
 # - "reviews/" is intentionally absent everywhere — that surface is owned
 #   exclusively by ``mos_review_run`` which writes commits directly without
@@ -64,7 +67,7 @@ logger = logging.getLogger(__name__)
 # - "book/" is owned exclusively by Noter (Book pattern: one curated page
 #   per ingested artefact, Noter-compiled); other roles publish raw artefacts
 #   to their own subdir + Noter ingest-compiles them into book/.
-_ROLE_ALLOWED_SHARED_SUBDIRS: dict[str, set[str]] = {
+_DEFAULT_ROLE_ALLOWED_SHARED_SUBDIRS: dict[str, set[str]] = {
     "gru": {"*"},
     # Book ownership invariant: Noter is the only non-Gru role that may publish book/.
     "noter": {"notes", "draft", "handoffs", "book"},
@@ -74,9 +77,59 @@ _ROLE_ALLOWED_SHARED_SUBDIRS: dict[str, set[str]] = {
     "expert": {"handoffs", "governance"},
 }
 
+# Backward-compat alias for callers that import the old name.
+_ROLE_ALLOWED_SHARED_SUBDIRS = _DEFAULT_ROLE_ALLOWED_SHARED_SUBDIRS
+
 # Reserved roots no role may publish into via this tool. ``mos_review_run``
 # writes directly under ``reviews/`` while holding its own coordination.
 _RESERVED_SUBDIR_ROOTS: frozenset[str] = frozenset({"reviews"})
+
+
+def _profile_publish_whitelist(port: int) -> dict[str, set[str]] | None:
+    """Read profile-defined publish whitelist from meta.json, if any.
+
+    Returns None if no profile-aware whitelist is configured on the project,
+    in which case callers fall back to ``_DEFAULT_ROLE_ALLOWED_SHARED_SUBDIRS``.
+    """
+    try:
+        from minions.paths import project_meta_json
+
+        meta_path = project_meta_json(port)
+        if not meta_path.exists():
+            return None
+        import json as _json
+
+        data = _json.loads(meta_path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return None
+        deliverable = data.get("profile_deliverable_schema")
+        if not isinstance(deliverable, dict):
+            return None
+        whitelist = deliverable.get("publish_whitelist")
+        if not isinstance(whitelist, dict):
+            return None
+        return {
+            str(role): set(str(s) for s in subs)
+            for role, subs in whitelist.items()
+            if isinstance(subs, (list, set, tuple))
+        }
+    except Exception:
+        return None
+
+
+def _allowed_subdirs_for_role(role_name: str, port: int) -> set[str] | None:
+    """Resolve allowed shared subdirs for *role_name* on *port*.
+
+    Lookup order:
+    1. Project's mission profile ``publish_whitelist`` (if defined).
+    2. Default scientific-paper baseline.
+    3. None (caller raises "no policy registered").
+    """
+    profile_wl = _profile_publish_whitelist(port)
+    canonical = _normalise_role(role_name)
+    if profile_wl is not None and canonical in profile_wl:
+        return profile_wl[canonical]
+    return _DEFAULT_ROLE_ALLOWED_SHARED_SUBDIRS.get(canonical)
 
 
 def _normalise_role(role_name: str) -> str:
@@ -86,8 +139,13 @@ def _normalise_role(role_name: str) -> str:
     return role_name
 
 
-def _validate_dst(role_name: str, dst_subpath: str) -> Path:
-    """Return the cleaned relative shared subpath, or raise ProjectError."""
+def _validate_dst(role_name: str, dst_subpath: str, port: int | None = None) -> Path:
+    """Return the cleaned relative shared subpath, or raise ProjectError.
+
+    *port* is used to look up profile-defined publish whitelist overrides.
+    When None, only the default whitelist is consulted (the original
+    pre-profile behavior).
+    """
     if not dst_subpath or dst_subpath.startswith("/"):
         raise ProjectError(
             f"dst_subpath must be a relative path under branches/shared/, got: {dst_subpath!r}"
@@ -106,7 +164,11 @@ def _validate_dst(role_name: str, dst_subpath: str) -> Path:
             f"branches/shared/{root}/ is reserved for mos_review_run; "
             "publish through that surface instead."
         )
-    allowed = _ROLE_ALLOWED_SHARED_SUBDIRS.get(_normalise_role(role_name))
+    if port is None:
+        # No port: use the default whitelist directly (original behavior).
+        allowed = _DEFAULT_ROLE_ALLOWED_SHARED_SUBDIRS.get(_normalise_role(role_name))
+    else:
+        allowed = _allowed_subdirs_for_role(role_name, port)
     if allowed is None:
         raise ProjectError(f"Role {role_name!r} has no shared-publish policy registered.")
     if "*" not in allowed and root not in allowed:
@@ -194,7 +256,7 @@ def mos_publish_to_shared(
     on disk already matched and no diff was produced).
     """
     resolved_port = _resolve_port(port)
-    rel_dst = _validate_dst(role, dst_subpath)
+    rel_dst = _validate_dst(role, dst_subpath, resolved_port)
 
     src = Path(src_path).expanduser()
     if not src.is_absolute():
