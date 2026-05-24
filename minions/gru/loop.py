@@ -120,7 +120,11 @@ class GruLoop:
                     self._tick()
                 except Exception as exc:
                     logger.error("Gru monitor tick error: %s", exc, exc_info=True)
-                await asyncio.sleep(self.interval)
+                # Sleep in small chunks so signal handler can interrupt quickly
+                for _ in range(self.interval * 2):
+                    if self._stopped:
+                        break
+                    await asyncio.sleep(0.5)
         finally:
             experiment_task.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
@@ -134,6 +138,12 @@ class GruLoop:
         """One monitoring cycle."""
         now = time.monotonic()
         projects = self._store.list_projects(filter="active")
+
+        # Auto-exit when no active projects remain
+        if not projects:
+            logger.info("No active projects remaining, Gru monitor exiting.")
+            self._stopped = True
+            return
 
         events: list[str] = []
 
@@ -273,6 +283,9 @@ class GruLoop:
                     logger.warning(msg)
                     events.append(msg)
                 continue
+
+        # Reap orphan tmux sessions (ports not in active projects)
+        self._reap_orphan_sessions()
 
         if events or (now - self._last_report_ts >= self.interval):
             ts = datetime.now(tz=UTC).isoformat()
@@ -466,6 +479,51 @@ class GruLoop:
         except Exception as exc:
             logger.debug("health event EACN notify setup failed port=%d: %s", port, exc)
 
+    def _reap_orphan_sessions(self) -> None:
+        """Kill ``mos-{port}-{role}`` tmux sessions whose port is not active.
+
+        Defensive sweep against pytest residue, crash leftovers, and any
+        path where a Role tmux session outlives its project record. The
+        session-name format is the contract from ``role_launcher``; any
+        session matching ``mos-<int>-...`` whose <int> is not an active
+        project port is an orphan and gets killed.
+        """
+        import subprocess
+
+        try:
+            result = subprocess.run(["tmux", "ls"], capture_output=True, text=True, check=False)
+        except FileNotFoundError:
+            return  # no tmux, nothing to reap
+        if result.returncode != 0:
+            return  # no tmux server / no sessions
+
+        active_ports = {p.port for p in self._store.list_projects(filter="active")}
+
+        for line in (result.stdout or "").splitlines():
+            session_name = line.split(":", 1)[0]
+            if not session_name.startswith("mos-"):
+                continue
+            parts = session_name.split("-", 2)
+            if len(parts) < 2:
+                continue
+            try:
+                port = int(parts[1])
+            except ValueError:
+                continue
+            if port in active_ports:
+                continue
+            try:
+                subprocess.run(
+                    ["tmux", "kill-session", "-t", session_name],
+                    capture_output=True,
+                    check=False,
+                )
+                logger.info(
+                    "Reaped orphan tmux session %s (port %d not active)", session_name, port
+                )
+            except Exception as exc:
+                logger.debug("Failed to reap orphan session %s: %s", session_name, exc)
+
 
 def _pid_alive(pid: int) -> bool:
     """Return True if *pid* is a running process."""
@@ -479,7 +537,17 @@ def _pid_alive(pid: int) -> bool:
 
 
 def main() -> None:
+    import signal
+
     loop = GruLoop()
+
+    def _signal_handler(signum: int, _frame: object) -> None:
+        logger.info("Received signal %d, stopping Gru monitor.", signum)
+        loop.stop()
+
+    signal.signal(signal.SIGTERM, _signal_handler)
+    signal.signal(signal.SIGINT, _signal_handler)
+
     asyncio.run(loop.run_async())
 
 

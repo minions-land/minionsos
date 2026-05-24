@@ -77,7 +77,8 @@ def test_e2e_submit_ready_full_flow(
 
     port = project["port"]
     monkeypatch.setattr(
-        sb, "_registered_expert_ids",
+        sb,
+        "_registered_expert_ids",
         lambda _p: ["expert-bio", "expert-chem", "expert-stat"],
     )
 
@@ -98,9 +99,7 @@ def test_e2e_submit_ready_full_flow(
         monkeypatch.setenv("MINIONS_ROLE_NAME", role)
         monkeypatch.setenv("MINIONS_AGENT_ID", role)
         t0 = time.perf_counter()
-        res = sb.mos_signboard_set(
-            milestone="submit_ready", raised=True, evidence=evidence
-        )
+        res = sb.mos_signboard_set(milestone="submit_ready", raised=True, evidence=evidence)
         dt_raise = time.perf_counter() - t0
 
         t1 = time.perf_counter()
@@ -139,9 +138,7 @@ def test_e2e_submit_ready_full_flow(
     # A late lower attempt is now a no-op.
     monkeypatch.setenv("MINIONS_ROLE_NAME", "expert-stat")
     monkeypatch.setenv("MINIONS_AGENT_ID", "expert-stat")
-    late = sb.mos_signboard_set(
-        milestone="submit_ready", raised=False, reason="late retraction"
-    )
+    late = sb.mos_signboard_set(milestone="submit_ready", raised=False, reason="late retraction")
     assert late.get("noop_reason") == "milestone_already_consumed"
     print(f"late lower: rejected as expected → noop_reason={late['noop_reason']!r}")
 
@@ -151,14 +148,22 @@ def test_e2e_submit_ready_full_flow(
     assert after["slot"]["raised"] == {}
     assert after["slot"]["consumed_at"] is None
     assert after["slot"]["consumed_round"] == 1  # audit history preserved
-    print(f"reopen:     raised cleared, consumed_round={after['slot']['consumed_round']} preserved\n")
+    print(
+        f"reopen:     raised cleared, consumed_round={after['slot']['consumed_round']} preserved\n"
+    )
 
     # Timing summary.
     avg_raise = sum(raise_times) / len(raise_times)
     avg_eval = sum(eval_times) / len(eval_times)
-    p95_raise = sorted(raise_times)[int(len(raise_times) * 0.95)] if len(raise_times) > 1 else raise_times[0]
+    p95_raise = (
+        sorted(raise_times)[int(len(raise_times) * 0.95)]
+        if len(raise_times) > 1
+        else raise_times[0]
+    )
     print("=== timing summary ===")
-    print(f"  raise:    avg={avg_raise:6.1f} ms  p95={p95_raise:6.1f} ms  (file lock + json + git noop)")
+    print(
+        f"  raise:    avg={avg_raise:6.1f} ms  p95={p95_raise:6.1f} ms  (file lock + json + git noop)"
+    )
     print(f"  evaluate: avg={avg_eval:6.1f} ms")
     print(f"  consume:  {dt_consume:6.1f} ms")
 
@@ -213,7 +218,7 @@ def test_concurrent_writers_under_flock(project: dict[str, Any]) -> None:
         )
         dt = (time.perf_counter() - t0) * 1000
 
-    print(f"\n=== concurrent writers ===")
+    print("\n=== concurrent writers ===")
     print(f"  {len(voters)} workers, total wall-clock {dt:6.1f} ms")
     for r in results:
         assert r["raised_now"] is True, f"{r['role']} did not land"
@@ -224,8 +229,7 @@ def test_concurrent_writers_under_flock(project: dict[str, Any]) -> None:
     print(f"  signboard.raised keys: {sorted(raised.keys())}")
     for role in voters:
         assert role in raised, (
-            f"{role} sign was lost despite flock. "
-            f"Got keys: {sorted(raised.keys())}"
+            f"{role} sign was lost despite flock. Got keys: {sorted(raised.keys())}"
         )
     # Each entry must carry that role's evidence — no cross-contamination.
     for role in voters:
@@ -239,12 +243,8 @@ def test_idempotent_re_raise(project: dict[str, Any], monkeypatch: pytest.Monkey
 
     monkeypatch.setenv("MINIONS_ROLE_NAME", "ethics")
     monkeypatch.setenv("MINIONS_AGENT_ID", "ethics")
-    sb.mos_signboard_set(
-        milestone="experiments_ready", raised=True, evidence="ethics/v1.md"
-    )
-    sb.mos_signboard_set(
-        milestone="experiments_ready", raised=True, evidence="ethics/v2.md"
-    )
+    sb.mos_signboard_set(milestone="experiments_ready", raised=True, evidence="ethics/v1.md")
+    sb.mos_signboard_set(milestone="experiments_ready", raised=True, evidence="ethics/v2.md")
     state = sb.mos_signboard_read(milestone="experiments_ready")
     assert state["slot"]["raised"]["ethics"]["evidence"] == "ethics/v2.md"
     # Only one entry per agent_id, no duplication.

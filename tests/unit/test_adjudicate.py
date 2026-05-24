@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from minions.errors import ProjectError
 from minions.tools.adjudicator import (
     AdjudicateArgs,
     _extract_confidence,

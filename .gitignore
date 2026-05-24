@@ -62,6 +62,7 @@ EACN3/plugin/node_modules/
 *.swo
 .claude/*.local.md
 **/.claude/*.local.md
+.claude/worktrees/
 
 # EACN3 legacy patterns (from original .gitignore)
 eacn/network/config.toml

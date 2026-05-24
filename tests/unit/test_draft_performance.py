@@ -122,12 +122,7 @@ def _isolated_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         draft,
         "project_shared_draft_json",
-        lambda p: tmp_path
-        / f"project_{p}"
-        / "branches"
-        / "shared"
-        / "draft"
-        / "dag.json",
+        lambda p: tmp_path / f"project_{p}" / "branches" / "shared" / "draft" / "dag.json",
     )
     exploration_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "draft"
     exploration_dir.mkdir(parents=True)
@@ -170,9 +165,7 @@ class TestPerformanceComparison:
         return {
             "mode": "short_process",
             "total_tokens_consumed": total_tokens,
-            "peak_context": TOKENS_SYSTEM_PROMPT
-            + TOKENS_CARRIED_SUMMARY
-            + TOKENS_PER_STEP_CONTEXT,
+            "peak_context": TOKENS_SYSTEM_PROMPT + TOKENS_CARRIED_SUMMARY + TOKENS_PER_STEP_CONTEXT,
             "knowledge_at_step_10": knowledge_retained,
             "dead_end_visible_at_step_6": False,  # carried summary may have lost it
             "can_recall_step_1_at_step_10": False,  # too far back

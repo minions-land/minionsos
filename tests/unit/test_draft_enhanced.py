@@ -21,12 +21,7 @@ def _isolated_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         draft,
         "project_shared_draft_json",
-        lambda p: tmp_path
-        / f"project_{p}"
-        / "branches"
-        / "shared"
-        / "draft"
-        / "dag.json",
+        lambda p: tmp_path / f"project_{p}" / "branches" / "shared" / "draft" / "dag.json",
     )
     exploration_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "draft"
     exploration_dir.mkdir(parents=True)

@@ -1,8 +1,34 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Reap any ``mos-*`` tmux sessions left behind by tests.
+
+    Stubbing _spawn_tmux is the norm in tests, but a few smoke / integration
+    paths invoke the real launcher; if they crash mid-test the session leaks
+    into the host and Gru's monitor will keep emitting book-lint warnings
+    against pytest tempdirs that no longer exist. Best-effort sweep here
+    closes that gap.
+    """
+    try:
+        result = subprocess.run(["tmux", "ls"], capture_output=True, text=True, check=False)
+    except FileNotFoundError:
+        return
+    if result.returncode != 0:
+        return
+    for line in (result.stdout or "").splitlines():
+        name = line.split(":", 1)[0]
+        if name.startswith("mos-"):
+            subprocess.run(
+                ["tmux", "kill-session", "-t", name],
+                capture_output=True,
+                check=False,
+            )
 
 
 @pytest.fixture(autouse=True)

@@ -51,8 +51,14 @@ def sim_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     identity.generate_identity()
 
     project_root = tmp_path / f"project_{port}"
-    for sub in ("branches/shared", "branches/coder", "branches/noter",
-                "branches/ethics", "state", "events"):
+    for sub in (
+        "branches/shared",
+        "branches/coder",
+        "branches/noter",
+        "branches/ethics",
+        "state",
+        "events",
+    ):
         (project_root / sub).mkdir(parents=True, exist_ok=True)
 
     def _shared_subdir(p, subdir):
@@ -82,16 +88,18 @@ def sim_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(book, "project_workspace_root", _workspace_root)
     monkeypatch.setattr(book, "project_shared_workspace", _shared_workspace)
 
-    def _fake_publish(*, role, src_path, dst_subpath, commit_message,
-                      port=None, **kwargs):
+    def _fake_publish(*, role, src_path, dst_subpath, commit_message, port=None, **kwargs):
         dst = _shared_workspace(port or 50000) / dst_subpath
         dst.parent.mkdir(parents=True, exist_ok=True)
-        dst.write_text(Path(src_path).read_text(encoding="utf-8"),
-                       encoding="utf-8")
+        dst.write_text(Path(src_path).read_text(encoding="utf-8"), encoding="utf-8")
         return {
-            "port": port, "role": role, "dst_path": dst_subpath,
-            "commit_sha": f"sim-{role}", "branch": "stub",
-            "pushed": False, "push_branch": None,
+            "port": port,
+            "role": role,
+            "dst_path": dst_subpath,
+            "commit_sha": f"sim-{role}",
+            "branch": "stub",
+            "pushed": False,
+            "push_branch": None,
         }
 
     monkeypatch.setattr(book, "mos_publish_to_shared", _fake_publish)
@@ -137,8 +145,12 @@ def _ethics_reads_contradiction(port: int, contradiction_slug: str) -> str:
 
 
 def _ethics_publishes_verdict(
-    port: int, project_root: Path, contradiction_slug: str, verdict: str,
-    losing_node_id: str, winning_node_id: str,
+    port: int,
+    project_root: Path,
+    contradiction_slug: str,
+    verdict: str,
+    losing_node_id: str,
+    winning_node_id: str,
 ) -> Path:
     """Ethics step 3 of contradiction surface: publish verdict to shared/ethics/."""
     os.environ["MINIONS_ROLE_NAME"] = "ethics"
@@ -165,7 +177,10 @@ def _ethics_publishes_verdict(
 
 
 def _ethics_writes_supersedes_edge(
-    port: int, losing_node_id: str, winning_node_id: str, verdict_slug: str,
+    port: int,
+    losing_node_id: str,
+    winning_node_id: str,
+    verdict_slug: str,
 ):
     """Ethics step 5: write decision node + supersedes edge to its own Draft."""
     os.environ["MINIONS_ROLE_NAME"] = "ethics"
@@ -205,16 +220,19 @@ def _seed_initial_draft(port: int, ages_days: dict[str, int]):
     """Seed the Draft with two opposing claims from prior research."""
     nodes = []
     for nid, age in ages_days.items():
-        nodes.append({
-            "id": nid,
-            "type": "result",
-            "text": f"Claim {nid}",
-            "support_status": "verified",
-            "author_role": "expert",
-            "confidence": 1.0,
-            "created_at": (datetime.now(UTC) - timedelta(days=age))
-                          .isoformat(timespec="seconds"),
-        })
+        nodes.append(
+            {
+                "id": nid,
+                "type": "result",
+                "text": f"Claim {nid}",
+                "support_status": "verified",
+                "author_role": "expert",
+                "confidence": 1.0,
+                "created_at": (datetime.now(UTC) - timedelta(days=age)).isoformat(
+                    timespec="seconds"
+                ),
+            }
+        )
     payload = {
         "project_port": port,
         "root_question": "Does X work?",
@@ -242,7 +260,8 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
 
     # ─── Phase 1: Existing Book chapter (older claim) ──────────────────────
     old_artifact = _coder_publishes_artifact(
-        project_root, "old-finding",
+        project_root,
+        "old-finding",
         "We claim attention IS NOT helpful for sequences longer than 4096 "
         "in the standard transformer regime.\n",
     )
@@ -251,7 +270,8 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
 
     # ─── Phase 2: New artifact contradicts the old one ─────────────────────
     new_artifact = _coder_publishes_artifact(
-        project_root, "new-finding",
+        project_root,
+        "new-finding",
         "We claim attention IS helpful for sequences longer than 4096 "
         "in the standard transformer regime.\n",
     )
@@ -278,17 +298,20 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
 
     # ⭐ ASSERTION 3: Signals are descriptive only, no verdict tokens
     forbidden_verdicts = (
-        "resolved-in-favor-of-new", "resolved-in-favor-of-existing",
-        "needs-experiment", "out-of-scope", "both-correct-different-scope",
+        "resolved-in-favor-of-new",
+        "resolved-in-favor-of-existing",
+        "needs-experiment",
+        "out-of-scope",
+        "both-correct-different-scope",
     )
     for v in forbidden_verdicts:
-        assert v not in page_text, (
-            f"Noter must not pre-decide verdicts; found {v!r} in page"
-        )
+        assert v not in page_text, f"Noter must not pre-decide verdicts; found {v!r} in page"
 
     # ─── Phase 4: Ethics issues verdict and publishes to shared/ethics/ ────
     verdict_path = _ethics_publishes_verdict(
-        port, project_root, contradiction_slug,
+        port,
+        project_root,
+        contradiction_slug,
         verdict="resolved-in-favor-of-new",
         losing_node_id="R-OLD",
         winning_node_id="R-NEW",
@@ -296,32 +319,32 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
     assert verdict_path.exists()
 
     # ⭐ ASSERTION 4: Verdict landed on shared branch (via mos_publish_to_shared)
-    published_verdict = (project_root / "branches" / "shared" / "ethics"
-                         / f"verdict-{contradiction_slug}.md")
+    published_verdict = (
+        project_root / "branches" / "shared" / "ethics" / f"verdict-{contradiction_slug}.md"
+    )
     assert published_verdict.exists(), (
         "Ethics verdict must be visible cross-role under shared/ethics/"
     )
 
     # ─── Phase 5: Ethics writes supersedes edge to Draft ───────────────────
     _ethics_writes_supersedes_edge(
-        port, "R-OLD", "R-NEW", contradiction_slug,
+        port,
+        "R-OLD",
+        "R-NEW",
+        contradiction_slug,
     )
 
     # ⭐ ASSERTION 5: Supersedes edge is in the Draft
     draft_data = json.loads(draft._draft_path(port).read_text(encoding="utf-8"))
     edges = draft_data["edges"]
     has_supersedes = any(
-        e["relation"] == "supersedes"
-        and e["from_id"] == "R-NEW"
-        and e["to_id"] == "R-OLD"
+        e["relation"] == "supersedes" and e["from_id"] == "R-NEW" and e["to_id"] == "R-OLD"
         for e in edges
     )
     assert has_supersedes, "Ethics must write supersedes edge after verdict"
 
     has_contradicts = any(
-        e["relation"] == "contradicts"
-        and e["from_id"] == "R-NEW"
-        and e["to_id"] == "R-OLD"
+        e["relation"] == "contradicts" and e["from_id"] == "R-NEW" and e["to_id"] == "R-OLD"
         for e in edges
     )
     assert has_contradicts
@@ -351,7 +374,8 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
     # (which has the same age but no contradicts edge incident)
     if "R-OLD" in most_decayed_ids and "R-NEW" in most_decayed_ids:
         old_eff = next(
-            n["effective_confidence"] for n in summary_after["decay"]["most_decayed"]
+            n["effective_confidence"]
+            for n in summary_after["decay"]["most_decayed"]
             if n["id"] == "R-OLD"
         )
         new_eff_raw = next(
@@ -372,9 +396,7 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
 
     # ⭐ ASSERTION 8b: Ethics cannot promote/crystallize Books (Noter-only)
     ethics_authz = resolve_server_authz("ethics", "main")
-    promote_for_ethics = any(
-        fnmatchcase("mos_book_promote_verified", p) for p in ethics_authz
-    )
+    promote_for_ethics = any(fnmatchcase("mos_book_promote_verified", p) for p in ethics_authz)
     assert not promote_for_ethics, (
         "Ethics must not be able to promote Drafts to Books — that's Noter's job"
     )
@@ -392,9 +414,7 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
     # rule, not a hard tool boundary. We document it but don't assert.
 
     # ⭐ ASSERTION 8d: Ethics CAN write decision/supersedes to Draft
-    ethics_can_append = any(
-        fnmatchcase("mos_draft_append", p) for p in ethics_authz
-    )
+    ethics_can_append = any(fnmatchcase("mos_draft_append", p) for p in ethics_authz)
     assert ethics_can_append, "Ethics must be able to append decision nodes"
 
 
@@ -415,7 +435,7 @@ def test_noter_promotes_dead_end_for_other_projects_to_avoid(sim_project):
                 "id": "DEAD-001",
                 "type": "dead_end",
                 "text": "Naive sparsity below 0.3 ratio breaks gradient flow "
-                        "and accuracy collapses by 22%",
+                "and accuracy collapses by 22%",
                 "support_status": "verified",
                 "author_role": "coder",
                 "confidence": 1.0,
@@ -465,23 +485,27 @@ def test_shelf_aggregates_books_across_projects(sim_project, tmp_path, monkeypat
 
     # Project A: published a Book about linear attention
     _project_graph_path(50001).write_text(
-        json.dumps({
-            "nodes": [
-                {"id": "n1", "label": "linear attention low-rank decomposition"},
-                {"id": "n2", "label": "memory complexity reduction"},
-            ],
-            "links": [{"source": "n1", "target": "n2"}],
-        }),
+        json.dumps(
+            {
+                "nodes": [
+                    {"id": "n1", "label": "linear attention low-rank decomposition"},
+                    {"id": "n2", "label": "memory complexity reduction"},
+                ],
+                "links": [{"source": "n1", "target": "n2"}],
+            }
+        ),
         encoding="utf-8",
     )
     # Project B: also touched attention but in a different angle
     _project_graph_path(50002).write_text(
-        json.dumps({
-            "nodes": [
-                {"id": "n1", "label": "sparse attention pattern routing"},
-            ],
-            "links": [],
-        }),
+        json.dumps(
+            {
+                "nodes": [
+                    {"id": "n1", "label": "sparse attention pattern routing"},
+                ],
+                "links": [],
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -499,6 +523,7 @@ def test_shelf_aggregates_books_across_projects(sim_project, tmp_path, monkeypat
     shared_result = shelf.mos_shelf_shared_concepts(50001, 50002, min_score=0.5)
     assert shared_result["count"] >= 1
     # "attention" is shared
-    assert any("attention" in s["label_a"].lower()
-               and "attention" in s["label_b"].lower()
-               for s in shared_result["shared"])
+    assert any(
+        "attention" in s["label_a"].lower() and "attention" in s["label_b"].lower()
+        for s in shared_result["shared"]
+    )

@@ -30,14 +30,7 @@ def _write_shelf(
     nodes: list[dict[str, Any]],
     links: list[dict[str, Any]] | None = None,
 ) -> Path:
-    graph_path = (
-        projects_root
-        / f"project_{port}"
-        / "branches"
-        / "shared"
-        / "shelf"
-        / "shelf.json"
-    )
+    graph_path = projects_root / f"project_{port}" / "branches" / "shared" / "shelf" / "shelf.json"
     graph_path.parent.mkdir(parents=True, exist_ok=True)
     graph_path.write_text(
         json.dumps({"nodes": nodes, "links": links or []}, indent=2) + "\n",

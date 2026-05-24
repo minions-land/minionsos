@@ -166,9 +166,7 @@ def test_set_consumed_milestone_is_noop(
     from minions.tools import signboard as sb
 
     _set_caller(monkeypatch, "ethics")
-    sb.mos_signboard_set(
-        milestone="submit_ready", raised=True, evidence="ethics/ok.md"
-    )
+    sb.mos_signboard_set(milestone="submit_ready", raised=True, evidence="ethics/ok.md")
     sb.consume_milestone(project["port"], "submit_ready")
     res = sb.mos_signboard_set(
         milestone="submit_ready",
@@ -249,9 +247,7 @@ def test_quorum_blocked_without_ethics(
         ("expert-stat", "notes/stat.md"),
     ]:
         _set_caller(monkeypatch, role)
-        sb.mos_signboard_set(
-            milestone="experiments_ready", raised=True, evidence=evidence
-        )
+        sb.mos_signboard_set(milestone="experiments_ready", raised=True, evidence=evidence)
     q = sb.evaluate_quorum(project["port"], "experiments_ready")
     assert q["met"] is False
     assert "ethics" in q["missing_fixed"]
@@ -270,9 +266,7 @@ def test_quorum_passes_with_2_of_3_experts_plus_ethics_and_coder(
         ("expert-chem", "notes/chem.md"),
     ]:
         _set_caller(monkeypatch, role)
-        sb.mos_signboard_set(
-            milestone="experiments_ready", raised=True, evidence=evidence
-        )
+        sb.mos_signboard_set(milestone="experiments_ready", raised=True, evidence=evidence)
     q = sb.evaluate_quorum(project["port"], "experiments_ready")
     assert q["missing_fixed"] == []
     assert q["experts_met"] is True
@@ -299,9 +293,7 @@ def test_submit_ready_requires_all_experts(
     assert q["met"] is False
     # Add the second expert → quorum.
     _set_caller(monkeypatch, "expert-chem")
-    sb.mos_signboard_set(
-        milestone="submit_ready", raised=True, evidence="notes/chem.md"
-    )
+    sb.mos_signboard_set(milestone="submit_ready", raised=True, evidence="notes/chem.md")
     q2 = sb.evaluate_quorum(project["port"], "submit_ready")
     assert q2["met"] is True
 
@@ -392,9 +384,7 @@ def test_full_milestone_flow_evaluate_consume_reopen(
         ("expert-bio", "b.md"),
     ]:
         _set_caller(monkeypatch, role)
-        sb.mos_signboard_set(
-            milestone="submit_ready", raised=True, evidence=evidence
-        )
+        sb.mos_signboard_set(milestone="submit_ready", raised=True, evidence=evidence)
     port = project["port"]
     q1 = sb.evaluate_quorum(port, "submit_ready")
     assert q1["met"] is True
@@ -411,9 +401,7 @@ def test_full_milestone_flow_evaluate_consume_reopen(
         ("expert-bio", "b2.md"),
     ]:
         _set_caller(monkeypatch, role)
-        sb.mos_signboard_set(
-            milestone="submit_ready", raised=True, evidence=evidence
-        )
+        sb.mos_signboard_set(milestone="submit_ready", raised=True, evidence=evidence)
     q3 = sb.evaluate_quorum(port, "submit_ready")
     assert q3["met"] is True
     sb.consume_milestone(port, "submit_ready")

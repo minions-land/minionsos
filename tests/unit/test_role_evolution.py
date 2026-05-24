@@ -8,14 +8,12 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from minions.lifecycle import role_evolution as RE
 from minions.state.store import ProjectEntry, RoleEntry
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -33,8 +31,9 @@ def _ev(role: str, source: str, text: str, hours_ago: float = 1.0) -> RE.Failure
     )
 
 
-def _stats(name: str, n_tasks: int, age_hours: float = 24.0,
-           artifacts: list[str] | None = None) -> RE.RoleStats:
+def _stats(
+    name: str, n_tasks: int, age_hours: float = 24.0, artifacts: list[str] | None = None
+) -> RE.RoleStats:
     return RE.RoleStats(
         role_name=name,
         age_hours=age_hours,
@@ -110,11 +109,13 @@ def test_convergence_score_zero_when_no_artifacts():
 
 def test_convergence_score_high_when_overlap():
     a = _stats(
-        "alg", 3,
+        "alg",
+        3,
         artifacts=["/p/branches/shared/notes/x.md", "/p/branches/shared/notes/y.md"],
     )
     b = _stats(
-        "geo", 3,
+        "geo",
+        3,
         artifacts=["/p/branches/shared/notes/x.md", "/p/branches/shared/notes/y.md"],
     )
     assert RE.convergence_score(a, b) > 0.95
@@ -153,10 +154,9 @@ def test_split_keeps_when_only_one_subdomain():
 
 def test_split_fires_when_evidence_partitioned():
     role = RoleEntry(name="coder", state="active")
-    events = (
-        [_ev("coder", "experiment", "convergence drift") for _ in range(3)]
-        + [_ev("coder", "ethics", "p-value misreport") for _ in range(3)]
-    )
+    events = [_ev("coder", "experiment", "convergence drift") for _ in range(3)] + [
+        _ev("coder", "ethics", "p-value misreport") for _ in range(3)
+    ]
     d = RE.evaluate_split(role, events)
     assert d.decision == "SPLIT"
     names = {s["name"] for s in d.proposed_specialists}
@@ -165,9 +165,7 @@ def test_split_fires_when_evidence_partitioned():
 
 def test_split_only_counts_failures_for_the_target_role():
     role = RoleEntry(name="coder", state="active")
-    events = [
-        _ev("coder", "experiment", "convergence x") for _ in range(3)
-    ] + [
+    events = [_ev("coder", "experiment", "convergence x") for _ in range(3)] + [
         _ev("writer", "ethics", "p-value y") for _ in range(3)
     ]
     d = RE.evaluate_split(role, events)
@@ -208,8 +206,12 @@ def test_dismiss_skipped_for_young_role():
 def test_evaluate_merge_does_not_emit_starvation_kind():
     """Convergence is now the only MERGE trigger; starvation goes to dismiss."""
     project = ProjectEntry(
-        port=39999, real_name="t", status="active",
-        created="2026-01-01T00:00:00Z", current_branch="x", active_roles=[],
+        port=39999,
+        real_name="t",
+        status="active",
+        created="2026-01-01T00:00:00Z",
+        current_branch="x",
+        active_roles=[],
     )
     stats = {
         "expert-old": _stats("expert-old", n_tasks=0, age_hours=24),
@@ -223,8 +225,12 @@ def test_evaluate_merge_does_not_emit_starvation_kind():
 def test_merge_convergence_fires_on_independent_roles():
     """Convergence merge does NOT require split lineage."""
     project = ProjectEntry(
-        port=39999, real_name="t", status="active",
-        created="2026-01-01T00:00:00Z", current_branch="x", active_roles=[],
+        port=39999,
+        real_name="t",
+        status="active",
+        created="2026-01-01T00:00:00Z",
+        current_branch="x",
+        active_roles=[],
     )
     shared_paths = [
         "/p/branches/shared/notes/topic-a.md",
@@ -232,10 +238,8 @@ def test_merge_convergence_fires_on_independent_roles():
         "/p/branches/shared/notes/topic-c.md",
     ]
     stats = {
-        "expert-cs-theory": _stats("cs-theory", n_tasks=5, age_hours=24,
-                                   artifacts=shared_paths),
-        "expert-algorithms": _stats("algorithms", n_tasks=5, age_hours=24,
-                                    artifacts=shared_paths),
+        "expert-cs-theory": _stats("cs-theory", n_tasks=5, age_hours=24, artifacts=shared_paths),
+        "expert-algorithms": _stats("algorithms", n_tasks=5, age_hours=24, artifacts=shared_paths),
     }
     decisions = RE.evaluate_merge(project, stats)
     conv = [d for d in decisions if d.kind == "convergence"]
@@ -390,8 +394,10 @@ def test_apply_split_invokes_spawn_then_dismiss(tmp_path, monkeypatch):
         dismiss_calls.append(role_name)
         return {"name": role_name}
 
-    with patch("minions.lifecycle.role.register_expert", fake_register_expert), \
-         patch("minions.lifecycle.role.dismiss_role", fake_dismiss_role):
+    with (
+        patch("minions.lifecycle.role.register_expert", fake_register_expert),
+        patch("minions.lifecycle.role.dismiss_role", fake_dismiss_role),
+    ):
         res = RE.apply_split(
             project_port=39999,
             source_role="coder",
@@ -423,8 +429,10 @@ def test_apply_split_keeps_source_alive_on_partial_spawn_failure(tmp_path, monke
         dismissed.append(role_name)
         return {}
 
-    with patch("minions.lifecycle.role.register_expert", fake_register_expert), \
-         patch("minions.lifecycle.role.dismiss_role", fake_dismiss):
+    with (
+        patch("minions.lifecycle.role.register_expert", fake_register_expert),
+        patch("minions.lifecycle.role.dismiss_role", fake_dismiss),
+    ):
         res = RE.apply_split(
             project_port=39999,
             source_role="coder",

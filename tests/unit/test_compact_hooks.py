@@ -132,9 +132,7 @@ def project_dir(tmp_path: Path) -> Path:
 
 
 def _seed_draft(project_root: Path, port: int, ids: list[str]) -> None:
-    sp_path = (
-        project_root / f"project_{port}" / "branches" / "shared" / "draft" / "draft.json"
-    )
+    sp_path = project_root / f"project_{port}" / "branches" / "shared" / "draft" / "draft.json"
     sp_path.write_text(
         json.dumps({"nodes": [{"id": i, "type": "x", "text": ""} for i in ids], "edges": []}),
         encoding="utf-8",
@@ -142,14 +140,7 @@ def _seed_draft(project_root: Path, port: int, ids: list[str]) -> None:
 
 
 def _read_journal(project_root: Path, port: int) -> list[dict]:
-    journal = (
-        project_root
-        / f"project_{port}"
-        / "branches"
-        / "shared"
-        / "draft"
-        / "journal.jsonl"
-    )
+    journal = project_root / f"project_{port}" / "branches" / "shared" / "draft" / "journal.jsonl"
     if not journal.exists():
         return []
     return [json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines() if line]

@@ -11,7 +11,6 @@ import pytest
 from minions.config import resolve_whitelist
 from minions.lifecycle import project as project_mod
 from minions.state.store import ProjectEntry, RoleEntry, StateStore
-from minions.tools import mcp_server
 
 
 @dataclass

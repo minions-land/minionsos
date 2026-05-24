@@ -15,7 +15,6 @@ the finally block, even on assertion failure. The test never starts real
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import uuid
 from pathlib import Path
@@ -30,17 +29,13 @@ def _kill_tmux_sessions(prefix: str) -> None:
     if not _have_tmux():
         return
     try:
-        result = subprocess.run(
-            ["tmux", "ls"], capture_output=True, text=True, check=False
-        )
+        result = subprocess.run(["tmux", "ls"], capture_output=True, text=True, check=False)
     except FileNotFoundError:
         return
     for line in (result.stdout or "").splitlines():
         name = line.split(":", 1)[0]
         if name.startswith(prefix):
-            subprocess.run(
-                ["tmux", "kill-session", "-t", name], capture_output=True, check=False
-            )
+            subprocess.run(["tmux", "kill-session", "-t", name], capture_output=True, check=False)
 
 
 def _have_tmux() -> bool:

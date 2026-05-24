@@ -52,16 +52,13 @@ def test_spawn_tmux_does_not_pipe_claude_through_tee(tmp_path: Path) -> None:
             log_path=log_path,
         )
 
-    new_session_calls = [
-        c for c in captured if c[:2] == ["tmux", "new-session"]
-    ]
+    new_session_calls = [c for c in captured if c[:2] == ["tmux", "new-session"]]
     assert len(new_session_calls) == 1, (
         f"expected one tmux new-session call, got {len(new_session_calls)}"
     )
     cmd_str = new_session_calls[0][-1]
     assert "tee" not in cmd_str, (
-        f"tmux new-session command must not pipe claude through tee — "
-        f"got: {cmd_str!r}"
+        f"tmux new-session command must not pipe claude through tee — got: {cmd_str!r}"
     )
     assert "|" not in cmd_str, (
         f"tmux new-session command must not pipe claude at all — got: {cmd_str!r}"
@@ -134,19 +131,11 @@ def test_send_initial_prompt_sends_two_enters(tmp_path: Path) -> None:
     ):
         role_launcher._tmux_send_initial_prompt("mos-12345-coder", "hello world")
 
-    enter_calls = [
-        c
-        for c in captured
-        if c[:2] == ["tmux", "send-keys"] and c[-1] == "Enter"
-    ]
+    enter_calls = [c for c in captured if c[:2] == ["tmux", "send-keys"] and c[-1] == "Enter"]
     assert len(enter_calls) == 2, (
         f"expected two Enter sends (commit paste + submit), got {len(enter_calls)}"
     )
 
-    paste_calls = [
-        c
-        for c in captured
-        if c[:2] == ["tmux", "send-keys"] and "-l" in c
-    ]
+    paste_calls = [c for c in captured if c[:2] == ["tmux", "send-keys"] and "-l" in c]
     assert len(paste_calls) == 1
     assert "hello world" in paste_calls[0]

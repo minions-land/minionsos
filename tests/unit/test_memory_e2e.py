@@ -192,7 +192,9 @@ def test_full_memory_pipeline_e2e(project_env, tmp_path: Path, monkeypatch):
 
     # Step 8: Crystallize Coder's session window into a verbatim Book page
     crystallize_result = book.mos_book_crystallize_session(
-        role="coder", window_minutes=43200, port=port  # 30 days window catches all
+        role="coder",
+        window_minutes=43200,
+        port=port,  # 30 days window catches all
     )
     assert "DEAD-001" in crystallize_result["cited_node_ids"]
     assert "R-001" in crystallize_result["cited_node_ids"]

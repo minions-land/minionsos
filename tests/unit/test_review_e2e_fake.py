@@ -363,7 +363,9 @@ class TestHappyPath:
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=staged_round_scripts(decision="Accept"))
         install_spawner(spawner)
-        review_run(ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1"))
+        review_run(
+            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+        )
         fresh = pdir / "branches" / "shared" / "reviews" / "round-1" / "fresh.md"
         assert fresh.exists()
         body = fresh.read_text(encoding="utf-8")
@@ -381,7 +383,9 @@ class TestHappyPath:
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=staged_round_scripts(decision="Accept"))
         install_spawner(spawner)
-        review_run(ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1"))
+        review_run(
+            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+        )
         # All 4 spawns must have a positive bounded timeout (the stage caps).
         assert all(t > 0 for t in spawner.timeouts)
         # Reviewer-stage timeout (first 3 calls) and consolidation timeout (last)
@@ -722,7 +726,9 @@ class TestPromptShape:
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=staged_round_scripts())
         install_spawner(spawner)
-        review_run(ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1"))
+        review_run(
+            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+        )
         # First 3 calls are per-reviewer prompts.
         for i, (_, prompt) in enumerate(spawner.calls[:3], start=1):
             assert f"reviewer {i}" in prompt.lower(), f"call {i} not scoped to reviewer {i}"
@@ -740,7 +746,9 @@ class TestPromptShape:
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=staged_round_scripts())
         install_spawner(spawner)
-        review_run(ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1"))
+        review_run(
+            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+        )
         # Last call is the consolidation prompt.
         _, prompt = spawner.calls[-1]
         assert "consolidated.md" in prompt
