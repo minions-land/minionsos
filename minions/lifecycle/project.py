@@ -532,14 +532,24 @@ def _stop_backend(port: int, pid: int | None) -> bool:
     missing or stale, fall back to the listener on the project port, but only
     kill a discovered process whose command line matches MinionsOS' uvicorn
     backend.
+
+    GitHub Issue #23: when the recorded PID is already dead and the port is
+    free, ``_port_is_free`` can briefly return False on the first poll due to
+    a TIME_WAIT / closing-socket window. We retry the port check for up to
+    1 s in 100 ms increments before falling back to listener discovery, so a
+    stale-PID stop is idempotent on the first call.
     """
     if pid is not None:
         _terminate_backend_pid(port, pid)
+        for _ in range(10):
+            if _port_is_free(port):
+                return True
+            time.sleep(0.1)
+
+    for _ in range(10):
         if _port_is_free(port):
             return True
-
-    if _port_is_free(port):
-        return True
+        time.sleep(0.1)
 
     fallback_pids = [p for p in _backend_listener_pids(port) if p != pid]
     for fallback_pid in fallback_pids:
@@ -557,8 +567,10 @@ def _stop_backend(port: int, pid: int | None) -> bool:
             port,
         )
         _terminate_backend_pid(port, fallback_pid)
-        if _port_is_free(port):
-            return True
+        for _ in range(10):
+            if _port_is_free(port):
+                return True
+            time.sleep(0.1)
 
     logger.warning("Backend on port %d is still listening after stop attempt.", port)
     return False

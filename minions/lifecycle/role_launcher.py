@@ -404,8 +404,45 @@ def _wait_for_repl_ready(
     return False
 
 
+def _tmux_paste_prompt(session_name: str, prompt: str) -> None:
+    """Inject *prompt* into the tmux session via a temp-file paste buffer.
+
+    Why not ``send-keys -l``: tmux's argv length limit (~32 KB on Linux)
+    rejects large prompts with ``command too long``. Role init prompts
+    routinely exceed 32 KB once role SYSTEM.md, all skill files, and
+    book/hot.md are concatenated (78 KB observed for ``ethics``). See
+    GitHub Issue #22.
+
+    The load-buffer + paste-buffer path reads the prompt from a file,
+    avoiding the argv limit entirely. ``paste-buffer -d`` deletes the
+    buffer after paste so it does not leak into other sessions.
+    """
+    import os
+    import tempfile
+    from contextlib import suppress
+
+    fd, buf_path = tempfile.mkstemp(prefix="minionsos_init_", suffix=".txt")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(prompt)
+        buf_name = f"minionsos_init_{session_name}_{os.getpid()}"
+        subprocess.run(
+            ["tmux", "load-buffer", "-b", buf_name, buf_path],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["tmux", "paste-buffer", "-d", "-b", buf_name, "-t", session_name],
+            check=True,
+            capture_output=True,
+        )
+    finally:
+        with suppress(OSError):
+            os.unlink(buf_path)
+
+
 def _tmux_send_initial_prompt(session_name: str, prompt: str) -> None:
-    """Type *prompt* into the tmux session as if the operator typed it.
+    """Inject *prompt* into the tmux session as if the operator typed it.
 
     Two waits + two Enters are deliberate. Claude Code 2.1 needs the REPL
     to be attached before keystrokes register, and its multiline paste mode
@@ -415,7 +452,10 @@ def _tmux_send_initial_prompt(session_name: str, prompt: str) -> None:
     1. Poll-until-ready: capture-pane in a 30 s loop until the Claude REPL
        prompt marker appears (replaces the legacy fixed 3 s sleep, which
        was racy on loaded hosts — see GitHub Issue #2).
-    2. send-keys -l <prompt>: types the prompt verbatim into the input.
+    2. load-buffer + paste-buffer: pastes the prompt verbatim via a
+       file-backed tmux buffer, sidestepping the ~32 KB argv limit on
+       ``send-keys -l`` (GitHub Issue #22). Role init prompts routinely
+       exceed 32 KB once skills + hot-cache are stitched in.
     3. send-keys Enter: turns the paste into a committed multiline block.
     4. Brief sleep so the REPL processes the commit.
     5. send-keys Enter: actually submits the prompt to the model.
@@ -435,12 +475,8 @@ def _tmux_send_initial_prompt(session_name: str, prompt: str) -> None:
     for attempt in range(1, max_attempts + 1):
         try:
             pane_before = _capture_pane(session_name)
-            # 2. Paste the prompt.
-            subprocess.run(
-                ["tmux", "send-keys", "-t", session_name, "-l", prompt],
-                check=True,
-                capture_output=True,
-            )
+            # 2. Paste the prompt via a file-backed buffer.
+            _tmux_paste_prompt(session_name, prompt)
             # 3. Commit the paste.
             subprocess.run(
                 ["tmux", "send-keys", "-t", session_name, "Enter"],
@@ -456,10 +492,12 @@ def _tmux_send_initial_prompt(session_name: str, prompt: str) -> None:
                 capture_output=True,
             )
         except subprocess.CalledProcessError as exc:
+            stderr = (exc.stderr or b"").decode("utf-8", errors="replace").strip()
             logger.warning(
-                "_tmux_send_initial_prompt: send-keys failed for %s: %s",
+                "_tmux_send_initial_prompt: tmux call failed for %s: %s; stderr=%r",
                 session_name,
                 exc,
+                stderr,
             )
             return
         # 6. Activity check: wait up to 5 s for the pane to change.

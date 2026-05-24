@@ -138,12 +138,55 @@ def test_stop_backend_falls_back_to_verified_port_listener(
 ) -> None:
     port = 40124
     calls: list[int] = []
-    free_checks = iter([False, True])
 
-    monkeypatch.setattr(proj_mod, "_port_is_free", lambda p: next(free_checks))
+    # Port is not free until the listener PID 222 is terminated. Use a
+    # state-driven check so the GitHub Issue #23 retry loop (up to 1 s of
+    # 100 ms polls before falling back to listener discovery) reads
+    # naturally rather than depending on a fixed-length iterator.
+    def fake_port_is_free(_p: int) -> bool:
+        return 222 in calls
+
+    monkeypatch.setattr(proj_mod, "_port_is_free", fake_port_is_free)
     monkeypatch.setattr(proj_mod, "_backend_listener_pids", lambda p: [222])
     monkeypatch.setattr(proj_mod, "_is_minions_backend_pid", lambda pid, p: True)
     monkeypatch.setattr(proj_mod, "_terminate_backend_pid", lambda p, pid: calls.append(pid))
+    # Skip real sleeps inside the retry loop so the test stays fast.
+    monkeypatch.setattr(proj_mod.time, "sleep", lambda _s: None)
 
     assert proj_mod._stop_backend(port, None) is True
     assert calls == [222]
+
+
+def test_stop_backend_retries_port_check_after_stale_pid_kill(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GitHub Issue #23: when the recorded PID is stale (process already gone)
+    and the kernel briefly holds the socket in TIME_WAIT, the first
+    _port_is_free check can return False even though the next call
+    (within 100 ms) returns True. _stop_backend must retry the port-free
+    probe inside the recorded-PID branch so a stale-PID stop is idempotent
+    on the first call and does not fall through to listener discovery.
+    """
+    port = 40125
+    free_checks: list[bool] = []
+    listener_calls: list[int] = []
+
+    def fake_port_is_free(_p: int) -> bool:
+        # First two checks: still in TIME_WAIT. Third onwards: free.
+        free_checks.append(True)
+        return len(free_checks) > 2
+
+    monkeypatch.setattr(proj_mod, "_port_is_free", fake_port_is_free)
+    # Fallback listener discovery should NOT be invoked: the retry loop
+    # inside the recorded-PID branch must succeed first.
+    monkeypatch.setattr(
+        proj_mod, "_backend_listener_pids", lambda p: listener_calls.append(p) or []
+    )
+    monkeypatch.setattr(proj_mod, "_terminate_backend_pid", lambda p, pid: None)
+    monkeypatch.setattr(proj_mod.time, "sleep", lambda _s: None)
+
+    assert proj_mod._stop_backend(port, 96003) is True
+    # Retry loop polled at least 3 times to clear the TIME_WAIT.
+    assert len(free_checks) >= 3
+    # We did not enter the listener-discovery fallback.
+    assert listener_calls == []

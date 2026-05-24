@@ -112,6 +112,9 @@ def test_send_initial_prompt_sends_two_enters(tmp_path: Path) -> None:
     Without the second Enter, the multiline forever-loop prompt sits in
     the input field and the role never wakes — the cold-start failure
     mode observed in the dispatch-eval e2e on 2026-05-19.
+
+    GitHub Issue #22: pasting via load-buffer + paste-buffer rather than
+    send-keys -l, so prompts > 32 KB do not hit the tmux argv limit.
     """
     from minions.lifecycle import role_launcher
 
@@ -139,9 +142,17 @@ def test_send_initial_prompt_sends_two_enters(tmp_path: Path) -> None:
         f"expected two Enter sends (commit paste + submit), got {len(enter_calls)}"
     )
 
-    paste_calls = [c for c in captured if c[:2] == ["tmux", "send-keys"] and "-l" in c]
-    assert len(paste_calls) == 1
-    assert "hello world" in paste_calls[0]
+    # GitHub Issue #22: paste must go through load-buffer + paste-buffer,
+    # not `send-keys -l`, so prompts > 32 KB don't hit tmux argv limit.
+    load_buffer_calls = [c for c in captured if c[:2] == ["tmux", "load-buffer"]]
+    paste_buffer_calls = [c for c in captured if c[:2] == ["tmux", "paste-buffer"]]
+    assert len(load_buffer_calls) == 1, "expected exactly one load-buffer call"
+    assert len(paste_buffer_calls) == 1, "expected exactly one paste-buffer call"
+    # Verify paste-buffer uses -d to clean up after itself.
+    assert "-d" in paste_buffer_calls[0]
+    # Verify the buffer name is referenced in both calls.
+    buf_name = next(arg for arg in load_buffer_calls[0] if arg.startswith("minionsos_init_"))
+    assert buf_name in paste_buffer_calls[0]
 
 
 # ---------------------------------------------------------------------------
