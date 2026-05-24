@@ -220,6 +220,7 @@ def test_wiki_query_returns_matching_index_entry(project: dict[str, Any]) -> Non
             "book_path": "book/sources/coder-transformer.md",
             "score": 1,
             "status": "",
+            "relations": [],
         }
     ]
 
@@ -275,3 +276,174 @@ def test_publish_policy_allows_noter_book() -> None:
     assert publish._validate_dst("noter", "book/sources/source.md") == Path(
         "book/sources/source.md"
     )
+
+
+# ---------------------------------------------------------------------------
+# v15.19.2 — Book index synthesizes edges from contradiction pages
+# ---------------------------------------------------------------------------
+
+
+def _write_contradiction_page(
+    book_root: Path,
+    *,
+    page_slug: str,
+    new_source: str,
+    opposing_slug: str,
+    status: str = "unresolved",
+) -> None:
+    p = book_root / "contradictions" / f"{page_slug}.md"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(
+        "---\n"
+        f'slug: "{page_slug}"\n'
+        f'new_source: "{new_source}"\n'
+        f'opposing_page: "book/sources/{opposing_slug}.md"\n'
+        f'status: "{status}"\n'
+        "page_kind: contradiction\n"
+        "---\n"
+        "\n"
+        f"# Contradiction: {new_source}\n",
+        encoding="utf-8",
+    )
+
+
+def test_scan_book_edges_synthesizes_from_contradiction_pages(
+    project: dict[str, Any],
+) -> None:
+    """v15.19.2: every contradiction page implies a contradicts edge."""
+    book_root = project["shared"] / "book"
+    book_root.mkdir(exist_ok=True)
+    _write_contradiction_page(
+        book_root,
+        page_slug="contradiction-coder-baseline",
+        new_source="coder-baseline",
+        opposing_slug="ethics-flag",
+    )
+    _write_contradiction_page(
+        book_root,
+        page_slug="contradiction-coder-other",
+        new_source="coder-other",
+        opposing_slug="expert-mathematician",
+    )
+    edges = book._scan_book_edges(book_root)
+    assert len(edges) == 2
+    pairs = {(e["from"], e["to"], e["relation"]) for e in edges}
+    assert ("coder-baseline", "ethics-flag", "contradicts") in pairs
+    assert ("coder-other", "expert-mathematician", "contradicts") in pairs
+    # Every edge has an evidence pointer to its source contradiction page.
+    for edge in edges:
+        assert edge["evidence"].startswith("book/contradictions/")
+
+
+def test_scan_book_edges_skips_resolved(project: dict[str, Any]) -> None:
+    """Resolved contradictions are no longer live edges."""
+    book_root = project["shared"] / "book"
+    _write_contradiction_page(
+        book_root,
+        page_slug="contradiction-resolved-x",
+        new_source="coder-x",
+        opposing_slug="ethics-x",
+        status="resolved",
+    )
+    _write_contradiction_page(
+        book_root,
+        page_slug="contradiction-live-y",
+        new_source="coder-y",
+        opposing_slug="ethics-y",
+        status="unresolved",
+    )
+    edges = book._scan_book_edges(book_root)
+    assert len(edges) == 1
+    assert edges[0]["from"] == "coder-y"
+
+
+def test_render_index_appends_relations_block(project: dict[str, Any]) -> None:
+    """When ``book_root`` is given to ``_render_index``, the rendered file
+    grows a ``## Relations`` section listing every live edge."""
+    book_root = project["shared"] / "book"
+    _write_contradiction_page(
+        book_root,
+        page_slug="contradiction-a-vs-b",
+        new_source="coder-a",
+        opposing_slug="coder-b",
+    )
+    entries = [
+        {
+            "slug": "coder-a",
+            "title": "A",
+            "type": "source",
+            "page_kind": "source",
+            "book_path": "book/sources/coder-a.md",
+        },
+        {
+            "slug": "coder-b",
+            "title": "B",
+            "type": "source",
+            "page_kind": "source",
+            "book_path": "book/sources/coder-b.md",
+        },
+    ]
+    rendered = book._render_index(entries, book_root=book_root)
+    # Both nodes still listed.
+    assert "## A" in rendered
+    assert "## B" in rendered
+    # Plus a Relations block with the contradicts edge.
+    assert "## Relations" in rendered
+    assert "`coder-a` --[contradicts]--> `coder-b`" in rendered
+
+
+def test_mos_book_query_surfaces_relations(project: dict[str, Any]) -> None:
+    """Query results carry a ``relations`` list of outgoing edges."""
+    book_root = project["shared"] / "book"
+    _write_contradiction_page(
+        book_root,
+        page_slug="contradiction-q1",
+        new_source="coder-baseline",
+        opposing_slug="ethics-flag-canonical",
+    )
+    index = book_root / "index.md"
+    index.parent.mkdir(parents=True, exist_ok=True)
+    index.write_text(
+        "\n".join(
+            [
+                "# Book Index",
+                "",
+                "## Baseline Shootout",
+                "slug: coder-baseline",
+                "type: source",
+                "page_kind: source",
+                "book_path: book/sources/coder-baseline.md",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = book.mos_book_query("baseline", port=project["port"])
+    assert result["total"] == 1
+    match = result["matches"][0]
+    assert match["slug"] == "coder-baseline"
+    assert match["relations"] == [
+        {
+            "to": "ethics-flag-canonical",
+            "relation": "contradicts",
+            "evidence": "book/contradictions/contradiction-q1.md",
+        }
+    ]
+
+
+def test_parse_index_entries_stops_at_relations_section() -> None:
+    """The Relations block is edge data, not page entries — must not show
+    up as a fake page in the parse output."""
+    text = (
+        "# Book Index\n\n"
+        "## Real Page\n"
+        "slug: real-page\n"
+        "type: source\n"
+        "page_kind: source\n"
+        "book_path: book/sources/real-page.md\n\n"
+        "## Relations\n\n"
+        "- `real-page` --[contradicts]--> `other-page`\n"
+    )
+    entries = book._parse_index_entries(text)
+    assert len(entries) == 1
+    assert entries[0]["slug"] == "real-page"

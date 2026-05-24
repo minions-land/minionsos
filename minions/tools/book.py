@@ -671,6 +671,12 @@ def _parse_index_entries(text: str) -> list[dict[str, str]]:
     entries: list[dict[str, str]] = []
     current: dict[str, str] | None = None
     for line in text.splitlines():
+        # Stop at the Relations section — those are edges, not page entries.
+        if line.startswith("## Relations") or line.startswith("# Relations"):
+            if current is not None:
+                entries.append(current)
+                current = None
+            break
         if line.startswith("## "):
             if current is not None:
                 entries.append(current)
@@ -687,7 +693,95 @@ def _parse_index_entries(text: str) -> list[dict[str, str]]:
     return [entry for entry in entries if entry.get("slug") and entry.get("book_path")]
 
 
-def _render_index(entries: list[dict[str, str]]) -> str:
+def _scan_book_edges(book_root: Path) -> list[dict[str, str]]:
+    """Synthesize edges from on-disk Book pages.
+
+    Today's edges come from contradiction pages — every contradiction page
+    has ``new_source: <slug>`` (the source the contradiction is about) and
+    ``opposing_page: book/sources/<other>.md`` (the source it contradicts).
+    Each contradiction therefore implies at least one
+    ``contradicts(new_source -> opposing_source)`` edge.
+
+    This is a *re-derived* view: we read the contradiction pages each time
+    rather than storing edges alongside the index, so the edges always
+    reflect the on-disk reality. If a contradiction is resolved (page
+    deleted or status changed), its edges go away naturally.
+
+    Returns a list of ``{"from", "to", "relation", "evidence"}`` dicts.
+    Relation is always ``contradicts`` for v15.19.2; the schema is shaped
+    to host other relation types later (e.g. ``derives_from``,
+    ``supersedes``) without breaking the index parser.
+    """
+    contradictions_dir = book_root / "contradictions"
+    if not contradictions_dir.is_dir():
+        return []
+    edges: list[dict[str, str]] = []
+    for page in sorted(contradictions_dir.glob("*.md")):
+        try:
+            text = page.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if not text.startswith("---\n"):
+            continue
+        # Parse the YAML-ish frontmatter without pulling in PyYAML.
+        end = text.find("\n---\n", 4)
+        if end == -1:
+            continue
+        frontmatter = text[4:end]
+        meta: dict[str, str] = {}
+        for line in frontmatter.splitlines():
+            if ":" not in line:
+                continue
+            k, v = line.split(":", 1)
+            meta[k.strip()] = v.strip().strip('"').strip("'")
+        new_source = meta.get("new_source", "")
+        opposing_page = meta.get("opposing_page", "")
+        status = meta.get("status", "")
+        if not new_source or not opposing_page:
+            continue
+        # Derive the opposing slug from the page path.
+        opposing_slug = Path(opposing_page).stem
+        if not opposing_slug or new_source == opposing_slug:
+            continue
+        # Skip resolved contradictions — those edges are no longer live.
+        if status and status.lower() in {"resolved", "refuted-resolved"}:
+            continue
+        edges.append(
+            {
+                "from": new_source,
+                "to": opposing_slug,
+                "relation": "contradicts",
+                "evidence": f"book/contradictions/{page.name}",
+            }
+        )
+    # Stable order across runs.
+    edges.sort(key=lambda e: (e["from"], e["to"], e["relation"]))
+    return edges
+
+
+def _render_relations_block(edges: list[dict[str, str]]) -> str:
+    """Render the ``## Relations`` section appended to ``index.md``."""
+    if not edges:
+        return ""
+    lines = ["", "## Relations", ""]
+    lines.append(f"_Auto-derived from on-disk contradiction pages. Count: {len(edges)}._")
+    lines.append("")
+    for edge in edges:
+        lines.append(
+            f"- `{edge['from']}` --[{edge['relation']}]--> `{edge['to']}`  "
+            f"(evidence: `{edge['evidence']}`)"
+        )
+    return "\n".join(lines)
+
+
+def _render_index(entries: list[dict[str, str]], *, book_root: Path | None = None) -> str:
+    """Render ``index.md``.
+
+    When *book_root* is provided we scan ``contradictions/`` to synthesize
+    a ``## Relations`` block at the bottom of the file (Issue: Book has
+    nodes but no edges). Edges are re-derived per render so the index is
+    always consistent with on-disk pages — see :func:`_scan_book_edges`.
+    """
     lines = ["# Book Index", ""]
     for entry in entries:
         title = entry.get("title", entry["slug"])
@@ -703,7 +797,12 @@ def _render_index(entries: list[dict[str, str]]) -> str:
                 "",
             ]
         )
-    return "\n".join(lines).rstrip() + "\n"
+    out = "\n".join(lines).rstrip()
+    if book_root is not None:
+        relations = _render_relations_block(_scan_book_edges(book_root))
+        if relations:
+            out = out + "\n" + relations
+    return out + "\n"
 
 
 def _book_path_for_page_kind(page_kind: str, slug: str) -> str:
@@ -753,7 +852,11 @@ def _index_append_many(
         if entry["slug"] not in replaced:
             merged.append(entry)
 
-    return _stage_text(port, f"book-index-{next_entries[0]['slug']}.md", _render_index(merged))
+    return _stage_text(
+        port,
+        f"book-index-{next_entries[0]['slug']}.md",
+        _render_index(merged, book_root=_book_root(port)),
+    )
 
 
 def _index_append(port: int, slug: str, title: str, page_kind: str) -> Path:
@@ -2069,6 +2172,7 @@ def mos_book_query(
     *,
     port: int | None = None,
     include_status: bool = True,
+    include_relations: bool = True,
 ) -> dict[str, object]:
     """Keyword-only search over book/index.md headers + page filenames.
 
@@ -2082,10 +2186,17 @@ def mos_book_query(
             ``"contradicted"``, ``"resolved"``, ``"unresolved"``). This
             lets a role progressively disclose: hot match → check status
             → drill into contradiction page if flagged → walk reel_refs.
+        include_relations: If True (default), each match carries a
+            ``relations`` list of edges starting from this page (currently
+            only ``contradicts`` edges synthesized from the contradictions
+            directory). Each edge is ``{"to", "relation", "evidence"}``.
+            Lets a role drill from a source into the pages that
+            contradict it without an extra index read.
 
     Returns:
         ``{"matches": [...], "total": N, "queried": text}`` where each match
-        is ``{"slug", "title", "page_kind", "book_path", "score", "status"?}``.
+        is ``{"slug", "title", "page_kind", "book_path", "score", "status"?,
+        "relations"?}``.
     """
     resolved_port = _resolve_port(port)
     query_tokens = _tokens(text)
@@ -2095,6 +2206,16 @@ def mos_book_query(
         return {"matches": [], "total": 0, "queried": text}
 
     entries = _parse_index_entries(index_path.read_text(encoding="utf-8"))
+    edges_by_from: dict[str, list[dict[str, str]]] = {}
+    if include_relations:
+        for edge in _scan_book_edges(book_root):
+            edges_by_from.setdefault(edge["from"], []).append(
+                {
+                    "to": edge["to"],
+                    "relation": edge["relation"],
+                    "evidence": edge["evidence"],
+                }
+            )
     scored: list[dict[str, object]] = []
     for entry in entries:
         haystack = f"{entry.get('title', '')} {Path(entry.get('book_path', '')).name}"
@@ -2110,6 +2231,8 @@ def mos_book_query(
         }
         if include_status:
             match["status"] = _read_page_status(book_root, entry["book_path"])
+        if include_relations:
+            match["relations"] = edges_by_from.get(entry["slug"], [])
         scored.append(match)
 
     scored.sort(key=lambda item: (-int(item["score"]), str(item["title"]), str(item["slug"])))
