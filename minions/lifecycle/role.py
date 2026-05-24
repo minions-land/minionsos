@@ -31,7 +31,7 @@ from minions.config import (
 )
 from minions.errors import BackendError, RoleError
 from minions.lifecycle import eacn_client
-from minions.lifecycle.agent_registry import register_project_role_agent, role_agent_domains
+from minions.lifecycle.agent_registry import register_project_role_agent
 from minions.lifecycle.eacn_identity import resolve_agent_id
 from minions.lifecycle.project import ensure_role_workspace
 from minions.paths import project_session_name
@@ -219,9 +219,10 @@ def register_role(
     resident-Role launcher consumes the resulting registry entry to start
     the actual long-lived Role process.
 
-    If *init_brief* is given it is published as a targeted EACN task (or, for
-    Noter, a direct message) so the role's first action uses the same bus as
-    every later handoff.
+    If *init_brief* is given it is delivered as an addressable EACN message
+    (advisory, not a Task) so the cold-started Role wakes with role-specific
+    guidance but no bid/claim contract to satisfy. Noter is on a timer
+    backbone so its brief is logged-and-dropped.
     """
     if role not in FIXED_ROLES:
         raise RoleError(
@@ -376,30 +377,41 @@ def _do_register(
                 project_port,
             )
         else:
+            # Cold-start delivery is an advisory message, NOT a Task.
+            # A Task would carry a bid/claim contract and require the
+            # cold-started Role to issue eacn3_submit_bid before doing
+            # anything productive — a contract that often deadlocks a
+            # freshly woken Role with no peers yet to negotiate against.
+            # The v15.4 B-000 bootstrap node already provides project-level
+            # context; this message just hands the Role its role-specific
+            # brief as a normal addressable event that mos_await_events
+            # surfaces without a bid obligation.
             target_agent_id = resolve_agent_id(project_port, role_name)
             initiator_id = resolve_agent_id(project_port, "gru")
             try:
-                eacn_client.create_task(
+                eacn_client.send_message(
                     port=project_port,
-                    description=init_brief,
-                    domains=role_agent_domains(role_name),
-                    initiator_id=initiator_id,
-                    budget=0.0,
-                    expected_output={
-                        "type": "status_or_artifact",
-                        "description": (
-                            "Handle the initial role brief and report progress through EACN."
+                    to_agent_id=target_agent_id,
+                    from_agent_id=initiator_id,
+                    content={
+                        "kind": "role_init_brief",
+                        "role": role_name,
+                        "brief": init_brief,
+                        "guidance": (
+                            "This is an advisory init brief, not a Task. "
+                            "Read B-000 in the Draft for project context, then "
+                            "act on this brief through your normal event loop. "
+                            "No bid is expected."
                         ),
                     },
-                    invited_agent_ids=[target_agent_id],
                 )
             except BackendError as exc:
                 raise RoleError(
                     f"Role {role_name!r} joined project-local EACN3 on port {project_port}, "
-                    f"but the init_brief task could not be queued through EACN3: {exc}"
+                    f"but the init_brief message could not be sent through EACN3: {exc}"
                 ) from exc
             logger.info(
-                "init_brief task published via EACN: role=%r port=%d",
+                "init_brief message sent via EACN: role=%r port=%d",
                 role_name,
                 project_port,
             )

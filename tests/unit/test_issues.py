@@ -225,3 +225,97 @@ def test_jsonl_is_valid_per_line(issue_env: dict) -> None:
             "component",
             "summary",
         }
+
+
+# ---------------------------------------------------------------------------
+# GitHub Issues upload (v15.6+): local JSONL stays the source of truth, but
+# when the env / config names a target repo we also `gh issue create`.
+# ---------------------------------------------------------------------------
+
+
+def test_github_upload_disabled_by_default(issue_env: dict) -> None:
+    """No env, no gru.yaml entry → no GitHub call, github_url stays None."""
+    monkeypatch_calls: list[list[str]] = []
+
+    def fake_run(*args, **kwargs):
+        monkeypatch_calls.append(list(args[0]))
+        raise AssertionError("gh must NOT be invoked when no repo is configured")
+
+    import unittest.mock as _mock
+
+    with _mock.patch("minions.tools.issues.subprocess.run", side_effect=fake_run):
+        rec = report_issue(_make_args(title="no-upload"))
+    assert rec["github_url"] is None
+    assert rec["github_repo"] is None
+    assert monkeypatch_calls == []
+
+
+def test_github_upload_invoked_when_env_set(
+    issue_env: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With MINIONS_GITHUB_ISSUES_REPO set, report_issue runs gh and stores
+    the returned URL on the persisted record."""
+    monkeypatch.setenv("MINIONS_GITHUB_ISSUES_REPO", "Minions-Land/MinionsOS")
+
+    captured: dict[str, list[str]] = {}
+
+    class FakeProc:
+        returncode = 0
+        stdout = "https://github.com/Minions-Land/MinionsOS/issues/42\n"
+        stderr = ""
+
+    def fake_run(argv, *args, **kwargs):
+        captured["argv"] = list(argv)
+        return FakeProc()
+
+    import unittest.mock as _mock
+
+    # Force shutil.which("gh") to claim gh exists.
+    with (
+        _mock.patch("minions.tools.issues.shutil.which", return_value="/usr/local/bin/gh"),
+        _mock.patch("minions.tools.issues.subprocess.run", side_effect=fake_run),
+    ):
+        rec = report_issue(_make_args(title="upload-me", severity="P1", component="tool"))
+
+    assert rec["github_url"] == "https://github.com/Minions-Land/MinionsOS/issues/42"
+    assert rec["github_repo"] == "Minions-Land/MinionsOS"
+    argv = captured["argv"]
+    assert argv[:3] == ["gh", "issue", "create"]
+    assert "--repo" in argv and "Minions-Land/MinionsOS" in argv
+    # P1 → "bug" label; component "tool" → second label.
+    label_positions = [i for i, a in enumerate(argv) if a == "--label"]
+    label_values = [argv[i + 1] for i in label_positions]
+    assert "bug" in label_values
+    assert "tool" in label_values
+    # Title should carry the issue id prefix so duplicates are visible.
+    title_idx = argv.index("--title") + 1
+    assert argv[title_idx].startswith("[ISS-9001-1] ")
+
+
+def test_github_upload_failure_does_not_block_local_write(
+    issue_env: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When gh exits non-zero, the local JSONL still gets the row with
+    github_url=None — the local file is the source of truth."""
+    monkeypatch.setenv("MINIONS_GITHUB_ISSUES_REPO", "Minions-Land/MinionsOS")
+
+    class FakeProc:
+        returncode = 1
+        stdout = ""
+        stderr = "gh: rate limited"
+
+    import unittest.mock as _mock
+
+    with (
+        _mock.patch("minions.tools.issues.shutil.which", return_value="/usr/local/bin/gh"),
+        _mock.patch("minions.tools.issues.subprocess.run", return_value=FakeProc()),
+    ):
+        rec = report_issue(_make_args(title="upload-fails"))
+
+    assert rec["github_url"] is None
+    assert rec["github_repo"] is None  # we only stamp it on success
+    # Local row must still exist with the same ID.
+    rows = list_issues(9001)
+    assert len(rows) == 1
+    assert rows[0]["id"] == rec["id"]
+    assert rows[0]["github_url"] is None

@@ -917,6 +917,15 @@ class GruConfig(BaseModel):
         default="minionsos",
         description="Branch prefix used when pushing durable checkpoints to github_push_target.",
     )
+    github_issues_repo: str | None = Field(
+        default=None,
+        description=(
+            "Optional `owner/repo` target for `mos_issue_report` GitHub uploads. "
+            "When set (or via env MINIONS_GITHUB_ISSUES_REPO), each issue filed "
+            "is also posted via `gh issue create`. Local JSONL is always written "
+            "first regardless of upload outcome."
+        ),
+    )
     backend_crash_threshold: int = Field(
         default=3,
         description="Max backend crashes within crash_window_seconds before auto-restart stops.",

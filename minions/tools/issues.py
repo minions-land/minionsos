@@ -56,6 +56,7 @@ import json
 import logging
 import os
 import shutil
+import subprocess
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -213,6 +214,138 @@ def _next_issue_id(port: int, jsonl_path: Path) -> str:
     return f"ISS-{port}-{n + 1}"
 
 
+def _resolve_github_repo() -> str | None:
+    """Resolve the GitHub repo target for issue uploads.
+
+    Priority: ``MINIONS_GITHUB_ISSUES_REPO`` env > ``gru.yaml: github_issues_repo``.
+    Returns the ``owner/repo`` string, or ``None`` if uploads are disabled.
+    The Gru config is loaded lazily so unit tests that monkeypatch the env
+    don't need to mock the whole config plumbing.
+    """
+    raw = os.environ.get("MINIONS_GITHUB_ISSUES_REPO", "").strip()
+    if raw:
+        return raw
+    try:
+        from minions.config import load_gru_config
+
+        cfg = load_gru_config()
+    except Exception:
+        return None
+    target = getattr(cfg, "github_issues_repo", None)
+    if isinstance(target, str) and target.strip():
+        return target.strip()
+    return None
+
+
+def _format_github_body(record: dict[str, object]) -> str:
+    """Render an issue record as a GitHub-flavoured markdown body."""
+    reporter = record.get("reporter") or {}
+    role = reporter.get("role") if isinstance(reporter, dict) else None
+    port = reporter.get("project_port") if isinstance(reporter, dict) else None
+    phase = reporter.get("phase") if isinstance(reporter, dict) else None
+
+    steps = record.get("steps_to_reproduce") or []
+    evidence = record.get("evidence") or []
+
+    lines: list[str] = []
+    lines.append(f"**Reporter:** role=`{role}` port=`{port}` phase=`{phase}`")
+    lines.append(
+        f"**ID:** `{record.get('id')}`  **Severity:** `{record.get('severity')}`  "
+        f"**Component:** `{record.get('component')}`  **At:** `{record.get('ts')}`"
+    )
+    lines.append("")
+    lines.append("## Summary")
+    lines.append(str(record.get("summary") or ""))
+    if record.get("expected"):
+        lines.append("")
+        lines.append("## Expected")
+        lines.append(str(record["expected"]))
+    if record.get("actual"):
+        lines.append("")
+        lines.append("## Actual")
+        lines.append(str(record["actual"]))
+    if steps:
+        lines.append("")
+        lines.append("## Steps to reproduce")
+        for s in steps:
+            lines.append(f"1. {s}")
+    if evidence:
+        lines.append("")
+        lines.append("## Evidence")
+        for e in evidence:
+            lines.append(f"- `{e}`")
+    if record.get("impact"):
+        lines.append("")
+        lines.append("## Impact")
+        lines.append(str(record["impact"]))
+    if record.get("workaround"):
+        lines.append("")
+        lines.append("## Workaround")
+        lines.append(str(record["workaround"]))
+    lines.append("")
+    lines.append("---")
+    lines.append("Auto-filed by MinionsOS `mos_issue_report`.")
+    return "\n".join(lines)
+
+
+def _upload_to_github(record: dict[str, object], repo: str) -> str | None:
+    """Best-effort post of one issue record to GitHub via ``gh issue create``.
+
+    Returns the issue URL on success, or ``None`` on any failure. Never
+    raises — the local JSONL append is the source of truth, GitHub upload
+    is a strict opportunistic add-on.
+
+    Severity P0/P1 are tagged ``bug``; component drives a second tag.
+    """
+    if not shutil.which("gh"):
+        logger.info("issues upload: gh CLI not on PATH; skipping GitHub upload")
+        return None
+
+    severity = str(record.get("severity") or "")
+    component = str(record.get("component") or "")
+    labels: list[str] = []
+    if severity in {"P0", "P1"}:
+        labels.append("bug")
+    if component:
+        labels.append(component)
+
+    title_raw = str(record.get("title") or "(no title)")
+    title = f"[{record.get('id')}] {title_raw}"[:200]
+
+    argv = [
+        "gh",
+        "issue",
+        "create",
+        "--repo",
+        repo,
+        "--title",
+        title,
+        "--body",
+        _format_github_body(record),
+    ]
+    for lbl in labels:
+        argv.extend(["--label", lbl])
+
+    try:
+        proc = subprocess.run(argv, capture_output=True, text=True, timeout=30)
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        logger.warning("issues upload: gh invocation failed: %s", exc)
+        return None
+    if proc.returncode != 0:
+        logger.warning(
+            "issues upload: gh exit=%s stderr=%s",
+            proc.returncode,
+            (proc.stderr or "").strip()[:400],
+        )
+        return None
+    url = (proc.stdout or "").strip().splitlines()[-1].strip() if proc.stdout else ""
+    if url.startswith("https://"):
+        logger.info("issues upload: filed %s -> %s", record.get("id"), url)
+        return url
+    logger.warning("issues upload: gh succeeded but no URL in output: %r", proc.stdout)
+    return None
+
+
 def report_issue(
     args: IssueReportArgs,
     *,
@@ -251,17 +384,33 @@ def report_issue(
             "impact": args.impact,
             "workaround": args.workaround,
         }
+
+        # Best-effort GitHub Issues upload. Local JSONL is the source of
+        # truth; we attach the github_url here (or null) before the line is
+        # ever written so the file stays append-only.
+        github_url: str | None = None
+        repo = _resolve_github_repo()
+        if repo:
+            try:
+                github_url = _upload_to_github(record, repo)
+            except Exception as exc:  # defensive — must never block local write
+                logger.warning("issues upload: unexpected error: %s", exc)
+                github_url = None
+        record["github_url"] = github_url
+        record["github_repo"] = repo if github_url else None
+
         line = json.dumps(record, ensure_ascii=False)
         with jsonl_path.open("a", encoding="utf-8") as fh:
             fh.write(line + "\n")
 
     logger.info(
-        "mos_issue_report appended: port=%d id=%s severity=%s component=%s reporter=%s",
+        "mos_issue_report appended: port=%d id=%s severity=%s component=%s reporter=%s github=%s",
         resolved_port,
         record["id"],
         record["severity"],
         record["component"],
         record["reporter"],
+        record["github_url"] or "off",
     )
     return record
 

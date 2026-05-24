@@ -93,20 +93,33 @@ class TestRegister:
         assert out["launch_started"] is True
         assert store.upserts[0].eacn_agent_token == ""
 
-    def test_register_work_role_with_init_brief_creates_zero_budget_task(self) -> None:
+    def test_register_work_role_with_init_brief_sends_message(self) -> None:
+        """v15.6+: cold-start init_brief is delivered as an addressable EACN
+        message (advisory), not a Task with a bid/claim contract. The message
+        carries kind=role_init_brief so the recipient can route it without
+        treating it as work-to-bid-on."""
         store = FakeStore()
         with (
             patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
+            patch("minions.lifecycle.eacn_client.send_message", return_value={}) as send_message,
             patch("minions.lifecycle.eacn_client.create_task", return_value={}) as create_task,
         ):
             role_mod.register_role(37596, "coder", init_brief="hello world", store=store)
-        assert create_task.call_count == 1
-        kwargs = create_task.call_args.kwargs
+        # No Task created — that's the regression we're locking.
+        assert create_task.call_count == 0
+        # Exactly one advisory message sent to the role.
+        assert send_message.call_count == 1
+        kwargs = send_message.call_args.kwargs
         assert kwargs["port"] == 37596
-        assert kwargs["initiator_id"] == "gru"
-        assert kwargs["invited_agent_ids"] == ["coder"]
-        assert kwargs["budget"] == 0.0
-        assert kwargs["description"] == "hello world"
+        assert kwargs["from_agent_id"] == "gru"
+        assert kwargs["to_agent_id"] == "coder"
+        content = kwargs["content"]
+        assert content["kind"] == "role_init_brief"
+        assert content["role"] == "coder"
+        assert content["brief"] == "hello world"
+        assert (
+            "advisory" in content["guidance"].lower() or "not a task" in content["guidance"].lower()
+        )
 
     def test_register_noter_with_init_brief_skips_eacn_delivery(self) -> None:
         """Noter is not on EACN — init_brief is silently skipped."""
@@ -149,7 +162,7 @@ class TestRegister:
         store = FakeStore()
         with (
             patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
-            patch("minions.lifecycle.eacn_client.create_task", return_value={}),
+            patch("minions.lifecycle.eacn_client.send_message", return_value={}),
         ):
             out = role_mod.register_expert(
                 37596,
