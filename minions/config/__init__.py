@@ -1070,6 +1070,35 @@ class GruConfig(BaseModel):
             "Draft node."
         ),
     )
+    stagnation_vote_enabled: bool = Field(
+        default=True,
+        description=(
+            "Enable Gru's stall-breaker: when a project is silent on every "
+            "productive axis (no Draft growth, no shared-branch commits, no "
+            "experiment runs) for stagnation_vote_window_seconds, Gru "
+            "broadcasts a milestone-vote request to every eligible signer. "
+            "See minions/gru/milestone_vote.py."
+        ),
+    )
+    stagnation_vote_window_seconds: int = Field(
+        default=1200,
+        description=(
+            "How long the project must be silent on Draft, shared-branch "
+            "commits, and experiment runs before the stall breaker fires. "
+            "Default 1200 s (20 min) — long enough that a deep run or "
+            "review pass can finish without interruption, short enough to "
+            "break the wait-for-each-other loops we observed in production."
+        ),
+    )
+    stagnation_vote_cooldown_seconds: int = Field(
+        default=1800,
+        description=(
+            "Minimum interval between two consecutive milestone-vote "
+            "openings on the same project. Roles need at least one full "
+            "wake cycle to read the request and respond before another "
+            "vote arrives. Default 1800 s (30 min)."
+        ),
+    )
     wedge_watchdog_interval_seconds: int = Field(
         default=300,
         description=(

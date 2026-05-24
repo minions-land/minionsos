@@ -54,6 +54,9 @@ class GruLoop:
         self.gru_digest_enabled: bool = cfg.gru_digest_enabled
         self.gru_digest_interval: int = cfg.gru_digest_interval_seconds
         self.gru_digest_anomaly_min_events: int = cfg.gru_digest_anomaly_min_events
+        self.stagnation_vote_enabled: bool = cfg.stagnation_vote_enabled
+        self.stagnation_vote_window: int = cfg.stagnation_vote_window_seconds
+        self.stagnation_vote_cooldown: int = cfg.stagnation_vote_cooldown_seconds
         self._store = StateStore()
         self._crash_counter = CrashCounter()
         self._last_report_ts: float = 0.0
@@ -129,6 +132,20 @@ class GruLoop:
                         break
                     time.sleep(0.5)
 
+        def _stagnation_vote_thread() -> None:
+            # Run on the same cadence as the digest — both are activity
+            # samplers and aligning them keeps the I/O bursts near-
+            # contemporaneous, which is friendlier to the SQLite WAL.
+            while not self._stopped:
+                try:
+                    self._tick_stagnation_vote()
+                except Exception as exc:
+                    logger.error("stagnation_vote tick error: %s", exc, exc_info=True)
+                for _ in range(max(1, self.gru_digest_interval) * 2):
+                    if self._stopped:
+                        break
+                    time.sleep(0.5)
+
         exp_t = threading.Thread(
             target=_experiment_scheduler_thread,
             daemon=True,
@@ -177,6 +194,18 @@ class GruLoop:
                 "Gru digest cron started (interval=%ds, anomaly_min_events=%d).",
                 self.gru_digest_interval,
                 self.gru_digest_anomaly_min_events,
+            )
+        if self.stagnation_vote_enabled:
+            stag_t = threading.Thread(
+                target=_stagnation_vote_thread,
+                daemon=True,
+                name="stagnation-vote",
+            )
+            stag_t.start()
+            logger.info(
+                "Stagnation-vote breaker started (window=%ds, cooldown=%ds).",
+                self.stagnation_vote_window,
+                self.stagnation_vote_cooldown,
             )
         logger.info("Gru monitor loop started (interval=%ds).", self.interval)
         try:
@@ -708,6 +737,64 @@ class GruLoop:
                 digest_mod.publish_digest(snapshot)
             except Exception as exc:
                 logger.warning("gru_digest: failed for port=%d: %s", port, exc, exc_info=True)
+
+    def _tick_stagnation_vote(self) -> None:
+        """Open a milestone vote on every active project that's been silent.
+
+        See ``minions.gru.milestone_vote``. The detection is cheap (Draft
+        json read, ``git log -1`` on the shared worktree, one SQLite
+        query against the experiment scheduler), so we run it for every
+        active project on every tick and let the cooldown prevent
+        spam. Decisions are logged at info so the operator can audit
+        which votes were opened and why.
+        """
+        from minions.gru import milestone_vote
+
+        projects = self._store.list_projects(filter="active")
+        for project in projects:
+            port = project.port
+            try:
+                profile_name = getattr(project, "profile_name", None)
+                current_phase = getattr(project, "current_phase", None)
+                outcome = milestone_vote.tick_for_project(
+                    port,
+                    profile_name=profile_name,
+                    current_phase=current_phase,
+                    window_seconds=self.stagnation_vote_window,
+                    cooldown_seconds=self.stagnation_vote_cooldown,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "stagnation_vote: tick failed for port=%d: %s",
+                    port,
+                    exc,
+                    exc_info=True,
+                )
+                continue
+            if outcome.get("acted"):
+                logger.info(
+                    "stagnation_vote: opened vote on port=%d milestone=%s addressed=%s reason=%r",
+                    port,
+                    outcome.get("milestone"),
+                    outcome.get("addressed"),
+                    outcome.get("reason"),
+                )
+                self._emit_health_event(
+                    port=port,
+                    kind="stagnation_vote_opened",
+                    severity="info",
+                    message=(
+                        f"Gru opened a milestone vote for "
+                        f"{outcome.get('milestone')!r} after stagnation: "
+                        f"{outcome.get('reason')}"
+                    ),
+                    role_name="gru",
+                    metadata={
+                        "milestone": outcome.get("milestone"),
+                        "addressed": outcome.get("addressed", []),
+                        "failed": outcome.get("failed", []),
+                    },
+                )
 
     def _heartbeat_age_seconds(self, port: int, role_name: str) -> float | None:
         """Return seconds since the Role's heartbeat file was last touched.
