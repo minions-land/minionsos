@@ -134,7 +134,11 @@ def test_server_authz_subagents_have_no_codegraph() -> None:
 
 def test_gen_mcp_json_registers_codegraph(tmp_path: Path) -> None:
     """Running _gen_mcp_json against a fake project root must produce a
-    .mcp.json with the codegraph server entry."""
+    .mcp.json with the codegraph server entry.
+
+    Issue #27: paths must be absolute so role processes (which run with
+    cwd=branches/<role>/, not the repo root) can still find the launcher.
+    """
     import json
     import subprocess
     import sys
@@ -153,7 +157,9 @@ def test_gen_mcp_json_registers_codegraph(tmp_path: Path) -> None:
     assert "codegraph" in servers, f"codegraph missing from generated .mcp.json: {sorted(servers)}"
     cg = servers["codegraph"]
     assert cg["command"] == "bash"
-    assert cg["args"] == ["mcp-servers/codegraph/launcher.sh"]
+    expected_launcher = tmp_path / "mcp-servers" / "codegraph" / "launcher.sh"
+    assert cg["args"] == [str(expected_launcher)]
+    assert Path(cg["args"][0]).is_absolute()
 
 
 # ── Doctor probe: codegraph in core mount sets ────────────────────────────

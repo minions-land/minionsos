@@ -362,16 +362,14 @@ else
     warn "minions/config/ not found — skipping config copy (run install.sh again after full checkout)"
 fi
 
-# ── 6b. Ensure Codex project MCP config exists ───────────────────────────────
+# ── 6b. Generate Codex project MCP config ────────────────────────────────────
+# Issue #27: regenerate every install so absolute paths refresh when the repo
+# moves between machines. The generator emits paths relative to $ROOT.
 CODEX_CONFIG_DIR="$ROOT/.codex"
 CODEX_CONFIG="$CODEX_CONFIG_DIR/config.toml"
 mkdir -p "$CODEX_CONFIG_DIR"
-if [ ! -f "$CODEX_CONFIG" ]; then
-    "$PROJECT_PYTHON" "$ROOT/minions/tools/_gen_codex_config.py" "$CODEX_CONFIG"
-    ok "Created Codex MCP config: .codex/config.toml"
-else
-    ok "Codex MCP config already exists: .codex/config.toml (not overwritten)"
-fi
+"$PROJECT_PYTHON" "$ROOT/minions/tools/_gen_codex_config.py" "$CODEX_CONFIG" "$ROOT"
+ok "Generated Codex MCP config: .codex/config.toml"
 
 # ── 6c. Generate .mcp.json (Claude Code MCP servers) ─────────────────────────
 # Always regenerated to stay in sync with what is actually built.

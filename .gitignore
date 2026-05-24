@@ -106,3 +106,5 @@ minions/roles/common/_behavioral_evals/
 # Project-scope indexes live under project_*/branches/coder/.codegraph/ and
 # are covered by the existing project_* ignore.
 .codegraph/
+.mcp.json
+.codex/config.toml
