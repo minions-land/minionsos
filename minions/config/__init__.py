@@ -1038,6 +1038,38 @@ class GruConfig(BaseModel):
             "only reliable detector is log-tail pattern matching."
         ),
     )
+    gru_digest_enabled: bool = Field(
+        default=True,
+        description=(
+            "When True, Gru runs a periodic digest cron that snapshots each "
+            "active project's per-role event flow + Draft growth, persists "
+            "the report under branches/shared/governance/gru-digest/, and "
+            "emits a `draft_lag` health event when a role received real "
+            "events in the window but produced zero Draft nodes (the "
+            "Draft-discipline observation that motivated v15.16). Cheap — "
+            "no LLM tokens, just disk reads + one markdown write per tick."
+        ),
+    )
+    gru_digest_interval_seconds: int = Field(
+        default=270,
+        description=(
+            "How often the Gru digest cron ticks. Default 270 (4 min 30 s) "
+            "deliberately mismatches the wedge watchdog cadence so the two "
+            "background threads don't collide on the same tick boundary, "
+            "and aligns just under the cache-keepalive cliff (240 s) so the "
+            "digest's tiny stat reads don't sit on top of a keepalive turn."
+        ),
+    )
+    gru_digest_anomaly_min_events: int = Field(
+        default=3,
+        description=(
+            "Minimum real-event count in a digest window before a "
+            "zero-Draft-growth row is reported as an anomaly. Below this "
+            "threshold the absence of Draft writes is consistent with "
+            "trivial events (acks, status pings) that don't warrant a "
+            "Draft node."
+        ),
+    )
     wedge_watchdog_interval_seconds: int = Field(
         default=300,
         description=(

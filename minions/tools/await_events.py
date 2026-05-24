@@ -414,6 +414,39 @@ def await_events() -> dict[str, Any]:
 
     consecutive_empty = 0
 
+    def _return(events_payload: list[dict[str, Any]], *, real: bool) -> dict[str, Any]:
+        """Wrap the return path with the Draft-discipline audit hook.
+
+        At every return, snapshot the per-role audit state, decide whether
+        the previous cycle warrants a Draft-discipline reminder, and reset
+        the counters for the next cycle. When *real* is False (a
+        cache_keepalive or no-work return), no reminder is ever emitted —
+        the keepalive ack path is byte-stable and must not be perturbed
+        (see GitHub Issue #15 wedge protection).
+        """
+        try:
+            from minions.tools import draft_audit as _draft_audit
+
+            snapshot = _draft_audit.take_snapshot_and_reset(
+                port, agent_id, returning_real_events=real
+            )
+        except Exception as exc:
+            logger.debug("draft_audit snapshot failed: %s", exc)
+            snapshot = None
+        if real and snapshot is not None and snapshot.reminder_due and events_payload:
+            reminder = (
+                "[Draft-discipline reminder] Your previous cycle handled real "
+                "events but wrote no Draft node. If anything you decided or "
+                "produced is worth remembering, call mos_draft_append BEFORE "
+                "mos_await_events again. Published artifacts are not a "
+                "substitute — the Draft is the cold-start trail other roles "
+                "(and your post-compact self) read.\n\n"
+            )
+            first = events_payload[0]
+            existing = str(first.get("suggested_action", ""))
+            first["suggested_action"] = reminder + existing
+        return {"count": len(events_payload), "events": events_payload}
+
     while True:
         # Early cache-keepalive cliff check: do BEFORE the next long-poll, not
         # only after. The long-poll itself blocks for ~60s, so checking only
@@ -423,7 +456,7 @@ def await_events() -> dict[str, Any]:
         # configured value as headroom.
         if keepalive_seconds > 0 and (time.monotonic() - started_monotonic) >= keepalive_seconds:
             _touch_heartbeat(workspace, agent_id)
-            return {"count": 1, "events": [_KEEPALIVE_EVENT]}
+            return _return([_KEEPALIVE_EVENT], real=False)
 
         events = _poll_once(port, agent_id)
         _touch_heartbeat(workspace, agent_id)
@@ -442,7 +475,7 @@ def await_events() -> dict[str, Any]:
             for evt in events:
                 annotation = _build_suggested_action(evt)
                 annotated.append({"event": evt, **annotation})
-            return {"count": len(annotated), "events": annotated}
+            return _return(annotated, real=True)
 
         consecutive_empty += 1
 
@@ -451,7 +484,7 @@ def await_events() -> dict[str, Any]:
             consecutive_empty = 0  # reset regardless of result
 
             if idle_event is not None:
-                return {"count": 1, "events": [idle_event]}
+                return _return([idle_event], real=True)
             # no-idle: truly nothing to do. Swallow silently, keep polling.
 
         # Cache-keepalive cliff guard. Independent of idle_check: even when
@@ -461,7 +494,7 @@ def await_events() -> dict[str, Any]:
         # tokens uncached). The synthetic event payload is constant so the
         # post-keepalive conversation tail stays cacheable.
         if keepalive_seconds > 0 and (time.monotonic() - started_monotonic) >= keepalive_seconds:
-            return {"count": 1, "events": [_KEEPALIVE_EVENT]}
+            return _return([_KEEPALIVE_EVENT], real=False)
 
 
 def _load_keepalive_seconds() -> int:

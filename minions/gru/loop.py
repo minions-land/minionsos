@@ -51,6 +51,9 @@ class GruLoop:
         self.wedge_watchdog_threshold: int = cfg.wedge_watchdog_threshold
         self.wedge_watchdog_tail_bytes: int = cfg.wedge_watchdog_tail_bytes
         self.wedge_watchdog_cooldown_seconds: int = cfg.wedge_watchdog_cooldown_seconds
+        self.gru_digest_enabled: bool = cfg.gru_digest_enabled
+        self.gru_digest_interval: int = cfg.gru_digest_interval_seconds
+        self.gru_digest_anomaly_min_events: int = cfg.gru_digest_anomaly_min_events
         self._store = StateStore()
         self._crash_counter = CrashCounter()
         self._last_report_ts: float = 0.0
@@ -115,6 +118,17 @@ class GruLoop:
                         break
                     time.sleep(0.5)
 
+        def _gru_digest_thread() -> None:
+            while not self._stopped:
+                try:
+                    self._tick_gru_digest()
+                except Exception as exc:
+                    logger.error("gru_digest tick error: %s", exc, exc_info=True)
+                for _ in range(max(1, self.gru_digest_interval) * 2):
+                    if self._stopped:
+                        break
+                    time.sleep(0.5)
+
         exp_t = threading.Thread(
             target=_experiment_scheduler_thread,
             daemon=True,
@@ -151,6 +165,18 @@ class GruLoop:
                 self.wedge_watchdog_interval,
                 self.wedge_watchdog_threshold,
                 self.wedge_watchdog_tail_bytes,
+            )
+        if self.gru_digest_enabled:
+            digest_t = threading.Thread(
+                target=_gru_digest_thread,
+                daemon=True,
+                name="gru-digest",
+            )
+            digest_t.start()
+            logger.info(
+                "Gru digest cron started (interval=%ds, anomaly_min_events=%d).",
+                self.gru_digest_interval,
+                self.gru_digest_anomaly_min_events,
             )
         logger.info("Gru monitor loop started (interval=%ds).", self.interval)
         try:
@@ -633,6 +659,37 @@ class GruLoop:
                         exc,
                     )
                 self._last_wedge_kill_ts[key] = now
+
+    def _tick_gru_digest(self) -> None:
+        """Snapshot per-role event/Draft activity and persist a digest.
+
+        See ``minions.gru.digest`` for the data model. The tick is cheap
+        (no LLM tokens, no EACN traffic, just disk reads + one markdown
+        write per project), so we do not gate it on a cooldown — every
+        tick produces a fresh digest.
+        """
+        from minions.gru import digest as digest_mod
+
+        projects = self._store.list_projects(filter="active")
+        for project in projects:
+            port = project.port
+            role_names = [
+                role.name
+                for role in project.active_roles
+                if role.state == "active" and role.name != "noter"
+            ]
+            if not role_names:
+                continue
+            try:
+                snapshot = digest_mod.collect_project_digest(
+                    port,
+                    role_names,
+                    window_seconds=self.gru_digest_interval,
+                    anomaly_min_events=self.gru_digest_anomaly_min_events,
+                )
+                digest_mod.publish_digest(snapshot)
+            except Exception as exc:
+                logger.warning("gru_digest: failed for port=%d: %s", port, exc, exc_info=True)
 
     def _heartbeat_age_seconds(self, port: int, role_name: str) -> float | None:
         """Return seconds since the Role's heartbeat file was last touched.

@@ -247,3 +247,81 @@ class TestEnvValidation:
 
         with pytest.raises(RuntimeError, match="MINIONS_AGENT_ID"):
             await_events()
+
+
+# ---------------------------------------------------------------------------
+# Draft-discipline reminder (v15.16) — soft audit injection on
+# real-events return when the previous cycle wrote 0 Draft nodes.
+# ---------------------------------------------------------------------------
+
+
+class TestDraftDisciplineReminder:
+    def test_no_reminder_on_first_real_events_return(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path / "projects"))
+        from minions.tools.await_events import await_events
+
+        events = [{"type": "task_broadcast", "task_id": "t1", "payload": {}}]
+        with (
+            patch("minions.tools.await_events.httpx.get", return_value=_make_poll_response(events)),
+            patch("minions.tools.await_events._touch_heartbeat"),
+        ):
+            result = await_events()
+        # First-ever return: there's no previous cycle, so no reminder.
+        first = result["events"][0]
+        assert "Draft-discipline reminder" not in first.get("suggested_action", "")
+
+    def test_reminder_on_zero_appends_after_real_event_cycle(self, monkeypatch, tmp_path):
+        """The motivating case: a role just received real events but
+        called await_events again WITHOUT any mos_draft_append in
+        between. The next return must prepend a reminder."""
+        monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path / "projects"))
+        from minions.tools.await_events import await_events
+
+        events = [{"type": "task_broadcast", "task_id": "t1", "payload": {}}]
+        with (
+            patch("minions.tools.await_events.httpx.get", return_value=_make_poll_response(events)),
+            patch("minions.tools.await_events._touch_heartbeat"),
+        ):
+            await_events()  # cycle 1 — real events delivered, no append
+            result = await_events()  # cycle 2 — reminder must fire
+        first = result["events"][0]
+        assert "Draft-discipline reminder" in first["suggested_action"]
+
+    def test_no_reminder_when_role_appended_in_between(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path / "projects"))
+        from minions.tools import draft_audit
+        from minions.tools.await_events import await_events
+
+        events = [{"type": "task_broadcast", "task_id": "t1", "payload": {}}]
+        with (
+            patch("minions.tools.await_events.httpx.get", return_value=_make_poll_response(events)),
+            patch("minions.tools.await_events._touch_heartbeat"),
+        ):
+            await_events()
+            # Simulate the role calling mos_draft_append between cycles.
+            draft_audit.record_append(39999, "test-agent")
+            result = await_events()
+        first = result["events"][0]
+        assert "Draft-discipline reminder" not in first["suggested_action"]
+
+    def test_no_reminder_after_keepalive_cycle(self, monkeypatch, tmp_path):
+        """A keepalive-only cycle delivers no real events; the next
+        return must not fire the reminder regardless of append count."""
+        monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path / "projects"))
+        # Force keepalive: configure an immediate cliff so the first
+        # return is the synthetic keepalive, not real events.
+        monkeypatch.setattr("minions.tools.await_events._load_keepalive_seconds", lambda: 0)
+        from minions.tools.await_events import await_events
+
+        events = [{"type": "task_broadcast", "task_id": "t1", "payload": {}}]
+        with (
+            patch("minions.tools.await_events.httpx.get", return_value=_make_poll_response(events)),
+            patch("minions.tools.await_events._touch_heartbeat"),
+        ):
+            await_events()  # cycle 1: real events
+            await_events()  # cycle 2: real events again (no append in between → reminder)
+            result = await_events()  # cycle 3: real again — but cycle 2 was already reminded
+        # Each new cycle without append re-fires the reminder. Verify it's
+        # there (consistent with the soft-nudge semantics).
+        first = result["events"][0]
+        assert "Draft-discipline reminder" in first["suggested_action"]

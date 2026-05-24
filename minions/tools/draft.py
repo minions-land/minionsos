@@ -587,6 +587,20 @@ def mos_draft_append(
         )
 
     _save_draft(port, draft)
+    # Soft-audit: increment the per-role append counter so mos_await_events
+    # can detect cycles where a role handled real EACN events but wrote no
+    # Draft nodes (Draft-discipline reminder, see minions.tools.draft_audit).
+    # Failure here is logged at debug and swallowed — the audit is
+    # observability, not correctness.
+    if created_node_ids:
+        try:
+            from minions.tools import draft_audit as _draft_audit
+
+            agent_id = os.environ.get("MINIONS_AGENT_ID", "") or _env_role()
+            if agent_id:
+                _draft_audit.record_append(port, agent_id, count=len(created_node_ids))
+        except Exception as exc:
+            logger.debug("draft_audit.record_append failed: %s", exc)
     return {"created_node_ids": created_node_ids, "created_edge_count": created_edge_count}
 
 
