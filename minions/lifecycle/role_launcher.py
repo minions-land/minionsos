@@ -419,43 +419,71 @@ def _tmux_send_initial_prompt(session_name: str, prompt: str) -> None:
     3. send-keys Enter: turns the paste into a committed multiline block.
     4. Brief sleep so the REPL processes the commit.
     5. send-keys Enter: actually submits the prompt to the model.
-
-    Without step 5, the prompt sits in the input field and the model
-    never wakes — the cold start failure mode observed in the
-    dispatch-eval e2e on 2026-05-19.
+    6. Activity check: wait up to 5 s for the pane to change (model begins
+       processing). If no change is seen, retry steps 2-5 up to 2 more
+       times. This guards against the case where "Welcome back!" sessions
+       (with long prior history) falsely satisfy the ready-check while
+       still replaying history — the keystrokes land in the input field
+       but are never committed (GitHub Issue #21).
     """
     import time
 
     # 1. Wait for Claude's REPL to be ready (replaces fixed sleep).
     _wait_for_repl_ready(session_name)
 
-    try:
-        # 2. Paste the prompt.
-        subprocess.run(
-            ["tmux", "send-keys", "-t", session_name, "-l", prompt],
-            check=True,
-            capture_output=True,
-        )
-        # 3. Commit the paste.
-        subprocess.run(
-            ["tmux", "send-keys", "-t", session_name, "Enter"],
-            check=True,
-            capture_output=True,
-        )
-        # 4. Brief settle.
-        time.sleep(0.5)
-        # 5. Actually submit.
-        subprocess.run(
-            ["tmux", "send-keys", "-t", session_name, "Enter"],
-            check=True,
-            capture_output=True,
-        )
-    except subprocess.CalledProcessError as exc:
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        try:
+            pane_before = _capture_pane(session_name)
+            # 2. Paste the prompt.
+            subprocess.run(
+                ["tmux", "send-keys", "-t", session_name, "-l", prompt],
+                check=True,
+                capture_output=True,
+            )
+            # 3. Commit the paste.
+            subprocess.run(
+                ["tmux", "send-keys", "-t", session_name, "Enter"],
+                check=True,
+                capture_output=True,
+            )
+            # 4. Brief settle.
+            time.sleep(0.5)
+            # 5. Actually submit.
+            subprocess.run(
+                ["tmux", "send-keys", "-t", session_name, "Enter"],
+                check=True,
+                capture_output=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            logger.warning(
+                "_tmux_send_initial_prompt: send-keys failed for %s: %s",
+                session_name,
+                exc,
+            )
+            return
+        # 6. Activity check: wait up to 5 s for the pane to change.
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            time.sleep(0.25)
+            pane_after = _capture_pane(session_name)
+            if pane_after != pane_before:
+                logger.info(
+                    "_tmux_send_initial_prompt: activity detected for %s (attempt %d/%d)",
+                    session_name,
+                    attempt,
+                    max_attempts,
+                )
+                return
+        # No change detected — session may still be loading prior history.
+        # Re-wait for the REPL to be ready, then retry.
         logger.warning(
-            "_tmux_send_initial_prompt: send-keys failed for %s: %s",
+            "_tmux_send_initial_prompt: no activity after 5s for %s (attempt %d/%d); retrying",
             session_name,
-            exc,
+            attempt,
+            max_attempts,
         )
+        _wait_for_repl_ready(session_name)
 
 
 def _role_env(

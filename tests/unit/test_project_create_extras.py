@@ -67,8 +67,16 @@ def test_expand_workdir_with_port_env(monkeypatch) -> None:
     assert os.path.isabs(expanded)
 
 
-def test_expand_workdir_without_port_env_is_safe(monkeypatch) -> None:
+def test_expand_workdir_without_port_env_raises(monkeypatch) -> None:
+    """GitHub Issue #20: unresolved templates must raise, not pass through."""
+    import pytest
+
+    from minions.errors import ConfigError
+
     monkeypatch.delenv("MINIONS_PROJECT_PORT", raising=False)
-    # Without the port env var we keep the literal token so misconfiguration
-    # surfaces as an obvious error rather than silently falling back to cwd.
-    assert _expand_workdir("{project_workspace}/exp") == "{project_workspace}/exp"
+    # Without the port env var we raise ConfigError so the scheduler cannot
+    # silently launch with an unresolved template in log_path (which causes
+    # bash to create a literal directory named `{project_workspace}` and
+    # produces ghost-launched runs with no logs).
+    with pytest.raises(ConfigError, match="MINIONS_PROJECT_PORT"):
+        _expand_workdir("{project_workspace}/exp")

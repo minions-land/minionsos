@@ -61,8 +61,9 @@ def _expand_workdir(workdir: str) -> str:
     Supported tokens:
     - ``{project_workspace}`` → absolute path of the current project's main
       branch worktree (``project_{port}/branches/main``), resolved from the
-      ``MINIONS_PROJECT_PORT`` env var. Falls back to the literal token
-      if the env var is absent (e.g. standalone CLI use).
+      ``MINIONS_PROJECT_PORT`` env var. Raises ``ConfigError`` if the token
+      is present but the env var is absent (GitHub Issue #20: unresolved
+      templates in log_path cause silent launch failures).
     """
     import os
 
@@ -72,6 +73,11 @@ def _expand_workdir(workdir: str) -> str:
             from minions.paths import project_workspace as _pws
 
             workdir = workdir.replace("{project_workspace}", str(_pws(int(port_s)).resolve()))
+        else:
+            raise ConfigError(
+                f"workdir contains {{project_workspace}} but MINIONS_PROJECT_PORT is not set. "
+                f"Cannot resolve template. workdir={workdir!r}"
+            )
     return workdir
 
 
