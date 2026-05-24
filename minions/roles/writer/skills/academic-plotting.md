@@ -1,13 +1,13 @@
 ---
 slug: academic-plotting
-summary: Publication-quality figure standards — rcParams + PALETTE-dict pattern + outside ticks for content discipline; matplotlib for numerical axes, diagram tools for structure; vector + raster outputs reproducibly from a checked-in script. Layout discipline lives in figure-layout-defaults.
+summary: Publication-quality figure standards — rcParams + PALETTE-dict pattern + outside ticks for content discipline; matplotlib for numerical axes, diagram tools for structure; vector + raster outputs reproducibly from a checked-in script. Layout discipline lives in figure-layout-defaults. Caption checklist + ML-paper idioms + network-graph tuning live in this file from v4.
 layer: logical
 tools:
-version: 3
+version: 4
 status: active
 supersedes:
-references: figure-spec, interactive-figure-prototype, figure-layout-defaults, pdf-vector-layout
-provenance: human + SkillTest-R1.A+R1.B-merged
+references: figure-spec, interactive-figure-prototype, figure-layout-defaults, pdf-vector-layout, figure-chart-atlas, figure-aesthetic-exemplars, caption-revision
+provenance: human + SkillTest-R1.A+R1.B-merged + FigureDraw2-evidence (borrow #2/#4 + anti-pattern #1)
 ---
 
 # Skill — Academic Plotting
@@ -19,6 +19,15 @@ Two responsibilities: pick the right tool for the figure shape, and apply venue-
 - Before every new figure goes into `branches/writer/paper/figures/`.
 - When polishing a figure Coder produced — improve readability without changing scientific meaning.
 - Before camera-ready, audit every figure against this checklist.
+
+## When NOT to load (route elsewhere)
+
+- Drawing a method overview / pipeline / architecture diagram (boxes-and-arrows) — load [[figure-spec]] instead. This skill assumes numerical axes.
+- Producing a hero / Figure-1 conceptual illustration — load [[hero-figure-prompt]] instead. Hero figures use AI image generators with persistent prompts, not matplotlib.
+- Compiling an entire paper / writing a multi-figure manuscript — load [[paper-compile]] + [[make-latex-model]] instead. This skill makes ONE figure at a time.
+- Surgical edits on an already-compiled PDF (move panel, hide labels, vector-merge two PDFs) — load [[pdf-vector-layout]] instead.
+- Picking the right archetype before drawing — load [[figure-chart-atlas]] first; come back here for content discipline.
+
 
 ## Tool by figure shape
 
@@ -116,6 +125,39 @@ Plotting scripts at `branches/writer/paper/figures/gen_fig_<name>.py` read concr
 Export both formats: `fig.savefig(path.pdf)` for LaTeX inclusion, `fig.savefig(path.png, dpi=300)` for slides / web. Verify LaTeX includes the PDF without font warnings; verify the SVG has non-zero `<text>` nodes.
 
 Each figure ships as: `gen_fig_<name>.py`, `fig_<name>.pdf`, `fig_<name>.png`, plus a one-line provenance docstring citing the source data file.
+
+## Caption checklist (FigureDraw2 borrow #2 — awesome-writing-prompts arm; reviewer_readiness 全场第一)
+
+Before writing `caption.tex`, every figure caption must answer these four in order:
+
+1. **First-sight sentence** — one clause telling the reader what the figure shows in plain language. Not "Method overview". Concrete: "4 methods on 5 reasoning benchmarks; OursModel wins all five".
+2. **Take-home number bolded** — the single most important quantitative claim from the figure, set in `\textbf{...}`. If the figure does not have a take-home number, ask whether it should be in the paper at all.
+3. **Visual-encoding key** — every non-default visual (hatching, stars, asterisks, dashed line, shaded band, panel letters) gets one phrase explaining what it means. "Error bars: std over 5 seeds. Hatching: greyscale legibility. ★: best per benchmark."
+4. **N + statistic** — sample size and the statistic shown (mean, median, ±SD, ±SE, 95% CI). Reviewers will ask if it is missing.
+
+This is a hard pre-export check. Run it before `caption.tex` is committed; reject the caption if any of the four lines is absent. Light enforcement of this rule was the single biggest reviewer_readiness lift in FigureDraw2 (awesome-writing-prompts arm 2.29 vs minionsos 2.13). Fold it back via [[caption-revision]] when the draft is also returned for revision.
+
+## ML-paper idioms (FigureDraw2 borrow #1 — ml-paper-writing arm; 4 fig_type 冠军)
+
+When the target venue is NeurIPS / ICML / ICLR / ACL / CVPR (or the figure type is the standard ML training-curve, ablation-bar, or ROC/PRC double-panel), apply these on top of the rcParams block:
+
+- **Training curves**: y-axis log-scale by default for loss; linear for accuracy. CI shaded band uses `alpha ≤ 0.25`. Lines `linewidth ≥ 1.5pt`. Final-step gap is the headline — annotate it inline if the trend is monotone.
+- **ROC / PRC double-panel**: AUROC and AP are reported in the legend, not as a side table. Diagonal reference on ROC; prevalence baseline on PRC. Label "Random" and "Perfect" corners only if the panel is hero-sized.
+- **Ablation grouped bars**: legend goes inside the axes (top or bottom-left, away from data). NEVER above the figure or in a side column — it eats the plot area twice. `legend.frameon = False`, `legend.fontsize = 9`.
+- **Dual-axis time series**: color-couple axis ticks/spines/labels to the line. Reader must never have to trace a line back to a tick to know which axis it lives on. `ax2.spines['right'].set_color(color2)` plus `ax2.tick_params(colors=color2)` plus `ax2.set_ylabel(..., color=color2)`.
+- **Reference exemplars**: see `figure-aesthetic-exemplars/gallery/ml-*.py` for full scripts.
+
+In FigureDraw2, ml-paper-writing arm beat minionsos by 5-6 points on `line-errband` (23 vs 17) and `dual-axis-time` (23 vs 18) primarily because it imitated real ICML/NeurIPS plot scripts. The fix is to bring the same exemplars into our gallery, not to grow this skill.
+
+## Network / graph idioms (FigureDraw2 borrow #4 — scientific-writing-kdense arm; network-graph 冠军)
+
+When drawing a graph / network figure, default to:
+
+- `edge_alpha = 0.30` (dial up to 0.5 only if the graph has fewer than ~50 edges)
+- `node_size ∝ degree`, never constant. Constant node size collapses to a hairball at N > 25.
+- Community / cluster colors from ColorBrewer Set2 or Dark2 — never from `tab10` (too saturated) and never from any directional palette (no green/red on community labels).
+- Use `nx.spring_layout(seed=...)` (or any deterministic force-directed layout). Never `random_layout`. Pin the seed in the script header so the figure is reproducible.
+- Edge labels are usually noise — show edge weight only by `linewidth` or `alpha`, not text.
 
 ## Pitfalls
 

@@ -1,13 +1,13 @@
 ---
 slug: latex-typography
-summary: LaTeX formatting conventions — all recurring named entities use preamble \newcommand macros and must not be hardcoded in the body; avoid itemize, short heads, and gratuitous emphasis.
+summary: LaTeX formatting conventions — all recurring named entities use preamble \newcommand macros and must not be hardcoded in the body; avoid itemize, short heads, and gratuitous emphasis. Booktabs grouping recipe for benchmark tables added in v4.
 layer: logical
 tools:
-version: 3
+version: 4
 status: active
 supersedes:
 references: make-latex-model, paper-compile
-provenance: R7-evolved
+provenance: R7-evolved + FigureDraw2-evidence (borrow #3 booktabs grouping)
 ---
 
 # Skill — LaTeX Typography
@@ -132,6 +132,38 @@ Where:
 - Best result: bold red via `\best{}`. Second-best: underlined blue via `\second{}`.
 
 Iterate the rendered output 3–5 times to converge on the user's mental model of the table; do not propose alternative styles unless asked.
+
+## Booktabs grouping recipe (FigureDraw2 borrow #3 — composer-lishix arm; latex-table 冠军 21/24)
+
+For NeurIPS / ICML / ICLR / Cell / Nature submissions, the modern preference is **booktabs without vertical lines**, with explicit horizontal grouping when methods fall into a baseline / ours partition.
+
+```latex
+\begin{tabular}{l cccccc}
+\toprule
+        & \multicolumn{3}{c}{Baselines} & \multicolumn{3}{c}{Ours}      \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+Metric  & Method-A & Method-B & Method-C & v1 & v2 & v3 \\
+\midrule
+MMLU↑   & 65.4{\scriptsize$\,\pm 1.2$} & 71.0{\scriptsize$\,\pm 0.9$} & 73.5{\scriptsize$\,\pm 1.4$} & 75.2{\scriptsize$\,\pm 0.8$} & 76.4{\scriptsize$\,\pm 1.1$} & \textbf{76.8}{\scriptsize$\,\pm 1.3$} \\
+MATH↑   & 31.5{\scriptsize$\,\pm 1.1$} & 37.2{\scriptsize$\,\pm 1.5$} & 39.8{\scriptsize$\,\pm 0.7$} & 41.2{\scriptsize$\,\pm 1.6$} & 43.9{\scriptsize$\,\pm 1.2$} & \textbf{44.6}{\scriptsize$\,\pm 0.9$} \\
+\bottomrule
+\end{tabular}
+```
+
+Rules:
+
+- `\toprule` / `\midrule` / `\bottomrule` only — no `\hline`, no `|` column separators.
+- `\multicolumn{N}{c}{...}` for the top group row + `\cmidrule(lr){i-j}` for the partial rule under each group. The `(lr)` flag trims the rule to leave gutters between groups.
+- Compact `mean ± std`: `72.4{\scriptsize$\,\pm 1.2$}` is denser than `$72.4 \pm 1.2$` and reads well at column width.
+- Bold the best per row. **Within-1-σ overlap rule**: if a non-best method has `mean + std ≥ best mean - std`, bold it too. Reviewers will not credit a 0.4-pp lead over 1.0-pp std.
+- Caption MUST state the bold convention and the seed count. "Bold = best per row; values within 1 std of the best are also bolded. Mean ± std over 5 seeds."
+
+When to use which:
+
+- Use the diagbox / rowcolor recipe (above) for **capability** tables — comparing properties, not numbers, against an "Ours" row.
+- Use the booktabs grouping recipe for **benchmark / quantitative** tables — comparing numbers across methods × metrics.
+
+In FigureDraw2, the booktabs-grouping arm (composer-lishix) hit 21/24 on `latex-table` while heavier arms with diagbox-style scored 16-20. The win comes from `\cmidrule` + `\multicolumn` rendering as the cleanest baseline-vs-ours separation a reviewer can absorb in one glance.
 
 ## No checkmark / half-checkmark capability tables
 

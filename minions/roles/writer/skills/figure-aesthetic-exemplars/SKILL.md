@@ -1,20 +1,16 @@
 ---
 slug: figure-aesthetic-exemplars
-summary: Reference-driven figure design — diff your figure against the closest exemplar in the gallery, identify 3 biggest deltas, revise. Different paradigm from rule-based figure-layout-defaults / academic-plotting.
+summary: Reference-driven figure design — diff your figure against the closest exemplar in the gallery, identify 3 biggest deltas, revise. Different paradigm from rule-based figure-layout-defaults / academic-plotting. Includes ML-paper idiom subset (FigureDraw2 borrow #1) and network-graph tuning (FigureDraw2 borrow #4).
 layer: logical
 tools:
-version: 1
-status: draft-from-SkillTest-R-future
+version: 2
+status: active
 supersedes:
-references: figure-layout-defaults, academic-plotting
-provenance: SkillTest-R6.A-aesthetic-ceiling-finding
+references: figure-layout-defaults, academic-plotting, figure-chart-atlas
+provenance: SkillTest-R6.A-aesthetic-ceiling-finding + FigureDraw2-evidence (borrow #1, #4)
 ---
 
-# Skill — Figure Aesthetic Exemplars (DRAFT — SkillTest research zone)
-
-> This is a draft from SkillTest, not a live MinionsOS skill. Authored
-> in response to R6.A user feedback: "the skill's palette is maybe slightly
-> more disciplined, but it's nowhere near beautiful or good-looking."
+# Skill — Figure Aesthetic Exemplars
 
 ## What this skill is
 
