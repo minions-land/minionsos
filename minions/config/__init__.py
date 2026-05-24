@@ -449,6 +449,28 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
 }
 
 
+def is_expert_role(role: str) -> bool:
+    """Return True if *role* is an Expert in any of the accepted name shapes.
+
+    Accepted shapes:
+    - bare ``"expert"`` (the canonical authz key);
+    - prefix form ``"expert-<slug>"`` (default for ``register_expert``);
+    - suffix form ``"<slug>-expert"`` (used when callers want the role's
+      identity to lead with its specialty — e.g. ``theory-normalization-expert``).
+
+    Without the suffix-form arm, every collapse site fell through to the
+    empty-list branch in ``resolve_whitelist`` / ``resolve_server_authz``,
+    which silently zero'd out the role's tool surface and trapped its
+    event loop. See GitHub Issue #1 for the failure mode.
+    """
+    return role == "expert" or role.startswith("expert-") or role.endswith("-expert")
+
+
+def normalise_role_name(role: str) -> str:
+    """Collapse any expert-shaped role name to the bare authz key ``"expert"``."""
+    return "expert" if is_expert_role(role) else role
+
+
 def resolve_whitelist(role: str, agent_type: Literal["main", "subagent"] = "main") -> list[str]:
     """Return the allowed-tools list for *role* and *agent_type*.
 
@@ -457,17 +479,19 @@ def resolve_whitelist(role: str, agent_type: Literal["main", "subagent"] = "main
     are byte-identical for cross-role KV cache sharing. Server-side authz
     (the real enforcement boundary) uses :func:`resolve_server_authz`.
 
-    Expert roles are stored as ``expert-<slug>``; this function normalises
-    them to ``expert`` before lookup.
+    Expert roles in any of the three accepted shapes (``"expert"``,
+    ``"expert-<slug>"``, ``"<slug>-expert"``) collapse to the bare authz
+    key ``"expert"`` before lookup.
 
     Args:
-        role: Role name, e.g. ``"noter"``, ``"expert-dl-arch"``.
+        role: Role name, e.g. ``"noter"``, ``"expert-dl-arch"``,
+            ``"theory-normalization-expert"``.
         agent_type: ``"main"`` or ``"subagent"``.
 
     Returns:
         List of tool name patterns (may contain ``*`` wildcards).
     """
-    normalised = "expert" if role == "expert" or role.startswith("expert-") else role
+    normalised = normalise_role_name(role)
     key = (normalised, agent_type)
     if key not in _WHITELIST:
         logger.warning(
@@ -788,7 +812,7 @@ def resolve_server_authz(role: str, agent_type: Literal["main", "subagent"] = "m
     Returns:
         List of tool name patterns (may contain ``*`` wildcards).
     """
-    normalised = "expert" if role == "expert" or role.startswith("expert-") else role
+    normalised = normalise_role_name(role)
     key = (normalised, agent_type)
     if key not in _SERVER_AUTHZ:
         logger.warning(

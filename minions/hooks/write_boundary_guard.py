@@ -61,7 +61,9 @@ def _allowed_role_roots(role: str, project_port: str) -> list[Path]:
         return [repo]
     project_dir = repo / f"project_{project_port}"
     branch_dir_name = role
-    if role.startswith("expert-"):
+    # Accept all three expert-name shapes: expert / expert-<slug> / <slug>-expert.
+    is_expert = role == "expert" or role.startswith("expert-") or role.endswith("-expert")
+    if is_expert:
         branch_dir_name = role
     return [
         project_dir / "branches" / branch_dir_name,

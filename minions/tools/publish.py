@@ -133,8 +133,11 @@ def _allowed_subdirs_for_role(role_name: str, port: int) -> set[str] | None:
 
 
 def _normalise_role(role_name: str) -> str:
-    """Collapse expert-* roles onto the shared 'expert' policy."""
-    if role_name.startswith("expert-") or role_name == "expert":
+    """Collapse expert-shaped roles onto the shared 'expert' policy.
+
+    Accepts ``expert``, ``expert-<slug>``, and ``<slug>-expert``.
+    """
+    if role_name == "expert" or role_name.startswith("expert-") or role_name.endswith("-expert"):
         return "expert"
     return role_name
 

@@ -87,3 +87,68 @@ def test_mcp_authz_reel_tools_denied_for_noter() -> None:
         pytest.raises(PermissionError),
     ):
         _require_tool_allowed("mos_reel_get")
+
+
+# ---------------------------------------------------------------------------
+# GitHub Issue #1 — suffix-form expert role names must collapse to "expert"
+# in BOTH the CLI whitelist and server-side authz. Without this, _require_tool_allowed
+# falls through to the empty-list branch and the entire tool surface is denied,
+# trapping the role's event loop.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "role_name",
+    [
+        "expert",  # bare authz key
+        "expert-foo",  # prefix form (default register_expert shape)
+        "foo-expert",  # suffix form — was broken in v15.6 and earlier
+        "theory-normalization-expert",  # the exact name that triggered Issue #1
+    ],
+)
+def test_expert_authz_works_for_all_three_name_shapes(role_name: str) -> None:
+    """All three accepted Expert name shapes must resolve to a non-empty
+    authz list AND a non-empty CLI whitelist.
+
+    The pre-v15.7 bug: only `expert` and `expert-<slug>` collapsed to the
+    `expert` authz key; `<slug>-expert` fell through to the empty list,
+    silently denying every tool including `mos_issue_report` itself.
+    """
+    from minions.config import is_expert_role, normalise_role_name, resolve_whitelist
+
+    # Normaliser smoke check.
+    assert is_expert_role(role_name)
+    assert normalise_role_name(role_name) == "expert"
+
+    # Server-side authz: a universal tool like `mos_issue_report` must pass.
+    with patch.dict(os.environ, {"MINIONS_ROLE_NAME": role_name}, clear=False):
+        _require_tool_allowed("mos_issue_report")
+        # Also event-loop tools — these are the ones that were silently denied.
+        _require_tool_allowed("mos_await_events")
+        _require_tool_allowed("mos_draft_summary")
+
+    # CLI whitelist must also be non-empty so --allowed-tools can be built.
+    whitelist = resolve_whitelist(role_name, "main")
+    assert whitelist, f"empty whitelist for role={role_name!r}"
+    assert "mos_issue_report" in whitelist
+
+
+def test_non_expert_role_unchanged() -> None:
+    """Sanity: the suffix-form fix must not pull non-expert roles into
+    the expert authz bucket."""
+    from minions.config import is_expert_role, normalise_role_name
+
+    for role in ["coder", "noter", "writer", "ethics", "gru"]:
+        assert not is_expert_role(role)
+        assert normalise_role_name(role) == role
+
+
+def test_register_expert_with_suffix_name_resolves_authz() -> None:
+    """End-to-end: register_expert(name='theory-normalization-expert') must
+    produce a role whose tool surface is non-empty in both layers.
+    """
+    from minions.config import resolve_server_authz, resolve_whitelist
+
+    name = "theory-normalization-expert"
+    assert resolve_whitelist(name, "main"), "CLI whitelist empty for suffix-form expert"
+    assert resolve_server_authz(name, "main"), "Server authz empty for suffix-form expert"

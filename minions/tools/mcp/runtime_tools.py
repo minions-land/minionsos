@@ -208,6 +208,22 @@ class RoleSessionArgs(BaseModel):
     role_name: str = Field(description="Role name.")
 
 
+class KillRoleArgs(BaseModel):
+    project_port: int = Field(description="Project port.")
+    role_name: str = Field(description="Role name.")
+    purge: bool = Field(
+        default=False,
+        description=(
+            "When False (default), recycle: kill tmux but keep state=active "
+            "so the Gru watchdog respawns the role on the next tick. When "
+            "True, retire: kill tmux AND flip the registry row to "
+            "state=dismissed so the watchdog skips it. Use purge=True when "
+            "you actually want the role gone (e.g. after the role filed an "
+            "issue and you've handled it manually)."
+        ),
+    )
+
+
 @mcp.tool()
 def mos_attach_role(args: RoleSessionArgs) -> dict:
     """Return the tmux command to attach to a Role's resident session.
@@ -235,21 +251,78 @@ def mos_attach_role(args: RoleSessionArgs) -> dict:
 
 
 @mcp.tool()
-def mos_kill_role(args: RoleSessionArgs) -> dict:
-    """Kill the tmux session for a Role without dismissing it from the registry.
+def mos_kill_role(args: KillRoleArgs) -> dict:
+    """Kill the tmux session for a Role.
 
-    Use this when a Role process is wedged and you want the watchdog to
-    relaunch it on the next tick. To permanently retire a role use
-    ``mos_dismiss_role`` instead.
+    Two semantics, controlled by ``purge``:
+
+    - ``purge=False`` (default, **recycle**): kill tmux only. The registry
+      row stays at ``state=active``; the Gru watchdog will see the missing
+      session and respawn the role on its next loop tick. Use this when a
+      role process is wedged and you want a clean restart.
+
+    - ``purge=True`` (**retire**): kill tmux AND flip the registry row to
+      ``state=dismissed`` (and clear ``pid`` / ``session_resumable``). The
+      watchdog skips dismissed rows, so the role stays gone until the
+      operator explicitly respawns it. Use this when you want the role
+      gone — for example, after the role filed a P0/P1 issue and you've
+      handled it by hand.
+
+    Returning ``mos_list_roles`` afterwards reflects whichever state the
+    operator chose, so observers don't have to special-case
+    "active+pid=null+session_resumable=false" as a third-state. See
+    GitHub Issue #3 for the failure mode the purge mode fixes.
+
+    To permanently retire a role with full registry cleanup (EACN
+    unregister, workspace marker, etc.), prefer ``mos_dismiss_role``.
     """
     _require_tool_allowed("mos_kill_role")
     from minions.lifecycle.role_launcher import kill_session
+    from minions.state.store import StateStore
 
     killed = kill_session(args.project_port, args.role_name)
+
+    purged = False
+    new_state: str | None = None
+    if args.purge:
+        # Retire mode: flip the registry row so the watchdog stops
+        # respawning. Best-effort — failures don't unkill tmux.
+        try:
+            store = StateStore()
+            project = store.get_project(args.project_port)
+            if project is not None:
+                target = next(
+                    (r for r in project.active_roles if r.name == args.role_name),
+                    None,
+                )
+                if target is not None and target.state == "active":
+                    store.upsert_role(
+                        args.project_port,
+                        target.model_copy(
+                            update={
+                                "state": "dismissed",
+                                "pid": None,
+                                "session_resumable": False,
+                            }
+                        ),
+                    )
+                    purged = True
+                    new_state = "dismissed"
+        except Exception as exc:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "mos_kill_role(purge=True): registry update failed for port=%d role=%s: %s",
+                args.project_port,
+                args.role_name,
+                exc,
+            )
     return {
         "project_port": args.project_port,
         "role_name": args.role_name,
         "killed": killed,
+        "purged": purged,
+        "state": new_state,
     }
 
 

@@ -215,10 +215,10 @@ def _require_tool_allowed(tool_name: str) -> None:
 
 
 def _normalise_role_name(role: str) -> str:
-    """Collapse expert-<slug> to 'expert'; legacy aliases resolve too."""
-    if role == "expert" or role.startswith("expert-"):
-        return "expert"
-    return role
+    """Collapse expert-<slug>, <slug>-expert, and bare 'expert' to 'expert'."""
+    from minions.config import normalise_role_name
+
+    return normalise_role_name(role)
 
 
 def _enforce_caller_identity(claimed_role: str) -> None:

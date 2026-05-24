@@ -337,15 +337,84 @@ def _spawn_tmux(
     _tmux_send_initial_prompt(session_name, initial_prompt)
 
 
+# U+276F HEAVY RIGHT-POINTING ANGLE QUOTATION MARK ORNAMENT — this is the
+# literal glyph the Claude Code TUI prints as its input prompt. The character
+# is intentional; ruff's "ambiguous" rule is suppressed because it looks
+# nothing like a plain '>' to our pane probe.
+_CLAUDE_PROMPT_GLYPH = chr(0x276F)
+
+
+def _capture_pane(session_name: str) -> str:
+    """Return the current visible content of *session_name*'s pane, or '' on failure."""
+    try:
+        proc = subprocess.run(
+            ["tmux", "capture-pane", "-t", session_name, "-p"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return ""
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout or ""
+
+
+def _wait_for_repl_ready(
+    session_name: str, *, timeout: float = 30.0, poll_interval: float = 0.25
+) -> bool:
+    """Block until Claude Code's REPL prompt appears, or *timeout* elapses.
+
+    Markers we accept (any one is enough):
+    - the Claude Code TUI prompt glyph (U+276F);
+    - ``"> "`` AND a ``"claude"`` welcome line — fallback for a degraded
+      glyph-stripped pane;
+    - ``"Welcome to"`` plus at least 200 chars of pane content — Claude
+      finished its splash and is showing prompts.
+
+    Returns True if the marker was seen, False on timeout. False is not
+    fatal — the caller proceeds best-effort to send-keys, matching pre-v15.7
+    behavior on hosts where the marker probe somehow fails.
+
+    Why this exists: the previous fixed ``time.sleep(3)`` was a TOCTOU race
+    on loaded hosts. If MCP server startup or git worktree creation slowed
+    Claude past the 3 s window, send-keys ran against a TTY whose paste
+    buffer wasn't open yet and the keystrokes were silently dropped — the
+    role process came up with an empty prompt and parked. See GitHub
+    Issue #2.
+    """
+    import time
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        pane = _capture_pane(session_name)
+        if _CLAUDE_PROMPT_GLYPH in pane:
+            return True
+        if "> " in pane and "claude" in pane.lower():
+            return True
+        if "Welcome to" in pane and len(pane) > 200:
+            return True
+        time.sleep(poll_interval)
+    logger.warning(
+        "_wait_for_repl_ready: timeout (%.1fs) waiting for Claude REPL prompt in %s; "
+        "proceeding with send-keys best-effort",
+        timeout,
+        session_name,
+    )
+    return False
+
+
 def _tmux_send_initial_prompt(session_name: str, prompt: str) -> None:
     """Type *prompt* into the tmux session as if the operator typed it.
 
-    Two waits + two Enters are deliberate. Claude Code 2.1 needs a moment
-    after process spawn to attach its REPL, and its multiline paste mode
+    Two waits + two Enters are deliberate. Claude Code 2.1 needs the REPL
+    to be attached before keystrokes register, and its multiline paste mode
     treats a freshly pasted block as buffered input that requires an
-    explicit Enter to commit. Empirically:
+    explicit Enter to commit. The sequence:
 
-    1. Wait ~3s for claude to become interactive.
+    1. Poll-until-ready: capture-pane in a 30 s loop until the Claude REPL
+       prompt marker appears (replaces the legacy fixed 3 s sleep, which
+       was racy on loaded hosts — see GitHub Issue #2).
     2. send-keys -l <prompt>: types the prompt verbatim into the input.
     3. send-keys Enter: turns the paste into a committed multiline block.
     4. Brief sleep so the REPL processes the commit.
@@ -357,8 +426,8 @@ def _tmux_send_initial_prompt(session_name: str, prompt: str) -> None:
     """
     import time
 
-    # 1. Let claude attach.
-    time.sleep(3)
+    # 1. Wait for Claude's REPL to be ready (replaces fixed sleep).
+    _wait_for_repl_ready(session_name)
 
     try:
         # 2. Paste the prompt.
@@ -504,8 +573,9 @@ def _combined_system_prompt(role_name: str, *, extra_domain_md: Path | None = No
 
 def _role_system_paths(role_name: str, *, extra_domain_md: Path | None = None) -> list[Path]:
     """Return the list of role-specific SYSTEM.md paths for user-message injection."""
-    is_expert = role_name == "expert" or role_name.startswith("expert-")
-    role_path = role_system_md("expert" if is_expert else role_name)
+    from minions.config import normalise_role_name
+
+    role_path = role_system_md(normalise_role_name(role_name))
     paths: list[Path] = []
     if role_path.exists():
         paths.append(role_path)

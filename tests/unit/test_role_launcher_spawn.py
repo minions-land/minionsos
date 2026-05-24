@@ -124,10 +124,13 @@ def test_send_initial_prompt_sends_two_enters(tmp_path: Path) -> None:
         result.stderr = b""
         return result
 
-    # Patch sleep so the test stays fast.
+    # Patch sleep so the test stays fast, AND short-circuit the new
+    # poll-until-ready helper (Issue #2 fix) so we only exercise the
+    # send-keys / Enter path here.
     with (
         patch.object(role_launcher.subprocess, "run", side_effect=fake_run),
         patch("time.sleep"),
+        patch.object(role_launcher, "_wait_for_repl_ready", return_value=True),
     ):
         role_launcher._tmux_send_initial_prompt("mos-12345-coder", "hello world")
 
@@ -139,3 +142,68 @@ def test_send_initial_prompt_sends_two_enters(tmp_path: Path) -> None:
     paste_calls = [c for c in captured if c[:2] == ["tmux", "send-keys"] and "-l" in c]
     assert len(paste_calls) == 1
     assert "hello world" in paste_calls[0]
+
+
+# ---------------------------------------------------------------------------
+# GitHub Issue #2 — poll-until-ready before send-keys.
+# Replaces the racy fixed time.sleep(3) with a capture-pane probe loop.
+# ---------------------------------------------------------------------------
+
+
+def test_wait_for_repl_ready_returns_immediately_when_marker_present() -> None:
+    """When capture-pane already shows the Claude prompt glyph, the wait
+    helper must return True without sleeping further."""
+    from minions.lifecycle import role_launcher
+
+    def fake_capture(_session: str) -> str:
+        return "Welcome to Claude Code!\n\n❯ "
+
+    with patch.object(role_launcher, "_capture_pane", side_effect=fake_capture):
+        result = role_launcher._wait_for_repl_ready(
+            "mos-12345-coder", timeout=1.0, poll_interval=0.01
+        )
+    assert result is True
+
+
+def test_wait_for_repl_ready_times_out_when_marker_never_appears() -> None:
+    """When capture-pane never shows a marker, the helper must give up
+    after timeout and return False (best-effort fallback, not a raise)."""
+    from minions.lifecycle import role_launcher
+
+    with patch.object(role_launcher, "_capture_pane", return_value=""):
+        result = role_launcher._wait_for_repl_ready("mos-stuck", timeout=0.05, poll_interval=0.01)
+    assert result is False
+
+
+def test_send_keys_runs_after_wait_for_repl_ready() -> None:
+    """Order matters: the wait helper must fire BEFORE any send-keys,
+    otherwise the original race (keystrokes against an unattached REPL)
+    is back."""
+    from minions.lifecycle import role_launcher
+
+    call_order: list[str] = []
+
+    def fake_wait(*_a, **_k):
+        call_order.append("wait")
+        return True
+
+    def fake_run(argv, **_kw):
+        if argv[:2] == ["tmux", "send-keys"]:
+            call_order.append("send-keys")
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = b""
+        return result
+
+    with (
+        patch.object(role_launcher.subprocess, "run", side_effect=fake_run),
+        patch("time.sleep"),
+        patch.object(role_launcher, "_wait_for_repl_ready", side_effect=fake_wait),
+    ):
+        role_launcher._tmux_send_initial_prompt("mos-12345-coder", "hello world")
+
+    assert call_order, "neither wait nor send-keys was invoked"
+    assert call_order[0] == "wait", (
+        f"_wait_for_repl_ready must run before any send-keys; got order {call_order}"
+    )
+    assert "send-keys" in call_order, "send-keys must still run after the wait"

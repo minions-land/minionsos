@@ -319,3 +319,77 @@ def test_github_upload_failure_does_not_block_local_write(
     assert len(rows) == 1
     assert rows[0]["id"] == rec["id"]
     assert rows[0]["github_url"] is None
+
+
+def test_github_upload_retries_without_labels_on_label_rejection(
+    issue_env: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When gh rejects a label (because the repo never defined it), the
+    uploader retries once without --label flags so the issue still posts.
+    Caught via the e2e smoke; the in-repo `Minions-Land/MinionsOS` doesn't
+    have an `other` label and the first call would otherwise fail.
+    """
+    monkeypatch.setenv("MINIONS_GITHUB_ISSUES_REPO", "Minions-Land/MinionsOS")
+
+    call_log: list[list[str]] = []
+
+    class FailLabel:
+        returncode = 1
+        stdout = ""
+        stderr = "could not add label: 'other' not found"
+
+    class SucceedNoLabel:
+        returncode = 0
+        stdout = "https://github.com/Minions-Land/MinionsOS/issues/77\n"
+        stderr = ""
+
+    def fake_run(argv, *args, **kwargs):
+        call_log.append(list(argv))
+        # First call has --label, second call does not.
+        return FailLabel() if "--label" in argv else SucceedNoLabel()
+
+    import unittest.mock as _mock
+
+    with (
+        _mock.patch("minions.tools.issues.shutil.which", return_value="/usr/local/bin/gh"),
+        _mock.patch("minions.tools.issues.subprocess.run", side_effect=fake_run),
+    ):
+        rec = report_issue(_make_args(title="label-rejected", severity="P3", component="other"))
+
+    # Two gh invocations: with labels, then without.
+    assert len(call_log) == 2
+    assert "--label" in call_log[0]
+    assert "--label" not in call_log[1]
+    # Second attempt's URL must be persisted.
+    assert rec["github_url"] == "https://github.com/Minions-Land/MinionsOS/issues/77"
+    assert rec["github_repo"] == "Minions-Land/MinionsOS"
+
+
+def test_github_upload_does_not_retry_on_non_label_failure(
+    issue_env: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Don't waste a second gh call when the failure isn't label-related
+    (e.g. auth or network); just record the failure."""
+    monkeypatch.setenv("MINIONS_GITHUB_ISSUES_REPO", "Minions-Land/MinionsOS")
+
+    call_count = {"n": 0}
+
+    class FailAuth:
+        returncode = 1
+        stdout = ""
+        stderr = "HTTP 401 — bad credentials"
+
+    def fake_run(argv, *args, **kwargs):
+        call_count["n"] += 1
+        return FailAuth()
+
+    import unittest.mock as _mock
+
+    with (
+        _mock.patch("minions.tools.issues.shutil.which", return_value="/usr/local/bin/gh"),
+        _mock.patch("minions.tools.issues.subprocess.run", side_effect=fake_run),
+    ):
+        rec = report_issue(_make_args(title="auth-fails", severity="P1"))
+
+    assert call_count["n"] == 1, "non-label failures must not trigger the retry"
+    assert rec["github_url"] is None

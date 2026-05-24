@@ -295,7 +295,11 @@ def _upload_to_github(record: dict[str, object], repo: str) -> str | None:
     raises — the local JSONL append is the source of truth, GitHub upload
     is a strict opportunistic add-on.
 
-    Severity P0/P1 are tagged ``bug``; component drives a second tag.
+    Labels: severity P0/P1 → ``bug``, component → second label. If GitHub
+    rejects the labels (most commonly because the target repo never
+    defined them), we retry once without ``--label`` flags so the issue
+    still posts. Body markdown carries severity/component as text either
+    way, so losing the labels is cosmetic.
     """
     if not shutil.which("gh"):
         logger.info("issues upload: gh CLI not on PATH; skipping GitHub upload")
@@ -312,7 +316,8 @@ def _upload_to_github(record: dict[str, object], repo: str) -> str | None:
     title_raw = str(record.get("title") or "(no title)")
     title = f"[{record.get('id')}] {title_raw}"[:200]
 
-    argv = [
+    body = _format_github_body(record)
+    base_argv = [
         "gh",
         "issue",
         "create",
@@ -321,28 +326,43 @@ def _upload_to_github(record: dict[str, object], repo: str) -> str | None:
         "--title",
         title,
         "--body",
-        _format_github_body(record),
+        body,
     ]
+
+    def _try(argv: list[str]) -> tuple[int, str, str]:
+        try:
+            proc = subprocess.run(argv, capture_output=True, text=True, timeout=30)
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            logger.warning("issues upload: gh invocation failed: %s", exc)
+            return -1, "", str(exc)
+        return proc.returncode, proc.stdout or "", proc.stderr or ""
+
+    argv = list(base_argv)
     for lbl in labels:
         argv.extend(["--label", lbl])
 
-    try:
-        proc = subprocess.run(argv, capture_output=True, text=True, timeout=30)
-    except (subprocess.TimeoutExpired, OSError) as exc:
-        logger.warning("issues upload: gh invocation failed: %s", exc)
-        return None
-    if proc.returncode != 0:
+    rc, stdout, stderr = _try(argv)
+    if rc != 0 and "label" in stderr.lower() and labels:
+        # Most common cause: the repo doesn't have these labels defined.
+        # Retry without labels so the issue still posts.
+        logger.info(
+            "issues upload: label rejection (%s) — retrying without labels",
+            stderr.strip()[:200],
+        )
+        rc, stdout, stderr = _try(base_argv)
+
+    if rc != 0:
         logger.warning(
             "issues upload: gh exit=%s stderr=%s",
-            proc.returncode,
-            (proc.stderr or "").strip()[:400],
+            rc,
+            stderr.strip()[:400],
         )
         return None
-    url = (proc.stdout or "").strip().splitlines()[-1].strip() if proc.stdout else ""
+    url = stdout.strip().splitlines()[-1].strip() if stdout else ""
     if url.startswith("https://"):
         logger.info("issues upload: filed %s -> %s", record.get("id"), url)
         return url
-    logger.warning("issues upload: gh succeeded but no URL in output: %r", proc.stdout)
+    logger.warning("issues upload: gh succeeded but no URL in output: %r", stdout)
     return None
 
 

@@ -70,11 +70,12 @@ def _split_frontmatter(text: str) -> tuple[dict[str, str], str]:
 def _resolve_role_skills_dir(role_name: str) -> Path:
     """Map a registered role name to its skills directory.
 
-    Expert roles are registered as ``expert-{slug}`` but all share the
-    base ``expert/skills/`` directory.
+    Expert roles share the base ``expert/skills/`` directory regardless of
+    whether they're named ``expert``, ``expert-<slug>``, or ``<slug>-expert``.
     """
-    base = "expert" if role_name == "expert" or role_name.startswith("expert-") else role_name
-    return ROLES_DIR / base / "skills"
+    from minions.config import normalise_role_name
+
+    return ROLES_DIR / normalise_role_name(role_name) / "skills"
 
 
 def _common_skills_dir() -> Path:

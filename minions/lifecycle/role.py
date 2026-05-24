@@ -190,8 +190,9 @@ def _boundary_context(role_name: str, project_port: int) -> str:
     customization; today the text is identical for every project.
     """
     del project_port  # currently unused; kept for API stability
-    is_expert = role_name == "expert" or role_name.startswith("expert-")
-    normalised = "expert" if is_expert else role_name
+    from minions.config import normalise_role_name
+
+    normalised = normalise_role_name(role_name)
     if normalised in _BOUNDARY_TEXT:
         return _BOUNDARY_TEXT[normalised]
     role_type = ROLE_CLASSIFICATION.get(normalised, RoleType.eacn_visible)

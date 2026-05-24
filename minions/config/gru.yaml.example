@@ -45,6 +45,14 @@ noter_report_interval: 30m
 # margin for explicit nonzero-budget experiments.
 local_eacn_initial_balance: 10000
 
+# Optional `owner/repo` target for `mos_issue_report` GitHub uploads. When
+# set, every issue Roles file via `mos_issue_report` is also posted via
+# `gh issue create` (best-effort — local JSONL stays the source of truth,
+# upload failures are logged but never block the local write). Requires the
+# `gh` CLI to be authenticated for this user. Override per process with
+# MINIONS_GITHUB_ISSUES_REPO. Leave unset to keep issues local only.
+# github_issues_repo: Minions-Land/MinionsOS
+
 # Structured backend/role health events are always written to
 # project_<port>/logs/health_events.jsonl. Set this true to also post those
 # events to project-local Gru and Noter over EACN.

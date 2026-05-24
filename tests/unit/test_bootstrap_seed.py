@@ -22,6 +22,7 @@ def mock_project_env(tmp_path: Path, monkeypatch):
     author_repo = tmp_path / "author_repo"
     author_repo.mkdir()
     import subprocess
+
     subprocess.run(["git", "init"], cwd=author_repo, check=True, capture_output=True)
     subprocess.run(
         ["git", "config", "user.name", "Test"],
@@ -66,7 +67,10 @@ def test_project_create_seeds_bootstrap_node(mock_project_env: Path):
     # Load and verify structure
     draft = json.loads(draft_path.read_text(encoding="utf-8"))
     assert draft["project_port"] == entry.port
-    assert draft["root_question"] == "Test project for bootstrap seeding\n\nTopic document: input/test.md"
+    assert (
+        draft["root_question"]
+        == "Test project for bootstrap seeding\n\nTopic document: input/test.md"
+    )
     assert len(draft["nodes"]) == 1
     assert len(draft["edges"]) == 0
 
@@ -74,7 +78,9 @@ def test_project_create_seeds_bootstrap_node(mock_project_env: Path):
     bootstrap = draft["nodes"][0]
     assert bootstrap["id"] == "B-000"
     assert bootstrap["type"] == "bootstrap"
-    assert bootstrap["text"] == "Test project for bootstrap seeding\n\nTopic document: input/test.md"
+    assert (
+        bootstrap["text"] == "Test project for bootstrap seeding\n\nTopic document: input/test.md"
+    )
     assert bootstrap["support_status"] == "verified"
     assert bootstrap["author_role"] == "system"
     assert bootstrap["provenance"] == "system"
