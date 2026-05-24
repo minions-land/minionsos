@@ -87,3 +87,70 @@ class TestFireAndPoll:
         assert "gpu_ids" in listed
         assert listed["pid"] > 0
         assert listed["log_path"].endswith(f"{run['run_id']}.log")
+
+    def test_gpu_ids_exports_cuda_visible_devices(self, local_target: str) -> None:
+        """GitHub Issue #19: subprocess must actually receive CUDA_VISIBLE_DEVICES.
+
+        The pre-fix code prefixed the cmd string with `CUDA_VISIBLE_DEVICES=1 `
+        which was unreliable across the nohup/setsid chain. The fix uses
+        `export` inside the launched subshell. We verify by having the
+        command itself echo its CUDA_VISIBLE_DEVICES into the log.
+        """
+        run = exp_run(
+            ExpRunArgs(
+                target_id=local_target,
+                cmd='sleep 0.1 && echo "CVD=${CUDA_VISIBLE_DEVICES}"',
+                gpu_ids=[1],
+            )
+        )
+        final = exp_wait(
+            ExpWaitArgs(target_id=local_target, run_id=run["run_id"], timeout=10)
+        )
+        assert final["state"] == "exited"
+        assert final["exit_code"] == 0
+        log_path = Path(run["log_path"])
+        for _ in range(20):
+            if "CVD=" in log_path.read_text():
+                break
+            time.sleep(0.05)
+        assert "CVD=1" in log_path.read_text()
+
+    def test_gpu_ids_multiple_devices_exported(self, local_target: str) -> None:
+        run = exp_run(
+            ExpRunArgs(
+                target_id=local_target,
+                cmd='sleep 0.1 && echo "CVD=${CUDA_VISIBLE_DEVICES}"',
+                gpu_ids=[2, 3],
+            )
+        )
+        final = exp_wait(
+            ExpWaitArgs(target_id=local_target, run_id=run["run_id"], timeout=10)
+        )
+        assert final["state"] == "exited"
+        log_path = Path(run["log_path"])
+        for _ in range(20):
+            if "CVD=" in log_path.read_text():
+                break
+            time.sleep(0.05)
+        assert "CVD=2,3" in log_path.read_text()
+
+    def test_no_gpu_ids_leaves_cuda_visible_devices_unset(
+        self, local_target: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+        run = exp_run(
+            ExpRunArgs(
+                target_id=local_target,
+                cmd='sleep 0.1 && echo "CVD=${CUDA_VISIBLE_DEVICES:-unset}"',
+            )
+        )
+        final = exp_wait(
+            ExpWaitArgs(target_id=local_target, run_id=run["run_id"], timeout=10)
+        )
+        assert final["state"] == "exited"
+        log_path = Path(run["log_path"])
+        for _ in range(20):
+            if "CVD=" in log_path.read_text():
+                break
+            time.sleep(0.05)
+        assert "CVD=unset" in log_path.read_text()

@@ -141,15 +141,33 @@ def _remote_paths(workdir: str, run_id: str) -> tuple[str, str, str, str]:
     )
 
 
-def _build_launch_script(cmd: str, workdir: str, log_path: str, exit_path: str) -> str:
+def _build_launch_script(
+    cmd: str,
+    workdir: str,
+    log_path: str,
+    exit_path: str,
+    env: dict[str, str] | None = None,
+) -> str:
     """Build the nohup/setsid detached launcher.
 
     Runs the user cmd in a subshell, captures its exit code into ``exit_path``
     after it terminates, and echoes the child PID on stdout. ``setsid`` is
     used when present to fully detach from the controlling terminal; when
     absent (e.g. macOS default install) ``nohup`` + ``disown`` is sufficient.
+
+    *env*: optional mapping of variables to ``export`` inside the subshell
+    before invoking *cmd*. We export (not inline ``VAR=value command``)
+    because the inline form is fragile across the ``nohup setsid bash -c``
+    chain — CUDA libraries read ``CUDA_VISIBLE_DEVICES`` at C-extension
+    init time, and on some launcher paths the inline binding does not
+    propagate by the time PyTorch loads. See GitHub Issue #19.
     """
-    inner = f"cd {shlex.quote(workdir)} && ( {cmd} ); echo $? > {shlex.quote(exit_path)}"
+    export_lines = ""
+    if env:
+        export_lines = "".join(f"export {k}={shlex.quote(v)}; " for k, v in env.items())
+    inner = (
+        f"cd {shlex.quote(workdir)} && ( {export_lines}{cmd} ); echo $? > {shlex.quote(exit_path)}"
+    )
     # Prefer setsid for full session detachment, but fall back gracefully.
     detach = "if command -v setsid >/dev/null 2>&1; then DETACH=setsid; else DETACH=; fi; "
     return (
@@ -351,11 +369,15 @@ def exp_run(args: ExpRunArgs) -> dict:
 
     run_id = _new_run_id()
     cmd = args.cmd
-    env_prefix = ""
+    # Set CUDA_VISIBLE_DEVICES via shell `export` injected into the launch
+    # script rather than as an inline `VAR=value command` prefix on the
+    # command string. The inline form was unreliable across the
+    # nohup/setsid chain (GitHub Issue #19): the env var bound to the
+    # outer bash but did not consistently propagate to the python process
+    # in time for CUDA library init, so all runs clustered on GPU 0.
+    launch_env: dict[str, str] = {}
     if args.gpu_ids is not None:
-        ids_str = ",".join(str(g) for g in args.gpu_ids)
-        env_prefix = f"CUDA_VISIBLE_DEVICES={ids_str} "
-    cmd = env_prefix + cmd
+        launch_env["CUDA_VISIBLE_DEVICES"] = ",".join(str(g) for g in args.gpu_ids)
 
     logger.info("exp_run target=%s run_id=%s cmd=%r (detached)", target_id, run_id, cmd[:120])
 
@@ -370,7 +392,7 @@ def exp_run(args: ExpRunArgs) -> dict:
     if kind == "local":
         logs_dir, log_path, meta_path, exit_path = _local_paths(workdir, run_id)
         logs_dir.mkdir(parents=True, exist_ok=True)
-        script = _build_launch_script(cmd, workdir, str(log_path), str(exit_path))
+        script = _build_launch_script(cmd, workdir, str(log_path), str(exit_path), env=launch_env)
         result = subprocess.run(
             ["bash", "-c", script],
             capture_output=True,
@@ -395,7 +417,7 @@ def exp_run(args: ExpRunArgs) -> dict:
     # ssh branch
     assert host and key
     _logs_dir, log_path_s, meta_path_s, exit_path_s = _remote_paths(workdir, run_id)
-    launch = _build_launch_script(cmd, workdir, log_path_s, exit_path_s)
+    launch = _build_launch_script(cmd, workdir, log_path_s, exit_path_s, env=launch_env)
     result = subprocess.run(
         _ssh_cmd(host, key, f"bash -lc {shlex.quote(launch)}"),
         capture_output=True,

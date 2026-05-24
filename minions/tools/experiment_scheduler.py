@@ -274,6 +274,7 @@ class ExperimentScheduler:
         blocked: list[dict[str, Any]] = []
 
         with self._tx() as conn:
+            reaped = self._reap_zombie_runs(conn)
             completed, failed = self._refresh_running(conn)
             slots = self._gpu_slots(conn)
             pending = self._pending_units(conn, batch_id=batch_id)
@@ -360,6 +361,7 @@ class ExperimentScheduler:
             "completed": completed,
             "failed": failed,
             "blocked": blocked,
+            "reaped": reaped,
             "placement": placement,
             "summary": self.status(batch_id=batch_id)["summary"],
         }
@@ -885,6 +887,107 @@ class ExperimentScheduler:
             return "GPU utilization collapsed to 0% (sustained in recent log tail)"
 
         return None
+
+    def _reap_zombie_runs(self, conn: sqlite3.Connection) -> list[dict[str, Any]]:
+        """Transition runs whose backing PID is dead into ``state='exited'``.
+
+        GitHub Issue #18: ``_refresh_running`` already calls ``_exp_status``,
+        which probes the PID via ``os.kill(pid, 0)`` — but that call is
+        guarded by ``except Exception: continue``, so a transient meta-file
+        read failure, target-id resolution error, or any other glitch
+        leaves the row at ``state='running'`` forever. The pending pool
+        sees the GPU as occupied and stalls indefinitely.
+
+        This zombie-reaper is a defense-in-depth pass that runs BEFORE
+        ``_refresh_running``: it looks directly at the SQLite ``pid`` and
+        ``log_path`` columns (no meta-file dependency, no target_id
+        resolution) and transitions any row whose PID is dead. The
+        ``.exit`` file is consulted for the exit code; if absent we
+        record ``-9`` (killed before exit-marker landed). The unit moves
+        to ``done`` (exit_code 0) or ``failed`` (non-zero), the GPU slot
+        frees, the queue resumes.
+
+        Skipped when injected callbacks are used (test mocks): tests
+        bypass real exp_run, so PIDs are fake integers that look dead.
+        """
+        if (
+            self._exp_run_fn is not None
+            or self._exp_status_fn is not None
+            or self._exp_kill_fn is not None
+        ):
+            return []
+        rows = conn.execute(
+            """
+            SELECT run_id, unit_id, pid, log_path
+            FROM runs
+            WHERE state IN ('running', 'launching')
+            """
+        ).fetchall()
+        reaped: list[dict[str, Any]] = []
+        for row in rows:
+            pid = row["pid"]
+            if pid is None:
+                continue
+            try:
+                pid_int = int(pid)
+            except (TypeError, ValueError):
+                continue
+            try:
+                os.kill(pid_int, 0)
+                continue  # PID alive — leave for _refresh_running
+            except ProcessLookupError:
+                pass
+            except PermissionError:
+                # PID exists but is owned by another user. Treat as alive.
+                continue
+            except OSError:
+                continue
+            # PID is dead. Look for the .exit file to recover the exit code.
+            exit_code = -9
+            log_path_s = row["log_path"]
+            if log_path_s:
+                exit_path = Path(log_path_s).with_suffix(".exit")
+                if exit_path.exists():
+                    try:
+                        exit_code = int(exit_path.read_text().strip() or "0")
+                    except (OSError, ValueError):
+                        exit_code = -1
+            now = _now_iso()
+            conn.execute(
+                """
+                UPDATE runs
+                SET state='exited', exit_code=?, finished_at=?, updated_at=?
+                WHERE run_id=?
+                """,
+                (exit_code, now, now, row["run_id"]),
+            )
+            new_status = "done" if exit_code == 0 else "failed"
+            last_error = None if exit_code == 0 else f"zombie_reaped: exit_code={exit_code}"
+            conn.execute(
+                """
+                UPDATE units
+                SET status=?, active_run_id=NULL, last_error=?, updated_at=?
+                WHERE unit_id=?
+                """,
+                (new_status, last_error, now, row["unit_id"]),
+            )
+            logger.warning(
+                "reaped zombie run_id=%s unit_id=%s pid=%d exit_code=%d",
+                row["run_id"],
+                row["unit_id"],
+                pid_int,
+                exit_code,
+            )
+            reaped.append(
+                {
+                    "run_id": row["run_id"],
+                    "unit_id": row["unit_id"],
+                    "pid": pid_int,
+                    "exit_code": exit_code,
+                    "next_status": new_status,
+                }
+            )
+        return reaped
 
     def _refresh_running(self, conn: sqlite3.Connection) -> tuple[list[dict], list[dict]]:
         completed: list[dict[str, Any]] = []

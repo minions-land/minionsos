@@ -384,3 +384,134 @@ def test_evict_does_not_escalate_reserve_mb(tmp_path: Path) -> None:
     runs = sched.status("reserve-check")["runs"]
     evicted_run = next(r for r in runs if r["state"] == "evicted")
     assert evicted_run["exit_code"] == -15
+
+
+def test_zombie_reaper_transitions_dead_pid_to_done(tmp_path: Path) -> None:
+    """GitHub Issue #18: a run row whose PID is dead must transition to exited.
+
+    Builds a scheduler with NO injected callbacks (so the reaper engages),
+    pre-populates a unit + a `running` run with a guaranteed-dead PID, and
+    asserts that reconcile() reaps it.
+    """
+    sched = ExperimentScheduler(
+        db_path=tmp_path / "scheduler.sqlite",
+        target_ids=["local"],
+    )
+    # Seed unit + zombie run row directly, bypassing exp_run.
+    log_path = tmp_path / "logs" / "run-dead.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.touch()
+    exit_path = log_path.with_suffix(".exit")
+    exit_path.write_text("0")  # Clean exit code 0 on disk.
+    # Pick a PID essentially guaranteed not to exist on this host.
+    dead_pid = 2**22 - 1
+    with sched._tx() as conn:
+        now = "2026-01-01T00:00:00+00:00"
+        conn.execute(
+            "INSERT INTO batches(batch_id, status, created_at, updated_at) "
+            "VALUES (?, 'pending', ?, ?)",
+            ("b1", now, now),
+        )
+        conn.execute(
+            "INSERT INTO units(unit_id, batch_id, cmd, priority, attempts, max_retries, "
+            "target_id, gpu_ids_json, reserve_mb, min_free_mb, status, last_error, "
+            "active_run_id, metadata_json, created_at, updated_at) "
+            "VALUES (?, ?, ?, 0, 1, 3, ?, '[]', 0, 0, 'running', NULL, ?, '{}', ?, ?)",
+            ("u-dead", "b1", "echo hi", "local", "r-dead", now, now),
+        )
+        conn.execute(
+            "INSERT INTO runs(run_id, unit_id, batch_id, target_id, gpu_ids_json, pid, "
+            "log_path, state, started_at, updated_at) "
+            "VALUES (?, ?, ?, ?, '[]', ?, ?, 'running', ?, ?)",
+            ("r-dead", "u-dead", "b1", "local", dead_pid, str(log_path), now, now),
+        )
+
+    with sched._tx() as conn:
+        reaped = sched._reap_zombie_runs(conn)
+    reaped_ids = [r["run_id"] for r in reaped]
+    assert "r-dead" in reaped_ids
+    reap = next(r for r in reaped if r["run_id"] == "r-dead")
+    assert reap["exit_code"] == 0
+    assert reap["next_status"] == "done"
+
+    # The unit moved to done and active_run_id cleared.
+    summary = sched.status("b1")["summary"]
+    assert summary == {"done": 1}
+
+
+def test_zombie_reaper_records_minus_9_when_exit_file_missing(tmp_path: Path) -> None:
+    sched = ExperimentScheduler(
+        db_path=tmp_path / "scheduler.sqlite",
+        target_ids=["local"],
+    )
+    log_path = tmp_path / "logs" / "run-killed.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.touch()
+    # Intentionally NO .exit file — simulates kill -9 before exit-marker landed.
+    dead_pid = 2**22 - 2
+    with sched._tx() as conn:
+        now = "2026-01-01T00:00:00+00:00"
+        conn.execute(
+            "INSERT INTO batches(batch_id, status, created_at, updated_at) "
+            "VALUES (?, 'pending', ?, ?)",
+            ("b1", now, now),
+        )
+        conn.execute(
+            "INSERT INTO units(unit_id, batch_id, cmd, priority, attempts, max_retries, "
+            "target_id, gpu_ids_json, reserve_mb, min_free_mb, status, last_error, "
+            "active_run_id, metadata_json, created_at, updated_at) "
+            "VALUES (?, ?, ?, 0, 1, 3, ?, '[]', 0, 0, 'running', NULL, ?, '{}', ?, ?)",
+            ("u-killed", "b1", "echo hi", "local", "r-killed", now, now),
+        )
+        conn.execute(
+            "INSERT INTO runs(run_id, unit_id, batch_id, target_id, gpu_ids_json, pid, "
+            "log_path, state, started_at, updated_at) "
+            "VALUES (?, ?, ?, ?, '[]', ?, ?, 'running', ?, ?)",
+            ("r-killed", "u-killed", "b1", "local", dead_pid, str(log_path), now, now),
+        )
+
+    with sched._tx() as conn:
+        reaped = sched._reap_zombie_runs(conn)
+    reap = next(r for r in reaped if r["run_id"] == "r-killed")
+    assert reap["exit_code"] == -9
+    assert reap["next_status"] == "failed"
+    summary = sched.status("b1")["summary"]
+    assert summary == {"failed": 1}
+
+
+def test_zombie_reaper_skipped_when_pid_alive(tmp_path: Path) -> None:
+    """Live PIDs must NOT be reaped — guards against false-positive kills."""
+    import os
+
+    sched = ExperimentScheduler(
+        db_path=tmp_path / "scheduler.sqlite",
+        target_ids=["local"],
+    )
+    log_path = tmp_path / "logs" / "run-alive.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.touch()
+    alive_pid = os.getpid()  # This test process is guaranteed alive.
+    with sched._tx() as conn:
+        now = "2026-01-01T00:00:00+00:00"
+        conn.execute(
+            "INSERT INTO batches(batch_id, status, created_at, updated_at) "
+            "VALUES (?, 'pending', ?, ?)",
+            ("b1", now, now),
+        )
+        conn.execute(
+            "INSERT INTO units(unit_id, batch_id, cmd, priority, attempts, max_retries, "
+            "target_id, gpu_ids_json, reserve_mb, min_free_mb, status, last_error, "
+            "active_run_id, metadata_json, created_at, updated_at) "
+            "VALUES (?, ?, ?, 0, 1, 3, ?, '[]', 0, 0, 'running', NULL, ?, '{}', ?, ?)",
+            ("u-alive", "b1", "echo hi", "local", "r-alive", now, now),
+        )
+        conn.execute(
+            "INSERT INTO runs(run_id, unit_id, batch_id, target_id, gpu_ids_json, pid, "
+            "log_path, state, started_at, updated_at) "
+            "VALUES (?, ?, ?, ?, '[]', ?, ?, 'running', ?, ?)",
+            ("r-alive", "u-alive", "b1", "local", alive_pid, str(log_path), now, now),
+        )
+
+    with sched._tx() as conn:
+        reaped = sched._reap_zombie_runs(conn)
+    assert reaped == []
