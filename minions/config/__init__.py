@@ -1026,6 +1026,58 @@ class GruConfig(BaseModel):
             "Default 15."
         ),
     )
+    wedge_watchdog_enabled: bool = Field(
+        default=True,
+        description=(
+            "When True, Gru periodically scans each active Role's tmux "
+            "pane log for the `[upstream returned no content]` + bare `ack` "
+            "loop signature (GitHub Issue #15). If detected, the watchdog "
+            "kills the tmux session so the main respawn path cold-starts "
+            "the Role from its Draft. Heartbeats lie for this failure mode "
+            "(the PreToolUse hook refreshes on every empty turn), so the "
+            "only reliable detector is log-tail pattern matching."
+        ),
+    )
+    wedge_watchdog_interval_seconds: int = Field(
+        default=300,
+        description=(
+            "How often the wedge watchdog ticks. Each tick reads the tail "
+            "of every active role's log file (cheap — bounded by "
+            "wedge_watchdog_tail_bytes per role) and counts wedge markers. "
+            "Default 300 (5 min)."
+        ),
+    )
+    wedge_watchdog_threshold: int = Field(
+        default=4,
+        description=(
+            "Minimum count of `[upstream returned no content]` OR bare `ack` "
+            "lines in the recent log tail before the watchdog declares a "
+            "role wedged. With the default tail of 16KB (roughly the last "
+            "50-100 turn boundaries on a long-running role) and threshold 4, "
+            "the watchdog needs four wedge-pattern turns AND at least one of "
+            "the other pattern to act — keeping false positives on healthy "
+            "cache-keepalive loops near zero."
+        ),
+    )
+    wedge_watchdog_tail_bytes: int = Field(
+        default=16384,
+        description=(
+            "How many bytes from the end of each role log to read per "
+            "watchdog tick. The wedge signature is local to the recent "
+            "turn boundaries, so a small fixed tail is sufficient and "
+            "keeps the tick cheap on long-running projects."
+        ),
+    )
+    wedge_watchdog_cooldown_seconds: int = Field(
+        default=900,
+        description=(
+            "After the watchdog kills a role's tmux session, suppress "
+            "further wedge-kills against that (port, role) for this many "
+            "seconds. Gives the respawned role time to cold-start, rebuild "
+            "context from the Draft, and emit non-`ack` output before the "
+            "watchdog reads its log tail again. Default 900 (15 min)."
+        ),
+    )
     cache_keepalive_seconds: int = Field(
         default=240,
         description=(

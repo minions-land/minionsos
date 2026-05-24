@@ -46,10 +46,16 @@ class GruLoop:
         self.gru_drive_enabled: bool = cfg.gru_drive_enabled
         self.gru_drive_interval: int = cfg.gru_drive_interval_seconds
         self.gru_drive_stale_seconds: int = cfg.gru_drive_stale_minutes * 60
+        self.wedge_watchdog_enabled: bool = cfg.wedge_watchdog_enabled
+        self.wedge_watchdog_interval: int = cfg.wedge_watchdog_interval_seconds
+        self.wedge_watchdog_threshold: int = cfg.wedge_watchdog_threshold
+        self.wedge_watchdog_tail_bytes: int = cfg.wedge_watchdog_tail_bytes
+        self.wedge_watchdog_cooldown_seconds: int = cfg.wedge_watchdog_cooldown_seconds
         self._store = StateStore()
         self._crash_counter = CrashCounter()
         self._last_report_ts: float = 0.0
         self._last_drive_ts: dict[tuple[int, str], float] = {}
+        self._last_wedge_kill_ts: dict[tuple[int, str], float] = {}
         self._stopped = False
 
     # ------------------------------------------------------------------
@@ -98,6 +104,17 @@ class GruLoop:
                         break
                     time.sleep(0.5)
 
+        def _wedge_watchdog_thread() -> None:
+            while not self._stopped:
+                try:
+                    self._sweep_wedged_roles()
+                except Exception as exc:
+                    logger.error("wedge_watchdog tick error: %s", exc, exc_info=True)
+                for _ in range(max(1, self.wedge_watchdog_interval) * 2):
+                    if self._stopped:
+                        break
+                    time.sleep(0.5)
+
         exp_t = threading.Thread(
             target=_experiment_scheduler_thread,
             daemon=True,
@@ -121,6 +138,19 @@ class GruLoop:
                 "Gru drive thread started (interval=%ds, stale=%ds).",
                 self.gru_drive_interval,
                 self.gru_drive_stale_seconds,
+            )
+        if self.wedge_watchdog_enabled:
+            wedge_t = threading.Thread(
+                target=_wedge_watchdog_thread,
+                daemon=True,
+                name="wedge-watchdog",
+            )
+            wedge_t.start()
+            logger.info(
+                "Wedge watchdog started (interval=%ds, threshold=%d, tail=%dB).",
+                self.wedge_watchdog_interval,
+                self.wedge_watchdog_threshold,
+                self.wedge_watchdog_tail_bytes,
             )
         logger.info("Gru monitor loop started (interval=%ds).", self.interval)
         try:
@@ -537,6 +567,72 @@ class GruLoop:
                 )
         # Reference unused import path so a refactor doesn't drop it silently.
         _ = project_role_workspace
+
+    def _sweep_wedged_roles(self) -> None:
+        """Detect Roles stuck in an empty-upstream / bare-`ack` loop and kill them.
+
+        See GitHub Issue #15 and ``minions.lifecycle.wedge_detect``. The
+        kill triggers the existing watchdog respawn path in ``_tick`` —
+        same outcome as ``mos_reset_context`` but enforced from outside
+        the wedged process. A cooldown suppresses repeated kills against
+        the same role so a freshly-respawned role gets time to cold-start.
+        """
+        from minions.lifecycle.role_launcher import kill_session
+        from minions.lifecycle.wedge_detect import inspect_log_tail, is_wedged
+        from minions.paths import project_role_log
+
+        now = time.time()
+        projects = self._store.list_projects(filter="active")
+        for project in projects:
+            port = project.port
+            for role in project.active_roles:
+                if role.state != "active":
+                    continue
+                if role.name == "noter":
+                    # Noter drives off a timer rather than mos_await_events;
+                    # its log shape differs and the wedge signature does
+                    # not apply.
+                    continue
+                key = (port, role.name)
+                last_kill = self._last_wedge_kill_ts.get(key, 0.0)
+                if now - last_kill < self.wedge_watchdog_cooldown_seconds:
+                    continue
+                log_path = project_role_log(port, role.name)
+                signal = inspect_log_tail(log_path, tail_bytes=self.wedge_watchdog_tail_bytes)
+                if not is_wedged(signal, threshold=self.wedge_watchdog_threshold):
+                    continue
+                msg = (
+                    f"[ALERT] Role {role.name!r} on port {port} appears wedged "
+                    f"(empty-upstream={signal.empty_marker_count}, "
+                    f"bare-ack={signal.ack_line_count} in last "
+                    f"{self.wedge_watchdog_tail_bytes}B of log). Killing tmux "
+                    "session so the respawn path cold-starts the role from Draft."
+                )
+                logger.error(msg)
+                self._emit_health_event(
+                    port=port,
+                    kind="role_wedged",
+                    severity="alert",
+                    message=msg,
+                    role_name=role.name,
+                    metadata={
+                        "empty_marker_count": signal.empty_marker_count,
+                        "ack_line_count": signal.ack_line_count,
+                        "sampled_lines": signal.sampled_lines,
+                        "tail_bytes": self.wedge_watchdog_tail_bytes,
+                        "threshold": self.wedge_watchdog_threshold,
+                    },
+                )
+                try:
+                    kill_session(port, role.name)
+                except Exception as exc:
+                    logger.warning(
+                        "wedge_watchdog: kill_session failed port=%d role=%s: %s",
+                        port,
+                        role.name,
+                        exc,
+                    )
+                self._last_wedge_kill_ts[key] = now
 
     def _heartbeat_age_seconds(self, port: int, role_name: str) -> float | None:
         """Return seconds since the Role's heartbeat file was last touched.

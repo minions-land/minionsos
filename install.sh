@@ -286,18 +286,34 @@ else
         GR_VENV_PY="$GR_DIR/.venv/bin/python"
         if [ ! -x "$GR_VENV_PY" ]; then
             info "Setting up graphify L3 extractor venv..."
+            # Bound the install with a wall-clock timeout. GitHub Issue #16:
+            # on PyPI-restricted hosts (corporate firewall, throttled net,
+            # air-gapped clusters) `uv pip install -e .` blocks for tens
+            # of minutes with no output, leaving installers staring at a
+            # dead terminal. 180s is generous for a healthy network and
+            # long enough that a slow-but-progressing install completes.
+            GR_INSTALL_TIMEOUT="${GRAPHIFY_INSTALL_TIMEOUT:-180}"
+            gr_rc=0
             (
                 cd "$GR_DIR"
                 # Create a project-local venv and install graphify into it.
                 # Using `uv venv` + `uv pip install` keeps the install
                 # consistent with the rest of MinionsOS.
                 uv_project venv .venv
-                VIRTUAL_ENV="$GR_DIR/.venv" uv_project pip install -e .
-            )
-            if [ ! -x "$GR_VENV_PY" ]; then
-                warn "graphify venv setup completed but $GR_VENV_PY is missing."
-                warn "L3 Shelf auto-rebuild will not work; install manually:"
+                if command -v timeout >/dev/null 2>&1; then
+                    timeout "$GR_INSTALL_TIMEOUT" \
+                        env VIRTUAL_ENV="$GR_DIR/.venv" uv_project pip install -e .
+                else
+                    VIRTUAL_ENV="$GR_DIR/.venv" uv_project pip install -e .
+                fi
+            ) || gr_rc=$?
+            if [ "$gr_rc" -ne 0 ] || [ ! -x "$GR_VENV_PY" ]; then
+                warn "graphify venv setup failed or timed out after ${GR_INSTALL_TIMEOUT}s (rc=$gr_rc)."
+                warn "This usually means PyPI is unreachable or rate-limited from this host."
+                warn "L3 Shelf auto-rebuild will be DISABLED until you finish the install:"
                 warn "  cd $GR_DIR && uv venv .venv && VIRTUAL_ENV=\$PWD/.venv uv pip install -e ."
+                warn "MinionsOS will continue to start; only cross-role structural search"
+                warn "degrades. Re-run install.sh (or the command above) once PyPI is reachable."
             else
                 ok "graphify venv ready: $GR_VENV_PY"
             fi

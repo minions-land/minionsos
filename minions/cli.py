@@ -863,6 +863,89 @@ def role_drive(
     raise typer.Exit(subprocess.run(cmd, cwd=workspace).returncode)
 
 
+@role_app.command(name="kick")
+def role_kick(
+    port: int = typer.Argument(..., help="Project port."),
+    name: str = typer.Argument(..., help="Role name."),
+    prompt: str | None = typer.Option(
+        None,
+        "--prompt",
+        "-p",
+        help="Inline prompt text. Mutually exclusive with --prompt-file.",
+    ),
+    prompt_file: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--prompt-file",
+        "-f",
+        exists=True,
+        readable=True,
+        help="Path to a file containing the prompt to inject.",
+    ),
+    retries: int = typer.Option(
+        3,
+        "--retries",
+        help="How many submit attempts before giving up. Default 3.",
+    ),
+    wait: float = typer.Option(
+        2.0,
+        "--wait",
+        help="Seconds between paste and Enter (and between Enter retries).",
+    ),
+) -> None:
+    """Inject a recovery prompt into a live role pane (GitHub Issue #17).
+
+    Uses the literal-string `tmux send-keys -l` path which bypasses the
+    Claude Code TUI's bracketed-paste interpretation. After the text
+    lands, sends Enter; if no submit is observed within --wait seconds,
+    sends Enter again up to --retries times. This is the operator-side
+    counterpart to the wedge watchdog (#15): the watchdog kills wedged
+    sessions automatically; `mos role kick` lets a human inject a
+    targeted nudge into a live (possibly stuck) pane without resorting
+    to the unreliable paste-buffer + send-keys Enter dance.
+    """
+    import time
+
+    from minions.lifecycle.role_launcher import session_alive
+    from minions.lifecycle.role_launcher import session_name as _session_name
+
+    if (prompt is None) == (prompt_file is None):
+        raise _fail("Provide exactly one of --prompt or --prompt-file.")
+    text = prompt if prompt is not None else prompt_file.read_text(encoding="utf-8")  # type: ignore[union-attr]
+    if not text.strip():
+        raise _fail("Prompt is empty.")
+    if not session_alive(port, name):
+        raise _fail(
+            f"No live tmux session for role={name!r} on port {port}. "
+            f"Use `mos role list {port}` to see registered roles."
+        )
+    sess = _session_name(port, name)
+    # `send-keys -l` writes the literal bytes (no key-binding interpretation),
+    # which is the empirically reliable path through the Claude Code input
+    # widget. The bracketed-paste path used by `paste-buffer` is what
+    # sometimes fails to commit before Enter (Issue #17).
+    rc = subprocess.run(
+        ["tmux", "send-keys", "-t", sess, "-l", text],
+        capture_output=True,
+    ).returncode
+    if rc != 0:
+        raise _fail(f"tmux send-keys -l failed (rc={rc}) for session {sess!r}.")
+    console.print(f"[dim]Pasted {len(text)} bytes into {sess}; sending Enter…[/dim]")
+    for attempt in range(1, max(1, retries) + 1):
+        time.sleep(max(0.0, wait))
+        rc = subprocess.run(
+            ["tmux", "send-keys", "-t", sess, "Enter"],
+            capture_output=True,
+        ).returncode
+        if rc != 0:
+            console.print(f"[yellow]send-keys Enter rc={rc} (attempt {attempt}/{retries})[/yellow]")
+            continue
+        console.print(f"[green]Enter sent (attempt {attempt}/{retries}).[/green]")
+    console.print(
+        "[dim]Note: tmux cannot confirm the role processed the submission. "
+        "Tail `mos role inspect` or `tmux attach` to verify.[/dim]"
+    )
+
+
 # ---------------------------------------------------------------------------
 # issues subcommands
 # ---------------------------------------------------------------------------
