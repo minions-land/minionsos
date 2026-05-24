@@ -182,13 +182,34 @@ app.get("/api/mos/project/:port/draft", (req, res) => {
   const p = resolveGruAndPort(req, res); if (!p) return;
   const g = getGru(p.gruId);
   if (!g) return res.status(404).json({ error: "unknown gru" });
-  const draftFile = path.join(projectDirFor(g.rootPath, p.port), "draft", "draft.json");
-  try {
-    const raw = fs.readFileSync(draftFile, "utf8");
-    res.json(JSON.parse(raw));
-  } catch {
-    res.json({ project_port: p.port, root_question: "", nodes: [], edges: [] });
+  // The canonical L1 Draft path is branches/shared/draft/draft.json
+  // (Noter publishes there via mos_draft_commit_shared). The legacy
+  // <project>/draft/ path is a pre-shared-branch artefact that's no
+  // longer maintained — read both with shared/ first, fall back for
+  // ancient projects that still have the old layout.
+  const projectDir = projectDirFor(g.rootPath, p.port);
+  const draftCandidates = [
+    path.join(projectDir, "branches", "shared", "draft", "draft.json"),
+    path.join(projectDir, "draft", "draft.json"),
+  ];
+  for (const draftFile of draftCandidates) {
+    try {
+      const raw = fs.readFileSync(draftFile, "utf8");
+      const parsed = JSON.parse(raw);
+      // Guard against malformed draft files: ensure nodes/edges are arrays
+      // before sending to the client (DraftView assumes both are arrays).
+      const safe = {
+        project_port: parsed.project_port ?? p.port,
+        root_question: typeof parsed.root_question === "string" ? parsed.root_question : "",
+        nodes: Array.isArray(parsed.nodes) ? parsed.nodes : [],
+        edges: Array.isArray(parsed.edges) ? parsed.edges : [],
+      };
+      return res.json(safe);
+    } catch {
+      // try next candidate
+    }
   }
+  return res.json({ project_port: p.port, root_question: "", nodes: [], edges: [] });
 });
 
 app.get("/api/mos/project/:port/book", (req, res) => {

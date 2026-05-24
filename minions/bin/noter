@@ -12,7 +12,14 @@ while [ -L "$SOURCE" ]; do
     fi
 done
 SCRIPT_DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
-ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Walk up from SCRIPT_DIR for pyproject.toml so this works whether run as a
+# symlink or as a copy at repo root. See GitHub Issue #5.
+ROOT="$SCRIPT_DIR"
+while [ "$ROOT" != "/" ] && [ ! -f "$ROOT/pyproject.toml" ]; do
+    ROOT="$(dirname "$ROOT")"
+done
+[ -f "$ROOT/pyproject.toml" ] || { echo "[noter] could not locate MinionsOS root from $SCRIPT_DIR" >&2; exit 1; }
 if [ -n "${VIRTUAL_ENV:-}" ] && [ "$VIRTUAL_ENV" != "$ROOT/.venv" ]; then
     unset VIRTUAL_ENV
 fi

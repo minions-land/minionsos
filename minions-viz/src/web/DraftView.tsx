@@ -239,7 +239,21 @@ export default function DraftView() {
     const fetchDraft = () => {
       fetch(`/api/mos/project/${port}/draft?gru=${gruId}`)
         .then((r) => r.ok ? r.json() : null)
-        .then((data) => { if (!cancelled && data) setDraft(data as DraftData); })
+        .then((data) => {
+          if (cancelled || !data) return;
+          // Defensive: ensure required arrays exist before handing to the
+          // simulation. The server-side endpoint already guards this, but
+          // an out-of-date or proxied server could still return a partial
+          // shape — in which case we'd rather show "No draft" than crash
+          // the React tree (see GitHub Issue / user-Q2: tab lockup).
+          const safe: DraftData = {
+            project_port: typeof data.project_port === "number" ? data.project_port : (port ?? 0),
+            root_question: typeof data.root_question === "string" ? data.root_question : "",
+            nodes: Array.isArray(data.nodes) ? data.nodes : [],
+            edges: Array.isArray(data.edges) ? data.edges : [],
+          };
+          setDraft(safe);
+        })
         .catch(() => {});
     };
     fetchDraft();

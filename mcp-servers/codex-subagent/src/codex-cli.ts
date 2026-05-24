@@ -70,6 +70,22 @@ export async function runCodexAgent(options: CodexExecOptions): Promise<CodexExe
 
   console.error(`[codex-subagent] codex exec -m ${model} -s ${sandbox} effort=${reasoningEffort} cwd=${cwd}`);
 
+  // Pre-flight: verify codex CLI is reachable before committing to the long
+  // call. Without this, a broken `codex` install (auth missing, binary not on
+  // PATH, version probe hanging) wedges the caller — see GitHub Issue #7.
+  // The probe has its own 5 s timeout via isCodexAvailable.
+  const reachable = await isCodexAvailable();
+  if (!reachable) {
+    return {
+      exitCode: 127,
+      lastMessage: "",
+      events: [],
+      error:
+        "codex CLI is not reachable on this host (binary missing, auth expired, " +
+        "or `codex --version` hung past 5 s). Cannot dispatch the requested task.",
+    };
+  }
+
   return new Promise((resolve) => {
     const proc = spawn("codex", args, {
       stdio: ["ignore", "pipe", "pipe"],
@@ -80,6 +96,21 @@ export async function runCodexAgent(options: CodexExecOptions): Promise<CodexExe
     const events: CodexEvent[] = [];
     let stdout = "";
     let stderr = "";
+    let resolved = false;
+
+    // Single resolve guard so neither the watchdog nor the close/error paths
+    // race each other on a wedged process. Whichever fires first wins; the
+    // others are no-ops. This is the v15.8 hardening for Issue #7 — without
+    // it, a process that spawns but never emits events (e.g. codex auth
+    // hanging at startup) leaves the MCP call wedged forever because Node's
+    // spawn `timeout` option only fires for processes that actually spawned
+    // *and* whose event-loop ticks reach the kill signal.
+    function done(result: CodexExecResult): void {
+      if (resolved) return;
+      resolved = true;
+      cleanup(tempDir);
+      resolve(result);
+    }
 
     proc.stdout.on("data", (chunk: Buffer) => {
       const text = chunk.toString();
@@ -100,13 +131,12 @@ export async function runCodexAgent(options: CodexExecOptions): Promise<CodexExe
     });
 
     proc.on("error", (err) => {
-      resolve({
+      done({
         exitCode: 1,
         lastMessage: "",
         events,
         error: `Failed to spawn codex: ${err.message}`,
       });
-      cleanup(tempDir);
     });
 
     proc.on("close", async (code) => {
@@ -117,21 +147,56 @@ export async function runCodexAgent(options: CodexExecOptions): Promise<CodexExe
         // output file may not exist if codex crashed early
         lastMessage = extractLastMessageFromEvents(events) || stderr.slice(-2000);
       }
-
-      resolve({
+      done({
         exitCode: code ?? 1,
         lastMessage,
         events,
         error: code !== 0 ? stderr.slice(-1000) : undefined,
       });
-      cleanup(tempDir);
     });
 
-    // Hard kill after timeout + grace period
-    setTimeout(() => {
-      proc.kill("SIGTERM");
-      setTimeout(() => proc.kill("SIGKILL"), 5000);
+    // Watchdog: force-resolve with a timeout marker even if proc events are
+    // silent. We add a 10 s grace beyond the requested `timeout` so the
+    // SIGTERM/SIGKILL ladder has room to land. After the grace, the wrapper
+    // gives up on the process events entirely and returns.
+    const sigtermAt = setTimeout(() => {
+      try {
+        proc.kill("SIGTERM");
+      } catch {
+        // proc may already be gone
+      }
     }, timeout);
+    const sigkillAt = setTimeout(() => {
+      try {
+        proc.kill("SIGKILL");
+      } catch {
+        // proc may already be gone
+      }
+    }, timeout + 5_000);
+    const watchdogAt = setTimeout(() => {
+      done({
+        exitCode: 124, // GNU timeout(1) convention
+        lastMessage: extractLastMessageFromEvents(events) || stderr.slice(-2000),
+        events,
+        error:
+          `codex did not return within ${Math.round(timeout / 1000)}s ` +
+          `(SIGTERM+SIGKILL sent). Treat as a hang; the MCP wrapper has ` +
+          `force-resolved to keep the parent Role from wedging.`,
+      });
+    }, timeout + 10_000);
+
+    // Clear the watchdog timers when proc completes naturally so we don't
+    // leak handles in a long-lived MCP server.
+    proc.on("close", () => {
+      clearTimeout(sigtermAt);
+      clearTimeout(sigkillAt);
+      clearTimeout(watchdogAt);
+    });
+    proc.on("error", () => {
+      clearTimeout(sigtermAt);
+      clearTimeout(sigkillAt);
+      clearTimeout(watchdogAt);
+    });
   });
 }
 

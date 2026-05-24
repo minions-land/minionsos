@@ -14,6 +14,7 @@ import EventLog from "./EventLog";
 import Adjudication from "./Adjudication";
 import DraftView from "./DraftView";
 import { LibraryView } from "./LibraryView";
+import { ViewErrorBoundary } from "./ErrorBoundary";
 
 type View = "universe" | "tasks" | "terminals" | "events" | "adjudication" | "draft" | "book";
 
@@ -147,8 +148,16 @@ export default function App() {
               <Adjudication tasks={store.tasks} agents={store.agents} />
             )}
 
-            {view === "draft" && <DraftView />}
-            {view === "book" && <LibraryView />}
+            {view === "draft" && (
+              <ViewErrorBoundary view="Draft">
+                <DraftView />
+              </ViewErrorBoundary>
+            )}
+            {view === "book" && (
+              <ViewErrorBoundary view="Book">
+                <LibraryView />
+              </ViewErrorBoundary>
+            )}
           </>
         )}
       </div>

@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """PostCompact hook — extract pointer-shaped notes from a compact summary.
 
-Fires after Claude Code's ``/compact`` completes.  Reads the compact summary
-from stdin (JSON with a ``compact_summary`` field, possibly accompanied by
-others Claude Code may add later — extra keys are ignored).
+Fires after Claude Code's ``/compact`` completes.  Reads the hook payload
+from stdin (a JSON object with ``transcript_path``, ``trigger``,
+``compactMetadata``, plus standard hook metadata).  The compact summary
+text itself is **not** inlined on stdin — it lives in the session jsonl
+as the next user message after the compact_boundary system event,
+marked ``isCompactSummary: true``.  The hook walks ``transcript_path``
+to recover that text.  See GitHub Issue #8 for the prior bug where the
+hook silently no-op'd because it expected a non-existent
+``compact_summary`` stdin field.
 
 The summary is *pointer-shaped*: it cites Draft node IDs, Book
 paths, experiment-report paths, EACN event ids, etc.  This hook does NOT
@@ -152,6 +158,61 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
+def _load_summary_from_transcript(transcript_path: str) -> str:
+    """Walk the Claude Code session JSONL backwards for the compact summary.
+
+    Claude Code's PostCompact hook stdin payload does NOT inline the summary
+    text. It carries ``transcript_path``, ``trigger``, ``compactMetadata``,
+    plus standard hook metadata. The compact summary text itself is the
+    next user message after the ``compact_boundary`` system event in the
+    transcript jsonl, marked ``isCompactSummary: true``.
+
+    We walk the file from the end (compact summary is always the most-recent
+    record of its kind by the time PostCompact fires) and return the body
+    text of the first ``isCompactSummary`` user message we find. Returns
+    "" when nothing matches — never raises.
+    """
+    if not transcript_path:
+        return ""
+    path = Path(transcript_path)
+    if not path.is_file():
+        log.debug("transcript_path does not point to a file: %s", transcript_path)
+        return ""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        log.debug("could not read transcript %s: %s", path, exc)
+        return ""
+    for raw in reversed(lines):
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            rec = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(rec, dict):
+            continue
+        if not rec.get("isCompactSummary"):
+            continue
+        # Body shape: {"role": "user", "content": "<summary md>"}
+        # but content can be a list of blocks for some Claude Code variants.
+        msg = rec.get("message") or {}
+        content = msg.get("content") if isinstance(msg, dict) else None
+        if isinstance(content, str) and content.strip():
+            return content
+        if isinstance(content, list):
+            chunks: list[str] = []
+            for block in content:
+                if isinstance(block, dict):
+                    text = block.get("text")
+                    if isinstance(text, str):
+                        chunks.append(text)
+            if chunks:
+                return "\n".join(chunks)
+    return ""
+
+
 def main() -> None:
     raw = sys.stdin.read()
     if not raw.strip():
@@ -167,9 +228,24 @@ def main() -> None:
         log.error("stdin payload is not a JSON object")
         return
 
+    # Resolve the compact summary text. Priority order:
+    # 1. Inline `compact_summary` field on stdin (legacy / synthetic test path).
+    # 2. Walk `transcript_path` backwards for the user message marked
+    #    `isCompactSummary: true` — this is what Claude Code 2.x actually
+    #    delivers.
+    # If both fail, exit quietly: nothing to extract is normal during
+    # warmup and not an error.
     summary = data.get("compact_summary", "") or ""
+    if not (isinstance(summary, str) and summary.strip()):
+        transcript_path = data.get("transcript_path") or ""
+        if isinstance(transcript_path, str):
+            summary = _load_summary_from_transcript(transcript_path)
+
     if not isinstance(summary, str) or not summary.strip():
-        log.debug("no compact_summary text — nothing to extract")
+        log.debug(
+            "no compact summary found (neither stdin.compact_summary nor "
+            "transcript_path resolved a summary) — nothing to extract"
+        )
         return
 
     port_env = os.environ.get("MINIONS_PROJECT_PORT", "")

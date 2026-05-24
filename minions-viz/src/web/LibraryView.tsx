@@ -29,9 +29,23 @@ export function LibraryView() {
     if (!gruId || port == null) return;
     setLoading(true);
     fetch(`/api/mos/project/${port}/book?gru=${gruId}`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        setEntries(data.entries || []);
+        // Defensive: server may return null/undefined entries on a fresh
+        // project. Without this guard, .filter() / .map() throw and the
+        // whole React tree unmounts (see GitHub Issue / user-Q2: tab lockup).
+        const raw = data && Array.isArray(data.entries) ? data.entries : [];
+        const safe: LibraryEntry[] = raw
+          .filter((e: unknown): e is Record<string, unknown> => !!e && typeof e === "object")
+          .map((e: Record<string, unknown>) => ({
+            title: typeof e.title === "string" ? e.title : "(untitled)",
+            content: typeof e.content === "string" ? e.content : "",
+            tags: Array.isArray(e.tags) ? (e.tags as string[]) : undefined,
+            created_at: typeof e.created_at === "string" ? e.created_at : undefined,
+            updated_at: typeof e.updated_at === "string" ? e.updated_at : undefined,
+            links: Array.isArray(e.links) ? (e.links as string[]) : undefined,
+          }));
+        setEntries(safe);
         setLoading(false);
       })
       .catch(() => {

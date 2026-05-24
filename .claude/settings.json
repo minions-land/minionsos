@@ -58,6 +58,16 @@
             "timeout": 3
           }
         ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/heartbeat_refresh.py\"",
+            "timeout": 3
+          }
+        ]
       }
     ],
     "PostToolUseFailure": [

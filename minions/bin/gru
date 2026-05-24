@@ -22,7 +22,16 @@ while [ -L "$SOURCE" ]; do
     fi
 done
 SCRIPT_DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
-ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Locate the MinionsOS root by walking up from SCRIPT_DIR looking for the
+# `pyproject.toml` marker. Robust whether the launcher is invoked as a symlink
+# (the canonical layout) OR as a copy at repo root (which broke the previous
+# bin-relative `../..` calculation — see GitHub Issue #5).
+ROOT="$SCRIPT_DIR"
+while [ "$ROOT" != "/" ] && [ ! -f "$ROOT/pyproject.toml" ]; do
+    ROOT="$(dirname "$ROOT")"
+done
+[ -f "$ROOT/pyproject.toml" ] || { echo "[gru] could not locate MinionsOS root from $SCRIPT_DIR" >&2; exit 1; }
 if [ -n "${VIRTUAL_ENV:-}" ] && [ "$VIRTUAL_ENV" != "$ROOT/.venv" ]; then
     unset VIRTUAL_ENV
 fi

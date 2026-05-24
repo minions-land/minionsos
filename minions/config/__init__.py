@@ -989,6 +989,37 @@ class GruConfig(BaseModel):
             "recommendation stream has been validated on a real workload."
         ),
     )
+    gru_drive_enabled: bool = Field(
+        default=False,
+        description=(
+            "When True, Gru periodically scans active projects and sends an "
+            "EACN advisory message to the most-stale Role asking it to "
+            "report status or progress. This is the 'Gru actively drives "
+            "the project' loop — the user-visible counterpart to the "
+            "watchdog (which only respawns dead processes). Default False "
+            "to avoid surprising existing setups; turn on after observing "
+            "the recommendation cadence on a real run."
+        ),
+    )
+    gru_drive_interval_seconds: int = Field(
+        default=600,
+        description=(
+            "How often the Gru drive loop ticks. At each tick, the loop reads "
+            "the per-project Draft + role activity stats and, if any active "
+            "Role has been silent for longer than gru_drive_stale_minutes, "
+            "sends a single advisory EACN message asking for a status check. "
+            "Cheap (no LLM tokens spent on Gru's side; the Role decides what "
+            "to do). Default 600 (10 min)."
+        ),
+    )
+    gru_drive_stale_minutes: int = Field(
+        default=15,
+        description=(
+            "A Role is considered stale by the Gru drive loop when no "
+            "EACN message from it has been seen in this many minutes. "
+            "Default 15."
+        ),
+    )
     cache_keepalive_seconds: int = Field(
         default=240,
         description=(

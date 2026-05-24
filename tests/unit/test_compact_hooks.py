@@ -231,3 +231,168 @@ class TestPostCompact:
         )
         assert result.returncode == 0
         assert _read_journal(project_dir, 99001) == []
+
+
+# ---------------------------------------------------------------------------
+# PostCompact — Issue #8 fix: read summary from transcript_path, not stdin.
+# Claude Code 2.x's actual hook payload omits the inlined summary; the hook
+# now walks the session jsonl backwards for the user message marked
+# isCompactSummary:true.
+# ---------------------------------------------------------------------------
+
+
+def _build_transcript(path: Path, summary: str) -> None:
+    """Write a minimal session jsonl that ends with an isCompactSummary user msg."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        # Some pre-compact noise so the hook has to walk past it.
+        json.dumps({"type": "user", "message": {"role": "user", "content": "earlier turn"}}),
+        json.dumps({"type": "assistant", "message": {"role": "assistant", "content": "..."}}),
+        # The compact_boundary system event Claude Code emits.
+        json.dumps({"type": "system", "subtype": "compact_boundary"}),
+        # The compact summary — what the hook must locate.
+        json.dumps(
+            {
+                "type": "user",
+                "isCompactSummary": True,
+                "message": {"role": "user", "content": summary},
+            }
+        ),
+    ]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+class TestPostCompactTranscriptPath:
+    def test_reads_summary_from_transcript_path(self, project_dir: Path, tmp_path: Path) -> None:
+        """The real PostCompact stdin shape: transcript_path, not compact_summary."""
+        port = 99001
+        _seed_draft(project_dir, port, ["E-002"])
+        transcript = tmp_path / "session-abc.jsonl"
+        _build_transcript(transcript, SAMPLE_SUMMARY)
+
+        payload = json.dumps(
+            {
+                "trigger": "manual",
+                "transcript_path": str(transcript),
+                "compactMetadata": {"preTokens": 326144, "postTokens": 16366},
+            }
+        )
+        result = _run(
+            POST_HOOK,
+            stdin=payload,
+            env={
+                "MINIONS_PROJECT_PORT": str(port),
+                "MINIONS_ROOT": str(project_dir / "MinionsOS"),
+            },
+        )
+        assert result.returncode == 0, result.stderr
+        entries = _read_journal(project_dir, port)
+        assert len(entries) == 1, "transcript-mode hook must write exactly one journal entry"
+        entry = entries[0]
+        assert entry["op"] == "post_compact_extract"
+        assert entry["trigger"] == "manual"
+        assert entry["summary_chars"] == len(SAMPLE_SUMMARY)
+        # The same pointer-shape fields as the inline-summary path.
+        extract = entry["extract"]
+        assert extract["working_on"]
+        assert extract["all_node_refs"]
+
+    def test_transcript_walking_picks_most_recent_summary(
+        self, project_dir: Path, tmp_path: Path
+    ) -> None:
+        """If the transcript has multiple isCompactSummary lines (rare, but
+        possible across long sessions), use the most recent one."""
+        port = 99001
+        _seed_draft(project_dir, port, [])
+        transcript = tmp_path / "session-multi.jsonl"
+        old_summary = "## Working_on\n- old summary\n"
+        new_summary = SAMPLE_SUMMARY
+        lines = [
+            json.dumps(
+                {
+                    "type": "user",
+                    "isCompactSummary": True,
+                    "message": {"role": "user", "content": old_summary},
+                }
+            ),
+            json.dumps({"type": "assistant", "message": {"role": "assistant", "content": "..."}}),
+            json.dumps(
+                {
+                    "type": "user",
+                    "isCompactSummary": True,
+                    "message": {"role": "user", "content": new_summary},
+                }
+            ),
+        ]
+        transcript.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        payload = json.dumps({"trigger": "auto", "transcript_path": str(transcript)})
+        result = _run(
+            POST_HOOK,
+            stdin=payload,
+            env={
+                "MINIONS_PROJECT_PORT": str(port),
+                "MINIONS_ROOT": str(project_dir / "MinionsOS"),
+            },
+        )
+        assert result.returncode == 0
+        entries = _read_journal(project_dir, port)
+        assert len(entries) == 1
+        # summary_chars must match the newer summary, not the older one.
+        assert entries[0]["summary_chars"] == len(new_summary)
+
+    def test_transcript_path_missing_no_op(self, project_dir: Path) -> None:
+        """Empty transcript_path + no inline summary → silent no-op."""
+        port = 99001
+        _seed_draft(project_dir, port, [])
+        payload = json.dumps({"trigger": "auto", "transcript_path": "/nonexistent/path.jsonl"})
+        result = _run(
+            POST_HOOK,
+            stdin=payload,
+            env={
+                "MINIONS_PROJECT_PORT": str(port),
+                "MINIONS_ROOT": str(project_dir / "MinionsOS"),
+            },
+        )
+        assert result.returncode == 0
+        assert _read_journal(project_dir, port) == []
+
+    def test_transcript_with_no_compact_summary_marker_no_op(
+        self, project_dir: Path, tmp_path: Path
+    ) -> None:
+        """A transcript that has no isCompactSummary record → silent no-op."""
+        port = 99001
+        _seed_draft(project_dir, port, [])
+        transcript = tmp_path / "session-empty.jsonl"
+        transcript.write_text(
+            json.dumps({"type": "user", "message": {"role": "user", "content": "hi"}}) + "\n",
+            encoding="utf-8",
+        )
+        payload = json.dumps({"trigger": "auto", "transcript_path": str(transcript)})
+        result = _run(
+            POST_HOOK,
+            stdin=payload,
+            env={
+                "MINIONS_PROJECT_PORT": str(port),
+                "MINIONS_ROOT": str(project_dir / "MinionsOS"),
+            },
+        )
+        assert result.returncode == 0
+        assert _read_journal(project_dir, port) == []
+
+    def test_inline_compact_summary_still_works_for_backcompat(self, project_dir: Path) -> None:
+        """Synthetic / test-mode payloads can still inline compact_summary;
+        when both are present, inline wins (no transcript fetch)."""
+        port = 99001
+        _seed_draft(project_dir, port, ["E-002"])
+        payload = json.dumps({"trigger": "auto", "compact_summary": SAMPLE_SUMMARY})
+        result = _run(
+            POST_HOOK,
+            stdin=payload,
+            env={
+                "MINIONS_PROJECT_PORT": str(port),
+                "MINIONS_ROOT": str(project_dir / "MinionsOS"),
+            },
+        )
+        assert result.returncode == 0
+        assert len(_read_journal(project_dir, port)) == 1

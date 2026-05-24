@@ -43,9 +43,13 @@ class GruLoop:
         self.experiment_reconcile_interval: int = cfg.experiment_reconcile_interval_seconds
         self.role_evolution_interval: int = cfg.role_evolution_interval_seconds
         self.role_evolution_auto_apply: bool = cfg.role_evolution_auto_apply
+        self.gru_drive_enabled: bool = cfg.gru_drive_enabled
+        self.gru_drive_interval: int = cfg.gru_drive_interval_seconds
+        self.gru_drive_stale_seconds: int = cfg.gru_drive_stale_minutes * 60
         self._store = StateStore()
         self._crash_counter = CrashCounter()
         self._last_report_ts: float = 0.0
+        self._last_drive_ts: dict[tuple[int, str], float] = {}
         self._stopped = False
 
     # ------------------------------------------------------------------
@@ -83,6 +87,17 @@ class GruLoop:
                         break
                     time.sleep(0.5)
 
+        def _gru_drive_thread() -> None:
+            while not self._stopped:
+                try:
+                    self._drive_active_projects()
+                except Exception as exc:
+                    logger.error("gru_drive tick error: %s", exc, exc_info=True)
+                for _ in range(max(1, self.gru_drive_interval) * 2):
+                    if self._stopped:
+                        break
+                    time.sleep(0.5)
+
         exp_t = threading.Thread(
             target=_experiment_scheduler_thread,
             daemon=True,
@@ -95,6 +110,18 @@ class GruLoop:
             name="role-evolution",
         )
         evo_t.start()
+        if self.gru_drive_enabled:
+            drv_t = threading.Thread(
+                target=_gru_drive_thread,
+                daemon=True,
+                name="gru-drive",
+            )
+            drv_t.start()
+            logger.info(
+                "Gru drive thread started (interval=%ds, stale=%ds).",
+                self.gru_drive_interval,
+                self.gru_drive_stale_seconds,
+            )
         logger.info("Gru monitor loop started (interval=%ds).", self.interval)
         try:
             while not self._stopped:
@@ -430,6 +457,103 @@ class GruLoop:
                     )
                 except Exception as exc:
                     logger.error("auto-apply dismiss failed for %s: %s", d.role, exc)
+
+    def _drive_active_projects(self) -> None:
+        """Send an advisory EACN message to any Role that has been silent
+        too long.
+
+        For each active project, the loop:
+          1. Reads each registered Role's heartbeat file
+             (``branches/<role>/.minionsos/heartbeat`` — refreshed by the
+             ``heartbeat_refresh`` PreToolUse hook on every tool call).
+          2. Computes how stale each heartbeat is.
+          3. For Roles older than ``gru_drive_stale_seconds``, sends a
+             single advisory EACN message asking for a status check.
+          4. Records the drive timestamp in
+             ``self._last_drive_ts`` so we don't re-nudge the same Role
+             every tick — a single nudge per role per
+             ``gru_drive_stale_seconds`` window is enough.
+
+        Best-effort end-to-end: any failure (missing heartbeat, EACN
+        timeout, broken project) is logged and skipped, never raised.
+        Disabled by default; gated on ``gru.yaml: gru_drive_enabled``.
+        """
+        from minions.lifecycle import eacn_client
+        from minions.lifecycle.eacn_identity import resolve_agent_id
+        from minions.paths import project_role_workspace
+
+        now = time.time()
+        projects = self._store.list_projects(filter="active")
+        for project in projects:
+            port = project.port
+            for role in project.active_roles:
+                if role.state != "active":
+                    continue
+                if role.name == "noter":
+                    # Noter is on a timer backbone, not EACN — drive doesn't apply.
+                    continue
+                hb_age = self._heartbeat_age_seconds(port, role.name)
+                if hb_age is None:
+                    # No heartbeat yet — the Role just spawned. Don't nudge.
+                    continue
+                if hb_age < self.gru_drive_stale_seconds:
+                    continue
+                # Avoid re-nudging the same Role within the stale window.
+                key = (port, role.name)
+                last = self._last_drive_ts.get(key, 0.0)
+                if now - last < self.gru_drive_stale_seconds:
+                    continue
+                try:
+                    eacn_client.send_message(
+                        port=port,
+                        to_agent_id=resolve_agent_id(port, role.name),
+                        from_agent_id=resolve_agent_id(port, "gru"),
+                        content={
+                            "kind": "gru_drive_nudge",
+                            "role": role.name,
+                            "stale_seconds": int(hb_age),
+                            "advisory": (
+                                f"You have been silent for ~{int(hb_age // 60)} min. "
+                                "Gru is checking in. If you're still working, ignore. "
+                                "If you're stuck or waiting on a peer, send a status "
+                                "message to Gru explaining what's blocked."
+                            ),
+                        },
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "gru_drive: nudge failed port=%d role=%s: %s",
+                        port,
+                        role.name,
+                        exc,
+                    )
+                    continue
+                self._last_drive_ts[key] = now
+                logger.info(
+                    "gru_drive: nudged port=%d role=%s (stale=%ds)",
+                    port,
+                    role.name,
+                    int(hb_age),
+                )
+        # Reference unused import path so a refactor doesn't drop it silently.
+        _ = project_role_workspace
+
+    def _heartbeat_age_seconds(self, port: int, role_name: str) -> float | None:
+        """Return seconds since the Role's heartbeat file was last touched.
+
+        Returns ``None`` when the file doesn't exist (likely a newly-
+        spawned Role that hasn't run a tool call yet).
+        """
+        from minions.paths import project_role_workspace
+
+        try:
+            workspace = project_role_workspace(port, role_name)
+            hb = workspace / ".minionsos" / "heartbeat"
+            if not hb.is_file():
+                return None
+            return time.time() - hb.stat().st_mtime
+        except OSError:
+            return None
 
     def _emit_health_event(
         self,

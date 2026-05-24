@@ -16,6 +16,8 @@
     "@react-three/drei": "9.114.3",
     "@react-three/fiber": "8.17.10",
     "@react-three/xr": "5.7.1",
+    "@xterm/addon-fit": "0.10.0",
+    "@xterm/xterm": "5.5.0",
     "cors": "2.8.5",
     "express": "4.21.1",
     "react": "18.3.1",
