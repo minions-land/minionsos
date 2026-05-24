@@ -129,6 +129,68 @@ def _nudge_path(port: int) -> Path:
     return project_state_dir(port) / ".noter_nudge"
 
 
+def _last_wake_path(port: int) -> Path:
+    """Return the path holding the last successful Noter wake timestamp.
+
+    Used by :func:`noter_wait` to expose a ``since_iso`` marker on each
+    wake event so Noter's loop can read project activity *only since the
+    last cycle* (see GitHub Issue #14). Survives compact + reset.
+    """
+    from minions.paths import project_state_dir
+
+    return project_state_dir(port) / ".noter_last_wake"
+
+
+def _read_last_wake_iso(port: int) -> str | None:
+    path = _last_wake_path(port)
+    if not path.exists():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return text or None
+
+
+def _write_last_wake_iso(port: int, iso: str) -> None:
+    path = _last_wake_path(port)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(iso, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _last_wake_path(port: int) -> Path:
+    """Return the path holding the last successful Noter wake timestamp.
+
+    Used by :func:`noter_wait` to expose a ``since_iso`` marker on each
+    wake event so Noter's loop can read project activity *only since the
+    last cycle* (see GitHub Issue #14). Survives compact + reset.
+    """
+    from minions.paths import project_state_dir
+
+    return project_state_dir(port) / ".noter_last_wake"
+
+
+def _read_last_wake_iso(port: int) -> str | None:
+    path = _last_wake_path(port)
+    if not path.exists():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return text or None
+
+
+def _write_last_wake_iso(port: int, iso: str) -> None:
+    path = _last_wake_path(port)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(iso, encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def _check_and_clear_nudge(port: int) -> bool:
     """Return True and clear the marker if a nudge is pending."""
     path = _nudge_path(port)
@@ -322,12 +384,25 @@ def noter_wait() -> dict[str, Any]:
         logger.warning("book lint failed: %s", exc)
         lint_result = {"error": str(exc)}
 
+    # Window marker for bounded activity reading (Issue #14): expose the
+    # previous wake's timestamp as ``since_iso`` so Noter only re-reads
+    # what arrived in this cycle. Then advance the marker to NOW so the
+    # next cycle starts from here.
+    since_iso = _read_last_wake_iso(port)
+    wake_iso = datetime.now(tz=UTC).isoformat()
+    try:
+        _write_last_wake_iso(port, wake_iso)
+    except OSError as exc:
+        logger.warning("failed to persist noter last_wake marker: %s", exc)
+
     return {
         "count": 1,
         "events": [
             {
                 "type": "periodic_wake",
                 "slept_seconds": int(elapsed),
+                "since_iso": since_iso,
+                "wake_iso": wake_iso,
                 "delta": {
                     "shared_branch": _shared_branch_delta(workspace),
                     "events": _events_jsonl_delta(port),
@@ -337,10 +412,11 @@ def noter_wait() -> dict[str, Any]:
                 },
                 "suggested_action": (
                     "Periodic wake. Flush the Draft "
-                    "(mos_draft_commit_shared), read recent EACN "
-                    "activity and shared branch changes, update the "
-                    "Draft if needed, and consider whether a fresh "
-                    "observation report is due."
+                    "(mos_draft_commit_shared), then read project "
+                    "activity *since `since_iso`* only — do not re-read "
+                    "the full event/handoff history. Update the Draft "
+                    "if needed, and consider whether a fresh observation "
+                    "report is due."
                 ),
             }
         ],

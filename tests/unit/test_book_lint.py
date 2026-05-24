@@ -48,6 +48,36 @@ def _mock_publish_file(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object
         return result
 
     monkeypatch.setattr(book, "_publish_file", fake_publish_file)
+
+    def fake_publish_files(
+        port: int,
+        files: list[tuple[Path, str]],
+        message: str,
+    ) -> dict[str, object]:
+        for abs_src, rel in files:
+            fake_publish_file(port, abs_src, rel, message)
+        return {
+            "port": port,
+            "dst_paths": [rel for _, rel in files],
+            "commit_sha": f"fake-batch-{len(publish_results)}",
+        }
+
+    monkeypatch.setattr(book, "_publish_files", fake_publish_files)
+
+    def fake_publish_files(
+        port: int,
+        files: list[tuple[Path, str]],
+        message: str,
+    ) -> dict[str, object]:
+        for abs_src, rel in files:
+            fake_publish_file(port, abs_src, rel, message)
+        return {
+            "port": port,
+            "dst_paths": [rel for _, rel in files],
+            "commit_sha": f"fake-batch-{len(publish_results)}",
+        }
+
+    monkeypatch.setattr(book, "_publish_files", fake_publish_files)
     return publish_results
 
 

@@ -61,6 +61,48 @@ def _mock_publish(
         return result
 
     monkeypatch.setattr(book, "mos_publish_to_shared", fake_publish_to_shared)
+
+    def fake_publish_files(*, role, files, commit_message, port=None, **kwargs):
+        for entry in files:
+            fake_publish_to_shared(
+                role=role,
+                src_path=entry["src_path"],
+                dst_subpath=entry["dst_subpath"],
+                commit_message=commit_message,
+                port=port,
+            )
+        return {
+            "port": port,
+            "role": role,
+            "dst_paths": [e["dst_subpath"] for e in files],
+            "commit_sha": f"fake-{len(publish_results)}",
+            "pushed": False,
+            "push_branch": None,
+            "branch": "stub",
+        }
+
+    monkeypatch.setattr(book, "mos_publish_files_to_shared", fake_publish_files)
+
+    def fake_publish_files(*, role, files, commit_message, port=None, **kwargs):
+        for entry in files:
+            fake_publish_to_shared(
+                role=role,
+                src_path=entry["src_path"],
+                dst_subpath=entry["dst_subpath"],
+                commit_message=commit_message,
+                port=port,
+            )
+        return {
+            "port": port,
+            "role": role,
+            "dst_paths": [e["dst_subpath"] for e in files],
+            "commit_sha": f"fake-{len(publish_results)}",
+            "pushed": False,
+            "push_branch": None,
+            "branch": "stub",
+        }
+
+    monkeypatch.setattr(book, "mos_publish_files_to_shared", fake_publish_files)
     return publish_results
 
 
@@ -115,7 +157,7 @@ def test_wiki_ingest_creates_page_index_and_log(
     assert result["book_path"] == "book/sources/coder-transformer-run.md"
     assert result["indexed"] is True
     assert result["logged"] is True
-    assert len(result["publish_results"]) == 3
+    assert len(result["publish_results"]) == 1
     assert len(publish_results) == 3
 
 
@@ -140,7 +182,7 @@ def test_wiki_ingest_is_idempotent_for_index_entries(
     index = (project["shared"] / "book" / "index.md").read_text(encoding="utf-8")
     assert index.count("slug: coder-same-slug") == 1
     assert "## Second" in index
-    assert len(result["publish_results"]) == 3
+    assert len(result["publish_results"]) == 1
     assert len(publish_results) == 6
 
 

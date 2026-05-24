@@ -357,4 +357,136 @@ def mos_publish_to_shared(
     }
 
 
-__all__ = ["mos_publish_to_shared"]
+def mos_publish_files_to_shared(
+    *,
+    role: str,
+    files: list[dict[str, str]],
+    commit_message: str,
+    port: int | None = None,
+    store: StateStore | None = None,
+) -> dict[str, object]:
+    """Atomically publish *multiple* files into ``branches/shared/`` in one commit.
+
+    Each entry in ``files`` is ``{"src_path": str, "dst_subpath": str}``. All
+    destinations are validated against *role*'s shared-publish policy, the
+    per-project flock is acquired once, every file is copied + staged, then a
+    single ``git commit`` lands the union diff. Optional push runs once at the
+    end if configured.
+
+    This avoids the ingest commit amplification (one logical Noter event
+    landing as 3-10 separate commits — see GitHub Issue #13). Use the single
+    :func:`mos_publish_to_shared` for one-file publishes.
+    """
+    resolved_port = _resolve_port(port)
+    if not files:
+        return {
+            "port": resolved_port,
+            "role": role,
+            "dst_paths": [],
+            "commit_sha": None,
+            "pushed": False,
+            "push_branch": None,
+            "branch": project_shared_branch_name(resolved_port),
+        }
+
+    validated: list[tuple[Path, Path]] = []
+    for entry in files:
+        src_raw = entry.get("src_path")
+        dst_raw = entry.get("dst_subpath")
+        if not isinstance(src_raw, str) or not isinstance(dst_raw, str):
+            raise ProjectError(
+                "mos_publish_files_to_shared: each entry needs str src_path + dst_subpath"
+            )
+        rel_dst = _validate_dst(role, dst_raw, resolved_port)
+        src = Path(src_raw).expanduser()
+        if not src.is_absolute():
+            raise ProjectError(f"src_path must be absolute, got: {src_raw!r}")
+        if not src.exists() or not src.is_file():
+            raise ProjectError(f"src_path does not exist or is not a file: {src}")
+        validated.append((src, rel_dst))
+
+    workspace = project_shared_workspace(resolved_port)
+    if not workspace.exists() or not is_git_work_tree(workspace):
+        raise ProjectError(
+            f"Shared worktree missing for port {resolved_port}: {workspace}. "
+            "Was project_create run?"
+        )
+
+    _store = store or StateStore()
+    rel_dst_strs = [str(rel_dst) for _, rel_dst in validated]
+
+    with _shared_lock(resolved_port):
+        for src, rel_dst in validated:
+            dst_abs = workspace / rel_dst
+            dst_abs.parent.mkdir(parents=True, exist_ok=True)
+            if src.resolve() != dst_abs.resolve():
+                shutil.copy2(src, dst_abs)
+
+        run_git(["add", "--", *rel_dst_strs], workspace, action="add")
+        diff_check = run_git(
+            ["diff", "--cached", "--quiet", "--", *rel_dst_strs],
+            workspace,
+            check=False,
+        )
+        if diff_check.returncode == 0:
+            logger.info(
+                "publish_files_to_shared no-op: port=%d role=%s files=%d (no diff)",
+                resolved_port,
+                role,
+                len(validated),
+            )
+            commit_sha = None
+        else:
+            commit_proc = subprocess.run(
+                ["git", "commit", "-m", commit_message, "--", *rel_dst_strs],
+                cwd=str(workspace),
+                capture_output=True,
+                text=True,
+            )
+            if commit_proc.returncode != 0:
+                output = f"{commit_proc.stdout}\n{commit_proc.stderr}".lower()
+                if "nothing to commit" in output:
+                    commit_sha = None
+                else:
+                    raise ProjectError(
+                        f"git commit failed in shared worktree for port {resolved_port}: "
+                        f"{commit_proc.stderr.strip()}"
+                    )
+            else:
+                head = run_git(["rev-parse", "HEAD"], workspace, action="rev-parse").stdout.strip()
+                commit_sha = head or None
+
+        push_branch = None
+        pushed = False
+        if commit_sha:
+            push_branch = _push_if_configured(workspace, resolved_port, _store)
+            pushed = push_branch is not None
+
+    logger.info(
+        "publish_files_to_shared done: port=%d role=%s files=%d commit=%s pushed=%s",
+        resolved_port,
+        role,
+        len(validated),
+        commit_sha,
+        pushed,
+    )
+
+    try:
+        from minions.tools.noter_wait import nudge_noter
+
+        nudge_noter(resolved_port)
+    except Exception:
+        pass
+
+    return {
+        "port": resolved_port,
+        "role": role,
+        "dst_paths": rel_dst_strs,
+        "commit_sha": commit_sha,
+        "pushed": pushed,
+        "push_branch": push_branch,
+        "branch": project_shared_branch_name(resolved_port),
+    }
+
+
+__all__ = ["mos_publish_files_to_shared", "mos_publish_to_shared"]

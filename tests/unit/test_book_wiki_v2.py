@@ -59,7 +59,22 @@ def project(tmp_path, monkeypatch):
         dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
         return {"role": role, "dst_subpath": dst_subpath, "commit": "fake"}
 
+    def fake_publish_files(role, files, commit_message, port):
+        from pathlib import Path
+
+        for entry in files:
+            src = Path(entry["src_path"])
+            dst = tmp_path / f"project_{port}" / "branches" / "shared" / entry["dst_subpath"]
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        return {
+            "role": role,
+            "dst_paths": [e["dst_subpath"] for e in files],
+            "commit_sha": "fake",
+        }
+
     monkeypatch.setattr(book, "mos_publish_to_shared", fake_publish)
+    monkeypatch.setattr(book, "mos_publish_files_to_shared", fake_publish_files)
 
     return {"port": port, "tmp": tmp_path, "shared": shared}
 

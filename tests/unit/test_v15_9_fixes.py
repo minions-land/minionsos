@@ -107,6 +107,8 @@ class TestShelfBootstrap:
         ):
             from minions.paths import (
                 project_dir as _pd,
+            )
+            from minions.paths import (
                 project_parent_repo_dir,
                 project_shared_workspace,
             )

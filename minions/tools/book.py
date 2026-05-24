@@ -40,7 +40,7 @@ from minions.paths import (
     project_state_dir,
     project_workspace_root,
 )
-from minions.tools.publish import mos_publish_to_shared
+from minions.tools.publish import mos_publish_files_to_shared, mos_publish_to_shared
 
 logger = logging.getLogger(__name__)
 
@@ -770,6 +770,48 @@ def _log_append(port: int, op: str, slug: str, **fields: Any) -> Path:
     return _stage_text(port, f"book-log-{slug}.md", text)
 
 
+def _log_append_many(port: int, entries: list[dict[str, Any]]) -> Path:
+    """Append multiple log entries and stage a single ``log.md`` file.
+
+    Used by :func:`mos_book_ingest_batch` so a whole batch lands as one
+    commit. Each entry must include ``op`` and ``slug``.
+    """
+    if not entries:
+        raise BookError("at least one book log entry is required")
+    log_path = _book_root(port) / "log.md"
+    existing = log_path.read_text(encoding="utf-8") if log_path.exists() else ""
+    if existing and not existing.endswith("\n"):
+        existing += "\n"
+    now = _now_iso()
+    rendered = existing
+    for fields in entries:
+        record = {"timestamp": now, **fields}
+        rendered += json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n"
+    first_slug = entries[0].get("slug", "batch")
+    return _stage_text(port, f"book-log-{first_slug}-batch.md", rendered)
+
+
+def _log_append_many(port: int, entries: list[dict[str, Any]]) -> Path:
+    """Append multiple log entries and stage a single ``log.md`` file.
+
+    Used by :func:`mos_book_ingest_batch` so a whole batch lands as one
+    commit. Each entry must include ``op`` and ``slug``.
+    """
+    if not entries:
+        raise BookError("at least one book log entry is required")
+    log_path = _book_root(port) / "log.md"
+    existing = log_path.read_text(encoding="utf-8") if log_path.exists() else ""
+    if existing and not existing.endswith("\n"):
+        existing += "\n"
+    now = _now_iso()
+    rendered = existing
+    for fields in entries:
+        record = {"timestamp": now, **fields}
+        rendered += json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n"
+    first_slug = entries[0].get("slug", "batch")
+    return _stage_text(port, f"book-log-{first_slug}-batch.md", rendered)
+
+
 def _publish_file(
     port: int,
     abs_src: Path,
@@ -783,6 +825,36 @@ def _publish_file(
         role="noter",
         src_path=str(abs_src.resolve()),
         dst_subpath=f"book/{rel_dst.as_posix()}",
+        commit_message=message,
+        port=port,
+    )
+
+
+def _publish_files(
+    port: int,
+    files: list[tuple[Path, str]],
+    message: str,
+) -> dict[str, object]:
+    """Publish multiple book/ files in a single commit.
+
+    Each entry is ``(abs_src, rel_dst_under_book)``. Routes through
+    :func:`mos_publish_files_to_shared` so all writes land as one commit on
+    the shared branch (see GitHub Issue #13).
+    """
+    payload: list[dict[str, str]] = []
+    for abs_src, rel_dst_under_book in files:
+        rel_dst = Path(rel_dst_under_book)
+        if rel_dst.is_absolute() or any(part == ".." for part in rel_dst.parts):
+            raise BookError(f"book destination may not escape book/: {rel_dst_under_book!r}")
+        payload.append(
+            {
+                "src_path": str(abs_src.resolve()),
+                "dst_subpath": f"book/{rel_dst.as_posix()}",
+            }
+        )
+    return mos_publish_files_to_shared(
+        role="noter",
+        files=payload,
         commit_message=message,
         port=port,
     )
@@ -1198,8 +1270,7 @@ def _publish_book_lint_outputs(port: int, result: dict[str, object]) -> None:
     )
 
     message = "noter: book lint"
-    _publish_file(port, log_stage, "log.md", message)
-    _publish_file(port, hot_stage, "hot.md", message)
+    _publish_files(port, [(log_stage, "log.md"), (hot_stage, "hot.md")], message)
 
 
 def _load_dag_for_match(port: int) -> dict[str, object]:
@@ -1394,22 +1465,11 @@ def mos_book_ingest(
     )
 
     message = f"noter: ingest {slug}"
-    publish_results = [_publish_file(resolved_port, page_stage, f"sources/{slug}.md", message)]
+    files: list[tuple[Path, str]] = [(page_stage, f"sources/{slug}.md")]
     if contradiction_stage is not None:
-        publish_results.append(
-            _publish_file(
-                resolved_port,
-                contradiction_stage,
-                f"contradictions/{contradiction_slug}.md",
-                message,
-            )
-        )
-    publish_results.extend(
-        [
-            _publish_file(resolved_port, index_stage, "index.md", message),
-            _publish_file(resolved_port, log_stage, "log.md", message),
-        ]
-    )
+        files.append((contradiction_stage, f"contradictions/{contradiction_slug}.md"))
+    files.extend([(index_stage, "index.md"), (log_stage, "log.md")])
+    publish_results = [_publish_files(resolved_port, files, message)]
     dag_edges_created = _emit_contradiction_dag_edges(resolved_port, contradictions)
 
     logger.info(
@@ -1541,11 +1601,17 @@ def mos_book_ingest_batch(
         # Now add this entry to the overlay so subsequent entries see it
         in_memory_overlay[entry["slug"]] = entry["body"]
 
-    # Phase 3 — publish everything in one commit per artifact.
+    # Phase 3 — publish everything in a SINGLE commit across the whole batch.
     ingested: list[dict[str, object]] = []
     total_contradictions = 0
+    batch_index_entries: list[tuple[str, str, str]] = []
+    batch_log_fields: list[dict[str, Any]] = []
+    files: list[tuple[Path, str]] = []
+    slugs_for_message: list[str] = []
+
     for entry, contradictions in zip(staged, detection_results, strict=True):
         slug = entry["slug"]
+        slugs_for_message.append(slug)
         page = (
             _render_source_frontmatter(
                 title=entry["title"],
@@ -1558,7 +1624,8 @@ def mos_book_ingest_batch(
             + entry["body"]
         )
         page_stage = _stage_text(resolved_port, f"book-source-{slug}.md", page)
-        contradiction_stage: Path | None = None
+        files.append((page_stage, f"sources/{slug}.md"))
+
         contradiction_slug = _contradiction_slug(slug)
         if contradictions:
             contradiction_stage = _stage_text(
@@ -1572,37 +1639,23 @@ def mos_book_ingest_batch(
                     port=resolved_port,
                 ),
             )
-        index_entries = [(slug, entry["title"], "source")]
-        if contradictions:
-            index_entries.append((contradiction_slug, f"Contradiction: {slug}", "contradiction"))
-        index_stage = _index_append_many(resolved_port, index_entries)
-        log_stage = _log_append(
-            resolved_port,
-            "ingest",
-            slug,
-            source_file=entry["source_file"],
-            source_role=entry["source_role"],
-            title=entry["title"],
-            contradiction_count=len(contradictions),
-            batch=True,
-        )
+            files.append((contradiction_stage, f"contradictions/{contradiction_slug}.md"))
 
-        message = f"noter: ingest {slug} (batch)"
-        publish_results = [_publish_file(resolved_port, page_stage, f"sources/{slug}.md", message)]
-        if contradiction_stage is not None:
-            publish_results.append(
-                _publish_file(
-                    resolved_port,
-                    contradiction_stage,
-                    f"contradictions/{contradiction_slug}.md",
-                    message,
-                )
+        batch_index_entries.append((slug, entry["title"], "source"))
+        if contradictions:
+            batch_index_entries.append(
+                (contradiction_slug, f"Contradiction: {slug}", "contradiction")
             )
-        publish_results.extend(
-            [
-                _publish_file(resolved_port, index_stage, "index.md", message),
-                _publish_file(resolved_port, log_stage, "log.md", message),
-            ]
+        batch_log_fields.append(
+            {
+                "op": "ingest",
+                "slug": slug,
+                "source_file": entry["source_file"],
+                "source_role": entry["source_role"],
+                "title": entry["title"],
+                "contradiction_count": len(contradictions),
+                "batch": True,
+            }
         )
         dag_edges = _emit_contradiction_dag_edges(resolved_port, contradictions)
         total_contradictions += len(contradictions)
@@ -1617,9 +1670,20 @@ def mos_book_ingest_batch(
                     f"book/contradictions/{contradiction_slug}.md" if contradictions else None
                 ),
                 "dag_edges_created": dag_edges,
-                "publish_results": publish_results,
             }
         )
+
+    # One combined index + log stage covering every source in the batch.
+    index_stage = _index_append_many(resolved_port, batch_index_entries)
+    log_stage = _log_append_many(resolved_port, batch_log_fields)
+    files.append((index_stage, "index.md"))
+    files.append((log_stage, "log.md"))
+
+    summary_slug = slugs_for_message[0] if len(slugs_for_message) == 1 else "batch"
+    message = f"noter: ingest {summary_slug} (batch x{len(staged)})"
+    publish_result = _publish_files(resolved_port, files, message)
+    for ingest_entry in ingested:
+        ingest_entry["publish_results"] = [publish_result]
 
     logger.info(
         "book ingest_batch: port=%d sources=%d total_contradictions=%d",
@@ -2166,9 +2230,15 @@ def mos_book_save_synthesis(
 
     message = f"noter: save synthesis {slug}"
     publish_results = [
-        _publish_file(resolved_port, page_stage, f"queries/{slug}.md", message),
-        _publish_file(resolved_port, index_stage, "index.md", message),
-        _publish_file(resolved_port, log_stage, "log.md", message),
+        _publish_files(
+            resolved_port,
+            [
+                (page_stage, f"queries/{slug}.md"),
+                (index_stage, "index.md"),
+                (log_stage, "log.md"),
+            ],
+            message,
+        )
     ]
 
     logger.info(
@@ -2403,13 +2473,14 @@ def mos_book_resolve_contradiction(
 
     message = f"{auditor_role}: resolve {canonical_slug} ({verdict})"
     publish_results = [
-        _publish_file(
+        _publish_files(
             resolved_port,
-            page_stage,
-            f"contradictions/{canonical_slug}.md",
+            [
+                (page_stage, f"contradictions/{canonical_slug}.md"),
+                (log_stage, "log.md"),
+            ],
             message,
-        ),
-        _publish_file(resolved_port, log_stage, "log.md", message),
+        )
     ]
 
     logger.info(

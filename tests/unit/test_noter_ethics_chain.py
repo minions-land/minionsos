@@ -103,6 +103,48 @@ def sim_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         }
 
     monkeypatch.setattr(book, "mos_publish_to_shared", _fake_publish)
+
+    def _fake_publish_files(*, role, files, commit_message, port=None, **kwargs):
+        for entry in files:
+            _fake_publish(
+                role=role,
+                src_path=entry["src_path"],
+                dst_subpath=entry["dst_subpath"],
+                commit_message=commit_message,
+                port=port,
+            )
+        return {
+            "port": port,
+            "role": role,
+            "dst_paths": [e["dst_subpath"] for e in files],
+            "commit_sha": f"sim-{role}",
+            "branch": "stub",
+            "pushed": False,
+            "push_branch": None,
+        }
+
+    monkeypatch.setattr(book, "mos_publish_files_to_shared", _fake_publish_files)
+
+    def _fake_publish_files(*, role, files, commit_message, port=None, **kwargs):
+        for entry in files:
+            _fake_publish(
+                role=role,
+                src_path=entry["src_path"],
+                dst_subpath=entry["dst_subpath"],
+                commit_message=commit_message,
+                port=port,
+            )
+        return {
+            "port": port,
+            "role": role,
+            "dst_paths": [e["dst_subpath"] for e in files],
+            "commit_sha": f"sim-{role}",
+            "branch": "stub",
+            "pushed": False,
+            "push_branch": None,
+        }
+
+    monkeypatch.setattr(book, "mos_publish_files_to_shared", _fake_publish_files)
     yield port, project_root
     # Teardown — restore role env. Helpers above use os.environ directly
     # (to mimic mid-test role switches), so monkeypatch can't undo them.
