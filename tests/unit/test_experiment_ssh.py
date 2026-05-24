@@ -103,9 +103,7 @@ class TestFireAndPoll:
                 gpu_ids=[1],
             )
         )
-        final = exp_wait(
-            ExpWaitArgs(target_id=local_target, run_id=run["run_id"], timeout=10)
-        )
+        final = exp_wait(ExpWaitArgs(target_id=local_target, run_id=run["run_id"], timeout=10))
         assert final["state"] == "exited"
         assert final["exit_code"] == 0
         log_path = Path(run["log_path"])
@@ -123,9 +121,7 @@ class TestFireAndPoll:
                 gpu_ids=[2, 3],
             )
         )
-        final = exp_wait(
-            ExpWaitArgs(target_id=local_target, run_id=run["run_id"], timeout=10)
-        )
+        final = exp_wait(ExpWaitArgs(target_id=local_target, run_id=run["run_id"], timeout=10))
         assert final["state"] == "exited"
         log_path = Path(run["log_path"])
         for _ in range(20):
@@ -144,9 +140,7 @@ class TestFireAndPoll:
                 cmd='sleep 0.1 && echo "CVD=${CUDA_VISIBLE_DEVICES:-unset}"',
             )
         )
-        final = exp_wait(
-            ExpWaitArgs(target_id=local_target, run_id=run["run_id"], timeout=10)
-        )
+        final = exp_wait(ExpWaitArgs(target_id=local_target, run_id=run["run_id"], timeout=10))
         assert final["state"] == "exited"
         log_path = Path(run["log_path"])
         for _ in range(20):
@@ -154,3 +148,45 @@ class TestFireAndPoll:
                 break
             time.sleep(0.05)
         assert "CVD=unset" in log_path.read_text()
+
+
+class TestCmdTokenExpansion:
+    """GitHub Issue #24: cmd string must expand {project_workspace}."""
+
+    def test_unresolved_cmd_token_raises(
+        self, local_target: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from minions.errors import ConfigError
+
+        monkeypatch.delenv("MINIONS_PROJECT_PORT", raising=False)
+        with pytest.raises(ConfigError, match="MINIONS_PROJECT_PORT"):
+            exp_run(
+                ExpRunArgs(
+                    target_id=local_target,
+                    cmd="echo {project_workspace}/training.log",
+                )
+            )
+
+    def test_resolved_cmd_token_expands(
+        self, local_target: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Use a port whose project workspace path has a deterministic shape.
+        monkeypatch.setenv("MINIONS_PROJECT_PORT", "37596")
+        run = exp_run(
+            ExpRunArgs(
+                target_id=local_target,
+                cmd='sleep 0.1 && echo "RESOLVED={project_workspace}"',
+            )
+        )
+        final = exp_wait(ExpWaitArgs(target_id=local_target, run_id=run["run_id"], timeout=10))
+        assert final["state"] == "exited"
+        log_path = Path(run["log_path"])
+        for _ in range(20):
+            if "RESOLVED=" in log_path.read_text():
+                break
+            time.sleep(0.05)
+        log = log_path.read_text()
+        # The token must be expanded (no literal {project_workspace}) AND
+        # the expansion must include the project_37596 path component.
+        assert "{project_workspace}" not in log
+        assert "project_37596" in log

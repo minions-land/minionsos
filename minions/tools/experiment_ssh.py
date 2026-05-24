@@ -374,7 +374,14 @@ def exp_run(args: ExpRunArgs) -> dict:
     kind, workdir, host, key = _resolve_workdir(target_id)
 
     run_id = _new_run_id()
-    cmd = args.cmd
+    # Expand {project_workspace} in the cmd string so scheduler-driven
+    # relaunches don't leak the literal token to bash. Without this,
+    # bash silently creates a real directory named `{project_workspace}`
+    # under cwd and the supervisor's exit-marker check (which uses the
+    # expanded path) falsely reports dead-launch (GitHub Issue #24).
+    # _expand_workdir raises ConfigError if the token is present but
+    # MINIONS_PROJECT_PORT is missing, sibling to the #20 fix.
+    cmd = _expand_workdir(args.cmd)
     # Set CUDA_VISIBLE_DEVICES via shell `export` injected into the launch
     # script rather than as an inline `VAR=value command` prefix on the
     # command string. The inline form was unreliable across the

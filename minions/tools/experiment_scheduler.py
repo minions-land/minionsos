@@ -781,7 +781,22 @@ class ExperimentScheduler:
             return self._exp_run_fn(target_id, cmd, gpu_ids)
         from minions.tools.experiment_ssh import ExpRunArgs, exp_run
 
-        return exp_run(ExpRunArgs(target_id=target_id, cmd=cmd, gpu_ids=gpu_ids))
+        # Ensure MINIONS_PROJECT_PORT is set for the duration of the call so
+        # _expand_workdir can resolve {project_workspace} in cmd / workdir.
+        # GitHub Issue #24: the scheduler reconcile thread (e.g. Gru's loop)
+        # may run with no port env var, leaving the literal token in the
+        # launch script and false-positive dead-launches.
+        prior = os.environ.get("MINIONS_PROJECT_PORT")
+        if self.project_port is not None:
+            os.environ["MINIONS_PROJECT_PORT"] = str(self.project_port)
+        try:
+            return exp_run(ExpRunArgs(target_id=target_id, cmd=cmd, gpu_ids=gpu_ids))
+        finally:
+            if self.project_port is not None:
+                if prior is None:
+                    os.environ.pop("MINIONS_PROJECT_PORT", None)
+                else:
+                    os.environ["MINIONS_PROJECT_PORT"] = prior
 
     def _exp_status(self, target_id: str, run_id: str) -> dict[str, Any]:
         if self._exp_status_fn is not None:
