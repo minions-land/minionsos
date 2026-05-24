@@ -272,7 +272,6 @@ class ExperimentScheduler:
         completed: list[dict[str, Any]] = []
         failed: list[dict[str, Any]] = []
         blocked: list[dict[str, Any]] = []
-
         with self._tx() as conn:
             reaped = self._reap_zombie_runs(conn)
             completed, failed = self._refresh_running(conn)
@@ -355,6 +354,11 @@ class ExperimentScheduler:
             else:
                 blocked = self._blocked_units(conn, batch_id=batch_id)
             placement = self._placement_summary(conn, launched, slots)
+            # Issue #25: persist a timestamp so ``status()`` callers can see
+            # how stale the queue's view of GPUs is, and so the MCP layer's
+            # auto-reconcile (in ``minions/tools/experiment_ssh.py``) can
+            # decide when a refresh is overdue.
+            self._set_meta(conn, "last_reconcile_at", _now_iso())
 
         return {
             "launched": launched,
@@ -367,7 +371,17 @@ class ExperimentScheduler:
         }
 
     def status(self, batch_id: str | None = None) -> dict[str, Any]:
-        """Return a compact queue status for one batch or the whole project."""
+        """Return a compact queue status for one batch or the whole project.
+
+        Includes ``last_reconcile_at`` (ISO timestamp of the most recent
+        ``reconcile()`` call, or ``None`` if reconcile has never run for
+        this DB). When the queue holds pending units that hit
+        ``no_capacity`` while the live ``query_gpus`` snapshot reports
+        idle GPUs, ``gpu_idle_warning`` is non-empty — that's the Issue
+        #25 signature: queue says "no capacity", real GPUs say
+        "anyone home?". Operator-mode users use this to detect a stalled
+        queue without running a full reconcile.
+        """
         where = ""
         params: tuple[Any, ...] = ()
         if batch_id:
@@ -415,12 +429,50 @@ class ExperimentScheduler:
             unit["gpu_ids"] = _json_loads(unit.pop("gpu_ids_json"), None)
         for run in runs:
             run["gpu_ids"] = _json_loads(run.pop("gpu_ids_json"), [])
+        last_reconcile_at = self._get_meta("last_reconcile_at")
+        gpu_idle_warning = self._gpu_idle_warning(units)
         return {
             "batch_id": batch_id,
             "summary": summary,
             "units": units,
             "runs": runs,
+            "last_reconcile_at": last_reconcile_at,
+            "gpu_idle_warning": gpu_idle_warning,
         }
+
+    def _gpu_idle_warning(self, units: list[dict[str, Any]]) -> str:
+        """Return a non-empty string when no_capacity units sit while GPUs idle.
+
+        Defense-in-depth diagnostic for Issue #25. Always safe to call:
+        if ``query_gpus`` raises (e.g. ``nvidia-smi`` missing on a non-GPU
+        host), returns ``""`` rather than crashing the status path.
+        """
+        no_cap = [
+            u
+            for u in units
+            if u.get("status") == "pending"
+            and (u.get("last_error") or "").startswith("no_capacity")
+        ]
+        if not no_cap:
+            return ""
+        try:
+            target_ids = self._configured_target_ids()
+            gpus_used = 0
+            gpus_total = 0
+            for tid in target_ids:
+                snap = self._query_gpus(tid)
+                for gpu in snap:
+                    gpus_total += 1
+                    if int(gpu.get("used_mb", 0)) > 0:
+                        gpus_used += 1
+        except Exception:
+            return ""
+        if gpus_total == 0 or gpus_used > 0:
+            return ""
+        return (
+            f"{len(no_cap)} pending units stuck on no_capacity but "
+            f"{gpus_total} GPUs report 0 MiB used — call exp_queue_reconcile."
+        )
 
     def set_gpu_pool(
         self,
@@ -736,8 +788,29 @@ class ExperimentScheduler:
                     updated_at TEXT NOT NULL,
                     PRIMARY KEY(target_id, gpu_id)
                 );
+
+                CREATE TABLE IF NOT EXISTS meta (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
                 """
             )
+
+    def _set_meta(self, conn: sqlite3.Connection, key: str, value: str) -> None:
+        conn.execute(
+            """
+            INSERT INTO meta(key, value, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at
+            """,
+            (key, value, _now_iso()),
+        )
+
+    def _get_meta(self, key: str) -> str | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+        return None if row is None else str(row["value"])
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path, timeout=30.0)

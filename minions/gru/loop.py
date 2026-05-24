@@ -604,8 +604,8 @@ class GruLoop:
         the same role so a freshly-respawned role gets time to cold-start.
         """
         from minions.lifecycle.role_launcher import kill_session
-        from minions.lifecycle.wedge_detect import inspect_log_tail, is_wedged
-        from minions.paths import project_role_log
+        from minions.lifecycle.wedge_detect import inspect_role, is_wedged
+        from minions.paths import project_role_log, project_role_workspace
 
         now = time.time()
         projects = self._store.list_projects(filter="active")
@@ -624,15 +624,33 @@ class GruLoop:
                 if now - last_kill < self.wedge_watchdog_cooldown_seconds:
                     continue
                 log_path = project_role_log(port, role.name)
-                signal = inspect_log_tail(log_path, tail_bytes=self.wedge_watchdog_tail_bytes)
+                cwd = project_role_workspace(port, role.name)
+                signal = inspect_role(
+                    cwd=cwd,
+                    log_path=log_path,
+                    tail_bytes=self.wedge_watchdog_tail_bytes,
+                )
+                # Always emit one diagnostic line per tick per role so the
+                # operator can see whether the watchdog is firing — Issue
+                # #26's "watchdog is decorative" complaint stems from the
+                # silent-failure mode.
+                logger.debug(
+                    "wedge_watchdog: port=%d role=%s source=%s empty=%d ack=%d sampled=%d",
+                    port,
+                    role.name,
+                    signal.log_path.suffix,
+                    signal.empty_marker_count,
+                    signal.ack_line_count,
+                    signal.sampled_lines,
+                )
                 if not is_wedged(signal, threshold=self.wedge_watchdog_threshold):
                     continue
                 msg = (
                     f"[ALERT] Role {role.name!r} on port {port} appears wedged "
-                    f"(empty-upstream={signal.empty_marker_count}, "
-                    f"bare-ack={signal.ack_line_count} in last "
-                    f"{self.wedge_watchdog_tail_bytes}B of log). Killing tmux "
-                    "session so the respawn path cold-starts the role from Draft."
+                    f"(empty={signal.empty_marker_count}, "
+                    f"ack={signal.ack_line_count} in last "
+                    f"{signal.sampled_lines} samples from {signal.log_path.name}). "
+                    "Killing tmux session so the respawn path cold-starts the role from Draft."
                 )
                 logger.error(msg)
                 self._emit_health_event(
@@ -645,7 +663,7 @@ class GruLoop:
                         "empty_marker_count": signal.empty_marker_count,
                         "ack_line_count": signal.ack_line_count,
                         "sampled_lines": signal.sampled_lines,
-                        "tail_bytes": self.wedge_watchdog_tail_bytes,
+                        "signal_source": signal.log_path.name,
                         "threshold": self.wedge_watchdog_threshold,
                     },
                 )

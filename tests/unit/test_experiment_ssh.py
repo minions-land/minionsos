@@ -10,6 +10,7 @@ import yaml
 
 from minions.tools.experiment_ssh import (
     ExpListArgs,
+    ExpQueueStatusArgs,
     ExpRunArgs,
     ExpStatusArgs,
     ExpWaitArgs,
@@ -190,3 +191,140 @@ class TestCmdTokenExpansion:
         # the expansion must include the project_37596 path component.
         assert "{project_workspace}" not in log
         assert "project_37596" in log
+
+
+# ---------------------------------------------------------------------------
+# Issue #25 — operator-mode auto-reconcile in exp_queue_status
+# ---------------------------------------------------------------------------
+
+
+class _OperatorBackend:
+    """Stub experiment backend with idle GPUs and a no-op run launcher."""
+
+    def query_gpus(self, _target_id: str) -> list[dict[str, int]]:
+        return [
+            {"id": 0, "total_mb": 20000, "free_mb": 20000, "used_mb": 0},
+            {"id": 1, "total_mb": 20000, "free_mb": 20000, "used_mb": 0},
+        ]
+
+    def exp_run(self, target_id: str, cmd: str, gpu_ids: list[int] | None) -> dict:
+        return {
+            "run_id": "run-0",
+            "target_id": target_id,
+            "cmd": cmd,
+            "gpu_ids": gpu_ids,
+            "pid": 1234,
+            "log_path": "/tmp/run-0.log",
+        }
+
+    def exp_status(self, _t: str, _r: str) -> dict:
+        return {"state": "running", "log_tail": ""}
+
+    def exp_kill(self, _t: str, _r: str) -> dict:
+        return {"killed": True}
+
+
+class TestQueueStatusAutoReconcile:
+    """Issue #25: status() must run a reconcile when the queue is stale.
+
+    Operator-mode (no ./gru daemon) used to silently stall: the queue
+    sat at no_capacity for hours while real GPUs were idle. status()
+    is the natural read surface to drive a refresh from."""
+
+    def test_stale_status_triggers_reconcile_and_dispatches_pending(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from minions.tools import experiment_scheduler as sched_mod
+        from minions.tools import experiment_ssh as ssh_mod
+        from minions.tools.experiment_scheduler import ExperimentScheduler, QueueUnit
+
+        backend = _OperatorBackend()
+        db_path = tmp_path / "scheduler.sqlite"
+
+        def fake_scheduler(_port: int | None = None) -> ExperimentScheduler:
+            return ExperimentScheduler(
+                db_path=db_path,
+                target_ids=["local"],
+                query_gpus_fn=backend.query_gpus,
+                exp_run_fn=backend.exp_run,
+                exp_status_fn=backend.exp_status,
+                exp_kill_fn=backend.exp_kill,
+            )
+
+        monkeypatch.setattr(ssh_mod, "_scheduler", fake_scheduler)
+        # Make every prior reconcile look stale so the auto-reconcile fires.
+        monkeypatch.setattr(ssh_mod, "_stale_reconcile_seconds", lambda: 0)
+
+        # Seed the queue with a pending unit that *can* be placed on the
+        # idle GPUs, but rewind the scheduler's last_reconcile_at to a
+        # time long enough ago that _is_stale() returns True.
+        sched = fake_scheduler()
+        sched.submit(
+            [QueueUnit(cmd="echo a", gpus_needed=1, min_free_mb=1000)],
+            requester="coder",
+            reconcile=False,
+        )
+        # Force a stale timestamp directly via the meta table.
+        with sched._tx() as conn:
+            sched._set_meta(conn, "last_reconcile_at", "2020-01-01T00:00:00+00:00")
+
+        result = ssh_mod.exp_queue_status(ExpQueueStatusArgs())
+
+        # The auto-reconcile must have launched the pending unit.
+        # Successful launch transitions the unit to 'launching' or 'running'.
+        unit_states = {u["status"] for u in result["units"]}
+        assert unit_states & {"launching", "running"}, (
+            f"expected launching/running after auto-reconcile, got {unit_states}"
+        )
+        # The post-reconcile timestamp must be fresher than the seeded stale one.
+        assert result["last_reconcile_at"] != "2020-01-01T00:00:00+00:00"
+
+        # Restore unused-import warning suppressors.
+        _ = sched_mod
+
+    def test_fresh_status_does_not_trigger_reconcile(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When last_reconcile_at is recent, status() should be a pure read.
+
+        Otherwise every status call would be a launch storm — the daemon
+        and the operator both call status; back-to-back calls must not
+        each fire a reconcile.
+        """
+        from minions.tools import experiment_ssh as ssh_mod
+        from minions.tools.experiment_scheduler import ExperimentScheduler, QueueUnit
+
+        backend = _OperatorBackend()
+        db_path = tmp_path / "scheduler.sqlite"
+        launch_count = {"n": 0}
+
+        def counting_run(*args, **kwargs):
+            launch_count["n"] += 1
+            return backend.exp_run(*args, **kwargs)
+
+        def fake_scheduler(_port: int | None = None) -> ExperimentScheduler:
+            return ExperimentScheduler(
+                db_path=db_path,
+                target_ids=["local"],
+                query_gpus_fn=backend.query_gpus,
+                exp_run_fn=counting_run,
+                exp_status_fn=backend.exp_status,
+                exp_kill_fn=backend.exp_kill,
+            )
+
+        monkeypatch.setattr(ssh_mod, "_scheduler", fake_scheduler)
+        # Long stale window — fresh reconciles count as fresh.
+        monkeypatch.setattr(ssh_mod, "_stale_reconcile_seconds", lambda: 3600)
+
+        sched = fake_scheduler()
+        sched.submit(
+            [QueueUnit(cmd="echo a", gpus_needed=1, min_free_mb=1000)],
+            requester="coder",
+        )
+        # The submit reconciled and launched once.
+        assert launch_count["n"] == 1
+
+        # A status call right after must NOT re-launch.
+        ssh_mod.exp_queue_status(ExpQueueStatusArgs())
+        ssh_mod.exp_queue_status(ExpQueueStatusArgs())
+        assert launch_count["n"] == 1

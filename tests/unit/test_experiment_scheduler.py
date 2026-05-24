@@ -515,3 +515,74 @@ def test_zombie_reaper_skipped_when_pid_alive(tmp_path: Path) -> None:
     with sched._tx() as conn:
         reaped = sched._reap_zombie_runs(conn)
     assert reaped == []
+
+
+# ---------------------------------------------------------------------------
+# Issue #25 — operator-mode visibility
+# ---------------------------------------------------------------------------
+
+
+def test_status_records_last_reconcile_at(tmp_path: Path) -> None:
+    """Every reconcile() must persist a timestamp so operator-mode
+    callers can see how stale the queue's last refresh was (Issue #25)."""
+    backend = FakeExperimentBackend()
+    sched = _scheduler(tmp_path, backend)
+    pre = sched.status()
+    assert pre["last_reconcile_at"] is None  # never reconciled
+    sched.submit(
+        [QueueUnit(cmd="echo a", gpus_needed=1, min_free_mb=1000)],
+        requester="coder",
+    )
+    post = sched.status()
+    assert post["last_reconcile_at"] is not None
+
+
+def test_gpu_idle_warning_fires_when_pending_no_capacity_with_idle_gpus(
+    tmp_path: Path,
+) -> None:
+    """The motivating Issue #25 signature: queue says ``no_capacity`` but
+    ``nvidia-smi`` reports 0 MiB used — the only way out without daemon
+    mode used to be a manual reconcile."""
+    backend = FakeExperimentBackend()
+    sched = _scheduler(tmp_path, backend)
+    # Force every pending unit into no_capacity by demanding more memory
+    # than any GPU has, then directly stamp last_error='no_capacity: ...'
+    # for one pending unit so the warning has something to grip on.
+    sched.submit(
+        [QueueUnit(cmd="echo a", gpus_needed=1, min_free_mb=99_999_999)],
+        requester="coder",
+        reconcile=False,
+    )
+    # The submit reconciles by default; with min_free_mb impossibly high,
+    # _pick_candidate fails and last_error is set to no_capacity.
+    sched.reconcile()
+    pre = sched.status()
+    pending = [u for u in pre["units"] if u["status"] == "pending"]
+    assert pending, "expected at least one pending unit"
+    assert (pending[0]["last_error"] or "").startswith("no_capacity")
+    # Backend reports both GPUs idle (used_mb=0) — the warning must fire.
+    assert pre["gpu_idle_warning"]
+    assert "0 MiB used" in pre["gpu_idle_warning"]
+
+
+def test_gpu_idle_warning_silent_when_gpus_busy(tmp_path: Path) -> None:
+    """If GPUs are actually being used, no_capacity is a real verdict and
+    the warning must NOT fire."""
+
+    class BusyBackend(FakeExperimentBackend):
+        def query_gpus(self, _target_id: str) -> list[dict[str, int]]:
+            return [
+                {"id": 0, "total_mb": 20000, "free_mb": 1000, "used_mb": 19000},
+                {"id": 1, "total_mb": 20000, "free_mb": 1000, "used_mb": 19000},
+            ]
+
+    backend = BusyBackend()
+    sched = _scheduler(tmp_path, backend)
+    sched.submit(
+        [QueueUnit(cmd="echo a", gpus_needed=1, min_free_mb=10_000)],
+        requester="coder",
+    )
+    pre = sched.status()
+    pending = [u for u in pre["units"] if u["status"] == "pending"]
+    assert pending
+    assert pre["gpu_idle_warning"] == ""

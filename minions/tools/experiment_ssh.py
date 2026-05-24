@@ -936,9 +936,65 @@ def exp_queue_reconcile(args: ExpQueueReconcileArgs) -> dict:
     return _scheduler(args.project_port).reconcile(batch_id=args.batch_id)
 
 
+def _stale_reconcile_seconds() -> int:
+    """How long without a reconcile before ``status`` auto-fires one.
+
+    Defaults to ``experiment_reconcile_interval_seconds`` (the same cadence
+    the daemon uses), so operator-mode and daemon-mode converge to the
+    same effective freshness. Falls back to 30 s if config can't load —
+    safer to over-reconcile than to silently stall.
+    """
+    try:
+        from minions.config import load_gru_config
+
+        return int(load_gru_config().experiment_reconcile_interval_seconds)
+    except Exception:
+        return 30
+
+
+def _is_stale(last_iso: str | None, *, max_age_seconds: int) -> bool:
+    """True when *last_iso* is missing, malformed, or older than the cap."""
+    if not last_iso:
+        return True
+    try:
+        from datetime import UTC, datetime
+
+        last = datetime.fromisoformat(last_iso.replace("Z", "+00:00"))
+        return (datetime.now(tz=UTC) - last).total_seconds() > max_age_seconds
+    except (ValueError, TypeError):
+        return True
+
+
 def exp_queue_status(args: ExpQueueStatusArgs) -> dict:
-    """Return queue status for one batch or the whole project."""
-    return _scheduler(args.project_port).status(batch_id=args.batch_id)
+    """Return queue status for one batch or the whole project.
+
+    Issue #25: when the project is driven entirely from the MCP surface
+    (operator mode — no ``./gru`` daemon supervising the queue), the
+    background reconcile loop never runs and pending units silently
+    stall. To make operator-mode and daemon-mode equivalent control
+    planes, this tool runs a reconcile pass before reading status when
+    (a) there are pending units AND (b) the last reconcile is older
+    than ``experiment_reconcile_interval_seconds``. The return payload
+    includes ``last_reconcile_at`` and ``gpu_idle_warning`` so the caller
+    can see *why* the queue advanced (or didn't).
+    """
+    sched = _scheduler(args.project_port)
+    pre = sched.status(batch_id=args.batch_id)
+    pending = int(pre.get("summary", {}).get("pending", 0))
+    if pending and _is_stale(
+        pre.get("last_reconcile_at"),
+        max_age_seconds=_stale_reconcile_seconds(),
+    ):
+        try:
+            sched.reconcile(batch_id=args.batch_id)
+        except Exception as exc:
+            logger.warning(
+                "exp_queue_status auto-reconcile failed (port=%s): %s",
+                args.project_port,
+                exc,
+            )
+        return sched.status(batch_id=args.batch_id)
+    return pre
 
 
 def exp_gpu_pool_set(args: ExpQueueGpuPoolSetArgs) -> dict:
