@@ -4,87 +4,117 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import type { AgentInfo } from "@shared/types";
 import { roleBucket, ROLE_BUCKETS, agentShortTag } from "./roleIdentity";
-import { subscribeRoleLog, unsubscribeRoleLog, useRoleLog } from "./store";
+import { isGruAgent, subscribeRoleLog, unsubscribeRoleLog, useRoleLog } from "./store";
 
 /**
- * Terminal grid styled after Minions Code (SwiftTerm). All panes share the
- * same width regardless of how many panes a given role row has — so a single
- * Noter pane is the same width as a Coder pane in a four-coder row.
+ * Terminal grid styled after Minions Code (SwiftTerm).
  *
- * We pick one global column count (= max instances in any one role) and lay
- * every row out on that grid. Rows with fewer panes leave the rightmost
- * columns empty rather than stretching their content.
+ * Layout rules (per-row, not global — single-instance rows shouldn't be
+ * forced narrow just because some other row has 4 instances):
+ *
+ *   - 1 instance  → row spans full width (1 column)
+ *   - 2 instances → 2 equal columns
+ *   - 3+ instances → 3 columns; instance #4+ wraps to a new row
+ *
+ * Gru is special-cased: it isn't a tmux-hosted Role and isn't on EACN, so it
+ * never appears in `agents`. We always synthesise a Gru row at the top that
+ * tails `<gruRoot>/minions/state/logs/gru.log` via the `gru` virtual role.
  */
 interface Props {
   agents: AgentInfo[];
 }
 
-const MAX_COLS = 3;
+const MAX_COLS_PER_ROW = 3;
+
+interface RoleRow {
+  key: string;
+  bucket: typeof ROLE_BUCKETS[string];
+  // null indicates a virtual pane (Gru — no AgentCard registered on EACN).
+  items: Array<AgentInfo | null>;
+}
 
 export default function TerminalWall({ agents }: Props) {
-  const rows = useMemo(() => {
+  const rows: RoleRow[] = useMemo(() => {
     const m = new Map<string, AgentInfo[]>();
     for (const a of agents) {
+      // Skip an EACN-registered Gru agent (rare) — we render Gru ourselves
+      // from the gru.log file. Otherwise the same role would appear twice.
+      if (isGruAgent(a.agent_id, a.name)) continue;
       const k = roleBucket(a.agent_id).key;
       const arr = m.get(k) ?? [];
       arr.push(a);
       m.set(k, arr);
     }
-    const keys = Array.from(m.keys()).sort(
+    const orderedKeys = Array.from(m.keys()).sort(
       (a, b) =>
         (ROLE_BUCKETS[a]?.orbitIndex ?? 99) -
         (ROLE_BUCKETS[b]?.orbitIndex ?? 99),
     );
-    return keys.map((k) => ({
-      key: k,
-      bucket: ROLE_BUCKETS[k] ?? ROLE_BUCKETS.other,
-      items: m.get(k)!.sort((a, b) => a.agent_id.localeCompare(b.agent_id)),
-    }));
+
+    const out: RoleRow[] = [];
+    // Always lead with the Gru row, regardless of agents[].
+    out.push({
+      key: "gru",
+      bucket: ROLE_BUCKETS.gru,
+      items: [null],
+    });
+    for (const k of orderedKeys) {
+      out.push({
+        key: k,
+        bucket: ROLE_BUCKETS[k] ?? ROLE_BUCKETS.other,
+        items: m
+          .get(k)!
+          .sort((a, b) => a.agent_id.localeCompare(b.agent_id)),
+      });
+    }
+    return out;
   }, [agents]);
-
-  const cols = useMemo(() => {
-    const maxRow = rows.reduce((acc, r) => Math.max(acc, r.items.length), 1);
-    return Math.min(MAX_COLS, Math.max(1, maxRow));
-  }, [rows]);
-
-  if (agents.length === 0) {
-    return (
-      <div className="terminal-wall empty-wall">
-        <div className="empty">No agent instances registered yet.</div>
-      </div>
-    );
-  }
 
   return (
     <div className="terminal-wall">
-      {rows.map((row) => (
-        <div key={row.key} className="term-row">
-          <div className="term-row-label" style={{ color: row.bucket.color }}>
-            <span className="tint" style={{ background: row.bucket.color }} />
-            {row.bucket.label}
-            <span style={{ color: "var(--muted)", marginLeft: 8 }}>
-              × {row.items.length}
-            </span>
+      {rows.map((row) => {
+        const cols = Math.min(MAX_COLS_PER_ROW, Math.max(1, row.items.length));
+        return (
+          <div key={row.key} className="term-row">
+            <div className="term-row-label" style={{ color: row.bucket.color }}>
+              <span className="tint" style={{ background: row.bucket.color }} />
+              {row.bucket.label}
+              <span style={{ color: "var(--muted)", marginLeft: 8 }}>
+                × {row.items.length}
+              </span>
+            </div>
+            <div
+              className="term-row-grid"
+              style={{
+                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+              }}
+            >
+              {row.items.map((a, i) => (
+                <TerminalPane
+                  key={a ? a.agent_id : `${row.key}-virtual-${i}`}
+                  role={row.key}
+                  agent={a}
+                />
+              ))}
+            </div>
           </div>
-          <div
-            className="term-row-grid"
-            style={{
-              gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-            }}
-          >
-            {row.items.map((a) => (
-              <TerminalPane key={a.agent_id} agent={a} />
-            ))}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
-function TerminalPane({ agent }: { agent: AgentInfo }) {
-  const bucket = useMemo(() => roleBucket(agent.agent_id), [agent.agent_id]);
-  const role = bucket.key;
+function TerminalPane({
+  role,
+  agent,
+}: {
+  role: string;
+  agent: AgentInfo | null;
+}) {
+  const bucket = useMemo(
+    () => ROLE_BUCKETS[role] ?? ROLE_BUCKETS.other,
+    [role],
+  );
   const [paused, setPaused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -186,8 +216,21 @@ function TerminalPane({ agent }: { agent: AgentInfo }) {
     [buffer],
   );
 
+  // Pane title:
+  //   real agent  → "<RoleLabel> · <agent name or id>"
+  //   virtual gru → "Gru · gru.log"
+  const title = agent
+    ? agent.name || agent.agent_id
+    : role === "gru"
+      ? "gru.log"
+      : bucket.label;
+  const tag = agent ? agentShortTag(agent.agent_id) : role.toUpperCase();
+
   return (
-    <div className="term-pane" style={{ ["--pane-color" as string]: bucket.color }}>
+    <div
+      className="term-pane"
+      style={{ ["--pane-color" as string]: bucket.color }}
+    >
       <header>
         <div className="term-traffic">
           <span className="dot dot-r" />
@@ -198,11 +241,9 @@ function TerminalPane({ agent }: { agent: AgentInfo }) {
           <span style={{ color: bucket.color, fontWeight: 600 }}>
             {bucket.label}
           </span>
-          <span style={{ color: "var(--muted)" }}>
-            {" "}· {agent.name || agent.agent_id}
-          </span>
+          <span style={{ color: "var(--muted)" }}> · {title}</span>
         </span>
-        <span className="meta">{agentShortTag(agent.agent_id)}</span>
+        <span className="meta">{tag}</span>
         <span className="meta">{lineCount} ln</span>
         <button
           className="term-action"

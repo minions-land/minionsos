@@ -62,11 +62,6 @@ export default function App() {
     !hasSavedSelection(store.selectedGruId, store.selectedPort) &&
     (!gru || !project);
 
-  const adjCount = useMemo(
-    () => store.tasks.filter((t) => t.type === "adjudication").length,
-    [store.tasks],
-  );
-
   return (
     <div className="app-root">
       <TopBar
@@ -175,11 +170,6 @@ export default function App() {
           disabled={showPicker}
         >
           Tasks · {store.tasks.length}
-          {adjCount > 0 && (
-            <span style={{ color: "#fcd34d", marginLeft: 4 }}>
-              ⚖ {adjCount}
-            </span>
-          )}
         </button>
         <button
           className={"tab" + (view === "terminals" ? " active" : "")}

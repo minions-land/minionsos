@@ -328,15 +328,18 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   border-radius: var(--radius-pill); background: rgba(255,255,255,.05);
   color: var(--muted); border: 1px solid var(--line-soft); }
 
-.terminal-wall { position: absolute; inset: 0; padding: 16px;
-  display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+.terminal-wall { position: absolute; inset: 0; padding: 18px;
+  display: flex; flex-direction: column; gap: 18px; overflow-y: auto; }
 .terminal-wall.empty-wall { align-items: center; justify-content: center; }
-.term-row { display: flex; flex-direction: column; gap: 8px; min-height: 240px; }
-.term-row-label { display: flex; align-items: center; gap: 8px;
-  font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em;
-  text-transform: uppercase; padding: 0 4px; }
-.term-row-label .tint { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
-.term-row-grid { flex: 1; display: grid; gap: 12px; min-height: 240px; }
+.term-row { display: flex; flex-direction: column; gap: 10px;
+  /* Single-row content height: enough for ~14 visible lines at 12px/1.3 */
+  min-height: 280px; }
+.term-row-label { display: flex; align-items: center; gap: 10px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em;
+  text-transform: uppercase; padding: 0 4px; font-weight: 600; }
+.term-row-label .tint { width: 10px; height: 10px; border-radius: 50%;
+  box-shadow: 0 0 10px currentColor, 0 0 2px rgba(255,255,255,.25); }
+.term-row-grid { flex: 1; display: grid; gap: 14px; min-height: 280px; }
 .term-pane { background: #0b0e15; border: 1px solid var(--line);
   border-radius: 10px; overflow: hidden; display: flex; flex-direction: column;
   min-height: 0; min-width: 0;
@@ -375,11 +378,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   transition: all 140ms var(--ease-out); }
 .term-action:hover { color: var(--text); border-color: var(--line-hi);
   background: rgba(255,255,255,.04); }
-.term-body { flex: 1; min-height: 0; padding: 10px 12px 12px; overflow: hidden;
-  background: #0b0e15;
+.term-body { flex: 1; min-height: 0; padding: 8px 10px 10px; overflow: hidden;
+  background: #0b0e15; position: relative;
   /* xterm renders into a child canvas; we just provide breathing room. */ }
 .term-body .xterm { height: 100%; padding: 0; }
-.term-body .xterm-viewport { background: transparent !important; }
+.term-body .xterm-screen { width: 100% !important; }
+.term-body .xterm-viewport { background: transparent !important;
+  scrollbar-width: thin; }
 
 .metric-row { position: absolute; left: 18px; right: 18px; bottom: 18px;
   display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

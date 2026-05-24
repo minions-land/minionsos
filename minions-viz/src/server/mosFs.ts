@@ -150,6 +150,13 @@ export function tailLog(gruId: string, port: number, which: string, tail = 500):
 export function roleLogPath(gruId: string, port: number, role: string): string | null {
   const g = getGru(gruId);
   if (!g) return null;
+  // Gru is not a project-local Role — it has one log per Gru installation
+  // at <gruRoot>/minions/state/logs/gru.log. We treat "gru" as a virtual
+  // role so the WebSocket tailer can stream it the same way it streams
+  // role-{name}.log.
+  if (role === "gru") {
+    return gruLogPath(g.rootPath);
+  }
   const clean = role.replace(/[^a-z0-9_-]/gi, "");
   if (!clean) return null;
   return path.join(projectDirFor(g.rootPath, port), "logs", `role-${clean}.log`);
