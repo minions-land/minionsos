@@ -1,9 +1,9 @@
 ---
 slug: reliable-file-io
-summary: Atomic alternative to Write/Edit. Trigger BEFORE writing on files >~200 lines, CJK/code-fences/math/heredoc-token content, paths where Write/Edit already failed this session, or documents >~50KB. Tier 1 atomic rename for single files; Tier 2 chunked pipeline with manifest + read-back verification for >50KB documents.
+summary: Atomic alternative to Write/Edit. Trigger BEFORE writing on files >~200 lines, CJK/code-fences/math/heredoc-token content, paths where Write/Edit already failed this session, documents >~50KB, OR any CJK + LaTeX / multi-section structured report regardless of size. Tier 0 (CJK + LaTeX / heredoc-tokens / multi-section): seed-and-Edit only — no Bash heredoc, immune to the Opus 4.7 empty-input bug. Tier 1 atomic rename for ASCII single files; Tier 2 chunked pipeline with manifest + read-back verification for >50KB documents.
 layer: physical
-tools: Bash
-version: 1
+tools: Bash, Write, Edit
+version: 2
 status: active
 supersedes: chunked-file-write
 references: dispatcher-discipline
@@ -14,13 +14,57 @@ provenance: human+agent
 
 ## Scope
 
-This skill covers TWO tiers of file writing reliability:
+This skill covers THREE tiers of file writing reliability:
 
-1. **Tier 1 — Atomic single-file IO** (replaces Write/Edit): For any file operation where the built-in Write or Edit tools would stall, time out, or produce opaque errors. Uses Python `pathlib` + `atomic_write` inside a quoted Bash heredoc.
+0. **Tier 0 — Seed-and-Edit** (mandatory for content shapes that trigger the Opus 4.7 empty-input bug): No Bash heredoc, no inline payload. Seed a skeleton via one short `Write`, then append every section via successive small `Edit` calls.
+
+1. **Tier 1 — Atomic single-file IO** (replaces Write/Edit): For ASCII content where the built-in Write/Edit would stall, time out, or produce opaque errors. Uses Python `pathlib` + `atomic_write` inside a quoted Bash heredoc.
 
 2. **Tier 2 — Long document pipeline** (replaces single-shot generation of large docs): For documents expected to exceed ~50KB. Uses a five-stage workflow: outline → chunked generation → read-back verification → assembly → final validation.
 
-**Decision rule**: If the total output is a single file under ~50KB, use Tier 1. If the total output exceeds ~50KB or has multiple chapters/sections that benefit from independent verification, use Tier 2 (which internally uses Tier 1 for each chunk write).
+**Decision rule**:
+- Content matches Tier 0 triggers (CJK, LaTeX math, heredoc-tokens like `EOF`/`PY`/`<<`, multi-section structured report) → **Tier 0**, regardless of total size.
+- Otherwise, single ASCII file under ~50KB → Tier 1.
+- Otherwise (>~50KB or multi-chapter) → Tier 2 (chunks written via Tier 0 if their shape triggers it, else Tier 1).
+
+---
+
+## Tier 0 — Empty-input failure on CJK + LaTeX / heredoc payloads (Opus 4.7) — READ FIRST
+
+Opus 4.7 has a confirmed failure mode where a `tool_use` whose `input` field must carry a long CJK + LaTeX / heredoc / Markdown payload comes through with `input: {}`, and the harness rejects it with `InputValidationError: required parameter <field> is missing`. The failed turn shows tiny `output_tokens` (often <100), so it is NOT a max_tokens or context-length issue — the model silently bails on emitting the long structured field.
+
+**This invalidates Tier 1's single Bash heredoc for CJK/LaTeX content even when total size is well under any heredoc limit.** The heredoc body becomes the oversize `Bash.command` string and triggers the same failure during emission.
+
+### Mandatory recipe for CJK + LaTeX / multi-section reports / mixed CJK+math docs
+
+Use Tier 0 whenever content matches **any** of: contains CJK; contains LaTeX math (`$...$`, `\begin{...}`); contains heredoc-style tokens (`EOF`, `PY`, `<<`); is a multi-section structured report (LaTeX paper, long Markdown report, long HTML).
+
+1. **Seed a skeleton via one short `Write`** (≤ ~50 lines / ~3 KB total):
+   - LaTeX: preamble + `\begin{document}` + section placeholders + `\end{document}`
+   - HTML: `<head>` + boilerplate `<body>` + closing `</body></html>`
+   - Markdown: title + table-of-contents stub + a final sentinel line you can target later
+2. **Append every section via successive `Edit` calls**, each `new_string` ≤ ~50 lines / ~3 KB. Insert *before* the closing token (`\end{document}`, `</body>`, the final sentinel). Sections longer than that → split across 2–3 Edits.
+3. **No Bash heredocs containing CJK + LaTeX payloads.** This explicitly overrides Tier 1's `python3 - <<'PY' ... PY` template for this content shape.
+4. If atomicity is required, seed-and-Edit into `<target>.tmp` then `mv` at the end.
+
+### When Tier 1's heredoc IS still safe
+
+- ASCII-only content (no CJK, no smart quotes, no math) under ~3 KB
+- Pure data dumps (JSON, CSV) under ~10 KB
+- One-shot small config writes
+- Python heredocs whose source is small and any CJK lives only in a small inline data dict
+
+If in doubt → Tier 0. Seed-and-Edit is immune to this bug because every tool_use's `input` is small.
+
+### Recovery from a live empty-input failure
+
+1. Do NOT retry the same single-call approach (this is the third-failure-loop trap).
+2. Switch to Tier 0 immediately, even mid-stream.
+3. If the file does not yet exist on disk, just start Tier 0 from scratch. No state to recover.
+
+### Confirmed failure case
+
+`Paper Crash` 2026-05-24 — three consecutive empty-input failures in one Role-style session: (1) one `Write` of an entire Chinese LaTeX comparison report, (2) a Bash heredoc embedding the full Markdown report (Tier 1 path), (3) the same heredoc retried. cache_read 25K, output_tokens 47/74/25. Three failures in a row before user intervention.
 
 ---
 
@@ -54,6 +98,8 @@ This skill covers TWO tiers of file writing reliability:
 - **First failure on a path is a one-way door.** No retry with plain Write/Edit.
 - **Don't escalate gradually.** If pre-flight trips, jump straight here.
 - **Don't mix tools.** If part of a change needs this skill, use it for all parts.
+- **Tier 0 trumps Tier 1 on shape, not size.** A 1KB Chinese LaTeX section still goes through Tier 0 — never a Bash heredoc.
+- **Empty `input: {}` from a tool_use → switch to Tier 0 immediately.** Do not retry the same single-call write/heredoc, that's the documented loop trap.
 - **Scale up, not down.** If you start with Tier 1 and realize the document is growing past 50KB, switch to Tier 2 for remaining content.
 
 ---
@@ -236,9 +282,11 @@ Stage 5: Final Validation & Repair
 
 ---
 
-## Prohibited actions (both tiers)
+## Prohibited actions (all tiers)
 
 - ❌ Single Write/Edit call for content > 200 lines or > 50KB
+- ❌ **Bash heredoc carrying CJK + LaTeX / multi-section payload, ever** — even if total bytes are small (this is the documented Opus 4.7 empty-input trigger)
+- ❌ Retrying the same single-call Bash/Write after `InputValidationError: required parameter ... is missing` — switch to Tier 0
 - ❌ Claiming file is complete without read-back verification
 - ❌ Retrying plain Write/Edit after a failure on the same path
 - ❌ Generating a chunk > 20KB

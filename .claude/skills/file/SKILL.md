@@ -1,6 +1,6 @@
 ---
 name: file
-description: "Atomic alternative to Write/Edit. Trigger BEFORE writing on: (a) files >~200 lines, (b) CJK / code-fences / math / heredoc-token content, (c) any path where Write/Edit already failed this session, (d) documents >~50KB. Tier 1: Python pathlib + atomic rename in a quoted Bash heredoc. Tier 2 (>50KB): chunked generation, manifest, read-back verification, assembly. Guarantees atomic file state with precise Python tracebacks on failure."
+description: "Atomic alternative to Write/Edit. Trigger BEFORE writing on: (a) files >~200 lines, (b) CJK / code-fences / math / heredoc-token content, (c) any path where Write/Edit already failed this session, (d) documents >~50KB, (e) any CJK + LaTeX / multi-section report regardless of size. Tier 0 (CJK + LaTeX / heredoc-token / multi-section): seed-and-Edit only — no Bash heredoc, immune to the Opus 4.7 empty-input bug. Tier 1 (ASCII <12KB): Python pathlib + atomic rename in a quoted Bash heredoc. Tier 1.5 (12-50KB): multi-call parts + assembly. Tier 2 (>50KB): chunked generation, manifest, read-back verification, assembly."
 ---
 
 # Reliable File IO — from single edits to long documents
@@ -33,20 +33,62 @@ Do:
 
 See "Tier 1.5: Multi-call assembly" below for the exact template.
 
+---
+
+## Tier 0 — Empty-input failure on CJK + LaTeX / heredoc payloads (Opus 4.7) — READ FIRST
+
+Opus 4.7 has a confirmed failure mode where a `tool_use` whose `input` field must carry a long CJK + LaTeX / heredoc / Markdown payload comes through with `input: {}` and the harness rejects it with `InputValidationError: required parameter <field> is missing`. The failed turn shows tiny `output_tokens` (often < 100), so it is NOT a max_tokens or context-length issue — the model silently bails on emitting the long structured field.
+
+**This invalidates Tier 1's single Bash heredoc for CJK/LaTeX content even when total size is well under the 12KB heredoc limit.** The heredoc does not protect you — the failure happens during the model's emission of the `command` string itself, before the heredoc is ever evaluated. **Tier 1.5's per-part heredoc has the same failure mode for the same reason.**
+
+### Mandatory recipe for CJK + LaTeX / multi-section reports / mixed CJK+math docs
+
+Use this path whenever content matches **any** of: contains CJK; contains LaTeX math (`$...$`, `\begin{...}`); contains heredoc-style tokens (`EOF`, `PY`, `<<`); is a multi-section structured report.
+
+1. **Seed a skeleton via one short `Write`** (≤ ~50 lines / ~3 KB total):
+   - LaTeX: preamble + `\begin{document}` + section placeholders + `\end{document}`
+   - HTML: `<head>` + boilerplate `<body>` + closing `</body></html>`
+   - Markdown: title + table-of-contents stub + a final sentinel line you can target later
+2. **Append every section via successive `Edit` calls**, inserting *before* the closing token (`\end{document}`, `</body>`, the final sentinel). Each Edit's `new_string` ≤ ~50 lines / ~3 KB. Sections longer than that → split across 2–3 Edits.
+3. **No Bash heredocs containing CJK + LaTeX payloads.** The heredoc body becomes the oversize `Bash.command` string and triggers the same empty-input failure. This explicitly overrides Tier 1's `python3 - <<'PY' ... PY` template for this content shape.
+4. If atomic guarantees are needed, seed-and-Edit into `<target>.tmp` and `mv` at the end. Seed-and-Edit on the live target is not atomic, but a final rename closes the gap.
+
+### When the heredoc Tier 1 IS still safe
+
+- ASCII-only content (no CJK, no smart quotes, no math) under ~3 KB
+- Pure data dumps (JSON, CSV) under ~10 KB
+- One-shot small config writes
+- The `python3` heredoc itself when the *Python source* is small and any CJK lives only in a small inline data dict
+
+If in doubt → seed-and-Edit. The seed-and-Edit recipe is immune to this bug because every tool_use's `input` is small and structurally simple.
+
+### Recovery from a live empty-input failure
+
+1. Do NOT retry the same single-call approach (this is the third-failure-loop trap).
+2. Switch to seed-and-Edit immediately, even if you were mid-Tier-1.5.
+3. If the empty-input failure was the only artifact in the session and the file does not yet exist, just start the seed-and-Edit path from scratch. No state to recover.
+
+### Confirmed failure case
+
+`/Users/mjm/.claude/projects/-Users-mjm-Desktop-Paper-Crash/1c9cbe69-…jsonl` on 2026-05-24 — three consecutive empty-input failures: (1) one `Write` of an entire Chinese LaTeX comparison report, (2) a Bash heredoc embedding the whole Markdown report (Tier 1 path), (3) the same heredoc retried. cache_read 25K, output_tokens 47/74/25. Three failures in a row before user intervention.
+
 ## Scope
 
-This skill covers THREE tiers of file writing reliability:
+This skill covers FOUR tiers of file writing reliability:
 
-1. **Tier 1 — Atomic single-file IO** (replaces Write/Edit): For content under ~12KB. Uses Python `pathlib` + `atomic_write` inside a quoted Bash heredoc.
+0. **Tier 0 — Seed-and-Edit (CJK + LaTeX / multi-section / heredoc-token shapes)**: Mandatory whenever content shape can trigger the Opus 4.7 empty-input bug, regardless of size. Skips Bash heredocs entirely.
 
-2. **Tier 1.5 — Multi-call assembly** (for 12KB-50KB files): Splits content across multiple Bash calls, then assembles atomically. Use this when a single Bash heredoc would exceed the output budget.
+1. **Tier 1 — Atomic single-file IO** (replaces Write/Edit): For ASCII content under ~12KB. Uses Python `pathlib` + `atomic_write` inside a quoted Bash heredoc.
+
+2. **Tier 1.5 — Multi-call assembly** (for 12KB-50KB ASCII files): Splits content across multiple Bash calls, then assembles atomically. Use this when a single Bash heredoc would exceed the output budget.
 
 3. **Tier 2 — Long document pipeline** (replaces single-shot generation of large docs): For documents expected to exceed ~50KB. Uses a five-stage workflow: outline -> chunked generation -> read-back verification -> assembly -> final validation.
 
 **Decision rule**:
-- Content < ~12KB -> Tier 1 (single Bash call)
-- Content 12KB-50KB -> Tier 1.5 (multiple Bash calls + assembly)
-- Content > 50KB -> Tier 2 (full pipeline)
+- Content matches Tier 0 triggers (CJK, LaTeX math, heredoc-tokens, multi-section structured report) -> **Tier 0**, regardless of size
+- ASCII content < ~12KB -> Tier 1 (single Bash call)
+- ASCII content 12KB-50KB -> Tier 1.5 (multiple Bash calls + assembly)
+- Content > 50KB -> Tier 2 (full pipeline; each chunk written via Tier 0 if its content shape matches Tier 0 triggers, else Tier 1)
 
 ---
 

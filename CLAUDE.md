@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. **Claude Code is the primary and default agent host** for every Role. Codex is no longer used to host a Role process directly — it is reachable as a sub-agent through the `codex-subagent` MCP server (`mcp-servers/codex-subagent/`) when a Role wants to delegate high-intensity execution to GPT-5.5. Keep that delegation path working when refactoring; do not ground new Role behavior in Codex-as-host.
 
+## Tool-use input must stay small (Opus 4.7 empty-input bug)
+
+NEVER inline a large payload in a single `tool_use`'s `input` object — neither `Write.content`, `Edit.new_string`, nor `Bash.command` containing a long heredoc. **Hard cap per tool_use input: ~50 lines / ~3 KB of actual payload.**
+
+For anything larger, especially anything matching CJK / LaTeX math / heredoc-tokens / multi-section structured content, use the `reliable-file-io` skill's **Tier 0 seed-and-Edit** recipe (`minions/roles/common/skills/reliable-file-io.md`):
+
+1. Seed the file with one short `Write` (≤50 lines: preamble + closing token).
+2. Append the rest with successive `Edit` calls, each ≤50 lines, inserting before the closing token.
+3. Never put the full document into a Bash heredoc. The heredoc body becomes the oversize `Bash.command` string and triggers the same bug.
+
+**Why this matters here:** every Role process (Noter / Writer / Coder / Ethics / Expert / Gru / review) routinely produces long Markdown / LaTeX / CJK content — Draft summaries, paper sections, review packets, project notes. Those are the exact content shapes that hit the bug. Confirmed failure: `Paper Crash` 2026-05-24, three consecutive `InputValidationError: required parameter ... is missing` on a Chinese LaTeX comparison report; output_tokens 47/74/25, cache_read 25K — not max_tokens, not context length, the model just dropped the long structured field.
+
+This rule overrides any habit of "use reliable-file-io Tier 1's Python heredoc". For Tier-0-trigger content, Tier 1 is unsafe.
+
 ## Project overview
 
 MinionsOS is a local multi-agent operating system for running autonomous research projects. A persistent Gru process supervises many isolated paper-sized projects; each project has its own EACN3 backend, git worktree, artifacts, logs, role drafts, and long-lived Role processes hosted by Claude Code. Roles may delegate high-intensity execution to Codex GPT-5.5 through the `codex-subagent` MCP, but Codex never hosts a Role process directly.

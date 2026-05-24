@@ -221,6 +221,13 @@ If the host cannot launch a subagent: (1) do the smallest safe inline slice,
 remaining work via EACN task or branch commit. This is a safety net, not a
 license to skip delegation.
 
+**When the inline slice is a file write:** never inline a large payload in a
+single `Write.content` / `Edit.new_string` / `Bash.command` heredoc. Cap any
+single tool_use input at ~50 lines / ~3 KB. For CJK + LaTeX / multi-section
+content, follow the `reliable-file-io` skill's **Tier 0 seed-and-Edit** recipe
+unconditionally — Opus 4.7 has a confirmed empty-input failure on those
+content shapes that Tier 1's Bash heredoc does NOT avoid.
+
 ## Subagent handoff contract
 
 Subagents are **EACN-invisible by construction**. They have no
