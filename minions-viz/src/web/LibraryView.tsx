@@ -3,16 +3,10 @@ import { useStore } from "./store";
 
 interface LibraryEntry {
   title: string;
+  path: string;
+  kind: string;
   content: string;
-  tags?: string[];
-  created_at?: string;
   updated_at?: string;
-  links?: string[];
-}
-
-interface LibraryGraph {
-  nodes: Array<{ id: string; label: string; type: string }>;
-  edges: Array<{ source: string; target: string; label?: string }>;
 }
 
 export function LibraryView() {
@@ -21,76 +15,78 @@ export function LibraryView() {
   const port = store.selectedPort;
   const [entries, setEntries] = useState<LibraryEntry[]>([]);
   const [selectedEntry, setSelectedEntry] = useState<LibraryEntry | null>(null);
-  const [viewMode, setViewMode] = useState<"list" | "graph">("list");
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeKind, setActiveKind] = useState<string>("all");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!gruId || port == null) return;
     setLoading(true);
-    fetch(`/api/mos/project/${port}/book?gru=${gruId}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        // Defensive: server may return null/undefined entries on a fresh
-        // project. Without this guard, .filter() / .map() throw and the
-        // whole React tree unmounts (see GitHub Issue / user-Q2: tab lockup).
-        const raw = data && Array.isArray(data.entries) ? data.entries : [];
-        const safe: LibraryEntry[] = raw
-          .filter((e: unknown): e is Record<string, unknown> => !!e && typeof e === "object")
-          .map((e: Record<string, unknown>) => ({
-            title: typeof e.title === "string" ? e.title : "(untitled)",
-            content: typeof e.content === "string" ? e.content : "",
-            tags: Array.isArray(e.tags) ? (e.tags as string[]) : undefined,
-            created_at: typeof e.created_at === "string" ? e.created_at : undefined,
-            updated_at: typeof e.updated_at === "string" ? e.updated_at : undefined,
-            links: Array.isArray(e.links) ? (e.links as string[]) : undefined,
-          }));
-        setEntries(safe);
-        setLoading(false);
-      })
-      .catch(() => {
-        setEntries([]);
-        setLoading(false);
-      });
+    let cancelled = false;
+    const fetchBook = () => {
+      fetch(`/api/mos/project/${port}/book?gru=${gruId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (cancelled) return;
+          const raw = data && Array.isArray(data.entries) ? data.entries : [];
+          const safe: LibraryEntry[] = raw
+            .filter((e: unknown): e is Record<string, unknown> => !!e && typeof e === "object")
+            .map((e: Record<string, unknown>) => ({
+              title: typeof e.title === "string" ? e.title : "(untitled)",
+              path: typeof e.path === "string" ? e.path : "",
+              kind: typeof e.kind === "string" ? e.kind : "root",
+              content: typeof e.content === "string" ? e.content : "",
+              updated_at:
+                typeof e.updated_at === "string"
+                  ? e.updated_at
+                  : typeof e.updated_at === "number"
+                    ? new Date(e.updated_at).toISOString()
+                    : undefined,
+            }));
+          setEntries(safe);
+          setLoading(false);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setEntries([]);
+          setLoading(false);
+        });
+    };
+    fetchBook();
+    const interval = setInterval(fetchBook, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [gruId, port]);
 
-  const filteredEntries = useMemo(() => {
-    if (!searchQuery) return entries;
-    const q = searchQuery.toLowerCase();
-    return entries.filter(
-      (e) =>
-        e.title.toLowerCase().includes(q) ||
-        e.content.toLowerCase().includes(q) ||
-        (e.tags && e.tags.some((t) => t.toLowerCase().includes(q)))
-    );
-  }, [entries, searchQuery]);
-
-  const libraryGraph = useMemo(() => {
-    const nodes = entries.map((e) => ({
-      id: e.title,
-      label: e.title,
-      type: "library-entry",
-    }));
-    const edges: Array<{ source: string; target: string; label?: string }> = [];
-    entries.forEach((e) => {
-      if (e.links) {
-        e.links.forEach((link) => {
-          if (entries.some((entry) => entry.title === link)) {
-            edges.push({ source: e.title, target: link, label: "links-to" });
-          }
-        });
-      }
-    });
-    return { nodes, edges };
+  const kinds = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of entries) set.add(e.kind);
+    return ["all", ...Array.from(set).sort()];
   }, [entries]);
+
+  const filteredEntries = useMemo(() => {
+    let result = entries;
+    if (activeKind !== "all") {
+      result = result.filter((e) => e.kind === activeKind);
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (e) =>
+          e.title.toLowerCase().includes(q) ||
+          e.content.toLowerCase().includes(q) ||
+          e.path.toLowerCase().includes(q),
+      );
+    }
+    return result;
+  }, [entries, searchQuery, activeKind]);
 
   if (!gruId || port == null) {
     return (
-      <div className="library-view empty">
-        <div className="empty-state">
-          <div className="icon">📚</div>
-          <div className="message">Select a project to view library entries</div>
-        </div>
+      <div className="library-view loading">
+        <div className="spinner">Loading library…</div>
       </div>
     );
   }
@@ -110,77 +106,66 @@ export function LibraryView() {
           <input
             type="text"
             className="library-search"
-            placeholder="Search library entries..."
+            placeholder="Search book entries…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
-          <div className="view-toggle">
-            <button
-              className={viewMode === "list" ? "active" : ""}
-              onClick={() => setViewMode("list")}
-            >
-              📝 List
-            </button>
-            <button
-              className={viewMode === "graph" ? "active" : ""}
-              onClick={() => setViewMode("graph")}
-            >
-              🕸️ Graph
-            </button>
+          <div className="library-kind-filters">
+            {kinds.map((k) => (
+              <button
+                key={k}
+                className={`library-kind-chip${activeKind === k ? " active" : ""}`}
+                onClick={() => setActiveKind(k)}
+              >
+                {k}
+              </button>
+            ))}
           </div>
         </div>
         <div className="library-stats">
           <span>{filteredEntries.length} entries</span>
-          {searchQuery && <span>· filtered from {entries.length}</span>}
+          {(searchQuery || activeKind !== "all") && (
+            <span>· filtered from {entries.length}</span>
+          )}
         </div>
       </div>
 
-      {viewMode === "list" ? (
-        <div className="library-list">
-          {filteredEntries.length === 0 ? (
-            <div className="empty-state">
-              <div className="icon">📭</div>
-              <div className="message">
-                {searchQuery ? "No matching entries found" : "No library entries yet"}
-              </div>
+      <div className="library-list">
+        {filteredEntries.length === 0 ? (
+          <div className="empty-state">
+            <div className="icon">📭</div>
+            <div className="message">
+              {searchQuery || activeKind !== "all"
+                ? "No matching entries"
+                : "Book is empty — Noter has not ingested any sources yet"}
             </div>
-          ) : (
-            filteredEntries.map((entry, idx) => (
-              <div
-                key={idx}
-                className={`library-entry ${selectedEntry === entry ? "selected" : ""}`}
-                onClick={() => setSelectedEntry(entry)}
-              >
-                <div className="entry-header">
-                  <h3>{entry.title}</h3>
-                  {entry.tags && entry.tags.length > 0 && (
-                    <div className="entry-tags">
-                      {entry.tags.map((tag, i) => (
-                        <span key={i} className="tag">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="entry-preview">
-                  {entry.content.substring(0, 200)}
-                  {entry.content.length > 200 && "..."}
-                </div>
-                {entry.updated_at && (
-                  <div className="entry-meta">
-                    Updated: {new Date(entry.updated_at).toLocaleDateString()}
-                  </div>
-                )}
+          </div>
+        ) : (
+          filteredEntries.map((entry, idx) => (
+            <div
+              key={entry.path || idx}
+              className={`library-entry ${selectedEntry?.path === entry.path ? "selected" : ""}`}
+              onClick={() => setSelectedEntry(entry)}
+            >
+              <div className="entry-header">
+                <h3>{entry.title}</h3>
+                <span className="tag" style={{ color: "var(--role-noter)" }}>
+                  {entry.kind}
+                </span>
               </div>
-            ))
-          )}
-        </div>
-      ) : (
-        <div className="library-graph-view">
-          <LibraryGraphCanvas graph={libraryGraph} />
-        </div>
-      )}
+              <div className="entry-preview">
+                {entry.content.substring(0, 240)}
+                {entry.content.length > 240 && "…"}
+              </div>
+              {entry.updated_at && (
+                <div className="entry-meta">
+                  Updated: {new Date(entry.updated_at).toLocaleString()}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
 
       {selectedEntry && (
         <div className="library-detail-panel">
@@ -191,51 +176,18 @@ export function LibraryView() {
             </button>
           </div>
           <div className="panel-content">
+            <div className="entry-meta" style={{ marginBottom: 12 }}>
+              <span className="tag" style={{ color: "var(--role-noter)" }}>
+                {selectedEntry.kind}
+              </span>
+              <span style={{ marginLeft: 8, fontFamily: "var(--font-mono)", fontSize: 11 }}>
+                {selectedEntry.path}
+              </span>
+            </div>
             <div className="entry-full-content">{selectedEntry.content}</div>
-            {selectedEntry.links && selectedEntry.links.length > 0 && (
-              <div className="entry-links">
-                <h4>Links</h4>
-                <ul>
-                  {selectedEntry.links.map((link, i) => (
-                    <li key={i}>
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          const linked = entries.find((e) => e.title === link);
-                          if (linked) setSelectedEntry(linked);
-                        }}
-                      >
-                        {link}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function LibraryGraphCanvas({ graph }: { graph: LibraryGraph }) {
-  useEffect(() => {
-    // TODO: D3 force-directed graph; mirror DraftView style.
-  }, [graph]);
-
-  return (
-    <div className="graph-canvas">
-      <svg width="100%" height="100%">
-        <text x="50%" y="50%" textAnchor="middle" fill="#666">
-          Graph visualization coming soon...
-        </text>
-      </svg>
-      <div className="graph-stats">
-        <span>{graph.nodes.length} nodes</span>
-        <span>{graph.edges.length} edges</span>
-      </div>
     </div>
   );
 }

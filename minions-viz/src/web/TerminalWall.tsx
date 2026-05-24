@@ -7,18 +7,19 @@ import { roleBucket, ROLE_BUCKETS, agentShortTag } from "./roleIdentity";
 import { subscribeRoleLog, unsubscribeRoleLog, useRoleLog } from "./store";
 
 /**
- * Terminal grid, grouped by role bucket: each role bucket occupies one row,
- * with its instances laid out as equal-size panes.
+ * Terminal grid styled after Minions Code (SwiftTerm). All panes share the
+ * same width regardless of how many panes a given role row has — so a single
+ * Noter pane is the same width as a Coder pane in a four-coder row.
  *
- * Each pane mounts a real xterm.js emulator instead of a plain `<div>`. This
- * mirrors the MinionsCode macOS app's SwiftTerm-based terminal — ANSI colors
- * render, cursor positioning works, line wrapping respects the pane width,
- * and the pane looks like a real terminal instead of a partially-stripped
- * text dump.
+ * We pick one global column count (= max instances in any one role) and lay
+ * every row out on that grid. Rows with fewer panes leave the rightmost
+ * columns empty rather than stretching their content.
  */
 interface Props {
   agents: AgentInfo[];
 }
+
+const MAX_COLS = 3;
 
 export default function TerminalWall({ agents }: Props) {
   const rows = useMemo(() => {
@@ -41,6 +42,11 @@ export default function TerminalWall({ agents }: Props) {
     }));
   }, [agents]);
 
+  const cols = useMemo(() => {
+    const maxRow = rows.reduce((acc, r) => Math.max(acc, r.items.length), 1);
+    return Math.min(MAX_COLS, Math.max(1, maxRow));
+  }, [rows]);
+
   if (agents.length === 0) {
     return (
       <div className="terminal-wall empty-wall">
@@ -56,12 +62,14 @@ export default function TerminalWall({ agents }: Props) {
           <div className="term-row-label" style={{ color: row.bucket.color }}>
             <span className="tint" style={{ background: row.bucket.color }} />
             {row.bucket.label}
-            <span style={{ color: "var(--muted)", marginLeft: 8 }}>× {row.items.length}</span>
+            <span style={{ color: "var(--muted)", marginLeft: 8 }}>
+              × {row.items.length}
+            </span>
           </div>
           <div
             className="term-row-grid"
             style={{
-              gridTemplateColumns: `repeat(${Math.min(row.items.length, 4)}, minmax(0, 1fr))`,
+              gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
             }}
           >
             {row.items.map((a) => (
@@ -84,7 +92,6 @@ function TerminalPane({ agent }: { agent: AgentInfo }) {
   const writtenRef = useRef<number>(0);
   const buffer = useRoleLog(role);
 
-  // Subscribe to the role's log stream once per pane.
   useEffect(() => {
     subscribeRoleLog(role);
     return () => {
@@ -92,21 +99,22 @@ function TerminalPane({ agent }: { agent: AgentInfo }) {
     };
   }, [role]);
 
-  // Mount the xterm.js terminal once, on first render.
   useEffect(() => {
     if (!containerRef.current) return;
     const term = new Terminal({
       fontFamily:
-        'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, "Liberation Mono", "Courier New", monospace',
-      fontSize: 11,
-      lineHeight: 1.25,
+        'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, "JetBrains Mono", "Liberation Mono", "Courier New", monospace',
+      fontSize: 12,
+      lineHeight: 1.3,
+      letterSpacing: 0,
       cursorBlink: false,
       cursorStyle: "block",
       scrollback: 5000,
-      convertEol: true, // MinionsOS log streams have plain '\n', no '\r\n'
-      disableStdin: true, // read-only observatory; do not capture keys
+      convertEol: true,
+      disableStdin: true,
+      allowTransparency: false,
       theme: {
-        background: "#0a0d12",
+        background: "#0b0e15",
         foreground: "#d4d8e0",
         cursor: "#7a8aa8",
         selectionBackground: "rgba(125,146,180,0.35)",
@@ -134,8 +142,7 @@ function TerminalPane({ agent }: { agent: AgentInfo }) {
     try {
       fit.fit();
     } catch {
-      // first fit can throw if the container is 0x0; the resize observer
-      // below will retry on the next layout pass.
+      // first fit can throw if the container is 0x0; resize observer retries
     }
     termRef.current = term;
     fitRef.current = fit;
@@ -158,14 +165,11 @@ function TerminalPane({ agent }: { agent: AgentInfo }) {
     };
   }, []);
 
-  // Stream the role log into the terminal incrementally, avoiding repeated
-  // full rewrites that would clear the screen on every batch.
   useEffect(() => {
     const term = termRef.current;
     if (!term || paused) return;
     const written = writtenRef.current;
     if (buffer.length < written) {
-      // Buffer was reset (e.g. role restarted) — wipe and rewrite.
       term.reset();
       term.write(buffer);
       writtenRef.current = buffer.length;
@@ -183,22 +187,30 @@ function TerminalPane({ agent }: { agent: AgentInfo }) {
   );
 
   return (
-    <div className="term-pane">
+    <div className="term-pane" style={{ ["--pane-color" as string]: bucket.color }}>
       <header>
-        <span className="swatch" style={{ background: bucket.color, color: bucket.color }} />
+        <div className="term-traffic">
+          <span className="dot dot-r" />
+          <span className="dot dot-y" />
+          <span className="dot dot-g" />
+        </div>
         <span className="title">
-          <span style={{ color: bucket.color }}>{bucket.label}</span>
-          <span style={{ color: "var(--muted)" }}> · {agent.name || agent.agent_id}</span>
+          <span style={{ color: bucket.color, fontWeight: 600 }}>
+            {bucket.label}
+          </span>
+          <span style={{ color: "var(--muted)" }}>
+            {" "}· {agent.name || agent.agent_id}
+          </span>
         </span>
         <span className="meta">{agentShortTag(agent.agent_id)}</span>
         <span className="meta">{lineCount} ln</span>
         <button
-          className="chip"
-          style={{ height: 22, padding: "0 10px", fontSize: 10 }}
+          className="term-action"
           onClick={() => setPaused((p) => !p)}
           aria-pressed={paused}
+          title={paused ? "Resume tail" : "Pause tail"}
         >
-          {paused ? "follow" : "pause"}
+          {paused ? "▶" : "❚❚"}
         </button>
       </header>
       <div className="term-body" ref={containerRef} />

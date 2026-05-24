@@ -3,7 +3,7 @@ import { Canvas, extend } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { XR } from "@react-three/xr";
 import * as THREE from "three";
-import type { AgentInfo, MosProject } from "@shared/types";
+import type { AgentInfo, Message, MosProject } from "@shared/types";
 import { roleBucket, ROLE_BUCKETS } from "../roleIdentity";
 import { isGruAgent } from "../store";
 import type { AgentActivity } from "../activity";
@@ -11,12 +11,14 @@ import OrbitLanes, { type Lane } from "./OrbitLanes";
 import Nebula from "./Starfield";
 import ProjectCore from "./ProjectCore";
 import AgentSphere from "./AgentSphere";
+import MessagePackets from "./MessagePackets";
 
 extend(THREE as unknown as Record<string, unknown>);
 
 interface Props {
   project: MosProject | null;
   agents: AgentInfo[];
+  messages: Message[];
   activity: Map<string, AgentActivity>;
   selectedId: string | null;
   hoveredId: string | null;
@@ -94,6 +96,7 @@ export { xrStore } from "./xrStore";
 export default function UniverseScene({
   project,
   agents,
+  messages,
   activity,
   selectedId,
   hoveredId,
@@ -105,6 +108,27 @@ export default function UniverseScene({
     () => layoutAgents(agents),
     [agents],
   );
+
+  // Snapshot the static phase positions for message-packet endpoints.
+  // (Live positions would require AgentSphere to publish them; using the
+  // phase position is "good enough" since packets last ~2s.)
+  const packetEndpoints = useMemo(() => {
+    const m = new Map<string, { x: number; y: number; z: number }>();
+    if (gru) m.set(gru.agent_id, { x: 0, y: 0, z: 0 });
+    for (const p of placements) {
+      const tiltMatrix = new THREE.Matrix4()
+        .makeRotationX(p.tiltX)
+        .multiply(new THREE.Matrix4().makeRotationZ(p.tiltZ));
+      const v = new THREE.Vector3(
+        Math.cos(p.phase) * p.radius,
+        0,
+        Math.sin(p.phase) * p.radius,
+      );
+      v.applyMatrix4(tiltMatrix);
+      m.set(p.agent.agent_id, { x: v.x, y: v.y, z: v.z });
+    }
+    return m;
+  }, [placements, gru]);
 
   return (
     <Canvas
@@ -160,6 +184,8 @@ export default function UniverseScene({
             />
           );
         })}
+
+        <MessagePackets messages={messages} placements={packetEndpoints} />
 
         <OrbitControls
           ref={camRef}

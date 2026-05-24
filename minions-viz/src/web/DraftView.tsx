@@ -527,6 +527,16 @@ export default function DraftView() {
 
   const nodeMap = useMemo(() => new Map(simNodes.map((n) => [n.id, n])), [simNodes]);
 
+  if (!gruId || port == null) {
+    return (
+      <div className="draft-wrap">
+        <div className="empty">
+          <span style={{ fontSize: 14 }}>Loading draft…</span>
+        </div>
+      </div>
+    );
+  }
+
   if (!draft || (draft.nodes.length === 0 && !draft.root_question)) {
     return (
       <div className="draft-wrap">

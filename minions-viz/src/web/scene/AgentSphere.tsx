@@ -90,18 +90,9 @@ export default function AgentSphere({
   const color = bucket.color;
   const baseSize = 0.24 + Math.min(agent.reputation ?? 0.5, 1) * 0.18;
 
-  // Precompute idle position so idle agents sit on the ring at `phase`.
-  const idlePos = useMemo(() => {
-    const v = new THREE.Vector3(
-      Math.cos(phase) * radius,
-      0,
-      Math.sin(phase) * radius,
-    );
-    v.applyMatrix4(tiltMatrix);
-    return v;
-  }, [phase, radius, tiltMatrix]);
-
-  // Per-agent angle tracker with inertia so active agents don't pile up.
+  // Per-agent angle tracker. Roles always advance — Noter and Ethics may not
+  // register EACN traffic but they are long-lived processes, not asleep.
+  // "Active" only modulates speed and pulse, not whether the orbit moves.
   const angleRef = useRef(phase);
 
   useFrame((state3, delta) => {
@@ -109,24 +100,20 @@ export default function AgentSphere({
     if (!gRef) return;
     const t = state3.clock.elapsedTime;
 
-    if (state === "active") {
-      // Advance angle with eased inertia so transitioning idle→active glides.
-      angleRef.current += speed * delta;
-      const a = angleRef.current;
-      orbitPosRef.current
-        .set(Math.cos(a) * radius, 0, Math.sin(a) * radius)
-        .applyMatrix4(tiltMatrix);
-      gRef.position.copy(orbitPosRef.current);
-    } else {
-      // Idle: snap toward the phase's ring position smoothly.
-      angleRef.current = phase;
-      gRef.position.lerp(idlePos, Math.min(1, delta * 3.5));
-    }
+    // Always orbit. Active roles glide ~3× faster than idle baseline.
+    const baseSpeed = speed * 0.35;
+    const activeSpeed = speed;
+    angleRef.current += (state === "active" ? activeSpeed : baseSpeed) * delta;
+    const a = angleRef.current;
+    orbitPosRef.current
+      .set(Math.cos(a) * radius, 0, Math.sin(a) * radius)
+      .applyMatrix4(tiltMatrix);
+    gRef.position.copy(orbitPosRef.current);
 
     // Rotate on local axis for visual life; active spins faster.
     if (meshRef.current) {
-      meshRef.current.rotation.x += delta * (state === "active" ? 0.8 : 0.15);
-      meshRef.current.rotation.y += delta * (state === "active" ? 1.1 : 0.2);
+      meshRef.current.rotation.x += delta * (state === "active" ? 0.8 : 0.2);
+      meshRef.current.rotation.y += delta * (state === "active" ? 1.1 : 0.3);
     }
 
     // Pending ring rotation speed scales with pending count.
@@ -139,13 +126,17 @@ export default function AgentSphere({
       }
     }
 
-    // Pulse only when active.
-    const pulse = state === "active" ? 1 + Math.sin(t * 2.6) * 0.06 : 1;
+    // Subtle pulse for idle, stronger for active.
+    const pulse =
+      state === "active"
+        ? 1 + Math.sin(t * 2.6) * 0.06
+        : 1 + Math.sin(t * 1.2) * 0.025;
     const scl = pulse * (selected || hovered ? 1.25 : 1);
     if (meshRef.current) meshRef.current.scale.setScalar(scl);
   });
 
-  const dim = state === "idle" ? 0.5 : 1;
+  // Idle roles dim slightly but stay visible — they're alive, just quiet.
+  const dim = state === "idle" ? 0.72 : 1;
   const ringColor = pendingEvents > 20
     ? "#ef4444"
     : pendingEvents > 10

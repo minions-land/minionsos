@@ -297,6 +297,22 @@ export function projectByPort(
   return projects.find((p) => p.port === port) ?? null;
 }
 
+/**
+ * True when the user has already made a selection (either reflected in the
+ * live snapshot, or persisted in localStorage from a prior session). Used by
+ * App.tsx to keep Draft/Book/etc. mounted across snapshot transitions instead
+ * of flashing back to the picker every time the WS snapshot rewrites the
+ * store with empty grus[] before grus:update lands.
+ */
+export function hasSavedSelection(
+  liveGruId: string | null,
+  livePort: number | null,
+): boolean {
+  if (liveGruId && livePort != null) return true;
+  const saved = loadSelection();
+  return saved.gruId != null && saved.port != null;
+}
+
 /** Flag an agent as "the Gru" (star), vs planetary role. */
 export function isGruAgent(agentId: string, name?: string): boolean {
   const s = (agentId + " " + (name ?? "")).toLowerCase();

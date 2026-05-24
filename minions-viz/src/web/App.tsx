@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import type { AgentInfo } from "@shared/types";
-import { useStore, gruById, projectByPort } from "./store";
+import { useStore, gruById, projectByPort, hasSavedSelection } from "./store";
 import { computeActivity } from "./activity";
 import TopBar from "./TopBar";
 import Picker from "./Picker";
@@ -11,12 +11,11 @@ import AgentRoster from "./AgentRoster";
 import AgentDetail from "./AgentDetail";
 import MetricHUD from "./MetricHUD";
 import EventLog from "./EventLog";
-import Adjudication from "./Adjudication";
 import DraftView from "./DraftView";
 import { LibraryView } from "./LibraryView";
 import { ViewErrorBoundary } from "./ErrorBoundary";
 
-type View = "universe" | "tasks" | "terminals" | "events" | "adjudication" | "draft" | "book";
+type View = "universe" | "tasks" | "terminals" | "events" | "draft" | "book";
 
 export default function App() {
   const store = useStore();
@@ -59,7 +58,9 @@ export default function App() {
     [store.agents, store.tasks, store.messages, project],
   );
 
-  const showPicker = !gru || !project;
+  const showPicker =
+    !hasSavedSelection(store.selectedGruId, store.selectedPort) &&
+    (!gru || !project);
 
   const adjCount = useMemo(
     () => store.tasks.filter((t) => t.type === "adjudication").length,
@@ -87,6 +88,7 @@ export default function App() {
                 <UniverseScene
                   project={project}
                   agents={store.agents}
+                  messages={store.messages}
                   activity={activity}
                   selectedId={selectedId}
                   hoveredId={hoveredId}
@@ -140,12 +142,9 @@ export default function App() {
               <EventLog
                 logs={store.logs}
                 messages={store.messages}
+                tasks={store.tasks}
                 agents={store.agents}
               />
-            )}
-
-            {view === "adjudication" && (
-              <Adjudication tasks={store.tasks} agents={store.agents} />
             )}
 
             {view === "draft" && (
@@ -176,6 +175,11 @@ export default function App() {
           disabled={showPicker}
         >
           Tasks · {store.tasks.length}
+          {adjCount > 0 && (
+            <span style={{ color: "#fcd34d", marginLeft: 4 }}>
+              ⚖ {adjCount}
+            </span>
+          )}
         </button>
         <button
           className={"tab" + (view === "terminals" ? " active" : "")}
@@ -190,13 +194,6 @@ export default function App() {
           disabled={showPicker}
         >
           Events · {store.logs.length + store.messages.length}
-        </button>
-        <button
-          className={"tab" + (view === "adjudication" ? " active" : "")}
-          onClick={() => setView("adjudication")}
-          disabled={showPicker}
-        >
-          Adjudication · {adjCount}
         </button>
         <button
           className={"tab" + (view === "draft" ? " active" : "")}
