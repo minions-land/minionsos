@@ -209,13 +209,26 @@ def doctor(
     # tmux — every Role launches inside a named tmux session via
     # minions/lifecycle/role_launcher.py. Without tmux, role spawn silently
     # no-ops and the EACN bus stays dark even though Gru looks healthy.
+    # Platform note: on native Windows (cmd / PowerShell) tmux does not exist;
+    # the supported path is WSL2 where uname returns "Linux" and apt-get tmux
+    # works the same as on a regular Linux host.
     try:
         tr = subprocess.run(["tmux", "-V"], capture_output=True, text=True)
         tmux_ok = tr.returncode == 0
-        tmux_detail = tr.stdout.strip() if tmux_ok else "tmux not on PATH — Roles cannot launch"
+        if tmux_ok:
+            tmux_detail = tr.stdout.strip()
+        else:
+            tmux_detail = (
+                "tmux not on PATH — Roles cannot launch. "
+                "macOS: brew install tmux. Linux: apt-get/dnf/pacman install tmux. "
+                "Windows: use WSL2 (wsl --install -d Ubuntu)."
+            )
     except FileNotFoundError:
         tmux_ok = False
-        tmux_detail = "tmux not installed — run ./install.sh or install manually"
+        tmux_detail = (
+            "tmux not installed — run ./install.sh, or install manually "
+            "(brew/apt-get/dnf/pacman). On Windows use WSL2."
+        )
     _check("tmux", tmux_ok, tmux_detail)
 
     # Author seed repo is a git repo (required for project_create — its HEAD

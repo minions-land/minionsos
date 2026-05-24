@@ -76,6 +76,14 @@ fi
 # circuits on _have_tmux() == False) and the entire MinionsOS bus is dark even
 # though Gru looks healthy. So this is FATAL: try to install once, surface the
 # package-manager output if it fails, and stop here.
+#
+# Platform notes:
+# - macOS (Darwin): brew
+# - Linux (incl. WSL2 — `uname -s` returns "Linux"): apt-get / dnf / pacman
+# - MSYS2 / Git-Bash on Windows: pacman against the MSYS repo
+# - Cygwin on Windows: apt-cyg if installed; otherwise point to setup-x86_64.exe
+# - Native Windows shells (cmd, PowerShell) cannot run this script at all and
+#   should use WSL2 — that path is covered by the Linux branch automatically.
 ensure_tmux() {
     if command -v tmux &>/dev/null; then
         ok "tmux already present: $(tmux -V)"
@@ -110,8 +118,37 @@ ensure_tmux() {
                 die "tmux is missing and no supported package manager (apt-get/dnf/pacman) found.\n       Install tmux manually, then re-run ./install.sh."
             fi
             ;;
+        MINGW*|MSYS*)
+            # MSYS2 / Git-Bash on Windows. tmux ships in the MSYS repo
+            # (`pacman -S tmux`); MinGW shells share that pacman binary.
+            # Note: MinionsOS as a whole is best-supported on WSL2 — running
+            # under raw MSYS2 may surface other issues (path translation,
+            # subprocess semantics). We install tmux here so install.sh can
+            # finish, but flag the platform.
+            warn "Detected MSYS2 / Git-Bash on Windows."
+            warn "MinionsOS is best-supported on WSL2; raw MSYS2 may have rough edges."
+            warn "Consider: wsl --install -d Ubuntu, then re-run ./install.sh inside WSL2."
+            if ! command -v pacman &>/dev/null; then
+                die "tmux is missing and pacman is not on PATH inside this MSYS2/MinGW shell.\n       Install via the MSYS2 installer (https://www.msys2.org), then re-run ./install.sh,\n       or switch to WSL2 (recommended)."
+            fi
+            if ! pacman -S --noconfirm tmux; then
+                die "pacman -S tmux failed under MSYS2.\n       Open MSYS2 MSYS shell (not MinGW64), run: pacman -Syu && pacman -S tmux\n       Then re-run ./install.sh, or switch to WSL2 (recommended)."
+            fi
+            ;;
+        CYGWIN*)
+            warn "Detected Cygwin on Windows."
+            warn "MinionsOS is best-supported on WSL2; Cygwin is untested for the full stack."
+            warn "Consider: wsl --install -d Ubuntu, then re-run ./install.sh inside WSL2."
+            if command -v apt-cyg &>/dev/null; then
+                if ! apt-cyg install tmux; then
+                    die "apt-cyg install tmux failed.\n       Re-run Cygwin's setup-x86_64.exe and select the 'tmux' package manually,\n       or switch to WSL2 (recommended)."
+                fi
+            else
+                die "tmux is missing under Cygwin and apt-cyg is not installed.\n       Re-run setup-x86_64.exe (https://www.cygwin.com/install.html) and select 'tmux',\n       or switch to WSL2 (recommended): wsl --install -d Ubuntu"
+            fi
+            ;;
         *)
-            die "tmux is missing and this OS ($(uname -s)) has no automatic install path.\n       Install tmux manually (it is a hard runtime dependency), then re-run ./install.sh."
+            die "tmux is missing and this OS ($(uname -s)) has no automatic install path.\n       Install tmux manually (it is a hard runtime dependency), then re-run ./install.sh.\n       On Windows, the supported path is WSL2: wsl --install -d Ubuntu"
             ;;
     esac
 
