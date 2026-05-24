@@ -206,6 +206,18 @@ def doctor(
     r = subprocess.run(["git", "--version"], capture_output=True, text=True)
     _check("git", r.returncode == 0, r.stdout.strip())
 
+    # tmux — every Role launches inside a named tmux session via
+    # minions/lifecycle/role_launcher.py. Without tmux, role spawn silently
+    # no-ops and the EACN bus stays dark even though Gru looks healthy.
+    try:
+        tr = subprocess.run(["tmux", "-V"], capture_output=True, text=True)
+        tmux_ok = tr.returncode == 0
+        tmux_detail = tr.stdout.strip() if tmux_ok else "tmux not on PATH — Roles cannot launch"
+    except FileNotFoundError:
+        tmux_ok = False
+        tmux_detail = "tmux not installed — run ./install.sh or install manually"
+    _check("tmux", tmux_ok, tmux_detail)
+
     # Author seed repo is a git repo (required for project_create — its HEAD
     # is imported into each project's per-project bare repo).
     from minions.lifecycle.project import author_repo

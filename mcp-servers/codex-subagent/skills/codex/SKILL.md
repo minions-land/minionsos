@@ -112,16 +112,44 @@ Agent(
   model: "haiku",
   run_in_background: true,
   prompt: """
-ROLE: You are a mechanical relay between the main agent and the codex MCP tool.
-You do not think about the task; you do not evaluate codex's output; you do not
-add commentary. You execute the steps below verbatim and stop.
+HARD ROLE BINDING — read this twice before doing anything:
 
-STEP 1 — call codex MCP with these EXACT args:
-  task: "<the user task — VERBATIM, no rewriting>"
-  cwd: "<absolute path>"
-  sandbox: "danger-full-access"
-  reasoning_effort: "xhigh"
-  timeout_seconds: <user-specified or 1800>
+You are a mechanical relay. The main agent dispatched you for ONE reason: to
+call mcp__codex-subagent__codex on its behalf. The codex MCP tool is the
+actor; you are the postal worker. You do not think about the task, evaluate
+codex's output, "verify what codex would have done", or attempt the task
+yourself if it looks doable.
+
+CONTRACT (violations = failed dispatch, reported as STATUS: relay_self_executed):
+  1. Your FIRST tool call MUST be `mcp__codex-subagent__codex(...)`. Not Bash,
+     not Read, not Write, not Edit, not Grep, not Glob, not Skill, not Agent.
+     If your first tool call is anything else, you have already failed.
+  2. You MUST NOT load any Skill (including the `codex` skill itself).
+     Everything you need to know is in this prompt.
+  3. You MUST NOT do the user's task with Bash + Read + Write yourself, even
+     if it looks like a small task and you "could just do it". The whole
+     point of this dispatch is that the main agent already decided codex
+     should do it. Re-deciding that is out of scope for you.
+  4. After codex returns, you copy its structured fields back. You do not
+     add interpretation, do not run verification commands, do not "check
+     codex's work". Codex is xhigh-reasoning; it does not need a Haiku
+     audit.
+
+STEP 1 — call mcp__codex-subagent__codex with these EXACT args (this MUST
+be your first tool call):
+
+  mcp__codex-subagent__codex(
+    task: "<the user task — VERBATIM, no rewriting>",
+    cwd: "<absolute path>",
+    sandbox: "danger-full-access",
+    reasoning_effort: "xhigh",
+    timeout_seconds: <user-specified or 1800>
+  )
+
+If the codex tool is not available in your tool list, that itself is a
+dispatch failure: skip directly to STEP 5 with STATUS: codex_unavailable
+and ROOT_CAUSE: "mcp__codex-subagent__codex not registered in this session".
+Do NOT fall back to doing the task yourself.
 
 STEP 2 — branch on the result:
 
@@ -208,14 +236,30 @@ Agent(
   model: "haiku",
   run_in_background: true,
   prompt: """
-ROLE: mechanical relay to codex MCP. No interpretation, no retries.
+HARD ROLE BINDING — read this twice before doing anything:
 
-STEP 1 — call mcp__codex-subagent__codex with EXACT args:
-  task: "<the user task — VERBATIM>"
-  cwd: "<absolute path>"
-  sandbox: "<read-only | danger-full-access>"
-  reasoning_effort: "xhigh"
-  timeout_seconds: <user-specified or 600>
+You are a mechanical relay. Your FIRST tool call MUST be
+`mcp__codex-subagent__codex(...)`. Not Bash, not Read, not Skill, not Agent.
+You do NOT do the task yourself, even if it looks small. The main agent
+already decided codex should do it; re-deciding that is out of scope.
+Do NOT load any Skill (including the `codex` skill itself) — everything
+you need is in this prompt. No interpretation, no retries, no verification.
+
+STEP 1 — call mcp__codex-subagent__codex with EXACT args (this MUST be
+your first tool call):
+
+  mcp__codex-subagent__codex(
+    task: "<the user task — VERBATIM>",
+    cwd: "<absolute path>",
+    sandbox: "<read-only | danger-full-access>",
+    reasoning_effort: "xhigh",
+    timeout_seconds: <user-specified or 600>
+  )
+
+If the codex tool is not in your tool list, skip to STEP 2 with
+STATUS: codex_unavailable, RAW_MESSAGE: "mcp__codex-subagent__codex not
+registered in this session", EXIT_CODE: -1, COMMANDS_RUN: 0. Do NOT fall
+back to doing the task yourself.
 
 STEP 2 — report. No commentary.
 
@@ -261,6 +305,17 @@ After the Agent dispatch returns its task_id, follow the wait_bg loop:
    - **STEP 4 success** — fields starting with `STATUS: success` plus `FILES_CHANGED`, `SUMMARY`, `KEY_FINDINGS`, `RETRIES_USED`, `RETRY_LOG`. Treat the work as done and present results (Step 6).
    - **STEP 5 failure** — fields starting with `STATUS: codex_unavailable | codex_error | codex_timeout` plus `ROOT_CAUSE`, `HANDBOOK_ENTRY`, `ATTEMPTS`, `RETRY_LOG`, `RAW_MESSAGE`, `COMMANDS_RUN`. Go to Step 5 (fallback decision) below. Note the relay deliberately omits any `RECOMMENDATION` line — that decision is yours.
 
+5. **Contract-violation check (BEFORE you trust a STEP 4 success record):** if
+   the report says `STATUS: success` but the `TOKENS` line shows
+   `input=0 output=0` (or the field is missing), the relay almost certainly
+   did the task with its own Bash/Read/Write tools instead of calling codex.
+   That is the `relay_self_executed` failure mode. Discard the report and
+   apply the `relay_self_executed` row in Step 5's fallback table — do NOT
+   present Haiku-quality work as though it came from codex xhigh. (For
+   genuine read-only analysis dispatched via Step 3-Mini with `sandbox:
+   read-only`, codex still spends input tokens reading the cwd, so
+   `input=0` is the same red flag there.)
+
 The `bg_keepalive_nudge` hook fires automatically when the Agent is dispatched in bg mode and reminds you of this loop. Trust it.
 
 ---
@@ -304,6 +359,7 @@ This fires when:
 | `timeout or hang at <elapsed>s` | Decide: re-dispatch as Step 3 with a larger `timeout_seconds`, or split per Step 4. Consider the user's latency budget. |
 | `API rate-limited` / `persistent upstream 5xx after one retry` | Wait briefly (the user is watching) and re-dispatch the same Step 3 call. If it fails twice in a row, fall back to Sonnet. |
 | `unknown` / handbook had no entry | Fall back to Sonnet AND record the new failure mode at the end of the response so a handbook entry can be added later. |
+| `relay_self_executed` (Haiku did the task itself instead of relaying to codex) | Discard the relay's output entirely — it was produced by a Haiku, not by codex xhigh, so depth-of-reasoning is wrong by construction. Re-dispatch the same task through Step 3 with an explicit reminder in the prompt header ("HAIKU PRIOR RUN BROKE CONTRACT — codex MCP is your first tool call, no exceptions"). If the second relay also self-executes, escalate to Sonnet AND surface the contract-violation event so the SKILL prompt can be hardened further. |
 
 ### Sonnet subagent fallback dispatch:
 

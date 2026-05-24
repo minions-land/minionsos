@@ -69,6 +69,59 @@ if [ ! -f "$ROOT/mcp-servers/eacn3/pyproject.toml" ] && [ ! -f "$ROOT/mcp-server
     die "EACN3 source is missing or empty at mcp-servers/eacn3/.\n       Run: git submodule update --init --recursive\n       Then re-run ./install.sh"
 fi
 
+# ── 0b. tmux (hard runtime dependency) ────────────────────────────────────────
+# Every Role process is launched inside a named tmux session by
+# minions/lifecycle/role_launcher.py (sessions named mos-{port}-{role}). Without
+# tmux, mos_spawn_role / mos_spawn_expert silently no-op (session_alive() short-
+# circuits on _have_tmux() == False) and the entire MinionsOS bus is dark even
+# though Gru looks healthy. So this is FATAL: try to install once, surface the
+# package-manager output if it fails, and stop here.
+ensure_tmux() {
+    if command -v tmux &>/dev/null; then
+        ok "tmux already present: $(tmux -V)"
+        return 0
+    fi
+
+    info "tmux not found — Roles cannot launch without it. Attempting to install..."
+    case "$(uname -s)" in
+        Darwin)
+            if ! command -v brew &>/dev/null; then
+                die "tmux is missing and Homebrew is not installed.\n       Install Homebrew (https://brew.sh) and re-run ./install.sh,\n       or install tmux manually: brew install tmux"
+            fi
+            if ! brew install tmux; then
+                die "brew install tmux failed. Inspect the output above and install tmux manually,\n       then re-run ./install.sh."
+            fi
+            ;;
+        Linux)
+            if command -v apt-get &>/dev/null; then
+                sudo apt-get update -y || die "apt-get update failed."
+                if ! sudo apt-get install -y tmux; then
+                    die "apt-get install tmux failed. Install tmux manually,\n       then re-run ./install.sh."
+                fi
+            elif command -v dnf &>/dev/null; then
+                if ! sudo dnf install -y tmux; then
+                    die "dnf install tmux failed. Install tmux manually, then re-run ./install.sh."
+                fi
+            elif command -v pacman &>/dev/null; then
+                if ! sudo pacman -S --noconfirm tmux; then
+                    die "pacman -S tmux failed. Install tmux manually, then re-run ./install.sh."
+                fi
+            else
+                die "tmux is missing and no supported package manager (apt-get/dnf/pacman) found.\n       Install tmux manually, then re-run ./install.sh."
+            fi
+            ;;
+        *)
+            die "tmux is missing and this OS ($(uname -s)) has no automatic install path.\n       Install tmux manually (it is a hard runtime dependency), then re-run ./install.sh."
+            ;;
+    esac
+
+    if ! command -v tmux &>/dev/null; then
+        die "tmux installation reported success but tmux is still not on PATH.\n       Open a new shell so the installer's PATH change takes effect, then re-run ./install.sh."
+    fi
+    ok "tmux installed: $(tmux -V)"
+}
+ensure_tmux
+
 # ── 1. Bootstrap uv ───────────────────────────────────────────────────────────
 if ! command -v uv &>/dev/null; then
     info "uv not found — attempting to install via curl..."
