@@ -77,8 +77,11 @@ def mos_compact_context(
     Args:
         reason: Why compact is happening (logged to journal).
         pending_plans: Optional list of pending plan dicts to persist to
-            the Draft before compacting. Each dict should have at
-            minimum ``type`` and ``text`` fields. These are written with
+            the Draft before compacting. Each dict MUST have a non-empty
+            ``text`` field — plans missing or empty text are dropped with
+            a warning (the post-compact agent treats stub nodes as work
+            items and has to triage and abandon them, see Issue #12).
+            ``type`` defaults to ``question``. Plans are written with
             ``metadata.pending_plan = true`` so the post-compact agent
             (same process, just compressed context) can find them via
             ``mos_draft_summary()``.
@@ -102,29 +105,51 @@ def mos_compact_context(
     except OSError as exc:
         logger.warning("Failed to log compact to journal: %s", exc)
 
-    # 2. Persist pending_plans to Draft if provided
+    # 2. Persist pending_plans to Draft if provided. Filter out any plan
+    # that doesn't carry a non-empty `text` body — pre-v15.9 the function
+    # silently materialised empty-body stub nodes (Q-001/D-001/...) which
+    # the post-compact agent then had to triage and abandon. See GitHub
+    # Issue #12. The post-compact agent finds these via mos_draft_summary,
+    # so a stub with body="" is strictly worse than no node at all.
     draft_node_ids: list[str] = []
+    skipped_empty_plans: list[dict] = []
     if pending_plans:
-        try:
-            from minions.tools.draft import mos_draft_append
+        valid_plans: list[dict] = []
+        for plan in pending_plans:
+            text = plan.get("text") if isinstance(plan, dict) else None
+            if not isinstance(text, str) or not text.strip():
+                logger.warning(
+                    "mos_compact_context: dropping pending_plan with empty/missing 'text' "
+                    "(type=%r); reason=%r",
+                    plan.get("type") if isinstance(plan, dict) else type(plan).__name__,
+                    reason,
+                )
+                skipped_empty_plans.append(
+                    {"type": plan.get("type") if isinstance(plan, dict) else None}
+                )
+                continue
+            valid_plans.append(plan)
+        if valid_plans:
+            try:
+                from minions.tools.draft import mos_draft_append
 
-            nodes = []
-            for plan in pending_plans:
-                node = {
-                    "type": plan.get("type", "question"),
-                    "text": plan.get("text", ""),
-                    "support_status": plan.get("support_status", "unverified"),
-                    "metadata": {
-                        "pending_plan": True,
-                        "source": plan.get("source", "compact_handoff"),
-                        "compact_reason": reason,
-                    },
-                }
-                nodes.append(node)
-            result = mos_draft_append(nodes=nodes)
-            draft_node_ids = result.get("node_ids", [])
-        except Exception as exc:
-            logger.warning("Failed to persist pending_plans to Draft: %s", exc)
+                nodes = []
+                for plan in valid_plans:
+                    node = {
+                        "type": plan.get("type", "question"),
+                        "text": plan["text"],
+                        "support_status": plan.get("support_status", "unverified"),
+                        "metadata": {
+                            "pending_plan": True,
+                            "source": plan.get("source", "compact_handoff"),
+                            "compact_reason": reason,
+                        },
+                    }
+                    nodes.append(node)
+                result = mos_draft_append(nodes=nodes)
+                draft_node_ids = result.get("created_node_ids", [])
+            except Exception as exc:
+                logger.warning("Failed to persist pending_plans to Draft: %s", exc)
 
     # 3. Schedule /compact via tmux send-keys
     # The /compact command will fire AFTER this tool returns and the agent's
@@ -143,6 +168,7 @@ def mos_compact_context(
     return {
         "status": "compact_scheduled" if compact_scheduled else "compact_failed",
         "draft_nodes_persisted": draft_node_ids,
+        "skipped_empty_plans": skipped_empty_plans,
         "instruction": (
             "STOP NOW. Do not call any more tools. Do not produce any more text. "
             "The /compact command has been scheduled and will fire as the next "

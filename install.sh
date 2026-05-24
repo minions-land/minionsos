@@ -275,6 +275,37 @@ else
         fi
     fi
 
+    # ── 5a-graphify. Install graphify (L3 Shelf extractor) Python deps ───
+    # graphify provides extract.py, the script Noter shells out to during
+    # its periodic wake to rebuild branches/shared/shelf/shelf.json. Without
+    # the local venv, _maybe_rebuild_shelf_graph silently bails with
+    # "graphify venv not installed", the L3 Shelf never auto-populates,
+    # and mos_shelf_register reports "no graph" forever (GitHub Issue #11).
+    GR_DIR="$ROOT/mcp-servers/graphify"
+    if [ -d "$GR_DIR" ] && [ -f "$GR_DIR/pyproject.toml" ]; then
+        GR_VENV_PY="$GR_DIR/.venv/bin/python"
+        if [ ! -x "$GR_VENV_PY" ]; then
+            info "Setting up graphify L3 extractor venv..."
+            (
+                cd "$GR_DIR"
+                # Create a project-local venv and install graphify into it.
+                # Using `uv venv` + `uv pip install` keeps the install
+                # consistent with the rest of MinionsOS.
+                uv_project venv .venv
+                VIRTUAL_ENV="$GR_DIR/.venv" uv_project pip install -e .
+            )
+            if [ ! -x "$GR_VENV_PY" ]; then
+                warn "graphify venv setup completed but $GR_VENV_PY is missing."
+                warn "L3 Shelf auto-rebuild will not work; install manually:"
+                warn "  cd $GR_DIR && uv venv .venv && VIRTUAL_ENV=\$PWD/.venv uv pip install -e ."
+            else
+                ok "graphify venv ready: $GR_VENV_PY"
+            fi
+        else
+            ok "graphify venv already present: $GR_VENV_PY"
+        fi
+    fi
+
     # ── 5b. Build minions-viz Observatory ───────────────────────────────
     VIZ_DIR="$ROOT/minions-viz"
     VIZ_MARKER="$VIZ_DIR/dist/web/index.html"

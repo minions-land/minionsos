@@ -774,6 +774,12 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_signboard_set",
+        # Ethics is named in role contracts as the primary adjudicator and
+        # `minions/roles/ethics/SYSTEM.md` directs it to call `mos_adjudicate`
+        # to close adjudication_task events. Without this entry the call
+        # was server-side-denied and 4 queued adjudication tasks went
+        # unanswerable — see GitHub Issue #10.
+        "mos_adjudicate",
         "mos_reset_context",
         "mos_compact_context",
         "Task",

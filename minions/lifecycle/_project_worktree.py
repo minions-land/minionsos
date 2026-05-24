@@ -8,6 +8,7 @@ underscore-prefixed names.
 
 from __future__ import annotations
 
+import json
 import logging
 import subprocess
 from pathlib import Path
@@ -174,6 +175,18 @@ def create_shared_worktree(port: int) -> str:
         sub.mkdir(parents=True, exist_ok=True)
         (sub / ".gitkeep").write_text("", encoding="utf-8")
     (workspace / "README.md").write_text(SHARED_README.format(port=port), encoding="utf-8")
+
+    # L3 Shelf bootstrap: write an empty graph at branches/shared/shelf/shelf.json
+    # so the path exists from t=0 and graphify queries return a real status
+    # instead of "no graph". Noter's periodic wake rebuilds this when sources
+    # under shared/{book,notes,ethics,exp}/ change. See GitHub Issue #11.
+    shelf_path = workspace / "shelf" / "shelf.json"
+    if not shelf_path.exists():
+        shelf_path.parent.mkdir(parents=True, exist_ok=True)
+        shelf_path.write_text(
+            json.dumps({"port": port, "nodes": [], "edges": [], "version": 1}, indent=2),
+            encoding="utf-8",
+        )
 
     seed_commit = git_commit_workspace(workspace, "shared: seed cross-role layout")
     if seed_commit is None:

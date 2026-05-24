@@ -305,6 +305,21 @@ def doctor(
         node_detail = str(exc)
     _check("node>=16", node_ok, node_detail)
 
+    # graphify L3 Shelf extractor venv. Noter shells out to graphify's
+    # extract.py during its periodic wake to rebuild
+    # branches/shared/shelf/shelf.json. Without the local venv, the rebuild
+    # silently bails and the L3 Shelf never populates — see GitHub Issue #11.
+    graphify_py = MINIONS_ROOT / "mcp-servers" / "graphify" / ".venv" / "bin" / "python"
+    if not graphify_py.exists():
+        graphify_py = MINIONS_ROOT / "mcp-servers" / "graphify" / ".venv" / "Scripts" / "python.exe"
+    _check(
+        "graphify-venv",
+        graphify_py.exists(),
+        str(graphify_py)
+        if graphify_py.exists()
+        else "missing — L3 Shelf will not auto-rebuild. Run ./install.sh to set up.",
+    )
+
     # .mcp.json mounts both minionsos and eacn3 servers.
     try:
         import json as _json

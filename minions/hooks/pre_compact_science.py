@@ -115,6 +115,22 @@ HARD RULES
 - DISCARD: verbose tool outputs, intermediate chain-of-thought,
   repeated file contents, formatted code blocks, EACN message bodies,
   anything already in draft.json or book/.
+
+RESUME PROTOCOL — END EVERY COMPACT SUMMARY WITH THIS BLOCK VERBATIM
+(it gives the post-compact agent — the same Role process, just compressed
+context — its first concrete next step. Without this block, Claude Code
+treats the summary as a final-state assistant turn and the forever-loop
+never re-arms; the role parks at the input prompt until manually kicked.
+See GitHub Issue #9 for the failure mode.):
+
+## Resume_protocol
+After this summary lands, your IMMEDIATE next tool call MUST be:
+  mos_draft_summary()        # re-orient on persisted state
+followed by:
+  mos_await_events()         # resume the EACN event loop
+Do NOT emit any reasoning, narration, or other tool call before
+mos_draft_summary(). The forever-loop contract requires the very next
+turn to re-enter the event-driven loop — anything else parks the Role.
 """
 
 
