@@ -257,36 +257,37 @@ def _real_event_response():
 class TestKeepaliveDefaultMatchesCacheRegime:
     """Default ``cache_keepalive_seconds`` must match the active cache regime.
 
-    As of v15.20.1, every Role process is launched with
-    ENABLE_PROMPT_CACHING_1H=1 (see role_launcher.py:575), so the cache
-    cliff is ~3600s on backends that honor the flag. Default keepalive
-    of 3000s leaves a 10-min safety margin and cuts the previous 240s
-    default's frequency by ~12x — addresses GitHub Issue #28.
+    Stock Claude Code CLI binaries enforce a 5-minute prompt-cache cliff.
+    ``ENABLE_PROMPT_CACHING_1H=1`` (set in role_launcher.py) is a silent
+    no-op on a stock binary — only a patched binary that sends
+    ``ttl:"1h"`` cache_control + the extended-cache-ttl beta header
+    (see ``~/Tools/claude-1h-cache-patch/``) actually lifts the cliff.
+    The safe default must therefore sit under the 5-min stock cliff.
 
-    Hard bound: must stay strictly under 3600s (the 1h cliff) so the
-    safety margin is non-zero. Soft bound: should not drop back below
-    1800s without a deliberate reason (operators downgrading to a 5-min-
-    cache gateway can override via gru.yaml).
+    Hard bound: must stay strictly under 300s (the stock cliff) so the
+    safety margin is non-zero. Soft bound: should be at least 30s of
+    margin so the keepalive lands well before the cliff.
     """
 
-    def test_default_keepalive_under_1h_cliff(self):
+    def test_default_keepalive_under_stock_cliff(self):
         from minions.config import GruConfig
 
         cfg = GruConfig()
-        assert cfg.cache_keepalive_seconds < 3600, (
+        assert cfg.cache_keepalive_seconds < 300, (
             f"cache_keepalive_seconds default {cfg.cache_keepalive_seconds} "
-            "meets or exceeds the 1h cliff — zero safety margin."
+            "meets or exceeds the stock 5-min cliff — zero safety margin "
+            "on unpatched Claude Code binaries."
         )
 
     def test_default_keepalive_provides_margin(self):
-        """Margin should be at least 5 minutes against the 1h cliff."""
+        """Margin should be at least 30s against the 5-min stock cliff."""
         from minions.config import GruConfig
 
         cfg = GruConfig()
-        margin = 3600 - cfg.cache_keepalive_seconds
-        assert margin >= 300, (
+        margin = 300 - cfg.cache_keepalive_seconds
+        assert margin >= 30, (
             f"cache_keepalive_seconds default leaves only {margin}s margin "
-            "against the 1h cliff; want >= 300s (5 min)."
+            "against the 5-min stock cliff; want >= 30s."
         )
 
 

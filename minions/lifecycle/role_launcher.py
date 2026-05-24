@@ -563,12 +563,14 @@ def _role_env(
         # Long-horizon cache hit-rate optimization: opt the Role's claude
         # process into 1-hour prompt cache TTL on backends that honor it
         # (direct Anthropic API key, Bedrock, Vertex, Foundry — see
-        # claude-code CHANGELOG 2.1.108). Third-party gateways may strip
-        # the 1h cache_control flag and silently fall back to the 5-minute
-        # default; in that case the wall-clock keepalive in mos_await_events
-        # (cache_keepalive_seconds, default 270s) carries the load instead.
-        # Either way the env var is harmless — when honored it lifts the
-        # cliff to 60 min, when ignored we still have keepalive at 4m30s.
+        # claude-code CHANGELOG 2.1.108). NOTE: a *stock* Claude Code CLI
+        # binary does NOT actually send the ttl:"1h" cache_control field
+        # even when this env var is set; only a patched binary (see
+        # ~/Tools/claude-1h-cache-patch/) emits the header. On stock binaries
+        # this var is a silent no-op and the cliff stays at 5 min, so we
+        # keep cache_keepalive_seconds (default 240s) as the load-bearing
+        # cliff guard. The env var is harmless to set unconditionally —
+        # when ignored it does nothing; when honored it lifts the cliff.
         # Requires claude CLI ≥ 2.1.131 (earlier versions silently
         # downgraded 1h to 5 min). DISABLE_TELEMETRY would force a 5-min
         # fallback for subscription auth, so we deliberately do not set it.

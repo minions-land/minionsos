@@ -7,15 +7,24 @@ cache-keepalive contract makes byte-stable ``ack`` looping the prescribed
 behavior for genuine keepalive events, so the role can sit in the wedge
 state indefinitely without breaking any contract.
 
+GitHub Issue #30 (v15.23): a Role's MCP child can die (project close,
+OOM, stdio pipe break) and claude will not auto-reconnect — every
+subsequent ``mos_await_events`` returns ``MCP error -32000: Connection
+closed``. The role can't recover from inside its own loop because every
+tool call hits the dead pipe. A single occurrence in the recent tail
+means the role needs respawn; the watchdog tmux-kills so the role
+cold-starts with a fresh MCP child.
+
 The Gru-side watchdog cannot use heartbeat staleness (refreshed every
 cycle by the PreToolUse hook) or event-log mtime (cache_keepalive events
-are not appended). Two signals exist:
+are not appended). Three signals exist:
 
 1. **Session JSONL** (``inspect_session_tail`` — *primary*) — Claude Code
    writes every assistant turn to ``~/.claude/projects/<cwd-slug>/<sid>.jsonl``
    as structured records. Counting empty-content and bare-``ack`` assistant
-   turns there is exact and not affected by terminal styling. This is the
-   path GitHub Issue #26 prescribes.
+   turns there is exact and not affected by terminal styling. The same
+   pass also counts ``MCP error -32000`` markers in tool_result content
+   under user records. This is the path GitHub Issue #26 prescribes.
 2. **Tmux pty log** (``inspect_log_tail`` — *fallback*) — when no session
    JSONL is locatable yet (e.g. very early in cold-start before the first
    turn is written), the watchdog falls back to scanning the pty stream
@@ -44,6 +53,7 @@ logger = logging.getLogger(__name__)
 _ACK_LINE_RE = re.compile(r"^\s*●\s*ack\s*$")
 _EMPTY_MARKER = "[upstream returned no content]"
 _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+_MCP_DEAD_MARKER = "MCP error -32000"
 
 
 @dataclass(frozen=True)
@@ -54,6 +64,7 @@ class WedgeSignal:
     ack_line_count: int
     sampled_lines: int
     log_path: Path
+    mcp_error_count: int = 0
 
     @property
     def total(self) -> int:
@@ -83,29 +94,38 @@ def inspect_log_tail(log_path: Path, *, tail_bytes: int = 16384) -> WedgeSignal:
     lines = text.splitlines()
     empty_count = sum(1 for line in lines if _EMPTY_MARKER in line)
     ack_count = sum(1 for line in lines if _ACK_LINE_RE.match(line))
+    mcp_err_count = sum(1 for line in lines if _MCP_DEAD_MARKER in line)
     return WedgeSignal(
         empty_marker_count=empty_count,
         ack_line_count=ack_count,
         sampled_lines=len(lines),
         log_path=log_path,
+        mcp_error_count=mcp_err_count,
     )
 
 
 def is_wedged(signal: WedgeSignal, *, threshold: int) -> bool:
     """Wedge predicate: enough markers in the recent tail to act on.
 
-    The predicate is intentionally permissive on the *kind* of marker:
-    either pattern alone hitting threshold is enough, since both indicate
-    the role made no productive progress for that many recent turns. We
-    also require at least one of each to land — a long run of pure
-    `ack`s with zero upstream-empty markers is consistent with a healthy
-    cache-keepalive loop on a quiet project, and we don't want to kill
-    that.
+    Three triggers, OR'd:
+
+    1. **MCP child dead** — any ``MCP error -32000`` in the recent tail.
+       The role's tool surface is gone and claude does not auto-reconnect;
+       a single occurrence is sufficient because the loop cannot recover
+       from inside (every subsequent tool call hits the dead pipe).
+    2. **Empty-upstream marker AND ack lines** both present, and the
+       empty count meets *threshold*. This is the classic Issue #15
+       wedge: the model is producing nothing or a bare keepalive ack
+       turn after turn.
+    3. **Bare-ack count meets threshold AND at least one empty marker**.
+       Long runs of pure ``ack`` are healthy on a quiet project (every
+       cliff fires a keepalive); the empty marker confirms the model is
+       no longer making real progress.
     """
+    if signal.mcp_error_count >= 1:
+        return True
     if signal.empty_marker_count == 0 and signal.ack_line_count == 0:
         return False
-    # Strong signal: empty-upstream marker AND ack lines both present
-    # multiple times in the tail.
     if signal.empty_marker_count >= threshold and signal.ack_line_count >= 1:
         return True
     return signal.ack_line_count >= threshold and signal.empty_marker_count >= 1
@@ -179,6 +199,7 @@ def inspect_session_tail(
     try:
         with session_jsonl.open("r", encoding="utf-8") as fh:
             assistant_records: list[dict] = []
+            tool_result_text_blob = ""
             for line in fh:
                 if not line.strip():
                     continue
@@ -188,6 +209,23 @@ def inspect_session_tail(
                     continue
                 if rec.get("type") == "assistant":
                     assistant_records.append(rec)
+                elif rec.get("type") == "user":
+                    msg = rec.get("message") or {}
+                    content = msg.get("content")
+                    if not isinstance(content, list):
+                        continue
+                    for part in content:
+                        if not isinstance(part, dict):
+                            continue
+                        if part.get("type") != "tool_result":
+                            continue
+                        body = part.get("content")
+                        if isinstance(body, str):
+                            tool_result_text_blob += body
+                        elif isinstance(body, list):
+                            for sub in body:
+                                if isinstance(sub, dict) and sub.get("type") == "text":
+                                    tool_result_text_blob += sub.get("text", "")
     except OSError:
         return WedgeSignal(0, 0, 0, session_jsonl)
 
@@ -225,11 +263,13 @@ def inspect_session_tail(
         # least one empty marker mixed in is the wedge signature.
         elif joined.lower() == "ack":
             ack += 1
+    mcp_err = tool_result_text_blob.count(_MCP_DEAD_MARKER)
     return WedgeSignal(
         empty_marker_count=empty,
         ack_line_count=ack,
         sampled_lines=len(tail),
         log_path=session_jsonl,
+        mcp_error_count=mcp_err,
     )
 
 

@@ -145,6 +145,32 @@ files are summarized" / "after the bug is fixed and tests pass">
    refuted approach), `mos_draft_append` it. Future turns query the
    Draft (~200 tokens) instead of re-Reading the file (~5k tokens).
 
+## After dispatching with `run_in_background: true`
+
+When you dispatch with `run_in_background: true` (long Codex work,
+multi-step subagent investigation), the dispatch returns a `task_id`
+immediately and the work continues asynchronously. **Do not call
+`mos_await_events()` to fill the wait window** — that is the EACN
+event-loop tool and will return a `cache_keepalive` event the moment
+the cliff hits, not the subagent result.
+
+The correct wait loop uses the `keepalive` MCP server, which is in
+every Role's whitelist:
+
+```
+wait_bg(deadline_seconds=45, bg_ids=[<task_id>])
+# When it ticks, check early_exit:
+#  - early_exit=True  → TaskOutput(<task_id>) and process the result
+#  - early_exit=False → TaskOutput(<task_id>) to check progress, then loop
+```
+
+`wait_bg` keeps the main session's prompt cache warm during the wait
+and returns early as soon as the subagent finishes. Confirm the tool is
+visible by name — if you ever find yourself reasoning *"wait_bg is not
+available"*, that is a misjudgment: every Role has it from the
+``keepalive`` MCP server. Re-check before falling back to
+`mos_await_events`.
+
 ## What this discipline trades
 
 - **You spend a bit more wall time** per turn (subagent cold-start +

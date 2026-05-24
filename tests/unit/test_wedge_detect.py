@@ -27,9 +27,7 @@ def test_missing_log_returns_zero_signal(tmp_path: Path) -> None:
 def test_clean_log_is_not_wedged(tmp_path: Path) -> None:
     log = tmp_path / "role-coder.log"
     log.write_text(
-        "  Called minionsos (ctrl+o to expand)\n"
-        "● Reading 1 file…\n"
-        "● Done. Writing summary.\n"
+        "  Called minionsos (ctrl+o to expand)\n● Reading 1 file…\n● Done. Writing summary.\n"
     )
     sig = inspect_log_tail(log)
     assert sig.empty_marker_count == 0
@@ -43,9 +41,7 @@ def test_pure_keepalive_ack_loop_is_not_wedged(tmp_path: Path) -> None:
     and the watchdog must NOT kill it.
     """
     log = tmp_path / "role-ethics.log"
-    log.write_text(
-        "\n".join(["● ack"] * 20) + "\n"
-    )
+    log.write_text("\n".join(["● ack"] * 20) + "\n")
     sig = inspect_log_tail(log)
     assert sig.ack_line_count == 20
     assert sig.empty_marker_count == 0
@@ -74,11 +70,7 @@ def test_wedge_signature_is_detected(tmp_path: Path) -> None:
 
 def test_ack_threshold_with_one_empty_marker_is_wedge(tmp_path: Path) -> None:
     log = tmp_path / "role-x.log"
-    log.write_text(
-        "● [upstream returned no content]\n"
-        + "\n".join(["● ack"] * 6)
-        + "\n"
-    )
+    log.write_text("● [upstream returned no content]\n" + "\n".join(["● ack"] * 6) + "\n")
     sig = inspect_log_tail(log)
     assert sig.empty_marker_count == 1
     assert sig.ack_line_count == 6
@@ -88,8 +80,7 @@ def test_ack_threshold_with_one_empty_marker_is_wedge(tmp_path: Path) -> None:
 def test_ansi_escapes_do_not_hide_signature(tmp_path: Path) -> None:
     log = tmp_path / "role-y.log"
     log.write_bytes(
-        b"\x1b[1m\xe2\x97\x8f\x1b[0m \x1b[2m[upstream returned no content]\x1b[0m\n"
-        * 4
+        b"\x1b[1m\xe2\x97\x8f\x1b[0m \x1b[2m[upstream returned no content]\x1b[0m\n" * 4
         + b"\x1b[1m\xe2\x97\x8f\x1b[0m ack\n"
     )
     sig = inspect_log_tail(log)
@@ -102,9 +93,7 @@ def test_tail_bytes_bounds_the_read(tmp_path: Path) -> None:
     """Old wedge patterns far back in the log must not trigger; only the
     recent tail counts."""
     log = tmp_path / "role-z.log"
-    ancient_wedge = (
-        "● [upstream returned no content]\n● ack\n" * 50
-    )
+    ancient_wedge = "● [upstream returned no content]\n● ack\n" * 50
     recent_healthy = "● Reading 1 file…\n● Writing changes…\n" * 50
     log.write_text(ancient_wedge + recent_healthy)
     sig = inspect_log_tail(log, tail_bytes=1024)
@@ -287,11 +276,72 @@ def test_inspect_role_falls_back_to_log_when_no_session(tmp_path: Path) -> None:
     proj_root = tmp_path / "claude" / "projects"
     proj_root.mkdir(parents=True)
     log = tmp_path / "role-coder.log"
-    log.write_text(
-        "● [upstream returned no content]\n" * 4
-        + "● ack\n" * 4
-    )
+    log.write_text("● [upstream returned no content]\n" * 4 + "● ack\n" * 4)
     sig = inspect_role(cwd=cwd, log_path=log, projects_root=proj_root)
     assert sig.log_path == log
     assert sig.empty_marker_count == 4
     assert sig.ack_line_count == 4
+
+
+# ---------------------------------------------------------------------------
+# MCP child dead — `MCP error -32000: Connection closed` (v15.23)
+# ---------------------------------------------------------------------------
+
+
+def _write_session_with_tool_results(path: Path, tool_results: list[str]) -> None:
+    """Write a session JSONL containing only ``user`` records with
+    ``tool_result`` content parts. Used to exercise the MCP-dead path
+    without needing assistant turns."""
+    with path.open("w", encoding="utf-8") as fh:
+        for body in tool_results:
+            fh.write(
+                json.dumps(
+                    {
+                        "type": "user",
+                        "message": {
+                            "role": "user",
+                            "content": [
+                                {"type": "tool_result", "tool_use_id": "x", "content": body}
+                            ],
+                        },
+                    }
+                )
+                + "\n"
+            )
+
+
+def test_mcp_dead_in_session_marks_wedged(tmp_path: Path) -> None:
+    """A single ``MCP error -32000`` in a recent tool_result is sufficient
+    for the wedge predicate — the role's MCP child died and claude does
+    not auto-reconnect, so every subsequent tool call hits the dead pipe."""
+    sess = tmp_path / "abc.jsonl"
+    _write_session_with_tool_results(
+        sess,
+        ["normal response", "MCP error -32000: Connection closed"],
+    )
+    sig = inspect_session_tail(sess)
+    assert sig.mcp_error_count == 1
+    assert is_wedged(sig, threshold=4)
+
+
+def test_mcp_dead_in_pty_log_marks_wedged(tmp_path: Path) -> None:
+    """Defense-in-depth: when there is no session JSONL, the pty-log
+    fallback must also catch the marker."""
+    log = tmp_path / "role-coder.log"
+    log.write_text(
+        "  ⎿ {result of tool}\n"
+        "● Now calling mos_await_events…\n"
+        "  ⎿ MCP error -32000: Connection closed\n"
+    )
+    sig = inspect_log_tail(log)
+    assert sig.mcp_error_count == 1
+    assert is_wedged(sig, threshold=4)
+
+
+def test_mcp_dead_zero_when_absent(tmp_path: Path) -> None:
+    """Healthy session with no MCP errors → mcp_error_count is zero."""
+    sess = tmp_path / "abc.jsonl"
+    _write_session_turns(sess, [{"text": "Working.", "tool_use": True}])
+    sig = inspect_session_tail(sess)
+    assert sig.mcp_error_count == 0
+    assert not is_wedged(sig, threshold=4)

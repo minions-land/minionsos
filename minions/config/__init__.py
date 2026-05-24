@@ -1169,23 +1169,24 @@ class GruConfig(BaseModel):
         ),
     )
     cache_keepalive_seconds: int = Field(
-        default=3000,
+        default=240,
         description=(
             "Wall-clock seconds of silence after which mos_await_events returns "
             "a stable synthetic keepalive event so the Role's long-lived "
             "claude process re-touches its prompt cache before the TTL cliff. "
-            "As of v15.20.1, every Role process is launched with "
-            "ENABLE_PROMPT_CACHING_1H=1 (see role_launcher.py) which lifts the "
-            "cliff to ~3600s on backends that honor it. Default 3000s (50 min) "
-            "leaves a 10-min safety margin against the 1h cliff and cuts "
-            "the previous 240s default's keepalive frequency by ~12x — "
-            "addresses GitHub Issue #28's per-cycle 'ack' burn. On "
-            "third-party gateways that strip the 1h flag and silently fall "
-            "back to 5-min TTL, set this back to 240 in gru.yaml. Each "
-            "keepalive costs ~$0.006 (cache_read of system prompt); missing "
-            "the cliff costs ~$0.098 (cache_create), so we always err on "
-            "the side of *more* keepalive when cache TTL is uncertain. Set "
-            "to 0 to disable entirely."
+            "Default 240s (4 min) sits just under the 5-min cliff that every "
+            "stock Claude Code binary uses; this is the safe value for production. "
+            "MinionsOS sets ENABLE_PROMPT_CACHING_1H=1 in the Role env "
+            "(role_launcher.py), but that flag is only honored when the "
+            "Claude Code CLI binary has been patched to send ttl:'1h' + the "
+            "extended-cache-ttl beta header (see ~/Tools/claude-1h-cache-patch/). "
+            "Stock binaries on remote production hosts silently drop the env var "
+            "and keep the 5-min cliff. Raise this to ~3000 ONLY on hosts where "
+            "the patch is applied AND cache_stats confirms 1h TTL is in effect. "
+            "Each keepalive costs ~$0.006 (cache_read of system prompt); missing "
+            "the cliff costs ~$0.098 (cache_create), so always err on the side "
+            "of *more* keepalive when cache TTL is uncertain. Set to 0 to "
+            "disable entirely."
         ),
     )
     noter_periodic_interval: str = Field(
