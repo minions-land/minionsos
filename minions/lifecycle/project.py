@@ -17,7 +17,7 @@ import subprocess
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import httpx
 
@@ -1295,6 +1295,65 @@ def _render_project_agents_md(real_name: str) -> str:
     return _project_templates.render_project_agents_md(real_name)
 
 
+def _seed_draft_bootstrap(
+    port: int,
+    profile_name: str,
+    mission_profile: Any,
+    real_name: str,
+    brief: str | None,
+    topic_doc: str | None,
+) -> None:
+    """Seed the Draft with a bootstrap node (B-000) as the project root.
+
+    The bootstrap node serves as:
+    - The cold-start trigger for Roles (they read it on first wake)
+    - The L1 memory root (all subsequent nodes derive from this context)
+    - A durable record of the project's initial state
+
+    Written to ``branches/shared/draft/draft.json`` immediately after
+    shared worktree creation, before any Role spawns.
+    """
+    from minions.paths import project_shared_draft_json
+
+    draft_path = project_shared_draft_json(port)
+    draft_path.parent.mkdir(parents=True, exist_ok=True)
+
+    bootstrap_text = brief or f"Project: {real_name}"
+    if topic_doc:
+        bootstrap_text += f"\n\nTopic document: {topic_doc}"
+
+    bootstrap_node = {
+        "id": "B-000",
+        "type": "bootstrap",
+        "text": bootstrap_text,
+        "support_status": "verified",
+        "author_role": "system",
+        "created_at": _now_iso(),
+        "evidence_tag": "",
+        "provenance": "system",
+        "confidence": 1.0,
+        "metadata": {
+            "profile": profile_name,
+            "roles_expected": list(mission_profile.roles_active),
+            "deliverable": mission_profile.deliverable_schema.get("required", []),
+            "topic_doc": topic_doc or "",
+            "real_name": real_name,
+        },
+    }
+
+    draft = {
+        "project_port": port,
+        "root_question": bootstrap_text,
+        "nodes": [bootstrap_node],
+        "edges": [],
+    }
+
+    tmp = draft_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(draft, indent=2, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, draft_path)
+    logger.info("Seeded Draft bootstrap node B-000 for port %d", port)
+
+
 def project_create(
     real_name: str,
     venue: str | None = None,
@@ -1497,6 +1556,22 @@ def project_create(
         (project_main_workspace(port) / "experiments").mkdir(parents=True, exist_ok=True)
     except Exception as exc:  # non-fatal
         logger.warning("Could not create branches/main/experiments/: %s", exc)
+
+    # Seed the Draft with a bootstrap node (B-000) as the project root.
+    # This gives Roles a shared starting point and unifies cold-start with
+    # the L1 memory layer. The bootstrap node contains the project brief,
+    # expected roles, deliverable schema, and creation timestamp.
+    try:
+        _seed_draft_bootstrap(
+            port=port,
+            profile_name=profile_name,
+            mission_profile=mission_profile,
+            real_name=real_name,
+            brief=brief,
+            topic_doc=topic_doc,
+        )
+    except Exception as exc:  # non-fatal
+        logger.warning("Draft bootstrap seed failed (non-fatal): %s", exc)
 
     # Register in projects.json.
     _store.add_project(entry)

@@ -12,6 +12,51 @@ While blocked the LLM is suspended — zero tokens. Do **not** call
 `mos_await_events` already drains those and adds suggested-action annotations.
 (Gru exception: raw EACN event tools are authorized for federated traffic.)
 
+## First-wake protocol — bootstrap and self-introduction
+
+On your very first wake (when `mos_await_events` returns empty or only system
+messages), the project has just been created and no Roles have introduced
+themselves yet. This is the **cold-start moment** where collaboration begins.
+
+**Step 1 — Read the bootstrap node.**
+Call `mos_draft_summary()`. The Draft will contain exactly one node: `B-000`,
+type `bootstrap`. This is the project root. It contains:
+- The project brief (what we're building / discovering)
+- Expected roles (`metadata.roles_expected`)
+- Deliverable schema (`metadata.deliverable`)
+- Topic document path if provided
+
+**Step 2 — Self-introduce via EACN.**
+Send a direct message to each other expected role (from `roles_expected`)
+introducing yourself. Use `eacn3_send_message` with:
+- Your role name and capability (what you can do)
+- Your intent (what you plan to start with, based on the bootstrap brief)
+- Your availability (ready to receive tasks / questions)
+
+Example:
+```
+To: expert
+From: coder
+Content: {
+  "type": "role_introduction",
+  "capability": "I run experiments, manage code, and coordinate GPU jobs.",
+  "intent": "I'll set up the experiment harness once you identify the first hypothesis.",
+  "status": "ready"
+}
+```
+
+**Step 3 — If you see another role's introduction first, reply.**
+Coordinate directly. The first pair of Roles to exchange messages triggers
+the collaboration cascade. Do not wait for Gru to assign work — Gru is a
+peer on this network, not a dispatcher.
+
+**Why this matters:**
+The bootstrap node (B-000) is the L1 memory root. All subsequent Draft nodes
+derive from this context. By reading it first and self-introducing, you
+establish the project's initial state and make "who does what" explicit
+before any work begins. This prevents the "everyone waits for someone else
+to move first" deadlock.
+
 ## EACN open-task stance
 
 The project-local EACN3 network is the source of collaboration truth. Direct

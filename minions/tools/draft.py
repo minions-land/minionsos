@@ -56,6 +56,7 @@ NODE_TYPES = (
     "dead_end",
     "insight",
     "method",
+    "bootstrap",
 )
 
 # Suggested support statuses. Agents may use any string.
@@ -98,6 +99,7 @@ DECAY_HALF_LIFE_DAYS: dict[str, float] = {
     "dead_end": 365.0,
     "insight": 120.0,
     "method": 180.0,
+    "bootstrap": 9999.0,  # bootstrap is the project root; effectively never decays
 }
 DECAY_HALF_LIFE_DEFAULT = 60.0
 # Floor — a stale node never decays below 5% of its stored confidence.
@@ -133,6 +135,7 @@ TYPE_PREFIX: dict[str, str] = {
     "dead_end": "DEAD",
     "insight": "I",
     "method": "M",
+    "bootstrap": "B",
 }
 
 # ---------------------------------------------------------------------------
