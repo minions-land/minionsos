@@ -48,6 +48,8 @@ import json
 import logging
 import os
 import re
+import shlex
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -154,6 +156,85 @@ def _structured_extract(summary: str) -> dict:
     }
 
 
+def _kick_own_pane(port: int, role_name: str) -> bool:
+    """Spawn a delayed background ``tmux send-keys`` into this role's pane.
+
+    GitHub Issue #29: after Claude Code's ``/compact`` lands, the role
+    parks at the input prompt — the resume-protocol text is a hint the
+    model would obey *if* it got a turn, but no turn arrives until
+    input does. We inject a short "Continue per resume protocol."
+    prompt + Enter via tmux, on a 2-second delay so Claude Code finishes
+    redrawing the prompt before keys land.
+
+    The literal-string ``send-keys -l`` flag is the same path
+    ``mos role kick`` uses (#17) — it bypasses the TUI's bracketed-paste
+    interpretation, which is what makes the kick reliable.
+
+    Returns True when the background process was successfully spawned,
+    False otherwise. Failures are logged and swallowed — recovery is
+    best-effort; the Gru-side parked-prompt nudger is the safety net.
+    """
+    if not role_name or role_name == "unknown":
+        log.debug("post_compact_kick: role_name missing, skipping")
+        return False
+    session_name = f"mos-{port}-{role_name}"
+    # Best-effort check that the session exists before queueing the kick.
+    try:
+        rc = subprocess.run(
+            ["tmux", "has-session", "-t", session_name],
+            capture_output=True,
+            timeout=2.0,
+        ).returncode
+    except (FileNotFoundError, subprocess.SubprocessError) as exc:
+        log.debug("post_compact_kick: tmux probe failed: %s", exc)
+        return False
+    if rc != 0:
+        log.debug("post_compact_kick: session %s not alive, skipping", session_name)
+        return False
+
+    # The kick: 2 s grace, type the recovery prompt, half-second pause,
+    # press Enter. Detached so the hook returns immediately.
+    kick_cmd = (
+        f"sleep 2 && "
+        f"tmux send-keys -t {shlex.quote(session_name)} -l "
+        f"{shlex.quote('Continue per resume protocol.')} && "
+        f"sleep 0.5 && "
+        f"tmux send-keys -t {shlex.quote(session_name)} Enter"
+    )
+    try:
+        subprocess.Popen(
+            ["nohup", "bash", "-c", kick_cmd],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except (FileNotFoundError, OSError) as exc:
+        log.error("post_compact_kick: spawn failed: %s", exc)
+        return False
+    log.info("post_compact_kick: queued recovery kick for %s", session_name)
+    return True
+
+
+def _try_kick_from_env() -> bool:
+    """Best-effort recovery kick using only env vars.
+
+    Used by the early-return paths in :func:`main` so a parsing error or
+    missing summary doesn't leave the role parked at the prompt — Issue
+    #29 must be resolved regardless of whether the journal-extract path
+    succeeded.
+    """
+    port_env = os.environ.get("MINIONS_PROJECT_PORT", "")
+    role = os.environ.get("MINIONS_ROLE_NAME", "")
+    if not port_env or not role:
+        return False
+    try:
+        port = int(port_env)
+    except ValueError:
+        return False
+    return _kick_own_pane(port, role)
+
+
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
@@ -217,15 +298,18 @@ def main() -> None:
     raw = sys.stdin.read()
     if not raw.strip():
         log.debug("empty stdin, nothing to do")
+        _try_kick_from_env()
         return
 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
         log.error("could not parse stdin as JSON: %s", exc)
+        _try_kick_from_env()
         return
     if not isinstance(data, dict):
         log.error("stdin payload is not a JSON object")
+        _try_kick_from_env()
         return
 
     # Resolve the compact summary text. Priority order:
@@ -246,11 +330,13 @@ def main() -> None:
             "no compact summary found (neither stdin.compact_summary nor "
             "transcript_path resolved a summary) — nothing to extract"
         )
+        _try_kick_from_env()
         return
 
     port_env = os.environ.get("MINIONS_PROJECT_PORT", "")
     if not port_env:
         log.debug("MINIONS_PROJECT_PORT not set, skipping")
+        _try_kick_from_env()
         return
     try:
         port = int(port_env)
@@ -261,6 +347,7 @@ def main() -> None:
     draft_dir = _draft_dir(port)
     if draft_dir is None:
         log.debug("no draft dir for project_%s, skipping", port)
+        _kick_own_pane(port, os.environ.get("MINIONS_ROLE_NAME", "unknown"))
         return
 
     extract = _structured_extract(summary)
@@ -298,6 +385,13 @@ def main() -> None:
         len(extract["new_or_changed_node_ids"]),
         len(extract["pending_plan_node_ids"]),
     )
+
+    # GitHub Issue #29: kick the role's own tmux pane so the resume-protocol
+    # tool call actually fires. Without this the pane parks at the input
+    # cursor and the agent never gets a turn to obey the resume contract.
+    # Runs *after* the journal append so we never lose the audit trail
+    # even if tmux is unavailable.
+    _kick_own_pane(port, os.environ.get("MINIONS_ROLE_NAME", "unknown"))
 
 
 if __name__ == "__main__":

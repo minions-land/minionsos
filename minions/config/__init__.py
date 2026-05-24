@@ -1099,6 +1099,35 @@ class GruConfig(BaseModel):
             "vote arrives. Default 1800 s (30 min)."
         ),
     )
+    parked_prompt_watchdog_enabled: bool = Field(
+        default=True,
+        description=(
+            "Issue #29: Gru-side safety net that detects role panes parked at "
+            "the input prompt (post-/compact failure mode) and sends a tmux "
+            "kick. The post_compact_draft hook fires immediately; this "
+            "watchdog catches the case where the hook itself fails (no tmux, "
+            "race with TUI redraw, etc.). Set false to disable if your "
+            "operator workflow uses /compact heavily and you trust the hook."
+        ),
+    )
+    parked_prompt_watchdog_interval_seconds: int = Field(
+        default=60,
+        description=(
+            "How often the parked-prompt watchdog ticks. Each tick runs "
+            "tmux capture-pane on every active EACN role (cheap — bounded "
+            "by 40 lines per role) and looks for the prompt-cursor signature."
+        ),
+    )
+    parked_prompt_watchdog_min_age_seconds: int = Field(
+        default=90,
+        description=(
+            "Minimum heartbeat staleness before a role's parked pane is "
+            "considered a real wedge rather than a momentary between-turn "
+            "render. Default 90 s. The post_compact_draft hook is expected "
+            "to recover in ~2 s; this watchdog only fires if the hook "
+            "failed for some reason."
+        ),
+    )
     wedge_watchdog_interval_seconds: int = Field(
         default=300,
         description=(
@@ -1140,18 +1169,23 @@ class GruConfig(BaseModel):
         ),
     )
     cache_keepalive_seconds: int = Field(
-        default=240,
+        default=3000,
         description=(
             "Wall-clock seconds of silence after which mos_await_events returns "
             "a stable synthetic keepalive event so the Role's long-lived "
             "claude process re-touches its prompt cache before the TTL cliff. "
-            "Empirical measurement on tok.fan gateway: cache reliably expires "
-            "around 280s of silence (270s gap + processing delay). Default "
-            "240s (4min) leaves a 60s safety margin before the 5-min cliff. "
-            "Each keepalive costs ~$0.006 (cache_read of system prompt); "
-            "missing the cliff costs ~$0.098 (cache_create of full prefix), "
-            "a 16x penalty. Set to 0 to disable for backends with longer TTL "
-            "(e.g. direct Anthropic API with ENABLE_PROMPT_CACHING_1H=1)."
+            "As of v15.20.1, every Role process is launched with "
+            "ENABLE_PROMPT_CACHING_1H=1 (see role_launcher.py) which lifts the "
+            "cliff to ~3600s on backends that honor it. Default 3000s (50 min) "
+            "leaves a 10-min safety margin against the 1h cliff and cuts "
+            "the previous 240s default's keepalive frequency by ~12x — "
+            "addresses GitHub Issue #28's per-cycle 'ack' burn. On "
+            "third-party gateways that strip the 1h flag and silently fall "
+            "back to 5-min TTL, set this back to 240 in gru.yaml. Each "
+            "keepalive costs ~$0.006 (cache_read of system prompt); missing "
+            "the cliff costs ~$0.098 (cache_create), so we always err on "
+            "the side of *more* keepalive when cache TTL is uncertain. Set "
+            "to 0 to disable entirely."
         ),
     )
     noter_periodic_interval: str = Field(

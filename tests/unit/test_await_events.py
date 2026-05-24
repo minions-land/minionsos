@@ -325,3 +325,59 @@ class TestDraftDisciplineReminder:
         # there (consistent with the soft-nudge semantics).
         first = result["events"][0]
         assert "Draft-discipline reminder" in first["suggested_action"]
+
+
+# ---------------------------------------------------------------------------
+# Issue #28 — upstream cache_keepalive must be filtered, not surfaced
+# ---------------------------------------------------------------------------
+
+
+class TestUpstreamCacheKeepaliveFiltered:
+    """If the EACN3 backend ever emits an upstream ``cache_keepalive``
+    event, _poll_once must drop it silently. Otherwise the model burns
+    one assistant turn per delivery to ack a frame that wasn't even
+    supposed to wake it (Issue #28)."""
+
+    def test_nested_cache_keepalive_dropped(self):
+        from minions.tools.await_events import _poll_once
+
+        upstream_payload = [
+            {"event": {"type": "cache_keepalive", "task_id": "", "payload": {}}},
+            {"event": {"type": "direct_message", "task_id": "t1"}, "from": "gru"},
+        ]
+        with patch("minions.tools.await_events.httpx.get") as mock_get:
+            mock_get.return_value = _make_poll_response(upstream_payload)
+            events = _poll_once(39999, "test-agent")
+        assert len(events) == 1
+        assert events[0]["event"]["type"] == "direct_message"
+
+    def test_flat_cache_keepalive_dropped(self):
+        """Defence-in-depth: if some upstream variant emits the type
+        field at the top level instead of nested under `event`, drop
+        it too."""
+        from minions.tools.await_events import _poll_once
+
+        upstream_payload = [
+            {"type": "cache_keepalive"},
+            {"event": {"type": "task_broadcast", "task_id": "t1"}},
+        ]
+        with patch("minions.tools.await_events.httpx.get") as mock_get:
+            mock_get.return_value = _make_poll_response(upstream_payload)
+            events = _poll_once(39999, "test-agent")
+        assert len(events) == 1
+        # The non-keepalive event survives.
+        assert events[0]["event"]["type"] == "task_broadcast"
+
+    def test_only_cache_keepalive_returns_empty(self):
+        """A poll that contains only keepalive frames must return [],
+        which the outer loop treats as 'no work, keep polling'."""
+        from minions.tools.await_events import _poll_once
+
+        upstream_payload = [
+            {"event": {"type": "cache_keepalive"}},
+            {"event": {"type": "cache_keepalive"}},
+        ]
+        with patch("minions.tools.await_events.httpx.get") as mock_get:
+            mock_get.return_value = _make_poll_response(upstream_payload)
+            events = _poll_once(39999, "test-agent")
+        assert events == []

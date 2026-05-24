@@ -67,16 +67,15 @@ experiment_reconcile_interval_seconds: 30
 
 # Wall-clock seconds of silence after which mos_await_events returns a stable
 # synthetic keepalive event so the Role's long-lived claude process re-touches
-# its prompt cache before the TTL cliff. Default 0 (disabled): empirical Role
-# session jsonls show ~99% cache hit rate across hour-plus gaps, because Claude
-# Code's internal prefix matching extends effective cache lifetime well beyond
-# the nominal 5-minute ephemeral TTL. Run `./mos cache-stats <session_jsonl>`
-# Prompt cache TTL is ~5 minutes on tok.fan. Empirical measurement: cache
-# expires reliably around 280s of silence. Default 240s (4min) leaves a 60s
-# safety margin before the cliff. Each keepalive costs ~$0.006; missing the
-# cliff costs ~$0.098 (16x penalty). Set to 0 to disable for backends with
-# longer TTL (e.g. direct Anthropic API with 1h cache).
-cache_keepalive_seconds: 240
+# its prompt cache before the TTL cliff. As of v15.20.1, every Role is launched
+# with ENABLE_PROMPT_CACHING_1H=1 (see role_launcher.py) which lifts the cliff
+# to ~3600s on backends that honor it. Default 3000s (50 min) leaves a 10-min
+# safety margin against the 1h cliff and cuts the previous 240s default's
+# keepalive frequency by ~12x. On third-party gateways that strip the 1h flag
+# and silently fall back to 5-min TTL, set this back to 240 here. Each
+# keepalive costs ~$0.006; missing the cliff costs ~$0.098 (16x penalty).
+# Set to 0 to disable for backends with longer or unbounded TTL.
+cache_keepalive_seconds: 3000
 
 # EACN agent_id used when system components (e.g. the Python-side wakeup
 # dispatcher posting context-veto warnings) address Gru. Change only if

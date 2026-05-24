@@ -355,7 +355,17 @@ def _poll_once(
     agent_id: str,
     timeout_secs: int = EACN3_POLL_TIMEOUT_SEC,
 ) -> list[dict[str, Any]]:
-    """Single HTTP long-poll. Same as eacn3_get_events drain-on-read."""
+    """Single HTTP long-poll. Same as eacn3_get_events drain-on-read.
+
+    GitHub Issue #28: filter ``cache_keepalive``-typed events out of the
+    upstream payload. The synthetic in-process keepalive (this module's
+    ``_KEEPALIVE_EVENT``) is a deliberate cache refresh; an upstream-
+    emitted ``cache_keepalive`` is not — it would fire on every quiet
+    cycle and burn one assistant turn per ~4 min interval. The events log
+    on disk shows we never actually see one in production, but defence-
+    in-depth: if EACN3 ever starts emitting one we don't want to wake
+    the model on it.
+    """
     url = f"{_base_url(port)}/api/events/{agent_id}"
     try:
         resp = httpx.get(
@@ -374,7 +384,22 @@ def _poll_once(
         )
         raise RuntimeError(f"EACN3 poll failed: {exc}") from exc
     raw_events = data.get("events") or data.get("messages") or []
-    return [e for e in raw_events if isinstance(e, dict)]
+    out: list[dict[str, Any]] = []
+    for evt in raw_events:
+        if not isinstance(evt, dict):
+            continue
+        # Drop upstream-emitted cache_keepalive frames silently. The
+        # synthetic one this module fires (when keepalive cliff hits) is
+        # the only legitimate keepalive path; anything else is noise.
+        inner = evt.get("event")
+        if isinstance(inner, dict) and inner.get("type") == "cache_keepalive":
+            logger.debug("mos_await_events: dropped upstream cache_keepalive from poll")
+            continue
+        if evt.get("type") == "cache_keepalive":
+            logger.debug("mos_await_events: dropped upstream cache_keepalive (flat shape)")
+            continue
+        out.append(evt)
+    return out
 
 
 # ─── Public entry point ─────────────────────────────────────────────────

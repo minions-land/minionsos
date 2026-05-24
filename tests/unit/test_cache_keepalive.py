@@ -254,22 +254,39 @@ def _real_event_response():
 # --------------------------------------------------------------------------
 
 
-class TestKeepaliveDefaultIsSafeForTokFan:
-    """Default ``cache_keepalive_seconds`` must stay <= 240s.
+class TestKeepaliveDefaultMatchesCacheRegime:
+    """Default ``cache_keepalive_seconds`` must match the active cache regime.
 
-    Empirical measurement on tok.fan: cache reliably expires around 280s
-    of silence. Anything above 240 has been observed to miss the cliff
-    (see Apr 2026 281s gap incident). This test prevents a future config
-    drift from re-introducing that regression.
+    As of v15.20.1, every Role process is launched with
+    ENABLE_PROMPT_CACHING_1H=1 (see role_launcher.py:575), so the cache
+    cliff is ~3600s on backends that honor the flag. Default keepalive
+    of 3000s leaves a 10-min safety margin and cuts the previous 240s
+    default's frequency by ~12x — addresses GitHub Issue #28.
+
+    Hard bound: must stay strictly under 3600s (the 1h cliff) so the
+    safety margin is non-zero. Soft bound: should not drop back below
+    1800s without a deliberate reason (operators downgrading to a 5-min-
+    cache gateway can override via gru.yaml).
     """
 
-    def test_default_keepalive_is_240_or_less(self):
+    def test_default_keepalive_under_1h_cliff(self):
         from minions.config import GruConfig
 
         cfg = GruConfig()
-        assert cfg.cache_keepalive_seconds <= 240, (
-            f"cache_keepalive_seconds default raised to {cfg.cache_keepalive_seconds}; "
-            "tok.fan cache expires by ~280s — anything above 240 risks the cliff."
+        assert cfg.cache_keepalive_seconds < 3600, (
+            f"cache_keepalive_seconds default {cfg.cache_keepalive_seconds} "
+            "meets or exceeds the 1h cliff — zero safety margin."
+        )
+
+    def test_default_keepalive_provides_margin(self):
+        """Margin should be at least 5 minutes against the 1h cliff."""
+        from minions.config import GruConfig
+
+        cfg = GruConfig()
+        margin = 3600 - cfg.cache_keepalive_seconds
+        assert margin >= 300, (
+            f"cache_keepalive_seconds default leaves only {margin}s margin "
+            "against the 1h cliff; want >= 300s (5 min)."
         )
 
 

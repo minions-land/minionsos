@@ -57,6 +57,10 @@ class GruLoop:
         self.stagnation_vote_enabled: bool = cfg.stagnation_vote_enabled
         self.stagnation_vote_window: int = cfg.stagnation_vote_window_seconds
         self.stagnation_vote_cooldown: int = cfg.stagnation_vote_cooldown_seconds
+        self.parked_prompt_enabled: bool = cfg.parked_prompt_watchdog_enabled
+        self.parked_prompt_interval: int = cfg.parked_prompt_watchdog_interval_seconds
+        self.parked_prompt_min_age: int = cfg.parked_prompt_watchdog_min_age_seconds
+        self._last_parked_kick_ts: dict[tuple[int, str], float] = {}
         self._store = StateStore()
         self._crash_counter = CrashCounter()
         self._last_report_ts: float = 0.0
@@ -146,6 +150,17 @@ class GruLoop:
                         break
                     time.sleep(0.5)
 
+        def _parked_prompt_thread() -> None:
+            while not self._stopped:
+                try:
+                    self._sweep_parked_roles()
+                except Exception as exc:
+                    logger.error("parked_prompt tick error: %s", exc, exc_info=True)
+                for _ in range(max(1, self.parked_prompt_interval) * 2):
+                    if self._stopped:
+                        break
+                    time.sleep(0.5)
+
         exp_t = threading.Thread(
             target=_experiment_scheduler_thread,
             daemon=True,
@@ -206,6 +221,18 @@ class GruLoop:
                 "Stagnation-vote breaker started (window=%ds, cooldown=%ds).",
                 self.stagnation_vote_window,
                 self.stagnation_vote_cooldown,
+            )
+        if self.parked_prompt_enabled:
+            parked_t = threading.Thread(
+                target=_parked_prompt_thread,
+                daemon=True,
+                name="parked-prompt",
+            )
+            parked_t.start()
+            logger.info(
+                "Parked-prompt watchdog started (interval=%ds, min_age=%ds).",
+                self.parked_prompt_interval,
+                self.parked_prompt_min_age,
             )
         logger.info("Gru monitor loop started (interval=%ds).", self.interval)
         try:
@@ -706,6 +733,80 @@ class GruLoop:
                         exc,
                     )
                 self._last_wedge_kill_ts[key] = now
+
+    def _sweep_parked_roles(self) -> None:
+        """Recover roles parked at the input prompt after /compact (Issue #29).
+
+        The post_compact_draft hook fires an immediate tmux kick on its
+        way out — this Gru-side sweep is the safety net for the case
+        where the hook itself failed (no tmux on PATH at hook-spawn
+        time, race with the TUI redraw, the hook crashed before it
+        reached the kick).
+
+        Detection requires both signals: (a) the role's pane shows the
+        prompt cursor on its own line in the recent tail, AND (b) the
+        role's heartbeat is at least ``parked_prompt_min_age`` stale.
+        Either signal alone has a high false-positive rate (a healthy
+        role renders the cursor briefly between turns; a stale heartbeat
+        may indicate a deeper wedge handled by the wedge-watchdog
+        instead). Both together are specific to the parked-after-compact
+        failure mode.
+        """
+        from minions.lifecycle.parked_prompt import detect_parked_pane, kick_pane
+        from minions.lifecycle.role_launcher import session_alive
+        from minions.lifecycle.role_launcher import session_name as _session_name
+
+        now = time.time()
+        projects = self._store.list_projects(filter="active")
+        for project in projects:
+            port = project.port
+            for role in project.active_roles:
+                if role.state != "active":
+                    continue
+                if role.name == "noter":
+                    # Noter doesn't go through /compact in the same shape;
+                    # if it ever parks the noter-wait timer wakes it on
+                    # its own cadence.
+                    continue
+                key = (port, role.name)
+                # Cooldown after a successful kick — the role needs a
+                # cycle to redraw and start its next turn before we look
+                # again, otherwise we'd kick the same prompt twice.
+                last_kick = self._last_parked_kick_ts.get(key, 0.0)
+                if now - last_kick < self.parked_prompt_interval:
+                    continue
+                if not session_alive(port, role.name):
+                    continue
+                hb_age = self._heartbeat_age_seconds(port, role.name)
+                if hb_age is None or hb_age < self.parked_prompt_min_age:
+                    continue
+                sess = _session_name(port, role.name)
+                signal = detect_parked_pane(sess)
+                if not signal.parked:
+                    continue
+                logger.info(
+                    "parked_prompt: kicking port=%d role=%s session=%s "
+                    "(hb_age=%ds, snapshot_lines=%d)",
+                    port,
+                    role.name,
+                    sess,
+                    int(hb_age),
+                    signal.snapshot_lines,
+                )
+                if kick_pane(sess):
+                    self._last_parked_kick_ts[key] = now
+                    self._emit_health_event(
+                        port=port,
+                        kind="parked_prompt_recovered",
+                        severity="info",
+                        message=(
+                            f"Role {role.name!r} on port {port} was parked at "
+                            f"the input prompt after /compact "
+                            f"(hb_age={int(hb_age)}s); Gru sent a recovery kick."
+                        ),
+                        role_name=role.name,
+                        metadata={"hb_age_seconds": int(hb_age)},
+                    )
 
     def _tick_gru_digest(self) -> None:
         """Snapshot per-role event/Draft activity and persist a digest.
