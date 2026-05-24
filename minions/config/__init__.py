@@ -1196,14 +1196,17 @@ class GruConfig(BaseModel):
         ),
     )
     claude_model: str = Field(
-        default="claude-sonnet-4-6",
-        description="Claude model name passed to the claude CLI (e.g. claude-sonnet-4-6).",
+        default="claude-opus-4-7",
+        description="Claude model name passed to the claude CLI (e.g. claude-opus-4-7).",
     )
     noter_model: str = Field(
-        default="sonnet",
+        default="opus",
         description=(
-            "Model for the Noter role. Noter does summarization and DAG "
-            "maintenance — Sonnet is sufficient and much cheaper than Opus."
+            "Model for the Noter role. As of v15.19.1, all roles default to "
+            "Opus for cross-role consistency — Sonnet's self-tangling on long "
+            "Draft sessions outweighed the per-token cost difference. Keep "
+            "Sonnet here only for short-leaf Noter projects where curation "
+            "is the dominant load and reasoning depth is not."
         ),
     )
     agent_host: Literal["claude", "codex"] = Field(
