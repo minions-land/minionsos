@@ -12,15 +12,5 @@ status: stub
 
 # mos_evaluate
 
-**One line:** STUB — fill in.
-
-## Signature
-See source: `minions/tools/mcp/evaluator_tools.py:40`.
-
-## Args
-TODO.
-
-## Pitfalls
-None recorded yet.
-
-## See also
+No curated MANUAL page yet. The MCP description is in your Role system prompt.
+Source: minions/tools/mcp/evaluator_tools.py:40

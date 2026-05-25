@@ -141,6 +141,26 @@ def main() -> int:
                 f"{actual!r}. Actual location: {actual_src}. Update the page's `source:` field."
             )
 
+    # 4. verbatim-description regression (v15.28)
+    # The V1 transform replaced every auto-gen body with a 1-line source
+    # pointer to break the silent-drift class confirmed in the v15.28
+    # post-compact survival probe. Any new page that re-ingests a verbatim
+    # plugin description re-introduces the bug. Block at CI.
+    for pid, fm, p in pages:
+        body = p.read_text(encoding="utf-8")
+        # The marker the gen_eacn3_stubs.py scaffolder used historically.
+        # Curated pages don't need this header — they restate discipline,
+        # they don't copy descriptions.
+        if "## Full description (from EACN3 plugin)" in body:
+            errors.append(
+                f"VERBATIM_DESCRIPTION: {p.relative_to(ROOT)} contains the "
+                "'## Full description (from EACN3 plugin)' header. Per v15.28 "
+                "(see /tmp/lookup-experiment-results.md), no page may re-ingest a "
+                "verbatim plugin description — that creates silent drift the live "
+                "drift detector cannot catch. Replace the body with a 1-line "
+                "source pointer or curated discipline notes."
+            )
+
     # Report
     if errors:
         print("# DRIFT — errors:")

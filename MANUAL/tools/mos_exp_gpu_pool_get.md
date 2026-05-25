@@ -12,15 +12,5 @@ status: stub
 
 # mos_exp_gpu_pool_get
 
-**One line:** STUB — fill in.
-
-## Signature
-See source: `minions/tools/mcp/experiment_tools.py:137`.
-
-## Args
-TODO.
-
-## Pitfalls
-None recorded yet.
-
-## See also
+No curated MANUAL page yet. The MCP description is in your Role system prompt.
+Source: minions/tools/mcp/experiment_tools.py:137

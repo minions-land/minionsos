@@ -12,15 +12,5 @@ status: stub
 
 # mos_get_events
 
-**One line:** STUB — fill in.
-
-## Signature
-See source: `minions/tools/mcp/runtime_tools.py:336`.
-
-## Args
-TODO.
-
-## Pitfalls
-None recorded yet.
-
-## See also
+No curated MANUAL page yet. The MCP description is in your Role system prompt.
+Source: minions/tools/mcp/runtime_tools.py:336

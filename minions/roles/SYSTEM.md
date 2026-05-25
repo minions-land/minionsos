@@ -16,9 +16,32 @@ python3 MANUAL/scripts/lookup.py --pitfalls ""            # known traps
 ```
 
 Each lookup returns ≤1 KB. Reading the right page costs ~10x less than reading
-source. Use it when a tool behaves unexpectedly, when you need to recall an
-exact signature, or when you hit a symptom and want to check whether someone
-else has already documented the pitfall.
+source.
+
+**`lookup.py` is the canonical reference. DO NOT** re-read your role's
+`SYSTEM.md`, `ls minions/roles/<role>/skills/`, or grep source files first
+when you need to recall a tool, discipline, or pitfall — those approaches
+were measured 0/2 vs lookup.py's 1/1 on a post-compact discoverability probe.
+
+## Per-role publish whitelist
+
+Cross-role writes go through `mos_publish_to_shared(role, src_path,
+dst_subpath, ...)`. Server-side authz rejects out-of-whitelist writes;
+trying first wastes a turn. Each Role's allowed `dst_subpath` prefixes
+under `branches/shared/`:
+
+| role   | allowed dst_subpath prefixes                                              |
+|--------|---------------------------------------------------------------------------|
+| gru    | any subdir                                                                |
+| noter  | `notes/`, `draft/`, `handoffs/`, `book/`                                  |
+| coder  | `exp/`, `handoffs/`, `governance/`                                        |
+| writer | `handoffs/`, `governance/`                                                |
+| ethics | `ethics/`, `handoffs/`, `governance/`                                     |
+| expert | `handoffs/`, `governance/`                                                |
+
+`branches/shared/reviews/` is `mos_review_run`-only; `branches/shared/submissions/`
+is `mos_submit`-only. To get cross-role content past your boundary,
+publish under `handoffs/` and DM the consuming Role on EACN.
 
 ## How MinionsOS wakes you
 

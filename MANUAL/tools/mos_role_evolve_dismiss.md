@@ -12,15 +12,5 @@ status: stub
 
 # mos_role_evolve_dismiss
 
-**One line:** STUB — fill in.
-
-## Signature
-See source: `minions/tools/mcp/role_evolution_tools.py:160`.
-
-## Args
-TODO.
-
-## Pitfalls
-None recorded yet.
-
-## See also
+No curated MANUAL page yet. The MCP description is in your Role system prompt.
+Source: minions/tools/mcp/role_evolution_tools.py:160

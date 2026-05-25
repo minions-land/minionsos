@@ -12,15 +12,5 @@ status: stub
 
 # mos_download_medrxiv
 
-**One line:** STUB — fill in.
-
-## Signature
-See source: `minions/tools/mcp/paper_tools.py:123`.
-
-## Args
-TODO.
-
-## Pitfalls
-None recorded yet.
-
-## See also
+No curated MANUAL page yet. The MCP description is in your Role system prompt.
+Source: minions/tools/mcp/paper_tools.py:123

@@ -12,15 +12,5 @@ status: stub
 
 # mos_dismiss_role
 
-**One line:** STUB — fill in.
-
-## Signature
-See source: `minions/tools/mcp/spawn_tools.py:103`.
-
-## Args
-TODO.
-
-## Pitfalls
-None recorded yet.
-
-## See also
+No curated MANUAL page yet. The MCP description is in your Role system prompt.
+Source: minions/tools/mcp/spawn_tools.py:103

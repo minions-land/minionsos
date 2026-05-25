@@ -12,15 +12,5 @@ status: stub
 
 # mos_project_bridge
 
-**One line:** STUB — fill in.
-
-## Signature
-See source: `minions/tools/mcp/project_tools.py:184`.
-
-## Args
-TODO.
-
-## Pitfalls
-None recorded yet.
-
-## See also
+No curated MANUAL page yet. The MCP description is in your Role system prompt.
+Source: minions/tools/mcp/project_tools.py:184

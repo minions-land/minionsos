@@ -12,15 +12,5 @@ status: stub
 
 # mos_signboard_reopen
 
-**One line:** STUB — fill in.
-
-## Signature
-See source: `minions/tools/mcp/signboard_tools.py:149`.
-
-## Args
-TODO.
-
-## Pitfalls
-None recorded yet.
-
-## See also
+No curated MANUAL page yet. The MCP description is in your Role system prompt.
+Source: minions/tools/mcp/signboard_tools.py:149

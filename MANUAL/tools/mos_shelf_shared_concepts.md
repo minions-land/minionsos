@@ -12,15 +12,5 @@ status: stub
 
 # mos_shelf_shared_concepts
 
-**One line:** STUB — fill in.
-
-## Signature
-See source: `minions/tools/mcp/memory_tools.py:374`.
-
-## Args
-TODO.
-
-## Pitfalls
-None recorded yet.
-
-## See also
+No curated MANUAL page yet. The MCP description is in your Role system prompt.
+Source: minions/tools/mcp/memory_tools.py:374

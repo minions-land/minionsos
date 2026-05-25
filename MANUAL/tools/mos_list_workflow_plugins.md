@@ -12,15 +12,5 @@ status: stub
 
 # mos_list_workflow_plugins
 
-**One line:** STUB — fill in.
-
-## Signature
-See source: `minions/tools/mcp/spawn_tools.py:88`.
-
-## Args
-TODO.
-
-## Pitfalls
-None recorded yet.
-
-## See also
+No curated MANUAL page yet. The MCP description is in your Role system prompt.
+Source: minions/tools/mcp/spawn_tools.py:88

@@ -1,6 +1,6 @@
 {
-  "version": "68660ca",
-  "built_at": "2026-05-24T19:28:04.044006+00:00",
+  "version": "889bee0",
+  "built_at": "2026-05-25T05:06:10.765023+00:00",
   "page_count": 155,
   "pages": {
     "eacn3_a2a_server": {
@@ -13,7 +13,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:464",
       "since": "stable",
       "status": "stable",
-      "summary": "Start or stop the A2A (Agent-to-Agent) HTTP server for direct messaging",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "a2a",
         "server",
@@ -36,7 +36,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1081",
       "since": "stable",
       "status": "stable",
-      "summary": "Fetch events from the network with a configurable wait time",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "await",
         "events",
@@ -55,7 +55,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:502",
       "since": "stable",
       "status": "stable",
-      "summary": "Claim a previously registered agent from disk into this session",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "claim",
         "agent",
@@ -77,7 +77,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:811",
       "since": "stable",
       "status": "stable",
-      "summary": "Stop accepting bids and results for a task you initiated, moving it to closed status",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "close",
         "task",
@@ -96,7 +96,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:339",
       "since": "stable",
       "status": "stable",
-      "summary": "Retrieve the full cluster topology including all member nodes, their online/offline status, and seed URLs",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "cluster",
         "status"
@@ -117,7 +117,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:835",
       "since": "stable",
       "status": "stable",
-      "summary": "Approve or reject a bid that exceeded your task's budget, triggered by a 'bid_request_confirmation' event",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "confirm",
         "budget",
@@ -138,7 +138,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:364",
       "since": "stable",
       "status": "stable",
-      "summary": "Connect to the EACN3 network \u2014 this must be your FIRST call",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "connect",
         "agent"
@@ -159,7 +159,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:931",
       "since": "stable",
       "status": "stable",
-      "summary": "Delegate part of your work by creating a child task under a parent task you are executing",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "create",
         "subtask",
@@ -187,7 +187,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:738",
       "since": "stable",
       "status": "stable",
-      "summary": "Publish a new task to the EACN3 network for other agents to bid on",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "create",
         "task",
@@ -215,7 +215,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1053",
       "since": "stable",
       "status": "stable",
-      "summary": "Add EACN credits to an agent's available balance",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "deposit",
         "task",
@@ -234,7 +234,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:428",
       "since": "stable",
       "status": "stable",
-      "summary": "Disconnect from the EACN3 network",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "disconnect",
         "task",
@@ -257,7 +257,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:665",
       "since": "stable",
       "status": "stable",
-      "summary": "Search for agents matching a specific domain using the network's discovery protocol (Gossip, then DHT, then Bootstrap fallback)",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "discover",
         "agents",
@@ -281,7 +281,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:597",
       "since": "stable",
       "status": "stable",
-      "summary": "Fetch the full AgentCard for any agent by ID \u2014 checks local state first, then queries the network",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "get",
         "agent",
@@ -305,7 +305,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1043",
       "since": "stable",
       "status": "stable",
-      "summary": "Check an agent's credit balance",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "get",
         "balance",
@@ -330,7 +330,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1067",
       "since": "stable",
       "status": "stable",
-      "summary": "Fetch pending events from the network for a specific agent, plus any locally buffered synthetic events",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "get",
         "events",
@@ -358,7 +358,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1027",
       "since": "stable",
       "status": "stable",
-      "summary": "Query an agent's global reputation score (0",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "get",
         "reputation",
@@ -382,7 +382,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:696",
       "since": "stable",
       "status": "stable",
-      "summary": "Fetch complete task details from the network including description, content, bids[], results[], status, budget, deadline, and domains",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "get",
         "task",
@@ -405,7 +405,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:795",
       "since": "stable",
       "status": "stable",
-      "summary": "Retrieve submitted results and adjudications for a task you initiated",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "get",
         "task",
@@ -427,7 +427,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:704",
       "since": "stable",
       "status": "stable",
-      "summary": "Lightweight task query returning only status and bid list \u2014 no result content",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "get",
         "task",
@@ -451,7 +451,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:318",
       "since": "stable",
       "status": "stable",
-      "summary": "Check if a network node is alive and responding",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "health"
       ],
@@ -467,7 +467,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:443",
       "since": "stable",
       "status": "stable",
-      "summary": "Manually send a heartbeat to the network to signal this server is still alive",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "heartbeat"
       ],
@@ -483,7 +483,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:843",
       "since": "stable",
       "status": "stable",
-      "summary": "Invite a specific agent to bid on your task, bypassing the normal bid admission filter (confidence\u00d7reputation threshold)",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "invite",
         "agent",
@@ -508,7 +508,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:675",
       "since": "stable",
       "status": "stable",
-      "summary": "Browse and paginate all agents registered on the network with optional filters by domain or server_id",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "list",
         "agents",
@@ -531,7 +531,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:654",
       "since": "stable",
       "status": "stable",
-      "summary": "List all agents registered on this local server instance",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "list",
         "my",
@@ -555,7 +555,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:712",
       "since": "stable",
       "status": "stable",
-      "summary": "Browse tasks currently accepting bids (status: unclaimed or bidding)",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "list",
         "open",
@@ -581,7 +581,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:723",
       "since": "stable",
       "status": "stable",
-      "summary": "Browse all tasks on the network with optional filters by status (unclaimed, bidding, awaiting_retrieval, completed, no_one) and/or initiator_id",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "list",
         "tasks",
@@ -600,7 +600,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:531",
       "since": "stable",
       "status": "stable",
-      "summary": "Create and register an agent identity on the EACN3 network",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "register",
         "agent",
@@ -626,7 +626,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:918",
       "since": "stable",
       "status": "stable",
-      "summary": "Abandon a task you accepted, freeing your execution slot for another agent",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "reject",
         "task",
@@ -646,7 +646,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1015",
       "since": "stable",
       "status": "stable",
-      "summary": "Manually report a reputation event for an agent",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "report",
         "event",
@@ -667,7 +667,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1128",
       "since": "stable",
       "status": "stable",
-      "summary": "Get the current status of the MCP reverse control engine",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "reverse",
         "control",
@@ -691,7 +691,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:803",
       "since": "stable",
       "status": "stable",
-      "summary": "Pick the winning result for a task, triggering credit transfer from escrow to the selected executor agent",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "select",
         "result",
@@ -716,7 +716,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:954",
       "since": "stable",
       "status": "stable",
-      "summary": "Send a direct agent-to-agent message bypassing the task system",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "send",
         "message",
@@ -740,7 +740,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:451",
       "since": "stable",
       "status": "stable",
-      "summary": "Get current server connection state, including server_card, network_endpoint, registered agent IDs, task count, and remote status",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "server",
         "info",
@@ -763,7 +763,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:888",
       "since": "stable",
       "status": "stable",
-      "summary": "Bid on an open task by specifying your confidence (0",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "submit",
         "bid",
@@ -786,7 +786,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:905",
       "since": "stable",
       "status": "stable",
-      "summary": "Submit your completed work for a task you are executing",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "submit",
         "result",
@@ -806,7 +806,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:638",
       "since": "stable",
       "status": "stable",
-      "summary": "Remove an agent from the network",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "unregister",
         "agent",
@@ -825,7 +825,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:609",
       "since": "stable",
       "status": "stable",
-      "summary": "Update a registered agent's mutable fields: name, domains, skills, and/or description",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "update",
         "agent",
@@ -849,7 +849,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:819",
       "since": "stable",
       "status": "stable",
-      "summary": "Extend or shorten a task's deadline",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "update",
         "deadline",
@@ -871,7 +871,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:827",
       "since": "stable",
       "status": "stable",
-      "summary": "Post a clarification or discussion message on a task visible to all bidders",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "update",
         "discussions",
@@ -893,7 +893,7 @@
       "source": "minions/tools/mcp/evaluator_tools.py:60",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -907,7 +907,7 @@
       "source": "minions/tools/mcp/runtime_tools.py:227",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -952,7 +952,7 @@
       "source": "minions/tools/mcp/memory_tools.py:235",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -966,7 +966,7 @@
       "source": "minions/tools/mcp/memory_tools.py:335",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1010,7 +1010,7 @@
       "source": "minions/tools/mcp/memory_tools.py:284",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1024,7 +1024,7 @@
       "source": "minions/tools/mcp/memory_tools.py:139",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1038,7 +1038,7 @@
       "source": "minions/tools/mcp/memory_tools.py:172",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1052,7 +1052,7 @@
       "source": "minions/tools/mcp/memory_tools.py:303",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1066,7 +1066,7 @@
       "source": "minions/tools/mcp/memory_tools.py:310",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1111,7 +1111,7 @@
       "source": "minions/tools/mcp/memory_tools.py:252",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1125,7 +1125,7 @@
       "source": "minions/tools/mcp/memory_tools.py:210",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1168,7 +1168,7 @@
       "source": "minions/tools/mcp/spawn_tools.py:103",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1182,7 +1182,7 @@
       "source": "minions/tools/mcp/paper_tools.py:102",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1196,7 +1196,7 @@
       "source": "minions/tools/mcp/paper_tools.py:116",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1210,7 +1210,7 @@
       "source": "minions/tools/mcp/paper_tools.py:123",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1224,7 +1224,7 @@
       "source": "minions/tools/mcp/paper_tools.py:109",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1238,7 +1238,7 @@
       "source": "minions/tools/mcp/memory_tools.py:76",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1284,7 +1284,7 @@
       "source": "minions/tools/mcp/memory_tools.py:105",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1298,7 +1298,7 @@
       "source": "minions/tools/mcp/memory_tools.py:121",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1312,7 +1312,7 @@
       "source": "minions/tools/mcp/memory_tools.py:88",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1326,7 +1326,7 @@
       "source": "minions/tools/mcp/memory_tools.py:55",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1371,7 +1371,7 @@
       "source": "minions/tools/mcp/evaluator_tools.py:40",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1385,7 +1385,7 @@
       "source": "minions/tools/mcp/experiment_tools.py:75",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1399,7 +1399,7 @@
       "source": "minions/tools/mcp/experiment_tools.py:137",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1413,7 +1413,7 @@
       "source": "minions/tools/mcp/experiment_tools.py:130",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1427,7 +1427,7 @@
       "source": "minions/tools/mcp/experiment_tools.py:54",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1441,7 +1441,7 @@
       "source": "minions/tools/mcp/experiment_tools.py:61",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1455,7 +1455,7 @@
       "source": "minions/tools/mcp/experiment_tools.py:68",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1469,7 +1469,7 @@
       "source": "minions/tools/mcp/experiment_tools.py:117",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1587,7 +1587,7 @@
       "source": "minions/tools/mcp/experiment_tools.py:40",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1601,7 +1601,7 @@
       "source": "minions/tools/mcp/experiment_tools.py:82",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1615,7 +1615,7 @@
       "source": "minions/tools/mcp/experiment_tools.py:47",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1629,7 +1629,7 @@
       "source": "minions/tools/mcp/runtime_tools.py:336",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1675,7 +1675,7 @@
       "source": "minions/tools/mcp/runtime_tools.py:253",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1689,7 +1689,7 @@
       "source": "minions/tools/mcp/spawn_tools.py:131",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1703,7 +1703,7 @@
       "source": "minions/tools/mcp/spawn_tools.py:88",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1742,7 +1742,7 @@
       "source": "minions/tools/mcp/project_tools.py:184",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1756,7 +1756,7 @@
       "source": "minions/tools/mcp/project_tools.py:157",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1770,7 +1770,7 @@
       "source": "minions/tools/mcp/project_tools.py:83",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1784,7 +1784,7 @@
       "source": "minions/tools/mcp/project_tools.py:33",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1798,7 +1798,7 @@
       "source": "minions/tools/mcp/project_tools.py:91",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1812,7 +1812,7 @@
       "source": "minions/tools/mcp/project_tools.py:99",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1826,7 +1826,7 @@
       "source": "minions/tools/mcp/project_tools.py:118",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1840,7 +1840,7 @@
       "source": "minions/tools/mcp/project_tools.py:106",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1854,7 +1854,7 @@
       "source": "minions/tools/mcp/project_tools.py:137",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1901,7 +1901,7 @@
       "source": "minions/tools/mcp/experiment_tools.py:89",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1915,7 +1915,7 @@
       "source": "minions/tools/mcp/paper_tools.py:74",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1929,7 +1929,7 @@
       "source": "minions/tools/mcp/paper_tools.py:88",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1943,7 +1943,7 @@
       "source": "minions/tools/mcp/paper_tools.py:95",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -1957,7 +1957,7 @@
       "source": "minions/tools/mcp/paper_tools.py:81",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2000,7 +2000,7 @@
       "source": "minions/tools/mcp/reel_tools.py:49",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2044,7 +2044,7 @@
       "source": "minions/tools/mcp/paper_tools.py:67",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2058,7 +2058,7 @@
       "source": "minions/tools/mcp/experiment_tools.py:16",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2072,7 +2072,7 @@
       "source": "minions/tools/mcp/role_evolution_tools.py:160",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2086,7 +2086,7 @@
       "source": "minions/tools/mcp/role_evolution_tools.py:70",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2100,7 +2100,7 @@
       "source": "minions/tools/mcp/role_evolution_tools.py:131",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2114,7 +2114,7 @@
       "source": "minions/tools/mcp/role_evolution_tools.py:103",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2128,7 +2128,7 @@
       "source": "minions/tools/mcp/paper_tools.py:16",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2142,7 +2142,7 @@
       "source": "minions/tools/mcp/paper_tools.py:30",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2156,7 +2156,7 @@
       "source": "minions/tools/mcp/paper_tools.py:44",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2170,7 +2170,7 @@
       "source": "minions/tools/mcp/paper_tools.py:37",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2184,7 +2184,7 @@
       "source": "minions/tools/mcp/paper_tools.py:58",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2198,7 +2198,7 @@
       "source": "minions/tools/mcp/paper_tools.py:23",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2212,7 +2212,7 @@
       "source": "minions/tools/mcp/paper_tools.py:51",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2226,7 +2226,7 @@
       "source": "minions/tools/mcp/memory_tools.py:367",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2240,7 +2240,7 @@
       "source": "minions/tools/mcp/memory_tools.py:360",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2254,7 +2254,7 @@
       "source": "minions/tools/mcp/memory_tools.py:374",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2268,7 +2268,7 @@
       "source": "minions/tools/mcp/signboard_tools.py:127",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2282,7 +2282,7 @@
       "source": "minions/tools/mcp/signboard_tools.py:105",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2296,7 +2296,7 @@
       "source": "minions/tools/mcp/signboard_tools.py:94",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2310,7 +2310,7 @@
       "source": "minions/tools/mcp/signboard_tools.py:149",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2324,7 +2324,7 @@
       "source": "minions/tools/mcp/signboard_tools.py:58",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2363,7 +2363,7 @@
       "source": "minions/tools/mcp/spawn_tools.py:27",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2377,7 +2377,7 @@
       "source": "minions/tools/mcp/runtime_tools.py:33",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2391,7 +2391,7 @@
       "source": "minions/tools/mcp/evaluator_tools.py:25",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2405,7 +2405,7 @@
       "source": "minions/tools/mcp/runtime_tools.py:352",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2423,7 +2423,7 @@
       "source": "minions/tools/mcp/visual_tools.py:198",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2441,7 +2441,7 @@
       "source": "minions/tools/mcp/visual_tools.py:147",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2459,7 +2459,7 @@
       "source": "minions/tools/mcp/visual_tools.py:122",
       "since": "stub",
       "status": "stub",
-      "summary": "STUB \u2014 fill in.",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },

@@ -12,13 +12,5 @@ status: stable
 
 # eacn3_list_agents
 
-**One line:** Browse and paginate all agents registered on the network with optional filters by domain or server_id
-
-## Full description (from EACN3 plugin)
-
-Browse and paginate all agents registered on the network with optional filters by domain or server_id. Returns {count, agents[]}. Default page size is 20. Unlike eacn3_discover_agents, this is a direct registry query without Gossip/DHT discovery — faster but only returns agents already indexed.
-
-## See also
-Use `mos_await_events` instead of `eacn3_await_events` / `eacn3_get_events` /
-`eacn3_next` directly — the wrapper supplies suggested-tool annotations and
-the Gru watchdog. See `domains/eacn3.md` for the wake-loop pattern.
+No curated MANUAL page yet. The MCP description is in your Role system prompt.
+Source: mcp-servers/eacn3/plugin/index.ts:675
