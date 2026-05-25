@@ -29,6 +29,16 @@ Design goals (in priority order):
    model to produce a *pointer-shaped* summary, not a reconstructable
    transcript.
 
+Per-role resume tool. The Resume_protocol block at the end of the
+emitted instructions tells the post-compact role exactly what its
+first tool call must be. EACN-registered roles drive their loop with
+``mos_await_events``; Noter is the exception — it has no EACN agent
+identity and uses the timer-based ``mos_noter_wait`` instead. The hook
+reads ``MINIONS_ROLE_NAME`` from the env and emits the matching tool;
+without this branching every Noter compact would tell Noter to call
+a tool not in its whitelist and the role would park indefinitely
+(GitHub Issue #30).
+
 The output schema is parsed by ``post_compact_draft.py``.  Keep
 section headings (``## Working_on``, ``## Next_action``,
 ``## New_or_changed_nodes``, ``## Pending_plans``, ``## Open_questions``,
@@ -39,9 +49,22 @@ edits.
 from __future__ import annotations
 
 import json
+import os
 import sys
 
-SCIENCE_COMPACT_INSTRUCTIONS = """\
+
+def _resume_tool() -> str:
+    """Return the tool name the post-compact role must call first.
+
+    Noter is on a timer backbone (``mos_noter_wait``); every other Role
+    drives its event loop with ``mos_await_events``. The role identity is
+    set by ``role_launcher.py`` via the ``MINIONS_ROLE_NAME`` env var.
+    """
+    role = (os.environ.get("MINIONS_ROLE_NAME") or "").strip().lower()
+    return "mos_noter_wait" if role == "noter" else "mos_await_events"
+
+
+SCIENCE_COMPACT_INSTRUCTIONS_TEMPLATE = """\
 You are compacting a MinionsOS science-discovery agent's context. The agent has \
 durable memory on disk in three layers — DO NOT inline content from any of \
 them. Cite IDs and paths instead; the post-compact agent will re-fetch as \
@@ -76,7 +99,7 @@ OUTPUT SHAPE — produce these sections in order, in markdown:
 
 ## Next_action
 - Single line. The exact next concrete step, ideally a tool call.
-  After wakeup the agent will call mos_draft_summary() then mos_await_events();
+  After wakeup the agent will call mos_draft_summary() then {RESUME_TOOL}();
   if a different first step is required, name it explicitly here.
 
 ## New_or_changed_nodes
@@ -88,7 +111,7 @@ OUTPUT SHAPE — produce these sections in order, in markdown:
 - {node_id} — {one-line label}  (already persisted with metadata.pending_plan=true)
   Single events the agent dequeued from EACN but did not execute. The
   post-compact agent will see them via mos_draft_summary() and run them
-  before mos_await_events().
+  before {RESUME_TOOL}().
 
 ## Open_questions
 - {Q-### or free text} — {one-line}.
@@ -127,10 +150,10 @@ See GitHub Issue #9 for the failure mode.):
 After this summary lands, your IMMEDIATE next tool call MUST be:
   mos_draft_summary()        # re-orient on persisted state
 followed by:
-  mos_await_events()         # resume the EACN event loop
+  {RESUME_TOOL}()         # resume the wake loop
 Do NOT emit any reasoning, narration, or other tool call before
 mos_draft_summary(). The forever-loop contract requires the very next
-turn to re-enter the event-driven loop — anything else parks the Role.
+turn to re-enter the wake loop — anything else parks the Role.
 """
 
 
@@ -147,10 +170,12 @@ def main() -> None:
         # supply the science brief. Never block the compact.
         existing = ""
 
+    instructions = SCIENCE_COMPACT_INSTRUCTIONS_TEMPLATE.replace("{RESUME_TOOL}", _resume_tool())
+
     parts: list[str] = []
     if existing:
         parts.append(existing)
-    parts.append(SCIENCE_COMPACT_INSTRUCTIONS)
+    parts.append(instructions)
 
     sys.stdout.write("\n\n".join(parts))
 

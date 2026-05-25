@@ -3,6 +3,23 @@
 This common contract is injected into every project Role before the role-specific
 SYSTEM.md. If it conflicts with a role-specific prompt, this common contract wins.
 
+## Reference manual
+
+For any MCP tool signature, error pattern, or recovery recipe you don't already
+remember, query the on-demand manual rather than re-reading source:
+
+```
+python3 MANUAL/scripts/lookup.py "queue dispatch retry"   # search
+python3 MANUAL/scripts/lookup.py --id mos_exp_run         # full page
+python3 MANUAL/scripts/lookup.py --domain experiments     # list a domain
+python3 MANUAL/scripts/lookup.py --pitfalls ""            # known traps
+```
+
+Each lookup returns ≤1 KB. Reading the right page costs ~10x less than reading
+source. Use it when a tool behaves unexpectedly, when you need to recall an
+exact signature, or when you hit a symptom and want to check whether someone
+else has already documented the pitfall.
+
 ## How MinionsOS wakes you
 
 You are a long-lived agent-host process. Your event loop is `mos_await_events()`,

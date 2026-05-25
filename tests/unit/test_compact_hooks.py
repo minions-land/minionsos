@@ -81,6 +81,64 @@ class TestPreCompact:
         assert result.returncode == 0
         assert "## Working_on" in result.stdout
 
+    def test_default_resume_tool_is_await_events(self) -> None:
+        """EACN-registered roles (default) get mos_await_events."""
+        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": "coder"})
+        assert result.returncode == 0
+        assert "mos_await_events()" in result.stdout
+        assert "mos_noter_wait()" not in result.stdout
+
+    def test_noter_resume_tool_is_noter_wait(self) -> None:
+        """Noter is not on EACN; resume must call its timer-based tool.
+        Regression for GitHub Issue #30 — hardcoded mos_await_events()
+        wedges Noter because it's not in Noter's whitelist."""
+        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": "noter"})
+        assert result.returncode == 0
+        assert "mos_noter_wait()" in result.stdout
+        assert "mos_await_events()" not in result.stdout
+
+    def test_noter_resume_tool_case_insensitive(self) -> None:
+        """MINIONS_ROLE_NAME may be set with any casing."""
+        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": "NOTER"})
+        assert result.returncode == 0
+        assert "mos_noter_wait()" in result.stdout
+
+    def test_unset_role_defaults_to_await_events(self) -> None:
+        """Missing MINIONS_ROLE_NAME falls back to the EACN-role tool — the
+        safe default since EACN roles outnumber Noter 5:1 in any project."""
+        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": ""})
+        assert result.returncode == 0
+        assert "mos_await_events()" in result.stdout
+
+    def test_default_resume_tool_is_await_events(self) -> None:
+        """EACN-registered roles (default) get mos_await_events."""
+        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": "coder"})
+        assert result.returncode == 0
+        assert "mos_await_events()" in result.stdout
+        assert "mos_noter_wait()" not in result.stdout
+
+    def test_noter_resume_tool_is_noter_wait(self) -> None:
+        """Noter is not on EACN; resume must call its timer-based tool.
+        Regression for GitHub Issue #30 — hardcoded mos_await_events()
+        wedges Noter because it's not in Noter's whitelist."""
+        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": "noter"})
+        assert result.returncode == 0
+        assert "mos_noter_wait()" in result.stdout
+        assert "mos_await_events()" not in result.stdout
+
+    def test_noter_resume_tool_case_insensitive(self) -> None:
+        """MINIONS_ROLE_NAME may be set with any casing."""
+        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": "NOTER"})
+        assert result.returncode == 0
+        assert "mos_noter_wait()" in result.stdout
+
+    def test_unset_role_defaults_to_await_events(self) -> None:
+        """Missing MINIONS_ROLE_NAME falls back to the EACN-role tool — the
+        safe default since EACN roles outnumber Noter 5:1 in any project."""
+        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": ""})
+        assert result.returncode == 0
+        assert "mos_await_events()" in result.stdout
+
 
 # ---------------------------------------------------------------------------
 # PostCompact

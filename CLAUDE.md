@@ -254,30 +254,35 @@ A review round's Pass A must produce 3-5 independent reviewer-instance reports b
 
 ### Cross-cycle memory
 
-Roles are cold-started each invocation. There are no per-role private memory files. Persistent memory spans four layers (L0 → L3) plus a federated future (L4):
+Roles are cold-started each invocation. There are no per-role private memory
+files. Persistent memory spans four layers (L0 → L3) plus a federated future
+(L4 Library, vision). The reference table for all four layers — the writers,
+the file paths, the MCP read tools — lives in **`MANUAL/domains/memory.md`**
+(canonical) and is also discoverable via
+`python3 MANUAL/scripts/lookup.py --domain memory`. Roles fetch that page on
+demand instead of carrying the table in their always-loaded context.
 
-- **L0 Reel** — raw verbatim session traces at `project_{port}/branches/<role>/reel/<session_id>/`. Captured automatically by the `reel_capture` PostToolUse hook on every `Agent` / `Task` / `mcp__codex-subagent__codex` invocation. Each session directory holds an `index.jsonl` and a `transcripts/<task_id>.jsonl` per dispatched subagent. **Role-private by default**; Gru can read any role's reel. Read via `mos_reel_get(ref)` / `mos_reel_window(ref, span)` where `ref = "<role>/<session_id>/<task_id>"`. Reel is **not** injected at wake-up; it is drill-down only — Draft / Book / Shelf metadata carry a `reel_ref` pointer that any auditor can follow back to the original execution frame.
-- **L1 Draft** — Noter-curated process graph at `project_{port}/branches/shared/draft/draft.json`. Accessed via `mos_draft_append` / `mos_draft_query` / `mos_draft_summary` / `mos_draft_annotate` / `mos_draft_path`. Buffered to disk on every call and flushed to a single commit on the shared branch by Noter on its periodic wake (`noter_periodic_interval`, default 3m). **Auto-injects `reel_ref` into every appended node's metadata** when `MINIONS_ROLE_NAME` and `MINIONS_SESSION_ID` env are set.
-- **L2 Book** — durable compiled knowledge at `project_{port}/branches/shared/book/`. Noter-owned. Source pages carry `reel_ref` frontmatter when ingested by a role that had a session active.
-- **L3 Shelf** — structural index. Two tiers: (a) per-project `branches/shared/shelf/shelf.json` (graphify-extracted, queryable by all roles via `mcp__graphify__*`); (b) global `~/.minionsos/shelf.json` (Gru-only cross-project aggregate via `mos_shelf_*`, built by `mos_shelf_register` merging per-project graphs).
-- **L4 Library** (vision, not yet implemented) — federated global EACN3 network where projects are pluggable, shareable, evolvable, executable, recoverable. L4's "executable + recoverable" requirement is exactly why L0 must store full-fidelity transcripts.
+Quick orientation only:
 
-Roles reconstruct context at wake-up from:
+- **L0 Reel** — raw subagent transcripts; drill-down only, not wake-injected.
+- **L1 Draft** — process graph at `branches/shared/draft/draft.json`; every
+  EACN role writes via `mos_draft_*`.
+- **L2 Book** — Noter-curated durable knowledge at `branches/shared/book/`.
+- **L3 Shelf** — graphify-built structural index; per-project + Gru cross-project.
 
-1. current transcript,
-2. the Draft (especially `pending_plan` nodes left by their previous self before a `mos_reset_context`),
-3. EACN history and shared `branches/shared/<subdir>/` artefacts,
-4. root and project `CLAUDE.md` files.
+Roles reconstruct context at wake-up from current transcript + Draft summary
+(especially `pending_plan` nodes) + EACN history + shared artefacts. The root
+and project `CLAUDE.md` files are *human-side* documentation: a Role process
+does not load this file at wake; the always-injected contract is
+`minions/roles/SYSTEM.md`.
 
 ### Evidence-first EACN communication
 
-Substantive EACN messages from roles should include one of:
-
-- `[evidence: <artifact path | commit SHA | URL | EACN event id>]`
-- `[speculation]`
-- `[derived: <base>]`
-
-Ethics audits unmarked claim ratios statistically. This is a soft convention, but apply it when writing role prompts, templates, artifacts, and EACN-facing messages.
+Substantive EACN messages from roles should be tagged with one of
+`[evidence: <path|sha|url|event_id>]`, `[speculation]`, or `[derived: <base>]`.
+Ethics audits unmarked claim ratios statistically. The same rule is restated
+in `minions/roles/SYSTEM.md` (the on-wake contract) and indexed under
+`MANUAL/domains/eacn3.md`; this file is the human-side documentation only.
 
 ## MinionsVIZ
 

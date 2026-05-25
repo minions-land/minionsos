@@ -12,7 +12,12 @@ Usage (from Noter cron, NOT directly):
     python mcp-servers/graphify/extract.py --port <port>
 
 The script:
-  1. Resolves the project workspace from the port + repo root.
+  1. Resolves the project workspace via ``minions.paths.project_workspace``,
+     which honors the MINIONS_AUTHOR_REPO env var and the
+     MINIONS_ROOT.parent author-seed-repo convention. The historical
+     ``_REPO_ROOT / project_<port>`` resolution only worked when projects
+     lived INSIDE the MinionsOS checkout — broken on the documented
+     sibling-of-MinionsOS layout. See GitHub Issue #31.
   2. Walks branches/shared/{book,notes,ethics,exp} and feeds each
      existing subdir to graphify-extract via a temporary corpus root.
   3. Writes the merged graph.json atomically to
@@ -45,13 +50,43 @@ logger = logging.getLogger(__name__)
 _SHARED_SUBDIRS = ("book", "notes", "ethics", "exp")
 
 _HERE = Path(__file__).resolve().parent
-_REPO_ROOT = _HERE.parent.parent
+# Path back to the MinionsOS checkout root. Used only to add the package
+# to sys.path so we can import minions.paths — never to resolve the
+# project workspace itself (that goes through minions.paths.project_workspace).
+_MINIONS_ROOT = _HERE.parent.parent
+if str(_MINIONS_ROOT) not in sys.path:
+    sys.path.insert(0, str(_MINIONS_ROOT))
+
 _GRAPHIFY_BIN = _HERE / ".venv" / "bin" / "graphify"
 
 
 def _project_workspace(port: int) -> Path:
-    """Return the project_{port}/ workspace root, raising if missing."""
-    ws = _REPO_ROOT / f"project_{port}"
+    """Return the project_{port}/ workspace root, raising if missing.
+
+    Delegates to ``minions.paths.project_dir`` so this script honors the
+    same MINIONS_PROJECTS_ROOT / gru.yaml:projects_root resolution rules
+    as the rest of MinionsOS. The historical resolution
+    ``_REPO_ROOT / project_<port>`` only worked when projects lived
+    INSIDE the MinionsOS checkout — broken on the documented
+    sibling-of-MinionsOS layout (GitHub Issue #31). Falls back to the
+    legacy path ONLY if the minions package cannot be imported (e.g.
+    running outside a configured checkout) so the script produces a
+    useful FileNotFoundError rather than ImportError.
+
+    Returns the *project root* (``project_{port}/``), not the main
+    branch checkout — callers walk ``branches/shared/`` underneath.
+    """
+    try:
+        from minions.paths import project_dir
+    except ImportError as exc:
+        legacy = _MINIONS_ROOT / f"project_{port}"
+        if legacy.is_dir():
+            return legacy
+        raise FileNotFoundError(
+            f"Project workspace not found: cannot import minions.paths ({exc}) "
+            f"and fallback path {legacy} does not exist either."
+        ) from exc
+    ws = project_dir(port)
     if not ws.is_dir():
         raise FileNotFoundError(f"Project workspace not found: {ws}")
     return ws
