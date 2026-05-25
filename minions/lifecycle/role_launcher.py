@@ -595,22 +595,27 @@ def _role_env(
         "BASH_DEFAULT_TIMEOUT_MS": "120000",
         "BASH_MAX_TIMEOUT_MS": "240000",
         "CLAUDE_AUTO_BACKGROUND_TASKS": "1",
-        # Force-disable Claude Code's deferred tool-loading. The dev host's
-        # global ~/.claude/settings.json sets ENABLE_TOOL_SEARCH=true so the
-        # author's interactive sessions can lazily pull schemas only when
-        # needed. That is wrong for Role processes: a fresh Coder cannot
-        # call eacn3_submit_bid / eacn3_send_message until ToolSearch loads
-        # their schemas, and the forever-loop prompt does not teach the
-        # ToolSearch dance. Empirical: the 2026-05-19 dispatch-eval e2e
-        # showed Coder spending 6+ minutes thrashing on deferred eacn3_*
-        # tools and never managing to bid on its task. With eager loading
-        # every whitelisted tool is callable on the first turn — the
-        # cost is a one-time, larger system-prompt cache_create per Role
-        # cold start, which is fine because Roles cold-start rarely.
+        # Tiered Tool Search for Role processes. Background:
+        # - 2026-05-19: ENABLE_TOOL_SEARCH=false was forced because the
+        #   dispatch-eval e2e showed Coder thrashing 6+ min on deferred
+        #   eacn3_* tools — the forever-loop prompt didn't teach the
+        #   ToolSearch dance, so the agent gave up.
+        # - 2026-05-25: MANUAL/ shipped (155 atomic pages, 12 domain
+        #   cards, lookup.py CLI, pitfall-deferred-schema page). MANUAL.md
+        #   is now always-loaded L0 and explicitly tells the agent how
+        #   to recover from "tool not found":
+        #     ToolSearch(query="select:<exact_name>")
+        # Re-enabling deferred loading became safe and saves ~25k tokens
+        # per Role wake-up (project_37596 evidence: 134/153 MCP tools were
+        # never called; eager-loading them was pure tax).
         # Valid Claude Code values: "true" / "false" / "auto" / "auto:N".
+        # `auto:30` keeps the top-30 most-used tools eagerly loaded
+        # (data-driven from project_37596 logs: covers ≥99% of real call
+        # volume) and defers the long tail. The MANUAL/ pitfall page tells
+        # the agent how to load deferred schemas on demand.
         # An invalid value (e.g. "0") is silently ignored on non-first-party
         # hosts like tok.fan, leaving the default in place.
-        "ENABLE_TOOL_SEARCH": "false",
+        "ENABLE_TOOL_SEARCH": "auto:30",
         "PATH": os.environ.get("PATH", ""),
     }
 
@@ -619,7 +624,7 @@ def _role_model(cfg: GruConfig, role_name: str) -> str | None:
     """Return the model override for a role, or None for the default."""
     if role_name == "noter":
         return cfg.noter_model
-    return None
+    return cfg.claude_model or None
 
 
 def _combined_system_prompt(role_name: str, *, extra_domain_md: Path | None = None) -> Path | None:

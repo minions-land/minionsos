@@ -55,7 +55,15 @@ Every page carries `source: <file>:<line>`. If the page isn't enough, read sourc
 
 1. **Cross-role writes go through `mos_publish_to_shared` only.**
    `cp` / `mv` into another role's branch corrupts git state.
-2. **Tool not found?** Run `ToolSearch(query="select:<exact_name>")` first to load the deferred schema before assuming you're denied. (PITFALLS: `pitfall-deferred-schema`.)
+2. **Tool not loaded? Use the MANUAL → ToolSearch chain — never fuzzy-search.**
+   The top-30 hot-path tools are eagerly loaded; the long tail is deferred. When you reach for a deferred tool:
+   ```bash
+   python3 MANUAL/scripts/lookup.py "<topic>"     # 0-cost, returns exact tool id
+   ```
+   ```
+   ToolSearch(query="select:<exact-id-from-lookup>")   # loads the schema
+   ```
+   Then call the tool. **Do NOT call `ToolSearch` with a fuzzy keyword query** — MANUAL is the canonical name catalog and answers in 0ms; reaching for ToolSearch first wastes a turn on LLM-side fuzzy matching. (PITFALLS: `pitfall-deferred-schema`.)
 
 ## Top pitfalls — read once, save hours
 

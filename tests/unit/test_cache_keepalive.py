@@ -86,25 +86,37 @@ class TestRoleEnvCacheVars:
         env = self._build_env(tmp_path)
         assert env.get("CLAUDE_AUTO_BACKGROUND_TASKS") == "1"
 
-    def test_tool_search_disabled_for_roles(self, tmp_path):
-        """Roles must NOT inherit deferred-tool-loading from the dev host.
+    def test_tool_search_tiered_for_roles(self, tmp_path):
+        """Roles use `auto:30` tiered tool-loading: top-30 hot-path tools
+        eager-loaded, the long tail deferred.
 
-        Regression: the 2026-05-19 dispatch-eval e2e showed a fresh Coder
-        spinning on deferred eacn3_* tools (6+ min thrashing) because
-        ENABLE_TOOL_SEARCH=true was inherited from ~/.claude/settings.json
-        and the forever-loop prompt does not teach the ToolSearch dance.
-        Force-disable for all Role processes so every whitelisted tool is
-        callable on the first turn.
+        Background:
+        - 2026-05-19: ENABLE_TOOL_SEARCH=false was forced because the
+          dispatch-eval e2e showed a fresh Coder thrashing 6+ min on
+          deferred eacn3_* tools — the forever-loop prompt didn't teach
+          the ToolSearch dance.
+        - 2026-05-25: MANUAL/ shipped (155 atomic pages + lookup.py CLI
+          + pitfall-deferred-schema page). MANUAL.md is now always-loaded
+          L0 and explicitly tells the agent how to load deferred schemas.
+          Re-enabling deferred mode became safe.
 
-        Claude Code only accepts the literal strings "true"/"false"/"auto".
-        Any other value (including "0") is treated as Invalid and silently
+        `auto:30` keeps the 30 most-used tools (project_37596 evidence:
+        covers ≥99% of real call volume) eagerly loaded so cold-start
+        thrash never recurs, while deferring the 130+ long-tail tools
+        that account for 87% of total but <1% of calls. Saves ~25k
+        tokens per Role wake-up.
+
+        Claude Code only accepts the literal strings "true"/"false"/"auto"
+        /"auto:N". Any other value (including "0") is Invalid and silently
         falls back to the host default.
         """
         env = self._build_env(tmp_path)
-        assert env.get("ENABLE_TOOL_SEARCH") == "false", (
-            "Role env must hard-set ENABLE_TOOL_SEARCH=false (literal string) "
-            "to override the dev host's lazy-loading default. "
-            "Note: '0' is Invalid per Claude Code and ignored."
+        assert env.get("ENABLE_TOOL_SEARCH") == "auto:30", (
+            "Role env must set ENABLE_TOOL_SEARCH=auto:30 — keeps the "
+            "top-30 hot-path tools eager and defers the long tail. "
+            "See MANUAL/MANUAL.md Rule 2 + pitfall-deferred-schema "
+            "for the MANUAL → ToolSearch chain that lets agents load "
+            "deferred schemas. Note: '0' is Invalid per Claude Code."
         )
 
 
