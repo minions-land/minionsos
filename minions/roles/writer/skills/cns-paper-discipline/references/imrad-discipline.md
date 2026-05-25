@@ -73,6 +73,23 @@ Three templates extracted from kdense arm's drafts that scored well in FigureDra
 **Template C — Method-statement (methods paragraph)**:
 > [Method name in bold lead-in or as subheading.] We implemented \methodname using [framework / library, version]. [Inputs.] The model takes [input description] and outputs [output description]. [Training detail.] Training used [optimiser, schedule, batch, steps, hardware], with hyperparameters selected on the validation set (Table SX). [Reproducibility hook.] Code and trained checkpoints are available at [URL].
 
+## Output-format discipline (figure of record)
+
+**FD3 evidence**: imrad-section scored 19/24 with `typography = 2 / 3` and `vector_fidelity = 2 / 3` as the lowest dimensions. The prose was correct; the *rendered PDF* leaked rasterised LaTeX defaults — Type-3 fonts, no `\newcommand` macros for repeated entities (\methodname, \pvalue, journal abbreviations), no `pdf.fonttype` discipline on companion figures. The text-side wins are wasted if the figure-of-record fails on grader's vector / typography axes.
+
+When the imrad-section deliverable is compiled to a single-page PDF (which is the figure-of-record for grading and for many submission systems), the prose-author MUST also enforce the compile-side discipline. Cross-skill checklist:
+
+| Check | Source skill | What it looks like in `main.tex` |
+|---|---|---|
+| Type-1 fonts only (no Type-3 raster) | [[paper-compile]] §pdf-fonttype-check | Preamble: `\pdfmapfile{=pdftex.map}` and use `lmodern` / `newpxtext+newpxmath` / `mathptmx`. Verify with `pdffonts main.pdf \| grep -i "type 3"` returning nothing. |
+| Macro discipline for repeated entities | [[paper-compile]] §macro-discipline-lint | `\newcommand{\methodname}{RetroDiff}` defined once, used everywhere. Lint script in [[paper-compile]] step 7. ≥ 3 macros for any non-trivial Methods section. |
+| Booktabs grouping for any inline tables | [[latex-typography]] §booktabs-grouping-recipe | `\toprule` / `\midrule` / `\bottomrule` only. `\multicolumn` + `\cmidrule(lr){i-j}` for grouped headers. No `\hline`, no vertical rules. |
+| Em-dash / en-dash / minus discipline | [[latex-typography]] §dash-discipline | `---` for em-dash, `--` for en-dash (number ranges), `$-$` for minus. Mixing them is the typography-axis-2 trigger. |
+| Reporting-guideline anchor | [[cns-paper-discipline]]/references/reporting-guidelines.md | Methods prose names the guideline (CONSORT/STROBE/PRISMA/ARRIVE) explicitly in the first sentence and threads the relevant items through the section. |
+| Vector-figure check on companion figures | [[paper-compile]] §vector-fidelity-check | Any embedded figure compiled to PDF must pass `\matplotlib.rcParams["pdf.fonttype"] = 42`, `["ps.fonttype"] = 42`, and `bbox_inches="tight"` on save. |
+
+The author of the imrad section is responsible for *naming* these checks in the deliverable and either running them or noting that the runner has done so. A bare `main.tex` compiled to PDF without these gates is a typography-axis regression even if the prose is perfect.
+
 ## Pitfalls
 
 - Bullet residue in `.tex`. Re-grep `\\item` in body files; flag every match.

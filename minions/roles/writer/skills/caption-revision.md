@@ -1,13 +1,13 @@
 ---
 slug: caption-revision
-summary: Single-pass revise loop for figure / table captions — simulate one harsh Reviewer 2 critique, address it. Forces Writer's single-pass output to absorb a critic before the caption ships.
+summary: Single-pass revise loop for figure / table captions — simulate one harsh Reviewer 2 critique, address the *caption text*. Never modify the figure itself. Forces Writer's single-pass output to absorb a critic before the caption ships.
 layer: logical
 tools:
-version: 1
+version: 2
 status: active
 supersedes:
-references: academic-plotting, latex-typography, abstract-writing, cns-paper-discipline
-provenance: FigureDraw2-evidence (borrow #6 — academic-paper-imbad arm's 12-agent pipeline gave caption a draft→reviewer→revise pass)
+references: academic-plotting, latex-typography, abstract-writing, cns-paper-discipline, figure-chart-atlas
+provenance: FigureDraw2-evidence (borrow #6 — academic-paper-imbad 12-agent pipeline) + FigureDraw3-evidence (volcano regressed -4 from reviewer-pass adding inline annotations to figure; rule now scoped to caption text only)
 ---
 
 # Skill — Caption Revision
@@ -27,7 +27,7 @@ MinionsOS Writer's caption.tex output is single-pass — one draft, ship. Figure
 1. **Read** the draft caption.tex and the figure (or its rendered PNG).
 2. **Simulate Reviewer 2** by writing one sharp criticism. The voice should be skeptical, specific, and ungenerous. Pick the *single weakest claim* in the caption — over-claim, under-specification, missing N, missing statistic, drift between figure and caption text, hand-wave palette explanation. One sentence.
    - Example seed: "Caption says 'OursModel achieves the highest accuracy' but does not state the seed count or the std overlap; this is the single weakest line and the one a reviewer will challenge first."
-3. **Revise the caption** to address that one criticism. Do NOT rewrite the whole caption — surgical edit only. The pass closes when the criticism is no longer applicable.
+3. **Revise the caption text only** to address that one criticism. Do NOT rewrite the whole caption — surgical edit only. **Do NOT touch `gen_figure.py`, `figure.pdf`, the rendered PNG, or any in-figure annotation in this pass.** If the criticism reveals a figure-shape problem (missing dashed line, label collision, palette ambiguity, "should annotate top hits"), escalate to [[academic-plotting]] / [[figure-spec]] / [[figure-chart-atlas]] — do not paper over it with caption-side hand-waving and do not add `\node`/`\draw` in-figure overlays. The pass closes when the *caption text* criticism is no longer applicable.
 4. **Diff log**: append the criticism + the revision intent to a one-line comment in the .tex source: `% revision: addressed reviewer-pass critique <date>: <one-line criticism>`. This makes the loop auditable.
 5. **Stop**. Do not iterate further. The discipline is one critic, one fix — not unbounded polishing.
 
@@ -46,7 +46,8 @@ The pass picks the most cutting one *that actually applies* to the current capti
 
 ## What this skill does NOT do
 
-- Does not rewrite figures. If the criticism reveals a figure flaw (e.g., the figure itself is missing the dashed line the caption mentions), escalate to [[academic-plotting]] or [[figure-spec]].
+- **Does not modify the figure itself.** This is the most-violated rule. The reviewer-pass critique addresses the *caption text only*. If the criticism reveals a figure flaw — missing dashed line, missing data point, palette ambiguity, "should annotate the top hits" — do NOT add inline `\node`/`\draw`/in-figure annotations to fix it inside this pass. **FD3 evidence**: volcano regressed -4 (FD2 23 → FD3 19) because the reviewer-pass added inline annotations to the figure, diluting visual density beyond what the original draft had. caption-revision touches `caption.tex`, never `gen_figure.py` or `figure.pdf`. Escalate figure-shape problems to [[academic-plotting]] / [[figure-spec]] / [[figure-chart-atlas]] instead.
+- Does not rewrite figures. Same rule, restated: if the figure is wrong, escalate, don't patch.
 - Does not multi-round. One critic, one fix. Multi-round caption iteration is reviewer's job, not Writer's.
 - Does not invent data. If the seed count is unknown, the criticism becomes "add `\\todo{seed count}`", not "invent 5 seeds".
 - Does not run on hero / Figure-1 illustrations. Hero captions are governed by [[hero-figure-prompt]] which has its own iteration cadence.

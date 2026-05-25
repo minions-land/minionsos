@@ -1,8 +1,8 @@
 # ML-paper plot idioms
 
-**Provenance**: FigureDraw2 borrow #1 — `ml-paper-writing` arm (Orchestra Research) won 4 fig_types in head-to-head comparison: grouped-bar 23, line-errband 23, 4panel-hero 18, roc-prc 19. Its 67-line SKILL leaned on real ICML/NeurIPS plot scripts. This file captures the imitation targets.
+**scope**: `ml-paper-only` — load only when (a) the venue is an ML conference (NeurIPS / ICML / ICLR / ACL / CVPR / EMNLP) AND (b) the figure archetype is one of: training-curve (line + error band), ablation grouped-bar, ROC / PRC double-panel, or dual-axis time-series. Do NOT load for life-science / clinical / network / general bar-chart archetypes — the idioms below assume ML conventions (log-loss, seed-mean ± CI bands, AUROC in legend) that misfire elsewhere. (See [[figure-aesthetic-exemplars]] master SKILL.md "Sub-skill scope matching" for the dispatch rule.)
 
-Load this when the venue is NeurIPS / ICML / ICLR / ACL / CVPR or the figure is one of the four canonical ML-paper plot types. Otherwise stay with [[academic-plotting]] alone.
+**Provenance**: FigureDraw2 borrow #1 — `ml-paper-writing` arm (Orchestra Research) won 4 fig_types in head-to-head comparison: grouped-bar 23, line-errband 23, 4panel-hero 18, roc-prc 19. Its 67-line SKILL leaned on real ICML/NeurIPS plot scripts. This file captures the imitation targets.
 
 ## Training-curve idioms (line + error band)
 
@@ -20,6 +20,13 @@ Load this when the venue is NeurIPS / ICML / ICLR / ACL / CVPR or the figure is 
 - **Width / spacing**: `bar_width = 0.7` of slot; `0.3` gutters. Tighter than this looks dense; wider looks like the data are sparse.
 - **Error bars**: only if you have ≥ 3 seeds. Cap-style with `capsize=2.5`. Single-seed numbers go without error bars; the caption must say "single seed".
 - **Y-range**: zoom to data — see [[figure-layout-defaults]] §6 for the exact rule. ML papers especially: don't waste 60% of the panel on the 0–best-method gap.
+- **Value-label offset — per-bar, NOT max (FD4 evidence: grouped-bar lost layout_density 3→2 because value labels used `max(stds)` as a constant offset, floating high above low-variance bars)**: place each bar's value annotation at `mean[i] + std[i] + small_pad` (e.g., `0.5 * (y_max - y_min) * 0.02`), so the label hugs the top of *its own* error bar, not the tallest bar's error bar. Concretely:
+```python
+pad = (y_max - y_min) * 0.02
+for i, (m, s) in enumerate(zip(means, stds)):
+    ax.text(x[i], m + s + pad, f"{m:.2f}", ha="center", va="bottom", fontsize=8)
+```
+Constant offset is acceptable ONLY when stds are within 1.2× of each other across bars (visually nearly uniform). Otherwise the figure looks like it's hiding low-variance results behind floating labels.
 
 ## ROC / PRC double-panel idioms
 

@@ -1,13 +1,13 @@
 ---
 slug: figure-chart-atlas
-summary: 19-archetype catalog mapping data shape → chart type → matplotlib idiom. Pre-plotting decision skill — pick archetype here, then go to academic-plotting for content discipline. Index-style; full archetype guidance lives in references/.
+summary: 19-archetype catalog mapping data shape → chart type → matplotlib idiom. Pre-plotting decision skill — pick archetype here, then go to academic-plotting for content discipline. Includes non-skippable rcParams + Type-42 preamble that fires for every archetype.
 layer: logical
 tools:
-version: 1
+version: 2
 status: active
 supersedes:
 references: academic-plotting, figure-aesthetic-exemplars, figure-spec
-provenance: FigureDraw2-evidence (borrow synthesized from awesome-writing-prompts "实验绘图推荐" + nature-figure chart-atlas)
+provenance: FigureDraw2-evidence (borrow synthesized from awesome-writing-prompts "实验绘图推荐" + nature-figure chart-atlas) + FigureDraw4-evidence (Action 11: scatter-fit + sankey skipped academic-plotting and lost typography+vector_fidelity — rcParams preamble now mandatory at atlas level)
 ---
 
 # Skill — Figure Chart Atlas
@@ -15,6 +15,41 @@ provenance: FigureDraw2-evidence (borrow synthesized from awesome-writing-prompt
 When the data is in hand but the figure type is not yet decided, this is the first stop. The atlas catalogs 19 publication-quality archetypes and tells you which one fits the data shape and the scientific question. After the archetype is chosen, hand off to [[academic-plotting]] for content discipline (rcParams, palette, layout) and [[figure-aesthetic-exemplars]] for visual polish.
 
 This skill is index-only. The 19 archetypes are documented in `references/19-archetypes.md`; rescue rules for tricky data scales (huge dynamic range, log-spread, normalised view) are in `references/scale-rescue.md`.
+
+## NON-SKIPPABLE PREAMBLE — every gen_figure.py starts here
+
+**Regardless of which archetype you pick — even a plain scatter-fit, even a stylised sankey, even a single-line training curve — `gen_figure.py` MUST start with the [[academic-plotting]] rcParams block AND end with the post-save Type-42 verification.** Do NOT skip these two gates because the figure "looks simple" or because you're using `matplotlib.patches` directly without standard plotting calls. The matplotlib PDF backend silently embeds Type-3 bitmap fonts unless `pdf.fonttype=42` is set, and a Type-3 PDF scores 0 on `vector_fidelity` and 1 on `typography` regardless of how good the figure looks visually.
+
+**FD4 evidence**: scatter-fit dropped from v3 24/24 to v4 17/24 (-7) and sankey dropped from v3 23/24 to v4 18/24 (-5) because the agent judged "this is a trivial archetype, I don't need the full rules" and skipped `academic-plotting`. Both PDFs shipped with Type-3 fonts. Neither archetype is exempt from rcParams discipline.
+
+The required preamble template (copy verbatim from [[academic-plotting]] §1):
+
+```python
+import matplotlib as mpl
+mpl.rcParams.update({
+    "font.family": "sans-serif",
+    "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "Liberation Sans"],
+    "svg.fonttype": "none",
+    "pdf.fonttype": 42,
+    "ps.fonttype": 42,
+    "axes.spines.right": False,
+    "axes.spines.top": False,
+    "axes.linewidth": 0.8,
+    "legend.frameon": False,
+})
+```
+
+Plus the post-save check that fails the script if Type-3 leaked through:
+
+```python
+import subprocess, sys, pathlib
+out = subprocess.run(["pdffonts", "figure.pdf"], capture_output=True, text=True, check=False)
+if "Type 3" in out.stdout:
+    sys.stderr.write(f"FATAL: figure.pdf contains Type-3 bitmap fonts.\n{out.stdout}\n")
+    sys.exit(2)
+```
+
+A figure script that doesn't open with rcParams and doesn't end with the Type-42 check is not ready to ship — full stop. There is no archetype where this preamble is optional.
 
 ## When to invoke
 

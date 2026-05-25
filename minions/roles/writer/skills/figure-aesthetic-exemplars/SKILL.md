@@ -1,13 +1,13 @@
 ---
 slug: figure-aesthetic-exemplars
-summary: Reference-driven figure design — diff your figure against the closest exemplar in the gallery, identify 3 biggest deltas, revise. Different paradigm from rule-based figure-layout-defaults / academic-plotting. Includes ML-paper idiom subset (FigureDraw2 borrow #1) and network-graph tuning (FigureDraw2 borrow #4).
+summary: Reference-driven figure design — diff your figure against the closest exemplar in the gallery, identify 3 biggest deltas, revise. Different paradigm from rule-based figure-layout-defaults / academic-plotting. Includes scoped sub-refs (ml-paper-idioms, network-graph-tuning) that load only when their scope: matches the current figure.
 layer: logical
 tools:
-version: 2
+version: 3
 status: active
 supersedes:
 references: figure-layout-defaults, academic-plotting, figure-chart-atlas
-provenance: SkillTest-R6.A-aesthetic-ceiling-finding + FigureDraw2-evidence (borrow #1, #4)
+provenance: SkillTest-R6.A-aesthetic-ceiling-finding + FigureDraw2-evidence (borrow #1, #4) + FigureDraw3-regressions (sub-skill scope: gating after stacked-bar -2 / network-graph -4 misapplication)
 ---
 
 # Skill — Figure Aesthetic Exemplars
@@ -43,6 +43,27 @@ Do NOT invoke if:
   rule-based skills only).
 - You have no iteration budget — exemplar diffing assumes you can
   re-render after revision.
+
+## Sub-skill scope matching (load gate)
+
+This skill ships sub-references that are NOT loaded unconditionally. Each
+sub-ref declares a `scope:` in its file header. Before loading a sub-ref,
+match its scope against the current figure's archetype + venue. If the
+scope does not match, skip that sub-ref entirely — its rules are tuned
+for a narrow case and will *regress* figures outside that case (FD3
+evidence: stacked-bar regressed -2 from misapplied community-graph
+ColorBrewer rules; network-graph itself regressed -4 from misapplied
+proportional node-size on a flat-degree graph).
+
+| Sub-ref | scope | Load when |
+|---|---|---|
+| `ml-paper-idioms.md` | `ml-paper-only` | ML-conference venue (NeurIPS/ICML/ICLR/ACL/CVPR/EMNLP) AND archetype is training-curve, ablation grouped-bar, ROC/PRC, or dual-axis time-series |
+| `network-graph-tuning.md` | `graph-network-only` | Archetype is network/community/graph AND `len(G.nodes) >= 20` |
+| `aesthetic-principles.md` | (general) | Always available — paradigm-level guidance, no archetype constraint |
+
+If the current figure does not match any sub-ref's scope, fall back to
+[[figure-layout-defaults]] + [[academic-plotting]] alone. The exemplar
+diff workflow below still applies — just without sub-ref overlays.
 
 ## Procedure
 
