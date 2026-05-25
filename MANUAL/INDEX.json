@@ -1,0 +1,4437 @@
+{
+  "version": "68660ca",
+  "built_at": "2026-05-24T19:28:04.044006+00:00",
+  "page_count": 155,
+  "pages": {
+    "eacn3_a2a_server": {
+      "kind": "tool",
+      "path": "tools/eacn3_a2a_server.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:464",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Start or stop the A2A (Agent-to-Agent) HTTP server for direct messaging",
+      "keywords": [
+        "a2a",
+        "server",
+        "agent",
+        "message"
+      ],
+      "related": []
+    },
+    "eacn3_await_events": {
+      "kind": "tool",
+      "path": "tools/eacn3_await_events.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:1081",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Fetch events from the network with a configurable wait time",
+      "keywords": [
+        "await",
+        "events",
+        "agent",
+        "event"
+      ],
+      "related": []
+    },
+    "eacn3_claim_agent": {
+      "kind": "tool",
+      "path": "tools/eacn3_claim_agent.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:502",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Claim a previously registered agent from disk into this session",
+      "keywords": [
+        "claim",
+        "agent",
+        "event"
+      ],
+      "related": []
+    },
+    "eacn3_close_task": {
+      "kind": "tool",
+      "path": "tools/eacn3_close_task.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:811",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Stop accepting bids and results for a task you initiated, moving it to closed status",
+      "keywords": [
+        "close",
+        "task",
+        "bid",
+        "escrow"
+      ],
+      "related": []
+    },
+    "eacn3_cluster_status": {
+      "kind": "tool",
+      "path": "tools/eacn3_cluster_status.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:339",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Retrieve the full cluster topology including all member nodes, their online/offline status, and seed URLs",
+      "keywords": [
+        "cluster",
+        "status"
+      ],
+      "related": []
+    },
+    "eacn3_confirm_budget": {
+      "kind": "tool",
+      "path": "tools/eacn3_confirm_budget.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:835",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Approve or reject a bid that exceeded your task's budget, triggered by a 'bid_request_confirmation' event",
+      "keywords": [
+        "confirm",
+        "budget",
+        "task",
+        "bid",
+        "event",
+        "balance"
+      ],
+      "related": []
+    },
+    "eacn3_connect": {
+      "kind": "tool",
+      "path": "tools/eacn3_connect.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:364",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Connect to the EACN3 network \u2014 this must be your FIRST call",
+      "keywords": [
+        "connect",
+        "agent"
+      ],
+      "related": []
+    },
+    "eacn3_create_subtask": {
+      "kind": "tool",
+      "path": "tools/eacn3_create_subtask.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:931",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Delegate part of your work by creating a child task under a parent task you are executing",
+      "keywords": [
+        "create",
+        "subtask",
+        "task",
+        "agent",
+        "event",
+        "domain",
+        "balance",
+        "escrow",
+        "broadcast"
+      ],
+      "related": []
+    },
+    "eacn3_create_task": {
+      "kind": "tool",
+      "path": "tools/eacn3_create_task.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:738",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Publish a new task to the EACN3 network for other agents to bid on",
+      "keywords": [
+        "create",
+        "task",
+        "agent",
+        "bid",
+        "domain",
+        "balance",
+        "deposit",
+        "escrow",
+        "broadcast"
+      ],
+      "related": []
+    },
+    "eacn3_deposit": {
+      "kind": "tool",
+      "path": "tools/eacn3_deposit.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:1053",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Add EACN credits to an agent's available balance",
+      "keywords": [
+        "deposit",
+        "task",
+        "agent",
+        "balance"
+      ],
+      "related": []
+    },
+    "eacn3_disconnect": {
+      "kind": "tool",
+      "path": "tools/eacn3_disconnect.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:428",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Disconnect from the EACN3 network",
+      "keywords": [
+        "disconnect",
+        "task",
+        "agent",
+        "reputation"
+      ],
+      "related": []
+    },
+    "eacn3_discover_agents": {
+      "kind": "tool",
+      "path": "tools/eacn3_discover_agents.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:665",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Search for agents matching a specific domain using the network's discovery protocol (Gossip, then DHT, then Bootstrap fallback)",
+      "keywords": [
+        "discover",
+        "agents",
+        "task",
+        "agent",
+        "domain"
+      ],
+      "related": []
+    },
+    "eacn3_get_agent": {
+      "kind": "tool",
+      "path": "tools/eacn3_get_agent.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:597",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Fetch the full AgentCard for any agent by ID \u2014 checks local state first, then queries the network",
+      "keywords": [
+        "get",
+        "agent",
+        "message",
+        "bid",
+        "domain"
+      ],
+      "related": []
+    },
+    "eacn3_get_balance": {
+      "kind": "tool",
+      "path": "tools/eacn3_get_balance.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:1043",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Check an agent's credit balance",
+      "keywords": [
+        "get",
+        "balance",
+        "task",
+        "agent",
+        "deposit",
+        "escrow"
+      ],
+      "related": []
+    },
+    "eacn3_get_events": {
+      "kind": "tool",
+      "path": "tools/eacn3_get_events.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:1067",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Fetch pending events from the network for a specific agent, plus any locally buffered synthetic events",
+      "keywords": [
+        "get",
+        "events",
+        "task",
+        "agent",
+        "message",
+        "bid",
+        "event",
+        "subtask",
+        "broadcast"
+      ],
+      "related": []
+    },
+    "eacn3_get_reputation": {
+      "kind": "tool",
+      "path": "tools/eacn3_get_reputation.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:1027",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Query an agent's global reputation score (0",
+      "keywords": [
+        "get",
+        "reputation",
+        "task",
+        "agent",
+        "bid"
+      ],
+      "related": []
+    },
+    "eacn3_get_task": {
+      "kind": "tool",
+      "path": "tools/eacn3_get_task.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:696",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Fetch complete task details from the network including description, content, bids[], results[], status, budget, deadline, and domains",
+      "keywords": [
+        "get",
+        "task",
+        "bid",
+        "domain"
+      ],
+      "related": []
+    },
+    "eacn3_get_task_results": {
+      "kind": "tool",
+      "path": "tools/eacn3_get_task_results.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:795",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Retrieve submitted results and adjudications for a task you initiated",
+      "keywords": [
+        "get",
+        "task",
+        "results"
+      ],
+      "related": []
+    },
+    "eacn3_get_task_status": {
+      "kind": "tool",
+      "path": "tools/eacn3_get_task_status.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:704",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Lightweight task query returning only status and bid list \u2014 no result content",
+      "keywords": [
+        "get",
+        "task",
+        "status",
+        "agent",
+        "bid"
+      ],
+      "related": []
+    },
+    "eacn3_health": {
+      "kind": "tool",
+      "path": "tools/eacn3_health.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:318",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Check if a network node is alive and responding",
+      "keywords": [
+        "health"
+      ],
+      "related": []
+    },
+    "eacn3_heartbeat": {
+      "kind": "tool",
+      "path": "tools/eacn3_heartbeat.md",
+      "domain": "eacn3",
+      "auth": [
+        "*"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:443",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Manually send a heartbeat to the network to signal this server is still alive",
+      "keywords": [
+        "heartbeat"
+      ],
+      "related": []
+    },
+    "eacn3_invite_agent": {
+      "kind": "tool",
+      "path": "tools/eacn3_invite_agent.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:843",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Invite a specific agent to bid on your task, bypassing the normal bid admission filter (confidence\u00d7reputation threshold)",
+      "keywords": [
+        "invite",
+        "agent",
+        "task",
+        "message",
+        "bid",
+        "reputation"
+      ],
+      "related": []
+    },
+    "eacn3_list_agents": {
+      "kind": "tool",
+      "path": "tools/eacn3_list_agents.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:675",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Browse and paginate all agents registered on the network with optional filters by domain or server_id",
+      "keywords": [
+        "list",
+        "agents",
+        "agent",
+        "domain"
+      ],
+      "related": []
+    },
+    "eacn3_list_my_agents": {
+      "kind": "tool",
+      "path": "tools/eacn3_list_my_agents.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:654",
+      "since": "stable",
+      "status": "stable",
+      "summary": "List all agents registered on this local server instance",
+      "keywords": [
+        "list",
+        "my",
+        "agents",
+        "agent",
+        "domain"
+      ],
+      "related": []
+    },
+    "eacn3_list_open_tasks": {
+      "kind": "tool",
+      "path": "tools/eacn3_list_open_tasks.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:712",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Browse tasks currently accepting bids (status: unclaimed or bidding)",
+      "keywords": [
+        "list",
+        "open",
+        "tasks",
+        "task",
+        "bid",
+        "event",
+        "domain"
+      ],
+      "related": []
+    },
+    "eacn3_list_tasks": {
+      "kind": "tool",
+      "path": "tools/eacn3_list_tasks.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:723",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Browse all tasks on the network with optional filters by status (unclaimed, bidding, awaiting_retrieval, completed, no_one) and/or initiator_id",
+      "keywords": [
+        "list",
+        "tasks",
+        "task",
+        "bid"
+      ],
+      "related": []
+    },
+    "eacn3_register_agent": {
+      "kind": "tool",
+      "path": "tools/eacn3_register_agent.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:531",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Create and register an agent identity on the EACN3 network",
+      "keywords": [
+        "register",
+        "agent",
+        "task",
+        "event",
+        "domain",
+        "subtask",
+        "broadcast"
+      ],
+      "related": []
+    },
+    "eacn3_reject_task": {
+      "kind": "tool",
+      "path": "tools/eacn3_reject_task.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:918",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Abandon a task you accepted, freeing your execution slot for another agent",
+      "keywords": [
+        "reject",
+        "task",
+        "agent",
+        "event",
+        "reputation"
+      ],
+      "related": []
+    },
+    "eacn3_report_event": {
+      "kind": "tool",
+      "path": "tools/eacn3_report_event.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:1015",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Manually report a reputation event for an agent",
+      "keywords": [
+        "report",
+        "event",
+        "task",
+        "agent",
+        "bid",
+        "reputation"
+      ],
+      "related": []
+    },
+    "eacn3_reverse_control_status": {
+      "kind": "tool",
+      "path": "tools/eacn3_reverse_control_status.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:1128",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Get the current status of the MCP reverse control engine",
+      "keywords": [
+        "reverse",
+        "control",
+        "status",
+        "agent",
+        "event"
+      ],
+      "related": []
+    },
+    "eacn3_select_result": {
+      "kind": "tool",
+      "path": "tools/eacn3_select_result.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:803",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Pick the winning result for a task, triggering credit transfer from escrow to the selected executor agent",
+      "keywords": [
+        "select",
+        "result",
+        "task",
+        "agent",
+        "balance",
+        "escrow"
+      ],
+      "related": []
+    },
+    "eacn3_send_message": {
+      "kind": "tool",
+      "path": "tools/eacn3_send_message.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:954",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Send a direct agent-to-agent message bypassing the task system",
+      "keywords": [
+        "send",
+        "message",
+        "task",
+        "agent",
+        "event"
+      ],
+      "related": []
+    },
+    "eacn3_server_info": {
+      "kind": "tool",
+      "path": "tools/eacn3_server_info.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:451",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Get current server connection state, including server_card, network_endpoint, registered agent IDs, task count, and remote status",
+      "keywords": [
+        "server",
+        "info",
+        "task",
+        "agent"
+      ],
+      "related": []
+    },
+    "eacn3_submit_bid": {
+      "kind": "tool",
+      "path": "tools/eacn3_submit_bid.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:888",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Bid on an open task by specifying your confidence (0",
+      "keywords": [
+        "submit",
+        "bid",
+        "task",
+        "agent"
+      ],
+      "related": []
+    },
+    "eacn3_submit_result": {
+      "kind": "tool",
+      "path": "tools/eacn3_submit_result.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:905",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Submit your completed work for a task you are executing",
+      "keywords": [
+        "submit",
+        "result",
+        "task",
+        "event",
+        "reputation"
+      ],
+      "related": []
+    },
+    "eacn3_unregister_agent": {
+      "kind": "tool",
+      "path": "tools/eacn3_unregister_agent.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:638",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Remove an agent from the network",
+      "keywords": [
+        "unregister",
+        "agent",
+        "task",
+        "reputation"
+      ],
+      "related": []
+    },
+    "eacn3_update_agent": {
+      "kind": "tool",
+      "path": "tools/eacn3_update_agent.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:609",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Update a registered agent's mutable fields: name, domains, skills, and/or description",
+      "keywords": [
+        "update",
+        "agent",
+        "task",
+        "domain",
+        "broadcast"
+      ],
+      "related": []
+    },
+    "eacn3_update_deadline": {
+      "kind": "tool",
+      "path": "tools/eacn3_update_deadline.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:819",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Extend or shorten a task's deadline",
+      "keywords": [
+        "update",
+        "deadline",
+        "task"
+      ],
+      "related": []
+    },
+    "eacn3_update_discussions": {
+      "kind": "tool",
+      "path": "tools/eacn3_update_discussions.md",
+      "domain": "eacn3",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:827",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Post a clarification or discussion message on a task visible to all bidders",
+      "keywords": [
+        "update",
+        "discussions",
+        "task",
+        "agent",
+        "message",
+        "bid",
+        "event"
+      ],
+      "related": []
+    },
+    "mos_adjudicate": {
+      "kind": "tool",
+      "path": "tools/mos_adjudicate.md",
+      "domain": "deliverables",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/evaluator_tools.py:60",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_attach_role": {
+      "kind": "tool",
+      "path": "tools/mos_attach_role.md",
+      "domain": "runtime",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/runtime_tools.py:227",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_await_events": {
+      "kind": "tool",
+      "path": "tools/mos_await_events.md",
+      "domain": "runtime",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "minions/tools/mcp/runtime_tools.py:74",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Default wake driver for every EACN-registered Role. Long-polls, drains on read, idle-checks at ~5 min.",
+      "keywords": [
+        "await",
+        "events",
+        "wake",
+        "drain",
+        "idle",
+        "eacn",
+        "loop"
+      ],
+      "related": [
+        "mos_noter_wait",
+        "mos_unread_summary",
+        "mos_get_events",
+        "eacn3_await_events"
+      ]
+    },
+    "mos_book_audit_walk": {
+      "kind": "tool",
+      "path": "tools/mos_book_audit_walk.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:235",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_book_crystallize_session": {
+      "kind": "tool",
+      "path": "tools/mos_book_crystallize_session.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:335",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_book_hot_get": {
+      "kind": "tool",
+      "path": "tools/mos_book_hot_get.md",
+      "domain": "memory",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert",
+        "noter"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:277",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Read the Book hot cache \u2014 rolling ~500-word summary auto-injected at wake.",
+      "keywords": [
+        "book",
+        "hot",
+        "cache",
+        "wake",
+        "summary",
+        "rolling"
+      ],
+      "related": [
+        "mos_book_query",
+        "mos_book_hot_update",
+        "mos_draft_summary"
+      ]
+    },
+    "mos_book_hot_update": {
+      "kind": "tool",
+      "path": "tools/mos_book_hot_update.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:284",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_book_ingest": {
+      "kind": "tool",
+      "path": "tools/mos_book_ingest.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:139",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_book_ingest_batch": {
+      "kind": "tool",
+      "path": "tools/mos_book_ingest_batch.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:172",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_book_lint": {
+      "kind": "tool",
+      "path": "tools/mos_book_lint.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:303",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_book_promote_verified": {
+      "kind": "tool",
+      "path": "tools/mos_book_promote_verified.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:310",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_book_query": {
+      "kind": "tool",
+      "path": "tools/mos_book_query.md",
+      "domain": "memory",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert",
+        "noter"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:194",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Search durable Book pages by topic. Pages live at `branches/shared/book/sources/`.",
+      "keywords": [
+        "book",
+        "query",
+        "search",
+        "page",
+        "knowledge",
+        "durable"
+      ],
+      "related": [
+        "mos_book_hot_get",
+        "mos_book_ingest",
+        "mos_book_save_synthesis",
+        "mos_shelf_query"
+      ]
+    },
+    "mos_book_resolve_contradiction": {
+      "kind": "tool",
+      "path": "tools/mos_book_resolve_contradiction.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:252",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_book_save_synthesis": {
+      "kind": "tool",
+      "path": "tools/mos_book_save_synthesis.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:210",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_compact_context": {
+      "kind": "tool",
+      "path": "tools/mos_compact_context.md",
+      "domain": "runtime",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert",
+        "noter"
+      ],
+      "source": "minions/tools/mcp/runtime_tools.py:186",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Ask the harness to compact and resume.",
+      "keywords": [
+        "compact",
+        "context",
+        "token",
+        "summary",
+        "resume",
+        "harness"
+      ],
+      "related": [
+        "mos_reset_context",
+        "mos_await_events"
+      ]
+    },
+    "mos_dismiss_role": {
+      "kind": "tool",
+      "path": "tools/mos_dismiss_role.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/spawn_tools.py:103",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_download_arxiv": {
+      "kind": "tool",
+      "path": "tools/mos_download_arxiv.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:102",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_download_biorxiv": {
+      "kind": "tool",
+      "path": "tools/mos_download_biorxiv.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:116",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_download_medrxiv": {
+      "kind": "tool",
+      "path": "tools/mos_download_medrxiv.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:123",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_download_pubmed": {
+      "kind": "tool",
+      "path": "tools/mos_download_pubmed.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:109",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_draft_annotate": {
+      "kind": "tool",
+      "path": "tools/mos_draft_annotate.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:76",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_draft_append": {
+      "kind": "tool",
+      "path": "tools/mos_draft_append.md",
+      "domain": "memory",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert",
+        "noter"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:69",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Add nodes / edges to the Draft. IDs auto-generated. `reel_ref` auto-injected from session env.",
+      "keywords": [
+        "draft",
+        "append",
+        "node",
+        "edge",
+        "hypothesis",
+        "evidence",
+        "plan"
+      ],
+      "related": [
+        "mos_draft_summary",
+        "mos_draft_annotate",
+        "mos_draft_query",
+        "mos_book_promote_verified"
+      ]
+    },
+    "mos_draft_commit_shared": {
+      "kind": "tool",
+      "path": "tools/mos_draft_commit_shared.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:105",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_draft_decay_compute": {
+      "kind": "tool",
+      "path": "tools/mos_draft_decay_compute.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:121",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_draft_path": {
+      "kind": "tool",
+      "path": "tools/mos_draft_path.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:88",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_draft_query": {
+      "kind": "tool",
+      "path": "tools/mos_draft_query.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:55",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_draft_summary": {
+      "kind": "tool",
+      "path": "tools/mos_draft_summary.md",
+      "domain": "memory",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert",
+        "noter"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:98",
+      "since": "stable",
+      "status": "stable",
+      "summary": "First call after every wake. Surfaces `pending_plan` nodes left by your previous self.",
+      "keywords": [
+        "draft",
+        "summary",
+        "wake",
+        "pending",
+        "plan",
+        "hypotheses"
+      ],
+      "related": [
+        "mos_draft_query",
+        "mos_draft_append",
+        "mos_draft_annotate",
+        "mos_book_hot_get"
+      ]
+    },
+    "mos_evaluate": {
+      "kind": "tool",
+      "path": "tools/mos_evaluate.md",
+      "domain": "deliverables",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/evaluator_tools.py:40",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_exp_get": {
+      "kind": "tool",
+      "path": "tools/mos_exp_get.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:75",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_exp_gpu_pool_get": {
+      "kind": "tool",
+      "path": "tools/mos_exp_gpu_pool_get.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:137",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_exp_gpu_pool_set": {
+      "kind": "tool",
+      "path": "tools/mos_exp_gpu_pool_set.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:130",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_exp_kill": {
+      "kind": "tool",
+      "path": "tools/mos_exp_kill.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:54",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_exp_list": {
+      "kind": "tool",
+      "path": "tools/mos_exp_list.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:61",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_exp_put": {
+      "kind": "tool",
+      "path": "tools/mos_exp_put.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:68",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_exp_queue_plan": {
+      "kind": "tool",
+      "path": "tools/mos_exp_queue_plan.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:117",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_exp_queue_reconcile": {
+      "kind": "tool",
+      "path": "tools/mos_exp_queue_reconcile.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:103",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Reap finished cells, dispatch the next wave to the GPU pool.",
+      "keywords": [
+        "queue",
+        "reconcile",
+        "reap",
+        "dispatch",
+        "retry",
+        "sweep"
+      ],
+      "related": [
+        "mos_exp_queue_submit",
+        "mos_exp_queue_status",
+        "pitfall-queue-deadlaunch-fp"
+      ]
+    },
+    "mos_exp_queue_status": {
+      "kind": "tool",
+      "path": "tools/mos_exp_queue_status.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:110",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Inspect the project queue. Your \"is the queue alive?\" probe.",
+      "keywords": [
+        "queue",
+        "status",
+        "running",
+        "pending",
+        "failed",
+        "alive"
+      ],
+      "related": [
+        "mos_exp_queue_reconcile",
+        "mos_exp_queue_submit",
+        "mos_exp_queue_plan"
+      ]
+    },
+    "mos_exp_queue_submit": {
+      "kind": "tool",
+      "path": "tools/mos_exp_queue_submit.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:96",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Submit a Cartesian sweep into the project's persistent SQLite queue.",
+      "keywords": [
+        "queue",
+        "submit",
+        "sweep",
+        "cells",
+        "retry",
+        "sweep",
+        "batch"
+      ],
+      "related": [
+        "mos_exp_queue_reconcile",
+        "mos_exp_queue_status",
+        "mos_exp_gpu_pool_set",
+        "pitfall-queue-deadlaunch-fp"
+      ]
+    },
+    "mos_exp_run": {
+      "kind": "tool",
+      "path": "tools/mos_exp_run.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:33",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Run a one-off experiment with a long timeout.",
+      "keywords": [
+        "exp",
+        "run",
+        "gpu",
+        "training",
+        "ssh",
+        "local",
+        "command"
+      ],
+      "related": [
+        "mos_exp_status",
+        "mos_exp_wait",
+        "mos_exp_kill",
+        "mos_query_gpus"
+      ]
+    },
+    "mos_exp_status": {
+      "kind": "tool",
+      "path": "tools/mos_exp_status.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:40",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_exp_tail": {
+      "kind": "tool",
+      "path": "tools/mos_exp_tail.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:82",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_exp_wait": {
+      "kind": "tool",
+      "path": "tools/mos_exp_wait.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:47",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_get_events": {
+      "kind": "tool",
+      "path": "tools/mos_get_events.md",
+      "domain": "runtime",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/runtime_tools.py:336",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_issue_report": {
+      "kind": "tool",
+      "path": "tools/mos_issue_report.md",
+      "domain": "debug",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert",
+        "noter"
+      ],
+      "source": "minions/tools/mcp/runtime_tools.py:113",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Universal \u2014 every role can call this, even with empty authz. File P0/P1/P2/P3 issues.",
+      "keywords": [
+        "issue",
+        "report",
+        "bug",
+        "p0",
+        "p1",
+        "p2",
+        "escalate",
+        "drift"
+      ],
+      "related": [
+        "pitfall-tool-denied",
+        "pitfall-empty-authz",
+        "pitfall-deferred-schema"
+      ]
+    },
+    "mos_kill_role": {
+      "kind": "tool",
+      "path": "tools/mos_kill_role.md",
+      "domain": "runtime",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/runtime_tools.py:253",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_list_roles": {
+      "kind": "tool",
+      "path": "tools/mos_list_roles.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/spawn_tools.py:131",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_list_workflow_plugins": {
+      "kind": "tool",
+      "path": "tools/mos_list_workflow_plugins.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/spawn_tools.py:88",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_noter_wait": {
+      "kind": "tool",
+      "path": "tools/mos_noter_wait.md",
+      "domain": "runtime",
+      "auth": [
+        "noter"
+      ],
+      "source": "minions/tools/mcp/runtime_tools.py:94",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Noter's wake driver. Timer-based (3 min default). Returns deltas only.",
+      "keywords": [
+        "noter",
+        "wait",
+        "timer",
+        "periodic",
+        "delta",
+        "observe"
+      ],
+      "related": [
+        "mos_await_events",
+        "mos_book_lint",
+        "mos_draft_summary"
+      ]
+    },
+    "mos_project_bridge": {
+      "kind": "tool",
+      "path": "tools/mos_project_bridge.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/project_tools.py:184",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_project_checkpoint_workspace": {
+      "kind": "tool",
+      "path": "tools/mos_project_checkpoint_workspace.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/project_tools.py:157",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_project_close": {
+      "kind": "tool",
+      "path": "tools/mos_project_close.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/project_tools.py:83",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_project_create": {
+      "kind": "tool",
+      "path": "tools/mos_project_create.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/project_tools.py:33",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_project_dormant": {
+      "kind": "tool",
+      "path": "tools/mos_project_dormant.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/project_tools.py:91",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_project_kill": {
+      "kind": "tool",
+      "path": "tools/mos_project_kill.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/project_tools.py:99",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_project_list": {
+      "kind": "tool",
+      "path": "tools/mos_project_list.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/project_tools.py:118",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_project_revive": {
+      "kind": "tool",
+      "path": "tools/mos_project_revive.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/project_tools.py:106",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_project_set_phase": {
+      "kind": "tool",
+      "path": "tools/mos_project_set_phase.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/project_tools.py:137",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_publish_to_shared": {
+      "kind": "tool",
+      "path": "tools/mos_publish_to_shared.md",
+      "domain": "publish",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert",
+        "noter"
+      ],
+      "source": "minions/tools/mcp/publish_tools.py:15",
+      "since": "stable",
+      "status": "stable",
+      "summary": "The only legal cross-role write \u2014 locks `state/shared.lock`, copies, commits.",
+      "keywords": [
+        "publish",
+        "share",
+        "handoff",
+        "cross",
+        "role",
+        "commit",
+        "lock",
+        "shared"
+      ],
+      "related": [
+        "domain-publish",
+        "mos_draft_commit_shared",
+        "mos_submit",
+        "mos_review_run"
+      ]
+    },
+    "mos_query_gpus": {
+      "kind": "tool",
+      "path": "tools/mos_query_gpus.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:89",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_read_arxiv_paper": {
+      "kind": "tool",
+      "path": "tools/mos_read_arxiv_paper.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:74",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_read_biorxiv_paper": {
+      "kind": "tool",
+      "path": "tools/mos_read_biorxiv_paper.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:88",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_read_medrxiv_paper": {
+      "kind": "tool",
+      "path": "tools/mos_read_medrxiv_paper.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:95",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_read_pubmed_paper": {
+      "kind": "tool",
+      "path": "tools/mos_read_pubmed_paper.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:81",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_reel_get": {
+      "kind": "tool",
+      "path": "tools/mos_reel_get.md",
+      "domain": "memory",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "minions/tools/mcp/reel_tools.py:22",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Drill into the raw transcript of a specific subagent / Codex call.",
+      "keywords": [
+        "reel",
+        "raw",
+        "transcript",
+        "subagent",
+        "audit",
+        "codex",
+        "agent"
+      ],
+      "related": [
+        "mos_reel_window",
+        "pitfall-subagent-boilerplate"
+      ]
+    },
+    "mos_reel_window": {
+      "kind": "tool",
+      "path": "tools/mos_reel_window.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/reel_tools.py:49",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_reset_context": {
+      "kind": "tool",
+      "path": "tools/mos_reset_context.md",
+      "domain": "runtime",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert",
+        "noter"
+      ],
+      "source": "minions/tools/mcp/runtime_tools.py:158",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Drop a marker so next wake is a fresh boot. Persist your plan to Draft FIRST.",
+      "keywords": [
+        "reset",
+        "context",
+        "fresh",
+        "boot",
+        "marker",
+        "checkpoint"
+      ],
+      "related": [
+        "mos_compact_context",
+        "mos_draft_append",
+        "mos_draft_summary"
+      ]
+    },
+    "mos_resolve_arxiv_ids": {
+      "kind": "tool",
+      "path": "tools/mos_resolve_arxiv_ids.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:67",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_review_run": {
+      "kind": "tool",
+      "path": "tools/mos_review_run.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:16",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_role_evolve_dismiss": {
+      "kind": "tool",
+      "path": "tools/mos_role_evolve_dismiss.md",
+      "domain": "evolution",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/role_evolution_tools.py:160",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_role_evolve_evaluate": {
+      "kind": "tool",
+      "path": "tools/mos_role_evolve_evaluate.md",
+      "domain": "evolution",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/role_evolution_tools.py:70",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_role_merge": {
+      "kind": "tool",
+      "path": "tools/mos_role_merge.md",
+      "domain": "evolution",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/role_evolution_tools.py:131",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_role_split": {
+      "kind": "tool",
+      "path": "tools/mos_role_split.md",
+      "domain": "evolution",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/role_evolution_tools.py:103",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_search_arxiv": {
+      "kind": "tool",
+      "path": "tools/mos_search_arxiv.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:16",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_search_biorxiv": {
+      "kind": "tool",
+      "path": "tools/mos_search_biorxiv.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:30",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_search_google_scholar": {
+      "kind": "tool",
+      "path": "tools/mos_search_google_scholar.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:44",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_search_medrxiv": {
+      "kind": "tool",
+      "path": "tools/mos_search_medrxiv.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:37",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_search_papers_federated": {
+      "kind": "tool",
+      "path": "tools/mos_search_papers_federated.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:58",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_search_pubmed": {
+      "kind": "tool",
+      "path": "tools/mos_search_pubmed.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:23",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_search_semantic": {
+      "kind": "tool",
+      "path": "tools/mos_search_semantic.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:51",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_shelf_query": {
+      "kind": "tool",
+      "path": "tools/mos_shelf_query.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:367",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_shelf_register": {
+      "kind": "tool",
+      "path": "tools/mos_shelf_register.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:360",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_shelf_shared_concepts": {
+      "kind": "tool",
+      "path": "tools/mos_shelf_shared_concepts.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:374",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_signboard_consume": {
+      "kind": "tool",
+      "path": "tools/mos_signboard_consume.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/signboard_tools.py:127",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_signboard_evaluate": {
+      "kind": "tool",
+      "path": "tools/mos_signboard_evaluate.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/signboard_tools.py:105",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_signboard_read": {
+      "kind": "tool",
+      "path": "tools/mos_signboard_read.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/signboard_tools.py:94",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_signboard_reopen": {
+      "kind": "tool",
+      "path": "tools/mos_signboard_reopen.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/signboard_tools.py:149",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_signboard_set": {
+      "kind": "tool",
+      "path": "tools/mos_signboard_set.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/signboard_tools.py:58",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_spawn_expert": {
+      "kind": "tool",
+      "path": "tools/mos_spawn_expert.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/spawn_tools.py:62",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Spawn a domain Expert role. **`name` is the SLUG only \u2014 never `<slug>-expert`.**",
+      "keywords": [
+        "spawn",
+        "expert",
+        "role",
+        "slug",
+        "domain",
+        "agent"
+      ],
+      "related": [
+        "mos_spawn_role",
+        "mos_dismiss_role",
+        "pitfall-empty-authz"
+      ]
+    },
+    "mos_spawn_role": {
+      "kind": "tool",
+      "path": "tools/mos_spawn_role.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/spawn_tools.py:27",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_start_monitor": {
+      "kind": "tool",
+      "path": "tools/mos_start_monitor.md",
+      "domain": "runtime",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/runtime_tools.py:33",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_submit": {
+      "kind": "tool",
+      "path": "tools/mos_submit.md",
+      "domain": "deliverables",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/evaluator_tools.py:25",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_unread_summary": {
+      "kind": "tool",
+      "path": "tools/mos_unread_summary.md",
+      "domain": "runtime",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/runtime_tools.py:352",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_visual_check": {
+      "kind": "tool",
+      "path": "tools/mos_visual_check.md",
+      "domain": "visual",
+      "auth": [
+        "coder",
+        "writer",
+        "ethics",
+        "expert",
+        "gru"
+      ],
+      "source": "minions/tools/mcp/visual_tools.py:198",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_visual_inspect": {
+      "kind": "tool",
+      "path": "tools/mos_visual_inspect.md",
+      "domain": "visual",
+      "auth": [
+        "coder",
+        "writer",
+        "ethics",
+        "expert",
+        "gru"
+      ],
+      "source": "minions/tools/mcp/visual_tools.py:147",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "mos_visual_render": {
+      "kind": "tool",
+      "path": "tools/mos_visual_render.md",
+      "domain": "visual",
+      "auth": [
+        "coder",
+        "writer",
+        "ethics",
+        "expert",
+        "gru"
+      ],
+      "source": "minions/tools/mcp/visual_tools.py:122",
+      "since": "stub",
+      "status": "stub",
+      "summary": "STUB \u2014 fill in.",
+      "keywords": [],
+      "related": []
+    },
+    "pitfall-adjudicate-misuse": {
+      "kind": "pitfall",
+      "path": "pitfalls/pitfall-adjudicate-misuse.md",
+      "domain": "deliverables",
+      "auth": [
+        "gru",
+        "ethics"
+      ],
+      "source": "minions/tools/mcp/evaluator_tools.py:60",
+      "since": "stable",
+      "status": "stable",
+      "summary": "**Symptom (project_37596 / role-ethics):**",
+      "keywords": [
+        "adjudicate",
+        "mid",
+        "run",
+        "closure",
+        "submission",
+        "answer",
+        "panel"
+      ],
+      "related": [
+        "mos_adjudicate",
+        "mos_submit",
+        "mos_book_resolve_contradiction",
+        "mos_signboard_evaluate"
+      ]
+    },
+    "pitfall-deferred-schema": {
+      "kind": "pitfall",
+      "path": "pitfalls/pitfall-deferred-schema.md",
+      "domain": "debug",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/_common.py:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "**Symptom (project_37596 / role-coder + role-ethics + role-noter logs):**",
+      "keywords": [
+        "tool",
+        "not",
+        "found",
+        "deferred",
+        "schema",
+        "ToolSearch",
+        "denied",
+        "eacn3"
+      ],
+      "related": [
+        "mos_await_events",
+        "eacn3_send_message",
+        "pitfall-empty-authz"
+      ]
+    },
+    "pitfall-empty-authz": {
+      "kind": "pitfall",
+      "path": "pitfalls/pitfall-empty-authz.md",
+      "domain": "debug",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/config/__init__.py:517",
+      "since": "v15.0",
+      "status": "stable",
+      "summary": "**Symptom (project_37596 / `issues/issues.jsonl` ISS-37596-1):**",
+      "keywords": [
+        "authz",
+        "denied",
+        "expert",
+        "slug",
+        "suffix",
+        "prefix",
+        "P0",
+        "role"
+      ],
+      "related": [
+        "mos_spawn_expert",
+        "mos_issue_report",
+        "pitfall-tool-denied"
+      ]
+    },
+    "pitfall-mcp-cosmetic": {
+      "kind": "pitfall",
+      "path": "pitfalls/pitfall-mcp-cosmetic.md",
+      "domain": "debug",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/__init__.py:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "**Symptom (every role-*.log in project_37596):** the harness footer shows",
+      "keywords": [
+        "mcp",
+        "server",
+        "failed",
+        "cosmetic",
+        "footer",
+        "codex",
+        "keepalive"
+      ],
+      "related": []
+    },
+    "pitfall-opus-empty-input": {
+      "kind": "pitfall",
+      "path": "pitfalls/pitfall-opus-empty-input.md",
+      "domain": "debug",
+      "auth": [
+        "*"
+      ],
+      "source": "CLAUDE.md:1",
+      "since": "2026-05-24",
+      "status": "stable",
+      "summary": "**Symptom (`Paper Crash` 2026-05-24, referenced from `CLAUDE.md`):**",
+      "keywords": [
+        "opus",
+        "empty",
+        "input",
+        "validation",
+        "error",
+        "latex",
+        "cjk",
+        "heredoc",
+        "bash",
+        "write",
+        "edit"
+      ],
+      "related": []
+    },
+    "pitfall-project-venv": {
+      "kind": "pitfall",
+      "path": "pitfalls/pitfall-project-venv.md",
+      "domain": "experiments",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/experiment_ssh.py:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "**Symptom (project_37596 / role-coder + role-expert-mathematician):**",
+      "keywords": [
+        "venv",
+        "pandas",
+        "torch",
+        "module",
+        "not",
+        "found",
+        "environment",
+        "uv",
+        "conda"
+      ],
+      "related": [
+        "mos_exp_run"
+      ]
+    },
+    "pitfall-queue-deadlaunch-fp": {
+      "kind": "pitfall",
+      "path": "pitfalls/pitfall-queue-deadlaunch-fp.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/experiment_scheduler.py:1",
+      "since": "v15.10",
+      "status": "stable",
+      "summary": "**Symptom (project_37596 / role-coder, ISS-37596-10 / ISS-37596-14):**",
+      "keywords": [
+        "queue",
+        "deadlaunch",
+        "oom",
+        "exit",
+        "false",
+        "positive",
+        "retry",
+        "project_workspace"
+      ],
+      "related": [
+        "mos_exp_queue_submit",
+        "mos_exp_queue_reconcile",
+        "mos_issue_report"
+      ]
+    },
+    "pitfall-subagent-boilerplate": {
+      "kind": "pitfall",
+      "path": "pitfalls/pitfall-subagent-boilerplate.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/review/SYSTEM.md:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "**Symptom (project_37596 / role-ethics):**",
+      "keywords": [
+        "subagent",
+        "boilerplate",
+        "lazy",
+        "verdict",
+        "review",
+        "contradiction",
+        "codex",
+        "agent"
+      ],
+      "related": [
+        "mos_reel_get",
+        "mos_reel_window",
+        "mos_book_resolve_contradiction"
+      ]
+    },
+    "pitfall-tool-denied": {
+      "kind": "pitfall",
+      "path": "pitfalls/pitfall-tool-denied.md",
+      "domain": "debug",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/_common.py:217",
+      "since": "stable",
+      "status": "stable",
+      "summary": "**Symptom:**",
+      "keywords": [
+        "denied",
+        "allowed",
+        "role",
+        "authz",
+        "whitelist",
+        "forbidden"
+      ],
+      "related": [
+        "pitfall-deferred-schema",
+        "pitfall-empty-authz",
+        "mos_issue_report"
+      ]
+    },
+    "domain-bridge": {
+      "kind": "domain",
+      "path": "domains/bridge.md",
+      "domain": "bridge",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/project_tools.py:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Cross-project visibility is **strictly Gru-only**. Roles inside a project see",
+      "keywords": [
+        "bridge",
+        "cross-project",
+        "gru",
+        "federation"
+      ],
+      "related": [
+        "mos_project_bridge"
+      ]
+    },
+    "domain-debug": {
+      "kind": "domain",
+      "path": "domains/debug.md",
+      "domain": "debug",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/runtime_tools.py:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "When something is wrong, file `mos_issue_report` first. It's universal \u2014 every",
+      "keywords": [
+        "issue",
+        "debug",
+        "error",
+        "denied",
+        "drift",
+        "triage",
+        "log"
+      ],
+      "related": [
+        "mos_issue_report",
+        "pitfall-tool-denied",
+        "pitfall-deferred-schema",
+        "pitfall-empty-authz"
+      ]
+    },
+    "domain-deliverables": {
+      "kind": "domain",
+      "path": "domains/deliverables.md",
+      "domain": "deliverables",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/evaluator_tools.py:25",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Other roles surface a deliverable to Gru by EACN message; Gru calls these tools.",
+      "keywords": [
+        "submit",
+        "evaluate",
+        "adjudicate",
+        "review",
+        "deliverable",
+        "paper",
+        "answer"
+      ],
+      "related": [
+        "mos_submit",
+        "mos_evaluate",
+        "mos_adjudicate",
+        "mos_review_run",
+        "pitfall-adjudicate-misuse"
+      ]
+    },
+    "domain-eacn3": {
+      "kind": "domain",
+      "path": "domains/eacn3.md",
+      "domain": "eacn3",
+      "auth": [
+        "*"
+      ],
+      "source": "mcp-servers/eacn3/plugin/index.ts:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "EACN3 is the per-project agent network. Every EACN-registered Role",
+      "keywords": [
+        "eacn3",
+        "comms",
+        "agents",
+        "tasks",
+        "bids",
+        "messages",
+        "events"
+      ],
+      "related": [
+        "mos_await_events",
+        "eacn3_send_message",
+        "eacn3_create_task",
+        "pitfall-deferred-schema"
+      ]
+    },
+    "domain-evolution": {
+      "kind": "domain",
+      "path": "domains/evolution.md",
+      "domain": "evolution",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/role_evolution_tools.py:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Roles aren't fixed in number. Gru can SPLIT a strained role, MERGE two",
+      "keywords": [
+        "split",
+        "merge",
+        "dismiss",
+        "role",
+        "evolution",
+        "governance"
+      ],
+      "related": [
+        "mos_role_evolve_evaluate",
+        "mos_role_split",
+        "mos_role_merge",
+        "mos_role_evolve_dismiss"
+      ]
+    },
+    "domain-experiments": {
+      "kind": "domain",
+      "path": "domains/experiments.md",
+      "domain": "experiments",
+      "auth": [
+        "coder"
+      ],
+      "source": "minions/tools/mcp/experiment_tools.py:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Coder owns this surface. Other roles request via EACN message \u2014 they don't",
+      "keywords": [
+        "exp",
+        "experiment",
+        "queue",
+        "gpu",
+        "training",
+        "sweep",
+        "dispatch"
+      ],
+      "related": [
+        "mos_exp_run",
+        "mos_exp_queue_submit",
+        "mos_exp_queue_reconcile",
+        "pitfall-queue-deadlaunch-fp"
+      ]
+    },
+    "domain-lifecycle": {
+      "kind": "domain",
+      "path": "domains/lifecycle.md",
+      "domain": "lifecycle",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/project_tools.py:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Spawning, sleeping, killing, waking projects + roles + signboards.",
+      "keywords": [
+        "project",
+        "role",
+        "spawn",
+        "dismiss",
+        "phase",
+        "signboard",
+        "gru"
+      ],
+      "related": [
+        "mos_spawn_expert",
+        "mos_project_set_phase",
+        "mos_signboard_set",
+        "pitfall-empty-authz"
+      ]
+    },
+    "domain-memory": {
+      "kind": "domain",
+      "path": "domains/memory.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Four layers, top-down:",
+      "keywords": [
+        "draft",
+        "book",
+        "shelf",
+        "reel",
+        "memory",
+        "hot",
+        "hypothesis"
+      ],
+      "related": [
+        "mos_draft_summary",
+        "mos_book_query",
+        "mos_book_hot_get",
+        "mos_reel_get"
+      ]
+    },
+    "domain-papers": {
+      "kind": "domain",
+      "path": "domains/papers.md",
+      "domain": "papers",
+      "auth": [
+        "writer"
+      ],
+      "source": "minions/tools/mcp/paper_tools.py:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Writer-primary. Other roles search on demand.",
+      "keywords": [
+        "paper",
+        "search",
+        "arxiv",
+        "pubmed",
+        "biorxiv",
+        "scholar",
+        "semantic",
+        "citation"
+      ],
+      "related": [
+        "mos_search_papers_federated",
+        "mos_search_arxiv"
+      ]
+    },
+    "domain-publish": {
+      "kind": "domain",
+      "path": "domains/publish.md",
+      "domain": "publish",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/publish_tools.py:15",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Cross-role writes have **exactly one legal path**: `mos_publish_to_shared`.",
+      "keywords": [
+        "publish",
+        "share",
+        "handoff",
+        "cross-role",
+        "commit"
+      ],
+      "related": [
+        "mos_publish_to_shared"
+      ]
+    },
+    "domain-runtime": {
+      "kind": "domain",
+      "path": "domains/runtime.md",
+      "domain": "runtime",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/runtime_tools.py:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Wake-loop control. Three real entry points, one escape hatch.",
+      "keywords": [
+        "wake",
+        "compact",
+        "reset",
+        "attach",
+        "kill",
+        "monitor",
+        "loop"
+      ],
+      "related": [
+        "mos_await_events",
+        "mos_noter_wait",
+        "mos_compact_context",
+        "mos_reset_context"
+      ]
+    },
+    "domain-visual": {
+      "kind": "domain",
+      "path": "domains/visual.md",
+      "domain": "visual",
+      "auth": [
+        "coder",
+        "writer",
+        "ethics",
+        "expert",
+        "gru"
+      ],
+      "source": "minions/tools/mcp/visual_tools.py:122",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Render LaTeX / HTML / Markdown \u2192 image, then optionally inspect with a vision",
+      "keywords": [
+        "visual",
+        "render",
+        "latex",
+        "html",
+        "inspect",
+        "image",
+        "figure"
+      ],
+      "related": [
+        "mos_visual_render",
+        "mos_visual_inspect",
+        "mos_visual_check"
+      ]
+    }
+  },
+  "domains": {
+    "eacn3": [
+      "domain-eacn3",
+      "eacn3_a2a_server",
+      "eacn3_await_events",
+      "eacn3_claim_agent",
+      "eacn3_close_task",
+      "eacn3_cluster_status",
+      "eacn3_confirm_budget",
+      "eacn3_connect",
+      "eacn3_create_subtask",
+      "eacn3_create_task",
+      "eacn3_deposit",
+      "eacn3_disconnect",
+      "eacn3_discover_agents",
+      "eacn3_get_agent",
+      "eacn3_get_balance",
+      "eacn3_get_events",
+      "eacn3_get_reputation",
+      "eacn3_get_task",
+      "eacn3_get_task_results",
+      "eacn3_get_task_status",
+      "eacn3_health",
+      "eacn3_heartbeat",
+      "eacn3_invite_agent",
+      "eacn3_list_agents",
+      "eacn3_list_my_agents",
+      "eacn3_list_open_tasks",
+      "eacn3_list_tasks",
+      "eacn3_register_agent",
+      "eacn3_reject_task",
+      "eacn3_report_event",
+      "eacn3_reverse_control_status",
+      "eacn3_select_result",
+      "eacn3_send_message",
+      "eacn3_server_info",
+      "eacn3_submit_bid",
+      "eacn3_submit_result",
+      "eacn3_unregister_agent",
+      "eacn3_update_agent",
+      "eacn3_update_deadline",
+      "eacn3_update_discussions"
+    ],
+    "deliverables": [
+      "domain-deliverables",
+      "mos_adjudicate",
+      "mos_evaluate",
+      "mos_submit",
+      "pitfall-adjudicate-misuse"
+    ],
+    "runtime": [
+      "domain-runtime",
+      "mos_attach_role",
+      "mos_await_events",
+      "mos_compact_context",
+      "mos_get_events",
+      "mos_kill_role",
+      "mos_noter_wait",
+      "mos_reset_context",
+      "mos_start_monitor",
+      "mos_unread_summary"
+    ],
+    "memory": [
+      "domain-memory",
+      "mos_book_audit_walk",
+      "mos_book_crystallize_session",
+      "mos_book_hot_get",
+      "mos_book_hot_update",
+      "mos_book_ingest",
+      "mos_book_ingest_batch",
+      "mos_book_lint",
+      "mos_book_promote_verified",
+      "mos_book_query",
+      "mos_book_resolve_contradiction",
+      "mos_book_save_synthesis",
+      "mos_draft_annotate",
+      "mos_draft_append",
+      "mos_draft_commit_shared",
+      "mos_draft_decay_compute",
+      "mos_draft_path",
+      "mos_draft_query",
+      "mos_draft_summary",
+      "mos_reel_get",
+      "mos_reel_window",
+      "mos_shelf_query",
+      "mos_shelf_register",
+      "mos_shelf_shared_concepts",
+      "pitfall-subagent-boilerplate"
+    ],
+    "lifecycle": [
+      "domain-lifecycle",
+      "mos_dismiss_role",
+      "mos_list_roles",
+      "mos_list_workflow_plugins",
+      "mos_project_bridge",
+      "mos_project_checkpoint_workspace",
+      "mos_project_close",
+      "mos_project_create",
+      "mos_project_dormant",
+      "mos_project_kill",
+      "mos_project_list",
+      "mos_project_revive",
+      "mos_project_set_phase",
+      "mos_signboard_consume",
+      "mos_signboard_evaluate",
+      "mos_signboard_read",
+      "mos_signboard_reopen",
+      "mos_signboard_set",
+      "mos_spawn_expert",
+      "mos_spawn_role"
+    ],
+    "papers": [
+      "domain-papers",
+      "mos_download_arxiv",
+      "mos_download_biorxiv",
+      "mos_download_medrxiv",
+      "mos_download_pubmed",
+      "mos_read_arxiv_paper",
+      "mos_read_biorxiv_paper",
+      "mos_read_medrxiv_paper",
+      "mos_read_pubmed_paper",
+      "mos_resolve_arxiv_ids",
+      "mos_search_arxiv",
+      "mos_search_biorxiv",
+      "mos_search_google_scholar",
+      "mos_search_medrxiv",
+      "mos_search_papers_federated",
+      "mos_search_pubmed",
+      "mos_search_semantic"
+    ],
+    "experiments": [
+      "domain-experiments",
+      "mos_exp_get",
+      "mos_exp_gpu_pool_get",
+      "mos_exp_gpu_pool_set",
+      "mos_exp_kill",
+      "mos_exp_list",
+      "mos_exp_put",
+      "mos_exp_queue_plan",
+      "mos_exp_queue_reconcile",
+      "mos_exp_queue_status",
+      "mos_exp_queue_submit",
+      "mos_exp_run",
+      "mos_exp_status",
+      "mos_exp_tail",
+      "mos_exp_wait",
+      "mos_query_gpus",
+      "mos_review_run",
+      "pitfall-project-venv",
+      "pitfall-queue-deadlaunch-fp"
+    ],
+    "debug": [
+      "domain-debug",
+      "mos_issue_report",
+      "pitfall-deferred-schema",
+      "pitfall-empty-authz",
+      "pitfall-mcp-cosmetic",
+      "pitfall-opus-empty-input",
+      "pitfall-tool-denied"
+    ],
+    "publish": [
+      "domain-publish",
+      "mos_publish_to_shared"
+    ],
+    "evolution": [
+      "domain-evolution",
+      "mos_role_evolve_dismiss",
+      "mos_role_evolve_evaluate",
+      "mos_role_merge",
+      "mos_role_split"
+    ],
+    "visual": [
+      "domain-visual",
+      "mos_visual_check",
+      "mos_visual_inspect",
+      "mos_visual_render"
+    ],
+    "bridge": [
+      "domain-bridge"
+    ]
+  },
+  "by_role": {
+    "gru": [
+      "domain-bridge",
+      "domain-deliverables",
+      "domain-evolution",
+      "domain-lifecycle",
+      "domain-visual",
+      "eacn3_a2a_server",
+      "eacn3_await_events",
+      "eacn3_claim_agent",
+      "eacn3_close_task",
+      "eacn3_cluster_status",
+      "eacn3_confirm_budget",
+      "eacn3_connect",
+      "eacn3_create_subtask",
+      "eacn3_create_task",
+      "eacn3_deposit",
+      "eacn3_disconnect",
+      "eacn3_discover_agents",
+      "eacn3_get_agent",
+      "eacn3_get_balance",
+      "eacn3_get_events",
+      "eacn3_get_reputation",
+      "eacn3_get_task",
+      "eacn3_get_task_results",
+      "eacn3_get_task_status",
+      "eacn3_health",
+      "eacn3_invite_agent",
+      "eacn3_list_agents",
+      "eacn3_list_my_agents",
+      "eacn3_list_open_tasks",
+      "eacn3_list_tasks",
+      "eacn3_register_agent",
+      "eacn3_reject_task",
+      "eacn3_report_event",
+      "eacn3_reverse_control_status",
+      "eacn3_select_result",
+      "eacn3_send_message",
+      "eacn3_server_info",
+      "eacn3_submit_bid",
+      "eacn3_submit_result",
+      "eacn3_unregister_agent",
+      "eacn3_update_agent",
+      "eacn3_update_deadline",
+      "eacn3_update_discussions",
+      "mos_adjudicate",
+      "mos_await_events",
+      "mos_book_hot_get",
+      "mos_book_query",
+      "mos_compact_context",
+      "mos_dismiss_role",
+      "mos_draft_append",
+      "mos_draft_summary",
+      "mos_evaluate",
+      "mos_issue_report",
+      "mos_list_roles",
+      "mos_list_workflow_plugins",
+      "mos_project_bridge",
+      "mos_project_checkpoint_workspace",
+      "mos_project_close",
+      "mos_project_create",
+      "mos_project_dormant",
+      "mos_project_kill",
+      "mos_project_list",
+      "mos_project_revive",
+      "mos_project_set_phase",
+      "mos_publish_to_shared",
+      "mos_reel_get",
+      "mos_reset_context",
+      "mos_role_evolve_dismiss",
+      "mos_role_evolve_evaluate",
+      "mos_role_merge",
+      "mos_role_split",
+      "mos_signboard_consume",
+      "mos_signboard_evaluate",
+      "mos_signboard_read",
+      "mos_signboard_reopen",
+      "mos_signboard_set",
+      "mos_spawn_expert",
+      "mos_spawn_role",
+      "mos_submit",
+      "mos_visual_check",
+      "mos_visual_inspect",
+      "mos_visual_render",
+      "pitfall-adjudicate-misuse",
+      "pitfall-empty-authz"
+    ],
+    "coder": [
+      "domain-experiments",
+      "domain-visual",
+      "eacn3_await_events",
+      "eacn3_close_task",
+      "eacn3_confirm_budget",
+      "eacn3_create_subtask",
+      "eacn3_create_task",
+      "eacn3_deposit",
+      "eacn3_discover_agents",
+      "eacn3_get_agent",
+      "eacn3_get_balance",
+      "eacn3_get_events",
+      "eacn3_get_reputation",
+      "eacn3_get_task",
+      "eacn3_get_task_results",
+      "eacn3_get_task_status",
+      "eacn3_health",
+      "eacn3_list_agents",
+      "eacn3_list_my_agents",
+      "eacn3_list_open_tasks",
+      "eacn3_list_tasks",
+      "eacn3_reject_task",
+      "eacn3_select_result",
+      "eacn3_send_message",
+      "eacn3_server_info",
+      "eacn3_submit_bid",
+      "eacn3_submit_result",
+      "eacn3_update_deadline",
+      "eacn3_update_discussions",
+      "mos_await_events",
+      "mos_book_hot_get",
+      "mos_book_query",
+      "mos_compact_context",
+      "mos_draft_append",
+      "mos_draft_summary",
+      "mos_exp_get",
+      "mos_exp_gpu_pool_get",
+      "mos_exp_gpu_pool_set",
+      "mos_exp_kill",
+      "mos_exp_list",
+      "mos_exp_put",
+      "mos_exp_queue_plan",
+      "mos_exp_queue_reconcile",
+      "mos_exp_queue_status",
+      "mos_exp_queue_submit",
+      "mos_exp_run",
+      "mos_exp_status",
+      "mos_exp_tail",
+      "mos_exp_wait",
+      "mos_issue_report",
+      "mos_publish_to_shared",
+      "mos_query_gpus",
+      "mos_reel_get",
+      "mos_reset_context",
+      "mos_review_run",
+      "mos_visual_check",
+      "mos_visual_inspect",
+      "mos_visual_render",
+      "pitfall-queue-deadlaunch-fp"
+    ],
+    "ethics": [
+      "domain-visual",
+      "eacn3_await_events",
+      "eacn3_close_task",
+      "eacn3_confirm_budget",
+      "eacn3_create_subtask",
+      "eacn3_create_task",
+      "eacn3_deposit",
+      "eacn3_discover_agents",
+      "eacn3_get_agent",
+      "eacn3_get_balance",
+      "eacn3_get_events",
+      "eacn3_get_reputation",
+      "eacn3_get_task",
+      "eacn3_get_task_results",
+      "eacn3_get_task_status",
+      "eacn3_health",
+      "eacn3_list_agents",
+      "eacn3_list_my_agents",
+      "eacn3_list_open_tasks",
+      "eacn3_list_tasks",
+      "eacn3_reject_task",
+      "eacn3_select_result",
+      "eacn3_send_message",
+      "eacn3_server_info",
+      "eacn3_submit_bid",
+      "eacn3_submit_result",
+      "eacn3_update_deadline",
+      "eacn3_update_discussions",
+      "mos_await_events",
+      "mos_book_hot_get",
+      "mos_book_query",
+      "mos_compact_context",
+      "mos_draft_append",
+      "mos_draft_summary",
+      "mos_issue_report",
+      "mos_publish_to_shared",
+      "mos_reel_get",
+      "mos_reset_context",
+      "mos_visual_check",
+      "mos_visual_inspect",
+      "mos_visual_render",
+      "pitfall-adjudicate-misuse"
+    ],
+    "writer": [
+      "domain-papers",
+      "domain-visual",
+      "eacn3_await_events",
+      "eacn3_close_task",
+      "eacn3_confirm_budget",
+      "eacn3_create_subtask",
+      "eacn3_create_task",
+      "eacn3_deposit",
+      "eacn3_discover_agents",
+      "eacn3_get_agent",
+      "eacn3_get_balance",
+      "eacn3_get_events",
+      "eacn3_get_reputation",
+      "eacn3_get_task",
+      "eacn3_get_task_results",
+      "eacn3_get_task_status",
+      "eacn3_health",
+      "eacn3_list_agents",
+      "eacn3_list_my_agents",
+      "eacn3_list_open_tasks",
+      "eacn3_list_tasks",
+      "eacn3_reject_task",
+      "eacn3_select_result",
+      "eacn3_send_message",
+      "eacn3_server_info",
+      "eacn3_submit_bid",
+      "eacn3_submit_result",
+      "eacn3_update_deadline",
+      "eacn3_update_discussions",
+      "mos_await_events",
+      "mos_book_hot_get",
+      "mos_book_query",
+      "mos_compact_context",
+      "mos_download_arxiv",
+      "mos_download_biorxiv",
+      "mos_download_medrxiv",
+      "mos_download_pubmed",
+      "mos_draft_append",
+      "mos_draft_summary",
+      "mos_issue_report",
+      "mos_publish_to_shared",
+      "mos_read_arxiv_paper",
+      "mos_read_biorxiv_paper",
+      "mos_read_medrxiv_paper",
+      "mos_read_pubmed_paper",
+      "mos_reel_get",
+      "mos_reset_context",
+      "mos_resolve_arxiv_ids",
+      "mos_search_arxiv",
+      "mos_search_biorxiv",
+      "mos_search_google_scholar",
+      "mos_search_medrxiv",
+      "mos_search_papers_federated",
+      "mos_search_pubmed",
+      "mos_search_semantic",
+      "mos_visual_check",
+      "mos_visual_inspect",
+      "mos_visual_render"
+    ],
+    "expert": [
+      "domain-visual",
+      "eacn3_await_events",
+      "eacn3_close_task",
+      "eacn3_confirm_budget",
+      "eacn3_create_subtask",
+      "eacn3_create_task",
+      "eacn3_deposit",
+      "eacn3_discover_agents",
+      "eacn3_get_agent",
+      "eacn3_get_balance",
+      "eacn3_get_events",
+      "eacn3_get_reputation",
+      "eacn3_get_task",
+      "eacn3_get_task_results",
+      "eacn3_get_task_status",
+      "eacn3_health",
+      "eacn3_list_agents",
+      "eacn3_list_my_agents",
+      "eacn3_list_open_tasks",
+      "eacn3_list_tasks",
+      "eacn3_reject_task",
+      "eacn3_select_result",
+      "eacn3_send_message",
+      "eacn3_server_info",
+      "eacn3_submit_bid",
+      "eacn3_submit_result",
+      "eacn3_update_deadline",
+      "eacn3_update_discussions",
+      "mos_await_events",
+      "mos_book_hot_get",
+      "mos_book_query",
+      "mos_compact_context",
+      "mos_draft_append",
+      "mos_draft_summary",
+      "mos_issue_report",
+      "mos_publish_to_shared",
+      "mos_reel_get",
+      "mos_reset_context",
+      "mos_visual_check",
+      "mos_visual_inspect",
+      "mos_visual_render"
+    ],
+    "*": [
+      "domain-debug",
+      "domain-eacn3",
+      "domain-memory",
+      "domain-publish",
+      "domain-runtime",
+      "eacn3_heartbeat",
+      "mos_attach_role",
+      "mos_book_audit_walk",
+      "mos_book_crystallize_session",
+      "mos_book_hot_update",
+      "mos_book_ingest",
+      "mos_book_ingest_batch",
+      "mos_book_lint",
+      "mos_book_promote_verified",
+      "mos_book_resolve_contradiction",
+      "mos_book_save_synthesis",
+      "mos_draft_annotate",
+      "mos_draft_commit_shared",
+      "mos_draft_decay_compute",
+      "mos_draft_path",
+      "mos_draft_query",
+      "mos_get_events",
+      "mos_kill_role",
+      "mos_reel_window",
+      "mos_shelf_query",
+      "mos_shelf_register",
+      "mos_shelf_shared_concepts",
+      "mos_start_monitor",
+      "mos_unread_summary",
+      "pitfall-deferred-schema",
+      "pitfall-mcp-cosmetic",
+      "pitfall-opus-empty-input",
+      "pitfall-project-venv",
+      "pitfall-subagent-boilerplate",
+      "pitfall-tool-denied"
+    ],
+    "noter": [
+      "mos_book_hot_get",
+      "mos_book_query",
+      "mos_compact_context",
+      "mos_draft_append",
+      "mos_draft_summary",
+      "mos_issue_report",
+      "mos_noter_wait",
+      "mos_publish_to_shared",
+      "mos_reset_context"
+    ]
+  },
+  "by_keyword": {
+    "a2a": [
+      "eacn3_a2a_server"
+    ],
+    "server": [
+      "eacn3_a2a_server",
+      "eacn3_server_info",
+      "pitfall-mcp-cosmetic"
+    ],
+    "agent": [
+      "eacn3_a2a_server",
+      "eacn3_await_events",
+      "eacn3_claim_agent",
+      "eacn3_connect",
+      "eacn3_create_subtask",
+      "eacn3_create_task",
+      "eacn3_deposit",
+      "eacn3_disconnect",
+      "eacn3_discover_agents",
+      "eacn3_get_agent",
+      "eacn3_get_balance",
+      "eacn3_get_events",
+      "eacn3_get_reputation",
+      "eacn3_get_task_status",
+      "eacn3_invite_agent",
+      "eacn3_list_agents",
+      "eacn3_list_my_agents",
+      "eacn3_register_agent",
+      "eacn3_reject_task",
+      "eacn3_report_event",
+      "eacn3_reverse_control_status",
+      "eacn3_select_result",
+      "eacn3_send_message",
+      "eacn3_server_info",
+      "eacn3_submit_bid",
+      "eacn3_unregister_agent",
+      "eacn3_update_agent",
+      "eacn3_update_discussions",
+      "mos_reel_get",
+      "mos_spawn_expert",
+      "pitfall-subagent-boilerplate"
+    ],
+    "message": [
+      "eacn3_a2a_server",
+      "eacn3_get_agent",
+      "eacn3_get_events",
+      "eacn3_invite_agent",
+      "eacn3_send_message",
+      "eacn3_update_discussions"
+    ],
+    "await": [
+      "eacn3_await_events",
+      "mos_await_events"
+    ],
+    "events": [
+      "domain-eacn3",
+      "eacn3_await_events",
+      "eacn3_get_events",
+      "mos_await_events"
+    ],
+    "event": [
+      "eacn3_await_events",
+      "eacn3_claim_agent",
+      "eacn3_confirm_budget",
+      "eacn3_create_subtask",
+      "eacn3_get_events",
+      "eacn3_list_open_tasks",
+      "eacn3_register_agent",
+      "eacn3_reject_task",
+      "eacn3_report_event",
+      "eacn3_reverse_control_status",
+      "eacn3_send_message",
+      "eacn3_submit_result",
+      "eacn3_update_discussions"
+    ],
+    "claim": [
+      "eacn3_claim_agent"
+    ],
+    "close": [
+      "eacn3_close_task"
+    ],
+    "task": [
+      "eacn3_close_task",
+      "eacn3_confirm_budget",
+      "eacn3_create_subtask",
+      "eacn3_create_task",
+      "eacn3_deposit",
+      "eacn3_disconnect",
+      "eacn3_discover_agents",
+      "eacn3_get_balance",
+      "eacn3_get_events",
+      "eacn3_get_reputation",
+      "eacn3_get_task",
+      "eacn3_get_task_results",
+      "eacn3_get_task_status",
+      "eacn3_invite_agent",
+      "eacn3_list_open_tasks",
+      "eacn3_list_tasks",
+      "eacn3_register_agent",
+      "eacn3_reject_task",
+      "eacn3_report_event",
+      "eacn3_select_result",
+      "eacn3_send_message",
+      "eacn3_server_info",
+      "eacn3_submit_bid",
+      "eacn3_submit_result",
+      "eacn3_unregister_agent",
+      "eacn3_update_agent",
+      "eacn3_update_deadline",
+      "eacn3_update_discussions"
+    ],
+    "bid": [
+      "eacn3_close_task",
+      "eacn3_confirm_budget",
+      "eacn3_create_task",
+      "eacn3_get_agent",
+      "eacn3_get_events",
+      "eacn3_get_reputation",
+      "eacn3_get_task",
+      "eacn3_get_task_status",
+      "eacn3_invite_agent",
+      "eacn3_list_open_tasks",
+      "eacn3_list_tasks",
+      "eacn3_report_event",
+      "eacn3_submit_bid",
+      "eacn3_update_discussions"
+    ],
+    "escrow": [
+      "eacn3_close_task",
+      "eacn3_create_subtask",
+      "eacn3_create_task",
+      "eacn3_get_balance",
+      "eacn3_select_result"
+    ],
+    "cluster": [
+      "eacn3_cluster_status"
+    ],
+    "status": [
+      "eacn3_cluster_status",
+      "eacn3_get_task_status",
+      "eacn3_reverse_control_status",
+      "mos_exp_queue_status"
+    ],
+    "confirm": [
+      "eacn3_confirm_budget"
+    ],
+    "budget": [
+      "eacn3_confirm_budget"
+    ],
+    "balance": [
+      "eacn3_confirm_budget",
+      "eacn3_create_subtask",
+      "eacn3_create_task",
+      "eacn3_deposit",
+      "eacn3_get_balance",
+      "eacn3_select_result"
+    ],
+    "connect": [
+      "eacn3_connect"
+    ],
+    "create": [
+      "eacn3_create_subtask",
+      "eacn3_create_task"
+    ],
+    "subtask": [
+      "eacn3_create_subtask",
+      "eacn3_get_events",
+      "eacn3_register_agent"
+    ],
+    "domain": [
+      "eacn3_create_subtask",
+      "eacn3_create_task",
+      "eacn3_discover_agents",
+      "eacn3_get_agent",
+      "eacn3_get_task",
+      "eacn3_list_agents",
+      "eacn3_list_my_agents",
+      "eacn3_list_open_tasks",
+      "eacn3_register_agent",
+      "eacn3_update_agent",
+      "mos_spawn_expert"
+    ],
+    "broadcast": [
+      "eacn3_create_subtask",
+      "eacn3_create_task",
+      "eacn3_get_events",
+      "eacn3_register_agent",
+      "eacn3_update_agent"
+    ],
+    "deposit": [
+      "eacn3_create_task",
+      "eacn3_deposit",
+      "eacn3_get_balance"
+    ],
+    "disconnect": [
+      "eacn3_disconnect"
+    ],
+    "reputation": [
+      "eacn3_disconnect",
+      "eacn3_get_reputation",
+      "eacn3_invite_agent",
+      "eacn3_reject_task",
+      "eacn3_report_event",
+      "eacn3_submit_result",
+      "eacn3_unregister_agent"
+    ],
+    "discover": [
+      "eacn3_discover_agents"
+    ],
+    "agents": [
+      "domain-eacn3",
+      "eacn3_discover_agents",
+      "eacn3_list_agents",
+      "eacn3_list_my_agents"
+    ],
+    "get": [
+      "eacn3_get_agent",
+      "eacn3_get_balance",
+      "eacn3_get_events",
+      "eacn3_get_reputation",
+      "eacn3_get_task",
+      "eacn3_get_task_results",
+      "eacn3_get_task_status"
+    ],
+    "results": [
+      "eacn3_get_task_results"
+    ],
+    "health": [
+      "eacn3_health"
+    ],
+    "heartbeat": [
+      "eacn3_heartbeat"
+    ],
+    "invite": [
+      "eacn3_invite_agent"
+    ],
+    "list": [
+      "eacn3_list_agents",
+      "eacn3_list_my_agents",
+      "eacn3_list_open_tasks",
+      "eacn3_list_tasks"
+    ],
+    "my": [
+      "eacn3_list_my_agents"
+    ],
+    "open": [
+      "eacn3_list_open_tasks"
+    ],
+    "tasks": [
+      "domain-eacn3",
+      "eacn3_list_open_tasks",
+      "eacn3_list_tasks"
+    ],
+    "register": [
+      "eacn3_register_agent"
+    ],
+    "reject": [
+      "eacn3_reject_task"
+    ],
+    "report": [
+      "eacn3_report_event",
+      "mos_issue_report"
+    ],
+    "reverse": [
+      "eacn3_reverse_control_status"
+    ],
+    "control": [
+      "eacn3_reverse_control_status"
+    ],
+    "select": [
+      "eacn3_select_result"
+    ],
+    "result": [
+      "eacn3_select_result",
+      "eacn3_submit_result"
+    ],
+    "send": [
+      "eacn3_send_message"
+    ],
+    "info": [
+      "eacn3_server_info"
+    ],
+    "submit": [
+      "domain-deliverables",
+      "eacn3_submit_bid",
+      "eacn3_submit_result",
+      "mos_exp_queue_submit"
+    ],
+    "unregister": [
+      "eacn3_unregister_agent"
+    ],
+    "update": [
+      "eacn3_update_agent",
+      "eacn3_update_deadline",
+      "eacn3_update_discussions"
+    ],
+    "deadline": [
+      "eacn3_update_deadline"
+    ],
+    "discussions": [
+      "eacn3_update_discussions"
+    ],
+    "wake": [
+      "domain-runtime",
+      "mos_await_events",
+      "mos_book_hot_get",
+      "mos_draft_summary"
+    ],
+    "drain": [
+      "mos_await_events"
+    ],
+    "idle": [
+      "mos_await_events"
+    ],
+    "eacn": [
+      "mos_await_events"
+    ],
+    "loop": [
+      "domain-runtime",
+      "mos_await_events"
+    ],
+    "book": [
+      "domain-memory",
+      "mos_book_hot_get",
+      "mos_book_query"
+    ],
+    "hot": [
+      "domain-memory",
+      "mos_book_hot_get"
+    ],
+    "cache": [
+      "mos_book_hot_get"
+    ],
+    "summary": [
+      "mos_book_hot_get",
+      "mos_compact_context",
+      "mos_draft_summary"
+    ],
+    "rolling": [
+      "mos_book_hot_get"
+    ],
+    "query": [
+      "mos_book_query"
+    ],
+    "search": [
+      "domain-papers",
+      "mos_book_query"
+    ],
+    "page": [
+      "mos_book_query"
+    ],
+    "knowledge": [
+      "mos_book_query"
+    ],
+    "durable": [
+      "mos_book_query"
+    ],
+    "compact": [
+      "domain-runtime",
+      "mos_compact_context"
+    ],
+    "context": [
+      "mos_compact_context",
+      "mos_reset_context"
+    ],
+    "token": [
+      "mos_compact_context"
+    ],
+    "resume": [
+      "mos_compact_context"
+    ],
+    "harness": [
+      "mos_compact_context"
+    ],
+    "draft": [
+      "domain-memory",
+      "mos_draft_append",
+      "mos_draft_summary"
+    ],
+    "append": [
+      "mos_draft_append"
+    ],
+    "node": [
+      "mos_draft_append"
+    ],
+    "edge": [
+      "mos_draft_append"
+    ],
+    "hypothesis": [
+      "domain-memory",
+      "mos_draft_append"
+    ],
+    "evidence": [
+      "mos_draft_append"
+    ],
+    "plan": [
+      "mos_draft_append",
+      "mos_draft_summary"
+    ],
+    "pending": [
+      "mos_draft_summary",
+      "mos_exp_queue_status"
+    ],
+    "hypotheses": [
+      "mos_draft_summary"
+    ],
+    "queue": [
+      "domain-experiments",
+      "mos_exp_queue_reconcile",
+      "mos_exp_queue_status",
+      "mos_exp_queue_submit",
+      "pitfall-queue-deadlaunch-fp"
+    ],
+    "reconcile": [
+      "mos_exp_queue_reconcile"
+    ],
+    "reap": [
+      "mos_exp_queue_reconcile"
+    ],
+    "dispatch": [
+      "domain-experiments",
+      "mos_exp_queue_reconcile"
+    ],
+    "retry": [
+      "mos_exp_queue_reconcile",
+      "mos_exp_queue_submit",
+      "pitfall-queue-deadlaunch-fp"
+    ],
+    "sweep": [
+      "domain-experiments",
+      "mos_exp_queue_reconcile",
+      "mos_exp_queue_submit",
+      "mos_exp_queue_submit"
+    ],
+    "running": [
+      "mos_exp_queue_status"
+    ],
+    "failed": [
+      "mos_exp_queue_status",
+      "pitfall-mcp-cosmetic"
+    ],
+    "alive": [
+      "mos_exp_queue_status"
+    ],
+    "cells": [
+      "mos_exp_queue_submit"
+    ],
+    "batch": [
+      "mos_exp_queue_submit"
+    ],
+    "exp": [
+      "domain-experiments",
+      "mos_exp_run"
+    ],
+    "run": [
+      "mos_exp_run",
+      "pitfall-adjudicate-misuse"
+    ],
+    "gpu": [
+      "domain-experiments",
+      "mos_exp_run"
+    ],
+    "training": [
+      "domain-experiments",
+      "mos_exp_run"
+    ],
+    "ssh": [
+      "mos_exp_run"
+    ],
+    "local": [
+      "mos_exp_run"
+    ],
+    "command": [
+      "mos_exp_run"
+    ],
+    "issue": [
+      "domain-debug",
+      "mos_issue_report"
+    ],
+    "bug": [
+      "mos_issue_report"
+    ],
+    "p0": [
+      "mos_issue_report",
+      "pitfall-empty-authz"
+    ],
+    "p1": [
+      "mos_issue_report"
+    ],
+    "p2": [
+      "mos_issue_report"
+    ],
+    "escalate": [
+      "mos_issue_report"
+    ],
+    "drift": [
+      "domain-debug",
+      "mos_issue_report"
+    ],
+    "noter": [
+      "mos_noter_wait"
+    ],
+    "wait": [
+      "mos_noter_wait"
+    ],
+    "timer": [
+      "mos_noter_wait"
+    ],
+    "periodic": [
+      "mos_noter_wait"
+    ],
+    "delta": [
+      "mos_noter_wait"
+    ],
+    "observe": [
+      "mos_noter_wait"
+    ],
+    "publish": [
+      "domain-publish",
+      "mos_publish_to_shared"
+    ],
+    "share": [
+      "domain-publish",
+      "mos_publish_to_shared"
+    ],
+    "handoff": [
+      "domain-publish",
+      "mos_publish_to_shared"
+    ],
+    "cross": [
+      "mos_publish_to_shared"
+    ],
+    "role": [
+      "domain-evolution",
+      "domain-lifecycle",
+      "mos_publish_to_shared",
+      "mos_spawn_expert",
+      "pitfall-empty-authz",
+      "pitfall-tool-denied"
+    ],
+    "commit": [
+      "domain-publish",
+      "mos_publish_to_shared"
+    ],
+    "lock": [
+      "mos_publish_to_shared"
+    ],
+    "shared": [
+      "mos_publish_to_shared"
+    ],
+    "reel": [
+      "domain-memory",
+      "mos_reel_get"
+    ],
+    "raw": [
+      "mos_reel_get"
+    ],
+    "transcript": [
+      "mos_reel_get"
+    ],
+    "subagent": [
+      "mos_reel_get",
+      "pitfall-subagent-boilerplate"
+    ],
+    "audit": [
+      "mos_reel_get"
+    ],
+    "codex": [
+      "mos_reel_get",
+      "pitfall-mcp-cosmetic",
+      "pitfall-subagent-boilerplate"
+    ],
+    "reset": [
+      "domain-runtime",
+      "mos_reset_context"
+    ],
+    "fresh": [
+      "mos_reset_context"
+    ],
+    "boot": [
+      "mos_reset_context"
+    ],
+    "marker": [
+      "mos_reset_context"
+    ],
+    "checkpoint": [
+      "mos_reset_context"
+    ],
+    "spawn": [
+      "domain-lifecycle",
+      "mos_spawn_expert"
+    ],
+    "expert": [
+      "mos_spawn_expert",
+      "pitfall-empty-authz"
+    ],
+    "slug": [
+      "mos_spawn_expert",
+      "pitfall-empty-authz"
+    ],
+    "adjudicate": [
+      "domain-deliverables",
+      "pitfall-adjudicate-misuse"
+    ],
+    "mid": [
+      "pitfall-adjudicate-misuse"
+    ],
+    "closure": [
+      "pitfall-adjudicate-misuse"
+    ],
+    "submission": [
+      "pitfall-adjudicate-misuse"
+    ],
+    "answer": [
+      "domain-deliverables",
+      "pitfall-adjudicate-misuse"
+    ],
+    "panel": [
+      "pitfall-adjudicate-misuse"
+    ],
+    "tool": [
+      "pitfall-deferred-schema"
+    ],
+    "not": [
+      "pitfall-deferred-schema",
+      "pitfall-project-venv"
+    ],
+    "found": [
+      "pitfall-deferred-schema",
+      "pitfall-project-venv"
+    ],
+    "deferred": [
+      "pitfall-deferred-schema"
+    ],
+    "schema": [
+      "pitfall-deferred-schema"
+    ],
+    "toolsearch": [
+      "pitfall-deferred-schema"
+    ],
+    "denied": [
+      "domain-debug",
+      "pitfall-deferred-schema",
+      "pitfall-empty-authz",
+      "pitfall-tool-denied"
+    ],
+    "eacn3": [
+      "domain-eacn3",
+      "pitfall-deferred-schema"
+    ],
+    "authz": [
+      "pitfall-empty-authz",
+      "pitfall-tool-denied"
+    ],
+    "suffix": [
+      "pitfall-empty-authz"
+    ],
+    "prefix": [
+      "pitfall-empty-authz"
+    ],
+    "mcp": [
+      "pitfall-mcp-cosmetic"
+    ],
+    "cosmetic": [
+      "pitfall-mcp-cosmetic"
+    ],
+    "footer": [
+      "pitfall-mcp-cosmetic"
+    ],
+    "keepalive": [
+      "pitfall-mcp-cosmetic"
+    ],
+    "opus": [
+      "pitfall-opus-empty-input"
+    ],
+    "empty": [
+      "pitfall-opus-empty-input"
+    ],
+    "input": [
+      "pitfall-opus-empty-input"
+    ],
+    "validation": [
+      "pitfall-opus-empty-input"
+    ],
+    "error": [
+      "domain-debug",
+      "pitfall-opus-empty-input"
+    ],
+    "latex": [
+      "domain-visual",
+      "pitfall-opus-empty-input"
+    ],
+    "cjk": [
+      "pitfall-opus-empty-input"
+    ],
+    "heredoc": [
+      "pitfall-opus-empty-input"
+    ],
+    "bash": [
+      "pitfall-opus-empty-input"
+    ],
+    "write": [
+      "pitfall-opus-empty-input"
+    ],
+    "edit": [
+      "pitfall-opus-empty-input"
+    ],
+    "venv": [
+      "pitfall-project-venv"
+    ],
+    "pandas": [
+      "pitfall-project-venv"
+    ],
+    "torch": [
+      "pitfall-project-venv"
+    ],
+    "module": [
+      "pitfall-project-venv"
+    ],
+    "environment": [
+      "pitfall-project-venv"
+    ],
+    "uv": [
+      "pitfall-project-venv"
+    ],
+    "conda": [
+      "pitfall-project-venv"
+    ],
+    "deadlaunch": [
+      "pitfall-queue-deadlaunch-fp"
+    ],
+    "oom": [
+      "pitfall-queue-deadlaunch-fp"
+    ],
+    "exit": [
+      "pitfall-queue-deadlaunch-fp"
+    ],
+    "false": [
+      "pitfall-queue-deadlaunch-fp"
+    ],
+    "positive": [
+      "pitfall-queue-deadlaunch-fp"
+    ],
+    "project_workspace": [
+      "pitfall-queue-deadlaunch-fp"
+    ],
+    "boilerplate": [
+      "pitfall-subagent-boilerplate"
+    ],
+    "lazy": [
+      "pitfall-subagent-boilerplate"
+    ],
+    "verdict": [
+      "pitfall-subagent-boilerplate"
+    ],
+    "review": [
+      "domain-deliverables",
+      "pitfall-subagent-boilerplate"
+    ],
+    "contradiction": [
+      "pitfall-subagent-boilerplate"
+    ],
+    "allowed": [
+      "pitfall-tool-denied"
+    ],
+    "whitelist": [
+      "pitfall-tool-denied"
+    ],
+    "forbidden": [
+      "pitfall-tool-denied"
+    ],
+    "bridge": [
+      "domain-bridge"
+    ],
+    "cross-project": [
+      "domain-bridge"
+    ],
+    "gru": [
+      "domain-bridge",
+      "domain-lifecycle"
+    ],
+    "federation": [
+      "domain-bridge"
+    ],
+    "debug": [
+      "domain-debug"
+    ],
+    "triage": [
+      "domain-debug"
+    ],
+    "log": [
+      "domain-debug"
+    ],
+    "evaluate": [
+      "domain-deliverables"
+    ],
+    "deliverable": [
+      "domain-deliverables"
+    ],
+    "paper": [
+      "domain-deliverables",
+      "domain-papers"
+    ],
+    "comms": [
+      "domain-eacn3"
+    ],
+    "bids": [
+      "domain-eacn3"
+    ],
+    "messages": [
+      "domain-eacn3"
+    ],
+    "split": [
+      "domain-evolution"
+    ],
+    "merge": [
+      "domain-evolution"
+    ],
+    "dismiss": [
+      "domain-evolution",
+      "domain-lifecycle"
+    ],
+    "evolution": [
+      "domain-evolution"
+    ],
+    "governance": [
+      "domain-evolution"
+    ],
+    "experiment": [
+      "domain-experiments"
+    ],
+    "project": [
+      "domain-lifecycle"
+    ],
+    "phase": [
+      "domain-lifecycle"
+    ],
+    "signboard": [
+      "domain-lifecycle"
+    ],
+    "shelf": [
+      "domain-memory"
+    ],
+    "memory": [
+      "domain-memory"
+    ],
+    "arxiv": [
+      "domain-papers"
+    ],
+    "pubmed": [
+      "domain-papers"
+    ],
+    "biorxiv": [
+      "domain-papers"
+    ],
+    "scholar": [
+      "domain-papers"
+    ],
+    "semantic": [
+      "domain-papers"
+    ],
+    "citation": [
+      "domain-papers"
+    ],
+    "cross-role": [
+      "domain-publish"
+    ],
+    "attach": [
+      "domain-runtime"
+    ],
+    "kill": [
+      "domain-runtime"
+    ],
+    "monitor": [
+      "domain-runtime"
+    ],
+    "visual": [
+      "domain-visual"
+    ],
+    "render": [
+      "domain-visual"
+    ],
+    "html": [
+      "domain-visual"
+    ],
+    "inspect": [
+      "domain-visual"
+    ],
+    "image": [
+      "domain-visual"
+    ],
+    "figure": [
+      "domain-visual"
+    ]
+  }
+}

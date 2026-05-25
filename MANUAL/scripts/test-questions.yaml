@@ -1,0 +1,127 @@
+---
+# A/B test set — 10 project_37596 questions
+# Each entry has the question, the expected correct answer (key facts agent must
+# get), the page that a manual lookup should surface, and a difficulty tag.
+
+- id: q1-empty-authz
+  question: |
+    A newly-spawned Expert role gets "tool not allowed for role 'X'" on every
+    MCP call including mos_issue_report. The role was registered as
+    "theory-normalization-expert". What's wrong and how do you fix it?
+  expects:
+    - slug-SUFFIX form vs slug-PREFIX (`expert-<slug>`) is the bug
+    - _normalise_role_name in minions/config/__init__.py only collapses prefix form
+    - server_authz comes back empty
+    - dismiss + respawn with mos_spawn_expert(name="theory-normalization") (no -expert suffix)
+    - role can fall back to writing to issues/issues.jsonl directly via Bash
+  expected_pages: [pitfall-empty-authz, mos_spawn_expert]
+  difficulty: hard
+
+- id: q2-deferred-schema
+  question: |
+    I called eacn3_send_message and got "No such tool available" but my role
+    SHOULD have access. What do I do?
+  expects:
+    - schema is deferred; not actually denied
+    - call ToolSearch(query="select:eacn3_send_message") first
+    - after ToolSearch loads schema, the call works
+    - if ToolSearch returns nothing then truly not whitelisted
+  expected_pages: [pitfall-deferred-schema]
+  difficulty: easy
+
+- id: q3-queue-fp
+  question: |
+    My queue cells are settling at "failed" with status=oom exit_code=-9
+    but their metrics.csv files contain 30000 steps and val_acc=1.0. What's
+    happening and what should I do?
+  expects:
+    - {project_workspace} placeholder not expanded in log_path
+    - exit-marker write fails post-run; supervisor mislabels as oom
+    - DON'T blindly retry — burns retry budget
+    - file mos_issue_report (P1, component=queue or scheduler)
+    - salvage: bulk-publish the actually-completed runs via mos_publish_to_shared from on-disk metrics.csv
+  expected_pages: [pitfall-queue-deadlaunch-fp, mos_exp_queue_status]
+  difficulty: hard
+
+- id: q4-publish-cross-role
+  question: |
+    As Coder I want to give Writer a bundle of figures + a summary. Where do
+    I put them and what tool do I use?
+  expects:
+    - mos_publish_to_shared is the only legal cross-role write
+    - Coder may write to handoffs/, exp/, governance/
+    - dst_subpath does NOT include "branches/shared/" prefix
+    - src_path MUST be absolute
+    - never cp/mv into branches/<other-role>/ directly
+  expected_pages: [mos_publish_to_shared, domain-publish]
+  difficulty: easy
+
+- id: q5-cold-start
+  question: |
+    I just woke up as Coder for the first time today. What are the first 2-3
+    tool calls I should make?
+  expects:
+    - mos_draft_summary first (surfaces pending_plan_for_me from past-me)
+    - mos_book_hot_get next
+    - mos_await_events to drain new events
+  expected_pages: [mos_draft_summary, mos_await_events, mos_book_hot_get]
+  difficulty: easy
+
+- id: q6-adjudicate-misuse
+  question: |
+    Gru asked Ethics to "adjudicate" 4 pending tasks. Ethics called mos_adjudicate
+    and got "submissions/answer.json doesn't exist". What went wrong?
+  expects:
+    - mos_adjudicate is for FINAL answer audit, not mid-run task closure
+    - it requires submissions/answer.json which only mos_submit creates
+    - default scientific-paper profile has adjudication.depth=none
+    - alternatives mid-run: mos_book_resolve_contradiction, mos_signboard_evaluate, eacn3_select_result + eacn3_close_task
+  expected_pages: [pitfall-adjudicate-misuse, mos_adjudicate]
+  difficulty: medium
+
+- id: q7-reset-vs-compact
+  question: |
+    My context is at 85% usage. I want to keep working. Reset or compact?
+  expects:
+    - compact (mos_compact_context) keeps state, summarises history
+    - reset is for phase boundaries / drift recovery; flush plan to Draft FIRST
+    - call mos_compact_context with a reason
+  expected_pages: [mos_compact_context, mos_reset_context]
+  difficulty: easy
+
+- id: q8-noter-vs-eacn
+  question: |
+    Why does Noter use a different wake mechanism than the other roles?
+  expects:
+    - Noter is NOT registered on EACN
+    - uses mos_noter_wait (3-min timer) instead of mos_await_events
+    - observes the project by polling events/*.jsonl and branches/shared/
+    - since v15.10 since_iso fix, gets only deltas not full re-scan
+  expected_pages: [mos_noter_wait, domain-runtime]
+  difficulty: medium
+
+- id: q9-subagent-verdicts
+  question: |
+    I dispatched a subagent to verdict 18 contradictions. It returned 18 verdicts
+    each with rationale "Substantive disagreement requires further investigation"
+    and action "Close as resolved". Should I accept?
+  expects:
+    - red flag — generic boilerplate is the lazy-subagent failure mode
+    - mos_reel_get(ref) on the subagent's transcript before accepting
+    - mos_reel_window to see what it actually read
+    - chunk to 5-at-a-time or do long-tail inline
+    - reject + redo for items where the rationale is generic
+  expected_pages: [pitfall-subagent-boilerplate, mos_reel_get]
+  difficulty: medium
+
+- id: q10-pandas-not-found
+  question: |
+    My ad-hoc Python analysis fails with ModuleNotFoundError: No module named
+    'pandas'. The MinionsOS .venv doesn't have pandas. How do I run it?
+  expects:
+    - the project has its own venv (pandas / torch live there)
+    - mos_exp_run with execution=local + project venv path baked into command
+    - source /proj/.venv/bin/activate OR use /proj/.venv/bin/python directly
+    - DO NOT uv sync from inside branches/<role>/... — creates nested .venv breaking MCP
+  expected_pages: [pitfall-project-venv, mos_exp_run]
+  difficulty: medium
