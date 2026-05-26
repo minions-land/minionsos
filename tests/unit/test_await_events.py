@@ -522,3 +522,63 @@ class TestColdStartHint:
             result = await_events()
         types = [e["event"]["type"] for e in result["events"]]
         assert "cold_start_hint" not in types
+
+
+# ---------------------------------------------------------------------------
+# Issue #36 FM2 — keepalive must have zero side effects on draft_audit.
+# Otherwise FS contention from peers' draft writes can wedge the role's
+# await_events tool call, and the keepalive's reset of
+# last_delivery_was_real masks the next real cycle's discipline reminder.
+# ---------------------------------------------------------------------------
+
+
+class TestKeepaliveZeroSideEffects:
+    def test_keepalive_does_not_call_draft_audit(self, monkeypatch, tmp_path):
+        """On a keepalive return, draft_audit.take_snapshot_and_reset must
+        not be called. The keepalive ack path must have zero side effects
+        (Issue #36 FM2 / consistent with Issue #15 wedge protection)."""
+        monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path / "projects"))
+        monkeypatch.setattr("minions.tools.await_events._load_keepalive_seconds", lambda: 1)
+
+        import minions.tools.await_events as awe
+
+        real_monotonic = awe.time.monotonic
+        offset = [0.0]
+
+        class FakeTime:
+            @staticmethod
+            def monotonic():
+                v = real_monotonic() + offset[0]
+                offset[0] = 9999.0
+                return v
+
+        monkeypatch.setattr("minions.tools.await_events.time", FakeTime)
+
+        with patch("minions.tools.draft_audit.take_snapshot_and_reset") as mock_audit:
+            result = awe.await_events()
+
+        assert result["count"] == 1
+        assert result["events"][0]["event"]["type"] == "cache_keepalive"
+        mock_audit.assert_not_called()
+
+    def test_keepalive_preserves_prev_real_flag_for_reminder(self, monkeypatch, tmp_path):
+        """A keepalive between two real cycles must not mask the discipline
+        reminder. Before the fix, keepalive reset last_delivery_was_real to
+        False, suppressing the reminder on the next real return."""
+        monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path / "projects"))
+        from minions.tools import draft_audit
+
+        # Cycle 1 (real): sets last_delivery_was_real=True.
+        draft_audit.take_snapshot_and_reset(39999, "test-agent", returning_real_events=True)
+
+        # Keepalive: under the fix this is a no-op for draft_audit, so the
+        # prior real flag survives. (Asserting the *absence* of a call is
+        # what the previous test does; here we exercise the consequence.)
+
+        # Cycle 2 (real, no appends in between): reminder must fire.
+        snapshot = draft_audit.take_snapshot_and_reset(
+            39999, "test-agent", returning_real_events=True
+        )
+        assert snapshot.prev_delivery_was_real is True
+        assert snapshot.appends_since_last_await == 0
+        assert snapshot.reminder_due is True

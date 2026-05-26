@@ -564,19 +564,27 @@ def await_events() -> dict[str, Any]:
         At every return, snapshot the per-role audit state, decide whether
         the previous cycle warrants a Draft-discipline reminder, and reset
         the counters for the next cycle. When *real* is False (a
-        cache_keepalive or no-work return), no reminder is ever emitted —
-        the keepalive ack path is byte-stable and must not be perturbed
-        (see GitHub Issue #15 wedge protection).
+        cache_keepalive or no-work return), draft_audit is skipped
+        entirely — the keepalive ack path must have zero side effects so
+        a transient FS issue (e.g. concurrent draft writes from peer
+        roles) cannot wedge the await_events tool call (Issue #36 FM2).
+        Skipping also preserves ``last_delivery_was_real`` across
+        keepalives, so the next *real* return correctly fires (or
+        suppresses) the discipline reminder based on the pre-keepalive
+        cycle, not on the keepalive itself. Consistent with Issue #15
+        wedge protection.
         """
-        try:
-            from minions.tools import draft_audit as _draft_audit
+        snapshot = None
+        if real:
+            try:
+                from minions.tools import draft_audit as _draft_audit
 
-            snapshot = _draft_audit.take_snapshot_and_reset(
-                port, agent_id, returning_real_events=real
-            )
-        except Exception as exc:
-            logger.debug("draft_audit snapshot failed: %s", exc)
-            snapshot = None
+                snapshot = _draft_audit.take_snapshot_and_reset(
+                    port, agent_id, returning_real_events=True
+                )
+            except Exception as exc:
+                logger.debug("draft_audit snapshot failed: %s", exc)
+                snapshot = None
         if real and snapshot is not None and snapshot.reminder_due and events_payload:
             reminder = (
                 "[Draft-discipline reminder] Your previous cycle handled real "

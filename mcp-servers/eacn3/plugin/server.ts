@@ -548,8 +548,55 @@ server.tool(
       description: params.description,
     };
 
+    // Idempotency guard (Issue #36): if a caller supplies a specific agent_id
+    // that is already persisted on local disk (e.g. MinionsOS re-seeded it via
+    // sync_plugin_state after dismiss+respawn), treat this as a claim rather
+    // than a fresh registration so the LLM never enters a register→fail→retry
+    // loop when the backend already knows the agent.
+    if (params.agent_id) {
+      const existing = state.claimAgent(params.agent_id);
+      if (existing) {
+        // Re-register with the backend so our network presence is refreshed
+        // (best-effort; a 409/422 is fine — we already have the identity).
+        try { await net.registerAgent(card); } catch { /* already registered */ }
+        transport.connect(agentId);
+        return ok({
+          registered: true,
+          agent_id: agentId,
+          seeds: [],
+          domains: existing.domains,
+          url: existing.url,
+          a2a_server: null,
+          reverse_control: { enabled: false, sampling_available: false, fallback: "directive_injection" },
+          idempotent_claim: true,
+        });
+      }
+    }
+
     // Register with network (what registry used to do)
-    const res = await net.registerAgent(card);
+    let res: Awaited<ReturnType<typeof net.registerAgent>>;
+    try {
+      res = await net.registerAgent(card);
+    } catch (regErr) {
+      // If the backend already knows this agent (409/422), persist locally and
+      // continue — the identity is valid, the network registration is a no-op.
+      const errMsg = String(regErr);
+      if (/409|422|already|conflict/i.test(errMsg) && params.agent_id) {
+        state.addAgent(card);
+        transport.connect(agentId);
+        return ok({
+          registered: true,
+          agent_id: agentId,
+          seeds: [],
+          domains: params.domains,
+          url: agentUrl,
+          a2a_server: null,
+          reverse_control: { enabled: false, sampling_available: false, fallback: "directive_injection" },
+          idempotent_claim: true,
+        });
+      }
+      throw regErr;
+    }
 
     // Persist locally
     state.addAgent(card);
