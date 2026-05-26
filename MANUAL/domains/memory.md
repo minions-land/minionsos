@@ -16,7 +16,7 @@ Four layers, top-down:
 
 | Layer | What | Who writes | File |
 |---|---|---|---|
-| **L0 Reel** | raw verbatim subagent traces | hook (auto) | `branches/<role>/reel/<sess>/...` |
+| **L0 Reel** | flat index → native Claude/Codex session jsonl | hook (auto) | `branches/<role>/reel-index.jsonl` |
 | **L1 Draft** | process graph: hypotheses, plans, evidence, support edges | every EACN role | `branches/shared/draft/draft.json` |
 | **L2 Book** | durable compiled knowledge, citation-shaped | Noter only | `branches/shared/book/sources/*.md` |
 | **L3 Shelf** | structural graph index | `mos_shelf_register` | `branches/shared/shelf/shelf.json` |
