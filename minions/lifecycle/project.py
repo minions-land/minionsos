@@ -31,6 +31,9 @@ from minions.lifecycle import (
 )
 from minions.lifecycle.eacn_identity import identity_map_for_meta, upsert_agent_identity
 from minions.lifecycle.git_utils import (
+    find_enclosing_git_work_tree as _gu_find_enclosing_git_work_tree,
+)
+from minions.lifecycle.git_utils import (
     is_git_work_tree as _gu_is_git_work_tree,
 )
 from minions.lifecycle.git_utils import (
@@ -155,14 +158,24 @@ def author_repo() -> Path:
 
     Resolution order:
     1. ``MINIONS_AUTHOR_REPO`` env var or ``gru.yaml:author_repo``.
-    2. ``MINIONS_ROOT.parent`` if it is a git work tree (the directory the
-       user placed MinionsOS inside).
-    3. ``MINIONS_ROOT`` itself, as a last-resort fallback.
+    2. ``MINIONS_ROOT.parent`` if it is **itself** a git work-tree root —
+       the directory the user placed MinionsOS inside.
+    3. ``MINIONS_ROOT`` itself if it is a git work-tree root.
 
     The author repo is touched **only at project_create time** to read its
     HEAD; it is never branched into, written to, or pushed against. After
     seeding, project history lives entirely inside
     ``project_{port}/parent_repo.git/``.
+
+    The mental model: the user opens their repo ``B`` and drops
+    MinionsOS underneath it (``B/MinionsOS``). MinionsOS only ever
+    treats ``B`` as the seed source. If the user instead drops
+    MinionsOS into a non-git directory that happens to live under
+    *another* git repo ``A`` (layout ``A/B/MinionsOS`` where only ``A``
+    is initialized), we refuse rather than silently importing ``A``'s
+    HEAD — that would pull in ``A``'s siblings of ``B`` which the user
+    never intended to ship into the project. The check is enforced in
+    :func:`_ensure_author_repo_is_git_repo`.
     """
     configured = configured_author_repo()
     if configured is not None:
@@ -671,10 +684,31 @@ def _ensure_author_repo_is_git_repo() -> Path:
     configured ``author_repo`` nor ``MINIONS_ROOT.parent`` is a git repo,
     bail with an actionable message rather than letting ``git rev-parse``
     fail mid-create.
+
+    Special case: if the candidate itself is not a work-tree *root* but is
+    nested inside an outer git repo (e.g. ``A/.git`` exists, ``A/B`` does
+    not, and MinionsOS is at ``A/B/MinionsOS``), we refuse and tell the
+    user. Silently seeding the outer repo would import sibling
+    directories of ``B`` that the user never wanted in their project.
     """
     src = author_repo()
     if not _is_git_work_tree(src):
         configured = configured_author_repo()
+        enclosing = _gu_find_enclosing_git_work_tree(src) if src.exists() else None
+        if enclosing is not None and enclosing != src.resolve():
+            raise ProjectError(
+                f"The author seed repo ({src}) is not its own git repository, "
+                f"but it lives inside an outer git work tree ({enclosing}).\n"
+                f"MinionsOS will not silently seed from the outer repo — that "
+                f"would pull in everything under {enclosing} that is a "
+                f"sibling of {src}, which you almost certainly do not want.\n"
+                "Pick one fix:\n"
+                f"  - If you meant to seed from {src}, run:\n"
+                f"      cd {src} && git init && git add -A && git commit -m 'init'\n"
+                f"  - If you meant to seed from {enclosing}, set explicitly:\n"
+                f"      export MINIONS_AUTHOR_REPO={enclosing}\n"
+                "    (or set ``author_repo`` in gru.yaml).\n"
+            )
         config_hint = (
             "Check MINIONS_AUTHOR_REPO or gru.yaml:author_repo.\n"
             if configured is not None

@@ -218,3 +218,72 @@ def test_seed_fails_clearly_when_author_is_not_a_git_repo(
 
     with pytest.raises(ProjectError, match="not a git repository"):
         project_mod._seed_per_project_repo(port)
+
+
+def test_seed_refuses_when_b_is_not_git_but_lives_inside_outer_a_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """User layout: A/.git exists, A/B is a plain dir, A/B/MinionsOS is the
+    checkout. Without an explicit MINIONS_AUTHOR_REPO override, ``author_repo()``
+    used to silently resolve to A (because ``git rev-parse --is-inside-work-tree``
+    walks up). That would seed every sibling of B from A's HEAD.
+
+    The fix: refuse with an actionable error pointing at both options
+    (init B, or explicitly opt into A via MINIONS_AUTHOR_REPO).
+    """
+    a = tmp_path / "A"
+    a.mkdir()
+    _git(["init", "-q"], a)
+    _git(["config", "user.email", "t@e.com"], a)
+    _git(["config", "user.name", "test"], a)
+    (a / "sibling-of-B.txt").write_text("not part of the project\n", encoding="utf-8")
+    (a / "secrets.env").write_text("API_KEY=do-not-leak\n", encoding="utf-8")
+    _git(["add", "."], a)
+    _git(["commit", "-qm", "init A"], a)
+    b = a / "B"
+    b.mkdir()
+    # B is *not* git-initialized.
+
+    monkeypatch.setenv("MINIONS_AUTHOR_REPO", str(b))
+    monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path / "p"))
+
+    port = 41004
+    project_dir(port).mkdir(parents=True, exist_ok=True)
+    project_state_dir(port).mkdir(parents=True, exist_ok=True)
+
+    from minions.errors import ProjectError
+
+    with pytest.raises(ProjectError) as excinfo:
+        project_mod._seed_per_project_repo(port)
+    msg = str(excinfo.value)
+    assert "inside an outer git work tree" in msg
+    assert str(a.resolve()) in msg
+    assert "MINIONS_AUTHOR_REPO" in msg
+
+
+def test_author_repo_does_not_walk_up_into_outer_git_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``author_repo()`` must not silently resolve to an *ancestor* git repo.
+
+    Layout: A/.git, A/B (plain). ``MINIONS_ROOT`` points at A/B. Before the
+    fix, ``_is_git_work_tree(A/B)`` returned True via ``--is-inside-work-tree``
+    and ``author_repo()`` returned ``A/B`` while every git command run with
+    ``cwd=A/B`` operated on A. Now the strict check says "B is not a work-tree
+    root", so ``author_repo()`` falls through to ``MINIONS_ROOT.parent`` (which
+    is B and also not a root) — leaving the seed step to raise the actionable
+    error.
+    """
+    a = tmp_path / "A"
+    a.mkdir()
+    _git(["init", "-q"], a)
+    _git(["config", "user.email", "t@e.com"], a)
+    _git(["config", "user.name", "test"], a)
+    _git(["commit", "-q", "--allow-empty", "-m", "init"], a)
+    b = a / "B"
+    b.mkdir()
+
+    from minions.lifecycle.git_utils import is_git_work_tree
+
+    assert not is_git_work_tree(b), "B is not its own git root, must not be reported as one"
+    assert is_git_work_tree(a), "A is its own git root"

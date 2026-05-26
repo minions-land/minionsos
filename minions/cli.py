@@ -232,27 +232,34 @@ def doctor(
     _check("tmux", tmux_ok, tmux_detail)
 
     # Author seed repo is a git repo (required for project_create — its HEAD
-    # is imported into each project's per-project bare repo).
+    # is imported into each project's per-project bare repo). The check is
+    # strict: ``src`` must be the *root* of a git work tree, not just inside
+    # one. Otherwise dropping MinionsOS into a non-git folder under an outer
+    # repo (layout ``A/.git``, ``A/B``, ``A/B/MinionsOS``) would silently
+    # treat ``A`` as the seed source and pull in B's siblings.
+    from minions.lifecycle.git_utils import (
+        find_enclosing_git_work_tree,
+        is_git_work_tree,
+    )
     from minions.lifecycle.project import author_repo
 
     src = author_repo()
-    try:
-        pr = subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
-            cwd=str(src),
-            capture_output=True,
-            text=True,
-        )
-        author_is_repo = pr.returncode == 0 and pr.stdout.strip() == "true"
-    except FileNotFoundError:
-        author_is_repo = False
-    _check(
-        "author-repo-is-git-repo",
-        author_is_repo,
-        str(src)
-        if author_is_repo
-        else (f"{src} — run: git init && git add -A && git commit, or set gru.yaml:author_repo"),
-    )
+    author_is_repo = is_git_work_tree(src)
+    if author_is_repo:
+        detail = str(src)
+    else:
+        enclosing = find_enclosing_git_work_tree(src) if src.exists() else None
+        if enclosing is not None and enclosing != src.resolve():
+            detail = (
+                f"{src} — not a git repo itself but inside {enclosing}. "
+                f"Either run `cd {src} && git init && git add -A && git commit`, "
+                f"or set MINIONS_AUTHOR_REPO={enclosing} to seed from the outer repo."
+            )
+        else:
+            detail = (
+                f"{src} — run: git init && git add -A && git commit, or set gru.yaml:author_repo"
+            )
+    _check("author-repo-is-git-repo", author_is_repo, detail)
 
     # Orphan project directories: present on disk but absent from projects.json,
     # or missing meta.json. They confuse humans and dashboards.
