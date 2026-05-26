@@ -25,6 +25,10 @@ minions/state/*.db-wal
 minions/state/*.pid
 minions/state/*.lock
 minions/state/*.host
+# One-off rotation backups produced by Gru's projects.json cleanup tools.
+# Pattern: projects.json.bak-cleanup-YYYYMMDD-HHMMSS. These are local-only
+# and never meant to land in the repo.
+minions/state/*.bak-*
 # Codex Gru role contract file: regenerated from minions/roles/SYSTEM.md +
 # minions/roles/gru/SYSTEM.md on every ./gru (codex) launch. Runtime artifact.
 minions/state/codex-gru.AGENTS.md

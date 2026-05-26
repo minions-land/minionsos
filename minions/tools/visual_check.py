@@ -53,8 +53,7 @@ try:
     from pdf2image.exceptions import PDFInfoNotInstalledError, PDFPageCountError
 except ImportError as _e:  # pragma: no cover
     _VISUAL_MISSING = (
-        f"Visual tools are not installed: {_e}. "
-        "Run: uv pip install 'minionsos[visual]'"
+        f"Visual tools are not installed: {_e}. Run: uv pip install 'minionsos[visual]'"
     )
     cv2 = None  # type: ignore[assignment]
     np = None  # type: ignore[assignment]
@@ -67,6 +66,7 @@ def _require_visual() -> None:
     """Raise a clear error if the visual extras are not installed."""
     if _VISUAL_MISSING:
         raise RuntimeError(_VISUAL_MISSING)
+
 
 logger = logging.getLogger(__name__)
 

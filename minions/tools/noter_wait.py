@@ -160,37 +160,6 @@ def _write_last_wake_iso(port: int, iso: str) -> None:
     os.replace(tmp, path)
 
 
-def _last_wake_path(port: int) -> Path:
-    """Return the path holding the last successful Noter wake timestamp.
-
-    Used by :func:`noter_wait` to expose a ``since_iso`` marker on each
-    wake event so Noter's loop can read project activity *only since the
-    last cycle* (see GitHub Issue #14). Survives compact + reset.
-    """
-    from minions.paths import project_state_dir
-
-    return project_state_dir(port) / ".noter_last_wake"
-
-
-def _read_last_wake_iso(port: int) -> str | None:
-    path = _last_wake_path(port)
-    if not path.exists():
-        return None
-    try:
-        text = path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return None
-    return text or None
-
-
-def _write_last_wake_iso(port: int, iso: str) -> None:
-    path = _last_wake_path(port)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(iso, encoding="utf-8")
-    os.replace(tmp, path)
-
-
 def _check_and_clear_nudge(port: int) -> bool:
     """Return True and clear the marker if a nudge is pending."""
     path = _nudge_path(port)

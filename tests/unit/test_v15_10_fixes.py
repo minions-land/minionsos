@@ -194,8 +194,10 @@ def test_noter_wait_emits_since_iso_marker(
     # Force a zero-length sleep window.
     monkeypatch.setattr(nw, "_load_interval_seconds", lambda: 0)
     monkeypatch.setattr(nw, "_load_keepalive_seconds", lambda: 0)
-    # Stub heavy side-effects.
-    monkeypatch.setattr(nw, "_maybe_rebuild_shelf_graph", lambda _w: {"rebuilt": False})
+    # Note: Memory V2 removed _maybe_rebuild_shelf_graph from noter_wait
+    # (per-role graphify now runs through a separate path); see
+    # test_graphify_per_role.test_noter_wait_no_shelf_rebuild for the
+    # invariant. No stub needed here.
 
     res1 = nw.noter_wait()
     ev1 = res1["events"][0]

@@ -303,6 +303,7 @@ def doctor(
             try:
                 pid = int(pid_path.read_text().strip())
                 import os as _os
+
                 _os.kill(pid, 0)
                 still_running = True
             except (OSError, ValueError):
@@ -558,9 +559,7 @@ def doctor(
     console.print(table)
 
     if not all(
-        c["ok"]
-        for c in checks
-        if not c["name"].startswith("viz-") and c["name"] != "visual-extras"
+        c["ok"] for c in checks if not c["name"].startswith("viz-") and c["name"] != "visual-extras"
     ):
         raise typer.Exit(1)
 

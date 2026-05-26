@@ -72,6 +72,10 @@ Roles do **not** `Write` here directly. All writes go through
   role-evolution audit log (`role_evolution.jsonl`).
 - `book/` — L2 compiled knowledge base (Book pattern: one curated page per
   ingested artefact, Noter-compiled).
+
+The L3 Shelf (graphify graph) is per-role, not shared, after the Memory V2
+downgrade. Each role that wants graph retrieval runs its own graphify
+instance whose graph lives at ``branches/<role>/graphify-out/graph.json``.
 """
 
 

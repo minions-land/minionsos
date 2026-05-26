@@ -71,6 +71,6 @@ def mos_library_link(
 
 __all__ = [
     "mos_library_ingest",
-    "mos_library_query",
     "mos_library_link",
+    "mos_library_query",
 ]

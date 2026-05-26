@@ -2081,7 +2081,7 @@ def mos_book_promote_verified(
         # Task F: mark promoted page as pending Ethics ratification
         promoted_path_rel = str(ingest_result.get("book_path", ""))
         if promoted_path_rel.startswith("book/"):
-            promoted_abs = _book_root(resolved_port) / promoted_path_rel[len("book/"):]
+            promoted_abs = _book_root(resolved_port) / promoted_path_rel[len("book/") :]
             if promoted_abs.exists():
                 _pt = promoted_abs.read_text(encoding="utf-8")
                 _pt = _update_frontmatter_field(_pt, "ratified_by", "pending_ethics")
@@ -2517,9 +2517,7 @@ def mos_book_ratify(
     """
     resolved_port = _resolve_port(port)
     if ratifier_role != "ethics":
-        raise BookError(
-            f"mos_book_ratify is Ethics-only; got ratifier_role={ratifier_role!r}"
-        )
+        raise BookError(f"mos_book_ratify is Ethics-only; got ratifier_role={ratifier_role!r}")
     if not slug.strip():
         raise BookError("slug must be non-empty")
     if not evidence_review.strip():

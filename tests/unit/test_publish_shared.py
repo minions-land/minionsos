@@ -315,8 +315,11 @@ def test_create_shared_worktree_idempotent(shared_project: dict[str, object]) ->
 def test_create_shared_worktree_seeds_subdirs(shared_project: dict[str, object]) -> None:
     workspace = shared_project["shared_workspace"]
     seeded = sorted(p.name for p in workspace.iterdir() if p.is_dir())  # type: ignore[union-attr]
+    # Memory V2 (2026-05) downgraded the shared per-project shelf path; the
+    # L3 Shelf graph is now per-role at branches/<role>/graphify-out/. See
+    # test_graphify_per_role.TestSharedWorktreeNoShelf for the inverse guard.
     expected = sorted(
-        ["draft", "notes", "ethics", "exp", "reviews", "handoffs", "governance", "book", "shelf"]
+        ["draft", "notes", "ethics", "exp", "reviews", "handoffs", "governance", "book"]
     )
     assert seeded == expected
     # Seed commit should exist on the shared branch.

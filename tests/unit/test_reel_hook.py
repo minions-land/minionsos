@@ -84,7 +84,9 @@ def test_hook_captures_subagent_transcript(mock_project_setup, monkeypatch):
     # Tests should verify via the public API.
     # Since the hook spawns subprocess that doesn't share monkeypatch,
     # we'll verify the hook reports success via stderr instead.
-    assert "archived" in result.stderr or "error" in result.stderr
+    # The hook emits {"captured": "<ref>", "kind": "<kind>"} on success or
+    # {"reel_capture_error": "..."} on failure.
+    assert "captured" in result.stderr or "reel_capture_error" in result.stderr
 
 
 def test_hook_skips_non_capture_tools(mock_project_setup):

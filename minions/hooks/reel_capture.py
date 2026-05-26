@@ -30,10 +30,8 @@ import fcntl
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-
-UTC = timezone.utc  # py3.10 compat (datetime.UTC is 3.11+)
 
 CAPTURE_TOOLS = {"Agent", "Task", "mcp__codex-subagent__codex"}
 
@@ -131,6 +129,7 @@ def main() -> None:
     tool_use_id: str = hook.get("tool_use_id", "")
     if not tool_use_id:
         import uuid
+
         tool_use_id = str(uuid.uuid4())
 
     now = datetime.now(UTC)
@@ -156,6 +155,7 @@ def main() -> None:
 
     # Locate project workspace
     from minions.paths import project_role_workspace
+
     try:
         workspace = project_role_workspace(int(project_port), role)
         index_path = workspace / "reel-index.jsonl"
