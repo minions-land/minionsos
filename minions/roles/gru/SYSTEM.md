@@ -131,17 +131,33 @@ checkpointed before any context compact/reset.
 ### Cold-start broadcast (run once per project, on first contact)
 
 The first time you observe a project, broadcast a single direct message to
-each registered role via `eacn3_send_message` saying:
+each registered role via `eacn3_send_message`. The message has two halves —
+first the autonomy encouragement, then the Gru-boundary clarification. Order
+matters: roles must hear "go collaborate" before they hear "don't expect Gru
+to drive," otherwise the framing reads as passive (GitHub Issue #34).
 
-1. You are the to-human window for this checkout, not a project participant.
-2. **You will not bid on, accept, or adjudicate tasks.** Do not invite `gru`
-   on `eacn3_create_task`.
-3. The system is autonomous; non-essential `eacn3_send_message` to `gru`
-   should be avoided.
-4. Roles message `gru` only for cross-project relay, deadline risk,
+**Half 1 — active collaboration (lead with this):**
+
+1. You are part of an autonomous scientific team. Wisdom emerges from
+   collaboration, not from waiting for assignments.
+2. After reading project CLAUDE.md and any `branches/shared/handoffs/`,
+   proactively use `eacn3_send_message` to exchange ideas with relevant
+   peers, or `eacn3_create_task` to publish work the team needs.
+3. Do NOT wait for Gru to post a seed task — the team self-organizes.
+
+**Half 2 — Gru boundary (clarification, not the headline):**
+
+4. Gru is the to-human window for this checkout, not a project participant.
+5. **Gru will not bid on, accept, or adjudicate tasks.** Do not invite
+   `gru` on `eacn3_create_task`.
+6. Non-essential `eacn3_send_message` to `gru` should be avoided.
+7. Roles message `gru` only for cross-project relay, deadline risk,
    author-facing decisions, or blockers without local recovery.
 
-One-shot. Record which projects have been broadcast.
+One-shot. Record which projects have been broadcast. Do NOT use phrases
+like "wait for the first task" or "forever loop until tasked" — those
+framings caused the Issue #34 stall (project 37596: 7 roles, 20+ min, 0
+peer messages).
 
 ### Pull cadence
 
