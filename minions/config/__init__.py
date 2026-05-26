@@ -147,6 +147,26 @@ _BOOK_AUDIT_TOOLS = [
     "mos_book_resolve_contradiction",
 ]
 
+# Book ratification — Ethics-only. Promotes a verified Book page from the
+# proposed pool into the ratified set. The other Book write paths (ingest,
+# promote_verified, save_synthesis, crystallize_session) belong to Noter as
+# the curator; ratify is the audit gate that lets Ethics stamp a page as
+# durable knowledge.
+_BOOK_RATIFY_TOOLS = [
+    "mos_book_ratify",
+]
+
+# Book question/dead-end tools. ``mos_book_open_question`` is wide-open
+# (any EACN-visible role can flag a pending question for Noter to resolve);
+# ``mos_book_dead_end`` is Noter-only (other roles propose dead-ends via
+# handoff so the registry stays curator-owned).
+_BOOK_OPEN_QUESTION_TOOLS = [
+    "mos_book_open_question",
+]
+_BOOK_DEAD_END_TOOLS = [
+    "mos_book_dead_end",
+]
+
 # Visual format-check tools. Format-agnostic detectors over rendered PDF page
 # images (column voids, edge overflow, trailing whitespace, column imbalance,
 # float clustering, short lines). Whitelisted to every EACN-visible main role
@@ -217,6 +237,48 @@ _SHELF_GRU_TOOLS = [
     "mos_shelf_shared_concepts",
 ]
 
+# Gru's EACN surface is intentionally narrower than the wildcard ``eacn3_*``.
+# Gru is the human-facing window and the cross-project bridge — it observes
+# the project bus and addresses Roles via direct messages, but it does NOT
+# bid on or post tasks: that's the Roles' contract. Allowing the wildcard
+# here let a Gru that mis-read its own boundary call ``eacn3_create_task``
+# / ``eacn3_submit_bid`` / ``eacn3_submit_result`` and contaminate the bus
+# with phantom load. Roles still see the wildcard via the unified CLI
+# whitelist (KV cache parity); the boundary lives in the server-authz row.
+_GRU_EACN_TOOLS = [
+    # Direct messages out (only outgoing channel Gru should use).
+    "eacn3_send_message",
+    # Read / observe — Gru audits the bus but never writes tasks/results.
+    "eacn3_get_messages",
+    "eacn3_get_events",
+    "eacn3_await_events",
+    "eacn3_next",
+    "eacn3_list_tasks",
+    "eacn3_list_open_tasks",
+    "eacn3_get_task",
+    "eacn3_get_task_status",
+    "eacn3_get_task_results",
+    "eacn3_list_agents",
+    "eacn3_list_my_agents",
+    "eacn3_get_agent",
+    "eacn3_discover_agents",
+    "eacn3_list_sessions",
+    "eacn3_get_reputation",
+    # Lifecycle / registry — Gru is the registrar.
+    "eacn3_register_agent",
+    "eacn3_unregister_agent",
+    "eacn3_update_agent",
+    "eacn3_connect",
+    "eacn3_disconnect",
+    "eacn3_heartbeat",
+    "eacn3_health",
+    "eacn3_server_info",
+    "eacn3_report_event",
+    # Cluster / federation reads — observability only.
+    "eacn3_cluster_status",
+    "eacn3_reverse_control_status",
+]
+
 _SHELF_REGISTER_TOOLS = [
     "mos_shelf_register",
 ]
@@ -259,6 +321,13 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     # Book audit tools (Ethics/Gru-only at server side; appear in CLI
     # whitelist for KV cache parity).
     *_BOOK_AUDIT_TOOLS,
+    # Book ratify-promotion (Ethics-only at server side; appears in CLI
+    # whitelist for KV cache parity).
+    *_BOOK_RATIFY_TOOLS,
+    # Open-question is wide-open (any EACN role); dead-end is Noter-only
+    # at server side. Both appear in CLI whitelist for KV cache parity.
+    *_BOOK_OPEN_QUESTION_TOOLS,
+    *_BOOK_DEAD_END_TOOLS,
     # Graphify read (Shelf L3 primitives — prose graph)
     *_GRAPHIFY_READ_TOOLS,
     # Codegraph read (Coder L3 primitives — code graph). LIGHT + HEAVY both
@@ -266,8 +335,10 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     # authz restricts HEAVY (context/explore) to coder + expert.
     *_CODEGRAPH_LIGHT_TOOLS,
     *_CODEGRAPH_HEAVY_TOOLS,
-    # Shelf (Gru queries only; register is Noter-only)
+    # Shelf (Gru queries + register; non-Gru blocked at server side, in
+    # CLI whitelist for KV cache parity).
     *_SHELF_GRU_TOOLS,
+    *_SHELF_REGISTER_TOOLS,
     # Shared branch publish
     "mos_publish_to_shared",
     # Signboard
@@ -527,17 +598,27 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_project_revive",
         "mos_project_set_phase",
         "mos_project_list",
-        "eacn3_*",
+        # Gru's EACN surface — read + direct-message only. NEVER includes
+        # eacn3_create_task / eacn3_submit_bid / eacn3_submit_result /
+        # eacn3_select_result / eacn3_close_task / eacn3_reject_task /
+        # eacn3_create_subtask / eacn3_team_*. Tasks are a Role-to-Role
+        # contract; Gru-as-task-issuer would duplicate Role work and
+        # contaminate the bus with phantom load. See coda-epilogue
+        # session note 2026-05-26 (Gru attempted HTTP-direct task post
+        # after the MCP path was authz-blocked).
+        *_GRU_EACN_TOOLS,
         "mos_get_events",
         "mos_unread_summary",
         "mos_draft_*",
         *_BOOK_READ_TOOLS,
         *_BOOK_SYNTHESIS_WRITE_TOOLS,  # Gru can materialize syntheses
         *_BOOK_AUDIT_TOOLS,  # Gru is the only role besides Ethics that audits
+        *_BOOK_OPEN_QUESTION_TOOLS,  # Gru can flag pending questions
         *_GRAPHIFY_READ_TOOLS,
         # Coder graph read (light); Gru needs structural oversight, not source dumps.
         *_CODEGRAPH_LIGHT_TOOLS,
         *_SHELF_GRU_TOOLS,
+        *_SHELF_REGISTER_TOOLS,  # Gru-only: cross-project shelf registrar
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_signboard_set",
@@ -597,6 +678,8 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_book_crystallize_session",
         *_BOOK_SYNTHESIS_WRITE_TOOLS,  # Noter materializes role-supplied syntheses
         *_BOOK_READ_TOOLS,
+        *_BOOK_OPEN_QUESTION_TOOLS,  # Noter flags pending questions
+        *_BOOK_DEAD_END_TOOLS,  # Noter is the sole direct writer for dead-ends
         # Codegraph light tools for stat/file probes; never source-returning tools.
         *_CODEGRAPH_LIGHT_TOOLS,
         *_PAPER_SEARCH_TOOLS,
@@ -626,6 +709,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_await_events",
         *_DRAFT_RW_TOOLS,
         *_BOOK_READ_TOOLS,
+        *_BOOK_OPEN_QUESTION_TOOLS,  # any EACN role may flag a pending question
         *_GRAPHIFY_READ_TOOLS,
         *_CODEGRAPH_LIGHT_TOOLS,
         *_CODEGRAPH_HEAVY_TOOLS,  # Coder is the primary code consumer; full surface
@@ -687,6 +771,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_await_events",
         *_DRAFT_RW_TOOLS,
         *_BOOK_READ_TOOLS,
+        *_BOOK_OPEN_QUESTION_TOOLS,  # any EACN role may flag a pending question
         *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
@@ -725,6 +810,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_await_events",
         *_DRAFT_RW_TOOLS,
         *_BOOK_READ_TOOLS,
+        *_BOOK_OPEN_QUESTION_TOOLS,  # any EACN role may flag a pending question
         *_GRAPHIFY_READ_TOOLS,
         *_CODEGRAPH_LIGHT_TOOLS,
         *_CODEGRAPH_HEAVY_TOOLS,  # Expert reviews Coder's code for scientific direction
@@ -766,6 +852,8 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_DRAFT_RW_TOOLS,
         *_BOOK_READ_TOOLS,
         *_BOOK_AUDIT_TOOLS,  # Ethics is the primary auditor
+        *_BOOK_RATIFY_TOOLS,  # Ethics-only: ratify-promotion is the audit gate
+        *_BOOK_OPEN_QUESTION_TOOLS,  # any EACN role may flag a pending question
         "mos_book_lint",
         *_GRAPHIFY_READ_TOOLS,
         *_CODEGRAPH_LIGHT_TOOLS,  # Ethics traces provenance from claim to code; light surface only

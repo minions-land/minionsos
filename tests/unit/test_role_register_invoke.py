@@ -172,6 +172,49 @@ class TestRegister:
             )
         assert out["name"].startswith("expert-")
 
+    def test_register_expert_coerces_bare_slug_name(self) -> None:
+        """Caller name without expert prefix/suffix must be coerced.
+
+        Reproduces the coda-epilogue/p37596 incident: Gru called
+        mos_spawn_expert(name="coda-epilogue"); the bare slug bypassed
+        is_expert_role() so server authz fell through to the empty
+        list and every MCP tool the spawned Role called was denied.
+        """
+        store = FakeStore()
+        with (
+            patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
+            patch("minions.lifecycle.eacn_client.send_message", return_value={}),
+        ):
+            out = role_mod.register_expert(
+                37596,
+                domain="CODA epilogue rewrites",
+                name="coda-epilogue",
+                init_brief=None,
+                store=store,
+            )
+        assert out["name"] == "expert-coda-epilogue"
+        from minions.config import is_expert_role, resolve_server_authz
+
+        assert is_expert_role(out["name"])
+        assert resolve_server_authz(out["name"], "main"), (
+            "coerced expert name must resolve to a non-empty server authz row"
+        )
+
+    def test_register_expert_accepts_prefix_form_verbatim(self) -> None:
+        store = FakeStore()
+        with (
+            patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
+            patch("minions.lifecycle.eacn_client.send_message", return_value={}),
+        ):
+            out = role_mod.register_expert(
+                37596,
+                domain="theory normalization",
+                name="theory-normalization-expert",
+                init_brief=None,
+                store=store,
+            )
+        assert out["name"] == "theory-normalization-expert"
+
     def test_register_fails_if_role_cannot_join_eacn(self) -> None:
         store = FakeStore()
         with (

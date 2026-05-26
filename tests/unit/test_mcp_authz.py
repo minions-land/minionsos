@@ -152,3 +152,94 @@ def test_register_expert_with_suffix_name_resolves_authz() -> None:
     name = "theory-normalization-expert"
     assert resolve_whitelist(name, "main"), "CLI whitelist empty for suffix-form expert"
     assert resolve_server_authz(name, "main"), "Server authz empty for suffix-form expert"
+
+
+# ---------------------------------------------------------------------------
+# Gru EACN boundary — Gru observes + direct-messages, never posts/bids tasks.
+# ---------------------------------------------------------------------------
+
+
+GRU_EACN_FORBIDDEN = [
+    "eacn3_create_task",
+    "eacn3_submit_bid",
+    "eacn3_submit_result",
+    "eacn3_select_result",
+    "eacn3_close_task",
+    "eacn3_reject_task",
+    "eacn3_create_subtask",
+    "eacn3_update_deadline",
+    "eacn3_update_discussions",
+    "eacn3_team_setup",
+    "eacn3_team_status",
+    "eacn3_team_retry_ack",
+    "eacn3_invite_agent",
+    "eacn3_claim_agent",
+    "eacn3_confirm_budget",
+    "eacn3_deposit",
+    "eacn3_get_balance",
+]
+
+GRU_EACN_ALLOWED_OUT = [
+    "eacn3_send_message",
+]
+
+GRU_EACN_ALLOWED_READ = [
+    "eacn3_get_messages",
+    "eacn3_get_events",
+    "eacn3_list_tasks",
+    "eacn3_get_task",
+    "eacn3_list_agents",
+    "eacn3_get_agent",
+    "eacn3_health",
+]
+
+
+@pytest.mark.parametrize("tool_name", GRU_EACN_ALLOWED_OUT + GRU_EACN_ALLOWED_READ)
+def test_gru_eacn_observe_and_direct_message_allowed(tool_name: str) -> None:
+    """Gru's narrowed EACN surface still covers observation + direct messaging."""
+    from fnmatch import fnmatchcase
+
+    from minions.config import resolve_server_authz
+
+    patterns = resolve_server_authz("gru", "main")
+    assert any(fnmatchcase(tool_name, p) for p in patterns), (
+        f"Gru should be allowed to call {tool_name!r}; "
+        "patterns were: " + ", ".join(patterns)
+    )
+
+
+@pytest.mark.parametrize("tool_name", GRU_EACN_FORBIDDEN)
+def test_gru_eacn_task_post_forbidden(tool_name: str) -> None:
+    """Gru is the to-human window + bridge; tasks/bids/results are Role-only.
+
+    Coda-epilogue p37596 incident 2026-05-26: a Gru that mis-read its own
+    boundary attempted ``eacn3_create_task`` to seed a discussion, was
+    blocked, then escalated to a direct HTTP POST (which the user
+    forbade). The boundary must reject the call at the MCP layer so Gru
+    falls back to the correct surface (``eacn3_send_message``) instead
+    of inventing a workaround.
+    """
+    from fnmatch import fnmatchcase
+
+    from minions.config import resolve_server_authz
+
+    patterns = resolve_server_authz("gru", "main")
+    assert not any(fnmatchcase(tool_name, p) for p in patterns), (
+        f"Gru must NOT be allowed to call {tool_name!r}; "
+        "patterns were: " + ", ".join(patterns)
+    )
+
+
+def test_gru_eacn_no_wildcard_in_server_authz() -> None:
+    """The bare ``eacn3_*`` wildcard must not appear in Gru's authz row.
+
+    The wildcard is fine in the unified CLI whitelist (KV-cache parity
+    across roles), but the server-side authz row is the real boundary.
+    """
+    from minions.config import resolve_server_authz
+
+    patterns = resolve_server_authz("gru", "main")
+    assert "eacn3_*" not in patterns, (
+        "Gru server-authz still grants the bare eacn3_* wildcard; "
+        "use the explicit _GRU_EACN_TOOLS allowlist instead."
+    )

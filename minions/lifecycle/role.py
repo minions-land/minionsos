@@ -248,9 +248,36 @@ def register_expert(
     time_trigger_interval: str | None = None,
     workflow_plugin: str | None = None,
 ) -> dict[str, object]:
-    """Register an expert role for event-driven invocation."""
+    """Register an expert role for event-driven invocation.
+
+    The registered role name is always shaped as an Expert authz key —
+    ``expert-<slug>`` — so :func:`minions.config.is_expert_role` collapses
+    it to the ``expert`` server-side authz bucket. Caller-supplied *name*
+    that already carries the ``expert-`` prefix or ``-expert`` suffix is
+    accepted verbatim; bare slugs (e.g. ``"coda-epilogue"``) are coerced
+    to ``expert-<slug>`` instead of being trusted. Without this guard a
+    Gru that calls ``mos_spawn_expert(name="coda-epilogue")`` registers
+    a bare-slug AgentCard whose authz lookup falls through to the empty
+    list, and every MCP tool the spawned Role calls is server-side
+    denied — including ``mos_issue_report``, leaving the operator blind.
+    See coda-epilogue/p37596 incident 2026-05-26.
+    """
+    from minions.config import is_expert_role
+
     slug = slugify(domain)
-    role_name = name or f"expert-{slug}"
+    if name is None:
+        role_name = f"expert-{slug}"
+    elif is_expert_role(name):
+        role_name = name
+    else:
+        coerced_slug = slugify(name) or slug
+        role_name = f"expert-{coerced_slug}"
+        logger.warning(
+            "register_expert: caller name=%r lacks expert- prefix/suffix; "
+            "coerced to %r so server authz collapses to bucket 'expert'.",
+            name,
+            role_name,
+        )
     brief = init_brief or (
         "Survey the current state of your specialty in the context of this project's topic."
     )
