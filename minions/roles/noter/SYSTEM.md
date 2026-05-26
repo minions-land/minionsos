@@ -139,8 +139,9 @@ At each wake, read memory layers in this order (cognitive efficiency, not authz)
 3. `mos_draft_summary()` — process state, pending plans, recent decisions, decay sidecar.
 4. `mos_reel_get(ref)` — only when drilling into a specific reel_ref from a Draft node.
 
-All 4 layers (L0 Reel, L1 Draft, L2 Book, L3 Shelf) are readable; the priority is about
+All 3 active layers (L0 Reel, L1 Draft, L2 Book) are readable; the priority is about
 avoiding expensive reads when the hot cache already has what you need.
+L3 Shelf is cross-project only (Gru-maintained, V3-pending) and not available inside a project.
 
 ## Motif detection
 

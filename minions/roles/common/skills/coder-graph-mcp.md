@@ -12,7 +12,7 @@ provenance: human
 # Skill — Coder graph MCP manual (L3 structural index over code)
 
 The Coder graph is the project's L3 structural index over **source code**,
-the counterpart to the Shelf graph (L3 over compiled prose). It is
+the counterpart to the per-role graphify graph (over compiled prose). It is
 rebuilt automatically by `@colbymchenry/codegraph`'s bundled OS-event
 watcher (~1s debounce on save, $0 in API spend) — Roles do not write to
 it. The `mcp__codegraph__*` MCP tools are read-only queries against the
@@ -48,7 +48,7 @@ already have open, edit directly; do not open the Coder graph for a
 | "What calls X / what does X call / what breaks if X changes" | **Coder graph** (`codegraph_callers`, `codegraph_callees`, `codegraph_impact`) |
 | "Show me X's source / signature / docstring" | **Coder graph** (`codegraph_node`) |
 | "Survey this code area" | **Coder graph** (`codegraph_explore` — one capped call) |
-| "Which concepts cluster, god-nodes, community" | **Shelf graph** (`mcp__graphify__*`, see [[shelf-mcp]]) |
+| "Which concepts cluster, god-nodes, community" | **per-role graphify graph** (`mcp__graphify__*`, see [[shelf-mcp]]) |
 | "What did exp-042 report" | **Book / Draft**, not a graph |
 
 The two graphs index disjoint data (code vs prose) and update on different

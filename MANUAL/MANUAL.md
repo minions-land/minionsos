@@ -41,7 +41,7 @@ Every page carries `source: <file>:<line>`. If the page isn't enough, read sourc
 | `eacn3` | EACN messaging, tasks, bids, agent registration. **Project_37596 thrash zone.** |
 | `lifecycle` | (Gru) projects, roles, spawn, dismiss, phase, signboard |
 | `experiments` | (Coder) `mos_exp_*`, queue, GPU pool |
-| `memory` | Draft (L1), Book (L2), Shelf (L3), Reel (L0) |
+| `memory` | Reel (L0), Draft (L1), Book (L2), Shelf (L3 cross-proj, V3-pending), Library (L4 future) |
 | `publish` | Cross-role writes via `mos_publish_to_shared` (THE only legal path) |
 | `papers` | (Writer) arXiv / PubMed / bioRxiv / Scholar / Semantic |
 | `deliverables` | (Gru) `mos_submit`, `mos_evaluate`, `mos_adjudicate`, `mos_review_run` |
