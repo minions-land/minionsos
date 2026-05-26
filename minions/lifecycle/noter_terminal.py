@@ -287,6 +287,9 @@ def _tmux_alive(port: int, role_name: str) -> str:
 
 
 def _render_roles(snapshot: NoterSnapshot, console: Console) -> None:
+    active = [r for r in snapshot.project.active_roles if r.state != "dismissed"]
+    dismissed_count = len(snapshot.project.active_roles) - len(active)
+
     table = Table(title="Roles", show_lines=False)
     table.add_column("Role")
     table.add_column("State")
@@ -295,7 +298,7 @@ def _render_roles(snapshot: NoterSnapshot, console: Console) -> None:
     table.add_column("EACN")
     table.add_column("EACN Last seen")
     table.add_column("Task")
-    for role in snapshot.project.active_roles:
+    for role in active:
         table.add_row(
             role.name,
             role.state,
@@ -306,6 +309,11 @@ def _render_roles(snapshot: NoterSnapshot, console: Console) -> None:
             _short(role.current_task or "-", 38),
         )
     console.print(table)
+    if dismissed_count > 0:
+        console.print(
+            f"[dim]({dismissed_count} dismissed role{'s' if dismissed_count != 1 else ''} "
+            f"hidden — see `mos role list {snapshot.project.port}` for full history)[/dim]"
+        )
 
 
 def _render_tasks(snapshot: NoterSnapshot, console: Console, force: bool = False) -> None:

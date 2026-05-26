@@ -134,7 +134,7 @@ def status(
             health_str,
             str(snap.get("queue_depth", 0)),
             str(len(failures)) if failures else "—",
-            str(len(p.active_roles)),
+            str(len([r for r in p.active_roles if r.state != "dismissed"])),
         )
 
     console.print(table)
