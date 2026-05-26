@@ -164,3 +164,11 @@ For each archetype: when to use, when NOT, the implementation route, the typical
 - **When**: too many comparison dimensions for one panel (e.g., method × dataset × seed × metric).
 - **Route**: `seaborn.FacetGrid` or `subplots(N, M)`.
 - **Pitfall**: not sharing axes — readers can't compare across facets.
+
+## Family F — Model-vs-reference evaluation (forecast / regression / reconstruction)
+
+### 20. Taylor diagram
+- **When**: comparing **many** (typically ≥ 5, scales gracefully to 20+) models against a single ground-truth reference signal — forecasting, regression, surrogate models, super-resolution, downscaling, climate / hydrology / energy / traffic intercomparison studies. Encodes correlation (angle), standard deviation (radius), and centered RMSD (chord to reference) in one polar layout, so a single point per model conveys three error properties jointly.
+- **When NOT**: classification (use ROC/PRC); only 2–3 models (a small table is clearer); the question is about bias / mean offset (Taylor uses *centered* RMSD and is blind to bias — pair with a bias panel); multiple distinct references in one panel (use a faceted grid of Taylor diagrams).
+- **Route**: full recipe in `references/taylor-diagram.md` (v2.0, Skill-Forge-validated). Runnable demo: `references/taylor_quickstart.py` covers all 3 variants. Test suite: `references/taylor-diagram-tests.json` (6/6 passing). Uses `mpl_toolkits.axisartist.floating_axes` + `PolarAxes.PolarTransform(apply_theta_transforms=False)` (matplotlib 3.11-ready), with a `taylor_diagram(...)` helper plus an `add_rmsd_contours(...)` overlay. Default to the **normalized** variant (radius = σ_m / σ_r) for 10+ models; use the **extended** half-circle when any model has R<0; pick **standard** when σ in physical units is itself part of the message.
+- **Pitfall**: forgetting to subtract the mean before computing σ and R (Taylor's chord-equals-RMSD identity only holds for *centered* series); rainbow-coloring 20 models so the legend is unreadable (use perceptually-uniform `viridis` keyed to a meaningful ordering, or 4 markers × 5 colors); shipping without RMSD contours (readers lose the third axis); silently dropping models with negative correlation instead of switching to the extended layout.

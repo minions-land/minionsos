@@ -14,7 +14,7 @@ provenance: FigureDraw2-evidence (borrow synthesized from awesome-writing-prompt
 
 When the data is in hand but the figure type is not yet decided, this is the first stop. The atlas catalogs 19 publication-quality archetypes and tells you which one fits the data shape and the scientific question. After the archetype is chosen, hand off to [[academic-plotting]] for content discipline (rcParams, palette, layout) and [[figure-aesthetic-exemplars]] for visual polish.
 
-This skill is index-only. The 19 archetypes are documented in `references/19-archetypes.md`; rescue rules for tricky data scales (huge dynamic range, log-spread, normalised view) are in `references/scale-rescue.md`.
+This skill is index-only. The archetypes are documented in `references/19-archetypes.md`; rescue rules for tricky data scales (huge dynamic range, log-spread, normalised view) are in `references/scale-rescue.md`. The Taylor-diagram archetype — multi-model evaluation against a single reference, scales to 20+ models — has a dedicated recipe in `references/taylor-diagram.md`, a runnable demo in `references/taylor_quickstart.py` (3 variants: normalized / standard / extended), and a behavioral test suite in `references/taylor-diagram-tests.json` (6/6 passing, validated via Skill-Forge Stage 3).
 
 ## NON-SKIPPABLE PREAMBLE — every gen_figure.py starts here
 
@@ -72,6 +72,7 @@ A figure script that doesn't open with rcParams and doesn't end with the Type-42
 | **Classifier / matrix** | ROC · PRC · heatmap · scatter-vs-truth · bubble | binary classifier evaluation OR matrix data (confusion / similarity) |
 | **Distribution / structure** | violin · box · ridgeline · pie/donut · sankey · network · forest · volcano | distribution comparison, flow, or structured relationships |
 | **Composite layout** | dual-axis · bar+line · faceted-grid | mixed quantities or too many to fit one panel |
+| **Model-vs-reference** | taylor-diagram | many (≥5, scales to 20+) forecast / regression / reconstruction models vs one ground truth — encodes correlation + σ + centered RMSD jointly |
 
 Full guidance per archetype — when to use, when NOT, the matplotlib / seaborn / `figure-spec` route, and the typical pitfall — lives in `references/19-archetypes.md`. Open that file when picking an archetype.
 
