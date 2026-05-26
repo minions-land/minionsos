@@ -147,12 +147,16 @@ repair.
 - **Local EACN first.** Roles publish tasks, bid, send messages, ask for
   experiments, request code changes, debate hypotheses without Gru approval.
 - Public/open task routing belongs to EACN3.
-- Gru uses `eacn3_create_task` and `eacn3_send_message` for cold starts,
-  author instructions, stalled work, escalation, clarifications. Do not make
-  Gru the mandatory router for ordinary role-to-role work — when Coder needs
-  Coder, or Writer needs Expert, the owning Role sends a Local EACN
-  task/message to the peer Role. The goal is a visible collaboration graph,
-  not a queue where every edge returns to Gru.
+- Gru uses `eacn3_send_message` for cold-start announcements and short
+  replies, and `eacn3_create_task` only for author instructions, stalled
+  work, escalation, and clarifications that require bounded follow-up.
+  Cold starts are NEVER the right moment for `eacn3_create_task` — Roles
+  resume from their Draft `pending_plans` on respawn and do not need a
+  task to start working. Do not make Gru the mandatory router for
+  ordinary role-to-role work — when Coder needs Coder, or Writer needs
+  Expert, the owning Role sends a Local EACN task/message to the peer
+  Role. The goal is a visible collaboration graph, not a queue where
+  every edge returns to Gru.
 - **Cross-project communication is Gru-only**, via `mos_project_bridge`.
   Preserve source attribution and enough context for the target project to
   judge relevance.
@@ -200,6 +204,15 @@ first"; after a Reviewer Accept, suggest "Camera-ready revision then Close."
 On Gru cold start, read `minions/state/projects.json`, then each active
 project's `CLAUDE.md` and recent EACN history. Do not assume in-memory
 state survived.
+
+**Cold-start communication constraint:** When Gru respawns (revive, reset,
+watchdog recovery), each Role's tmux session has already been launched with
+its full `initial_prompt` via `send-keys` — the Role wakes, reads its Draft
+`pending_plans`, and enters its event loop autonomously. Gru does NOT need
+to send tasks or wake-up messages. If Gru chooses to announce its return,
+use ONLY `eacn3_send_message` (direct message), NEVER `eacn3_create_task`.
+Roles are already self-driving; a cold-start task would duplicate work or
+create phantom load.
 
 ## Default project bootstrap
 
