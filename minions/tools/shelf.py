@@ -1,15 +1,24 @@
-"""Gru-only cross-project Shelf (L3).
+"""Gru-only cross-project Shelf (L3) — interface stub for V3.
 
-MinionsOS projects each own a local graph under their shared branch.
-This module aggregates those per-project graphs into a single Gru-readable Shelf
-index at ``~/.minionsos/shelf.json``.
+STATUS: development interface only. ``mos_shelf_register`` returns
+``{"registered": False, "reason": "shelf_v3_pending"}`` when the
+per-project graphify graph is absent (which is the default since V2
+removed the project-level shelf path).  The global ``~/.minionsos/shelf.json``
+aggregation logic is fully implemented and will activate automatically
+once V3 defines a stable per-project source format.
+
+V3 DESIGN NOTES (fill in before activating):
+  - Source format: TBD (Book-derived JSON, per-project graphify, or
+    a new dedicated export from ``mos_book_export_graph``).
+  - Trigger: Gru-periodic (not Noter), to keep Shelf cross-project-only.
+  - Input path: replace ``_project_graph_path`` return value below.
+  - Library (L4): see ``minions/tools/library.py`` stub.
 
 The boundary rules are strict: only Gru can query across projects; project
 internal Roles never see cross-project data; Gru can relay digested results
 back through ``mos_project_bridge``.
 
-Registration is project-local and performed by Noter after Shelf graph
-rebuilds. Nodes are prefixed with ``p{port}_`` before merging so local graph
+Node IDs are prefixed with ``p{port}_`` before merging so local graph
 IDs cannot collide across projects.
 """
 
@@ -133,6 +142,10 @@ def _link_touches_prefix(link: dict[str, Any], prefix: str) -> bool:
 
 
 def _project_graph_path(port: int) -> Path:
+    # V3-FUTURE: replace this path with the V3-defined per-project export
+    # (e.g. Book-derived graph or mos_book_export_graph output).
+    # For now returns the legacy graphify shelf path; it won't exist on V2+
+    # projects so _load_project_graph returns None gracefully.
     return project_shared_subdir(port, "shelf") / "shelf.json"
 
 
