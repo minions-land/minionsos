@@ -354,6 +354,60 @@ async def mos_book_crystallize_session(
     )
 
 
+# ── Book V2 tools ────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+async def mos_book_ratify(
+    slug: str,
+    evidence_review: str,
+    ratifier_role: str,
+    port: int | None = None,
+) -> dict:
+    """Ethics ratifies a promoted Book page; see minions.tools.book.mos_book_ratify."""
+    _require_tool_allowed("mos_book_ratify")
+    return _book.mos_book_ratify(
+        slug=slug,
+        evidence_review=evidence_review,
+        ratifier_role=ratifier_role,
+        port=port,
+    )
+
+
+@mcp.tool()
+async def mos_book_open_question(
+    question: str,
+    related_pages: list[str] | None = None,
+    slug: str | None = None,
+    port: int | None = None,
+) -> dict:
+    """Record an open research question as a durable Book page."""
+    _require_tool_allowed("mos_book_open_question")
+    return _book.mos_book_open_question(
+        question=question,
+        related_pages=related_pages,
+        slug=slug,
+        port=port,
+    )
+
+
+@mcp.tool()
+async def mos_book_dead_end(
+    claim: str,
+    refutation_evidence: str,
+    slug: str | None = None,
+    port: int | None = None,
+) -> dict:
+    """Record a refuted claim as a permanent dead-end Book page."""
+    _require_tool_allowed("mos_book_dead_end")
+    return _book.mos_book_dead_end(
+        claim=claim,
+        refutation_evidence=refutation_evidence,
+        slug=slug,
+        port=port,
+    )
+
+
 # ── Gru-only global Shelf tools ─────────────────────────────────────────
 
 

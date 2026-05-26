@@ -142,6 +142,71 @@ def _quoted(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
+def _render_v2_frontmatter(
+    *,
+    page_kind: str,
+    title: str,
+    slug: str,
+    # V1 source fields
+    source_file: str | None = None,
+    source_role: str | None = None,
+    date_ingested: str | None = None,
+    reel_ref: str | None = None,
+    # V2 optional fields
+    status: str | None = None,
+    motif_kind: str | None = None,
+    evidence_for: list[str] | None = None,
+    evidence_against: list[str] | None = None,
+    supersedes: str | None = None,
+    superseded_by: str | None = None,
+    ratified_by: str | None = None,
+    ratified_at: str | None = None,
+    paper_role: str | None = None,
+) -> str:
+    """Central frontmatter builder for all Book page kinds (V2 schema).
+
+    V1 source-page fields are preserved for backwards compatibility.
+    New V2 optional fields are appended after the V1 fields when set.
+    Total overhead per page: ≤300 bytes.
+    """
+    lines = ["---"]
+    lines.append(f"type: {page_kind}")
+    lines.append(f"title: {_quoted(title)}")
+    lines.append(f"slug: {_quoted(slug)}")
+    if source_file is not None:
+        lines.append(f"source_file: {_quoted(source_file)}")
+    if source_role is not None:
+        lines.append(f"source_role: {_quoted(source_role)}")
+    if date_ingested is not None:
+        lines.append(f"date_ingested: {_quoted(date_ingested)}")
+    lines.append(f"page_kind: {page_kind}")
+    if page_kind == "source":
+        lines.append("confidence: high")
+    if reel_ref:
+        lines.append(f"reel_ref: {_quoted(reel_ref)}")
+    # V2 fields
+    if status is not None:
+        lines.append(f"status: {_quoted(status)}")
+    if motif_kind is not None:
+        lines.append(f"motif_kind: {_quoted(motif_kind)}")
+    if evidence_for:
+        lines.append(f"evidence_for: {json.dumps(evidence_for, ensure_ascii=False)}")
+    if evidence_against:
+        lines.append(f"evidence_against: {json.dumps(evidence_against, ensure_ascii=False)}")
+    if supersedes is not None:
+        lines.append(f"supersedes: {_quoted(supersedes)}")
+    if superseded_by is not None:
+        lines.append(f"superseded_by: {_quoted(superseded_by)}")
+    if ratified_by is not None:
+        lines.append(f"ratified_by: {_quoted(ratified_by)}")
+    if ratified_at is not None:
+        lines.append(f"ratified_at: {_quoted(ratified_at)}")
+    if paper_role is not None:
+        lines.append(f"paper_role: {_quoted(paper_role)}")
+    lines.extend(["---", ""])
+    return "\n".join(lines)
+
+
 def _render_source_frontmatter(
     *,
     title: str,
@@ -150,24 +215,36 @@ def _render_source_frontmatter(
     source_role: str,
     date_ingested: str,
     reel_ref: str | None = None,
+    # V2 optional fields forwarded transparently
+    status: str | None = None,
+    motif_kind: str | None = None,
+    evidence_for: list[str] | None = None,
+    evidence_against: list[str] | None = None,
+    supersedes: str | None = None,
+    superseded_by: str | None = None,
+    ratified_by: str | None = None,
+    ratified_at: str | None = None,
+    paper_role: str | None = None,
 ) -> str:
-    lines = [
-        "---",
-        "type: source",
-        f"title: {_quoted(title)}",
-        f"slug: {_quoted(slug)}",
-        f"source_file: {_quoted(source_file)}",
-        f"source_role: {_quoted(source_role)}",
-        f"date_ingested: {_quoted(date_ingested)}",
-        "page_kind: source",
-        "confidence: high",
-    ]
-    # Reel pointer: links this Book page back to the raw session traces
-    # that produced the source artifact, enabling drill-down audit.
-    if reel_ref:
-        lines.append(f"reel_ref: {_quoted(reel_ref)}")
-    lines.extend(["---", ""])
-    return "\n".join(lines)
+    """Thin wrapper around _render_v2_frontmatter for source pages."""
+    return _render_v2_frontmatter(
+        page_kind="source",
+        title=title,
+        slug=slug,
+        source_file=source_file,
+        source_role=source_role,
+        date_ingested=date_ingested,
+        reel_ref=reel_ref,
+        status=status,
+        motif_kind=motif_kind,
+        evidence_for=evidence_for,
+        evidence_against=evidence_against,
+        supersedes=supersedes,
+        superseded_by=superseded_by,
+        ratified_by=ratified_by,
+        ratified_at=ratified_at,
+        paper_role=paper_role,
+    )
 
 
 def _contradiction_slug(new_slug: str) -> str:
@@ -812,6 +889,8 @@ def _book_path_for_page_kind(page_kind: str, slug: str) -> str:
         return f"book/contradictions/{slug}.md"
     if page_kind == "query":
         return f"book/queries/{slug}.md"
+    if page_kind == "open_question":
+        return f"book/open_questions/{slug}.md"
     raise BookError(f"unsupported book page_kind: {page_kind!r}")
 
 
@@ -1999,6 +2078,14 @@ def mos_book_promote_verified(
         finally:
             with contextlib.suppress(OSError):
                 temp_path.unlink(missing_ok=True)
+        # Task F: mark promoted page as pending Ethics ratification
+        promoted_path_rel = str(ingest_result.get("book_path", ""))
+        if promoted_path_rel.startswith("book/"):
+            promoted_abs = _book_root(resolved_port) / promoted_path_rel[len("book/"):]
+            if promoted_abs.exists():
+                _pt = promoted_abs.read_text(encoding="utf-8")
+                _pt = _update_frontmatter_field(_pt, "ratified_by", "pending_ethics")
+                promoted_abs.write_text(_pt, encoding="utf-8")
         promoted.append(
             {
                 "node_id": node_id,
@@ -2173,6 +2260,8 @@ def mos_book_query(
     port: int | None = None,
     include_status: bool = True,
     include_relations: bool = True,
+    status_filter: str | None = None,
+    paper_role_filter: str | None = None,
 ) -> dict[str, object]:
     """Keyword-only search over book/index.md headers + page filenames.
 
@@ -2196,7 +2285,7 @@ def mos_book_query(
     Returns:
         ``{"matches": [...], "total": N, "queried": text}`` where each match
         is ``{"slug", "title", "page_kind", "book_path", "score", "status"?,
-        "relations"?}``.
+        "paper_role"?, "motif_kind"?, "ratified_by"?, "relations"?}``.
     """
     resolved_port = _resolve_port(port)
     query_tokens = _tokens(text)
@@ -2222,6 +2311,15 @@ def mos_book_query(
         score = len(query_tokens & _tokens(haystack))
         if score <= 0:
             continue
+        page_fm = _read_page_frontmatter(book_root, entry["book_path"])
+        page_status = page_fm.get("status", "").strip().strip('"').strip("'")
+        page_paper_role = page_fm.get("paper_role", "").strip().strip('"').strip("'")
+        page_motif_kind = page_fm.get("motif_kind", "").strip().strip('"').strip("'")
+        page_ratified_by = page_fm.get("ratified_by", "").strip().strip('"').strip("'")
+        if status_filter is not None and page_status != status_filter:
+            continue
+        if paper_role_filter is not None and page_paper_role != paper_role_filter:
+            continue
         match: dict[str, object] = {
             "slug": entry["slug"],
             "title": entry.get("title", entry["slug"]),
@@ -2230,7 +2328,10 @@ def mos_book_query(
             "score": score,
         }
         if include_status:
-            match["status"] = _read_page_status(book_root, entry["book_path"])
+            match["status"] = page_status
+        match["paper_role"] = page_paper_role
+        match["motif_kind"] = page_motif_kind
+        match["ratified_by"] = page_ratified_by
         if include_relations:
             match["relations"] = edges_by_from.get(entry["slug"], [])
         scored.append(match)
@@ -2239,6 +2340,21 @@ def mos_book_query(
     total = len(scored)
     limit = max(0, int(max_pages))
     return {"matches": scored[:limit], "total": total, "queried": text}
+
+
+def _read_page_frontmatter(book_root: Path, book_path: str) -> dict[str, str]:
+    """Return parsed frontmatter dict for a Book page, or empty dict on failure."""
+    abs_path = book_root.parent.parent.parent / "branches" / "shared" / book_path
+    if not abs_path.exists():
+        rel = book_path[len("book/") :] if book_path.startswith("book/") else book_path
+        abs_path = book_root / rel
+    if not abs_path.exists():
+        return {}
+    try:
+        text = abs_path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return {}
+    return _parse_frontmatter(text)
 
 
 def _read_page_status(book_root: Path, book_path: str) -> str:
@@ -2374,6 +2490,231 @@ def mos_book_save_synthesis(
         "slug": slug,
         "book_path": f"book/queries/{slug}.md",
         "publish_results": publish_results,
+    }
+
+
+def mos_book_ratify(
+    slug: str,
+    evidence_review: str,
+    ratifier_role: str,
+    *,
+    port: int | None = None,
+) -> dict[str, object]:
+    """Ethics ratifies a promoted Book page.
+
+    Sets ``ratified_by: ethics``, ``ratified_at: <iso>``, and appends a
+    ``## Ratification`` section verbatim. Only Ethics may call this
+    (``ratifier_role`` must equal ``"ethics"``).
+
+    Args:
+        slug: The slug of the source page to ratify (under book/sources/).
+        evidence_review: The Ethics evidence review text to append verbatim.
+        ratifier_role: Must be ``"ethics"``.
+        port: Project port.
+
+    Returns:
+        ``{"slug", "book_path", "publish_result"}``.
+    """
+    resolved_port = _resolve_port(port)
+    if ratifier_role != "ethics":
+        raise BookError(
+            f"mos_book_ratify is Ethics-only; got ratifier_role={ratifier_role!r}"
+        )
+    if not slug.strip():
+        raise BookError("slug must be non-empty")
+    if not evidence_review.strip():
+        raise BookError("evidence_review must be non-empty")
+
+    _validate_component("slug", slug)
+    book_root = _book_root(resolved_port)
+    page_path = book_root / "sources" / f"{slug}.md"
+    if not page_path.exists():
+        raise BookError(f"book source page not found: book/sources/{slug}.md")
+
+    text = page_path.read_text(encoding="utf-8")
+    now = _now_iso()
+    text = _update_frontmatter_field(text, "ratified_by", "ethics")
+    text = _update_frontmatter_field(text, "ratified_at", now)
+    if not text.endswith("\n"):
+        text += "\n"
+    text += f"\n## Ratification\n\n*Ratified by Ethics on {now}*\n\n{evidence_review.strip()}\n"
+
+    stage = _stage_text(resolved_port, f"book-ratify-{slug}.md", text)
+    log_stage = _log_append(resolved_port, "ratify", slug, ratifier_role=ratifier_role)
+    message = f"noter: ethics ratify {slug}"
+    publish_result = _publish_files(
+        resolved_port,
+        [
+            (stage, f"sources/{slug}.md"),
+            (log_stage, "log.md"),
+        ],
+        message,
+    )
+    logger.info("book ratify: port=%d slug=%s", resolved_port, slug)
+    return {
+        "slug": slug,
+        "book_path": f"book/sources/{slug}.md",
+        "ratified_at": now,
+        "publish_result": publish_result,
+    }
+
+
+def mos_book_open_question(
+    question: str,
+    *,
+    related_pages: list[str] | None = None,
+    slug: str | None = None,
+    port: int | None = None,
+) -> dict[str, object]:
+    """Record an open research question as a durable Book page.
+
+    Creates ``book/open_questions/<slug>.md`` with ``status: open_question``.
+    Use when a role identifies a gap or unresolved question that future
+    work should address. The page is indexed so ``mos_book_query`` surfaces
+    it alongside source pages.
+
+    Args:
+        question: The open question text (non-empty).
+        related_pages: Optional list of ``book/...`` paths this question
+            relates to.
+        slug: Optional explicit slug. Defaults to a slugified prefix of
+            the question.
+        port: Project port.
+
+    Returns:
+        ``{"slug", "book_path", "publish_result"}``.
+    """
+    resolved_port = _resolve_port(port)
+    if not question.strip():
+        raise BookError("question must be non-empty")
+
+    if slug is None:
+        slug = slugify(question)[:60] or f"oq-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
+    _validate_component("slug", slug)
+
+    date_created = _now_iso()
+    related_pages = related_pages or []
+
+    fm_lines = [
+        "---",
+        "type: open_question",
+        f"slug: {_quoted(slug)}",
+        f"question: {_quoted(question.strip())}",
+        f"date_created: {_quoted(date_created)}",
+        "page_kind: open_question",
+        "status: open_question",
+        f"related_pages: {json.dumps(related_pages, ensure_ascii=False)}",
+        "---",
+        "",
+    ]
+    body = f"# Open Question: {question.strip()}\n\n"
+    if related_pages:
+        body += "**Related pages:**\n"
+        for rp in related_pages:
+            body += f"- [[{rp}]]\n"
+        body += "\n"
+    body += "_This question has not yet been resolved. Update status when answered._\n"
+
+    page_text = "\n".join(fm_lines) + body
+    page_stage = _stage_text(resolved_port, f"book-oq-{slug}.md", page_text)
+
+    title = f"OQ: {question.strip()[:80]}"
+    index_stage = _index_append_many(resolved_port, [(slug, title, "open_question")])
+    log_stage = _log_append(resolved_port, "open_question", slug, question=question.strip()[:200])
+
+    message = f"noter: open question {slug}"
+    publish_result = _publish_files(
+        resolved_port,
+        [
+            (page_stage, f"open_questions/{slug}.md"),
+            (index_stage, "index.md"),
+            (log_stage, "log.md"),
+        ],
+        message,
+    )
+    logger.info("book open_question: port=%d slug=%s", resolved_port, slug)
+    return {
+        "slug": slug,
+        "book_path": f"book/open_questions/{slug}.md",
+        "publish_result": publish_result,
+    }
+
+
+def mos_book_dead_end(
+    claim: str,
+    refutation_evidence: str,
+    *,
+    slug: str | None = None,
+    port: int | None = None,
+) -> dict[str, object]:
+    """Record a refuted claim as a permanent dead-end Book page.
+
+    Creates ``book/sources/dead-end-<slug>.md`` with ``status: refuted``.
+    **REFUTED PAGES MUST NEVER BE DELETED** — they are negative knowledge
+    that prevents other projects from re-running the same failed experiment.
+
+    Args:
+        claim: The claim that was refuted (non-empty).
+        refutation_evidence: The evidence that refutes the claim (non-empty).
+        slug: Optional explicit slug suffix. Defaults to a slugified prefix
+            of the claim.
+        port: Project port.
+
+    Returns:
+        ``{"slug", "book_path", "publish_result"}``.
+    """
+    resolved_port = _resolve_port(port)
+    if not claim.strip():
+        raise BookError("claim must be non-empty")
+    if not refutation_evidence.strip():
+        raise BookError("refutation_evidence must be non-empty")
+
+    raw_slug = slug or slugify(claim)[:50] or f"de-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
+    full_slug = f"dead-end-{raw_slug}"
+    _validate_component("slug", full_slug)
+
+    date_created = _now_iso()
+    fm = _render_v2_frontmatter(
+        page_kind="source",
+        title=f"Dead end: {claim.strip()[:80]}",
+        slug=full_slug,
+        date_ingested=date_created,
+        status="refuted",
+    )
+
+    body = (
+        f"# Dead End: {claim.strip()}\n\n"
+        f"**Status**: refuted — do not re-attempt without new evidence.\n\n"
+        f"## Claim\n\n{claim.strip()}\n\n"
+        f"## Refutation evidence\n\n{refutation_evidence.strip()}\n"
+    )
+    page_text = fm + body
+    page_stage = _stage_text(resolved_port, f"book-deadend-{full_slug}.md", page_text)
+
+    title = f"Dead end: {claim.strip()[:80]}"
+    index_stage = _index_append_many(resolved_port, [(full_slug, title, "source")])
+    log_stage = _log_append(
+        resolved_port,
+        "dead_end",
+        full_slug,
+        claim=claim.strip()[:200],
+    )
+
+    message = f"noter: dead end {full_slug}"
+    publish_result = _publish_files(
+        resolved_port,
+        [
+            (page_stage, f"sources/{full_slug}.md"),
+            (index_stage, "index.md"),
+            (log_stage, "log.md"),
+        ],
+        message,
+    )
+    logger.info("book dead_end: port=%d slug=%s", resolved_port, full_slug)
+    return {
+        "slug": full_slug,
+        "book_path": f"book/sources/{full_slug}.md",
+        "publish_result": publish_result,
     }
 
 
@@ -2738,9 +3079,18 @@ def mos_book_hot_get(*, port: int | None = None) -> dict[str, object]:
 
 __all__ = [
     "BookError",
+    "mos_book_audit_walk",
+    "mos_book_crystallize_session",
+    "mos_book_dead_end",
     "mos_book_hot_get",
     "mos_book_hot_update",
     "mos_book_ingest",
+    "mos_book_ingest_batch",
     "mos_book_lint",
+    "mos_book_open_question",
+    "mos_book_promote_verified",
     "mos_book_query",
+    "mos_book_ratify",
+    "mos_book_resolve_contradiction",
+    "mos_book_save_synthesis",
 ]

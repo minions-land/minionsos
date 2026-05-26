@@ -5,8 +5,8 @@ domain: memory
 auth: ['*']
 source: minions/tools/mcp/memory_tools.py:1
 since: stable
-keywords: [draft, book, reel, memory, hot, hypothesis]
-related: [mos_draft_summary, mos_book_query, mos_book_hot_get, mos_reel_get]
+keywords: [draft, book, reel, memory, hot, hypothesis, status, ratify, open_question, dead_end]
+related: [mos_draft_summary, mos_book_query, mos_book_hot_get, mos_reel_get, mos_book_ratify, mos_book_open_question, mos_book_dead_end]
 status: stable
 ---
 
