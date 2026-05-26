@@ -93,6 +93,56 @@ def attach_command(project_port: int, role_name: str) -> list[str]:
     return ["tmux", "attach", "-t", session_name(project_port, role_name)]
 
 
+def list_project_sessions(project_port: int) -> list[str]:
+    """Return tmux session names matching the ``mos-{port}-*`` prefix.
+
+    Used by lifecycle cleanup to find orphan Role sessions whose names
+    were never recorded in ``meta.json`` — for example because the
+    record was set to ``state="dismissed"`` while the tmux session was
+    still alive (a kill/revive ordering bug).
+    """
+    if not _have_tmux():
+        return []
+    prefix = f"mos-{project_port}-"
+    try:
+        proc = subprocess.run(
+            ["tmux", "ls", "-F", "#{session_name}"],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return []
+    if proc.returncode != 0:
+        return []
+    return [line.strip() for line in proc.stdout.splitlines() if line.strip().startswith(prefix)]
+
+
+def kill_project_sessions(project_port: int) -> list[str]:
+    """Kill every ``mos-{port}-*`` tmux session. Returns the names killed.
+
+    Defensive sweep used by ``project_kill`` and ``project_revive`` to
+    eliminate orphan Role tmux sessions regardless of what
+    ``meta.json`` thinks. Idempotent: calling it twice is safe.
+    """
+    killed: list[str] = []
+    for name in list_project_sessions(project_port):
+        try:
+            subprocess.run(
+                ["tmux", "kill-session", "-t", name],
+                check=True,
+                capture_output=True,
+            )
+            killed.append(name)
+            logger.info("kill_project_sessions: tmux session=%s killed", name)
+        except subprocess.CalledProcessError as exc:
+            logger.warning(
+                "kill_project_sessions: tmux kill-session failed for %s: %s",
+                name,
+                exc,
+            )
+    return killed
+
+
 def launch_role_process(
     role_entry: RoleEntry,
     project_port: int,
@@ -671,8 +721,10 @@ def _quote(value: str) -> str:
 __all__ = [
     "MINIONS_ROOT",
     "attach_command",
+    "kill_project_sessions",
     "kill_session",
     "launch_role_process",
+    "list_project_sessions",
     "session_alive",
     "session_name",
 ]

@@ -1866,6 +1866,28 @@ def project_kill(
         status = _stop_role_process(port, role.name, role.pid)
         role_results.append({"name": role.name, "pid": role.pid, "status": status})
 
+    # Defensive sweep: kill any surviving ``mos-{port}-*`` tmux session that
+    # the recorded ``active_roles`` loop did not catch. This handles the
+    # known case where roles are marked ``state="dismissed", pid=None`` in
+    # meta.json (e.g. by an earlier project_dormant) yet a subsequent
+    # project_revive re-launched their tmux sessions without resetting
+    # state — leaving orphan tmux sessions invisible to this loop.
+    swept: list[str] = []
+    try:
+        from minions.lifecycle.role_launcher import (
+            kill_project_sessions as _kill_project_sessions,
+        )
+
+        swept = _kill_project_sessions(port)
+        if swept:
+            logger.info(
+                "project_kill: swept orphan tmux sessions port=%d names=%s",
+                port,
+                swept,
+            )
+    except Exception as exc:
+        logger.warning("project_kill: orphan tmux sweep failed for port=%d: %s", port, exc)
+
     now = _now_iso()
     updated = _store.update_project(
         port,
@@ -1877,16 +1899,18 @@ def project_kill(
     )
     _write_meta(port, updated, extras={"backend_pid": None})
     logger.info(
-        "project_kill done: port=%d backend_pid=%s roles=%d",
+        "project_kill done: port=%d backend_pid=%s roles=%d swept=%d",
         port,
         backend_pid,
         len(role_results),
+        len(swept),
     )
     return {
         "port": updated.port,
         "status": updated.status,
         "backend_pid": backend_pid,
         "roles": role_results,
+        "swept_tmux_sessions": swept,
     }
 
 
@@ -2023,6 +2047,9 @@ def project_revive(
     # already restored, and the operator can re-run mos role spawn /
     # mos project repair to recover.
     try:
+        from minions.lifecycle.role_launcher import (
+            kill_project_sessions as _kill_project_sessions,
+        )
         from minions.lifecycle.role_launcher import launch_role_process as _launch_role
     except Exception as exc:
         logger.warning(
@@ -2032,6 +2059,26 @@ def project_revive(
             exc,
         )
     else:
+        # Defensive: kill any pre-existing ``mos-{port}-*`` tmux session
+        # before relaunching. ``launch_role_process`` is idempotent in the
+        # "session already alive" sense, so a stale tmux from a prior
+        # botched lifecycle would be silently re-attached, hiding the
+        # fact that the Claude process inside is stuck or dead.
+        try:
+            stale = _kill_project_sessions(port)
+            if stale:
+                logger.info(
+                    "project_revive: cleaned stale tmux sessions port=%d names=%s",
+                    port,
+                    stale,
+                )
+        except Exception as exc:
+            logger.warning(
+                "project_revive: stale tmux sweep failed for port=%d: %s",
+                port,
+                exc,
+            )
+
         relaunched: list[RoleEntry] = []
         for role in revived_roles:
             try:
