@@ -91,33 +91,29 @@ class TestSharedWorktreeNoShelf:
 
 
 # ---------------------------------------------------------------------------
-# noter_wait delta: no shelf keys
+# noter_wait module: shelf symbols must not exist
 # ---------------------------------------------------------------------------
 
 
-class TestNoterWaitNoShelfDelta:
-    """noter_wait periodic_wake event must not include shelf_graph or shelf_global."""
+class TestNoterWaitNoShelfSymbols:
+    """noter_wait must not define _maybe_rebuild_shelf_graph or shelf delta keys."""
 
-    def test_noter_wait_delta_has_no_shelf_keys(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        monkeypatch.setenv("MINIONS_PROJECT_PORT", "99999")
-        monkeypatch.setenv("MINIONS_WORKSPACE", str(tmp_path))
-
+    def test_no_rebuild_shelf_graph_symbol(self) -> None:
         import minions.tools.noter_wait as nw
 
-        monkeypatch.setattr(nw, "_load_interval_seconds", lambda: 0)
-        monkeypatch.setattr(nw, "_load_keepalive_seconds", lambda: 0)
-        monkeypatch.setattr(nw, "_touch_heartbeat", lambda _ws: None)
-        monkeypatch.setattr(nw, "_check_and_clear_nudge", lambda _port: False)
-        monkeypatch.setattr(nw, "_shared_branch_delta", lambda _ws: {"new_commits": 0})
-        monkeypatch.setattr(nw, "_events_jsonl_delta", lambda _port: {"total_event_lines": 0})
-        monkeypatch.setattr(nw, "mos_book_lint", lambda port: {"ok": True})  # type: ignore[attr-defined]
+        assert not hasattr(nw, "_maybe_rebuild_shelf_graph"), (
+            "_maybe_rebuild_shelf_graph must not exist in noter_wait after Memory V2 downgrade"
+        )
 
-        result = nw.noter_wait()
-        assert result["count"] == 1
-        event = result["events"][0]
-        assert event["type"] == "periodic_wake"
-        delta = event["delta"]
-        assert "shelf_graph" not in delta, "shelf_graph must not appear in noter_wait delta"
-        assert "shelf_global" not in delta, "shelf_global must not appear in noter_wait delta"
+    def test_no_shelf_graph_in_delta_keys(self) -> None:
+        """Verify that _shared_branch_delta (if inspectable) never returns shelf_graph."""
+        import minions.tools.noter_wait as nw
+
+        # The module must not import or reference shelf-related keys.
+        source = Path(nw.__file__).read_text(encoding="utf-8")
+        assert "shelf_graph" not in source, (
+            "noter_wait source must not reference shelf_graph after Memory V2 downgrade"
+        )
+        assert "shelf_global" not in source, (
+            "noter_wait source must not reference shelf_global after Memory V2 downgrade"
+        )

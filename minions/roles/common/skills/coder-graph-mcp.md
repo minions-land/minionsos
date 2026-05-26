@@ -52,7 +52,7 @@ already have open, edit directly; do not open the Coder graph for a
 | "What did exp-042 report" | **Book / Draft**, not a graph |
 
 The two graphs index disjoint data (code vs prose) and update on different
-clocks (codegraph: ~1s OS-event watcher; graphify: Noter cron). The
+clocks (codegraph: ~1s OS-event watcher; graphify: role-on-demand). The
 cross-reference: a graphify concept node whose label looks like a code
 identifier is a pivot opportunity — call `codegraph_search` on the label
 to jump from "this paper claim" to "this function".

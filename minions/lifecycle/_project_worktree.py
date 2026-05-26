@@ -8,7 +8,6 @@ underscore-prefixed names.
 
 from __future__ import annotations
 
-import json
 import logging
 import subprocess
 from pathlib import Path
@@ -73,8 +72,6 @@ Roles do **not** `Write` here directly. All writes go through
   role-evolution audit log (`role_evolution.jsonl`).
 - `book/` — L2 compiled knowledge base (Book pattern: one curated page per
   ingested artefact, Noter-compiled).
-- `shelf/shelf.json` — L3 structural index over project artefacts; rebuilt
-  by Noter on each periodic wake via the `graphify` extractor.
 """
 
 
@@ -174,18 +171,6 @@ def create_shared_worktree(port: int) -> str:
         sub.mkdir(parents=True, exist_ok=True)
         (sub / ".gitkeep").write_text("", encoding="utf-8")
     (workspace / "README.md").write_text(SHARED_README.format(port=port), encoding="utf-8")
-
-    # L3 Shelf bootstrap: write an empty graph at branches/shared/shelf/shelf.json
-    # so the path exists from t=0 and graphify queries return a real status
-    # instead of "no graph". Noter's periodic wake rebuilds this when sources
-    # under shared/{book,notes,ethics,exp}/ change. See GitHub Issue #11.
-    shelf_path = workspace / "shelf" / "shelf.json"
-    if not shelf_path.exists():
-        shelf_path.parent.mkdir(parents=True, exist_ok=True)
-        shelf_path.write_text(
-            json.dumps({"port": port, "nodes": [], "edges": [], "version": 1}, indent=2),
-            encoding="utf-8",
-        )
 
     seed_commit = git_commit_workspace(workspace, "shared: seed cross-role layout")
     if seed_commit is None:

@@ -11,7 +11,7 @@ provenance: human
 
 # Skill — Shelf MCP Manual (L3 structural index)
 
-The project-local Shelf is the project's L3 structural index over its compiled knowledge. It is **not** another store you write into — it is a derived view that Noter rebuilds on a timer (`noter_wait.py` shells out `mcp-servers/graphify/extract.py`) over `branches/shared/book/` and adjacent shared artefacts, then publishes to `branches/shared/shelf/shelf.json`. The `mcp__graphify__*` MCP tools are read-only queries against that snapshot.
+The per-role graphify graph is a structural index over a role's private workspace artefacts. It is **not** a shared store — each role that wants graph-assisted retrieval builds its own graph at `branches/{role}/graphify-out/graph.json` on demand (e.g. via `graphify extract`). The `mcp__graphify__*` MCP tools are read-only queries against that snapshot.
 
 The Shelf graph answers questions that L1 (Draft) and L2 (Book) cannot answer cheaply: *which concepts cluster together, which nodes are load-bearing for the rest of the graph, and what is N hops away from a starting concept.* If your question is "what does this one report claim", read the Book page. If your question is "where does this report sit in the project's intellectual structure", open the Shelf.
 

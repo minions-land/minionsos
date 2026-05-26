@@ -169,9 +169,10 @@ at formal review time, out of Ethics scope.
 ## Audit depth by structural impact
 
 When a new experiment report lands at
-`branches/shared/exp/exp-<id>/report.md`, use the project graph (graphify-
-extracted view at `branches/shared/shelf/shelf.json`) to gauge structural
-impact before deciding audit depth.
+`branches/shared/exp/exp-<id>/report.md`, use the per-role graphify graph
+(available if your role has a built graph at `branches/ethics/graphify-out/graph.json`)
+to gauge structural impact before deciding audit depth. If no graph is built yet, fall
+back to querying the Book directly.
 
 1. Extract key terms from report title + abstract (first 500 chars).
 2. Call `mcp__graphify__query_graph` with those terms. Note matched

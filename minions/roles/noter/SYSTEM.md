@@ -54,16 +54,9 @@ Every periodic wake (default every 3 minutes, configured by
      listed flatly with no commentary — Ethics decides what they mean
    Write this via `mos_publish_to_shared(role="noter", ..., dst_subpath="book/hot.md", ...)`.
 
-**Automatic per-wake side-effects of `mos_noter_wait()`**: the wake tool itself
-runs two extra steps before returning the wake event — (a) the project-local
-graphify graph at `branches/shared/shelf/shelf.json` is rebuilt if any source
-under `book/`, `notes/`, `ethics/`, or `exp/` is newer; (b) the rebuilt graph
-is registered into the cross-project Shelf via `mos_shelf_register(port)` so
-Gru can see this project from the L3 Shelf. You do not call these tools
-yourself; they fire as part of `mos_noter_wait()` and surface their results
-in the wake event's `delta` field. **The Shelf registration is the only
-cross-project side-effect Noter has** — beyond that, all your work is
-project-local.
+**`mos_noter_wait()` returns a wake event** with a `delta` field summarising
+changes since the last wake. Your work is entirely project-local — there are
+no automatic cross-project side-effects from the wait tool.
 
 **On context-reset boundaries (additional duty)**: when you observe that a
 role just called `mos_reset_context` or `mos_compact_context` (visible in

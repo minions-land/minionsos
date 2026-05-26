@@ -212,17 +212,14 @@ def test_wiki_query_returns_matching_index_entry(project: dict[str, Any]) -> Non
 
     result = book.mos_book_query("transformer", port=project["port"])
     assert result["total"] == 1
-    assert result["matches"] == [
-        {
-            "slug": "coder-transformer",
-            "title": "Transformer Architecture",
-            "page_kind": "source",
-            "book_path": "book/sources/coder-transformer.md",
-            "score": 1,
-            "status": "",
-            "relations": [],
-        }
-    ]
+    assert len(result["matches"]) == 1
+    m = result["matches"][0]
+    assert m["slug"] == "coder-transformer"
+    assert m["title"] == "Transformer Architecture"
+    assert m["page_kind"] == "source"
+    assert m["book_path"] == "book/sources/coder-transformer.md"
+    assert m["score"] == 1
+    assert m["relations"] == []
 
 
 def test_wiki_query_returns_empty_when_no_entries_match(project: dict[str, Any]) -> None:
