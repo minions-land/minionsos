@@ -206,7 +206,7 @@ Tool/write boundaries (main role write scope; subagents inherit from their paren
 
 | Agent | Project-local EACN access | Experiment tools | Codex subagent | Gru/project/spawn tools | Own branch | Shared subdirs (via mos_publish_to_shared) |
 |---|---|---|---|---|---|---|
-| Gru main | `eacn3_*` (events delivered by scheduler) | no | `codex` | yes | `branches/main/` | any subdir |
+| Gru main | `eacn3_send_message` (out) + read-only inspection (`eacn3_get_events`/`get_messages`/`list_tasks`/`get_task`/`list_agents`/`get_agent`/`health` etc.). NOT `eacn3_create_task` / `eacn3_submit_*` / `eacn3_close_task` / `eacn3_team_*` — tasks are a Role-to-Role contract; Gru sends direct briefs and the owning Role posts its own task. | no | `codex` | yes | `branches/main/` | any subdir |
 | Noter main | `mos_noter_wait` (timer, no EACN) | no | no | no | `branches/noter/` (drafts) | `notes/`, `draft/`, `handoffs/`, `book/` |
 | Coder main | `eacn3_*` | yes | `codex` | no | `branches/coder/` | `exp/`, `handoffs/`, `governance/` |
 | Writer main (on-demand) | `eacn3_*` plus paper-search MCP tools | no | `codex` | no | `branches/writer/` | `handoffs/`, `governance/` |

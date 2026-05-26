@@ -1,8 +1,8 @@
 ---
 slug: feature-intake
-summary: Open when the author requests a feature, repair, dashboard change, or role capability — convert it into bounded role-owned tasks with observable acceptance criteria, then delegate via EACN.
+summary: Open when the author requests a feature, repair, dashboard change, or role capability — convert it into bounded role-owned briefs with observable acceptance criteria, then delegate via EACN direct messages so the owning Role posts its own task.
 layer: logical
-tools: eacn3_create_task
+tools: eacn3_send_message
 version: 2
 status: active
 supersedes:
@@ -12,7 +12,7 @@ provenance: human
 
 # Skill — Feature Intake
 
-Gru owns intake and coordination; Coder, Writer, and Reviewer own execution. Intake is not implementation.
+Gru owns intake and coordination; Coder, Writer, and Reviewer own execution. Intake is not implementation. Gru never posts EACN tasks — it sends direct briefs and the owning Role creates its own task.
 
 ## When to invoke
 
@@ -22,7 +22,7 @@ Gru owns intake and coordination; Coder, Writer, and Reviewer own execution. Int
 
 ## Structure
 
-Six steps, ending with an EACN-visible intake note: outcome, owner roles, acceptance criteria, tasks issued, unresolved assumptions. Acceptance criteria prefer observable checks (command output, file path, EACN artifact, dashboard behavior, paper section, review verdict) over prose. Questions to the author are reserved for genuinely undecidable points.
+Six steps, ending with an EACN-visible intake note: outcome, owner roles, acceptance criteria, briefs issued, unresolved assumptions. Acceptance criteria prefer observable checks (command output, file path, EACN artifact, dashboard behavior, paper section, review verdict) over prose. Questions to the author are reserved for genuinely undecidable points.
 
 ## Procedure
 
@@ -30,7 +30,7 @@ Six steps, ending with an EACN-visible intake note: outcome, owner roles, accept
 2. **Identify ownership.** Assign implementation, experiments, writing, review, and audit to appropriate roles. Do not centralize ordinary work in Gru.
 3. **Find blockers early.** Ask the author only for missing information that cannot be inferred safely and would change the route or acceptance criteria.
 4. **Set acceptance criteria.** Observable checks: command output, file path, EACN artifact, dashboard behavior, paper section, review verdict.
-5. **Publish bounded tasks** via EACN — each role gets a scoped task with allowed paths, expected output, deadline / budget if any, and handoff format.
+5. **Send a bounded brief** to each owning Role via `eacn3_send_message` — scope, allowed paths, expected output, deadline / budget if any, handoff format. The Role posts its own EACN task to track the work; Gru does not post tasks.
 6. **Track without micromanaging.** Nudge only on stalls, blockers, high-signal failures, or cross-project relay needs.
 
 ## Pitfalls
@@ -39,3 +39,4 @@ Six steps, ending with an EACN-visible intake note: outcome, owner roles, accept
 - Letting Coder start before the success condition is observable.
 - Assigning scientific judgment to Gru when Expert should decide.
 - Turning intake into implementation.
+- Trying to post the bounded task yourself with `eacn3_create_task` — server-side denied; send a direct brief and let the Role create the task.
