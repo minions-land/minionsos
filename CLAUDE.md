@@ -214,6 +214,16 @@ Tool/write boundaries (main role write scope; subagents inherit from their paren
 | Ethics main | `eacn3_*` | no | `codex` | no | `branches/ethics/` (drafts) | `ethics/`, `handoffs/`, `governance/` |
 | All roles (read) | - | - | - | - | - | `book/` (via `mos_book_query`/`hot_get`/`save_synthesis`/`audit_walk`/`resolve_contradiction`) |
 
+**Memory tool authz detail** (tools not captured in column headers above):
+
+| Tool | Allowed callers | Notes |
+|---|---|---|
+| `mos_reel_get` / `mos_reel_window` | self; Ethics (cross-role R); Gru (cross-role R) | Peer roles denied. Noter excluded entirely. |
+| `mos_book_ratify` | Ethics only | Promotes verified Book page; server-side authz gate (Stream 3). |
+| `mos_book_open_question` | All EACN-visible roles | Creates a pending-question node for Noter to resolve. |
+| `mos_book_dead_end` | Noter (direct); other roles propose via handoff → Noter ingests | Prevents direct write pollution of Book's dead-end registry. |
+| `mos_draft_annotate` | All roles for own nodes; Ethics for any node's `support_status` | Ethics is the sole cross-role annotator of ratification fields. |
+
 `branches/shared/reviews/` is reserved for `mos_review_run` — the publish tool will reject any other caller. `branches/shared/submissions/` is reserved for `mos_submit`; any role's profile may grant the role access to it via the profile's `publish_whitelist[role]` list (e.g. `hle-answer` grants `expert` and `coder` write access; `scientific-paper` grants nobody by default — paper deliverables go through Writer + `mos_review_run` instead). `branches/shared/draft/draft.json` is updated in-place by `mos_draft_append` and committed on a Noter-driven cron through `mos_draft_commit_shared` (whitelisted to Noter and Gru only). No role writes to another role's `branches/<role>/` directly; cross-role artefacts always travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`. The visual format-check tools (`mos_visual_render`, `mos_visual_inspect`, `mos_visual_check`) are available to every EACN-visible role (Gru, Coder, Writer, Ethics, Expert) and denied to Noter; reports persist under `branches/<role>/visual-reports/` and are referenced cross-role by EACN message rather than via a shared subdir.
 
 **Deliverable lifecycle tools.** `mos_submit`, `mos_evaluate`, and `mos_adjudicate` are Gru-only (whitelist + server-side authz). Other Roles must surface a deliverable to Gru by EACN message; Gru then calls `mos_submit` to persist it under `branches/shared/submissions/` and `mos_evaluate` to score it via the profile-defined strategy. The lifecycle separation matches the existing "Gru is the control plane" rule.

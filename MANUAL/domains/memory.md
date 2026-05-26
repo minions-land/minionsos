@@ -71,6 +71,25 @@ ANTI-PATTERN: do not mirror another role's node with `author_role="noter"`. Use
   See `pitfall-subagent-boilerplate`.
 - `mos_book_hot_update` schema is deferred. Run `ToolSearch(query="select:mos_book_hot_update")` once per session.
 
+## Permission matrix
+
+Who can read and write each memory layer:
+
+| Layer | Self | Other Role | Noter | Ethics | Gru |
+|---|---|---|---|---|---|
+| **Reel-Index (L0)** | RW | — | — | R (cross-role) | R (cross-role) |
+| **Draft (L1)** | RW own nodes | R (all nodes) | RW nodes + edge writes + status annotates | R + status writes (ratify) | R |
+| **Book (L2)** | R | R | W (sole writer) | R + ratify (`mos_book_ratify`) | R |
+| **Shelf (L3, cross-proj)** | — | — | — | — | RW |
+
+### Prose clarifications
+
+- **Reel-Index reads beyond self** are restricted to Ethics and Gru. Peer roles (Coder reading Expert reel) are denied. Noter has no reel access at all — it observes the project through `events/*.jsonl` and the Draft/Book surfaces.
+- **Draft** is fully readable team-wide. Any EACN-visible role appends nodes and edges for their own work via `mos_draft_append`. Notable write distinctions: Noter writes `pending_plan` nodes and graph edges as first-class operations; Ethics writes `support_status` fields (ratification/refutation) on any node via `mos_draft_annotate`.
+- **Book** is single-writer: only Noter ingests pages and saves syntheses. Ethics gates knowledge promotion via `mos_book_ratify` (Stream 3). All other roles read via `mos_book_query` / `mos_book_hot_get`.
+- **Shelf** is cross-project Gru territory. It is out of scope for single-project memory operations.
+- **Wake-up reading habit (not an authz boundary):** Roles SHOULD prefer Book over Draft at wake-up — Book is the progressive-disclosure distillation of Draft conclusions. But the authz rule is "Book is readable by all"; it is not enforced as a required read order.
+
 ## Full surface
 
 ```bash

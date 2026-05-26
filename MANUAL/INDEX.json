@@ -4474,5 +4474,18 @@
     "figure": [
       "domain-visual"
     ]
-  }
+  },
+  "permission": [
+    "domain-memory"
+  ],
+  "authz": [
+    "domain-memory"
+  ],
+  "ratify": [
+    "domain-memory",
+    "mos_book_ratify"
+  ],
+  "reel": [
+    "domain-memory"
+  ]
 }
