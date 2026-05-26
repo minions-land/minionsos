@@ -610,6 +610,14 @@ def _role_env(
         "EACN3_NETWORK_URL": f"http://127.0.0.1:{project_port}",
         "EACN3_STATE_DIR": str(plugin_state_dir(project_port, eacn_agent_id).resolve()),
         "MINIONS_GITHUB_PUSH_TARGET": role_entry.github_push_target or "",
+        # Anchor for hook-command resolution. Role workspaces are git
+        # worktrees whose `git rev-parse --show-toplevel` is the worktree
+        # path, NOT MinionsOS root — so hook commands that fall back to
+        # `--show-toplevel` resolve to a path that has no `.venv` and no
+        # `minions/hooks/`. Exporting MINIONS_ROOT lets the hook gate in
+        # `.claude/settings.json` resolve to the real install instead.
+        # Also consumed directly by minions/hooks/post_compact_draft.py.
+        "MINIONS_ROOT": str(MINIONS_ROOT),
         # Long-horizon cache hit-rate optimization: opt the Role's claude
         # process into 1-hour prompt cache TTL on backends that honor it
         # (direct Anthropic API key, Bedrock, Vertex, Foundry — see

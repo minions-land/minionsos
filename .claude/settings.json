@@ -14,12 +14,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/write_boundary_guard.py\"",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/write_boundary_guard.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/write_boundary_guard.py\" || exit 0",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/large_file_guard.py\"",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/large_file_guard.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/large_file_guard.py\" || exit 0",
             "timeout": 5
           }
         ]
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/write_boundary_guard.py\"",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/write_boundary_guard.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/write_boundary_guard.py\" || exit 0",
             "timeout": 5
           }
         ]
@@ -39,12 +39,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/long_subagent_advisor.py\"",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/long_subagent_advisor.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/long_subagent_advisor.py\" || exit 0",
             "timeout": 3
           },
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/agent_route_to_codex.py\"",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/agent_route_to_codex.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/agent_route_to_codex.py\" || exit 0",
             "timeout": 3
           }
         ]
@@ -54,7 +54,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/role_dispatcher_guard.py\"",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/role_dispatcher_guard.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/role_dispatcher_guard.py\" || exit 0",
             "timeout": 3
           }
         ]
@@ -64,7 +64,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/heartbeat_refresh.py\"",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/heartbeat_refresh.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/heartbeat_refresh.py\" || exit 0",
             "timeout": 3
           }
         ]
@@ -76,7 +76,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/edit_failure_rescue.py\"",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/edit_failure_rescue.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/edit_failure_rescue.py\" || exit 0",
             "timeout": 5
           }
         ]
@@ -88,7 +88,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/bg_keepalive_nudge.py\"",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/bg_keepalive_nudge.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/bg_keepalive_nudge.py\" || exit 0",
             "timeout": 3
           }
         ]
@@ -98,7 +98,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/reel_capture.py\"",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/reel_capture.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/reel_capture.py\" || exit 0",
             "timeout": 5
           }
         ]
@@ -109,7 +109,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/pre_compact_science.py\"",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/pre_compact_science.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/pre_compact_science.py\" || exit 0",
             "timeout": 5
           }
         ]
@@ -120,7 +120,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/.venv/bin/python\" \"$(git rev-parse --show-toplevel)/minions/hooks/post_compact_draft.py\"",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/post_compact_draft.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/post_compact_draft.py\" || exit 0",
             "timeout": 10
           }
         ]

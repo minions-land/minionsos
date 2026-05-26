@@ -1200,53 +1200,37 @@ def _bootstrap_coder_graph(workspace: Path) -> None:
 
 
 def _seed_claude_settings(workspace: Path) -> None:
-    """Ensure the role workspace has a .claude/settings.json with project hooks.
+    """Mirror ``MinionsOS/.claude/settings.json`` into the role workspace.
 
-    This makes MinionsOS hooks (PreCompact, PostCompact) portable: they live
-    inside the project, not in the user's global ~/.claude/settings.json.
-    When someone clones MinionsOS, the hooks travel with the repo and apply
-    automatically to Role agent sessions without touching global config.
+    Role workspaces are per-branch git worktrees, so any hook command
+    that resolves paths via ``$(git rev-parse --show-toplevel)`` would
+    land on the worktree path (which has no ``.venv`` and no
+    ``minions/hooks/``) and fail or hang. The canonical settings.json
+    at the MinionsOS root uses a ``MINIONS_ROOT``-anchored gate that the
+    role launcher exports, so a verbatim copy is what we want here:
+    every hook resolves against the real install, every event surface
+    (PreToolUse, PostToolUse, PreCompact/PostCompact) fires.
 
-    Hook commands reference MINIONS_ROOT (which role_launcher sets in the
-    Role's env) so they resolve correctly regardless of install location.
-    The shell expands the env var at hook execution time.
+    Idempotent: skips when the workspace already has its own
+    ``.claude/settings.json``. Non-fatal: if the source is missing
+    (development environment without a checked-in settings.json), logs
+    and returns — the role launches without hooks rather than crashing.
     """
-    claude_dir = workspace / ".claude"
-    settings_path = claude_dir / "settings.json"
+    settings_path = workspace / ".claude" / "settings.json"
     if settings_path.exists():
         return
-    claude_dir.mkdir(parents=True, exist_ok=True)
-    minions_root_str = str(MINIONS_ROOT)
-    pre_compact_cmd = f"python3 {minions_root_str}/minions/hooks/pre_compact_science.py"
-    post_compact_cmd = f"python3 {minions_root_str}/minions/hooks/post_compact_draft.py"
-    settings = {
-        "hooks": {
-            "PreCompact": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": pre_compact_cmd,
-                            "timeout": 5,
-                        }
-                    ]
-                }
-            ],
-            "PostCompact": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": post_compact_cmd,
-                            "timeout": 10,
-                        }
-                    ]
-                }
-            ],
-        }
-    }
+    source = MINIONS_ROOT / ".claude" / "settings.json"
+    if not source.is_file():
+        logger.warning(
+            "_seed_claude_settings: source settings.json missing at %s; "
+            "role workspace at %s will launch without MinionsOS hooks.",
+            source,
+            workspace,
+        )
+        return
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = settings_path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    tmp.write_bytes(source.read_bytes())
     os.replace(tmp, settings_path)
 
 

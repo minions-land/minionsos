@@ -36,6 +36,14 @@ if [ -n "${VIRTUAL_ENV:-}" ] && [ "$VIRTUAL_ENV" != "$ROOT/.venv" ]; then
     unset VIRTUAL_ENV
 fi
 
+# Export MINIONS_ROOT so the Claude/Codex agent process and its hooks
+# resolve `.venv/bin/python` and `minions/hooks/*.py` against the real
+# MinionsOS install — not against `$(git rev-parse --show-toplevel)`,
+# which can drift into the user's outer repo or a per-role git worktree.
+# `.claude/settings.json` reads this var; absence is what disables the
+# hook chain for vanilla Claude sessions launched outside MinionsOS.
+export MINIONS_ROOT="$ROOT"
+
 # ── ANSI colours ──────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'
 BOLD='\033[1m'; RESET='\033[0m'
