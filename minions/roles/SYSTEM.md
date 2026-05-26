@@ -110,6 +110,16 @@ No file writes, no mutating Bash, no `eacn3_submit_*`, no substantive
 Spawn one or more subagents using the host-native mechanism. Each subagent
 prompt must be self-contained (see `MANUAL/domains/subagent-handoff.md`).
 
+Subagent model selection: Haiku alone for trivial lookup/format/narrow Q&A;
+Haiku-wrapped Codex GPT-5.5 xhigh for everything else (default). Do **not**
+dispatch `model: sonnet` unless EITHER (a) a prior Codex relay returned an
+unreachable failure (CODEX_UNAVAILABLE, 5-retry exhausted, persistent timeout)
+and the task can't be split or re-dispatched, OR (b) the task requires Claude
+Code harness-native execution tools (`Read`/`Edit`/`Write`/`SendMessage`/Plan
+mode/`TodoWrite`) **as actions to satisfy the acceptance criterion**. See the
+`dispatcher-discipline` skill for the full rule and the `codex` skill for the
+relay envelope.
+
 **Stage 3 — VERIFY & RESPOND** (main role).
 Read the subagent's return. If it satisfies the plan, commit durable files,
 then emit the EACN response. If not, re-dispatch with narrower scope or

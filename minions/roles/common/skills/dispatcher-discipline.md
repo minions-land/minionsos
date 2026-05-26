@@ -88,6 +88,36 @@ into main is cheaper than dispatching a subagent to summarize it.
 The discipline is about large files and multi-file scans, not about
 avoiding all direct tool use.
 
+## Model selection for dispatched tasks
+
+Picking the model for a dispatched subagent has its own discipline.
+
+| Task shape | Model | Mechanism |
+|---|---|---|
+| Trivial lookup, formatting, narrow Q&A | Haiku | `Agent(model: "haiku")` direct |
+| Everything else (default) | **Codex GPT-5.5 xhigh** wrapped in a Haiku Agent shell | see `~/.claude/skills/codex/SKILL.md` |
+| Sonnet | Only when one of two conditions below holds | `Agent(model: "sonnet")` |
+
+**Sonnet is allowed iff at least one is true:**
+
+1. **Codex unreachable.** A prior Codex relay exhausted retries
+   (CODEX_UNAVAILABLE, 5-retry stream-disconnect, persistent timeout,
+   auth/quota fail) and the task can't be productively split or
+   re-dispatched.
+2. **Task requires Claude Code harness-native execution tools** as
+   actions (not for reading Codex's output). The subagent itself must
+   call `Read` / `Edit` / `Write` / `SendMessage` / Plan mode /
+   `TodoWrite` to satisfy the acceptance criterion. Codex has its own
+   filesystem tools but cannot drive Claude Code's harness ones.
+
+If neither holds, the dispatch goes to Codex (Tier 2). Most Role
+subagent work — analysis, implementation, code review, debugging,
+synthesis — does **not** need Sonnet, because none of it requires
+CC-harness execution tools to satisfy the acceptance criterion. When
+Sonnet IS used, the dispatch prompt should include a
+`SONNET_REASON: <codex-unavailable | needs-harness-tool>` line so the
+choice is auditable in the Reel transcript.
+
 ## How to dispatch — the subagent prompt template
 
 ```
