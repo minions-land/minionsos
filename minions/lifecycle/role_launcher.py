@@ -653,6 +653,17 @@ def _role_env(
         "BASH_DEFAULT_TIMEOUT_MS": "120000",
         "BASH_MAX_TIMEOUT_MS": "240000",
         "CLAUDE_AUTO_BACKGROUND_TASKS": "1",
+        # Root-uid sandbox attestation. Many SSH boxes run as root, and Claude
+        # Code refuses to honor --permission-mode=bypassPermissions (and
+        # --dangerously-skip-permissions) under euid 0 unless IS_SANDBOX=1 is
+        # set as the operator's self-attestation that the host is sandboxed.
+        # Gru gets this for free via minions/bin/gru's GRU_SANDBOX=1 default,
+        # but Role tmux sessions launch with this clean env dict (no inherit),
+        # so without an explicit entry every Role wakeup would crash on a
+        # root-uid host. The default here is "1" because every Role MinionsOS
+        # spawns is permission-bypassed by design — the boundary is enforced
+        # by --allowed-tools + server-side authz, not by the OS prompt.
+        "IS_SANDBOX": "1",
         # Tiered Tool Search for Role processes. Background:
         # - 2026-05-19: ENABLE_TOOL_SEARCH=false was forced because the
         #   dispatch-eval e2e showed Coder thrashing 6+ min on deferred

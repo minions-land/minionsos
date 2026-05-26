@@ -154,7 +154,7 @@ fi
 
 # Author's required Gru invocation defaults. Override with env:
 #   MINIONS_AGENT_HOST=claude|codex  (default: gru.yaml, then codex)
-#   GRU_MODEL=...        (Claude default: claude-opus-4-7; Codex default: CLI profile)
+#   GRU_MODEL=...        (Claude default: claude-opus-4-7[1m]; Codex default: CLI profile)
 #   GRU_EFFORT=...       (default: max)
 #   GRU_SANDBOX=0        (unset IS_SANDBOX; default: 1)
 #   GRU_SKIP_PERMS=0     (omit --dangerously-skip-permissions; default: 1)
@@ -259,7 +259,7 @@ Initial user request: ${PASSTHROUGH_ARGS[*]}"
         "$CODEX_PROMPT"
     )
 else
-    : "${GRU_MODEL:=claude-opus-4-7}"
+    : "${GRU_MODEL:=claude-opus-4-7[1m]}"
     GRU_FLAGS=(--model "$GRU_MODEL" --effort "$GRU_EFFORT")
     if [ "$GRU_SKIP_PERMS" = "1" ]; then
         GRU_FLAGS+=(--dangerously-skip-permissions)

@@ -205,7 +205,7 @@ class TestWhitelistResolver:
 class TestGruConfigModel:
     def test_default_claude_model(self, tmp_path: Path) -> None:
         cfg = load_gru_config(tmp_path / "nonexistent.yaml")
-        assert cfg.claude_model == "claude-opus-4-7"
+        assert cfg.claude_model == "claude-opus-4-7[1m]"
 
     def test_custom_claude_model(self, tmp_path: Path) -> None:
         p = tmp_path / "gru.yaml"

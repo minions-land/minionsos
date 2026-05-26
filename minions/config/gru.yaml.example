@@ -91,11 +91,11 @@ agent_host: claude
 
 # Model for the Noter role. As of v15.19.1, all roles default to Opus for
 # cross-role consistency — Sonnet's self-tangling on long Draft / Book
-# curation sessions outweighed the per-token cost gap. Override to "sonnet"
-# only on short-leaf Noter projects where curation dominates and reasoning
-# depth doesn't matter. Accepts any model alias or full name that the
-# claude CLI understands.
-noter_model: opus
+# curation sessions outweighed the per-token cost gap. The `[1m]` suffix
+# selects the 1M-context variant; bare aliases like `opus` or
+# `claude-opus-4-7` resolve to the 200k window. Override only on short-leaf
+# Noter projects where curation dominates and reasoning depth doesn't matter.
+noter_model: claude-opus-4-7[1m]
 
 # Optional Codex model. Leave null to use the Codex CLI profile/default.
 codex_model:

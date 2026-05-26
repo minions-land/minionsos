@@ -1229,17 +1229,21 @@ class GruConfig(BaseModel):
         ),
     )
     claude_model: str = Field(
-        default="claude-opus-4-7",
-        description="Claude model name passed to the claude CLI (e.g. claude-opus-4-7).",
+        default="claude-opus-4-7[1m]",
+        description=(
+            "Claude model name passed to the claude CLI. The `[1m]` suffix "
+            "selects the 1M-context variant; without it the runtime falls back "
+            "to the 200k window. Use `claude-opus-4-7` for the 200k variant."
+        ),
     )
     noter_model: str = Field(
-        default="opus",
+        default="claude-opus-4-7[1m]",
         description=(
             "Model for the Noter role. As of v15.19.1, all roles default to "
             "Opus for cross-role consistency — Sonnet's self-tangling on long "
-            "Draft sessions outweighed the per-token cost difference. Keep "
-            "Sonnet here only for short-leaf Noter projects where curation "
-            "is the dominant load and reasoning depth is not."
+            "Draft sessions outweighed the per-token cost difference. The "
+            "`[1m]` suffix is required for the 1M-context variant; bare aliases "
+            "like `opus` or `claude-opus-4-7` resolve to the 200k window."
         ),
     )
     agent_host: Literal["claude", "codex"] = Field(
@@ -1278,7 +1282,9 @@ class GruConfig(BaseModel):
     _KNOWN_MODELS: frozenset[str] = frozenset(
         {
             "claude-opus-4-7",
+            "claude-opus-4-7[1m]",
             "claude-sonnet-4-6",
+            "claude-sonnet-4-6[1m]",
             "claude-haiku-4-5-20251001",
         }
     )
