@@ -1,7 +1,7 @@
 {
-  "version": "889bee0",
-  "built_at": "2026-05-25T05:06:10.765023+00:00",
-  "page_count": 155,
+  "version": "96adc0c",
+  "built_at": "2026-05-26T03:30:50.059589+00:00",
+  "page_count": 156,
   "pages": {
     "eacn3_a2a_server": {
       "kind": "tool",
@@ -2983,6 +2983,35 @@
         "mos_reset_context"
       ]
     },
+    "domain-subagent-handoff": {
+      "kind": "domain",
+      "path": "domains/subagent-handoff.md",
+      "domain": "subagent-handoff",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/roles/SYSTEM.md:111",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Subagents (Claude `Task`/`Agent`, `mcp__codex-subagent__codex`) are",
+      "keywords": [
+        "subagent",
+        "handoff",
+        "dispatch",
+        "delegate",
+        "prompt",
+        "self-contained",
+        "agent",
+        "codex",
+        "task"
+      ],
+      "related": [
+        "delegate-heavy-task",
+        "dispatcher-discipline",
+        "mos_reel_get",
+        "pitfall-subagent-boilerplate"
+      ]
+    },
     "domain-visual": {
       "kind": "domain",
       "path": "domains/visual.md",
@@ -3193,6 +3222,9 @@
     ],
     "bridge": [
       "domain-bridge"
+    ],
+    "subagent-handoff": [
+      "domain-subagent-handoff"
     ]
   },
   "by_role": {
@@ -3496,6 +3528,7 @@
       "domain-memory",
       "domain-publish",
       "domain-runtime",
+      "domain-subagent-handoff",
       "eacn3_heartbeat",
       "mos_attach_role",
       "mos_book_audit_walk",
@@ -3549,6 +3582,7 @@
       "pitfall-mcp-cosmetic"
     ],
     "agent": [
+      "domain-subagent-handoff",
       "eacn3_a2a_server",
       "eacn3_await_events",
       "eacn3_claim_agent",
@@ -3621,6 +3655,7 @@
       "eacn3_close_task"
     ],
     "task": [
+      "domain-subagent-handoff",
       "eacn3_close_task",
       "eacn3_confirm_budget",
       "eacn3_create_subtask",
@@ -3960,6 +3995,7 @@
     ],
     "dispatch": [
       "domain-experiments",
+      "domain-subagent-handoff",
       "mos_exp_queue_reconcile"
     ],
     "retry": [
@@ -4066,6 +4102,7 @@
     ],
     "handoff": [
       "domain-publish",
+      "domain-subagent-handoff",
       "mos_publish_to_shared"
     ],
     "cross": [
@@ -4100,6 +4137,7 @@
       "mos_reel_get"
     ],
     "subagent": [
+      "domain-subagent-handoff",
       "mos_reel_get",
       "pitfall-subagent-boilerplate"
     ],
@@ -4107,6 +4145,7 @@
       "mos_reel_get"
     ],
     "codex": [
+      "domain-subagent-handoff",
       "mos_reel_get",
       "pitfall-mcp-cosmetic",
       "pitfall-subagent-boilerplate"
@@ -4414,6 +4453,15 @@
     ],
     "monitor": [
       "domain-runtime"
+    ],
+    "delegate": [
+      "domain-subagent-handoff"
+    ],
+    "prompt": [
+      "domain-subagent-handoff"
+    ],
+    "self-contained": [
+      "domain-subagent-handoff"
     ],
     "visual": [
       "domain-visual"

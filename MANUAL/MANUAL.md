@@ -9,7 +9,7 @@ always in your context. Everything else you fetch on demand via `lookup.py`.**
 |---|---|---|
 | **L0** | This file. Always loaded. | ~700 tokens |
 | **L1** | Domain cards: `MANUAL/domains/<domain>.md`. ~14 files, ~40 lines each. Fetch when you've narrowed to a domain. | ~400 tok each |
-| **L2** | Atomic pages: `MANUAL/tools/<id>.md`, `MANUAL/pitfalls/<id>.md`, `MANUAL/recipes/<id>.md`. Each ≤ 80 lines. Fetch the one page you need. | ~300 tok each |
+| **L2** | Atomic pages: `MANUAL/tools/<id>.md`, `MANUAL/pitfalls/<id>.md`. Each ≤ 80 lines. Fetch the one page you need. | ~300 tok each |
 
 **The lookup CLI** (use this exactly like `ToolSearch`):
 ```bash
@@ -50,6 +50,7 @@ Every page carries `source: <file>:<line>`. If the page isn't enough, read sourc
 | `debug` | `mos_issue_report` + log triage |
 | `bridge` | (Gru) cross-project read |
 | `evolution` | (Gru) SPLIT / MERGE / DISMISS |
+| `subagent-handoff` | What every spawned subagent prompt must carry (5 required fields) |
 
 ## Two non-negotiable rules
 
