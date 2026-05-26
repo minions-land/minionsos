@@ -30,8 +30,10 @@ import fcntl
 import json
 import os
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
+
+UTC = timezone.utc  # py3.10 compat (datetime.UTC is 3.11+)
 
 CAPTURE_TOOLS = {"Agent", "Task", "mcp__codex-subagent__codex"}
 
