@@ -43,6 +43,27 @@ lookup.py --id mos_reel_get            # drill into a subagent trace
 - `mos_book_promote_verified` only picks Draft nodes (insight / method / result)
   with `support_status=verified` AND ≥ 2 `supports` edges AND age ≥ 7 days.
 
+## Noter contract (L1 Draft)
+
+Noter's **primary mode** is `mos_draft_annotate` (update another role's node) and
+`mos_draft_append(edges=[...])` (close motif patterns across roles).
+
+Creating new first-class nodes (`mos_draft_append(nodes=[...])`) is **rare** and
+requires `metadata.motif_kind` set to one of `triangle`, `star`, `cycle`, or `close`.
+`motif_kind="none"` signals the node should have been an annotate call instead.
+
+Motif kinds:
+- **triangle** — A→B→C→A closing loop (e.g. theory→experiment→result→theory)
+- **star** — hub with ≥3 independent supports from different roles
+- **cycle** — reasoning chain that closes back on a decision
+- **close** — explicitly resolves a `PENDING-*` plan node
+
+`_is_motif_authorized(node)` returns True when `metadata.ratified_by=="ethics"` OR
+`motif_kind != "none"`. Used as a gate in `mos_book_ratify` (TODO: `[[mos_book_ratify]]`).
+
+ANTI-PATTERN: do not mirror another role's node with `author_role="noter"`. Use
+`mos_draft_annotate` to update their node's `support_status` / `evidence_tag` / `confidence`.
+
 ## Project_37596 lessons
 
 - Subagents producing 18 contradiction verdicts in one shot wrote boilerplate

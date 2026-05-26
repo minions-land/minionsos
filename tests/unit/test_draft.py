@@ -397,3 +397,99 @@ class TestLoadDraftRobustness:
         assert result["root_question"] == "Q"
         assert len(result["nodes"]) == 1
         assert result["nodes"][0]["id"] == "H-1"
+
+
+class TestNoterMotifContract:
+    """Tests for the soft-enforcement noter motif contract (Stream 2)."""
+
+    def test_noter_result_node_requires_motif_kind(self, tmp_path: Path, caplog: pytest.LogCaptureFixture):
+        """noter appending a result node without motif_kind logs warning + tags metadata."""
+        port = 9999
+        draft_path = draft._draft_path(port)
+        draft_path.parent.mkdir(parents=True, exist_ok=True)
+        draft_path.write_text(
+            json.dumps({"project_port": port, "root_question": "", "nodes": [], "edges": []}),
+            encoding="utf-8",
+        )
+
+        import importlib, sys, os
+        env_backup = os.environ.copy()
+        os.environ["MINIONS_PORT"] = str(port)
+        os.environ["MINIONS_ROLE"] = "noter"
+        try:
+            with caplog.at_level(logging.WARNING, logger="minions.tools.draft"):
+                result = draft.mos_draft_append(
+                    nodes=[{"id": "R-1", "type": "result", "text": "some result", "author_role": "noter"}],
+                    edges=[],
+                )
+        finally:
+            os.environ.clear()
+            os.environ.update(env_backup)
+
+        data = draft._load_draft(port)
+        node = next(n for n in data["nodes"] if n["id"] == "R-1")
+        assert node.get("metadata", {}).get("warning") == "noter_node_without_motif_kind"
+        assert any("motif_kind" in rec.message for rec in caplog.records)
+
+    def test_noter_edge_no_motif_required(self, tmp_path: Path, caplog: pytest.LogCaptureFixture):
+        """noter appending only edges (no new nodes) produces no motif warning."""
+        port = 9999
+        draft_path = draft._draft_path(port)
+        draft_path.parent.mkdir(parents=True, exist_ok=True)
+        draft_path.write_text(
+            json.dumps({
+                "project_port": port, "root_question": "", "edges": [],
+                "nodes": [
+                    {"id": "H-1", "type": "hypothesis", "text": "h", "author_role": "coder"},
+                    {"id": "R-1", "type": "result", "text": "r", "author_role": "coder"},
+                ],
+            }),
+            encoding="utf-8",
+        )
+
+        import os
+        env_backup = os.environ.copy()
+        os.environ["MINIONS_PORT"] = str(port)
+        os.environ["MINIONS_ROLE"] = "noter"
+        try:
+            with caplog.at_level(logging.WARNING, logger="minions.tools.draft"):
+                draft.mos_draft_append(
+                    nodes=[],
+                    edges=[{"from_id": "R-1", "to_id": "H-1", "relation": "supports"}],
+                )
+        finally:
+            os.environ.clear()
+            os.environ.update(env_backup)
+
+        motif_warnings = [r for r in caplog.records if "motif_kind" in r.message]
+        assert motif_warnings == [], f"Unexpected motif warnings: {motif_warnings}"
+
+    def test_noter_annotate_path_preferred(self):
+        """noter SYSTEM.md mentions mos_draft_annotate as the preferred operation."""
+        import pathlib
+        system_md = pathlib.Path(__file__).parent.parent.parent / "minions" / "roles" / "noter" / "SYSTEM.md"
+        text = system_md.read_text(encoding="utf-8")
+        assert "mos_draft_annotate" in text, "noter SYSTEM.md must reference mos_draft_annotate"
+        assert "ANTI-PATTERN" in text, "noter SYSTEM.md must contain ANTI-PATTERN section"
+
+    def test_existing_motif_less_nodes_load(self, tmp_path: Path):
+        """Backwards compat: draft.json with nodes that have no motif_kind loads cleanly."""
+        port = 9999
+        draft_path = draft._draft_path(port)
+        draft_path.parent.mkdir(parents=True, exist_ok=True)
+        old_draft = {
+            "project_port": port,
+            "root_question": "Q",
+            "nodes": [
+                {"id": "H-1", "type": "hypothesis", "text": "h", "author_role": "coder"},
+                {"id": "R-1", "type": "result", "text": "r", "author_role": "coder"},
+            ],
+            "edges": [],
+        }
+        draft_path.write_text(json.dumps(old_draft), encoding="utf-8")
+
+        data = draft._load_draft(port)
+        assert len(data["nodes"]) == 2
+        # No motif_kind field — should not raise, should not inject a warning field
+        for node in data["nodes"]:
+            assert "warning" not in node.get("metadata", {})

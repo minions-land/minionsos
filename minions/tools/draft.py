@@ -105,6 +105,13 @@ DECAY_HALF_LIFE_DEFAULT = 60.0
 # Floor — a stale node never decays below 5% of its stored confidence.
 DECAY_FLOOR = 0.05
 
+# Motif kinds for Noter-authored integration claims.
+# "none" means the node is NOT a motif claim (prefer mos_draft_annotate instead).
+MOTIF_KINDS = ("triangle", "star", "cycle", "close", "none")
+
+# Node types for which Noter must supply motif_kind (soft enforcement).
+_NOTER_MOTIF_REQUIRED_TYPES = frozenset({"result", "decision", "hypothesis", "insight"})
+
 BOOK_STATUS_HOOK_STATUSES = frozenset({"verified", "refuted", "dead_end"})
 _BOOK_STATUS_EVENT_TARGET: ContextVar[dict[str, Any] | None] = ContextVar(
     "_BOOK_STATUS_EVENT_TARGET",
@@ -187,6 +194,25 @@ def _env_reel_context() -> str | None:
     if not role or not session:
         return None
     return f"{role}/{session}"
+
+
+def _is_motif_authorized(node: dict[str, Any]) -> bool:
+    """Return True if a noter node is authorized to exist as a first-class claim.
+
+    A noter node is authorized when:
+    - Ethics has ratified it (metadata.ratified_by == "ethics"), OR
+    - It is explicitly NOT a motif claim (motif_kind == "none" means prefer annotate,
+      but the node is still allowed — soft enforcement only).
+
+    This is used by Stream 3's mos_book_ratify gate. Nodes without ratification
+    are still written to Draft; this helper signals whether Book promotion is allowed.
+    """
+    meta = node.get("metadata") or {}
+    if meta.get("ratified_by") == "ethics":
+        return True
+    motif_kind = meta.get("motif_kind", "none")
+    # Any non-"none" motif kind is a legitimate integration claim (pending Ethics ratification)
+    return motif_kind != "none"
 
 
 def _load_draft(port: int) -> dict[str, Any]:
@@ -526,6 +552,26 @@ def mos_draft_append(
             reel_ctx = _env_reel_context()
             if reel_ctx:
                 node_metadata["reel_ref"] = reel_ctx
+
+        # Motif contract enforcement for Noter nodes (soft — warnings only, no reject).
+        # Existing nodes without motif_kind are treated as motif_kind="none" for read purposes.
+        author_role = node.get("author_role", "") or _env_role()
+        if author_role == "noter" and ntype in _NOTER_MOTIF_REQUIRED_TYPES:
+            motif_kind = node_metadata.get("motif_kind")
+            if not motif_kind:
+                logger.warning(
+                    "noter appending %s node '%s' without motif_kind — "
+                    "prefer mos_draft_annotate to update existing nodes instead",
+                    ntype,
+                    node.get("id", "<new>"),
+                )
+                node_metadata["warning"] = "noter_node_without_motif_kind"
+            elif motif_kind == "none":
+                logger.warning(
+                    "noter appending %s node with motif_kind='none' — "
+                    "mos_draft_annotate would be preferred for status updates",
+                    ntype,
+                )
 
         new_node = {
             "id": node_id,

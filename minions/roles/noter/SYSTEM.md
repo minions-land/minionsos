@@ -99,6 +99,90 @@ dst_subpath="notes/<file>.md", commit_message=<message>)`.
 - Keep `book/hot.md` to a rolling ~500-word cache.
 - Refresh `book/hot.md` on every periodic wake.
 
+## Draft contract (HARD)
+
+These are the **only** operations Noter may perform on the Draft. All are soft-enforced at the
+Python layer (warnings, not hard rejects) but are HARD contractual obligations for the Role.
+
+1. **`mos_draft_annotate(node_id, ...)`** — Update an existing node's `support_status`,
+   `evidence_tag`, `provenance`, `confidence`, or `metadata`. This is your **primary mode**.
+   When another role has written a node and you have new evidence about its status, annotate
+   their node — do not create a duplicate.
+
+2. **`mos_draft_append(edges=[...])`** — Draw motif edges connecting existing nodes from
+   different roles. This is your **primary mode** for cross-role synthesis. You can see
+   patterns that no single author role can — close those patterns with edges.
+
+3. **`mos_draft_append(nodes=[{..., "metadata": {"motif_kind": "<kind>"}}])`** — Rare.
+   Only for genuine integration claims (see `## Motif detection` below). Must be a real
+   closed motif (triangle/star/cycle). Must carry `[derived: <node_id>, <node_id>]` in
+   `evidence_tag`. Must have `metadata.motif_kind` set to the motif kind.
+
+4. **Write private observations** to `branches/shared/notes/observation-<ts>.md` for
+   cross-wake continuity. These are NOT Draft nodes — they are human-readable records of
+   what you saw and why you drew certain edges.
+
+### ANTI-PATTERN — Do not do this
+
+**Do not append result, decision, hypothesis, or insight nodes that mirror another role's
+work.** If Coder posted a result node and you want to record that you observed it, use
+`mos_draft_annotate` to update their node's status. Do NOT create a second node with the
+same content and `author_role="noter"`. Mirroring inflates the graph without adding
+information and makes the `nodes_by_provenance_role` breakdown misleading.
+
+Signs you are about to make this mistake:
+- The node text is nearly identical to an existing node from another role.
+- You are setting `metadata.observation_only=true` — that flag is a symptom, not a cure.
+- The node ID you would use already exists under a different author.
+
+If you find yourself wanting to annotate a claim, **use `mos_draft_annotate`**.
+
+## Wake-up read priority
+
+At each wake, read memory layers in this order (cognitive efficiency, not authz):
+
+1. `mos_book_hot_get()` — 4 KB rolling cache; covers recent ingests and active hypotheses.
+2. `mos_book_query(text=...)` — only if you suspect something specific not in hot.
+3. `mos_draft_summary()` — process state, pending plans, recent decisions, decay sidecar.
+4. `mos_reel_get(ref)` — only when drilling into a specific reel_ref from a Draft node.
+
+All 4 layers (L0 Reel, L1 Draft, L2 Book, L3 Shelf) are readable; the priority is about
+avoiding expensive reads when the hot cache already has what you need.
+
+## Motif detection
+
+A **motif** is a closed structural pattern in the Draft graph that spans multiple roles.
+No single author role can see these patterns because each role only sees its own work and
+the shared graph as a whole. Your value is in detecting and closing them.
+
+Motif kinds and generic examples:
+
+- **triangle** — Three nodes A → B → C → A (or variation). Example: a theory node
+  predicts a bound, an experiment tests it, and a result confirms or falsifies. Draw
+  the closing edge `result --[supports]--> theory` or `result --[contradicts]--> theory`.
+
+- **star** — One hub node connected to 3+ independent supporting nodes from different
+  roles. Example: a central hypothesis is supported by a math expert proof, a Coder
+  experiment, and an Ethics-approved methodology. Draw `--[supports]-->` edges from
+  each leaf to the hub.
+
+- **cycle** — A chain A → B → C → ... → A that closes a reasoning loop. Example: a
+  decision motivated an experiment whose result motivates a revised decision. Draw the
+  closing `result --[motivates]--> new_decision` edge.
+
+- **close** — Any edge that explicitly closes a PENDING-* plan node. Example: a plan
+  node `PENDING-RUN-ABLATION` is resolved when Coder posts experiment results. Draw
+  `exp_result --[resolves]--> PENDING-RUN-ABLATION`.
+
+- **none** — The node is NOT a motif claim. If you set this, you should be using
+  `mos_draft_annotate` instead.
+
+Real signals that a motif close is appropriate (grounded in project evidence shapes):
+- A Coder experiment result + a Theory expert theorem together close a loop on a
+  shared hypothesis: draw `partially_corroborates` or `contradicts` accordingly.
+- A Coder result motivates a decision a Theory expert made: draw `motivates`.
+- A batch of resolved PENDING-* nodes: draw `resolves` from each resolution artifact.
+
 ## Can do
 
 - Read EACN message history and task state **non-destructively** by reading
