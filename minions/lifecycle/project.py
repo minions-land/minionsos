@@ -1164,9 +1164,20 @@ def _bootstrap_coder_graph(workspace: Path) -> None:
     ``_seed_claude_settings`` seeds hooks without consulting any LLM.
 
     Idempotent: skips if ``.codegraph/`` already exists. Non-fatal: a
-    failed bootstrap warns and continues — the launcher's bootstrap
-    instruction tells the operator how to recover, and Coder can still
-    do everything else (write code, run experiments) without the graph.
+    failed bootstrap warns, drops a marker into
+    ``<workspace>/.codegraph-bootstrap.error`` so the operator notices,
+    and continues — the launcher's bootstrap instruction tells the
+    operator how to recover, and Coder can still do everything else
+    (write code, run experiments) without the graph.
+
+    By default the actual ``codegraph init -i`` invocation runs on a
+    daemon thread so ``register_role("coder")`` returns immediately.
+    On a real codebase this command can take 30-60 s, which would
+    otherwise block ``mos_spawn_role(role="coder")``. The codegraph
+    MCP launcher already handles "index missing" gracefully (warns,
+    waits for the file watcher to populate), so backgrounding is
+    safe. Tests / dev-loops that need the index to be ready before
+    proceeding can opt in via ``MINIONS_BOOTSTRAP_CODER_GRAPH_SYNC=1``.
     """
     if (workspace / ".codegraph").exists():
         return
@@ -1178,7 +1189,44 @@ def _bootstrap_coder_graph(workspace: Path) -> None:
             cg_bin,
         )
         return
-    logger.info("Bootstrapping Coder graph at %s (codegraph init -i)", workspace)
+
+    sync = os.environ.get("MINIONS_BOOTSTRAP_CODER_GRAPH_SYNC") == "1"
+    if sync:
+        _run_codegraph_init(cg_bin, workspace)
+        return
+
+    import threading
+
+    def _run() -> None:
+        try:
+            _run_codegraph_init(cg_bin, workspace)
+        except Exception as exc:  # daemon thread — never propagate
+            logger.warning(
+                "_bootstrap_coder_graph: background init failed for %s: %s",
+                workspace,
+                exc,
+            )
+
+    threading.Thread(
+        target=_run,
+        name=f"codegraph-init-{workspace.name}",
+        daemon=True,
+    ).start()
+    logger.info(
+        "Bootstrapping Coder graph in background for %s (codegraph init -i; non-blocking)",
+        workspace,
+    )
+
+
+def _run_codegraph_init(cg_bin: Path, workspace: Path) -> None:
+    """Execute ``codegraph init -i`` synchronously and log the outcome.
+
+    Separated from :func:`_bootstrap_coder_graph` so the sync vs daemon-
+    thread choice and the actual subprocess work are independently
+    testable. Drops an error-marker file on failure so the operator can
+    spot a missed bootstrap without scraping logs.
+    """
+    logger.info("Running codegraph init -i at %s", workspace)
     result = subprocess.run(
         [str(cg_bin), "init", "-i"],
         cwd=str(workspace),
@@ -1195,6 +1243,15 @@ def _bootstrap_coder_graph(workspace: Path) -> None:
             result.returncode,
             result.stderr.strip()[:500],
         )
+        marker = workspace / ".codegraph-bootstrap.error"
+        from contextlib import suppress
+
+        with suppress(OSError):
+            marker.write_text(
+                f"codegraph init -i exit={result.returncode}\n"
+                f"stderr:\n{result.stderr.strip()[:2000]}\n",
+                encoding="utf-8",
+            )
         return
     logger.info("Coder graph bootstrapped: %s/.codegraph/", workspace)
 
@@ -1382,6 +1439,88 @@ def _seed_draft_bootstrap(
     tmp.write_text(json.dumps(draft, indent=2, ensure_ascii=False), encoding="utf-8")
     os.replace(tmp, draft_path)
     logger.info("Seeded Draft bootstrap node B-000 for port %d", port)
+
+
+def _bootstrap_fixed_roles(
+    port: int,
+    mission_profile: object,
+    store: StateStore,
+) -> list[tuple[str, str]]:
+    """Spawn the profile-active fixed roles in parallel.
+
+    Without this, all fixed roles wait for the live Gru process to issue
+    a serial sequence of ``mos_spawn_role`` MCP calls — each call is one
+    Opus 4.7 max-effort turn (~60-90s), so for the default
+    ``scientific-paper`` profile (noter+coder+ethics) the team takes
+    ~5 min to come online after ``project_create`` returns. Pre-spawning
+    in parallel collapses that to a single ~30-60s wave (all three tmux
+    sessions launch concurrently and the only real serialization is the
+    file-lock on ``projects.json`` for ``upsert_role``).
+
+    Mechanics:
+
+    - Selected roles = ``BOOTSTRAP_ROLES`` ∩ ``mission_profile.roles_active``.
+      A profile that omits a fixed role (e.g. ``hle-answer`` has no
+      ``noter``) skips it; a profile that adds one beyond the bootstrap
+      set still needs Gru's deliberation to spawn it.
+    - Each role's ``register_role`` call serializes the store mutation
+      via the existing file-lock; the EACN3 registration HTTP and tmux
+      spawn run concurrently.
+    - Per-role failures are logged and recorded in the return value but
+      do NOT abort ``project_create``. The operator can re-spawn a
+      missing role with ``mos role spawn <port> <role>`` (Gru's normal
+      respawn path).
+
+    Returns a list of ``(role_name, "ok"|"<error>")`` tuples for the
+    caller to log.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    from minions.lifecycle.role import BOOTSTRAP_ROLES, register_role
+
+    profile_active = set(getattr(mission_profile, "roles_active", ()))
+    selected = sorted(BOOTSTRAP_ROLES & profile_active)
+    if not selected:
+        logger.info(
+            "_bootstrap_fixed_roles: no fixed roles to pre-spawn for port=%d "
+            "(profile.roles_active=%s)",
+            port,
+            sorted(profile_active),
+        )
+        return []
+
+    logger.info(
+        "_bootstrap_fixed_roles: pre-spawning roles=%s for port=%d",
+        selected,
+        port,
+    )
+
+    def _spawn_one(role_name: str) -> tuple[str, str]:
+        try:
+            register_role(project_port=port, role=role_name, store=store)
+            return role_name, "ok"
+        except Exception as exc:
+            logger.warning(
+                "_bootstrap_fixed_roles: role=%r port=%d spawn failed (non-fatal): %s",
+                role_name,
+                port,
+                exc,
+            )
+            return role_name, str(exc)
+
+    results: list[tuple[str, str]] = []
+    # max_workers tracks `selected` so a profile with more bootstrap
+    # roles in the future scales without code change.
+    with ThreadPoolExecutor(max_workers=len(selected), thread_name_prefix="boot") as pool:
+        futures = [pool.submit(_spawn_one, r) for r in selected]
+        for fut in as_completed(futures):
+            results.append(fut.result())
+    logger.info(
+        "_bootstrap_fixed_roles: port=%d done results=%s",
+        port,
+        results,
+    )
+    return results
 
 
 def project_create(
@@ -1605,6 +1744,21 @@ def project_create(
 
     # Register in projects.json.
     _store.add_project(entry)
+
+    # Pre-spawn the profile-active fixed roles (noter / coder / ethics for
+    # `scientific-paper`) in parallel. Without this, the live Gru process
+    # has to issue a serial sequence of `mos_spawn_role` MCP calls — each
+    # ~60-90s of Opus 4.7 deliberation — pushing the team's first useful
+    # cycle ~5 min after project_create returns. Failures are recorded
+    # but non-fatal; Gru can respawn anything missing.
+    try:
+        _bootstrap_fixed_roles(port, mission_profile, _store)
+    except Exception as exc:  # paranoid catch — function is non-fatal by design
+        logger.warning(
+            "project_create: fixed-role bootstrap raised (non-fatal); "
+            "Gru will spawn the team via mos_spawn_role. error=%s",
+            exc,
+        )
 
     logger.info("project_create done: port=%d pid=%d", port, proc.pid)
     return entry

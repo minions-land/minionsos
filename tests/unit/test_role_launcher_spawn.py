@@ -218,3 +218,113 @@ def test_send_keys_runs_after_wait_for_repl_ready() -> None:
         f"_wait_for_repl_ready must run before any send-keys; got order {call_order}"
     )
     assert "send-keys" in call_order, "send-keys must still run after the wait"
+
+
+def test_spawn_tmux_returns_before_prompt_delivery_completes(tmp_path: Path) -> None:
+    """`_spawn_tmux` must not block on `_tmux_send_initial_prompt`.
+
+    The full prompt delivery sequence (poll-until-REPL-ready up to 30 s
+    + paste + commit + retry up to 3 attempts × 5 s activity check)
+    can cost ~47 s of wall-clock per role. With Gru spawning ~7 roles
+    at project bootstrap, that's ~5 min of pure synchronization. C
+    moves delivery to a daemon thread so the launcher returns as soon
+    as the tmux session is alive and the prompt is *queued*.
+
+    This test simulates a slow REPL-ready (5 s wait) and asserts the
+    caller returns within ~50 ms.
+    """
+    import threading
+    import time
+
+    from minions.lifecycle import role_launcher
+
+    delivery_started = threading.Event()
+    delivery_done = threading.Event()
+
+    def fake_run(argv, **_kw):
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = b""
+        return result
+
+    def slow_send(_session_name, _prompt):
+        delivery_started.set()
+        time.sleep(0.5)  # simulate slow REPL warmup
+        delivery_done.set()
+
+    log_path = tmp_path / "logs" / "role-coder.log"
+    with (
+        patch.object(role_launcher.subprocess, "run", side_effect=fake_run),
+        patch.object(role_launcher, "_tmux_send_initial_prompt", side_effect=slow_send),
+        # Default = async (no env var); explicit del to be defensive.
+        patch.dict("os.environ", {}, clear=False),
+    ):
+        # Make sure sync override is OFF for this test.
+        import os
+
+        os.environ.pop("MINIONS_ROLE_LAUNCHER_SYNC", None)
+
+        t0 = time.monotonic()
+        role_launcher._spawn_tmux(
+            session_name="mos-12345-coder",
+            cwd=tmp_path,
+            env={},
+            argv=["claude"],
+            initial_prompt="hi",
+            log_path=log_path,
+        )
+        elapsed = time.monotonic() - t0
+
+    # Caller must have returned WAY before the slow_send 0.5s sleep finished.
+    assert elapsed < 0.2, (
+        f"_spawn_tmux blocked on prompt delivery; elapsed={elapsed:.3f}s. "
+        "C-fix is for it to return as soon as the tmux session is alive."
+    )
+    # And the daemon thread must actually deliver eventually.
+    assert delivery_started.wait(timeout=2.0), "delivery thread never started"
+    assert delivery_done.wait(timeout=2.0), "delivery thread never finished"
+
+
+def test_spawn_tmux_blocks_on_delivery_when_sync_env_set(tmp_path: Path) -> None:
+    """Tests that need synchronous delivery can opt in via the env switch.
+
+    The env-gated sync path preserves the contract for any test that
+    previously assumed `_spawn_tmux` had finished injecting the prompt
+    by the time it returned.
+    """
+    import os
+    import time
+
+    from minions.lifecycle import role_launcher
+
+    def fake_run(argv, **_kw):
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = b""
+        return result
+
+    def slow_send(_session_name, _prompt):
+        time.sleep(0.3)
+
+    log_path = tmp_path / "logs" / "role-coder.log"
+    with (
+        patch.object(role_launcher.subprocess, "run", side_effect=fake_run),
+        patch.object(role_launcher, "_tmux_send_initial_prompt", side_effect=slow_send),
+        patch.dict(os.environ, {"MINIONS_ROLE_LAUNCHER_SYNC": "1"}),
+    ):
+        t0 = time.monotonic()
+        role_launcher._spawn_tmux(
+            session_name="mos-12345-coder",
+            cwd=tmp_path,
+            env={},
+            argv=["claude"],
+            initial_prompt="hi",
+            log_path=log_path,
+        )
+        elapsed = time.monotonic() - t0
+
+    # In sync mode the caller waits for delivery (~0.3 s).
+    assert elapsed >= 0.25, (
+        f"sync mode should block on delivery; elapsed={elapsed:.3f}s "
+        "(expected ≥0.25s)"
+    )

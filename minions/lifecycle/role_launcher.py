@@ -382,9 +382,42 @@ def _spawn_tmux(
         )
 
     # Give claude a moment to come up, then deliver the initial prompt.
-    # We send the prompt as a single block followed by Enter so claude reads
-    # it as the first user message.
-    _tmux_send_initial_prompt(session_name, initial_prompt)
+    # The delivery (poll-until-REPL-ready up to 30s + paste + commit + retry
+    # up to 3 attempts x 5s activity check) costs up to ~47s of wall-clock
+    # per role. With Gru spawning ~7 roles at project bootstrap, that's
+    # ~5 min of pure synchronization. Move the whole delivery to a daemon
+    # thread so the launcher returns as soon as the tmux session is alive
+    # and the prompt is *queued*, rather than after it's been delivered.
+    #
+    # Roles already tolerate slow first-prompt delivery — they wake up
+    # when the prompt actually lands, not when launch_role_process
+    # returns. The Claude Code REPL itself buffers keystrokes safely.
+    #
+    # Tests that need to assert delivery completed can opt in by setting
+    # ``MINIONS_ROLE_LAUNCHER_SYNC=1`` (the default-off env switch
+    # preserves the test_role_register_invoke / test_bootstrap_seed
+    # contracts that previously assumed sync delivery).
+    sync = os.environ.get("MINIONS_ROLE_LAUNCHER_SYNC") == "1"
+    if sync:
+        _tmux_send_initial_prompt(session_name, initial_prompt)
+    else:
+        import threading
+
+        def _deliver() -> None:
+            try:
+                _tmux_send_initial_prompt(session_name, initial_prompt)
+            except Exception as exc:  # daemon thread — never propagate
+                logger.warning(
+                    "_spawn_tmux: background prompt delivery failed for %s: %s",
+                    session_name,
+                    exc,
+                )
+
+        threading.Thread(
+            target=_deliver,
+            name=f"role-launcher-deliver-{session_name}",
+            daemon=True,
+        ).start()
 
 
 # U+276F HEAVY RIGHT-POINTING ANGLE QUOTATION MARK ORNAMENT — this is the
