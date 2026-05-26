@@ -32,13 +32,19 @@ if [[ -z "$PORT" ]]; then
     exit 1
 fi
 
-GRAPH_PATH="$REPO_ROOT/project_${PORT}/branches/shared/shelf/shelf.json"
+ROLE="${MINIONS_ROLE_NAME:-}"
+if [[ -z "$ROLE" ]]; then
+    echo "graphify launcher: MINIONS_ROLE_NAME must be set." >&2
+    echo "Each Role gets its own per-role graphify workspace." >&2
+    echo "Example: MINIONS_ROLE_NAME=coder MINIONS_PROJECT_PORT=37596 ./launcher.sh" >&2
+    exit 1
+fi
+
+GRAPH_PATH="$REPO_ROOT/project_${PORT}/branches/${ROLE}/graphify-out/graph.json"
 mkdir -p "$(dirname "$GRAPH_PATH")"
 
 if [[ ! -s "$GRAPH_PATH" ]]; then
-    cat > "$GRAPH_PATH" <<'JSON'
-{"directed": true, "graph": {}, "nodes": [], "links": [], "communities": {}}
-JSON
+    printf '{"directed": true, "graph": {}, "nodes": [], "links": [], "communities": {}}\n' > "$GRAPH_PATH"
 fi
 
 exec "$VENV_PY" -m graphify.serve "$GRAPH_PATH"

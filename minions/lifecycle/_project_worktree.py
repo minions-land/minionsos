@@ -46,7 +46,6 @@ SHARED_SUBDIRS = (
     "handoffs",
     "governance",
     "book",
-    "shelf",
 )
 SHARED_README = """\
 # Project shared worktree

@@ -1,30 +1,26 @@
 # mcp-servers/graphify
 
-Per-project graphify (project-local Shelf graph — L3 structural index) for MinionsOS.
+Per-role graphify (optional structural graph — formerly L3 Shelf) for MinionsOS.
 
 ## Purpose
 
-Bottom-up structural index over a project's `branches/shared/{book,notes,ethics,exp}/`
-artifacts. Complements the Draft (L1 — process memory) and the
-Book (L2 — compiled product memory) by giving every Role a queryable
-graph of cross-document relationships, god-nodes, and communities.
+Structural index over a role's private workspace artifacts. Each Role that
+wants graph-assisted retrieval runs its own graphify instance pointing at its
+own `branches/{role}/graphify-out/graph.json`. This replaces the previous
+project-level shared Shelf (`branches/shared/shelf/shelf.json`), which was
+removed in the Memory V2 refactor (2026-05).
 
-The third-party CLI is still called `graphify`; the MinionsOS-side
-concept it produces is the project's **Shelf graph**, written to
-`branches/shared/shelf/shelf.json`.
-
-See dev-log entry `dev-log/2026-05.md` → "Book pattern (L2) + Shelf (L3) phased plan".
+The third-party CLI is still called `graphify`; MinionsOS wires it as a
+per-role optional MCP server.
 
 ## Lifecycle
 
-- **Build**: Noter's periodic wake (`mos_noter_wait`) calls `extract.py`
-  if any source file under `branches/shared/{book,notes,ethics,exp}/`
-  is newer than the existing `shelf.json`. Extract is gated behind a
-  5-minute subprocess timeout.
-- **Serve**: `.mcp.json` registers `graphify` as a stdio MCP server
-  pointing at `launcher.sh`. The launcher resolves
-  `project_${MINIONS_PROJECT_PORT}/branches/shared/shelf/shelf.json`
-  and execs `python -m graphify.serve` from the local `.venv`.
+- **Build**: Roles build their own graph on demand (e.g. via `graphify extract`)
+  in their own branch workspace. No shared cron; no Noter involvement.
+- **Serve**: `.mcp.json` registers `graphify` as a stdio MCP server pointing
+  at `launcher.sh`. The launcher requires both `MINIONS_PROJECT_PORT` and
+  `MINIONS_ROLE_NAME` env vars and resolves:
+  `project_${PORT}/branches/${ROLE}/graphify-out/graph.json`.
 
 ## Setup (one-time)
 
@@ -40,25 +36,15 @@ heavy tree-sitter dependency tree does not pollute MinionsOS deps.
 
 ## MCP tools exposed
 
-Read-only, whitelisted for every main role:
+Read-only, whitelisted for all main roles **except** Noter:
 `query_graph`, `get_node`, `get_neighbors`, `get_community`,
 `god_nodes`, `graph_stats`, `shortest_path`.
 
 Roles see them as `mcp__graphify__<name>`. The whitelist is in
-`minions/config/__init__.py:_GRAPHIFY_READ_TOOLS`.
-
-## Cost
-
-- Extract uses `--backend claude-cli` → routes through the host Claude
-  Code session. $0 in API spend; counts against the same context budget
-  as the Role that triggered it. Noter only triggers when shared/
-  artifacts have actually changed.
-- Serve is cheap stdio I/O.
+`minions/config/__init__.py`.
 
 ## Non-goals
 
-- No write-back to `shelf.json` from MCP — only Noter rebuilds.
-- No cross-project graph at this layer (the global L3 Shelf at
-  `~/.minionsos/shelf.json` is built by `mos_shelf_register` aggregating
-  per-project graphs).
-- No `graphify prs` integration (deferred to Phase 8 / review-scope decider).
+- No shared/global Shelf — each role's graph is private to that role.
+- No automatic extract on Noter wake — `extract.py` has been deleted.
+- No cross-project graph at this layer.

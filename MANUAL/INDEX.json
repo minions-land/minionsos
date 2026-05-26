@@ -2220,13 +2220,11 @@
       "kind": "tool",
       "path": "tools/mos_shelf_query.md",
       "domain": "memory",
-      "auth": [
-        "*"
-      ],
+      "auth": [],
       "source": "minions/tools/mcp/memory_tools.py:367",
       "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "status": "deprecated",
+      "summary": "Deprecated (Memory V2 2026-05): project-level Shelf removed. Use per-role graphify MCP tools instead.",
       "keywords": [],
       "related": []
     },
@@ -2234,13 +2232,11 @@
       "kind": "tool",
       "path": "tools/mos_shelf_register.md",
       "domain": "memory",
-      "auth": [
-        "*"
-      ],
+      "auth": [],
       "source": "minions/tools/mcp/memory_tools.py:360",
       "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "status": "deprecated",
+      "summary": "Deprecated (Memory V2 2026-05): project-level Shelf removed. Per-role graphify instances have no register step.",
       "keywords": [],
       "related": []
     },
@@ -2248,13 +2244,11 @@
       "kind": "tool",
       "path": "tools/mos_shelf_shared_concepts.md",
       "domain": "memory",
-      "auth": [
-        "*"
-      ],
+      "auth": [],
       "source": "minions/tools/mcp/memory_tools.py:374",
       "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "status": "deprecated",
+      "summary": "Deprecated (Memory V2 2026-05): project-level Shelf removed. No shared concept index at this layer.",
       "keywords": [],
       "related": []
     },
@@ -2895,7 +2889,6 @@
       "keywords": [
         "draft",
         "book",
-        "shelf",
         "reel",
         "memory",
         "hot",

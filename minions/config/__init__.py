@@ -168,12 +168,13 @@ _REEL_TOOLS = [
     "mos_reel_window",
 ]
 
-# Read-only graphify MCP tools — Shelf (L3) primitives over branches/shared/.
-# ``graphify`` is the underlying third-party Python library that backs the Shelf
-# layer; the package keyword and tool prefix stay ``graphify`` deliberately to
-# preserve the upstream import path. Built by Noter periodic, served by
-# mcp-servers/graphify/launcher.sh. Whitelisted universally because every read
-# is non-destructive; Noter is the only writer.
+# Read-only graphify MCP tools — optional per-role graph analysis.
+# ``graphify`` is a per-role optional tool; each Role that wants it runs
+# graphify rooted at its own ``branches/<role>/graphify-out/`` workspace.
+# No longer used for a shared project-level Shelf. Whitelisted to all
+# EACN-visible roles except Noter (Noter has no code analysis need).
+# mcp-servers/graphify/launcher.sh resolves the graph path from
+# MINIONS_ROLE_NAME + MINIONS_PROJECT_PORT env vars.
 _GRAPHIFY_READ_TOOLS = [
     "mcp__graphify__query_graph",
     "mcp__graphify__get_node",
@@ -360,10 +361,9 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "mos_book_promote_verified",
         "mos_book_crystallize_session",
         *_BOOK_READ_TOOLS,
-        *_GRAPHIFY_READ_TOOLS,
-        # Noter sees Coder graph for stat/file probes; never source-returning tools.
+        # Graphify is a per-role optional tool; Noter does not use it.
+        # Coder graph — stat/file probes only; never source-returning tools.
         *_CODEGRAPH_LIGHT_TOOLS,
-        *_SHELF_REGISTER_TOOLS,
         *_PAPER_SEARCH_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
@@ -597,10 +597,8 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_book_crystallize_session",
         *_BOOK_SYNTHESIS_WRITE_TOOLS,  # Noter materializes role-supplied syntheses
         *_BOOK_READ_TOOLS,
-        *_GRAPHIFY_READ_TOOLS,
-        # Noter sees Coder graph for stat/file probes; never source-returning tools.
+        # Codegraph light tools for stat/file probes; never source-returning tools.
         *_CODEGRAPH_LIGHT_TOOLS,
-        *_SHELF_REGISTER_TOOLS,
         *_PAPER_SEARCH_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",

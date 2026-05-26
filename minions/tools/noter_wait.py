@@ -246,95 +246,6 @@ def _newest_source_mtime(workspace: Path | None) -> float:
     return newest
 
 
-def _maybe_rebuild_shelf_graph(workspace: Path | None) -> dict[str, Any]:
-    """Rebuild branches/shared/shelf/shelf.json when stale.
-
-    Compares the existing graph's mtime against the newest source mtime
-    under shared/{book,notes,ethics,exp}/. Only invokes the heavy
-    `mcp-servers/graphify/extract.py` shell-out when sources are newer.
-
-    Returns a dict embedded into the periodic-wake event:
-        {"rebuilt": True, "node_count": N, "duration_s": float, ...}
-        {"rebuilt": False, "reason": "..."}.
-
-    Never raises — graphify failures must NOT crash Noter's wake loop.
-    """
-    try:
-        if workspace is None:
-            return {"rebuilt": False, "reason": "no workspace"}
-        shared = workspace.parent / "shared"
-        graph_path = shared / "shelf" / "shelf.json"
-        newest_src = _newest_source_mtime(workspace)
-        if newest_src == 0.0:
-            return {"rebuilt": False, "reason": "no source files"}
-        graph_mtime = graph_path.stat().st_mtime if graph_path.exists() else 0.0
-        # Treat a stub graph (very small file) as needing rebuild even if newer.
-        if graph_path.exists() and graph_path.stat().st_size > 200 and graph_mtime >= newest_src:
-            return {"rebuilt": False, "reason": "graph fresh"}
-
-        # Resolve port from workspace path: project_{port}/branches/<role>
-        port = int(workspace.parent.parent.name.removeprefix("project_"))
-    except Exception as exc:
-        logger.warning("shelf graph rebuild precheck failed: %s", exc)
-        return {"rebuilt": False, "reason": f"precheck error: {exc}"}
-
-    repo_root = Path(__file__).resolve().parent.parent.parent
-    extract_script = repo_root / "mcp-servers" / "graphify" / "extract.py"
-    venv_python = repo_root / "mcp-servers" / "graphify" / ".venv" / "bin" / "python"
-    if not extract_script.exists() or not venv_python.exists():
-        return {
-            "rebuilt": False,
-            "reason": (
-                "graphify venv not installed — run "
-                "`cd mcp-servers/graphify && VIRTUAL_ENV=$PWD/.venv uv pip install -e .`"
-            ),
-        }
-
-    cmd = [str(venv_python), str(extract_script), "--port", str(port)]
-    started = time.monotonic()
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=_SHELF_GRAPH_REBUILD_TIMEOUT,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        logger.warning("shelf graph rebuild timed out after %ds", _SHELF_GRAPH_REBUILD_TIMEOUT)
-        return {
-            "rebuilt": False,
-            "reason": f"timeout after {_SHELF_GRAPH_REBUILD_TIMEOUT}s",
-        }
-    except Exception as exc:
-        logger.warning("shelf graph rebuild subprocess failed: %s", exc)
-        return {"rebuilt": False, "reason": f"subprocess error: {exc}"}
-
-    duration = time.monotonic() - started
-    if result.returncode != 0:
-        tail = "\n".join((result.stderr or "").strip().splitlines()[-20:])
-        logger.info("shelf graph rebuild non-zero exit (rc=%d): %s", result.returncode, tail)
-        return {
-            "rebuilt": False,
-            "reason": f"extract exit {result.returncode}",
-            "stderr_tail": tail,
-            "duration_s": round(duration, 2),
-        }
-
-    try:
-        payload = json.loads((result.stdout or "").strip().splitlines()[-1])
-    except (json.JSONDecodeError, IndexError):
-        payload = {}
-    return {
-        "rebuilt": bool(payload.get("rebuilt")),
-        "node_count": payload.get("node_count", 0),
-        "edge_count": payload.get("edge_count", 0),
-        "file_count": payload.get("file_count", 0),
-        "duration_s": round(duration, 2),
-        "reason": payload.get("reason", ""),
-    }
-
-
 def noter_wait() -> dict[str, Any]:
     """Block for the noter periodic interval, then return a wake event.
 
@@ -366,16 +277,6 @@ def noter_wait() -> dict[str, Any]:
             logger.info("noter_wait: nudge detected, waking early at %.1fs", elapsed)
             break
 
-    shelf_graph = _maybe_rebuild_shelf_graph(workspace)
-    # Register project graph into global cross-project Shelf (Gru reads this).
-    try:
-        from minions.tools.shelf import mos_shelf_register
-
-        shelf_global_reg = mos_shelf_register(port)
-    except Exception as exc:
-        logger.warning("shelf global registration failed: %s", exc)
-        shelf_global_reg = {"registered": False, "reason": str(exc)}
-
     try:
         from minions.tools.book import mos_book_lint
 
@@ -406,8 +307,6 @@ def noter_wait() -> dict[str, Any]:
                 "delta": {
                     "shared_branch": _shared_branch_delta(workspace),
                     "events": _events_jsonl_delta(port),
-                    "shelf_graph": shelf_graph,
-                    "shelf_global": shelf_global_reg,
                     "book_lint": lint_result,
                 },
                 "suggested_action": (
