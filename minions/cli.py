@@ -288,6 +288,31 @@ def doctor(
     except ImportError as exc:
         _check("eacn3-importable", False, str(exc))
 
+    # Visual extras (opencv-python-headless / pdf2image / pillow / numpy).
+    # These power mos_visual_* tools. install.sh installs them in the
+    # background — surface progress here so users can see when it lands.
+    try:
+        for mod in ("cv2", "pdf2image", "numpy", "PIL"):
+            importlib.import_module(mod)
+        _check("visual-extras", True, "installed")
+    except ImportError as exc:
+        log_path = MINIONS_ROOT / ".install_visual.log"
+        pid_path = MINIONS_ROOT / ".install_visual.pid"
+        still_running = False
+        if pid_path.exists():
+            try:
+                pid = int(pid_path.read_text().strip())
+                import os as _os
+                _os.kill(pid, 0)
+                still_running = True
+            except (OSError, ValueError):
+                pass
+        if still_running:
+            detail = f"installing in background (tail -f {log_path})"
+        else:
+            detail = f"missing ({exc}); run: uv sync --extra visual"
+        _check("visual-extras", False, detail)
+
     # EACN3 MCP plugin built (required so Roles have eacn3_* tools).
     plugin_dist = MINIONS_ROOT / "EACN3" / "plugin" / "dist" / "server.js"
     _check(
@@ -532,7 +557,11 @@ def doctor(
         table.add_row(c["name"], status_str, c.get("detail", ""))
     console.print(table)
 
-    if not all(c["ok"] for c in checks if not c["name"].startswith("viz-")):
+    if not all(
+        c["ok"]
+        for c in checks
+        if not c["name"].startswith("viz-") and c["name"] != "visual-extras"
+    ):
         raise typer.Exit(1)
 
 

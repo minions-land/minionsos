@@ -16,6 +16,10 @@ dependencies = [
     "fastmcp>=0.2",
     "eacn3",
     "paper-search-mcp",
+]
+
+[project.optional-dependencies]
+visual = [
     "opencv-python-headless>=4.10",
     "pdf2image>=1.17",
     "pillow>=10.0",

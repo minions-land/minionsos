@@ -188,13 +188,89 @@ else
 fi
 
 # ── 3. uv sync (creates .venv, installs MinionsOS editable) ──────────────────
-info "Running uv sync..."
+# Two-phase install:
+#   Phase A (this step) — core deps only, fast. After this, ./gru is usable.
+#   Phase B (later)     — heavy visual extras (opencv/pdf2image/numpy/pillow,
+#                         ~160MB) installed in the background so the user does
+#                         not wait. Visual tools (mos_visual_*) report a clear
+#                         "not installed yet" error if invoked before B finishes.
+#
+# PyPI mirror auto-detection (sibling-session forensic finding 2026-05-26):
+#   On a CN server, curl HEAD pypi.org → 8.13s; mirrors.cloud.aliyuncs.com →
+#   0.018s (~450x slower). uv does NOT read /etc/pip.conf or ~/.pip/pip.conf;
+#   it has its own config at ~/.config/uv/uv.toml or honors $UV_INDEX_URL.
+#   Many users have pip-on-mirror but uv-on-pypi.org and don't know it — uv
+#   silently spends minutes on what should be seconds.
+#
+# Strategy here:
+#   1. If $UV_INDEX_URL already set, respect it (user knows what they want).
+#   2. Else probe pypi.org reachability with a 4s connect timeout. If slow or
+#      unreachable, probe two well-known CN mirrors and pick the fastest.
+#   3. Print the chosen mirror, and the one-liner the user can paste into
+#      ~/.config/uv/uv.toml to make it permanent for this machine.
+#   Set MINIONS_NO_MIRROR_PROBE=1 to skip the probe (e.g. inside CI / dev).
+probe_pypi_latency() {
+    # Returns 0/1 on stdout: connect time in seconds (float), or "timeout".
+    local url="$1"
+    local timeout="${2:-4}"
+    local t
+    t=$(curl -sS -o /dev/null -m "$timeout" --connect-timeout "$timeout" \
+        -w '%{time_total}' -I "$url" 2>/dev/null) || { echo timeout; return 1; }
+    echo "$t"
+}
+
+select_mirror() {
+    # Echo a chosen mirror URL on stdout, or empty if pypi.org is fine.
+    local pypi_t aliyun_t tuna_t
+    pypi_t=$(probe_pypi_latency "https://pypi.org/simple/" 4)
+    # awk handles "timeout" → falsey via 0; numeric strings compare normally.
+    if [ "$pypi_t" != "timeout" ] && \
+       awk -v t="$pypi_t" 'BEGIN{exit !(t<2.0)}'; then
+        return 0   # pypi.org is fast enough; keep default
+    fi
+    aliyun_t=$(probe_pypi_latency "https://mirrors.aliyun.com/pypi/simple/" 4)
+    tuna_t=$(probe_pypi_latency "https://pypi.tuna.tsinghua.edu.cn/simple/" 4)
+    local best="" best_t="99"
+    if [ "$aliyun_t" != "timeout" ] && awk -v t="$aliyun_t" -v b="$best_t" 'BEGIN{exit !(t<b)}'; then
+        best="https://mirrors.aliyun.com/pypi/simple/"; best_t="$aliyun_t"
+    fi
+    if [ "$tuna_t" != "timeout" ] && awk -v t="$tuna_t" -v b="$best_t" 'BEGIN{exit !(t<b)}'; then
+        best="https://pypi.tuna.tsinghua.edu.cn/simple/"; best_t="$tuna_t"
+    fi
+    if [ -n "$best" ]; then
+        echo "$best"
+    fi
+}
+
+if [ -n "${UV_INDEX_URL:-}" ]; then
+    info "PyPI mirror: $UV_INDEX_URL  (from \$UV_INDEX_URL)"
+elif [ -n "${MINIONS_NO_MIRROR_PROBE:-}" ]; then
+    info "PyPI mirror probe skipped (MINIONS_NO_MIRROR_PROBE=1)"
+else
+    info "Probing PyPI reachability (4s timeout each)..."
+    PICKED_MIRROR="$(select_mirror)"
+    if [ -n "$PICKED_MIRROR" ]; then
+        export UV_INDEX_URL="$PICKED_MIRROR"
+        warn "pypi.org is slow/unreachable from this host."
+        ok "  Auto-selected fastest mirror: $UV_INDEX_URL"
+        info "  To make this permanent (uv ignores pip.conf — this matters):"
+        info "    mkdir -p ~/.config/uv && cat > ~/.config/uv/uv.toml <<EOF"
+        info "    [[index]]"
+        info "    url = \"$UV_INDEX_URL\""
+        info "    default = true"
+        info "    EOF"
+    else
+        ok "pypi.org reachable; using default index."
+    fi
+fi
+
+info "Running uv sync (core dependencies)..."
 uv_project sync
 PROJECT_PYTHON="$ROOT/.venv/bin/python"
 if [ ! -x "$PROJECT_PYTHON" ]; then
     die "uv sync completed, but project Python was not found at $PROJECT_PYTHON"
 fi
-ok "uv sync complete"
+ok "uv sync complete (core)"
 
 # ── 4. Install EACN3 editable ─────────────────────────────────────────────────
 info "Installing EACN3 (editable)..."
@@ -508,9 +584,58 @@ else
     warn "This file should be checked into the repository."
 fi
 
+# ── 11. Phase B: background install of visual extras ─────────────────────────
+# opencv-python-headless + pdf2image + pillow + numpy total ~160MB. These are
+# only needed by mos_visual_* MCP tools (PDF layout / figure inspection).
+# Installing them in the background means ./gru can launch immediately while
+# the heavy wheels download and unpack.
+#
+# Override: MINIONS_SKIP_VISUAL=1 skips entirely (CI / headless runners that
+# never inspect PDFs). MINIONS_VISUAL_FOREGROUND=1 installs synchronously
+# (debugging / scripted setups that need a known-complete state on return).
+VISUAL_LOG="$ROOT/.install_visual.log"
+VISUAL_PID_FILE="$ROOT/.install_visual.pid"
+VISUAL_INSTALLED=0
+if [ -n "${MINIONS_SKIP_VISUAL:-}" ]; then
+    warn "MINIONS_SKIP_VISUAL=1 — visual extras NOT installed."
+    warn "mos_visual_* tools will refuse to run until you do:"
+    warn "  uv sync --extra visual"
+elif "$PROJECT_PYTHON" -c 'import cv2, pdf2image, numpy, PIL' >/dev/null 2>&1; then
+    ok "Visual extras already installed (opencv/pdf2image/numpy/pillow)"
+    VISUAL_INSTALLED=1
+elif [ -n "${MINIONS_VISUAL_FOREGROUND:-}" ]; then
+    info "Installing visual extras (foreground, ~160MB)..."
+    if uv_project sync --extra visual; then
+        ok "Visual extras installed"
+        VISUAL_INSTALLED=1
+    else
+        warn "Visual extras install failed. mos_visual_* tools will be unavailable."
+        warn "Re-run: uv sync --extra visual"
+    fi
+else
+    info "Launching visual extras install in background (~160MB)..."
+    info "  Log:  $VISUAL_LOG"
+    info "  Check status later with: ./mos doctor   (or tail -f .install_visual.log)"
+    # nohup + disown so the child survives this shell exit; uv reads no stdin.
+    (
+        cd "$ROOT"
+        nohup bash -c "uv sync --extra visual" \
+            > "$VISUAL_LOG" 2>&1 &
+        echo $! > "$VISUAL_PID_FILE"
+    )
+    if [ -f "$VISUAL_PID_FILE" ]; then
+        ok "Visual extras installing in background (pid $(cat "$VISUAL_PID_FILE"))"
+    else
+        warn "Could not background visual install; run manually: uv sync --extra visual"
+    fi
+fi
+
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
-echo -e "${BOLD}${GREEN}MinionsOS installation complete.${RESET}"
+echo -e "${BOLD}${GREEN}MinionsOS core installation complete — ./gru is ready to launch.${RESET}"
+if [ "$VISUAL_INSTALLED" = "0" ] && [ -z "${MINIONS_SKIP_VISUAL:-}" ] && [ -z "${MINIONS_VISUAL_FOREGROUND:-}" ]; then
+    echo -e "${YELLOW}  (visual extras still installing in background — see .install_visual.log)${RESET}"
+fi
 echo ""
 echo -e "  ${BOLD}Next steps:${RESET}"
 echo -e "  1. Edit ${CYAN}minions/config/gru.yaml${RESET} to adjust heartbeat interval, log level, etc."

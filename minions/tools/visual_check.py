@@ -41,11 +41,32 @@ from itertools import pairwise
 from pathlib import Path
 from typing import Literal
 
-import cv2
-import numpy as np
-from pdf2image import convert_from_path
-from pdf2image.exceptions import PDFInfoNotInstalledError, PDFPageCountError
 from pydantic import BaseModel, Field, field_validator
+
+# Heavy deps are optional (pip install minionsos[visual]).
+# Import them lazily so the MCP server starts even without opencv/pdf2image.
+_VISUAL_MISSING: str | None = None
+try:
+    import cv2
+    import numpy as np
+    from pdf2image import convert_from_path
+    from pdf2image.exceptions import PDFInfoNotInstalledError, PDFPageCountError
+except ImportError as _e:  # pragma: no cover
+    _VISUAL_MISSING = (
+        f"Visual tools are not installed: {_e}. "
+        "Run: uv pip install 'minionsos[visual]'"
+    )
+    cv2 = None  # type: ignore[assignment]
+    np = None  # type: ignore[assignment]
+    convert_from_path = None  # type: ignore[assignment]
+    PDFInfoNotInstalledError = Exception  # type: ignore[assignment,misc]
+    PDFPageCountError = Exception  # type: ignore[assignment,misc]
+
+
+def _require_visual() -> None:
+    """Raise a clear error if the visual extras are not installed."""
+    if _VISUAL_MISSING:
+        raise RuntimeError(_VISUAL_MISSING)
 
 logger = logging.getLogger(__name__)
 
@@ -572,6 +593,7 @@ def inspect_page(
     rules: LayoutRules | None = None,
 ) -> PageReport:
     """Run all applicable detectors on a single rasterized page image."""
+    _require_visual()
     image_path = Path(image_path)
     rules = rules or LayoutRules()
     gray = _load_gray(image_path)
@@ -604,6 +626,7 @@ def inspect_page(
 
 def render_pdf_to_pages(pdf_path: Path, output_dir: Path, dpi: int = 220) -> list[Path]:
     """Rasterize a PDF to ``page_NNN.png`` images via Poppler."""
+    _require_visual()
     pdf_path = Path(pdf_path)
     output_dir = Path(output_dir)
     if not pdf_path.is_file():
