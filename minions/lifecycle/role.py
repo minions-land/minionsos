@@ -428,8 +428,11 @@ def _do_register(
                         "guidance": (
                             "This is an advisory init brief, not a Task. "
                             "Read B-000 in the Draft for project context, then "
-                            "act on this brief through your normal event loop. "
-                            "No bid is expected."
+                            "actively collaborate with your peers. "
+                            "Use eacn3_send_message to exchange ideas with other roles, "
+                            "or eacn3_create_task to propose collaborative work. "
+                            "Wisdom emerges from discussion — you are an autonomous team, "
+                            "not passive workers waiting for assignments."
                         ),
                     },
                 )

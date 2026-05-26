@@ -44,6 +44,11 @@ logger = logging.getLogger(__name__)
 EACN3_POLL_TIMEOUT_SEC = 60
 IDLE_CHECK_THRESHOLD = 5  # consecutive empty polls before idle check
 
+# Filename of the per-role cold-start flag inside ``workspace/.minionsos/``.
+# Presence of this file means the cold_start_hint has already been emitted
+# for this role and must not fire again — see Issue #35.
+_COLD_START_FLAG_NAME = "cold_start_hint_emitted"
+
 # Stable synthetic event returned just before the prompt-cache TTL cliff.
 # Byte-for-byte identical every time so the conversation tail that follows
 # it stays cacheable across the next several turns. Any drift here (port
@@ -347,6 +352,120 @@ def _build_idle_check(
     }
 
 
+# ─── Cold-start self-initiation (Issue #35) ─────────────────────────────
+
+
+def _cold_start_flag_path(workspace: Path | None) -> Path | None:
+    if workspace is None:
+        return None
+    return workspace / ".minionsos" / _COLD_START_FLAG_NAME
+
+
+def _has_event_history(port: int, agent_id: str) -> bool:
+    """True if this role has ever drained a real EACN event in any prior life.
+
+    The events jsonl is the durable, sync-written record of every event
+    surfaced to this role across all respawns (see ``events_log.py``).
+    A non-empty file means the role has already participated in the
+    network at some point — it is not a cold-start candidate, even if
+    its workspace flag is missing (e.g. workspace recreated after a
+    manual cleanup).
+    """
+    try:
+        from minions.tools import events_log
+
+        path = events_log.event_log_path(port, agent_id)
+        return path.exists() and path.stat().st_size > 0
+    except Exception as exc:
+        logger.debug("cold-start event-history probe failed: %s", exc)
+        return False
+
+
+def _build_cold_start_hint(
+    port: int,
+    agent_id: str,
+    workspace: Path | None,
+) -> dict[str, Any] | None:
+    """One-shot proactive collaboration nudge for a freshly-spawned role.
+
+    Fires at most once per role lifetime, only when ALL hold:
+    - The idle-check found no actionable work (caller's precondition).
+    - The role has no event history on disk (never drained a real event).
+    - The workspace flag file does not exist (hint not yet emitted).
+    - A workspace path is configured (otherwise we cannot persist the flag,
+      and a stateless hint would re-fire every empty cycle — far worse than
+      not firing at all).
+
+    Writing the flag BEFORE returning is critical: if the role crashes
+    after receiving the hint but before producing any action, the next
+    role process must not re-fire (the hint is a soft nudge, not a
+    correctness mechanism).
+    """
+    flag_path = _cold_start_flag_path(workspace)
+    if flag_path is None:
+        return None
+    if flag_path.exists():
+        return None
+    if _has_event_history(port, agent_id):
+        # Established role with history but no current work — silent wait
+        # is the correct behaviour. Mark the flag so we don't probe again.
+        try:
+            flag_path.parent.mkdir(parents=True, exist_ok=True)
+            flag_path.write_text(
+                f"skipped: prior event history present at {datetime.now(tz=UTC).isoformat()}\n",
+                encoding="utf-8",
+            )
+        except Exception as exc:
+            logger.debug("cold-start flag write (skip-path) failed: %s", exc)
+        return None
+
+    try:
+        flag_path.parent.mkdir(parents=True, exist_ok=True)
+        flag_path.write_text(
+            f"emitted at {datetime.now(tz=UTC).isoformat()} for {agent_id}\n",
+            encoding="utf-8",
+        )
+    except Exception as exc:
+        # If we cannot persist the flag, do NOT emit the hint — a hint
+        # without a flag would re-fire every cycle and burn one assistant
+        # turn each ~5 minutes for the rest of the role's life.
+        logger.warning(
+            "cold-start flag write failed; suppressing hint for agent=%s: %s",
+            agent_id,
+            exc,
+        )
+        return None
+
+    return {
+        "event": {
+            "type": "cold_start_hint",
+            "task_id": "",
+            "payload": {
+                "hint": (
+                    "You are a fresh role with no pending work and no "
+                    "event history. The team will not move unless someone "
+                    "moves first. Read project CLAUDE.md and any "
+                    "branches/shared/handoffs/ files, then proactively: "
+                    "(a) eacn3_send_message a relevant peer to propose "
+                    "collaboration, or (b) eacn3_create_task to publish "
+                    "a piece of work the team needs. Wisdom emerges from "
+                    "collaboration, not from waiting. This nudge fires "
+                    "exactly once per role lifetime — after this turn, "
+                    "the system reverts to fully event-driven behaviour."
+                ),
+            },
+        },
+        "suggested_action": (
+            "Cold start: bootstrap your participation. Send a message to a "
+            "peer or create a task — do not return to await_events without "
+            "taking at least one autonomous step."
+        ),
+        "suggested_tool": "eacn3_send_message",
+        "suggested_params": {},
+        "urgency": "medium",
+    }
+
+
 # ─── Core poll (aligned with eacn3_get_events drain semantics) ──────────
 
 
@@ -510,7 +629,16 @@ def await_events() -> dict[str, Any]:
 
             if idle_event is not None:
                 return _return([idle_event], real=True)
-            # no-idle: truly nothing to do. Swallow silently, keep polling.
+            # no-idle: nothing in the task/message state. Before silently
+            # continuing, check whether this is a fresh role that has never
+            # received any real events — if so, fire the one-shot cold-start
+            # nudge (Issue #35) so the team can self-initiate without a
+            # seed task from Gru.
+            cold_start_event = _build_cold_start_hint(port, agent_id, workspace)
+            if cold_start_event is not None:
+                return _return([cold_start_event], real=True)
+            # Either established role, hint already fired, or no workspace
+            # configured — keep polling silently.
 
         # Cache-keepalive cliff guard. Independent of idle_check: even when
         # there is genuinely no work, we must surface a tiny LLM turn before

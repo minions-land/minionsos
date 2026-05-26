@@ -118,9 +118,16 @@ class TestIdleCheck:
         assert result["events"][0]["event"]["type"] == "idle_check"
         assert "t-delegated" in result["events"][0]["event"]["payload"]["delegated_tasks"]
 
-    def test_no_idle_swallowed_silently(self):
+    def test_no_idle_swallowed_silently(self, tmp_path):
         """If idle check finds nothing, keep polling (don't return to LLM)."""
         from minions.tools.await_events import await_events
+
+        # Pre-seed the cold-start flag so the Issue #35 hint doesn't fire —
+        # this test specifically exercises the established-role no-idle
+        # silent-poll semantics.
+        flag_dir = tmp_path / "workspace" / ".minionsos"
+        flag_dir.mkdir(parents=True, exist_ok=True)
+        (flag_dir / "cold_start_hint_emitted").write_text("seeded")
 
         call_count = [0]
 
@@ -381,3 +388,137 @@ class TestUpstreamCacheKeepaliveFiltered:
             mock_get.return_value = _make_poll_response(upstream_payload)
             events = _poll_once(39999, "test-agent")
         assert events == []
+
+
+# ---------------------------------------------------------------------------
+# Issue #35 — cold-start self-initiation hint
+# ---------------------------------------------------------------------------
+
+
+class TestColdStartHint:
+    """A freshly-spawned role with zero EACN history, zero tasks, zero
+    messages must receive a one-shot proactive-collaboration nudge instead
+    of polling forever in silence."""
+
+    def test_cold_start_hint_fires_when_no_work_no_history(self, tmp_path):
+        from minions.tools.await_events import await_events
+
+        def mock_get(url, **kwargs):
+            if "/api/events/" in url:
+                return _make_poll_response([])
+            if "/api/tasks" in url:
+                return _make_tasks_response([])
+            return _make_poll_response([])
+
+        with patch("minions.tools.await_events.httpx.get", side_effect=mock_get):
+            result = await_events()
+
+        assert result["count"] == 1
+        evt = result["events"][0]
+        assert evt["event"]["type"] == "cold_start_hint"
+        assert evt["suggested_tool"] == "eacn3_send_message"
+        # Flag file persisted so the hint cannot re-fire
+        flag = tmp_path / "workspace" / ".minionsos" / "cold_start_hint_emitted"
+        assert flag.exists()
+
+    def test_cold_start_hint_fires_only_once(self, tmp_path):
+        from minions.tools.await_events import await_events
+
+        # First call: cold start, no work → hint.
+        def empty_mock(url, **kwargs):
+            if "/api/events/" in url:
+                return _make_poll_response([])
+            if "/api/tasks" in url:
+                return _make_tasks_response([])
+            return _make_poll_response([])
+
+        with patch("minions.tools.await_events.httpx.get", side_effect=empty_mock):
+            first = await_events()
+        assert first["events"][0]["event"]["type"] == "cold_start_hint"
+
+        # Second call: still no work, but flag is set → must NOT re-fire.
+        # Drop a real event after the second idle-check to terminate.
+        call_count = [0]
+
+        def second_mock(url, **kwargs):
+            call_count[0] += 1
+            if "/api/events/" in url:
+                if call_count[0] <= 6:
+                    return _make_poll_response([])
+                return _make_poll_response(
+                    [{"type": "task_timeout", "task_id": "t-x", "payload": {}}]
+                )
+            if "/api/tasks" in url:
+                return _make_tasks_response([])
+            return _make_poll_response([])
+
+        with patch("minions.tools.await_events.httpx.get", side_effect=second_mock):
+            second = await_events()
+        # The hint must not have re-fired — the only return is the real event.
+        types = [e["event"]["type"] for e in second["events"]]
+        assert "cold_start_hint" not in types
+        assert "task_timeout" in types
+
+    def test_no_hint_when_event_history_present(self, tmp_path, monkeypatch):
+        """A role with prior events on disk is not a cold-start candidate,
+        even if the workspace flag is missing."""
+        monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path / "projects"))
+        from minions.tools import events_log
+        from minions.tools.await_events import await_events
+
+        # Seed a prior real event on disk.
+        events_log.append_events(
+            39999,
+            "test-agent",
+            [{"type": "direct_message", "task_id": "t-prior", "payload": {}}],
+        )
+
+        # Now simulate empty state: no current events, no tasks. With history
+        # present, the cold-start hint must NOT fire. We need the loop to
+        # eventually return; drop a real event after the no-idle branch.
+        call_count = [0]
+
+        def mock_get(url, **kwargs):
+            call_count[0] += 1
+            if "/api/events/" in url:
+                if call_count[0] <= 6:
+                    return _make_poll_response([])
+                return _make_poll_response(
+                    [{"type": "task_timeout", "task_id": "t-y", "payload": {}}]
+                )
+            if "/api/tasks" in url:
+                return _make_tasks_response([])
+            return _make_poll_response([])
+
+        with patch("minions.tools.await_events.httpx.get", side_effect=mock_get):
+            result = await_events()
+        types = [e["event"]["type"] for e in result["events"]]
+        assert "cold_start_hint" not in types
+        # Flag should still have been written (skip-path) so we don't re-probe.
+        flag = tmp_path / "workspace" / ".minionsos" / "cold_start_hint_emitted"
+        assert flag.exists()
+
+    def test_no_hint_without_workspace(self, monkeypatch):
+        """Without MINIONS_WORKSPACE we cannot persist the flag, so the
+        hint must be suppressed (otherwise it would re-fire every cycle)."""
+        monkeypatch.delenv("MINIONS_WORKSPACE", raising=False)
+        from minions.tools.await_events import await_events
+
+        call_count = [0]
+
+        def mock_get(url, **kwargs):
+            call_count[0] += 1
+            if "/api/events/" in url:
+                if call_count[0] <= 6:
+                    return _make_poll_response([])
+                return _make_poll_response(
+                    [{"type": "task_timeout", "task_id": "t-z", "payload": {}}]
+                )
+            if "/api/tasks" in url:
+                return _make_tasks_response([])
+            return _make_poll_response([])
+
+        with patch("minions.tools.await_events.httpx.get", side_effect=mock_get):
+            result = await_events()
+        types = [e["event"]["type"] for e in result["events"]]
+        assert "cold_start_hint" not in types
