@@ -119,6 +119,9 @@ minions/roles/common/_behavioral_evals/
 .install_visual.log
 .install_visual.pid
 
+# Incremental install freshness stamps (install.sh)
+.install_stamps/
+
 # Phantom project dirs created by old launcher bug (pre-v15.53)
 # Safe to delete after upgrade — real project data lives in projects/ or parent dir
 /project_*/

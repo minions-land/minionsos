@@ -40,6 +40,44 @@ npm_project_install() {
     )
 }
 
+# ── Incremental install: stamp-based freshness ────────────────────────────────
+# Each heavy step hashes its input files (lockfile, package.json, etc.) and
+# stores the result in .install_stamps/<step>. On re-run, if the hash matches,
+# the step is skipped entirely. This turns a 60-90s full install into a <5s
+# no-op when nothing changed — the "incremental upgrade" path customers need.
+# Force full rebuild: MINIONS_FORCE_INSTALL=1 ./install.sh
+STAMP_DIR="$ROOT/.install_stamps"
+mkdir -p "$STAMP_DIR"
+
+_stamp_hash() {
+    # Hash one or more files; output a single sha256. Missing files → "missing".
+    local h=""
+    for f in "$@"; do
+        if [ -f "$f" ]; then
+            h="${h}$(shasum -a 256 "$f" | cut -d' ' -f1)"
+        else
+            h="${h}missing"
+        fi
+    done
+    printf '%s' "$h" | shasum -a 256 | cut -d' ' -f1
+}
+
+_stamp_fresh() {
+    # Usage: _stamp_fresh <step_name> <file1> [file2 ...]
+    # Returns 0 (true) if the stamp matches current inputs → skip the step.
+    local step="$1"; shift
+    [ -z "${MINIONS_FORCE_INSTALL:-}" ] || return 1
+    local current; current=$(_stamp_hash "$@")
+    local stamp_file="$STAMP_DIR/$step"
+    [ -f "$stamp_file" ] && [ "$(cat "$stamp_file")" = "$current" ]
+}
+
+_stamp_save() {
+    # Usage: _stamp_save <step_name> <file1> [file2 ...]
+    local step="$1"; shift
+    _stamp_hash "$@" > "$STAMP_DIR/$step"
+}
+
 # ── 0. Launcher permissions first ────────────────────────────────────────────
 # Do this before dependency/build steps so a partially failed install still
 # leaves ./gru, ./mos, ./noter, and ./viz usable for diagnostics.
@@ -265,17 +303,28 @@ else
 fi
 
 info "Running uv sync (core dependencies)..."
-uv_project sync
+if _stamp_fresh uv_sync "$ROOT/pyproject.toml" "$ROOT/uv.lock"; then
+    ok "uv sync (core) — up to date, skipped"
+else
+    uv_project sync
+    _stamp_save uv_sync "$ROOT/pyproject.toml" "$ROOT/uv.lock"
+    ok "uv sync complete (core)"
+fi
 PROJECT_PYTHON="$ROOT/.venv/bin/python"
 if [ ! -x "$PROJECT_PYTHON" ]; then
     die "uv sync completed, but project Python was not found at $PROJECT_PYTHON"
 fi
-ok "uv sync complete (core)"
 
 # ── 4. Install EACN3 editable ─────────────────────────────────────────────────
-info "Installing EACN3 (editable)..."
-uv_project pip install --python "$PROJECT_PYTHON" -e ./mcp-servers/eacn3
-ok "EACN3 installed"
+EACN3_INPUTS="$ROOT/mcp-servers/eacn3/pyproject.toml"
+if _stamp_fresh eacn3_editable "$EACN3_INPUTS"; then
+    ok "EACN3 editable — up to date, skipped"
+else
+    info "Installing EACN3 (editable)..."
+    uv_project pip install --python "$PROJECT_PYTHON" -e ./mcp-servers/eacn3
+    _stamp_save eacn3_editable "$EACN3_INPUTS"
+    ok "EACN3 installed"
+fi
 
 # ── 5. Build EACN3 MCP plugin ─────────────────────────────────────────────────
 # This plugin exposes the `eacn3_*` MCP tools that every Role uses to talk to
@@ -303,15 +352,23 @@ else
         die "Node $(node --version) is below the required >= 16.\n       Upgrade Node, then re-run ./install.sh."
     fi
 
-    info "Building EACN3 MCP plugin (npm dependency install + build)..."
-    if ! (npm_project_install "$ROOT/mcp-servers/eacn3/plugin" && cd "$ROOT/mcp-servers/eacn3/plugin" && npm run build); then
-        die "EACN3 plugin build failed.\n       Inspect the output above; fix the error, then re-run ./install.sh."
+    EACN3_PLUGIN_DIR="$ROOT/mcp-servers/eacn3/plugin"
+    EACN3_PLUGIN_PKG="$EACN3_PLUGIN_DIR/package.json"
+    EACN3_PLUGIN_LOCK="$EACN3_PLUGIN_DIR/package-lock.json"
+    if _stamp_fresh eacn3_plugin "$EACN3_PLUGIN_PKG" "$EACN3_PLUGIN_LOCK"; then
+        ok "EACN3 MCP plugin — up to date, skipped"
+    else
+        info "Building EACN3 MCP plugin (npm dependency install + build)..."
+        if ! (npm_project_install "$ROOT/mcp-servers/eacn3/plugin" && cd "$ROOT/mcp-servers/eacn3/plugin" && npm run build); then
+            die "EACN3 plugin build failed.\n       Inspect the output above; fix the error, then re-run ./install.sh."
+        fi
+        PLUGIN_DIST="$ROOT/mcp-servers/eacn3/plugin/dist/server.js"
+        if [ ! -f "$PLUGIN_DIST" ]; then
+            die "EACN3 plugin build reported success but $PLUGIN_DIST is missing.\n       This indicates a broken build script in mcp-servers/eacn3/plugin/."
+        fi
+        _stamp_save eacn3_plugin "$EACN3_PLUGIN_PKG" "$EACN3_PLUGIN_LOCK"
+        ok "EACN3 MCP plugin built: $PLUGIN_DIST"
     fi
-    PLUGIN_DIST="$ROOT/mcp-servers/eacn3/plugin/dist/server.js"
-    if [ ! -f "$PLUGIN_DIST" ]; then
-        die "EACN3 plugin build reported success but $PLUGIN_DIST is missing.\n       This indicates a broken build script in mcp-servers/eacn3/plugin/."
-    fi
-    ok "EACN3 MCP plugin built: $PLUGIN_DIST"
 
     # ── 5a-codegraph. Install codegraph MCP dependencies ────────────────
     # The codegraph MCP wraps `@colbymchenry/codegraph` (npm). It is a
@@ -319,15 +376,22 @@ else
     # node_modules/.bin/codegraph which the launcher exec's.
     CG_DIR="$ROOT/mcp-servers/codegraph"
     if [ -d "$CG_DIR" ] && [ -f "$CG_DIR/package.json" ]; then
-        info "Installing codegraph MCP dependencies (npm)..."
-        if ! npm_project_install "$CG_DIR"; then
-            die "codegraph npm install failed.\n       Inspect the output above; fix the error, then re-run ./install.sh."
+        CG_PKG="$CG_DIR/package.json"
+        CG_LOCK="$CG_DIR/package-lock.json"
+        if _stamp_fresh codegraph_npm "$CG_PKG" "$CG_LOCK"; then
+            ok "codegraph MCP — up to date, skipped"
+        else
+            info "Installing codegraph MCP dependencies (npm)..."
+            if ! npm_project_install "$CG_DIR"; then
+                die "codegraph npm install failed.\n       Inspect the output above; fix the error, then re-run ./install.sh."
+            fi
+            CG_BIN="$CG_DIR/node_modules/.bin/codegraph"
+            if [ ! -x "$CG_BIN" ]; then
+                die "codegraph npm install reported success but $CG_BIN is missing or not executable."
+            fi
+            _stamp_save codegraph_npm "$CG_PKG" "$CG_LOCK"
+            ok "codegraph MCP installed: $CG_BIN"
         fi
-        CG_BIN="$CG_DIR/node_modules/.bin/codegraph"
-        if [ ! -x "$CG_BIN" ]; then
-            die "codegraph npm install reported success but $CG_BIN is missing or not executable."
-        fi
-        ok "codegraph MCP installed: $CG_BIN"
 
         # Warm up the repo-scope codegraph index so the launcher does not
         # block on a multi-second tree-sitter extraction during the first
@@ -360,21 +424,17 @@ else
     GR_DIR="$ROOT/mcp-servers/graphify"
     if [ -d "$GR_DIR" ] && [ -f "$GR_DIR/pyproject.toml" ]; then
         GR_VENV_PY="$GR_DIR/.venv/bin/python"
-        if [ ! -x "$GR_VENV_PY" ]; then
+        if _stamp_fresh graphify_venv "$GR_DIR/pyproject.toml" && [ -x "$GR_VENV_PY" ]; then
+            ok "graphify venv — up to date, skipped"
+        elif [ -x "$GR_VENV_PY" ] && [ -z "${MINIONS_FORCE_INSTALL:-}" ]; then
+            ok "graphify venv already present: $GR_VENV_PY"
+            _stamp_save graphify_venv "$GR_DIR/pyproject.toml"
+        else
             info "Setting up graphify L3 extractor venv..."
-            # Bound the install with a wall-clock timeout. GitHub Issue #16:
-            # on PyPI-restricted hosts (corporate firewall, throttled net,
-            # air-gapped clusters) `uv pip install -e .` blocks for tens
-            # of minutes with no output, leaving installers staring at a
-            # dead terminal. 180s is generous for a healthy network and
-            # long enough that a slow-but-progressing install completes.
             GR_INSTALL_TIMEOUT="${GRAPHIFY_INSTALL_TIMEOUT:-180}"
             gr_rc=0
             (
                 cd "$GR_DIR"
-                # Create a project-local venv and install graphify into it.
-                # Using `uv venv` + `uv pip install` keeps the install
-                # consistent with the rest of MinionsOS.
                 uv_project venv .venv
                 if command -v timeout >/dev/null 2>&1; then
                     timeout "$GR_INSTALL_TIMEOUT" \
@@ -391,10 +451,9 @@ else
                 warn "MinionsOS will continue to start; only cross-role structural search"
                 warn "degrades. Re-run install.sh (or the command above) once PyPI is reachable."
             else
+                _stamp_save graphify_venv "$GR_DIR/pyproject.toml"
                 ok "graphify venv ready: $GR_VENV_PY"
             fi
-        else
-            ok "graphify venv already present: $GR_VENV_PY"
         fi
     fi
 

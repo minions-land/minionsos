@@ -4,6 +4,7 @@ Subcommands:
   status          — projects dashboard
   logs            — tail / follow log files
   doctor          — environment check
+  upgrade         — pull latest + incremental install
   config          — print paths / open config dir
   noter           — read-only project Noter terminal
   project list|kill|close|revive [PORT]
@@ -675,6 +676,55 @@ def heartbeats_cmd(
         )
         if bad:
             raise typer.Exit(2)
+
+
+# ---------------------------------------------------------------------------
+# upgrade
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="upgrade")
+def upgrade_cmd(
+    force: bool = typer.Option(
+        False, "--force", help="Force full reinstall (MINIONS_FORCE_INSTALL=1)."
+    ),
+) -> None:
+    """Pull latest MinionsOS and run incremental install.
+
+    Equivalent to: git pull --ff-only && ./install.sh
+    Only rebuilds components whose inputs changed since the last install.
+    Use --force to bypass freshness stamps and rebuild everything.
+    """
+    console = Console()
+    console.print("[bold]Upgrading MinionsOS...[/bold]")
+
+    pull = subprocess.run(
+        ["git", "pull", "--ff-only"],
+        cwd=str(MINIONS_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    if pull.returncode != 0:
+        console.print(f"[red]git pull failed:[/red]\n{pull.stderr.strip()}")
+        console.print("[yellow]Hint: stash or commit local changes first.[/yellow]")
+        raise typer.Exit(1)
+
+    pull_msg = pull.stdout.strip()
+    if "Already up to date" in pull_msg:
+        console.print("[green]Already up to date.[/green]")
+    else:
+        console.print(f"[green]{pull_msg}[/green]")
+
+    env = {**subprocess.os.environ}
+    if force:
+        env["MINIONS_FORCE_INSTALL"] = "1"
+
+    install = subprocess.run(
+        ["bash", str(MINIONS_ROOT / "install.sh")],
+        cwd=str(MINIONS_ROOT),
+        env=env,
+    )
+    raise typer.Exit(install.returncode)
 
 
 # ---------------------------------------------------------------------------
