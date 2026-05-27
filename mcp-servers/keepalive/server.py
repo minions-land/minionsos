@@ -2,22 +2,34 @@
 """Keepalive MCP server.
 
 Two tools:
-  - wait_bg(deadline_seconds=45, bg_ids=None, note=None, output_files=None)
+  - wait_bg(deadline_seconds=45, bg_ids=None, note=None,
+            output_files=None, done_markers=None)
       Block up to deadline_seconds, then return a byte-stable tick payload.
-      If output_files is provided, polls every 1s and returns early once all
-      listed files are no longer held open by any process (i.e. bg task done).
+      Two early-exit channels (orthogonal, used together when both apply):
+        * output_files: poll lsof every 1s; exit when no listed file is held
+          open. Source signal for bg `Bash` tasks (Claude Code writes their
+          stdout to a temp file via a child shell; once the shell exits
+          the file is no longer held).
+        * done_markers: poll filesystem every 1s; exit when every listed
+          marker path exists. Source signal for bg `Agent` / `Task`
+          subagents — the SubagentStop hook touches one marker per
+          agent_id. Markers are unlinked on early exit so the directory
+          stays bounded.
 
   - keepalive_now()
       Non-blocking, returns the same byte-stable tick payload immediately.
 
 Implementation notes:
   - sleeps in 1s chunks so SIGTERM is honored within ~1s
-  - hard cap deadline at 300s (5-min cache cliff)
+  - hard cap deadline at 270s (5-min cache cliff with safety margin)
   - hard floor at 5s
 """
+
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import os
 import subprocess
 import sys
 from typing import Any
@@ -41,9 +53,10 @@ TICK = {
     "ok": True,
     "purpose": "5min-cache-keepalive",
     "next_action": (
-        "If your bg task is still running: call BashOutput(bash_id) to see "
-        "progress, then call wait_bg again. If it completed, process the "
-        "result. The tick itself is content-free; do not analyze it."
+        "If your bg task is still running: call BashOutput(bash_id) / "
+        "TaskOutput(task_id) to see progress, then call wait_bg again. "
+        "If early_exit=True the task completed; process the result. "
+        "The tick itself is content-free; do not analyze it."
     ),
 }
 
@@ -61,8 +74,6 @@ def _files_still_held(paths: list[str]) -> bool:
     if not paths:
         return False
     try:
-        # lsof returns exit 0 if any path is held, exit 1 if none.
-        # We pass all paths in one call for efficiency.
         result = subprocess.run(
             ["lsof", "--", *paths],
             capture_output=True,
@@ -72,8 +83,19 @@ def _files_still_held(paths: list[str]) -> bool:
         # exit 1 = no files held -> all tasks done
         return result.returncode == 0
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        # On any error, assume still running (don't exit early on uncertainty)
         return True
+
+
+def _all_markers_present(paths: list[str]) -> bool:
+    """Return True iff every listed marker path exists on disk."""
+    return bool(paths) and all(os.path.exists(p) for p in paths)
+
+
+def _cleanup_markers(paths: list[str]) -> None:
+    """Best-effort unlink of marker files; never raises."""
+    for p in paths:
+        with contextlib.suppress(OSError):
+            os.unlink(p)
 
 
 @mcp.tool()
@@ -82,43 +104,61 @@ async def wait_bg(
     bg_ids: list[str] | None = None,
     note: str | None = None,
     output_files: list[str] | None = None,
+    done_markers: list[str] | None = None,
 ) -> dict[str, Any]:
     """Block up to deadline_seconds, return a byte-stable cache-keepalive tick.
 
-    If output_files is provided, polls every 1s with lsof. Once no listed file
-    is held open by any process (= all bg tasks done), returns immediately
-    with early_exit=True. This avoids wasting time waiting after bg tasks
-    have already completed.
+    Two orthogonal early-exit channels:
+      * output_files: bg Bash tasks. Poll lsof; exit once no listed file is
+        held open by any process.
+      * done_markers: bg Agent/Task subagents. Poll filesystem; exit once
+        every listed marker path exists. Markers are written by the
+        SubagentStop hook keyed on agent_id, then unlinked here.
+
+    Either, both, or neither may be supplied. Both empty falls back to a
+    pure sleep — useful as a generic cache-warming turn.
 
     Args:
-        deadline_seconds: max block duration. Floor 5s, ceiling 270s. Default
-            45s — short enough that early-exit-by-completion-notification has
+        deadline_seconds: max block duration. Floor 5s, ceiling 270s.
+            Default 45s — short enough that early-exit-by-completion has
             low worst-case latency, long enough to avoid excessive turns.
-        bg_ids: optional list of background task ids. Echoed in result.
+        bg_ids: optional background task ids. Echoed in result for trace.
         note: optional human-readable note. Echoed in result.
-        output_files: optional list of bg task output file paths (the paths
-            shown in "Output is being written to: ..." messages). When all
-            listed files are no longer held open, wait_bg returns early.
+        output_files: optional bg-task output file paths (the paths shown
+            in "Output is being written to: ..." messages).
+        done_markers: optional marker file paths. Each is touched by the
+            SubagentStop hook when its agent_id finishes.
 
     Returns:
         Tick payload (byte-stable across calls when called with same args).
-        Adds slept_seconds and early_exit fields for observability.
+        Adds slept_seconds / early_exit / early_exit_reason for observability.
     """
     secs = max(5, min(270, int(deadline_seconds)))
     files = list(output_files or [])
+    markers = list(done_markers or [])
     early_exit = False
+    early_exit_reason = ""
     elapsed = 0
     while elapsed < secs:
         await asyncio.sleep(1)
         elapsed += 1
-        if files and elapsed >= 2 and not _files_still_held(files):
+        if elapsed < 2:
+            continue
+        if markers and _all_markers_present(markers):
             early_exit = True
+            early_exit_reason = "done_markers"
+            _cleanup_markers(markers)
+            break
+        if files and not _files_still_held(files):
+            early_exit = True
+            early_exit_reason = "output_files"
             break
 
     result = dict(TICK)
     result["caller"] = {"bg_ids": list(bg_ids or []), "note": note or ""}
     result["slept_seconds"] = elapsed
     result["early_exit"] = early_exit
+    result["early_exit_reason"] = early_exit_reason
     return result
 
 

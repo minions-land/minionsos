@@ -104,6 +104,28 @@
         ]
       }
     ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/keepalive_subagent_done.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/keepalive_subagent_done.py\" || exit 0",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/keepalive_subagent_done.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/keepalive_subagent_done.py\" || exit 0",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
     "PreCompact": [
       {
         "hooks": [
