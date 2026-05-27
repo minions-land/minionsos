@@ -166,13 +166,16 @@ def test_gen_mcp_json_registers_codegraph(tmp_path: Path) -> None:
 
 
 def test_doctor_probe_includes_codegraph() -> None:
-    """The mcp-config-mounts-core probe enforces that codegraph is present
-    in both .mcp.json and .codex/config.toml."""
+    """The mcp-config-mounts-core probe does NOT require codegraph (optional
+    per-role tool). But codegraph should still be registered in .mcp.json
+    when its launcher exists — verified by the _gen_mcp_json generator."""
     cli = Path(__file__).resolve().parent.parent.parent / "minions" / "cli.py"
     text = cli.read_text(encoding="utf-8")
-    # Both probe sites (Claude Code mcp.json + Codex toml) must include codegraph.
-    assert text.count('"codegraph"') >= 2, (
-        "codegraph must appear in both core-mount probe sets in minions/cli.py"
+    # codegraph is optional — it must NOT appear in the required set
+    assert '"codegraph"' not in text.split("mcp-config-mounts-core")[0].split(
+        "required = {"
+    )[-1].split("}")[0], (
+        "codegraph must not be in the required core-mount set (it is optional)"
     )
 
 

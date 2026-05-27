@@ -415,12 +415,12 @@ else
         fi
     fi
 
-    # ── 5a-graphify. Install graphify (L3 Shelf extractor) Python deps ───
-    # graphify provides extract.py, the script Noter shells out to during
-    # its periodic wake to rebuild branches/shared/shelf/shelf.json. Without
-    # the local venv, _maybe_rebuild_shelf_graph silently bails with
-    # "graphify venv not installed", the L3 Shelf never auto-populates,
-    # and mos_shelf_register reports "no graph" forever (GitHub Issue #11).
+    # ── 5a-graphify. Install graphify MCP (optional per-role graph tool) ───
+    # graphify is an optional MCP server that provides graph analysis
+    # capabilities to roles that have it in their tool surface. It is NOT
+    # a system-level dependency — MinionsOS runs fine without it. The L3
+    # Shelf is Gru-aggregated from Book, not graphify output.
+    # Soft-fail: warn and continue if setup fails.
     GR_DIR="$ROOT/mcp-servers/graphify"
     if [ -d "$GR_DIR" ] && [ -f "$GR_DIR/pyproject.toml" ]; then
         GR_VENV_PY="$GR_DIR/.venv/bin/python"

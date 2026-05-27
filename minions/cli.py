@@ -339,19 +339,17 @@ def doctor(
         node_detail = str(exc)
     _check("node>=16", node_ok, node_detail)
 
-    # graphify L3 Shelf extractor venv. Noter shells out to graphify's
-    # extract.py during its periodic wake to rebuild
-    # branches/shared/shelf/shelf.json. Without the local venv, the rebuild
-    # silently bails and the L3 Shelf never populates — see GitHub Issue #11.
+    # graphify MCP — optional per-role graph analysis tool. Not a system
+    # dependency; MinionsOS runs fine without it.
     graphify_py = MINIONS_ROOT / "mcp-servers" / "graphify" / ".venv" / "bin" / "python"
     if not graphify_py.exists():
         graphify_py = MINIONS_ROOT / "mcp-servers" / "graphify" / ".venv" / "Scripts" / "python.exe"
     _check(
         "graphify-venv",
-        graphify_py.exists(),
+        True,  # never fail — optional component
         str(graphify_py)
         if graphify_py.exists()
-        else "missing — L3 Shelf will not auto-rebuild. Run ./install.sh to set up.",
+        else "not installed (optional — graphify MCP will be unavailable)",
     )
 
     # .mcp.json mounts both minionsos and eacn3 servers.
@@ -360,7 +358,8 @@ def doctor(
 
         mcp_cfg = _json.loads((MINIONS_ROOT / ".mcp.json").read_text(encoding="utf-8"))
         servers = set(mcp_cfg.get("mcpServers", {}).keys())
-        missing = {"minionsos", "eacn3", "keepalive", "graphify", "codegraph"} - servers
+        required = {"minionsos", "eacn3", "keepalive"}
+        missing = required - servers
         _check(
             "mcp-config-mounts-core",
             not missing,
@@ -376,7 +375,7 @@ def doctor(
         codex_cfg_path = MINIONS_ROOT / ".codex" / "config.toml"
         codex_cfg = tomllib.loads(codex_cfg_path.read_text(encoding="utf-8"))
         servers = set((codex_cfg.get("mcp_servers") or {}).keys())
-        missing = {"minionsos", "eacn3", "keepalive", "graphify", "codegraph"} - servers
+        missing = {"minionsos", "eacn3", "keepalive"} - servers
         _check(
             "codex-mcp-config-mounts-core",
             not missing,

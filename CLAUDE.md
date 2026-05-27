@@ -90,7 +90,7 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/domains/*.md` — Expert domain packs used as reusable specialty assets.
 - `minions-viz/` — read-only Observatory dashboard, Express/WebSocket server plus React/Vite frontend.
 - `EACN3` — local editable EACN3 dependency (lives at `mcp-servers/eacn3/`).
-- `mcp-servers/` — standalone MCP servers registered in `.mcp.json`. `mcp-servers/README.md` is the canonical registry. Currently houses `eacn3/` (the EACN3 dep + its Node plugin), `codex-subagent/` (Node bridge to Codex GPT-5.5), `keepalive/` (Python FastMCP — `wait_bg` cache-keepalive + `keepalive_now`), and `graphify/` (Python — read-only L3 Shelf graph queries). The `minionsos` MCP server itself lives inside the Python package at `minions/tools/mcp/` (with a 50-line shim at `minions/tools/mcp_server.py`) for import-graph reasons; see `mcp-servers/minionsos.md` for why.
+- `mcp-servers/` — standalone MCP servers registered in `.mcp.json`. `mcp-servers/README.md` is the canonical registry. Currently houses `eacn3/` (the EACN3 dep + its Node plugin), `codex-subagent/` (Node bridge to Codex GPT-5.5), `keepalive/` (Python FastMCP — `wait_bg` cache-keepalive + `keepalive_now`), `graphify/` (Python — optional per-role graph analysis tool), and `codegraph/` (Node — optional per-role code intelligence). The `minionsos` MCP server itself lives inside the Python package at `minions/tools/mcp/` (with a 50-line shim at `minions/tools/mcp_server.py`) for import-graph reasons; see `mcp-servers/minionsos.md` for why.
 - `projects/` — runtime projects created by Gru; gitignored. Each project lives at `projects/project_{port}/`.
 
 ### Python package responsibilities
@@ -149,7 +149,7 @@ projects/project_{port}/
 │       │   ├── log.md                      Append-only ingest/lint journal (JSONL)
 │       │   ├── sources/{role}-{slug}.md    One page per ingested artifact (carries reel_ref)
 │       │   └── contradictions/             Auto-detected claim conflicts (Ethics reads)
-│       └── shelf/shelf.json               ← Layer 3: structural index (graphify-extracted)
+│       └── shelf/shelf.json               ← Layer 3: Gru cross-project structural index
 ├── eacn3_data/eacn3.db          # project-local EACN3 SQLite state (gitignored)
 ├── events/                      # per-agent EACN event JSONL audit stream (gitignored)
 ├── state/                       # runtime control state (gitignored)
@@ -278,7 +278,7 @@ Quick orientation only:
 - **L1 Draft** — process graph at `branches/shared/draft/draft.json`; every
   EACN role writes via `mos_draft_*`.
 - **L2 Book** — Noter-curated durable knowledge at `branches/shared/book/`.
-- **L3 Shelf** — graphify-built structural index; per-project + Gru cross-project.
+- **L3 Shelf** — Gru-aggregated cross-project structural index derived from Book.
 
 Roles reconstruct context at wake-up from current transcript + Draft summary
 (especially `pending_plan` nodes) + EACN history + shared artefacts. The root

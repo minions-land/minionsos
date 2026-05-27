@@ -1,15 +1,15 @@
 """Gru-only cross-project Shelf (L3) — interface stub for V3.
 
 STATUS: development interface only. ``mos_shelf_register`` returns
-``{"registered": False, "reason": "shelf_v3_pending"}`` when the
-per-project graphify graph is absent (which is the default since V2
-removed the project-level shelf path).  The global ``~/.minionsos/shelf.json``
-aggregation logic is fully implemented and will activate automatically
-once V3 defines a stable per-project source format.
+``{"registered": False, "reason": "shelf_v3_pending"}`` because the
+per-project source format is not yet defined. The global
+``~/.minionsos/shelf.json`` aggregation logic is fully implemented and
+will activate automatically once V3 defines a stable per-project source.
 
 V3 DESIGN NOTES (fill in before activating):
-  - Source format: TBD (Book-derived JSON, per-project graphify, or
-    a new dedicated export from ``mos_book_export_graph``).
+  - Source format: Book-derived JSON (``mos_book_export_graph`` or
+    equivalent). graphify is an optional per-role MCP tool, NOT the
+    system-level Shelf source.
   - Trigger: Gru-periodic (not Noter), to keep Shelf cross-project-only.
   - Input path: replace ``_project_graph_path`` return value below.
   - Library (L4): see ``minions/tools/library.py`` stub.

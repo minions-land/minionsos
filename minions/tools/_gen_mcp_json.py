@@ -1,7 +1,9 @@
 """Generate .mcp.json for Claude Code — conditional MCP server registration.
 
-minionsos, eacn3, keepalive, graphify, and codegraph are always registered
-(core stack). codex-subagent is only registered if its dist/server.js exists.
+minionsos, eacn3, and keepalive are system-level (always registered).
+graphify and codegraph are optional per-role tools (registered when their
+launcher exists on disk). codex-subagent is only registered if its
+dist/server.js exists.
 
 GitHub Issue #27: every MCP server's command/args path must resolve to an
 **absolute** path. Role processes are launched with ``cwd=branches/<role>/``
