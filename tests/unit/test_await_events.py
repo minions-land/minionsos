@@ -584,6 +584,266 @@ class TestKeepaliveZeroSideEffects:
         assert snapshot.reminder_due is True
 
 
+# ---------------------------------------------------------------------------
+# Issue #39 — biddable-tasks discovery in idle_check
+# ---------------------------------------------------------------------------
+
+
+class TestBiddableTasksInIdleCheck:
+    """When a role is idle and open tasks exist that it hasn't bid on,
+    the idle_check event must surface them as a concrete collaboration signal
+    rather than a generic 'call eacn3_list_open_tasks' prompt."""
+
+    def test_biddable_tasks_appear_in_idle_check_prompt(self, tmp_path):
+        from minions.tools.await_events import await_events
+
+        open_task = {
+            "id": "t-open-001",
+            "status": "unclaimed",
+            "initiator_id": "other-agent",
+            "domains": ["triton-kernel", "gpu-perf"],
+            "bids": [],
+        }
+
+        # Pre-seed cold-start flag so we exercise idle_check, not cold_start_hint
+        flag_dir = tmp_path / "workspace" / ".minionsos"
+        flag_dir.mkdir(parents=True, exist_ok=True)
+        (flag_dir / "cold_start_hint_emitted").write_text("seeded")
+
+        call_count = [0]
+
+        def mock_get(url, **kwargs):
+            call_count[0] += 1
+            if "/api/events/" in url:
+                return _make_poll_response([])
+            if "/api/tasks/open" in url:
+                return _make_tasks_response([open_task])
+            if "/api/tasks" in url:
+                return _make_tasks_response([])  # no active/delegated
+            return _make_poll_response([])
+
+        with patch("minions.tools.await_events.httpx.get", side_effect=mock_get):
+            result = await_events()
+
+        assert result["count"] == 1
+        evt = result["events"][0]
+        assert evt["event"]["type"] == "idle_check"
+        payload = evt["event"]["payload"]
+        assert "t-open-001" in payload.get("biddable_tasks", [])
+        # The prompt must mention the open task explicitly
+        joined = " ".join(payload.get("prompts", []))
+        assert "t-open-001" in joined
+        assert evt["suggested_tool"] == "eacn3_submit_bid"
+
+    def test_own_tasks_excluded_from_biddable(self, tmp_path):
+        """Tasks initiated by this agent must NOT appear in biddable_tasks."""
+        from minions.tools.await_events import await_events
+
+        own_task = {
+            "id": "t-own",
+            "status": "unclaimed",
+            "initiator_id": "test-agent",  # this agent's own task
+            "domains": ["ml"],
+            "bids": [],
+        }
+
+        flag_dir = tmp_path / "workspace" / ".minionsos"
+        flag_dir.mkdir(parents=True, exist_ok=True)
+        (flag_dir / "cold_start_hint_emitted").write_text("seeded")
+
+        # Also pre-create some delegated task so idle_check fires (otherwise
+        # no prompts → returns None → cold-start path instead).
+        delegated_task = {
+            "id": "t-delegated",
+            "status": "bidding",
+            "initiator_id": "test-agent",
+            "bids": [],
+        }
+
+        def mock_get(url, **kwargs):
+            if "/api/events/" in url:
+                return _make_poll_response([])
+            if "/api/tasks/open" in url:
+                return _make_tasks_response([own_task])
+            if "/api/tasks" in url:
+                return _make_tasks_response([delegated_task])
+            return _make_poll_response([])
+
+        with patch("minions.tools.await_events.httpx.get", side_effect=mock_get):
+            result = await_events()
+
+        evt = result["events"][0]
+        assert evt["event"]["type"] == "idle_check"
+        biddable = evt["event"]["payload"].get("biddable_tasks", [])
+        assert "t-own" not in biddable
+
+    def test_already_bid_tasks_excluded_from_biddable(self, tmp_path):
+        """Tasks where this agent already has a bid must NOT be in biddable_tasks."""
+        from minions.tools.await_events import await_events
+
+        already_bid_task = {
+            "id": "t-bid",
+            "status": "unclaimed",
+            "initiator_id": "other-agent",
+            "domains": ["ml"],
+            "bids": [{"agent_id": "test-agent", "status": "submitted"}],
+        }
+
+        flag_dir = tmp_path / "workspace" / ".minionsos"
+        flag_dir.mkdir(parents=True, exist_ok=True)
+        (flag_dir / "cold_start_hint_emitted").write_text("seeded")
+
+        delegated_task = {
+            "id": "t-delegated",
+            "status": "bidding",
+            "initiator_id": "test-agent",
+            "bids": [],
+        }
+
+        def mock_get(url, **kwargs):
+            if "/api/events/" in url:
+                return _make_poll_response([])
+            if "/api/tasks/open" in url:
+                return _make_tasks_response([already_bid_task])
+            if "/api/tasks" in url:
+                return _make_tasks_response([delegated_task])
+            return _make_poll_response([])
+
+        with patch("minions.tools.await_events.httpx.get", side_effect=mock_get):
+            result = await_events()
+
+        evt = result["events"][0]
+        biddable = evt["event"]["payload"].get("biddable_tasks", [])
+        assert "t-bid" not in biddable
+
+    def test_biddable_open_endpoint_failure_is_graceful(self, tmp_path):
+        """If /api/tasks/open fails, idle_check must still fire with other prompts."""
+        from minions.tools.await_events import await_events
+
+        flag_dir = tmp_path / "workspace" / ".minionsos"
+        flag_dir.mkdir(parents=True, exist_ok=True)
+        (flag_dir / "cold_start_hint_emitted").write_text("seeded")
+
+        delegated_task = {
+            "id": "t-delegated",
+            "status": "bidding",
+            "initiator_id": "test-agent",
+            "bids": [],
+        }
+
+        class FailResp:
+            status_code = 500
+
+            def json(self):
+                return []
+
+        def mock_get(url, **kwargs):
+            if "/api/events/" in url:
+                return _make_poll_response([])
+            if "/api/tasks/open" in url:
+                return FailResp()
+            if "/api/tasks" in url:
+                return _make_tasks_response([delegated_task])
+            return _make_poll_response([])
+
+        with patch("minions.tools.await_events.httpx.get", side_effect=mock_get):
+            result = await_events()
+
+        # Should still return an idle_check (from delegated task), not crash
+        assert result["count"] == 1
+        assert result["events"][0]["event"]["type"] == "idle_check"
+
+
+# ---------------------------------------------------------------------------
+# Issue #39 — Draft-discipline reminder must not cover high-priority EACN signals
+# ---------------------------------------------------------------------------
+
+
+class TestDraftReminderPriority:
+    """For task_broadcast / direct_message / bid_result events, the Draft
+    discipline reminder must be APPENDED (not prepended) so the EACN
+    collaboration signal remains the first thing the LLM reads."""
+
+    def _make_draft_audit_snapshot(self, reminder_due=True):
+        from minions.tools.draft_audit import AuditSnapshot as DraftAuditSnapshot
+
+        return DraftAuditSnapshot(
+            prev_delivery_was_real=True,
+            appends_since_last_await=0,
+        )
+
+    def test_reminder_appended_for_task_broadcast(self, monkeypatch, tmp_path):
+        from minions.tools.await_events import await_events
+
+        monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path / "projects"))
+
+        fake_event = {
+            "type": "task_broadcast",
+            "task_id": "t-broadcast",
+            "payload": {"domains": ["ml"], "budget": 0},
+        }
+
+        snapshot = self._make_draft_audit_snapshot(reminder_due=True)
+
+        with (
+            patch("minions.tools.await_events.httpx.get") as mock_get,
+            patch(
+                "minions.tools.draft_audit.take_snapshot_and_reset",
+                return_value=snapshot,
+            ),
+        ):
+            mock_get.return_value = _make_poll_response([fake_event])
+            result = await_events()
+
+        evt = result["events"][0]
+        action = evt["suggested_action"]
+        # EACN collaboration signal must come FIRST
+        assert action.index("Evaluate and bid") < action.index("Draft-discipline reminder")
+
+    def test_reminder_prepended_for_idle_check(self, monkeypatch, tmp_path):
+        """For idle_check (lower urgency), prepending is acceptable."""
+        from minions.tools.await_events import await_events
+
+        monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path / "projects"))
+
+        flag_dir = tmp_path / "workspace" / ".minionsos"
+        flag_dir.mkdir(parents=True, exist_ok=True)
+        (flag_dir / "cold_start_hint_emitted").write_text("seeded")
+
+        delegated_task = {
+            "id": "t-del",
+            "status": "bidding",
+            "initiator_id": "test-agent",
+            "bids": [],
+        }
+
+        snapshot = self._make_draft_audit_snapshot(reminder_due=True)
+
+        def mock_get(url, **kwargs):
+            if "/api/events/" in url:
+                return _make_poll_response([])
+            if "/api/tasks/open" in url:
+                return _make_tasks_response([])
+            if "/api/tasks" in url:
+                return _make_tasks_response([delegated_task])
+            return _make_poll_response([])
+
+        with (
+            patch("minions.tools.await_events.httpx.get", side_effect=mock_get),
+            patch(
+                "minions.tools.draft_audit.take_snapshot_and_reset",
+                return_value=snapshot,
+            ),
+        ):
+            result = await_events()
+
+        evt = result["events"][0]
+        assert evt["event"]["type"] == "idle_check"
+        action = evt["suggested_action"]
+        # For idle_check, reminder prepended (comes first)
+        assert action.index("Draft-discipline reminder") < action.index("t-del")
+
+
 class TestPollWatchdog:
     """Issue #37: SIGALRM-backed wall-clock kill-switch on _poll_once."""
 

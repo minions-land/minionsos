@@ -211,8 +211,11 @@ For the full Draft lifecycle and `pending_plans` drain protocol, see
 1. **Orient**: `mos_draft_summary()`. Inspect `pending_plans` — these are
    dequeued EACN events that will NOT be redelivered; execute them now.
    Also check `branches/<your-role>/plans/<your-role>-*.md` for active plans.
-2. **Drain pending_plans first** before receiving new events.
-3. **Receive**: `mos_await_events()`.
+2. **Drain pending_plans** — spend at most **one turn** on this. If there are
+   many pending_plans, handle the highest-priority one and defer the rest to
+   post-EACN turns. EACN responsiveness takes precedence over Memory hygiene.
+3. **Receive**: `mos_await_events()`. Do NOT delay this step to do more Memory
+   work — other agents may be waiting for your bid or reply.
 4. **Classify** each event as RELEVANT or UNRELATED.
 5. **Execute relevant events** (Plan → Dispatch → Verify → EACN response).
 6. **Unrelated events**: invoke `cognitive-checkpoint`, persist them as

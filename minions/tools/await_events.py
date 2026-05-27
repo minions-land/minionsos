@@ -286,6 +286,50 @@ def _query_unanswered_messages(
     return []
 
 
+def _query_biddable_tasks(
+    port: int,
+    agent_id: str,
+) -> list[dict]:
+    """Query open tasks this agent has NOT yet bid on and could potentially claim.
+
+    This is the key signal missing from the original idle_check: without it, a
+    role can sit idle while work matching its domains is sitting unclaimed on the
+    network.  We use the /api/tasks/open endpoint (same as eacn3_list_open_tasks)
+    and filter out tasks where:
+    - This agent is already the initiator (own tasks).
+    - This agent has already submitted a bid (already knows about it).
+    Returns up to 5 candidates so the idle_check prompt stays concise.
+    """
+    base = _base_url(port)
+    biddable: list[dict] = []
+    try:
+        resp = httpx.get(
+            f"{base}/api/tasks/open",
+            timeout=5.0,
+        )
+        if resp.status_code != 200:
+            return biddable
+        for task in resp.json():
+            if not isinstance(task, dict):
+                continue
+            # Skip tasks initiated by this agent
+            if task.get("initiator_id") == agent_id:
+                continue
+            # Skip tasks where this agent already has a bid
+            bids = task.get("bids", [])
+            already_bid = any(
+                b.get("agent_id") == agent_id for b in bids if isinstance(b, dict)
+            )
+            if already_bid:
+                continue
+            biddable.append(task)
+            if len(biddable) >= 5:
+                break
+    except Exception as exc:
+        logger.debug("idle check biddable-tasks query failed: %s", exc)
+    return biddable
+
+
 def _build_idle_check(
     port: int,
     agent_id: str,
@@ -294,9 +338,15 @@ def _build_idle_check(
 
     Returns None if truly nothing to do (no-idle → swallow silently).
     Logic mirrors eacn3_next's idle branch (server.ts:1562-1607).
+
+    Extended (Issue #39): now also queries for open tasks this agent has not yet
+    bid on, so a role in idle state receives a concrete signal about available
+    collaboration opportunities — not just a generic suggestion to call
+    eacn3_list_open_tasks.
     """
     active, delegated, completed = _query_agent_tasks(port, agent_id)
     unanswered = _query_unanswered_messages(port, agent_id)
+    biddable = _query_biddable_tasks(port, agent_id)
 
     prompts: list[str] = []
 
@@ -320,6 +370,18 @@ def _build_idle_check(
             f"Unanswered messages from {len(unanswered)} agent(s)"
             f" ({', '.join(unanswered[:5])}). Reply?"
         )
+    if biddable:
+        ids = ", ".join(t.get("id", "?") for t in biddable)
+        domains_preview = ", ".join(
+            d
+            for t in biddable[:2]
+            for d in (t.get("domains") or [])[:2]
+        )
+        prompts.append(
+            f"{len(biddable)} open task(s) you haven't bid on yet"
+            f" ({ids}; domains: {domains_preview or 'various'})."
+            f" Evaluate and bid if relevant."
+        )
 
     if not prompts:
         # Truly nothing — no-idle. Return None to signal "keep waiting."
@@ -331,8 +393,13 @@ def _build_idle_check(
         " Consider delegating via eacn3_create_task."
     )
 
-    # Pick the most actionable item for suggested_tool
-    if delegated:
+    # Pick the most actionable item for suggested_tool.
+    # Biddable tasks take priority over generic delegation reminder —
+    # a concrete task_id is more actionable than a list query.
+    if biddable:
+        suggested_tool = "eacn3_submit_bid"
+        suggested_params = {"task_id": biddable[0].get("id", "")}
+    elif delegated:
         suggested_tool = "eacn3_get_task_results"
         suggested_params = {"task_id": delegated[0].get("id", "")}
     elif completed:
@@ -354,6 +421,7 @@ def _build_idle_check(
                 "delegated_tasks": [t.get("id") for t in delegated[:5]],
                 "completed_tasks": [t.get("id") for t in completed[:5]],
                 "unanswered_from": unanswered[:5],
+                "biddable_tasks": [t.get("id") for t in biddable],
                 "prompts": prompts,
             },
         },
@@ -651,6 +719,24 @@ def await_events() -> dict[str, Any]:
                 logger.debug("draft_audit snapshot failed: %s", exc)
                 snapshot = None
         if real and snapshot is not None and snapshot.reminder_due and events_payload:
+            # Issue #39: Draft-discipline reminder must NOT overwrite high-urgency
+            # EACN collaboration signals. A task_broadcast or direct_message is
+            # time-sensitive — prepending a Memory reminder visually de-prioritizes
+            # the collaboration action. For these event types, append the reminder
+            # instead (or skip entirely if urgency=high). For lower-urgency events
+            # (idle_check, discussion_update), prepending is fine.
+            first = events_payload[0]
+            event_type = ""
+            inner = first.get("event")
+            if isinstance(inner, dict):
+                event_type = inner.get("type", "")
+            urgency = first.get("urgency", "low")
+            high_priority_collab = event_type in (
+                "task_broadcast",
+                "direct_message",
+                "bid_result",
+            ) or urgency == "high"
+
             reminder = (
                 "[Draft-discipline reminder] Your previous cycle handled real "
                 "events but wrote no Draft node. If anything you decided or "
@@ -659,9 +745,13 @@ def await_events() -> dict[str, Any]:
                 "substitute — the Draft is the cold-start trail other roles "
                 "(and your post-compact self) read.\n\n"
             )
-            first = events_payload[0]
             existing = str(first.get("suggested_action", ""))
-            first["suggested_action"] = reminder + existing
+            if high_priority_collab:
+                # Append reminder after the collaboration signal
+                first["suggested_action"] = existing + "\n\n" + reminder
+            else:
+                # Prepend for lower-priority events (idle_check, etc.)
+                first["suggested_action"] = reminder + existing
         # Context-pressure annotation (issue #38). Read the role's session
         # JSONL tail to compute avg cache_read over recent assistant turns;
         # if it has bloated past threshold, advise mos_compact_context via
