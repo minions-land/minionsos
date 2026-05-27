@@ -155,6 +155,8 @@ def build_role_invocation(
     mcp_config_path: Path | None = None,
     role_system_paths: list[Path] | None = None,
     claude_session_id: str | None = None,
+    hermetic_cwd: Path | None = None,
+    add_dirs: list[Path] | None = None,
 ) -> RoleInvocation:
     """Build the ``claude`` invocation for a long-lived Role.
 
@@ -216,12 +218,20 @@ def build_role_invocation(
         "--permission-mode",
         "bypassPermissions",
     ]
+    if add_dirs:
+        # --add-dir grants R/W/E access to extra paths without changing cwd.
+        # CLAUDE.md walk goes upward from cwd only, so adding dirs does NOT
+        # introduce new walk roots — exactly the property that makes
+        # hermetic-cwd safe.
+        for extra in add_dirs:
+            cmd += ["--add-dir", str(extra)]
     if resume and session_name:
         cmd += ["--resume", session_name]
+    effective_cwd = hermetic_cwd if hermetic_cwd is not None else workspace
     return RoleInvocation(
         host_name="claude",
         command=cmd,
-        cwd=workspace if workspace.exists() else MINIONS_ROOT,
+        cwd=effective_cwd if effective_cwd.exists() else MINIONS_ROOT,
         initial_prompt=build_forever_loop_prompt(
             role_name=role_name,
             port=project_port,

@@ -1996,6 +1996,14 @@ def project_close(
     _write_meta(port, updated)
     _store.retire_port(port)
     _remove_all_worktrees(port)
+    try:
+        from minions.lifecycle.role_hermetic import cleanup_hermetic_cwd as _cleanup_hermetic
+
+        removed = _cleanup_hermetic(port)
+        if removed:
+            logger.info("project_close: cleaned %d hermetic cwd path(s)", len(removed))
+    except Exception as exc:
+        logger.warning("project_close: hermetic cleanup failed for port=%d: %s", port, exc)
     logger.info("project_close done: port=%d", port)
     return updated
 

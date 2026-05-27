@@ -36,6 +36,14 @@ from minions.lifecycle.eacn_identity import (
     plugin_state_dir,
     resolve_agent_id,
 )
+from minions.lifecycle.role_hermetic import (
+    assert_tier2_auth_available,
+    hermetic_add_dirs,
+    hermetic_enabled,
+    hermetic_home_enabled,
+    prepare_fake_home,
+    prepare_hermetic_cwd,
+)
 from minions.paths import (
     MINIONS_ROOT,
     common_role_system_md,
@@ -251,6 +259,8 @@ def launch_role_process(
         mcp_config_path=mcp_config_path,
         role_system_paths=_role_system_paths(role_name, extra_domain_md=extra_domain_md),
         claude_session_id=claude_session_id,
+        hermetic_cwd=_hermetic_cwd_for(project_port, role_name),
+        add_dirs=_hermetic_add_dirs_for(project_port, role_name, workspace=workspace),
     )
 
     # Lock the registry entry BEFORE the claude process starts so the
@@ -628,7 +638,7 @@ def _role_env(
     from datetime import UTC, datetime
 
     session_id = f"sess-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
-    return {
+    env: dict[str, str] = {
         "MINIONS_AGENT_HOST": "claude",
         "MINIONS_ROLE_NAME": role_name,
         "MINIONS_AGENT_TYPE": "main",
@@ -745,6 +755,52 @@ def _role_env(
         "ENABLE_TOOL_SEARCH": "auto:30",
         "PATH": os.environ.get("PATH", ""),
     }
+    # Hermetic HOME (Tier 2): swap HOME so user-level ~/.claude/ is replaced
+    # by a per-(project, role) fake home. Auth must come from env vars; the
+    # caller has already pre-flighted assert_tier2_auth_available.
+    # ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL are
+    # forwarded explicitly so the swap doesn't strip them.
+    if hermetic_home_enabled():
+        env["HOME"] = str(prepare_fake_home(project_port, role_name))
+    elif "HOME" in os.environ:
+        env["HOME"] = os.environ["HOME"]
+    for key in ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"):
+        val = os.environ.get(key)
+        if val:
+            env[key] = val
+    return env
+
+
+def _hermetic_cwd_for(project_port: int, role_name: str) -> Path | None:
+    """Return the hermetic cwd to use for this Role, or None for legacy mode.
+
+    Tier 2 implies Tier 1; ``hermetic_home_enabled`` is True only when both
+    flags are on (see ``role_hermetic.hermetic_home_enabled``).
+    """
+    if hermetic_home_enabled():
+        assert_tier2_auth_available()
+    if not hermetic_enabled():
+        return None
+    return prepare_hermetic_cwd(project_port, role_name)
+
+
+def _hermetic_add_dirs_for(
+    project_port: int, role_name: str, *, workspace: Path
+) -> list[Path] | None:
+    """Build the ``--add-dir`` list when hermetic mode is on.
+
+    Returns ``None`` in legacy mode so ``build_role_invocation`` skips the
+    flag entirely (preserves the legacy command shape byte-for-byte and
+    keeps the existing prompt-portability invariant tests valid).
+    """
+    if not hermetic_enabled():
+        return None
+    return hermetic_add_dirs(
+        workspace=workspace,
+        workspace_main=project_workspace(project_port),
+        workspace_shared=project_workspace_root(project_port) / "shared",
+        minions_root=MINIONS_ROOT,
+    )
 
 
 def _role_model(cfg: GruConfig, role_name: str) -> str | None:
