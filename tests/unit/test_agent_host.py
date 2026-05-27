@@ -126,3 +126,62 @@ def test_invocation_omits_fallback_model_for_long_lived_role(tmp_path: Path) -> 
         "build_role_invocation should not accept fallback_model — it is a "
         "--print-only flag and only applies to review.py / adjudicator.py."
     )
+
+
+# --- ToolSearch cold-start warmup (regression for project_37596 keyword-miss) ---
+
+
+_WARMUP_HEADER = "Step 0 (warmup, do this BEFORE step 1):"
+
+
+def _cold_prompt(role: str) -> str:
+    return build_forever_loop_prompt(role_name=role, port=37596)
+
+
+def test_warmup_block_present_for_eacn_roles() -> None:
+    for role in ("coder", "ethics", "writer"):
+        prompt = _cold_prompt(role)
+        assert _WARMUP_HEADER in prompt, f"warmup missing for {role}"
+        assert "select:" in prompt
+        assert "mos_await_events" in prompt
+        assert "mos_draft_summary" in prompt
+
+
+def test_warmup_block_present_for_noter() -> None:
+    prompt = _cold_prompt("noter")
+    assert _WARMUP_HEADER in prompt
+    assert "select:" in prompt
+    # Noter does not use mos_await_events; it uses mos_noter_wait.
+    assert "mos_noter_wait" in prompt
+    assert "mos_draft_commit_shared" in prompt
+
+
+def test_warmup_block_handles_expert_name_shapes() -> None:
+    # Expert roles ship as bare "expert", "expert-<slug>", or "<slug>-expert".
+    # All three must collapse to the same warmup list.
+    bare = _cold_prompt("expert")
+    prefix = _cold_prompt("expert-gpu-perf")
+    suffix = _cold_prompt("theory-normalization-expert")
+    for prompt in (bare, prefix, suffix):
+        assert _WARMUP_HEADER in prompt
+        assert "eacn3_send_message" in prompt
+        assert "mos_await_events" in prompt
+
+
+def test_warmup_block_steers_away_from_keyword_search() -> None:
+    # Pitfall: project_37596 / role-expert-gpu-perf.log shows the role doing
+    # ToolSearch with keyword "MinionsOS tools" and getting nothing back.
+    # The warmup MUST tell the role to use select:<id> and lookup.py, not
+    # keyword search, for MinionsOS tools.
+    prompt = _cold_prompt("coder")
+    assert "MANUAL/scripts/lookup.py" in prompt
+    assert "keyword" in prompt.lower()
+
+
+def test_warmup_block_appears_before_step_1() -> None:
+    # Step 0 must come before "1. Call `mos_draft_summary()`" so the role
+    # warms schemas before its very first MCP call.
+    prompt = _cold_prompt("coder")
+    step0 = prompt.index(_WARMUP_HEADER)
+    step1 = prompt.index("1. Call `mos_draft_summary()`")
+    assert step0 < step1

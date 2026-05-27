@@ -24,6 +24,110 @@ logger = logging.getLogger(__name__)
 HOT_CACHE_BYTE_LIMIT = 4096
 HOT_CACHE_TRUNCATION_LINE = "(truncated for wake-up injection — see book/hot.md for full)"
 
+# Per-role ToolSearch warmup lists. Cold-start expert/coder/noter/ethics roles
+# repeatedly missed deferred-tool schemas in project_37596 logs (e.g.
+# expert-gpu-perf: "The ToolSearch for MinionsOS tools didn't find them as
+# deferred tools"; noter: 59 minionsos calls, many retries on args wrapping).
+# `ENABLE_TOOL_SEARCH=auto:30` (set in role_launcher) is a Claude-Code internal
+# heuristic that warms by call frequency; on cold start no calls have been made
+# yet, so high-frequency role-specific tools start deferred and keyword search
+# misses them. We pin the cold-start warmup explicitly.
+# Frequencies derived from project_37596/logs/role-*.log (CODA-MoE, 2026-05-27).
+_TOOL_WARMUP: dict[str, tuple[str, ...]] = {
+    "noter": (
+        "mos_noter_wait",
+        "mos_draft_summary",
+        "mos_draft_query",
+        "mos_draft_append",
+        "mos_draft_annotate",
+        "mos_draft_commit_shared",
+        "mos_publish_to_shared",
+        "mos_compact_context",
+        "mos_book_ingest",
+        "mos_book_hot_update",
+        "mos_book_promote_verified",
+    ),
+    "coder": (
+        "mos_await_events",
+        "mos_draft_summary",
+        "mos_draft_query",
+        "mos_draft_append",
+        "mos_draft_annotate",
+        "mos_publish_to_shared",
+        "mos_compact_context",
+        "mos_exp_run",
+        "mos_exp_status",
+        "mos_exp_list",
+        "eacn3_send_message",
+        "eacn3_create_task",
+        "eacn3_submit_bid",
+        "eacn3_submit_result",
+    ),
+    "expert": (
+        "mos_await_events",
+        "mos_draft_summary",
+        "mos_draft_query",
+        "mos_draft_append",
+        "mos_draft_annotate",
+        "mos_compact_context",
+        "eacn3_send_message",
+        "eacn3_create_task",
+        "eacn3_submit_bid",
+        "eacn3_submit_result",
+    ),
+    "ethics": (
+        "mos_await_events",
+        "mos_draft_summary",
+        "mos_draft_query",
+        "mos_draft_append",
+        "mos_draft_annotate",
+        "mos_compact_context",
+        "mos_adjudicate",
+        "eacn3_send_message",
+        "eacn3_create_task",
+        "eacn3_submit_result",
+    ),
+    "writer": (
+        "mos_await_events",
+        "mos_draft_summary",
+        "mos_draft_query",
+        "mos_draft_append",
+        "mos_draft_annotate",
+        "mos_compact_context",
+        "eacn3_send_message",
+        "eacn3_submit_result",
+    ),
+}
+
+
+def _tool_warmup_block(role_name: str) -> str:
+    """Cold-start ToolSearch warmup nudge.
+
+    Roles run with `ENABLE_TOOL_SEARCH=auto:30`; on cold start no call history
+    exists, so high-frequency tools begin deferred. Telling the role to issue
+    a single `select:`-form ToolSearch with the canonical hot list eliminates
+    the keyword-search miss that previously cost ~6 min thrash + N retries.
+    """
+    from minions.config import is_expert_role
+
+    key = "expert" if is_expert_role(role_name) else role_name
+    names = _TOOL_WARMUP.get(key)
+    if not names:
+        return ""
+    select_query = "select:" + ",".join(names)
+    return (
+        "Step 0 (warmup, do this BEFORE step 1):\n"
+        '  ToolSearch with `query="' + select_query + '"`,\n'
+        "  `max_results=" + str(len(names)) + "`. This pre-loads the schemas\n"
+        "  for the high-frequency tools you will use this cycle. Do this\n"
+        "  exactly once on cold start. If a tool you need is NOT in this list,\n"
+        "  use `python3 MANUAL/scripts/lookup.py <keyword>` to find its exact\n"
+        '  id, then `ToolSearch(query="select:<id>")`. Never call ToolSearch\n'
+        "  with a fuzzy keyword query for MinionsOS tools — keyword search is\n"
+        "  for tool *discovery*, not schema loading.\n"
+        "\n"
+    )
+
 
 @dataclass(frozen=True)
 class RoleInvocation:
@@ -159,11 +263,13 @@ def _build_noter_loop_prompt(
     hot_cache = _hot_cache_block(port)
     hot_cache_section = f"{hot_cache}\n" if hot_cache else ""
     role_contract = _role_contract_block(role_system_paths)
+    warmup = _tool_warmup_block("noter")
     return (
         "You are the MinionsOS `noter` role. Your event loop runs forever.\n"
         "\n"
         f"{hot_cache_section}"
         "Cold start (this is your first cycle on a fresh process):\n"
+        f"{warmup}"
         "1. Call `mos_draft_summary()` first to orient on team state.\n"
         "2. Inspect `pending_plans` in the summary. These are events your\n"
         "   previous self received but could not handle in its context;\n"
@@ -240,11 +346,13 @@ def _build_eacn_role_loop_prompt(
     hot_cache = _hot_cache_block(port)
     hot_cache_section = f"{hot_cache}\n" if hot_cache else ""
     role_contract = _role_contract_block(role_system_paths)
+    warmup = _tool_warmup_block(role_name)
     return (
         f"You are the MinionsOS `{role_name}` role. Your event loop runs forever.\n"
         "\n"
         f"{hot_cache_section}"
         "Cold start (this is your first cycle on a fresh process):\n"
+        f"{warmup}"
         "1. Call `mos_draft_summary()` first to orient on team state.\n"
         "2. Inspect `pending_plans` in the summary. These are events your\n"
         "   previous self received but judged unrelated to its context;\n"
