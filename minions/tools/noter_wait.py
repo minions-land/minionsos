@@ -265,27 +265,39 @@ def noter_wait() -> dict[str, Any]:
     except OSError as exc:
         logger.warning("failed to persist noter last_wake marker: %s", exc)
 
+    wake_event: dict[str, Any] = {
+        "type": "periodic_wake",
+        "slept_seconds": int(elapsed),
+        "since_iso": since_iso,
+        "wake_iso": wake_iso,
+        "delta": {
+            "shared_branch": _shared_branch_delta(workspace),
+            "events": _events_jsonl_delta(port),
+            "book_lint": lint_result,
+        },
+        "suggested_action": (
+            "Periodic wake. Flush the Draft "
+            "(mos_draft_commit_shared), then read project "
+            "activity *since `since_iso`* only — do not re-read "
+            "the full event/handoff history. Update the Draft "
+            "if needed, and consider whether a fresh observation "
+            "report is due."
+        ),
+    }
+
+    # Context-pressure annotation (issue #38). Same mechanism as
+    # mos_await_events: probe the role's session JSONL tail and, if
+    # accumulated cache_read crossed threshold, advise mos_compact_context.
+    try:
+        from minions.tools import context_pressure as _ctx_pressure
+
+        pressure = _ctx_pressure.probe(workspace=workspace)
+        if pressure.level != "low":
+            _ctx_pressure.annotate_event(wake_event, pressure)
+    except Exception as exc:
+        logger.debug("context_pressure probe failed in noter_wait: %s", exc)
+
     return {
         "count": 1,
-        "events": [
-            {
-                "type": "periodic_wake",
-                "slept_seconds": int(elapsed),
-                "since_iso": since_iso,
-                "wake_iso": wake_iso,
-                "delta": {
-                    "shared_branch": _shared_branch_delta(workspace),
-                    "events": _events_jsonl_delta(port),
-                    "book_lint": lint_result,
-                },
-                "suggested_action": (
-                    "Periodic wake. Flush the Draft "
-                    "(mos_draft_commit_shared), then read project "
-                    "activity *since `since_iso`* only — do not re-read "
-                    "the full event/handoff history. Update the Draft "
-                    "if needed, and consider whether a fresh observation "
-                    "report is due."
-                ),
-            }
-        ],
+        "events": [wake_event],
     }

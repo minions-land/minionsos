@@ -662,7 +662,86 @@ def await_events() -> dict[str, Any]:
             first = events_payload[0]
             existing = str(first.get("suggested_action", ""))
             first["suggested_action"] = reminder + existing
+        # Context-pressure annotation (issue #38). Read the role's session
+        # JSONL tail to compute avg cache_read over recent assistant turns;
+        # if it has bloated past threshold, advise mos_compact_context via
+        # the suggested_action channel. Skipped for keepalive/empty returns
+        # so the keepalive ack path stays byte-stable (cache safety).
+        if real and events_payload:
+            try:
+                from minions.tools import context_pressure as _ctx_pressure
+
+                pressure = _ctx_pressure.probe(workspace=workspace)
+                if pressure.level != "low":
+                    _ctx_pressure.annotate_event(events_payload[0], pressure)
+            except Exception as exc:
+                # Pressure detection is advisory only — never block the event
+                # path on its failure.
+                logger.debug("context_pressure probe failed: %s", exc)
         return {"count": len(events_payload), "events": events_payload}
+
+    # Pattern B: idle-window preemptive compact (issue #38).
+    # Before entering the poll loop, probe context pressure once. If pressure
+    # is HIGH and no cooldown is active AND the EACN queue is currently empty
+    # (peek without dequeue), this is the cleanest time to schedule /compact:
+    # the role is between work batches, no events have been pulled off the
+    # queue (so nothing gets stranded mid-cycle), and the next wake will run
+    # on a freshly compressed prefix.
+    #
+    # If the queue is NOT empty, deliver the events with Pattern A
+    # annotation in _return — Pattern A is the right path when there IS
+    # real work to surface alongside the compact directive.
+    try:
+        from minions.tools import context_pressure as _ctx_pressure
+
+        entry_pressure = _ctx_pressure.probe(workspace=workspace)
+        if entry_pressure.level == "high" and not entry_pressure.on_cooldown:
+            peeked = _poll_once(port, agent_id)
+            _touch_heartbeat(workspace, agent_id)
+            if peeked:
+                from minions.tools import events_log as _events_log
+
+                _events_log.append_events(port, agent_id, peeked)
+                events_payload = []
+                for evt in peeked:
+                    annotation = _build_suggested_action(evt)
+                    events_payload.append({**evt, **annotation})
+                return _return(events_payload, real=True)
+            # Queue empty — schedule compact preemptively.
+            scheduled = _schedule_preemptive_compact(port, agent_id)
+            if scheduled:
+                synthetic = {
+                    "event": {
+                        "type": "context_pressure_compact",
+                        "task_id": "",
+                        "payload": entry_pressure.to_dict(),
+                    },
+                    "context_pressure": entry_pressure.to_dict(),
+                    "suggested_action": (
+                        f"⚠ CONTEXT PRESSURE HIGH (avg cache_read "
+                        f"{entry_pressure.avg_cr_recent:,} over last "
+                        f"{entry_pressure.window_turns} turns). EACN queue is "
+                        f"idle. /compact has been scheduled preemptively — it "
+                        f"will fire as the next user input. \n\n"
+                        f"IMPORTANT: if you carry any in-flight plan or "
+                        f"unpersisted note that the compact summary cannot "
+                        f"reconstruct (a half-thought decision, an unwritten "
+                        f"hypothesis, a deferred next step), call "
+                        f"mos_draft_append RIGHT NOW with metadata."
+                        f"pending_plan=true BEFORE the /compact lands. "
+                        f"Anything not on disk before /compact is gone.\n\n"
+                        f"If you have nothing to persist: STOP NOW — do not "
+                        f"call any more tools, do not produce text. After the "
+                        f"compact summary loads, your first action is "
+                        f"mos_draft_summary() then mos_await_events() to "
+                        f"resume in compressed context."
+                    ),
+                }
+                return _return([synthetic], real=False)
+            # If schedule failed, fall through to normal poll. Pattern A
+            # in _return will still annotate any subsequent events.
+    except Exception as exc:
+        logger.debug("context_pressure entry probe failed: %s", exc)
 
     while True:
         # Early cache-keepalive cliff check: do BEFORE the next long-poll, not
@@ -721,6 +800,72 @@ def await_events() -> dict[str, Any]:
         # post-keepalive conversation tail stays cacheable.
         if keepalive_seconds > 0 and (time.monotonic() - started_monotonic) >= keepalive_seconds:
             return _return([_KEEPALIVE_EVENT], real=False)
+
+
+def _schedule_preemptive_compact(port: int, agent_id: str) -> bool:
+    """Schedule /compact via tmux send-keys without going through mos_compact_context.
+
+    This is the Pattern B path (issue #38): when ``await_events`` detects
+    high context pressure on entry AND the EACN queue is idle, we want to
+    schedule a compact directly from inside the tool, NOT via a Role-side
+    ``mos_compact_context`` call. Reasons:
+
+    - We are already on the Role's stack — calling mos_compact_context
+      from inside await_events would mean importing tools that touch the
+      Draft, journal, etc. Better to write the journal entry inline and
+      re-use the same tmux-send mechanism.
+    - The Role is between work batches (queue empty), so there are no
+      pending_plans to persist. The cognitive-checkpoint discipline does
+      not apply here.
+
+    Writes a journal entry tagged ``op="compact_preemptive"`` so context_pressure
+    cooldown sees it and stops re-firing.
+    """
+    import json as _json
+    import subprocess as _subprocess
+    from datetime import UTC as _UTC
+    from datetime import datetime as _datetime
+
+    role = os.environ.get("MINIONS_ROLE_NAME", agent_id)
+    session = f"mos-{port}-{role}"
+
+    # Journal first so cooldown is set even if tmux fails.
+    try:
+        from minions.paths import project_shared_subdir
+
+        draft_dir = project_shared_subdir(port, "draft")
+        draft_dir.mkdir(parents=True, exist_ok=True)
+        journal_path = draft_dir / "journal.jsonl"
+        entry = {
+            "op": "compact",
+            "role": role,
+            "reason": "context_pressure_preemptive",
+            "timestamp": _datetime.now(_UTC).isoformat(timespec="seconds"),
+            "trigger": "await_events_entry_probe",
+        }
+        with journal_path.open("a", encoding="utf-8") as fh:
+            fh.write(_json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception as exc:
+        logger.warning("preemptive compact: journal write failed: %s", exc)
+
+    # tmux send-keys "/compact" + Enter
+    try:
+        _subprocess.run(
+            ["tmux", "send-keys", "-t", session, "-l", "/compact"],
+            check=True,
+            capture_output=True,
+            timeout=5,
+        )
+        _subprocess.run(
+            ["tmux", "send-keys", "-t", session, "Enter"],
+            check=True,
+            capture_output=True,
+            timeout=5,
+        )
+        return True
+    except (OSError, _subprocess.SubprocessError) as exc:
+        logger.warning("preemptive compact: tmux send-keys failed for %s: %s", session, exc)
+        return False
 
 
 def _load_keepalive_seconds() -> int:
