@@ -164,7 +164,7 @@ The Knowledge-axis and Agent-axis evolution surfaces are both fully wired: every
 
 ### Gru intake contract
 
-Ethics' audit pass ends with one EACN message to Gru. Gru is then the routing authority — it (and only it) maps accepted proposals to enactment surfaces. The message and routing table:
+Ethics' audit pass ends with one EACN message to Gru. Gru is then the routing authority — it (and only it) maps accepted proposals to enactment surfaces. The runtime authority for this contract lives in `minions/roles/gru/SYSTEM.md` §G15 (Gru reads SYSTEM.md at wake; Gru does not read this dev-view file). The message and routing table are reproduced here for developer convenience — keep both in sync, but treat §G15 as the canonical home.
 
 **EACN message Ethics sends to Gru (schema):**
 

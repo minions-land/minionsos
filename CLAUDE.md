@@ -4,6 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Tool-use input must stay small (Opus 4.7 empty-input bug)
 
+> **Canonical source:** `~/.claude/CLAUDE.md` (host-level). This section
+> restates the rule for contributors who clone the repo without the host
+> file. If the rule needs to change (e.g. a future Opus release fixes
+> the bug), update `~/.claude/CLAUDE.md` first, then sync this section
+> and `minions/roles/SYSTEM.md` §4 host-fallback paragraph.
+
 NEVER inline a large payload in a single `tool_use`'s `input` object — neither `Write.content`, `Edit.new_string`, nor `Bash.command` containing a long heredoc. **Hard cap per tool_use input: ~50 lines / ~3 KB of actual payload.**
 
 For anything larger, especially anything matching CJK / LaTeX math / heredoc-tokens / multi-section structured content, use the `reliable-file-io` skill's **Tier 0 seed-and-Edit** recipe (`minions/roles/common/skills/reliable-file-io.md`):

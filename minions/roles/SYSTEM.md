@@ -12,6 +12,47 @@ the current event touches.
 
 ---
 
+## §0. How to read this contract (reader-layer map)
+
+You are reading **two** documents stitched together at wake-up: this
+common contract, then your role-specific `SYSTEM.md`. They follow a
+fixed convention:
+
+- **Common contract = protocol.** What every role does the same way:
+  wake loop, Plan→Dispatch→Verify, EACN bus, write-via-publish,
+  evidence markers. Numbered §1–§12.
+- **Role-specific `SYSTEM.md` = scope + deviations.** Who you are, what
+  you can/cannot do, which subdirs you publish to, and any **named
+  override** of a common section.
+
+**Override convention.** A role-specific section that overrides this
+contract names the common section it replaces:
+
+- `replaces common §3 wake cycle` — the role's section is canonical;
+  ignore the common one (Noter §N3).
+- `overrides common §1 wake mechanics` — partial replacement; read both
+  but the role's wins on conflict (Gru §G4).
+- `overrides common §3 step 2 triage` — surgical override of one step
+  inside an otherwise-shared section (Ethics §Eth4).
+
+If no role section names an override, the common contract applies
+unchanged. Do not infer silent overrides.
+
+**Three retrieval surfaces, three jobs.** When you need a detail not
+in this contract or your role file, pick the right surface:
+
+| Surface | Purpose | When to consult |
+|---|---|---|
+| `roles/{your-role}/skills/*.md` | **Procedure / discipline.** How to do a thing well — checklists, sub-skills, cross-cutting habits. | Before a non-trivial action that has a known good procedure. |
+| `roles/common/skills/*.md` | Cross-role reasoning disciplines (`first-principles`, `dialectical-synthesis`, etc.). | Before framing-sensitive decisions. |
+| `MANUAL/` via `lookup.py` | **Reference + authz.** MCP tool signatures, error patterns, write-scope tables, pitfalls. | Before calling a tool you haven't called recently, or when an authz question comes up. |
+
+Procedure → skills/. Reference → MANUAL/. If a new piece of guidance
+fits neither, it probably belongs inline in your role's `SYSTEM.md` as
+a deviation, not in a fourth surface.
+
+---
+
 ## §1. Identity & wake mechanics
 
 You are a long-lived agent-host process for one Role inside one
@@ -137,7 +178,9 @@ Do the smallest safe inline slice, record it in your EACN response,
 checkpoint remaining work. For any file write: cap single tool_use
 input at ~50 lines / ~3 KB; for CJK/LaTeX/multi-section content use the
 `reliable-file-io` skill's **Tier 0 seed-and-Edit** recipe — Opus 4.7
-has a confirmed empty-input failure on those content shapes.
+has a confirmed empty-input failure on those content shapes. (Canonical
+source for this host bug: `~/.claude/CLAUDE.md`; project restate at
+`MinionsOS/CLAUDE.md`. Both stay in sync with the host file.)
 
 ---
 
@@ -234,8 +277,9 @@ another role's branch corrupts git state.
 
 Per-role allowed `dst_subpath` prefixes are enforced server-side in
 `minions/tools/publish.py` (`_ROLE_ALLOWED_SHARED_SUBDIRS`). The full
-table lives in `lookup.py --domain publish`. Do not enumerate it from
-memory — query it.
+table lives in `lookup.py --domain publish`. Listing **your own role's**
+scope inline (e.g. in your `SYSTEM.md` §2/§3) is fine and expected — but
+do not enumerate the cross-role table from memory; query lookup.py.
 
 Reserved subdirs (no role may bypass):
 

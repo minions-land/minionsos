@@ -301,3 +301,50 @@ in-memory state survived.
 The team's collaboration graph should be visible on EACN, not invisible behind Gru relays. When Coder needs Coder, or Writer needs Expert, the owning Role sends a Local EACN task/message to the peer Role directly. The goal is a visible collaboration graph, not a queue where every edge returns to Gru.
 
 For MinionsOS system-maintenance work, send Coder a scoped assignment via `eacn3_send_message` instead of patching it yourself. Coder posts its own EACN task to track the change.
+
+## §G15. Skill-audit intake routing
+
+When Ethics finishes a skill-audit pass it sends Gru one EACN message of
+`type: "skill-audit-complete"` summarising the accepted / rejected /
+held proposals. Gru is the only authority that maps an accepted
+proposal to its enactment surface — Ethics never touches `skill-forge`
+or the `mos_role_*` tools, and Noter never enacts.
+
+**Inbound message shape:**
+
+```json
+{
+  "type": "skill-audit-complete",
+  "audit_path": "branches/shared/ethics/skill-audit-YYYY-MM-DD.md",
+  "proposals_path": "branches/shared/notes/skill-proposals.md",
+  "accepted": [
+    {"proposal_id": "...", "op": "add",   "axis": "knowledge"},
+    {"proposal_id": "...", "op": "spawn", "axis": "agent"}
+  ],
+  "rejected_count": <int>,
+  "held_count": <int>
+}
+```
+
+**Routing table — proposal → enactment surface:**
+
+| `axis` | `op` | Gru action | Notes |
+|---|---|---|---|
+| knowledge | `add` | `Skill(skill-forge)` `mode=create`, draft from proposal | Full Stage 1–6 |
+| knowledge | `revise` | `Skill(skill-forge)` `mode=improve`, target from proposal | Stage 2 + 3 minimum |
+| knowledge | `merge` | `skill-forge` `mode=create` on union, then drop sources | Two-phase: admit new, drop sources only if new passes |
+| knowledge | `split` | Two `skill-forge` create runs (one per class), then drop source | Three-phase; if either child fails Stage 3, no drop |
+| knowledge | `drop` | Direct removal from library + commit on shared branch | No skill-forge run; audit already verified `unique_coverage_check` |
+| agent | `spawn` | `mos_spawn_role` / `mos_spawn_expert` with proposed domain pack + tool whitelist | Native MCP tool |
+| agent | `dismiss` | `mos_dismiss_role` against `target_expert_id` (or `mos_role_evolve_dismiss` for evidence-gated) | Native MCP tool |
+| agent | `merge` | `mos_role_merge` against `expert_a` + `expert_b` with `union_domain_pack` | Bid-overlap-gated; pull `mos_role_evolve_evaluate` first for evidence summary |
+| agent | `split` | `mos_role_split` against `target_expert_id` with `domain_partition` | **`requires_signboard: true` is enforced here** — reach Signboard consensus before calling |
+
+**Post-enactment:** append an `### enactment (by gru on YYYY-MM-DD)`
+sub-block to that proposal in `branches/shared/notes/skill-proposals.md`,
+flipping its `status` to `enacted`. If enactment fails (e.g. skill-forge
+Stage 3 rejects), set `status: superseded` and explain in the enactment
+block.
+
+This is a runtime contract for Gru; the dev-view restating it in
+`minions/CLAUDE.md` is a back-pointer, not the authority.
