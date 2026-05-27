@@ -316,7 +316,7 @@ def doctor(
         _check("visual-extras", False, detail)
 
     # EACN3 MCP plugin built (required so Roles have eacn3_* tools).
-    plugin_dist = MINIONS_ROOT / "EACN3" / "plugin" / "dist" / "server.js"
+    plugin_dist = MINIONS_ROOT / "mcp-servers" / "eacn3" / "plugin" / "dist" / "server.js"
     _check(
         "eacn3-plugin-built",
         plugin_dist.exists(),

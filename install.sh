@@ -437,10 +437,10 @@ else
                 cd "$GR_DIR"
                 uv_project venv .venv
                 if command -v timeout >/dev/null 2>&1; then
-                    timeout "$GR_INSTALL_TIMEOUT" \
-                        env VIRTUAL_ENV="$GR_DIR/.venv" uv_project pip install -e .
+                    VIRTUAL_ENV="$GR_DIR/.venv" timeout "$GR_INSTALL_TIMEOUT" \
+                        uv pip install -e .
                 else
-                    VIRTUAL_ENV="$GR_DIR/.venv" uv_project pip install -e .
+                    VIRTUAL_ENV="$GR_DIR/.venv" uv pip install -e .
                 fi
             ) || gr_rc=$?
             if [ "$gr_rc" -ne 0 ] || [ ! -x "$GR_VENV_PY" ]; then
