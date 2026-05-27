@@ -158,7 +158,9 @@ projects/project_{port}/
 └── logs/                        # backend.log and role-{name}.log (gitignored)
 ```
 
-Cross-role writes go through `mos_publish_to_shared(role, src_path, dst_subpath, commit_message)`, which holds `state/shared.lock`, copies the source file into `branches/shared/<dst_subpath>`, and commits on the shared branch. Per-role subdir policy lives in `minions/tools/publish.py` (`_ROLE_ALLOWED_SHARED_SUBDIRS`). The Draft file is updated in place by `mos_draft_append`/`mos_draft_annotate` and flushed on a timer by Noter through `mos_draft_commit_shared`. The review surface (`reviews/`) is reserved for `mos_review_run`, which writes there directly and commits the round at the end.
+Cross-role writes go through `mos_publish_to_shared(role, src_path, dst_subpath, commit_message)`, which holds `state/shared.lock`, copies the source file into `branches/shared/<dst_subpath>`, and commits on the shared branch. Per-role subdir policy lives in `minions/tools/publish.py` (`_ROLE_ALLOWED_SHARED_SUBDIRS`); the policy table is reproduced in `lookup.py --domain publish`. The Draft file is updated in place by `mos_draft_append`/`mos_draft_annotate` and flushed on a timer by Noter through `mos_draft_commit_shared`. The review surface (`reviews/`) is reserved for `mos_review_run`; `submissions/` is reserved for `mos_submit`; `book/` is Noter-only.
+
+(Role-facing publish rules — what each role may write where — live in the role's `SYSTEM.md` plus `lookup.py --domain publish`. This file documents only the implementation: the lock + commit pipeline.)
 
 The parent directory containing this repository is the **author seed repo**: at `mos_project_create` time, MinionsOS imports its current HEAD (excluding `MinionsOS/` itself and any file larger than 500 MB) into a per-project bare git repo at `projects/project_{port}/parent_repo.git/`. All worktrees — main, role, shared — branch off that per-project bare repo, so the author repo is never written to and never gains `minionsos/*` branches. The seed source must be git-initialized; `./install.sh` warns about this and `./mos doctor` re-checks it. To override the seed source, set `gru.yaml:author_repo` (or `MINIONS_AUTHOR_REPO`). To override the projects directory, set `gru.yaml:projects_root` (or `MINIONS_PROJECTS_ROOT`); the default is `MinionsOS/projects/`.
 
@@ -192,21 +194,23 @@ To add a new profile: drop `minions/profiles/<name>.yaml` matching the `MissionP
 
 ### Role lifecycle and boundaries
 
-Each Role is a long-lived `claude` process running inside its own tmux session named `mos-{port}-{role}`. EACN-registered roles drive their event loop with `mos_await_events()` (in `minions/tools/await_events.py`), which wraps the project-local 60-second `GET /api/events/{agent_id}` long-poll, drains events on read, runs an idle-check after ~5 minutes of silence, and only returns when there is actionable content. Heartbeat writes happen between polls so the Gru sidecar watchdog can spot a dead session and respawn it. Roles respond with raw `eacn3_send_message` / `eacn3_create_task` / `eacn3_submit_bid` / `eacn3_submit_result` and stay resident across many cycles. They do not call `eacn3_await_events` / `eacn3_next` / `eacn3_get_events` directly — that bypasses the wrapper and drops the suggested-action annotations.
+**Note for developers:** Role *runtime protocol* (wake loop, Plan→Dispatch→Verify, EACN behaviour, write-scope rules) is canonicalized in `minions/roles/SYSTEM.md` (the common contract) and `minions/roles/{role}/SYSTEM.md` (role-specific scope). This section covers only architecture facts — what's wired where, who can spawn what, the authz table — that a contributor needs to read code. Do **not** restate runtime rules here; if a rule belongs to a Role, it lives in SYSTEM.md.
 
-**Noter** is the exception: it is NOT registered on EACN3. It uses `mos_noter_wait()` (timer-based, default 3 min) instead of `mos_await_events()`, and observes the project by reading `events/*.jsonl` and `branches/shared/` artifacts. It runs on Sonnet (configured via `gru.yaml: noter_model`).
+**Architecture facts:**
 
-**Writer** is on-demand: it is not bootstrapped at project creation. Gru spawns it with `mos_spawn_role(role="writer")` when the project enters a paper-writing phase.
-
-Only Gru may spawn EACN-visible agents or use `mos_project_*`, `mos_spawn_*`, and `mos_project_bridge` tools. Subagents or local teams created inside a Role are EACN-invisible by design: they do not have `eacn3_*` tools and do not appear in `projects.json`.
-
-Claude Code is the only Role host. It honors CLI `--allowed-tools` for tool gating. The `codex-subagent` MCP exposes Codex GPT-5.5 to Roles as a full-access delegation target through the single `codex` tool (use `sandbox=read-only` for analysis, `sandbox=danger-full-access` for execution); it does not host a Role process. MinionsOS MCP server-side authorization in `minions/tools/mcp_server.py` must remain aligned with `minions.config.resolve_whitelist` so the same boundary applies regardless of which surface a tool call comes through.
+- Each Role is a long-lived `claude` process inside its own tmux session named `mos-{port}-{role}`.
+- The wake driver for EACN-registered roles is `mos_await_events()` in `minions/tools/await_events.py` (wraps the project-local 60-second `GET /api/events/{agent_id}` long-poll, drains events on read, runs an idle-check after ~5 minutes of silence). Heartbeat writes between polls feed the Gru sidecar watchdog.
+- **Noter** is not on EACN3 — it uses `mos_noter_wait()` (timer-based, default 3 min) and reads `events/*.jsonl` plus `branches/shared/` for observation. Runs on Sonnet (`gru.yaml: noter_model`).
+- **Writer** is on-demand — not bootstrapped at project creation. Gru spawns via `mos_spawn_role(role="writer")` when the project enters a paper-writing phase.
+- Only Gru may spawn EACN-visible agents or use `mos_project_*`, `mos_spawn_*`, `mos_project_bridge`. Subagents/local teams inside a Role are EACN-invisible by design — no `eacn3_*` tools, not in `projects.json`.
+- Claude Code is the only Role host (honors CLI `--allowed-tools` for tool gating). The `codex-subagent` MCP exposes Codex GPT-5.5 as a full-access delegation target through the `codex` tool (`sandbox=read-only` for analysis, `sandbox=danger-full-access` for execution); it does not host a Role process.
+- MinionsOS MCP server-side authorization in `minions/tools/mcp_server.py` must remain aligned with `minions.config.resolve_whitelist` so the same boundary applies regardless of which surface a tool call comes through.
 
 Tool/write boundaries (main role write scope; subagents inherit from their parent main role):
 
 | Agent | Project-local EACN access | Experiment tools | Codex subagent | Gru/project/spawn tools | Own branch | Shared subdirs (via mos_publish_to_shared) |
 |---|---|---|---|---|---|---|
-| Gru main | `eacn3_send_message` (out) + read-only inspection (`eacn3_get_events`/`get_messages`/`list_tasks`/`get_task`/`list_agents`/`get_agent`/`health` etc.). NOT `eacn3_create_task` / `eacn3_submit_*` / `eacn3_close_task` / `eacn3_team_*` — tasks are a Role-to-Role contract; Gru sends direct briefs and the owning Role posts its own task. | no | `codex` | yes | `branches/main/` | any subdir |
+| Gru main | `eacn3_send_message` (out) + read-only inspection (`eacn3_get_events`/`get_messages`/`list_tasks`/`get_task`/`list_agents`/`get_agent`/`health` etc.). Task-creation tools server-side denied — see common contract §7 + Gru §G2. | no | `codex` | yes | `branches/main/` | any subdir |
 | Noter main | `mos_noter_wait` (timer, no EACN) | no | no | no | `branches/noter/` (drafts) | `notes/`, `draft/`, `handoffs/`, `book/` |
 | Coder main | `eacn3_*` | yes | `codex` | no | `branches/coder/` | `exp/`, `handoffs/`, `governance/` |
 | Writer main (on-demand) | `eacn3_*` plus paper-search MCP tools | no | `codex` | no | `branches/writer/` | `handoffs/`, `governance/` |
@@ -224,7 +228,9 @@ Tool/write boundaries (main role write scope; subagents inherit from their paren
 | `mos_book_dead_end` | Noter (direct); other roles propose via handoff → Noter ingests | Prevents direct write pollution of Book's dead-end registry. |
 | `mos_draft_annotate` | All roles for own nodes; Ethics for any node's `support_status` | Ethics is the sole cross-role annotator of ratification fields. |
 
-`branches/shared/reviews/` is reserved for `mos_review_run` — the publish tool will reject any other caller. `branches/shared/submissions/` is reserved for `mos_submit`; any role's profile may grant the role access to it via the profile's `publish_whitelist[role]` list (e.g. `hle-answer` grants `expert` and `coder` write access; `scientific-paper` grants nobody by default — paper deliverables go through Writer + `mos_review_run` instead). `branches/shared/draft/draft.json` is updated in-place by `mos_draft_append` and committed on a Noter-driven cron through `mos_draft_commit_shared` (whitelisted to Noter and Gru only). No role writes to another role's `branches/<role>/` directly; cross-role artefacts always travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`. The visual format-check tools (`mos_visual_render`, `mos_visual_inspect`, `mos_visual_check`) are available to every EACN-visible role (Gru, Coder, Writer, Ethics, Expert) and denied to Noter; reports persist under `branches/<role>/visual-reports/` and are referenced cross-role by EACN message rather than via a shared subdir.
+Profile-specific publish detail: `branches/shared/submissions/` access is granted per-role through the active profile's `publish_whitelist[role]` list (e.g. `hle-answer` grants `expert` and `coder`; `scientific-paper` grants nobody — paper deliverables go through Writer + `mos_review_run` instead). The default `publish_whitelist` baseline lives in `minions/tools/publish.py`.
+
+Visual format-check tools (`mos_visual_render`, `mos_visual_inspect`, `mos_visual_check`) are available to every EACN-visible role (Gru, Coder, Writer, Ethics, Expert) and denied to Noter; reports persist under `branches/<role>/visual-reports/` and are referenced cross-role by EACN message rather than via a shared subdir.
 
 **Deliverable lifecycle tools.** `mos_submit`, `mos_evaluate`, and `mos_adjudicate` are Gru-only (whitelist + server-side authz). Other Roles must surface a deliverable to Gru by EACN message; Gru then calls `mos_submit` to persist it under `branches/shared/submissions/` and `mos_evaluate` to score it via the profile-defined strategy. The lifecycle separation matches the existing "Gru is the control plane" rule.
 
