@@ -200,6 +200,7 @@ class TestSuggestedActions:
             ("task_collected", "eacn3_get_task_results", "medium"),
             ("discussion_update", "eacn3_get_task", "medium"),
             ("task_timeout", None, "low"),
+            ("skills_updated", None, "medium"),
         ],
     )
     def test_event_type_mapping(self, event_type, expected_tool, expected_urgency):

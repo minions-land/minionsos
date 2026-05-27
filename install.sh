@@ -398,6 +398,47 @@ else
         fi
     fi
 
+    # ── 5a-codex-subagent. Build Codex GPT-5.5 bridge MCP ─────────────────
+    # `mcp-servers/codex-subagent/` is the Node TypeScript bridge that
+    # exposes Codex GPT-5.5 to every Role process as the `codex` MCP tool.
+    # Without `dist/server.js` built, `_gen_mcp_json.py` silently skips
+    # registration and tier-2 subagent dispatch silently degrades to
+    # Sonnet-only — operators wouldn't notice until cost spikes. Soft-fail
+    # (warn, not die) so a working Sonnet-fallback path is preserved if
+    # the build environment is broken.
+    CSA_DIR="$ROOT/mcp-servers/codex-subagent"
+    CSA_MARKER="$CSA_DIR/dist/server.js"
+    if [ -d "$CSA_DIR" ]; then
+        need_csa_build=1
+        if [ -f "$CSA_MARKER" ] && [ -z "${MINIONS_CSA_REBUILD:-}" ]; then
+            # Rebuild only if package.json or any tracked source is newer
+            # than the built artifact. Avoids reinstalling node_modules on
+            # every install.sh run.
+            if [ "$CSA_MARKER" -nt "$CSA_DIR/package.json" ]; then
+                need_csa_build=0
+            fi
+        fi
+        if [ "$need_csa_build" = "1" ]; then
+            info "Building codex-subagent MCP (npm install + build)..."
+            if npm_project_install "$CSA_DIR" \
+                && (cd "$CSA_DIR" && npm run build); then
+                if [ -f "$CSA_MARKER" ]; then
+                    ok "codex-subagent built: $CSA_MARKER"
+                else
+                    warn "codex-subagent npm build reported success but $CSA_MARKER is missing."
+                    warn "Roles will fall back to Sonnet for tier-2 subagent dispatch."
+                fi
+            else
+                warn "codex-subagent build failed — Sonnet fallback will be used for subagent dispatch."
+                warn "To retry: cd $CSA_DIR && npm install && npm run build"
+            fi
+        else
+            ok "codex-subagent already built (set MINIONS_CSA_REBUILD=1 to force)"
+        fi
+    else
+        warn "mcp-servers/codex-subagent/ directory missing — codex MCP will not be registered."
+    fi
+
     # ── 5b. Build minions-viz Observatory ───────────────────────────────
     VIZ_DIR="$ROOT/minions-viz"
     VIZ_MARKER="$VIZ_DIR/dist/web/index.html"
@@ -446,6 +487,39 @@ CODEX_CONFIG="$CODEX_CONFIG_DIR/config.toml"
 mkdir -p "$CODEX_CONFIG_DIR"
 "$PROJECT_PYTHON" "$ROOT/minions/tools/_gen_codex_config.py" "$CODEX_CONFIG" "$ROOT"
 ok "Generated Codex MCP config: .codex/config.toml"
+
+# ── 6b-auth. Detect existing Codex auth (no login attempt) ───────────────────
+# We do NOT run `codex login` from install.sh — it's an interactive flow that
+# would block CI and overwrite an operator's existing auth. Instead, surface
+# whichever of these the user already has so they know the codex-subagent
+# MCP will work the moment a Role tries it. Priority order matches what the
+# Codex CLI itself checks:
+#   1. ~/.codex/auth.json            (codex login output)
+#   2. $OPENAI_API_KEY env var       (machine-wide)
+#   3. ~/.codex/config.toml          (alt provider via env_key)
+# Pure detection — no writes, no prompts. Operators who already authed via
+# any of these get a green check; everyone else gets actionable next steps.
+CODEX_AUTH_DETECTED=""
+CODEX_AUTH_SOURCE=""
+if [ -s "$HOME/.codex/auth.json" ]; then
+    CODEX_AUTH_DETECTED="1"
+    CODEX_AUTH_SOURCE="~/.codex/auth.json"
+elif [ -n "${OPENAI_API_KEY:-}" ]; then
+    CODEX_AUTH_DETECTED="1"
+    CODEX_AUTH_SOURCE="\$OPENAI_API_KEY env"
+elif [ -f "$HOME/.codex/config.toml" ] \
+    && grep -qE '^\s*env_key\s*=' "$HOME/.codex/config.toml" 2>/dev/null; then
+    CODEX_AUTH_DETECTED="1"
+    CODEX_AUTH_SOURCE="~/.codex/config.toml (env_key provider)"
+fi
+if [ -n "$CODEX_AUTH_DETECTED" ]; then
+    ok "Codex auth detected: $CODEX_AUTH_SOURCE"
+else
+    warn "No Codex auth found (~/.codex/auth.json absent, OPENAI_API_KEY unset)."
+    warn "Roles will fall back to Sonnet for tier-2 subagent dispatch until auth is configured."
+    warn "Tier-2 default is Codex GPT-5.5; configure auth at your convenience using your"
+    warn "preferred method (existing OPENAI_API_KEY env var, or ~/.codex/auth.json)."
+fi
 
 # ── 6c. Generate .mcp.json (Claude Code MCP servers) ─────────────────────────
 # Always regenerated to stay in sync with what is actually built.

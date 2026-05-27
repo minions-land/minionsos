@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import patch
 
 import pytest
@@ -26,16 +27,27 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 class TestPreCompactResumeProtocol:
+    # The pre-compact hook gates the science-compact prompt to Role main
+    # processes; without these env vars it correctly passes through to the
+    # default summariser, so the body assertions below would never fire.
+    _ROLE_ENV: ClassVar[dict[str, str]] = {
+        "MINIONS_ROLE_NAME": "coder",
+        "MINIONS_AGENT_TYPE": "main",
+    }
+
     def test_resume_protocol_section_present(self) -> None:
         """The hook output must end with the Resume_protocol block so
         Claude's compact summary inherits the continuation cue."""
         hook = REPO_ROOT / "minions" / "hooks" / "pre_compact_science.py"
+        env = os.environ.copy()
+        env.update(self._ROLE_ENV)
         result = subprocess.run(
             [sys.executable, str(hook)],
             input="{}",
             capture_output=True,
             text=True,
             check=False,
+            env=env,
         )
         assert result.returncode == 0
         assert "## Resume_protocol" in result.stdout
@@ -46,12 +58,15 @@ class TestPreCompactResumeProtocol:
         """The block should reference Issue #9 / 'parks the Role' so a
         future maintainer knows why the cue is load-bearing."""
         hook = REPO_ROOT / "minions" / "hooks" / "pre_compact_science.py"
+        env = os.environ.copy()
+        env.update(self._ROLE_ENV)
         result = subprocess.run(
             [sys.executable, str(hook)],
             input="{}",
             capture_output=True,
             text=True,
             check=False,
+            env=env,
         )
         assert "parks" in result.stdout.lower() or "park" in result.stdout.lower()
 

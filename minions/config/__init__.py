@@ -1334,6 +1334,18 @@ class GruConfig(BaseModel):
             "like `opus` or `claude-opus-4-7` resolve to the 200k window."
         ),
     )
+    fallback_model: str | None = Field(
+        default="claude-sonnet-4-6[1m]",
+        description=(
+            "Fallback model passed to `claude --fallback-model` for the "
+            "one-shot `--print` spawn sites: `mos_review_run` (paper review) "
+            "and `mos_adjudicate` (answer adjudication). Claude Code 2.1.152 "
+            "documents `--fallback-model` as `--print`-only; long-lived "
+            "interactive Role processes ignore it and rely on the Gru "
+            "watchdog instead. Set to None to disable. Per-call overrides: "
+            "MOS_REVIEW_FALLBACK_MODEL, MOS_ADJUDICATE_FALLBACK_MODEL."
+        ),
+    )
     agent_host: Literal["claude", "codex"] = Field(
         default="claude",
         description="Default agent host for Gru and role wakeups: claude or codex.",

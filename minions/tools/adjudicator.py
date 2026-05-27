@@ -320,6 +320,19 @@ def _spawn_claude_adjudicate(
     model = os.environ.get("MOS_ADJUDICATE_MODEL", "").strip()
     if model:
         cmd += ["--model", model]
+    # Auto-fallback on 404 (overload / model rotation). Honored by --print
+    # mode (see Claude Code 2.1.152 --help). Read MOS_ADJUDICATE_FALLBACK_MODEL
+    # first, then GruConfig.fallback_model. Empty/missing means no fallback.
+    fallback_model = os.environ.get("MOS_ADJUDICATE_FALLBACK_MODEL", "").strip()
+    if not fallback_model:
+        try:
+            from minions.config import load_gru_config
+
+            fallback_model = (load_gru_config().fallback_model or "").strip()
+        except Exception:  # pragma: no cover — config load failure is non-fatal here
+            fallback_model = ""
+    if fallback_model:
+        cmd += ["--fallback-model", fallback_model]
     try:
         subprocess.run(
             cmd,

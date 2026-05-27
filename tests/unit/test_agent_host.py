@@ -14,16 +14,18 @@ from minions.paths import MINIONS_ROOT
 def _build(tmp_path: Path, **overrides) -> object:
     system = tmp_path / "SYSTEM.md"
     system.write_text("role system", encoding="utf-8")
-    return build_role_invocation(
-        cfg=overrides.pop("cfg", GruConfig(agent_host="claude")),
-        role_name=overrides.pop("role_name", "coder"),
-        project_port=overrides.pop("project_port", 37596),
-        project_agent_id=overrides.pop("project_agent_id", "coder"),
-        system_path=overrides.pop("system_path", system),
-        allowed_tools=overrides.pop("allowed_tools", "Read,Write"),
-        workspace=overrides.pop("workspace", tmp_path),
-        session_name=overrides.pop("session_name", "p37596/coder"),
-    )
+    kwargs: dict = {
+        "cfg": GruConfig(agent_host="claude"),
+        "role_name": "coder",
+        "project_port": 37596,
+        "project_agent_id": "coder",
+        "system_path": system,
+        "allowed_tools": "Read,Write",
+        "workspace": tmp_path,
+        "session_name": "p37596/coder",
+    }
+    kwargs.update(overrides)
+    return build_role_invocation(**kwargs)
 
 
 def test_claude_invocation_basic_argv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -107,3 +109,20 @@ def test_invocation_appends_resume_when_requested(tmp_path: Path) -> None:
     assert "--name" in invocation.command
     name_index = invocation.command.index("--name")
     assert invocation.command[name_index + 1] == "p37596/coder"
+
+
+def test_invocation_omits_fallback_model_for_long_lived_role(tmp_path: Path) -> None:
+    # --fallback-model is a --print-only flag (Claude Code 2.1.152). Long-lived
+    # Role processes run interactive; the flag is silently ignored there. The
+    # auto-fallback feature is wired into the --print spawn sites instead
+    # (minions/tools/review.py and minions/tools/adjudicator.py), so the Role
+    # argv must NOT carry it regardless of GruConfig.fallback_model.
+    invocation = _build(tmp_path)
+    assert "--fallback-model" not in invocation.command
+    # Even if a caller threads fallback_model through (back-compat), it must
+    # not surface as a CLI flag.
+    sig = build_role_invocation.__code__.co_varnames
+    assert "fallback_model" not in sig, (
+        "build_role_invocation should not accept fallback_model — it is a "
+        "--print-only flag and only applies to review.py / adjudicator.py."
+    )

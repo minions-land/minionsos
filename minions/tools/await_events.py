@@ -220,6 +220,16 @@ def _build_suggested_action(event: dict[str, Any]) -> dict[str, Any]:
             "suggested_params": {},
             "urgency": "low",
         }
+    elif etype == "skills_updated":
+        return {
+            "suggested_action": (
+                "New skills admitted to your skills directory. "
+                "Run /reload-skills to pick them up without restarting."
+            ),
+            "suggested_tool": None,
+            "suggested_params": {},
+            "urgency": "medium",
+        }
     else:
         return {
             "suggested_action": f'Event "{etype}" on {task_id}.',
@@ -317,9 +327,7 @@ def _query_biddable_tasks(
                 continue
             # Skip tasks where this agent already has a bid
             bids = task.get("bids", [])
-            already_bid = any(
-                b.get("agent_id") == agent_id for b in bids if isinstance(b, dict)
-            )
+            already_bid = any(b.get("agent_id") == agent_id for b in bids if isinstance(b, dict))
             if already_bid:
                 continue
             biddable.append(task)
@@ -372,11 +380,7 @@ def _build_idle_check(
         )
     if biddable:
         ids = ", ".join(t.get("id", "?") for t in biddable)
-        domains_preview = ", ".join(
-            d
-            for t in biddable[:2]
-            for d in (t.get("domains") or [])[:2]
-        )
+        domains_preview = ", ".join(d for t in biddable[:2] for d in (t.get("domains") or [])[:2])
         prompts.append(
             f"{len(biddable)} open task(s) you haven't bid on yet"
             f" ({ids}; domains: {domains_preview or 'various'})."
@@ -731,11 +735,15 @@ def await_events() -> dict[str, Any]:
             if isinstance(inner, dict):
                 event_type = inner.get("type", "")
             urgency = first.get("urgency", "low")
-            high_priority_collab = event_type in (
-                "task_broadcast",
-                "direct_message",
-                "bid_result",
-            ) or urgency == "high"
+            high_priority_collab = (
+                event_type
+                in (
+                    "task_broadcast",
+                    "direct_message",
+                    "bid_result",
+                )
+                or urgency == "high"
+            )
 
             reminder = (
                 "[Draft-discipline reminder] Your previous cycle handled real "

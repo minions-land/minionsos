@@ -92,18 +92,38 @@ function diagnose() {
     log('Install: npm i -g @openai/codex');
   }
 
-  // Check API key
+  // Check API key — detect what the user already has, never prompt them
+  // to run `codex login`. Login is interactive and would clobber an
+  // operator's existing config; we only surface the auth shape that's
+  // already in place. Priority order matches the Codex CLI itself:
+  //   1. ~/.codex/auth.json    (codex login output)
+  //   2. $OPENAI_API_KEY env   (machine-wide)
+  //   3. ~/.codex/config.toml  (alt provider via env_key = "...")
   const hasKey = !!process.env.OPENAI_API_KEY;
   const authJson = path.join(os.homedir(), '.codex', 'auth.json');
-  const hasAuthJson = fs.existsSync(authJson);
+  const hasAuthJson = fs.existsSync(authJson) && fs.statSync(authJson).size > 0;
+  const globalTomlPath = path.join(os.homedir(), '.codex', 'config.toml');
+  let hasEnvKeyProvider = false;
+  if (fs.existsSync(globalTomlPath)) {
+    try {
+      hasEnvKeyProvider = /^\s*env_key\s*=/m.test(
+        fs.readFileSync(globalTomlPath, 'utf8'),
+      );
+    } catch {
+      hasEnvKeyProvider = false;
+    }
+  }
 
-  if (hasKey) {
-    ok('OPENAI_API_KEY is set in environment');
-  } else if (hasAuthJson) {
-    ok(`API key found in ${authJson}`);
+  if (hasAuthJson) {
+    ok(`Auth detected: ${authJson}`);
+  } else if (hasKey) {
+    ok('Auth detected: $OPENAI_API_KEY env var');
+  } else if (hasEnvKeyProvider) {
+    ok('Auth detected: ~/.codex/config.toml (env_key provider)');
   } else {
-    fail('No API key found (env or ~/.codex/auth.json)');
-    log('Set OPENAI_API_KEY or run: codex login');
+    fail('No Codex auth found (~/.codex/auth.json absent, OPENAI_API_KEY unset)');
+    log('Configure auth via your preferred method (env var or ~/.codex/auth.json).');
+    log('Roles will fall back to Sonnet for tier-2 dispatch until auth is in place.');
   }
 
   // Check config

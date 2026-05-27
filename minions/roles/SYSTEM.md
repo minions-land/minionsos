@@ -32,6 +32,13 @@ While blocked the LLM is suspended — zero tokens. Do **not** call
 `mos_await_events` already drains those and adds suggested-action annotations.
 (Gru exception: raw EACN event tools are authorized for federated traffic.)
 
+## Skill hot-reload
+
+If you receive an EACN message with `"type": "skills_updated"`, new skills have
+been admitted to your skills directory since your session started. Run
+`/reload-skills` to pick them up without restarting. Do not reload unprompted —
+only when you receive this notification.
+
 ## First-wake protocol
 
 On your very first wake, call `mos_draft_summary()` — it returns node `B-000`

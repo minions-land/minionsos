@@ -70,5 +70,5 @@ npx codex-subagent install-skill
 ## Prerequisites
 
 - `codex` CLI installed (`npm i -g @openai/codex`)
-- OpenAI API key configured (`codex login` or `~/.codex/auth.json`)
+- OpenAI API key configured via any of: `~/.codex/auth.json`, `$OPENAI_API_KEY` env var, or `~/.codex/config.toml` provider with `env_key`
 - Node 18+

@@ -49,9 +49,23 @@ def _run(
 # ---------------------------------------------------------------------------
 
 
+# Helper: env that satisfies the Role-main gate (Coder is the canonical EACN role).
+_ROLE_ENV = {"MINIONS_ROLE_NAME": "coder", "MINIONS_AGENT_TYPE": "main"}
+
+
 class TestPreCompact:
+    """Body-content tests — gated to Role main processes only.
+
+    The hook installs the L1/L2/L3-aware compact prompt + the
+    mos_draft_summary→{resume_tool} contract ONLY when running inside a
+    science Role main process. Every test below that asserts on the
+    science-prompt body must therefore set MINIONS_ROLE_NAME + agent_type=main;
+    otherwise the hook (correctly) passes through to default summarisation.
+    Passthrough behaviour is covered by TestPreCompactGate.
+    """
+
     def test_empty_stdin_still_emits_brief(self) -> None:
-        result = _run(PRE_HOOK, stdin="")
+        result = _run(PRE_HOOK, stdin="", env=_ROLE_ENV)
         assert result.returncode == 0, result.stderr
         assert "## Working_on" in result.stdout
         assert "## Pending_plans" in result.stdout
@@ -61,32 +75,36 @@ class TestPreCompact:
 
     def test_existing_instructions_are_prepended(self) -> None:
         payload = json.dumps({"trigger": "manual", "custom_instructions": "PRIOR-MARKER"})
-        result = _run(PRE_HOOK, stdin=payload)
+        result = _run(PRE_HOOK, stdin=payload, env=_ROLE_ENV)
         assert result.returncode == 0
         assert result.stdout.startswith("PRIOR-MARKER\n\n")
         assert "## Working_on" in result.stdout
 
     def test_no_placeholder_leaks(self) -> None:
-        result = _run(PRE_HOOK, stdin="{}")
+        result = _run(PRE_HOOK, stdin="{}", env=_ROLE_ENV)
         # Authoring-time placeholders must never reach the compact model.
         for marker in ("BODY_PART", "REPLACE_ME", "PLACEHOLDER"):
             assert marker not in result.stdout, f"placeholder {marker!r} leaked"
 
     def test_hard_cap_rule_present(self) -> None:
         # The hard cap is the explicit lever that keeps summaries cheap.
-        result = _run(PRE_HOOK, stdin="{}")
+        result = _run(PRE_HOOK, stdin="{}", env=_ROLE_ENV)
         assert "hard cap 2000 tokens" in result.stdout
         assert "Cite IDs and paths" in result.stdout
 
     def test_malformed_json_does_not_block(self) -> None:
         # Hook must never block /compact with a non-zero exit, even on garbage.
-        result = _run(PRE_HOOK, stdin="this is not json")
+        result = _run(PRE_HOOK, stdin="this is not json", env=_ROLE_ENV)
         assert result.returncode == 0
         assert "## Working_on" in result.stdout
 
     def test_default_resume_tool_is_await_events(self) -> None:
         """EACN-registered roles (default) get mos_await_events."""
-        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": "coder"})
+        result = _run(
+            PRE_HOOK,
+            stdin="{}",
+            env={"MINIONS_ROLE_NAME": "coder", "MINIONS_AGENT_TYPE": "main"},
+        )
         assert result.returncode == 0
         assert "mos_await_events()" in result.stdout
         assert "mos_noter_wait()" not in result.stdout
@@ -95,52 +113,119 @@ class TestPreCompact:
         """Noter is not on EACN; resume must call its timer-based tool.
         Regression for GitHub Issue #30 — hardcoded mos_await_events()
         wedges Noter because it's not in Noter's whitelist."""
-        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": "noter"})
+        result = _run(
+            PRE_HOOK,
+            stdin="{}",
+            env={"MINIONS_ROLE_NAME": "noter", "MINIONS_AGENT_TYPE": "main"},
+        )
         assert result.returncode == 0
         assert "mos_noter_wait()" in result.stdout
         assert "mos_await_events()" not in result.stdout
 
     def test_noter_resume_tool_case_insensitive(self) -> None:
         """MINIONS_ROLE_NAME may be set with any casing."""
-        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": "NOTER"})
+        result = _run(
+            PRE_HOOK,
+            stdin="{}",
+            env={"MINIONS_ROLE_NAME": "NOTER", "MINIONS_AGENT_TYPE": "main"},
+        )
         assert result.returncode == 0
         assert "mos_noter_wait()" in result.stdout
 
-    def test_unset_role_defaults_to_await_events(self) -> None:
-        """Missing MINIONS_ROLE_NAME falls back to the EACN-role tool — the
-        safe default since EACN roles outnumber Noter 5:1 in any project."""
-        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": ""})
+    def test_expert_role_gets_science_prompt(self) -> None:
+        """Expert roles spawn with names like 'expert-rl-theory'; the gate
+        uses startswith('expert') so any expert-* role gets the prompt."""
+        result = _run(
+            PRE_HOOK,
+            stdin="{}",
+            env={"MINIONS_ROLE_NAME": "expert-rl-theory", "MINIONS_AGENT_TYPE": "main"},
+        )
         assert result.returncode == 0
+        assert "## Working_on" in result.stdout
         assert "mos_await_events()" in result.stdout
 
-    def test_default_resume_tool_is_await_events(self) -> None:
-        """EACN-registered roles (default) get mos_await_events."""
-        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": "coder"})
-        assert result.returncode == 0
-        assert "mos_await_events()" in result.stdout
-        assert "mos_noter_wait()" not in result.stdout
 
-    def test_noter_resume_tool_is_noter_wait(self) -> None:
-        """Noter is not on EACN; resume must call its timer-based tool.
-        Regression for GitHub Issue #30 — hardcoded mos_await_events()
-        wedges Noter because it's not in Noter's whitelist."""
-        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": "noter"})
-        assert result.returncode == 0
-        assert "mos_noter_wait()" in result.stdout
-        assert "mos_await_events()" not in result.stdout
+class TestPreCompactGate:
+    """Scope-gate tests — the science compact prompt is INSTALLED only for
+    Role main processes. dev-Claude editing MinionsOS itself, the Gru
+    supervisor, vanilla claude shells, and Role subagents must all see
+    passthrough so Claude Code uses default summarisation instead of being
+    handed a Draft/Book/Shelf-shaped prompt that doesn't apply to them.
+    """
 
-    def test_noter_resume_tool_case_insensitive(self) -> None:
-        """MINIONS_ROLE_NAME may be set with any casing."""
-        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": "NOTER"})
+    def test_dev_claude_passthrough_empty(self) -> None:
+        """No MINIONS_ROLE_NAME = dev-Claude or vanilla shell — passthrough."""
+        # Wipe any role env the host might have set so the gate sees a clean slate.
+        result = _run(
+            PRE_HOOK,
+            stdin="{}",
+            env={"MINIONS_ROLE_NAME": "", "MINIONS_AGENT_TYPE": ""},
+        )
         assert result.returncode == 0
-        assert "mos_noter_wait()" in result.stdout
+        assert "## Working_on" not in result.stdout
+        assert "L1 — Draft" not in result.stdout
+        assert "Resume_protocol" not in result.stdout
 
-    def test_unset_role_defaults_to_await_events(self) -> None:
-        """Missing MINIONS_ROLE_NAME falls back to the EACN-role tool — the
-        safe default since EACN roles outnumber Noter 5:1 in any project."""
-        result = _run(PRE_HOOK, stdin="{}", env={"MINIONS_ROLE_NAME": ""})
+    def test_dev_claude_passthrough_preserves_existing(self) -> None:
+        """Passthrough must echo any custom_instructions the operator supplied."""
+        payload = json.dumps({"trigger": "manual", "custom_instructions": "OPERATOR-NOTE"})
+        result = _run(
+            PRE_HOOK,
+            stdin=payload,
+            env={"MINIONS_ROLE_NAME": "", "MINIONS_AGENT_TYPE": ""},
+        )
         assert result.returncode == 0
-        assert "mos_await_events()" in result.stdout
+        assert result.stdout == "OPERATOR-NOTE"
+        assert "## Working_on" not in result.stdout
+
+    def test_gru_passthrough(self) -> None:
+        """Gru is the supervisor, not a science agent — passthrough.
+        The Draft/Book/Shelf prompt and the mos_await_events resume contract
+        are wrong shapes for Gru's loop."""
+        result = _run(
+            PRE_HOOK,
+            stdin="{}",
+            env={"MINIONS_ROLE_NAME": "gru", "MINIONS_AGENT_TYPE": "main"},
+        )
+        assert result.returncode == 0
+        assert "## Working_on" not in result.stdout
+        assert "Resume_protocol" not in result.stdout
+
+    def test_role_subagent_passthrough(self) -> None:
+        """Role subagents inherit MINIONS_ROLE_NAME from their parent but the
+        science compact prompt is meant for the main loop's resume contract.
+        A subagent's compact must not be redirected to mos_draft_summary."""
+        result = _run(
+            PRE_HOOK,
+            stdin="{}",
+            env={"MINIONS_ROLE_NAME": "coder", "MINIONS_AGENT_TYPE": "subagent"},
+        )
+        assert result.returncode == 0
+        assert "## Working_on" not in result.stdout
+        assert "Resume_protocol" not in result.stdout
+
+    def test_unknown_role_passthrough(self) -> None:
+        """A role not in the known science set falls through to passthrough.
+        Future roles must be added to _SCIENCE_COMPACT_ROLES explicitly."""
+        result = _run(
+            PRE_HOOK,
+            stdin="{}",
+            env={"MINIONS_ROLE_NAME": "reviewer", "MINIONS_AGENT_TYPE": "main"},
+        )
+        assert result.returncode == 0
+        assert "## Working_on" not in result.stdout
+
+    def test_role_main_with_empty_agent_type_still_gets_prompt(self) -> None:
+        """Operator-debug shells sometimes set MINIONS_ROLE_NAME without
+        agent_type. The gate is permissive on missing/empty agent_type so
+        manual role-revival sessions still get the Draft-aware compact."""
+        result = _run(
+            PRE_HOOK,
+            stdin="{}",
+            env={"MINIONS_ROLE_NAME": "coder", "MINIONS_AGENT_TYPE": ""},
+        )
+        assert result.returncode == 0
+        assert "## Working_on" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -188,9 +273,9 @@ def project_dir(tmp_path: Path) -> Path:
     port = 99001
     fake_minions_root = tmp_path / "MinionsOS"
     fake_minions_root.mkdir()
-    (
-        fake_minions_root / "projects" / f"project_{port}" / "branches" / "shared" / "draft"
-    ).mkdir(parents=True)
+    (fake_minions_root / "projects" / f"project_{port}" / "branches" / "shared" / "draft").mkdir(
+        parents=True
+    )
     return tmp_path
 
 
@@ -231,6 +316,8 @@ class TestPostCompact:
             stdin="",
             env={
                 "MINIONS_PROJECT_PORT": "99001",
+                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
         )
@@ -247,6 +334,7 @@ class TestPostCompact:
             env={
                 "MINIONS_PROJECT_PORT": str(port),
                 "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
         )
@@ -268,6 +356,8 @@ class TestPostCompact:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": str(port),
+                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
         )
@@ -290,6 +380,8 @@ class TestPostCompact:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": "65535",
+                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(fake_root),
             },
         )
@@ -304,11 +396,79 @@ class TestPostCompact:
             stdin="not json at all",
             env={
                 "MINIONS_PROJECT_PORT": "99001",
+                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
         )
         assert result.returncode == 0
         assert _read_journal(project_dir, 99001) == []
+
+
+class TestPostCompactGate:
+    """Scope-gate tests for PostCompact — symmetric with TestPreCompactGate.
+
+    The journal extract + tmux kick are only meaningful inside a Role main
+    process. dev-Claude / Gru / Role subagents must short-circuit before
+    touching the project journal or sending tmux keys, even when they
+    happen to inherit MINIONS_PROJECT_PORT from a parent shell.
+    """
+
+    def test_dev_claude_no_journal_write(self, project_dir: Path) -> None:
+        """No MINIONS_ROLE_NAME = passthrough; journal must stay empty."""
+        port = 99001
+        _seed_draft(project_dir, port, ["E-002"])
+        payload = json.dumps({"trigger": "auto", "compact_summary": SAMPLE_SUMMARY})
+        result = _run(
+            POST_HOOK,
+            stdin=payload,
+            env={
+                "MINIONS_PROJECT_PORT": str(port),
+                "MINIONS_ROLE_NAME": "",
+                "MINIONS_AGENT_TYPE": "",
+                "MINIONS_ROOT": str(project_dir / "MinionsOS"),
+            },
+        )
+        assert result.returncode == 0
+        assert _read_journal(project_dir, port) == []
+
+    def test_gru_no_journal_write(self, project_dir: Path) -> None:
+        """Gru is excluded — its pane has no draft journal to extract into."""
+        port = 99001
+        _seed_draft(project_dir, port, ["E-002"])
+        payload = json.dumps({"trigger": "auto", "compact_summary": SAMPLE_SUMMARY})
+        result = _run(
+            POST_HOOK,
+            stdin=payload,
+            env={
+                "MINIONS_PROJECT_PORT": str(port),
+                "MINIONS_ROLE_NAME": "gru",
+                "MINIONS_AGENT_TYPE": "main",
+                "MINIONS_ROOT": str(project_dir / "MinionsOS"),
+            },
+        )
+        assert result.returncode == 0
+        assert _read_journal(project_dir, port) == []
+
+    def test_role_subagent_no_journal_write(self, project_dir: Path) -> None:
+        """A Role subagent inherits MINIONS_PROJECT_PORT + MINIONS_ROLE_NAME
+        from the parent main but must not write a journal entry — that would
+        double-count the parent's compact and confuse audit trails."""
+        port = 99001
+        _seed_draft(project_dir, port, ["E-002"])
+        payload = json.dumps({"trigger": "auto", "compact_summary": SAMPLE_SUMMARY})
+        result = _run(
+            POST_HOOK,
+            stdin=payload,
+            env={
+                "MINIONS_PROJECT_PORT": str(port),
+                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_AGENT_TYPE": "subagent",
+                "MINIONS_ROOT": str(project_dir / "MinionsOS"),
+            },
+        )
+        assert result.returncode == 0
+        assert _read_journal(project_dir, port) == []
 
 
 # ---------------------------------------------------------------------------
@@ -360,6 +520,8 @@ class TestPostCompactTranscriptPath:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": str(port),
+                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
         )
@@ -410,6 +572,8 @@ class TestPostCompactTranscriptPath:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": str(port),
+                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
         )
@@ -429,6 +593,8 @@ class TestPostCompactTranscriptPath:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": str(port),
+                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
         )
@@ -452,6 +618,8 @@ class TestPostCompactTranscriptPath:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": str(port),
+                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
         )
@@ -469,6 +637,8 @@ class TestPostCompactTranscriptPath:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": str(port),
+                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
         )

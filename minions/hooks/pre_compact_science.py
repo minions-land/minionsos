@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 """PreCompact hook — inject memory-layer-aware compaction instructions.
 
+Scope: this hook only fires the science-compact prompt for **Role main
+processes** (Noter / Coder / Writer / Ethics / Expert / domain experts
+spawned via mos_spawn_expert). For every other surface — dev-Claude
+hacking MinionsOS itself, the Gru supervisor, vanilla claude shells
+that happened to land in this repo, or Role subagents — the hook
+passthroughs ``custom_instructions`` so Claude Code uses its default
+summarization. The Draft / Book / Shelf prompt only makes sense when
+the post-compact agent is the same Role main process re-entering its
+forever-loop, and the resume contract (mos_draft_summary →
+mos_await_events / mos_noter_wait) only makes sense in that exact
+context. See ``_is_role_main()`` below for the gate.
+
 Reads the hook input from stdin (JSON with ``trigger`` and ``custom_instructions``)
 and prints science-aware ``/compact`` instructions to stdout. Claude Code uses
 that text as the system message for the compact model, replacing the default
@@ -62,6 +74,47 @@ def _resume_tool() -> str:
     """
     role = (os.environ.get("MINIONS_ROLE_NAME") or "").strip().lower()
     return "mos_noter_wait" if role == "noter" else "mos_await_events"
+
+
+# Roles where the science-compact prompt is the wrong shape:
+#   - Gru is the supervisor, not a science agent. Its compact should keep
+#     standard summarization, not be redirected to Draft / Book / Shelf
+#     and a forever-loop resume contract.
+#   - Empty MINIONS_ROLE_NAME means this is a non-Role surface entirely
+#     (dev-Claude editing MinionsOS itself, or a vanilla claude session
+#     that happens to be inside the repo tree). Same logic applies.
+#
+# The gate also requires MINIONS_AGENT_TYPE='main'. Subagents inherit
+# their parent role's env, so this distinguishes a Role main process
+# (where the science compact is correct) from a subagent or a delegated
+# child (where it would be misleading).
+_SCIENCE_COMPACT_ROLES = {"noter", "coder", "writer", "ethics", "expert"}
+
+
+def _is_role_main() -> bool:
+    """True iff this hook is firing inside a Role main process.
+
+    Role main processes have BOTH ``MINIONS_ROLE_NAME`` (a known science
+    role) AND ``MINIONS_AGENT_TYPE=main`` set by ``role_launcher._role_env``.
+    Returns False for: dev-Claude (no MinionsOS env at all), Gru (no main-
+    role env in its launcher), Role subagents (inherit parent env but the
+    science compact prompt is meant for the main loop's resume contract).
+    """
+    role = (os.environ.get("MINIONS_ROLE_NAME") or "").strip().lower()
+    if not role:
+        return False
+    if role == "gru":
+        return False
+    agent_type = (os.environ.get("MINIONS_AGENT_TYPE") or "").strip().lower()
+    # An empty MINIONS_AGENT_TYPE is treated as main when MINIONS_ROLE_NAME
+    # is set — the launcher always sets both, but operator-debug shells
+    # sometimes only set the role name. Be permissive on type so manual
+    # role-revival sessions still get the Draft-aware compact.
+    if agent_type and agent_type != "main":
+        return False
+    # Restrict to known science roles; anything else (e.g. a future role
+    # not yet wired to the L1/L2/L3 memory) falls through to passthrough.
+    return role.startswith("expert") or role in _SCIENCE_COMPACT_ROLES
 
 
 SCIENCE_COMPACT_INSTRUCTIONS_TEMPLATE = """\
@@ -169,6 +222,19 @@ def main() -> None:
         # Fall through with empty existing instructions; we still want to
         # supply the science brief. Never block the compact.
         existing = ""
+
+    # Scope gate: this hook installs the L1/L2/L3-aware compact prompt and
+    # the "first tool call must be mos_draft_summary then resume" contract.
+    # Both are *only* correct for a science Role main process. For:
+    #   - dev-Claude editing MinionsOS itself,
+    #   - Gru (the supervisor, not a science agent),
+    #   - vanilla claude in any directory above MinionsOS,
+    # the right behavior is to NOT inject our science prompt — let Claude
+    # Code use its default summarization. Passthrough preserves any
+    # ``custom_instructions`` the operator already supplied via /compact.
+    if not _is_role_main():
+        sys.stdout.write(existing)
+        return
 
     instructions = SCIENCE_COMPACT_INSTRUCTIONS_TEMPLATE.replace("{RESUME_TOOL}", _resume_tool())
 

@@ -92,6 +92,12 @@ def build_role_invocation(
     ]
     if model:
         cmd += ["--model", model]
+    # NOTE: --fallback-model is intentionally NOT applied here. The Claude
+    # Code 2.1.152 CLI documents it as "only works with --print", and
+    # empirical testing under a real PTY confirms the flag is silently
+    # ignored for interactive long-lived sessions (no error, no fallback).
+    # The auto-fallback feature is wired into the --print spawn sites
+    # instead: see minions/tools/review.py and minions/tools/adjudicator.py.
     if session_name:
         cmd += ["--name", session_name]
     if claude_session_id:

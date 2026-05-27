@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """PostCompact hook — extract pointer-shaped notes from a compact summary.
 
+Scope: this hook only runs the journal-extract + tmux-kick path for **Role
+main processes** (Noter / Coder / Writer / Ethics / Expert / domain experts
+spawned via mos_spawn_expert). For every other surface — dev-Claude
+hacking MinionsOS itself, the Gru supervisor, vanilla claude shells, or
+Role subagents that inherit MINIONS_PROJECT_PORT from their parent — the
+hook short-circuits before touching the journal or tmux. See
+``_is_role_main()`` below for the gate. The pre-compact hook
+(``pre_compact_science.py``) uses the same gate; keep them aligned.
+
 Fires after Claude Code's ``/compact`` completes.  Reads the hook payload
 from stdin (a JSON object with ``transcript_path``, ``trigger``,
 ``compactMetadata``, plus standard hook metadata).  The compact summary
@@ -56,6 +65,34 @@ from pathlib import Path
 
 logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(levelname)s: %(message)s")
 log = logging.getLogger("post_compact_draft")
+
+# Roles where the journal-extract + tmux-kick is meaningful. Mirrors
+# pre_compact_science._SCIENCE_COMPACT_ROLES — keep the two lists aligned.
+# Anything else (Gru, dev-Claude, vanilla shells, Role subagents) skips the
+# hook entirely; they don't own a draft.json journal and don't drive a
+# resumable forever-loop, so a journal write or tmux kick would be wrong.
+_SCIENCE_COMPACT_ROLES = {"noter", "coder", "writer", "ethics", "expert"}
+
+
+def _is_role_main() -> bool:
+    """True iff this hook is firing inside a Role main process.
+
+    Symmetric with pre_compact_science._is_role_main(). Without this gate,
+    a Role subagent (which inherits MINIONS_PROJECT_PORT + MINIONS_ROLE_NAME
+    from its parent) would write a spurious post_compact_extract entry
+    *and* fire a tmux kick into its parent's pane every time the subagent
+    itself ran out of context — a clear scope violation.
+    """
+    role = (os.environ.get("MINIONS_ROLE_NAME") or "").strip().lower()
+    if not role:
+        return False
+    if role == "gru":
+        return False
+    agent_type = (os.environ.get("MINIONS_AGENT_TYPE") or "").strip().lower()
+    if agent_type and agent_type != "main":
+        return False
+    return role.startswith("expert") or role in _SCIENCE_COMPACT_ROLES
+
 
 # Draft node-id prefixes — must stay aligned with TYPE_PREFIX in
 # minions/tools/draft.py.  Keep this list permissive: missing a
@@ -302,6 +339,15 @@ def _load_summary_from_transcript(transcript_path: str) -> str:
 
 
 def main() -> None:
+    # Scope gate. Identical to pre_compact_science.py: only Role main
+    # processes own a project draft journal and a resumable tmux pane.
+    # For dev-Claude / Gru / Role subagents / vanilla shells the journal
+    # write would be misleading and the tmux kick would target the wrong
+    # session (or the parent of a subagent). Silent return preserves the
+    # hook's "never block /compact" contract.
+    if not _is_role_main():
+        return
+
     raw = sys.stdin.read()
     if not raw.strip():
         log.debug("empty stdin, nothing to do")

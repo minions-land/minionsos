@@ -686,6 +686,31 @@ def _role_env(
         "BASH_DEFAULT_TIMEOUT_MS": "120000",
         "BASH_MAX_TIMEOUT_MS": "240000",
         "CLAUDE_AUTO_BACKGROUND_TASKS": "1",
+        # Auto-compact threshold (token count). Claude Code's `qS3` gate
+        # checks `tokens >= autoCompactThreshold` at each turn boundary
+        # (between tool result and next assistant turn) and triggers
+        # `/compact` when crossed; in-flight tool execution is never
+        # interrupted. The CLI binary reads this env var with priority
+        # `env > settings > experiment > model_max` (see strings
+        # `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, `autoCompactWindow`,
+        # `applyAutoCompactWindow` in the bundled JS). UI text confirms
+        # "the actual threshold is the minimum of this setting and your
+        # model's maximum context window".
+        #
+        # Roles run on `claude-opus-4-7[1m]` (1M-window variant), so
+        # without this knob auto-compact would only fire near 1M tokens.
+        # MinionsOS is a continuous-workflow project: a single long task
+        # legitimately needs to burst above 200K (tool-result chains,
+        # large file reads, multi-step subagent loops). With this set to
+        # 200000 the agent is allowed to climb above 200K *during* a
+        # task, then the next turn boundary after the task completes
+        # auto-compacts back under 200K — keeping a clean 200K
+        # steady-state ceiling without truncating bursts.
+        # Honor an inherited override (e.g. operator running with a
+        # different ceiling for diagnostics).
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": os.environ.get(
+            "CLAUDE_CODE_AUTO_COMPACT_WINDOW", "200000"
+        ),
         # Root-uid sandbox attestation. Many SSH boxes run as root, and Claude
         # Code refuses to honor --permission-mode=bypassPermissions (and
         # --dangerously-skip-permissions) under euid 0 unless IS_SANDBOX=1 is
