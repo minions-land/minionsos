@@ -262,7 +262,7 @@ else
     : "${GRU_MODEL:=claude-opus-4-7[1m]}"
     GRU_FLAGS=(--model "$GRU_MODEL" --effort "$GRU_EFFORT")
     if [ "$GRU_SKIP_PERMS" = "1" ]; then
-        GRU_FLAGS+=(--dangerously-skip-permissions)
+        GRU_FLAGS+=(--permission-mode bypassPermissions)
     fi
     AGENT_CMD=(
         uv run --project "$ROOT"

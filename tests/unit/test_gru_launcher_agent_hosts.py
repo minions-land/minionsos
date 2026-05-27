@@ -182,4 +182,5 @@ def test_gru_launcher_claude_branch_still_uses_claude_flags(tmp_path: Path) -> N
     assert "FAKE_GRU_CLAUDE_ARGV:" in result.stderr
     assert "--append-system-prompt" in result.stderr
     assert "--mcp-config" in result.stderr
-    assert "--dangerously-skip-permissions" in result.stderr
+    assert "--permission-mode" in result.stderr
+    assert "bypassPermissions" in result.stderr
