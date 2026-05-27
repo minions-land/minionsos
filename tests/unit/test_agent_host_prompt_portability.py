@@ -16,7 +16,11 @@ PORTABILITY_SURFACES = [
 def test_common_role_contract_documents_agent_host_portability() -> None:
     text = (ROOT / "minions" / "roles" / "SYSTEM.md").read_text(encoding="utf-8")
 
-    assert "## Agent-host portability" in text
+    # Anchored under §10 (subagent handoff & agent-host portability) since
+    # the 2026-05 dedup pass; the invariant is the behavior contract, not
+    # the H2 wording. Both the §-anchor and the canonical phrases must hold.
+    assert "## §10." in text
+    assert "Agent-host portability" in text
     assert "any agent host" in text
     assert "host-native subagent mechanism" in text
     assert "self-contained" in text
@@ -25,7 +29,12 @@ def test_common_role_contract_documents_agent_host_portability() -> None:
 def test_common_role_contract_requires_role_to_role_eacn() -> None:
     text = (ROOT / "minions" / "roles" / "SYSTEM.md").read_text(encoding="utf-8")
 
-    assert "## Role-to-role collaboration first" in text
+    # Anchored under §7 (inter-role communication) since the 2026-05
+    # dedup pass. The invariant is: tasks are the substantive surface,
+    # DMs are short, and ordinary cross-role work does NOT detour
+    # through Gru.
+    assert "## §7." in text
+    assert "Role-to-role collaboration first" in text
     assert "targeted task" in text
     assert "eacn3_create_task" in text
     assert "direct EACN" in text

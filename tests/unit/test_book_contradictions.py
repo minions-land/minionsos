@@ -317,7 +317,11 @@ def test_contradiction_index_entry_uses_contradictions_path(project: dict[str, A
 def test_ethics_system_mentions_book_contradiction_workflow() -> None:
     text = Path("minions/roles/ethics/SYSTEM.md").read_text(encoding="utf-8")
 
-    assert "## Contradiction surface (Book Layer 2 — phase 5+)" in text
+    # Section title carries the §Eth5 anchor since the 2026-05 dedup
+    # pass; the invariant is the H2 line containing the canonical
+    # phrase, not the exact prefix.
+    assert "## §Eth5." in text
+    assert "Contradiction surface (Book Layer 2 — phase 5+)" in text
     assert "primary hallucination audit feed" in text
     assert "resolved-in-favor-of-new" in text
     assert "resolved-in-favor-of-existing" in text
