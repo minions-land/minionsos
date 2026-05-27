@@ -582,3 +582,43 @@ class TestKeepaliveZeroSideEffects:
         assert snapshot.prev_delivery_was_real is True
         assert snapshot.appends_since_last_await == 0
         assert snapshot.reminder_due is True
+
+
+class TestPollWatchdog:
+    """Issue #37: SIGALRM-backed wall-clock kill-switch on _poll_once."""
+
+    def test_watchdog_no_op_on_worker_thread(self):
+        """Outside the main thread, _poll_watchdog must yield as a no-op.
+
+        SIGALRM is main-thread-only on POSIX. The fallback ensures the
+        tool does not raise ValueError when invoked from MCP transports
+        that dispatch on a worker thread; the structured httpx Timeout
+        remains the only guard in that case.
+        """
+        import threading
+
+        from minions.tools.await_events import _poll_watchdog
+
+        seen_yield = []
+
+        def _runner():
+            try:
+                with _poll_watchdog(60, 39999, "x"):
+                    seen_yield.append(True)
+            except Exception as exc:  # pragma: no cover — failure path
+                seen_yield.append(exc)
+
+        t = threading.Thread(target=_runner)
+        t.start()
+        t.join(timeout=2.0)
+        assert seen_yield == [True]
+
+    def test_watchdog_trips_on_main_thread(self, monkeypatch):
+        """On the main thread, the SIGALRM watchdog must raise TimeoutError
+        when the wrapped block exceeds its budget."""
+        import time as _time
+
+        from minions.tools.await_events import _poll_watchdog
+
+        with pytest.raises(TimeoutError), _poll_watchdog(1, 39999, "x"):
+            _time.sleep(2.5)

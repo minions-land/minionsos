@@ -31,11 +31,13 @@ commit churn bounded.
 
 from __future__ import annotations
 
+import errno
 import fcntl
 import logging
 import os
 import shutil
 import subprocess
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -182,14 +184,47 @@ def _validate_dst(role_name: str, dst_subpath: str, port: int | None = None) -> 
     return candidate
 
 
+# Maximum wall-clock time _shared_lock waits before raising. Issue #37: an
+# unbounded fcntl.flock(LOCK_EX) is the cascade vector — if one role wedges
+# while holding the lock, every subsequent publisher (including the audit
+# snapshot path triggered by mos_await_events) blocks indefinitely, freezing
+# every role in the project. The env var lets ops dial it; the default of 60s
+# is long enough for honest contention (large draft flush) but short enough
+# that a wedged holder surfaces as a loud error instead of a silent hang.
+_SHARED_LOCK_TIMEOUT_SEC = float(os.environ.get("MINIONS_SHARED_LOCK_TIMEOUT_SEC", "60"))
+_SHARED_LOCK_POLL_INTERVAL_SEC = 0.1
+
+
 @contextmanager
-def _shared_lock(port: int) -> Iterator[None]:
-    """Block until this process holds the per-project shared write lock."""
+def _shared_lock(port: int, timeout_sec: float | None = None) -> Iterator[None]:
+    """Acquire the per-project shared write lock with a bounded wait.
+
+    Issue #37: never block indefinitely on a stale lock. A non-blocking
+    LOCK_NB + retry loop trades a tiny bit of latency for a strict upper
+    bound — if we can't acquire within ``timeout_sec`` we raise, letting
+    the caller (mos_publish_to_shared, draft flush, signboard write, etc.)
+    fail loudly instead of cascading every peer role into a wedge.
+    """
+    budget = _SHARED_LOCK_TIMEOUT_SEC if timeout_sec is None else float(timeout_sec)
     lock_path = project_shared_lock(port)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT, 0o644)
+    deadline = time.monotonic() + budget
     try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError as exc:
+                if exc.errno not in (errno.EAGAIN, errno.EWOULDBLOCK):
+                    raise
+                if time.monotonic() >= deadline:
+                    raise ProjectError(
+                        f"shared.lock contended for >{budget:.0f}s on port {port}; "
+                        "likely a wedged peer role. Check `mos doctor --port "
+                        f"{port}` for stale heartbeats before retrying."
+                    ) from exc
+                time.sleep(_SHARED_LOCK_POLL_INTERVAL_SEC)
         yield
     finally:
         try:

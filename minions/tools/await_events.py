@@ -32,7 +32,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import signal
+import threading
 import time
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -43,6 +46,15 @@ logger = logging.getLogger(__name__)
 
 EACN3_POLL_TIMEOUT_SEC = 60
 IDLE_CHECK_THRESHOLD = 5  # consecutive empty polls before idle check
+
+# Issue #37: wall-clock ceiling on a single long-poll call. httpx already
+# has timeouts at the connect/read level, but a half-open TCP connection or
+# a backend that accepts the request and never writes can defeat them. This
+# extra deadline is enforced in Python (signal.SIGALRM where available) and
+# guarantees _poll_once returns control to the loop within a bounded window
+# regardless of socket-level pathologies. The buffer over the httpx timeout
+# is generous so honest network jitter does not trip it — only true wedges do.
+_POLL_WATCHDOG_MARGIN_SEC = 30
 
 # Filename of the per-role cold-start flag inside ``workspace/.minionsos/``.
 # Presence of this file means the cold_start_hint has already been emitted
@@ -469,6 +481,46 @@ def _build_cold_start_hint(
 # ─── Core poll (aligned with eacn3_get_events drain semantics) ──────────
 
 
+@contextmanager
+def _poll_watchdog(timeout_sec: float, port: int, agent_id: str):
+    """Wall-clock kill-switch for a single long-poll call.
+
+    Issue #37: a hung backend (uvicorn accepted the connection but never
+    responded) or a half-open socket can keep httpx blocked past every
+    library-level timeout. SIGALRM fires from the kernel regardless of what
+    Python is doing, so the poll always returns control to the event loop
+    within ``timeout_sec``.
+
+    SIGALRM is a main-thread, POSIX-only mechanism. On Windows or when the
+    tool is invoked from a worker thread (e.g. some MCP transports) we fall
+    back to a no-op — httpx's structured Timeout is the only guard in that
+    case, which is the same behaviour as before this fix.
+    """
+    can_alarm = hasattr(signal, "SIGALRM") and threading.current_thread() is threading.main_thread()
+    if not can_alarm:
+        yield
+        return
+
+    def _on_alarm(signum, frame):
+        raise TimeoutError(
+            f"mos_await_events poll watchdog tripped after {timeout_sec:.0f}s "
+            f"(port={port}, agent={agent_id})"
+        )
+
+    prev_handler = signal.signal(signal.SIGALRM, _on_alarm)
+    # signal.alarm() takes integer seconds; round up so we never undershoot.
+    prev_remaining = signal.alarm(max(1, int(timeout_sec + 0.999)))
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, prev_handler)
+        # Restore any prior alarm the caller had pending. signal.alarm(0)
+        # already cleared ours; this re-arms theirs if they had one.
+        if prev_remaining > 0:
+            signal.alarm(prev_remaining)
+
+
 def _poll_once(
     port: int,
     agent_id: str,
@@ -486,22 +538,35 @@ def _poll_once(
     the model on it.
     """
     url = f"{_base_url(port)}/api/events/{agent_id}"
-    try:
-        resp = httpx.get(
-            url,
-            params={"timeout": min(timeout_secs, EACN3_POLL_TIMEOUT_SEC)},
-            timeout=timeout_secs + 10.0,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as exc:
-        logger.warning(
-            "mos_await_events poll failed port=%d agent=%s: %s",
-            port,
-            agent_id,
-            exc,
-        )
-        raise RuntimeError(f"EACN3 poll failed: {exc}") from exc
+    # Issue #37: structured httpx timeout (connect/read/write/pool all bounded
+    # independently) defeats a half-open socket that would slip past a single
+    # combined timeout, and SIGALRM is a kernel-level backstop that fires even
+    # if httpx is wedged below the Python event loop. Together they guarantee
+    # this function returns (success or exception) within the watchdog window.
+    watchdog_sec = timeout_secs + _POLL_WATCHDOG_MARGIN_SEC
+    http_timeout = httpx.Timeout(
+        connect=10.0,
+        read=timeout_secs + 10.0,
+        write=10.0,
+        pool=10.0,
+    )
+    with _poll_watchdog(watchdog_sec, port, agent_id):
+        try:
+            resp = httpx.get(
+                url,
+                params={"timeout": min(timeout_secs, EACN3_POLL_TIMEOUT_SEC)},
+                timeout=http_timeout,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as exc:
+            logger.warning(
+                "mos_await_events poll failed port=%d agent=%s: %s",
+                port,
+                agent_id,
+                exc,
+            )
+            raise RuntimeError(f"EACN3 poll failed: {exc}") from exc
     raw_events = data.get("events") or data.get("messages") or []
     out: list[dict[str, Any]] = []
     for evt in raw_events:

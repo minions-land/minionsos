@@ -43,7 +43,7 @@ import sys
 from pathlib import Path
 from typing import NamedTuple
 
-from minions.paths import MINIONS_ROOT
+from minions.paths import MINIONS_ROOT, project_dir
 
 
 class _Turn(NamedTuple):
@@ -154,8 +154,18 @@ def _discover_sessions_for_cwd(target_cwd: Path, claude_root: Path) -> list[_Ses
 
 
 def _role_cwd(port: int, role: str, repo_root: Path) -> Path:
-    """Compute the Role's runtime cwd: ``project_{port}/branches/{role}/``."""
-    return repo_root / f"project_{port}" / "branches" / role
+    """Compute the Role's runtime cwd: ``projects/project_{port}/branches/{role}/``.
+
+    When ``repo_root`` is the canonical ``MINIONS_ROOT`` we route through
+    ``minions.paths.project_dir`` so a custom ``MINIONS_PROJECTS_ROOT``
+    or ``gru.yaml:projects_root`` is honored. When the caller passes a
+    different root (e.g. tests pointing at a tmp_path), we honor that
+    explicit override and append the new ``projects/`` segment so the
+    layout matches a real MinionsOS install.
+    """
+    if repo_root == MINIONS_ROOT:
+        return project_dir(port) / "branches" / role
+    return repo_root / "projects" / f"project_{port}" / "branches" / role
 
 
 # --------------------------------------------------------------------------
@@ -342,8 +352,11 @@ def _format_role_report(port: int, role: str, target_cwd: Path, sessions: list[_
 
 
 def _format_project_report(port: int, repo_root: Path, claude_root: Path) -> str:
-    """List every Role under project_{port}/branches/ and roll each up."""
-    branches_root = repo_root / f"project_{port}" / "branches"
+    """List every Role under ``projects/project_{port}/branches/`` and roll each up."""
+    if repo_root == MINIONS_ROOT:
+        branches_root = project_dir(port) / "branches"
+    else:
+        branches_root = repo_root / "projects" / f"project_{port}" / "branches"
     if not branches_root.exists():
         return (
             f"No project found at {branches_root}. Was the project created and have any Roles run?"

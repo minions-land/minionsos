@@ -187,9 +187,10 @@ def test_load_session_extracts_cwd_and_session_id(tmp_path: Path) -> None:
 
 
 def test_role_cwd_construction(tmp_path: Path) -> None:
-    """_role_cwd builds the expected project_{port}/branches/{role}/ path."""
+    """_role_cwd builds the expected projects/project_{port}/branches/{role}/ path
+    when given a non-MINIONS_ROOT override (e.g. a test tmp_path)."""
     cwd = _role_cwd(37596, "coder", tmp_path)
-    assert cwd == tmp_path / "project_37596" / "branches" / "coder"
+    assert cwd == tmp_path / "projects" / "project_37596" / "branches" / "coder"
 
 
 def test_discover_sessions_filters_by_cwd(tmp_path: Path) -> None:

@@ -91,7 +91,7 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions-viz/` — read-only Observatory dashboard, Express/WebSocket server plus React/Vite frontend.
 - `EACN3` — local editable EACN3 dependency (lives at `mcp-servers/eacn3/`).
 - `mcp-servers/` — standalone MCP servers registered in `.mcp.json`. `mcp-servers/README.md` is the canonical registry. Currently houses `eacn3/` (the EACN3 dep + its Node plugin), `codex-subagent/` (Node bridge to Codex GPT-5.5), `keepalive/` (Python FastMCP — `wait_bg` cache-keepalive + `keepalive_now`), and `graphify/` (Python — read-only L3 Shelf graph queries). The `minionsos` MCP server itself lives inside the Python package at `minions/tools/mcp/` (with a 50-line shim at `minions/tools/mcp_server.py`) for import-graph reasons; see `mcp-servers/minionsos.md` for why.
-- `project_{port}/` — runtime projects created by Gru; gitignored.
+- `projects/` — runtime projects created by Gru; gitignored. Each project lives at `projects/project_{port}/`.
 
 ### Python package responsibilities
 
@@ -114,10 +114,10 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 
 ### Runtime project model
 
-Every project is identified by its EACN3 backend port and lives under `project_{port}/`:
+Every project is identified by its EACN3 backend port and lives under `projects/project_{port}/`:
 
 ```text
-project_{port}/
+projects/project_{port}/
 ├── CLAUDE.md                    # project narrative; author/Gru write, roles read
 ├── AGENTS.md                    # Codex sub-agent's view of project context (mirrors CLAUDE.md)
 ├── meta.json                    # machine metadata
@@ -160,7 +160,7 @@ project_{port}/
 
 Cross-role writes go through `mos_publish_to_shared(role, src_path, dst_subpath, commit_message)`, which holds `state/shared.lock`, copies the source file into `branches/shared/<dst_subpath>`, and commits on the shared branch. Per-role subdir policy lives in `minions/tools/publish.py` (`_ROLE_ALLOWED_SHARED_SUBDIRS`). The Draft file is updated in place by `mos_draft_append`/`mos_draft_annotate` and flushed on a timer by Noter through `mos_draft_commit_shared`. The review surface (`reviews/`) is reserved for `mos_review_run`, which writes there directly and commits the round at the end.
 
-The parent directory containing this repository is the **author seed repo**: at `mos_project_create` time, MinionsOS imports its current HEAD (excluding `MinionsOS/` itself and any file larger than 500 MB) into a per-project bare git repo at `project_{port}/parent_repo.git/`. All worktrees — main, role, shared — branch off that per-project bare repo, so the author repo is never written to and never gains `minionsos/*` branches. The seed source must be git-initialized; `./install.sh` warns about this and `./mos doctor` re-checks it. To override the seed source, set `gru.yaml:author_repo` (or `MINIONS_AUTHOR_REPO`).
+The parent directory containing this repository is the **author seed repo**: at `mos_project_create` time, MinionsOS imports its current HEAD (excluding `MinionsOS/` itself and any file larger than 500 MB) into a per-project bare git repo at `projects/project_{port}/parent_repo.git/`. All worktrees — main, role, shared — branch off that per-project bare repo, so the author repo is never written to and never gains `minionsos/*` branches. The seed source must be git-initialized; `./install.sh` warns about this and `./mos doctor` re-checks it. To override the seed source, set `gru.yaml:author_repo` (or `MINIONS_AUTHOR_REPO`). To override the projects directory, set `gru.yaml:projects_root` (or `MINIONS_PROJECTS_ROOT`); the default is `MinionsOS/projects/`.
 
 ### Mission profiles
 
@@ -319,11 +319,11 @@ Relevant files:
 | Problem | Where to look |
 |---|---|
 | Gru process | `minions/state/logs/gru.log` |
-| Project backend | `project_{port}/logs/backend.log` |
-| Role crash or behavior | `project_{port}/logs/role-{name}.log` |
-| Project metadata | `project_{port}/meta.json` |
-| EACN3 state | `project_{port}/eacn3_data/eacn3.db` |
-| Experiment failure | `project_{port}/branches/shared/exp/exp-{id}/report.md` |
+| Project backend | `projects/project_{port}/logs/backend.log` |
+| Role crash or behavior | `projects/project_{port}/logs/role-{name}.log` |
+| Project metadata | `projects/project_{port}/meta.json` |
+| EACN3 state | `projects/project_{port}/eacn3_data/eacn3.db` |
+| Experiment failure | `projects/project_{port}/branches/shared/exp/exp-{id}/report.md` |
 | Viz process | `./viz status` and `./viz logs` |
 
 ## Extension points

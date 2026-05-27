@@ -565,6 +565,119 @@ def doctor(
 
 
 # ---------------------------------------------------------------------------
+# heartbeats — per-role liveness audit (Issue #37)
+# ---------------------------------------------------------------------------
+
+# Issue #37 thresholds: a heartbeat older than 5 min is suspicious, 30 min is
+# almost certainly a wedge, > 1 h is a hard failure that warrants respawn.
+# These bands map to the emoji ladder in the audit output.
+_HEARTBEAT_OK_SEC = 5 * 60
+_HEARTBEAT_WARN_SEC = 30 * 60
+_HEARTBEAT_STALE_SEC = 60 * 60
+
+
+def _heartbeat_band(age_sec: float) -> tuple[str, str]:
+    """Return (emoji, label) for a heartbeat age in seconds."""
+    if age_sec < _HEARTBEAT_OK_SEC:
+        return ("🟢", "fresh")
+    if age_sec < _HEARTBEAT_WARN_SEC:
+        return ("🟡", "slow")
+    if age_sec < _HEARTBEAT_STALE_SEC:
+        return ("🔴", "stale")
+    return ("⛔", "wedged")
+
+
+def _collect_heartbeats(port: int) -> list[dict[str, object]]:
+    """Read every active role's heartbeat file under project *port*.
+
+    Walks the role registry, locates the per-role workspace, reads the
+    ``.minionsos/heartbeat`` JSON written by ``await_events._touch_heartbeat``
+    / ``noter_wait._touch_heartbeat``, and returns a row per role with the
+    age delta in seconds. Roles with no heartbeat file (e.g. just spawned)
+    are reported with ``age_sec=None`` so the caller can render them
+    differently.
+    """
+    from datetime import UTC, datetime
+
+    from minions.lifecycle.role import list_roles
+
+    now = datetime.now(tz=UTC)
+    rows: list[dict[str, object]] = []
+    for role in list_roles(port):
+        ws = role.get("workspace_path")
+        if not ws:
+            rows.append({"name": role["name"], "age_sec": None, "detail": "no workspace"})
+            continue
+        hb_path = Path(str(ws)) / ".minionsos" / "heartbeat"
+        if not hb_path.is_file():
+            rows.append({"name": role["name"], "age_sec": None, "detail": "no heartbeat file"})
+            continue
+        try:
+            payload = json.loads(hb_path.read_text(encoding="utf-8"))
+            alive_at = datetime.fromisoformat(str(payload.get("alive_at")))
+            age_sec = (now - alive_at).total_seconds()
+            rows.append(
+                {
+                    "name": role["name"],
+                    "age_sec": age_sec,
+                    "alive_at": payload.get("alive_at"),
+                    "pid": payload.get("pid"),
+                }
+            )
+        except (OSError, ValueError, KeyError) as exc:
+            rows.append({"name": role["name"], "age_sec": None, "detail": f"parse error: {exc}"})
+    return rows
+
+
+@app.command(name="heartbeats")
+def heartbeats_cmd(
+    port: int = typer.Argument(..., help="Project port to audit."),
+    json_flag: bool = typer.Option(False, "--json"),
+    exit_on_stale: bool = typer.Option(
+        False,
+        "--exit-on-stale",
+        help="Exit with code 2 if any heartbeat is in the 'stale' or 'wedged' band.",
+    ),
+) -> None:
+    """Show heartbeat freshness for every active role in a project (Issue #37).
+
+    Bands: 🟢 <5min, 🟡 <30min, 🔴 <1h, ⛔ ≥1h. ``--exit-on-stale`` makes this
+    suitable for cron-driven health alerting: a non-zero exit on red/⛔ rows.
+    """
+    rows = _collect_heartbeats(port)
+    if json_flag:
+        typer.echo(json.dumps(rows, indent=2))
+    else:
+        console = Console()
+        table = Table(title=f"Heartbeats for project {port}")
+        table.add_column("role")
+        table.add_column("status")
+        table.add_column("age")
+        table.add_column("detail")
+        for r in rows:
+            age = r.get("age_sec")
+            if age is None:
+                table.add_row(str(r["name"]), "⚪", "—", str(r.get("detail", "")))
+            else:
+                emoji, label = _heartbeat_band(float(age))
+                table.add_row(
+                    str(r["name"]),
+                    f"{emoji} {label}",
+                    f"{float(age):.0f}s",
+                    str(r.get("alive_at", "")),
+                )
+        console.print(table)
+    if exit_on_stale:
+        bad = any(
+            isinstance(r.get("age_sec"), (int, float))
+            and float(r["age_sec"]) >= _HEARTBEAT_WARN_SEC  # type: ignore[arg-type]
+            for r in rows
+        )
+        if bad:
+            raise typer.Exit(2)
+
+
+# ---------------------------------------------------------------------------
 # config
 # ---------------------------------------------------------------------------
 
@@ -1200,7 +1313,7 @@ def cache_stats_cmd(
     repo_root: Path = typer.Option(  # noqa: B008
         MINIONS_ROOT,
         "--repo-root",
-        help="MinionsOS repo root (where project_{port}/ lives).",
+        help="MinionsOS repo root (where projects/ lives).",
     ),
 ) -> None:
     """Report token/cache usage for a Role, project, or single session.

@@ -38,7 +38,9 @@ fi
 
 PORT="${MINIONS_PROJECT_PORT:-}"
 if [[ -n "$PORT" ]]; then
-    SCOPE="$REPO_ROOT/project_${PORT}/branches/coder"
+    # Resolve projects root: honor MINIONS_PROJECTS_ROOT, else default to REPO_ROOT/projects/
+    PROJECTS_ROOT="${MINIONS_PROJECTS_ROOT:-$REPO_ROOT/projects}"
+    SCOPE="$PROJECTS_ROOT/project_${PORT}/branches/coder"
     if [[ ! -d "$SCOPE" ]]; then
         echo "codegraph launcher: $SCOPE missing; falling back to repo scope." >&2
         SCOPE="$REPO_ROOT"

@@ -40,7 +40,9 @@ if [[ -z "$ROLE" ]]; then
     exit 1
 fi
 
-GRAPH_PATH="$REPO_ROOT/project_${PORT}/branches/${ROLE}/graphify-out/graph.json"
+# Resolve projects root: honor MINIONS_PROJECTS_ROOT, else default to REPO_ROOT/projects/
+PROJECTS_ROOT="${MINIONS_PROJECTS_ROOT:-$REPO_ROOT/projects}"
+GRAPH_PATH="$PROJECTS_ROOT/project_${PORT}/branches/${ROLE}/graphify-out/graph.json"
 mkdir -p "$(dirname "$GRAPH_PATH")"
 
 if [[ ! -s "$GRAPH_PATH" ]]; then

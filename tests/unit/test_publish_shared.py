@@ -325,3 +325,43 @@ def test_create_shared_worktree_seeds_subdirs(shared_project: dict[str, object])
     # Seed commit should exist on the shared branch.
     log = _git_log(workspace)  # type: ignore[arg-type]
     assert any("shared: seed cross-role layout" in line for line in log)
+
+
+class TestSharedLockTimeout:
+    """Issue #37: _shared_lock must raise (not block forever) on contention."""
+
+    def test_contended_lock_raises_within_budget(self, tmp_path, monkeypatch):
+        """Hold the per-project shared.lock from another fd, then try to
+        acquire it through _shared_lock with a short timeout. The bounded
+        retry loop must give up and raise ProjectError instead of
+        blocking the test indefinitely.
+        """
+        import fcntl
+        import os
+        import time
+
+        from minions.paths import project_shared_lock
+        from minions.tools import publish
+
+        # Override the module-level timeout for this test only.
+        monkeypatch.setattr(publish, "_SHARED_LOCK_TIMEOUT_SEC", 0.5)
+
+        port = 49999
+        lock_path = project_shared_lock(port)
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+        holder_fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT, 0o644)
+        try:
+            fcntl.flock(holder_fd, fcntl.LOCK_EX)
+
+            t0 = time.monotonic()
+            with pytest.raises(ProjectError, match=r"shared\.lock contended"):
+                with publish._shared_lock(port):
+                    pass
+            elapsed = time.monotonic() - t0
+            # Must have respected the budget — not blocked forever, and not
+            # returned instantly (we did wait for the timeout).
+            assert 0.4 <= elapsed <= 2.0, f"elapsed={elapsed!r}"
+        finally:
+            fcntl.flock(holder_fd, fcntl.LOCK_UN)
+            os.close(holder_fd)

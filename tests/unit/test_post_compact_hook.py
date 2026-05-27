@@ -121,20 +121,21 @@ class TestMainKicksOnEveryPath:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         """The happy path: journal entry gets written AND the kick fires."""
-        # Stage a fake project tree shaped the way _draft_dir resolves it:
-        # MINIONS_ROOT is the minions/ subdir; repo_root = MINIONS_ROOT.parent;
-        # project trees live under repo_root.
+        # Stage a fake project tree shaped the way _draft_dir resolves it
+        # under the new (v15.53+) layout: projects/ sits under MINIONS_ROOT,
+        # MINIONS_ROOT is the repo root (matching what gru/mos shell
+        # launchers export at runtime).
         port = 41010
         repo = tmp_path / "MinionsOS"
-        minions_root = repo / "minions"
-        minions_root.mkdir(parents=True)
-        draft_dir = repo / f"project_{port}" / "branches" / "shared" / "draft"
+        repo.mkdir(parents=True)
+        draft_dir = repo / "projects" / f"project_{port}" / "branches" / "shared" / "draft"
         draft_dir.mkdir(parents=True)
         (draft_dir / "draft.json").write_text(
             json.dumps({"nodes": [{"id": "H-001"}], "edges": []}),
             encoding="utf-8",
         )
-        monkeypatch.setenv("MINIONS_ROOT", str(minions_root))
+        monkeypatch.setenv("MINIONS_ROOT", str(repo))
+        monkeypatch.delenv("MINIONS_PROJECTS_ROOT", raising=False)
         monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
         monkeypatch.setenv("MINIONS_ROLE_NAME", "noter")
 
@@ -183,3 +184,46 @@ def test_kick_command_quotes_session_name_safely() -> None:
     assert "mos-39999-coder" in cmd
     # Both send-keys calls present.
     assert cmd.count("send-keys") == 2
+
+
+class TestDraftDirResolution:
+    """v15.53 layout migration: _draft_dir must resolve to projects/project_<port>/...
+
+    Three resolution paths in priority order:
+      1. MINIONS_PROJECTS_ROOT env var (highest)
+      2. MINIONS_ROOT env var, with /projects/ appended
+      3. file-location fallback (lowest)
+    """
+
+    def test_resolves_under_minions_projects_root(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        port = 41011
+        custom_root = tmp_path / "elsewhere"
+        draft_dir = custom_root / f"project_{port}" / "branches" / "shared" / "draft"
+        draft_dir.mkdir(parents=True)
+
+        monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(custom_root))
+        monkeypatch.delenv("MINIONS_ROOT", raising=False)
+
+        assert hook._draft_dir(port) == draft_dir
+
+    def test_resolves_under_minions_root_projects(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        port = 41012
+        repo = tmp_path / "MinionsOS"
+        draft_dir = repo / "projects" / f"project_{port}" / "branches" / "shared" / "draft"
+        draft_dir.mkdir(parents=True)
+
+        monkeypatch.delenv("MINIONS_PROJECTS_ROOT", raising=False)
+        monkeypatch.setenv("MINIONS_ROOT", str(repo))
+
+        assert hook._draft_dir(port) == draft_dir
+
+    def test_returns_none_when_directory_missing(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path / "empty"))
+        monkeypatch.delenv("MINIONS_ROOT", raising=False)
+        assert hook._draft_dir(99999) is None

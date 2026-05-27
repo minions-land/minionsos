@@ -85,8 +85,13 @@ def _configured_path(key: str, env_name: str) -> Path | None:
 
 
 def projects_root() -> Path:
-    """Return the directory that contains ``project_<port>/`` trees."""
-    return _configured_path("projects_root", "MINIONS_PROJECTS_ROOT") or MINIONS_ROOT.parent
+    """Return the directory that contains ``project_<port>/`` trees.
+
+    Defaults to ``MINIONS_ROOT / "projects"`` so all project state lives
+    under the MinionsOS repo. Configurable via ``MINIONS_PROJECTS_ROOT``
+    env var or ``gru.yaml:projects_root``.
+    """
+    return _configured_path("projects_root", "MINIONS_PROJECTS_ROOT") or (MINIONS_ROOT / "projects")
 
 
 def configured_author_repo() -> Path | None:
@@ -108,8 +113,8 @@ def configured_author_repo() -> Path | None:
 def project_dir(port: int) -> Path:
     """Return the top-level directory for a project running on *port*.
 
-    By default this is beside ``MINIONS_ROOT``. It can be overridden with
-    ``MINIONS_PROJECTS_ROOT`` or ``gru.yaml:projects_root``.
+    By default this is ``MINIONS_ROOT/projects/project_{port}/``.
+    Configurable via ``MINIONS_PROJECTS_ROOT`` or ``gru.yaml:projects_root``.
     """
     return projects_root() / f"project_{port}"
 

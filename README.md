@@ -59,7 +59,7 @@ research projects.
 
 ### What You Get
 
-- **Project isolation.** Every project has its own `project_{port}/` directory,
+- **Project isolation.** Every project has its own `projects/project_{port}/` directory,
   EACN3 backend, SQLite state, per-project bare git repo, role worktrees, logs,
   artifacts, and event audit stream.
 - **Mission Profiles.** Each project is parameterised by a *Mission Profile*
@@ -183,7 +183,7 @@ tests/unit/                 # fast behavior tests
 tests/smoke/                # integration-style smoke checks
 ```
 
-Generated runtime output such as `project_{port}/`, `minions/state/`, logs,
+Generated runtime output such as `projects/`, `minions/state/`, logs,
 caches, and `graphify-out/` is not committed.
 
 ### Prerequisites
@@ -524,7 +524,7 @@ allowed to use the bus; they are not part of the MinionsOS MCP server.
 ### Runtime Project Structure
 
 ```text
-project_{port}/
+projects/project_{port}/
   CLAUDE.md                     # project narrative; Gru/author write, roles read
   AGENTS.md                     # Codex-subagent's view of project context
   meta.json                     # machine metadata
@@ -639,11 +639,11 @@ rules and deeper architecture notes.
 | Problem | Check |
 |---|---|
 | Gru behavior | `minions/state/logs/gru.log` |
-| Project backend is down | `project_{port}/logs/backend.log` |
-| Role crashed or did not act | `project_{port}/logs/role-{name}.log` |
-| Project metadata looks wrong | `project_{port}/meta.json` |
-| EACN3 state needs inspection | `project_{port}/eacn3_data/eacn3.db` |
-| Experiment failed | `project_{port}/branches/shared/exp/exp-{id}/report.md` |
+| Project backend is down | `projects/project_{port}/logs/backend.log` |
+| Role crashed or did not act | `projects/project_{port}/logs/role-{name}.log` |
+| Project metadata looks wrong | `projects/project_{port}/meta.json` |
+| EACN3 state needs inspection | `projects/project_{port}/eacn3_data/eacn3.db` |
+| Experiment failed | `projects/project_{port}/branches/shared/exp/exp-{id}/report.md` |
 | Viz is not reachable | `./viz status` and `./viz logs` |
 | Doctor fails parent-git check | initialize and commit the parent directory |
 
@@ -691,7 +691,7 @@ MCP 调用 **Codex GPT-5.5** 作为子代理。
 
 ### 能力概览
 
-- **项目隔离。** 每个项目都有独立的 `project_{port}/`、EACN3 后端、SQLite
+- **项目隔离。** 每个项目都有独立的 `projects/project_{port}/`、EACN3 后端、SQLite
   状态、独立 bare git 仓库、Role worktree、日志、产物以及事件审计流。
 - **任务剖面（Mission Profile）。** 每个项目由一份 YAML 任务剖面
   (`minions/profiles/<name>.yaml`) 决定其角色阵容、产物 schema、评估策略、
@@ -806,7 +806,7 @@ tests/unit/                 # 快速单元测试
 tests/smoke/                # 集成式 smoke 检查
 ```
 
-`project_{port}/`、`minions/state/`、日志、缓存、`graphify-out/` 等运行时
+`projects/`、`minions/state/`、日志、缓存、`graphify-out/` 等运行时
 输出不会进入 git。
 
 ### 环境要求

@@ -72,19 +72,26 @@ DEAD_ENDS_RE = re.compile(r"^##\s+Dead_ends\s*\n([\s\S]*?)(?=\n##\s|\Z)", re.MUL
 
 
 def _draft_dir(port: int) -> Path | None:
-    """Return ``project_<port>/branches/shared/draft`` if locatable.
+    """Return ``projects/project_<port>/branches/shared/draft`` if locatable.
 
     Avoids importing ``minions.paths`` so the hook also works in raw
-    operator shells where the package isn't on sys.path.  The repo root
-    is the parent of the directory holding this file's parent (i.e.
-    ``minions/hooks/post_compact_draft.py`` → ``MinionsOS/``).
+    operator shells where the package isn't on sys.path. Inlines the same
+    resolution as ``minions.paths.projects_root()``: prefer
+    ``MINIONS_PROJECTS_ROOT``, else ``MINIONS_ROOT/projects``, else fall
+    back to the repo root inferred from this file's location.
     """
-    minions_root = os.environ.get("MINIONS_ROOT")
-    if minions_root:
-        repo_root = Path(minions_root).parent
+    projects_root_env = os.environ.get("MINIONS_PROJECTS_ROOT")
+    if projects_root_env:
+        projects_root = Path(projects_root_env)
     else:
-        repo_root = Path(__file__).resolve().parent.parent.parent
-    candidate = repo_root / f"project_{port}" / "branches" / "shared" / "draft"
+        minions_root = os.environ.get("MINIONS_ROOT")
+        if minions_root:
+            repo_root = Path(minions_root)
+        else:
+            # minions/hooks/post_compact_draft.py -> MinionsOS/
+            repo_root = Path(__file__).resolve().parent.parent.parent
+        projects_root = repo_root / "projects"
+    candidate = projects_root / f"project_{port}" / "branches" / "shared" / "draft"
     return candidate if candidate.is_dir() else None
 
 

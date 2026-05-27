@@ -38,6 +38,7 @@ minions/config/*.yaml
 !minions/config/*.yaml.example
 
 # Per-project runtime directories (created by Gru at runtime)
+# Matches both old layout (beside MinionsOS) and new layout (MinionsOS/projects/)
 project_*/eacn3_data/
 project_*/artifacts/
 project_*/artifacts/ethics/
@@ -47,6 +48,7 @@ project_*/branches/
 project_*/state/
 project_*/events/
 project_*/parent_repo.git/
+projects/
 
 # Generated test-suite overview page (regenerated from pytest collection)
 tests/_overview.html
@@ -116,3 +118,7 @@ minions/roles/common/_behavioral_evals/
 # Background visual-extras installer artifacts (install.sh phase B)
 .install_visual.log
 .install_visual.pid
+
+# Phantom project dirs created by old launcher bug (pre-v15.53)
+# Safe to delete after upgrade — real project data lives in projects/ or parent dir
+/project_*/

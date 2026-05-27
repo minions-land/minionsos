@@ -29,6 +29,9 @@ def _run(
 ) -> subprocess.CompletedProcess[str]:
     """Run a hook script with the given stdin and env overrides."""
     proc_env = os.environ.copy()
+    # Don't let the host's MINIONS_PROJECTS_ROOT bleed into hook tests —
+    # they set MINIONS_ROOT explicitly and expect the projects/ default.
+    proc_env.pop("MINIONS_PROJECTS_ROOT", None)
     if env:
         proc_env.update(env)
     return subprocess.run(
@@ -175,22 +178,39 @@ SAMPLE_SUMMARY = """\
 
 @pytest.fixture()
 def project_dir(tmp_path: Path) -> Path:
-    """Create a project_<port>/branches/shared/draft/ tree mirroring
-    the layout that lives under ``MINIONS_ROOT.parent``.
+    """Create a projects/project_<port>/branches/shared/draft/ tree mirroring
+    the v15.53+ layout: project trees live under ``MINIONS_ROOT/projects/``.
 
-    The hook resolves the project dir relative to ``MINIONS_ROOT.parent``,
-    so we set ``MINIONS_ROOT=tmp_path/MinionsOS`` and create the project
-    under ``tmp_path/project_<port>``.
+    Tests set ``MINIONS_ROOT=tmp_path/MinionsOS`` so the hook resolves to
+    ``tmp_path/MinionsOS/projects/project_<port>/...``. Helpers below use
+    the same convention.
     """
     port = 99001
     fake_minions_root = tmp_path / "MinionsOS"
     fake_minions_root.mkdir()
-    (tmp_path / f"project_{port}" / "branches" / "shared" / "draft").mkdir(parents=True)
+    (
+        fake_minions_root / "projects" / f"project_{port}" / "branches" / "shared" / "draft"
+    ).mkdir(parents=True)
     return tmp_path
 
 
+def _project_draft_dir(project_root: Path, port: int) -> Path:
+    """projects/project_<port>/branches/shared/draft under MinionsOS/."""
+    return (
+        project_root
+        / "MinionsOS"
+        / "projects"
+        / f"project_{port}"
+        / "branches"
+        / "shared"
+        / "draft"
+    )
+
+
 def _seed_draft(project_root: Path, port: int, ids: list[str]) -> None:
-    sp_path = project_root / f"project_{port}" / "branches" / "shared" / "draft" / "draft.json"
+    draft_dir = _project_draft_dir(project_root, port)
+    draft_dir.mkdir(parents=True, exist_ok=True)
+    sp_path = draft_dir / "draft.json"
     sp_path.write_text(
         json.dumps({"nodes": [{"id": i, "type": "x", "text": ""} for i in ids], "edges": []}),
         encoding="utf-8",
@@ -198,7 +218,7 @@ def _seed_draft(project_root: Path, port: int, ids: list[str]) -> None:
 
 
 def _read_journal(project_root: Path, port: int) -> list[dict]:
-    journal = project_root / f"project_{port}" / "branches" / "shared" / "draft" / "journal.jsonl"
+    journal = _project_draft_dir(project_root, port) / "journal.jsonl"
     if not journal.exists():
         return []
     return [json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines() if line]

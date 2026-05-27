@@ -177,7 +177,10 @@ export function getProjectFor(gruId: string, port: number): MosProject | null {
 
 /** Resolve `project_{port}` dir for a given Gru's rootPath. */
 export function projectDirFor(gruRootPath: string, port: number): string {
-  return path.join(path.dirname(gruRootPath), `project_${port}`);
+  // Default: MINIONS_ROOT/projects/project_{port}
+  // Honors MINIONS_PROJECTS_ROOT if set (read from process.env at runtime)
+  const projectsRoot = process.env.MINIONS_PROJECTS_ROOT || path.join(gruRootPath, "projects");
+  return path.join(projectsRoot, `project_${port}`);
 }
 
 export function gruLogPath(gruRootPath: string): string {
