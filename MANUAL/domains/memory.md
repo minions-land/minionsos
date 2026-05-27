@@ -19,7 +19,14 @@ Four layers, top-down:
 | **L0 Reel** | flat index → native Claude/Codex session jsonl | hook (auto) | `branches/<role>/reel-index.jsonl` |
 | **L1 Draft** | process graph: hypotheses, plans, evidence, support edges | every EACN role | `branches/shared/draft/draft.json` |
 | **L2 Book** | durable compiled knowledge, citation-shaped | Noter only | `branches/shared/book/sources/*.md` |
-| **L3 Graphify** | per-role structural graph (optional) | role builds on demand | `branches/<role>/graphify-out/graph.json` |
+| **L3 Shelf** | Gru cross-project structural index (V3-pending) | Gru | `~/.minionsos/shelf.json` |
+
+Optional per-role tools (NOT system layers):
+
+| Tool | What | Availability |
+|---|---|---|
+| **graphify** (`mcp__graphify__*`) | structural graph over prose artefacts | optional MCP, per-role on-demand |
+| **codegraph** (`mcp__codegraph__*`) | code intelligence (callers, impact, search) | optional MCP, auto-indexed |
 
 ## Top tools
 

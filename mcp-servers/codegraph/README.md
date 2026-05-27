@@ -6,9 +6,9 @@ Per-project code knowledge graph (Coder's L3 structural index over source) for M
 
 Bottom-up structural index over a project's **code**, complementing
 `mcp-servers/graphify/` which indexes a project's **prose** (book / notes /
-ethics / experiment artifacts under `branches/shared/`). Together they form
-MinionsOS's two L3 surfaces: graphify is the Shelf graph over written
-artifacts, codegraph is the Coder graph over source files.
+ethics / experiment artifacts under `branches/shared/`). Both are optional
+per-role tools — not system-level dependencies. graphify provides structural
+graph queries over prose; codegraph provides code intelligence over source.
 
 The third-party CLI is `@colbymchenry/codegraph` (TypeScript, MIT, npm
 package on the upstream registry). It uses tree-sitter to extract
@@ -29,7 +29,7 @@ two-graph integration design.
 
 ## Why this is not just "another graphify"
 
-| | graphify (Shelf) | codegraph (Coder graph) |
+| | graphify (prose graph) | codegraph (code graph) |
 |---|---|---|
 | Input | Markdown / PDFs / notes under `branches/shared/` | Source code under `branches/coder/` and `<repo>/` |
 | Extraction | LLM-backed (`graphify extract --backend claude-cli`) | tree-sitter AST, no LLM |

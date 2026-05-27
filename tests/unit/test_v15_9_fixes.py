@@ -172,8 +172,8 @@ class TestShelfBootstrap:
             create_shared_worktree(port)
             shared = project_shared_workspace(port)
             assert not (shared / "shelf").exists(), (
-                "shared/shelf/ must not be seeded after the Memory V2 downgrade; "
-                "the L3 Shelf graph now lives at branches/<role>/graphify-out/."
+                "shared/shelf/ must not be seeded; L3 Shelf is Gru cross-project "
+                "(V3-pending), graphify is optional per-role."
             )
 
 

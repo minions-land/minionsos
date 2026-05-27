@@ -73,9 +73,9 @@ Roles do **not** `Write` here directly. All writes go through
 - `book/` — L2 compiled knowledge base (Book pattern: one curated page per
   ingested artefact, Noter-compiled).
 
-The L3 Shelf (graphify graph) is per-role, not shared, after the Memory V2
-downgrade. Each role that wants graph retrieval runs its own graphify
-instance whose graph lives at ``branches/<role>/graphify-out/graph.json``.
+The L3 Shelf is Gru's cross-project structural index (V3-pending), derived
+from Book. graphify is an optional per-role MCP tool — each role that wants
+graph retrieval runs its own instance at ``branches/<role>/graphify-out/``.
 """
 
 

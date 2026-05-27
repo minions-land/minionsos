@@ -1,6 +1,6 @@
 # mcp-servers/graphify
 
-Per-role graphify (optional structural graph — formerly L3 Shelf) for MinionsOS.
+Per-role graphify — optional structural graph analysis tool for MinionsOS.
 
 ## Purpose
 

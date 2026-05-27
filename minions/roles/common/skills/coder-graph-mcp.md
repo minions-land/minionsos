@@ -9,16 +9,17 @@ references: shelf-mcp, coding-methodology
 provenance: human
 ---
 
-# Skill — Coder graph MCP manual (L3 structural index over code)
+# Skill — Coder graph MCP manual (optional code intelligence)
 
-The Coder graph is the project's L3 structural index over **source code**,
-the counterpart to the per-role graphify graph (over compiled prose). It is
-rebuilt automatically by `@colbymchenry/codegraph`'s bundled OS-event
-watcher (~1s debounce on save, $0 in API spend) — Roles do not write to
-it. The `mcp__codegraph__*` MCP tools are read-only queries against the
-live SQLite + FTS5 index at `<scope>/.codegraph/codegraph.db`, where
-`<scope>` is `project_${PORT}/branches/coder/` for project work or the
-repo root for system-maintenance.
+The Coder graph is an **optional** structural index over **source code**,
+provided by the codegraph MCP server. It is NOT a system-level dependency —
+MinionsOS runs fine without it. When available, it is rebuilt automatically
+by `@colbymchenry/codegraph`'s bundled OS-event watcher (~1s debounce on
+save, $0 in API spend) — Roles do not write to it. The `mcp__codegraph__*`
+MCP tools are read-only queries against the live SQLite + FTS5 index at
+`<scope>/.codegraph/codegraph.db`, where `<scope>` is
+`project_${PORT}/branches/coder/` for project work or the repo root for
+system-maintenance.
 
 The Coder graph answers questions raw `Bash grep` is bad at: "what calls
 this function", "what would break if I rename this", "where is this
@@ -48,14 +49,15 @@ already have open, edit directly; do not open the Coder graph for a
 | "What calls X / what does X call / what breaks if X changes" | **Coder graph** (`codegraph_callers`, `codegraph_callees`, `codegraph_impact`) |
 | "Show me X's source / signature / docstring" | **Coder graph** (`codegraph_node`) |
 | "Survey this code area" | **Coder graph** (`codegraph_explore` — one capped call) |
-| "Which concepts cluster, god-nodes, community" | **per-role graphify graph** (`mcp__graphify__*`, see [[shelf-mcp]]) |
+| "Which concepts cluster, god-nodes, community" | **graphify** (optional, `mcp__graphify__*`, see [[shelf-mcp]]) |
 | "What did exp-042 report" | **Book / Draft**, not a graph |
 
-The two graphs index disjoint data (code vs prose) and update on different
-clocks (codegraph: ~1s OS-event watcher; graphify: role-on-demand). The
-cross-reference: a graphify concept node whose label looks like a code
-identifier is a pivot opportunity — call `codegraph_search` on the label
-to jump from "this paper claim" to "this function".
+Both codegraph and graphify are optional per-role MCP tools. They index
+disjoint data (code vs prose) and update on different clocks (codegraph:
+~1s OS-event watcher; graphify: role-on-demand). If graphify is available,
+a concept node whose label looks like a code identifier is a pivot
+opportunity — call `codegraph_search` on the label to jump from "this
+paper claim" to "this function".
 
 ## The nine tools, by question shape
 
