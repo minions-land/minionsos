@@ -148,11 +148,11 @@ The Gru watchdog auto-respawns dead backends. Self-kill on conn-refused makes re
 
 **Symptom:** Your role works fine when busy but becomes unresponsive after 5-15 minutes of idle.
 
-**Root cause:** When idle, the event loop depends on `mos_await_events()` returning the synthetic `cache_refresh` event and you calling it again. This is "voluntary" — a model can decide to stop after the ack ceremony.
+**Root cause:** When idle, the event loop depends on `mos_await_events()` returning the synthetic `cache_keepalive` event and you calling it again. This is "voluntary" — a model can decide to stop after the ack ceremony.
 
-**What Gru does:** The Gru watchdog checks heartbeat files every tick. If your heartbeat is stale >4 min, Gru sends a `tmux send-keys continue Enter` nudge to wake you.
+**What Gru does:** The Gru watchdog checks heartbeat files every tick. If your heartbeat is stale >4 min, Gru sends a `/goal` kick via tmux to wake you (PR #84).
 
-**Your job:** When you receive a `cache_refresh` event (synthetic keepalive):
+**Your job:** When you receive a `cache_keepalive` event (synthetic keepalive):
 1. Reply **exactly** `ack` (3 characters, nothing else)
 2. Immediately call `mos_await_events()` again
 3. Do NOT analyze, plan, write to Draft, or send EACN messages
@@ -168,10 +168,10 @@ If you do extra work on keepalive turns, you'll break the cache and consume toke
 
 **Root cause:** Our EACN backend (tok.fan) has a **5-minute prompt cache TTL**. After 5 min of silence, the cache expires and you pay full prefill on the next turn.
 
-**What `mos_await_events` does:** If no events arrive within `cache_keepalive_seconds` (default 240s = 4 min), it returns a synthetic `cache_refresh` event to force a keepalive turn before the 5-min cliff.
+**What `mos_await_events` does:** If no events arrive within `cache_keepalive_seconds` (default 240s = 4 min), it returns a synthetic `cache_keepalive` event to force a keepalive turn before the 5-min cliff.
 
 **Your job:**
-- Process `cache_refresh` events with zero overhead (ack + loop only)
+- Process `cache_keepalive` events with zero overhead (ack + loop only)
 - Never take >5 minutes between turns when idle
 - Heartbeat files at `branches/{role}/.minionsos/heartbeat` are updated on each keepalive
 
@@ -235,18 +235,18 @@ The `_start_backend()` function now detects foreign processes and raises `Backen
 
 ---
 
-### Issue #60 — Use `mos role capture` for Introspection
+### Issue #60 — Introspecting Role State
 
 **Symptom:** Operator wants to see what a role is doing right now.
 
-**Correct command:**
-```
-./mos role capture <port> <role> [--lines 100]
+**Available commands:**
+```bash
+./mos role list <port>              # List all registered roles
+./mos logs --project <port> --role <role> --tail 50   # View role logs
+tmux attach -t mos-<port>-<role>    # Attach to role's tmux session
 ```
 
-This captures and prints the role's current tmux pane output with ANSI codes stripped.
-
-**Wrong:** `tmux capture-pane -p` writes to paste buffer silently by default.
+**Note:** There is no `mos role capture` subcommand (despite commit e39e997 message). Use `tmux attach` or `./mos logs` instead.
 
 ---
 
@@ -299,7 +299,7 @@ Cold restart costs ~50K tokens; the backend usually recovers in <30s.
 Compact is triggered by utilization, not time.
 
 ### 10. Extra Work on Keepalive Turns
-When `mos_await_events()` returns `cache_refresh`, do ONLY: `ack` + `mos_await_events()`.
+When `mos_await_events()` returns `cache_keepalive`, do ONLY: `ack` + `mos_await_events()`.
 Any analysis, Draft writes, or EACN messages on keepalive turns break the cache and waste tokens.
 
 ---
@@ -368,7 +368,7 @@ Tool Input Limit:
 1. Is the backend healthy? Look for `Connection refused` in the error
 2. If backend is down, use exponential backoff (5s, 15s, 45s, 120s, 300s)
 3. Gru watchdog will auto-respawn the backend
-4. If truly idle, `mos_await_events()` will return a `cache_refresh` event after 4 min
+4. If truly idle, `mos_await_events()` will return a `cache_keepalive` event after 4 min
 
 **Do NOT:**
 - Call `mos_reset_context` on connection errors
@@ -434,7 +434,7 @@ Step 3: Repeat until done
 
 ---
 
-### Scenario 6: You Receive a `cache_refresh` Event
+### Scenario 6: You Receive a `cache_keepalive` Event
 
 **This is a synthetic keepalive event.** It means: "No real work, but you need to touch the cache before the 5-min TTL expires."
 
@@ -448,7 +448,7 @@ Step 3: Repeat until done
 - "Let me analyze the project state" — no, just loop
 - "Let me send a status update to Gru" — no, just loop
 
-The `cache_refresh` event exists solely to keep your cache warm. Any extra work breaks the cache and wastes tokens.
+The `cache_keepalive` event exists solely to keep your cache warm. Any extra work breaks the cache and wastes tokens.
 
 ---
 
@@ -614,22 +614,23 @@ Cost: ~50K tokens. **Prevention:** Never call `mos_reset_context` on transient e
 
 ## Memory and Context Layers
 
-MinionsOS has 4 memory layers (L0-L3):
+MinionsOS has 4 memory layers (L0-L3). Full reference: `python3 MANUAL/scripts/lookup.py --domain memory`
 
-| Layer | Storage | Lifetime | Use |
-|---|---|---|---|
-| **L0** | Current transcript | Session | Working memory, active reasoning |
-| **L1** | `branches/shared/draft/draft.json` | Project | Draft tree, pending plans, bootstrap node |
-| **L2** | `branches/{role}/` files | Project | Role-specific artifacts (notes, code, reports) |
-| **L3** | `branches/shared/` files | Project | Cross-role artifacts (final outputs, library) |
+| Layer | What | Where | Who writes | Wake-injected? |
+|---|---|---|---|---|
+| **L0 Reel** | Raw subagent transcripts | `branches/{role}/reel/{session_id}/` | Automatic (PostToolUse hook) | No (drill-down only) |
+| **L1 Draft** | Process graph | `branches/shared/draft/draft.json` | All EACN roles via `mos_draft_*` | Yes (`mos_draft_summary()`) |
+| **L2 Book** | Noter-curated knowledge | `branches/shared/book/` | Noter writes; all roles read | Yes (`hot.md` ~500 words) |
+| **L3 Shelf** | Cross-project index | `branches/shared/shelf/shelf.json` | Gru only | No (Gru-only) |
 
 **Reconstructing state on cold start:**
 1. Current transcript (whatever's in your context)
-2. Draft summary via `mos_draft_summary()` — especially `pending_plan` nodes
-3. EACN history via `eacn3_get_events`
-4. Shared artifacts via `Read` on `branches/shared/`
+2. **Draft summary** via `mos_draft_summary()` — especially `pending_plan` nodes (dequeued events that won't be redelivered)
+3. **Book hot page** — auto-injected at wake (~500 words of recent verified knowledge)
+4. EACN history via `eacn3_get_events` if needed
+5. Shared artifacts via `Read` on `branches/shared/` as needed
 
-There is **no per-role private memory file**. You are stateless between cold starts; the Draft is the closest thing to persistent memory.
+There is **no per-role private memory file**. Roles are stateless between cold starts; Draft `pending_plan` nodes are the recovery mechanism for interrupted work.
 
 ---
 
