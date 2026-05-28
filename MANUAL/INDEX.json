@@ -1,7 +1,7 @@
 {
-  "version": "96adc0c",
-  "built_at": "2026-05-26T03:30:50.059589+00:00",
-  "page_count": 156,
+  "version": "f973823",
+  "built_at": "2026-05-28T16:09:21.681825+00:00",
+  "page_count": 159,
   "pages": {
     "eacn3_a2a_server": {
       "kind": "tool",
@@ -970,6 +970,35 @@
       "keywords": [],
       "related": []
     },
+    "mos_book_dead_end": {
+      "kind": "tool",
+      "path": "tools/mos_book_dead_end.md",
+      "domain": "memory",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:394",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Record a refuted claim as a permanent dead-end Book page so other projects do not re-run the same failed experiment.",
+      "keywords": [
+        "book",
+        "dead-end",
+        "refuted",
+        "negative-knowledge",
+        "refutation",
+        "do-not-repeat"
+      ],
+      "related": [
+        "mos_book_ingest",
+        "mos_book_open_question",
+        "mos_book_resolve_contradiction"
+      ]
+    },
     "mos_book_hot_get": {
       "kind": "tool",
       "path": "tools/mos_book_hot_get.md",
@@ -1056,6 +1085,36 @@
       "keywords": [],
       "related": []
     },
+    "mos_book_open_question": {
+      "kind": "tool",
+      "path": "tools/mos_book_open_question.md",
+      "domain": "memory",
+      "auth": [
+        "gru",
+        "coder",
+        "ethics",
+        "writer",
+        "expert"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:377",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Record an open research question as a durable Book page at `book/open_questions/<slug>.md`.",
+      "keywords": [
+        "book",
+        "open-question",
+        "gap",
+        "unresolved",
+        "research",
+        "question"
+      ],
+      "related": [
+        "mos_book_ingest",
+        "mos_book_query",
+        "mos_book_dead_end",
+        "mos_book_ratify"
+      ]
+    },
     "mos_book_promote_verified": {
       "kind": "tool",
       "path": "tools/mos_book_promote_verified.md",
@@ -1099,6 +1158,31 @@
         "mos_book_ingest",
         "mos_book_save_synthesis",
         "mos_shelf_query"
+      ]
+    },
+    "mos_book_ratify": {
+      "kind": "tool",
+      "path": "tools/mos_book_ratify.md",
+      "domain": "memory",
+      "auth": [
+        "ethics"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:360",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Ethics ratifies a promoted Book source page by appending a signed review and setting `ratified_by: ethics`.",
+      "keywords": [
+        "book",
+        "ratify",
+        "ethics",
+        "verify",
+        "promote",
+        "ratification"
+      ],
+      "related": [
+        "mos_book_promote_verified",
+        "mos_book_audit_walk",
+        "mos_book_query"
       ]
     },
     "mos_book_resolve_contradiction": {
@@ -2220,11 +2304,13 @@
       "kind": "tool",
       "path": "tools/mos_shelf_query.md",
       "domain": "memory",
-      "auth": [],
-      "source": "minions/tools/mcp/memory_tools.py:367",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:421",
       "since": "stub",
-      "status": "deprecated",
-      "summary": "Deprecated (Memory V2 2026-05): project-level Shelf removed.",
+      "status": "stub",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2232,11 +2318,13 @@
       "kind": "tool",
       "path": "tools/mos_shelf_register.md",
       "domain": "memory",
-      "auth": [],
-      "source": "minions/tools/mcp/memory_tools.py:360",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:414",
       "since": "stub",
-      "status": "deprecated",
-      "summary": "Deprecated (Memory V2 2026-05): project-level Shelf removed.",
+      "status": "stub",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2244,11 +2332,13 @@
       "kind": "tool",
       "path": "tools/mos_shelf_shared_concepts.md",
       "domain": "memory",
-      "auth": [],
-      "source": "minions/tools/mcp/memory_tools.py:374",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:428",
       "since": "stub",
-      "status": "deprecated",
-      "summary": "Deprecated (Memory V2 2026-05): project-level Shelf removed. No shared concept index at this layer.",
+      "status": "stub",
+      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
     },
@@ -2892,13 +2982,20 @@
         "reel",
         "memory",
         "hot",
-        "hypothesis"
+        "hypothesis",
+        "status",
+        "ratify",
+        "open_question",
+        "dead_end"
       ],
       "related": [
         "mos_draft_summary",
         "mos_book_query",
         "mos_book_hot_get",
-        "mos_reel_get"
+        "mos_reel_get",
+        "mos_book_ratify",
+        "mos_book_open_question",
+        "mos_book_dead_end"
       ]
     },
     "domain-papers": {
@@ -3102,13 +3199,16 @@
       "domain-memory",
       "mos_book_audit_walk",
       "mos_book_crystallize_session",
+      "mos_book_dead_end",
       "mos_book_hot_get",
       "mos_book_hot_update",
       "mos_book_ingest",
       "mos_book_ingest_batch",
       "mos_book_lint",
+      "mos_book_open_question",
       "mos_book_promote_verified",
       "mos_book_query",
+      "mos_book_ratify",
       "mos_book_resolve_contradiction",
       "mos_book_save_synthesis",
       "mos_draft_annotate",
@@ -3267,7 +3367,9 @@
       "eacn3_update_discussions",
       "mos_adjudicate",
       "mos_await_events",
+      "mos_book_dead_end",
       "mos_book_hot_get",
+      "mos_book_open_question",
       "mos_book_query",
       "mos_compact_context",
       "mos_dismiss_role",
@@ -3338,7 +3440,9 @@
       "eacn3_update_deadline",
       "eacn3_update_discussions",
       "mos_await_events",
+      "mos_book_dead_end",
       "mos_book_hot_get",
+      "mos_book_open_question",
       "mos_book_query",
       "mos_compact_context",
       "mos_draft_append",
@@ -3398,8 +3502,11 @@
       "eacn3_update_deadline",
       "eacn3_update_discussions",
       "mos_await_events",
+      "mos_book_dead_end",
       "mos_book_hot_get",
+      "mos_book_open_question",
       "mos_book_query",
+      "mos_book_ratify",
       "mos_compact_context",
       "mos_draft_append",
       "mos_draft_summary",
@@ -3443,7 +3550,9 @@
       "eacn3_update_deadline",
       "eacn3_update_discussions",
       "mos_await_events",
+      "mos_book_dead_end",
       "mos_book_hot_get",
+      "mos_book_open_question",
       "mos_book_query",
       "mos_compact_context",
       "mos_download_arxiv",
@@ -3502,7 +3611,9 @@
       "eacn3_update_deadline",
       "eacn3_update_discussions",
       "mos_await_events",
+      "mos_book_dead_end",
       "mos_book_hot_get",
+      "mos_book_open_question",
       "mos_book_query",
       "mos_compact_context",
       "mos_draft_append",
@@ -3705,6 +3816,7 @@
       "eacn3_cluster_status"
     ],
     "status": [
+      "domain-memory",
       "eacn3_cluster_status",
       "eacn3_get_task_status",
       "eacn3_reverse_control_status",
@@ -3890,8 +4002,26 @@
     ],
     "book": [
       "domain-memory",
+      "mos_book_dead_end",
       "mos_book_hot_get",
-      "mos_book_query"
+      "mos_book_open_question",
+      "mos_book_query",
+      "mos_book_ratify"
+    ],
+    "dead-end": [
+      "mos_book_dead_end"
+    ],
+    "refuted": [
+      "mos_book_dead_end"
+    ],
+    "negative-knowledge": [
+      "mos_book_dead_end"
+    ],
+    "refutation": [
+      "mos_book_dead_end"
+    ],
+    "do-not-repeat": [
+      "mos_book_dead_end"
     ],
     "hot": [
       "domain-memory",
@@ -3908,6 +4038,21 @@
     "rolling": [
       "mos_book_hot_get"
     ],
+    "open-question": [
+      "mos_book_open_question"
+    ],
+    "gap": [
+      "mos_book_open_question"
+    ],
+    "unresolved": [
+      "mos_book_open_question"
+    ],
+    "research": [
+      "mos_book_open_question"
+    ],
+    "question": [
+      "mos_book_open_question"
+    ],
     "query": [
       "mos_book_query"
     ],
@@ -3923,6 +4068,22 @@
     ],
     "durable": [
       "mos_book_query"
+    ],
+    "ratify": [
+      "domain-memory",
+      "mos_book_ratify"
+    ],
+    "ethics": [
+      "mos_book_ratify"
+    ],
+    "verify": [
+      "mos_book_ratify"
+    ],
+    "promote": [
+      "mos_book_ratify"
+    ],
+    "ratification": [
+      "mos_book_ratify"
     ],
     "compact": [
       "domain-runtime",
@@ -4411,10 +4572,13 @@
     "signboard": [
       "domain-lifecycle"
     ],
-    "shelf": [
+    "memory": [
       "domain-memory"
     ],
-    "memory": [
+    "open_question": [
+      "domain-memory"
+    ],
+    "dead_end": [
       "domain-memory"
     ],
     "arxiv": [
@@ -4474,18 +4638,5 @@
     "figure": [
       "domain-visual"
     ]
-  },
-  "permission": [
-    "domain-memory"
-  ],
-  "authz": [
-    "domain-memory"
-  ],
-  "ratify": [
-    "domain-memory",
-    "mos_book_ratify"
-  ],
-  "reel": [
-    "domain-memory"
-  ]
+  }
 }
