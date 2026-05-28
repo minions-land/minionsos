@@ -2,6 +2,11 @@
 
 **Read this file on every first wake.** This is your orientation — who you are, what you do, and the core rules that keep the system working.
 
+**Document Access Boundary:**
+- **This file (QUICKSTART.md)**: Role agents read on first wake for operational orientation
+- **SYSTEM.md**: Injected before every role-specific SYSTEM.md; canonical protocol reference
+- **CLAUDE.md**: For human developers working on MinionsOS codebase; agents do not read this
+
 ---
 
 ## What is MinionsOS?
@@ -32,7 +37,7 @@ You are a **long-lived agent-host process** for one Role. Your job:
 
 **Exceptions:**
 - **Noter** uses `mos_noter_wait()` (timer-based, 3 min) instead of EACN
-- **Gru** is pull-mode, uses `mos_get_events(port)` to inspect without draining queues
+- **Gru** is pull-mode, uses `mos_get_events(port)` to drain its queue on demand
 
 ---
 
@@ -95,11 +100,11 @@ Compact only when:
 ### Event Loop
 - `mos_await_events()` — block until EACN queue delivers work (most roles)
 - `mos_noter_wait()` — timer-based wake (Noter only)
-- `mos_get_events(port)` — pull-mode for Gru to inspect events without draining queues
+- `mos_get_events(port)` — drain Gru's EACN queue once (pull-mode, non-blocking)
 
 ### Draft (Working Memory)
 - `mos_draft_summary()` — read Draft tree, get bootstrap node on first wake
-- `mos_draft_append(node_id, content)` — append to a node
+- `mos_draft_append(nodes=[...], edges=[...])` — add new nodes and/or edges to Draft
 - `mos_draft_commit_shared()` — flush Draft to shared branch
 
 ### EACN (Message Passing)
@@ -177,14 +182,6 @@ If you do extra work on keepalive turns, you'll break the cache and consume toke
 
 ---
 
-### Context Compaction Threshold
-
-**Rule:** Only call `mos_compact_context` when context exceeds **~60% of the model window** (≥600K tokens for 1M window).
-
-**Why:** Below 60%, the cost of cache miss + re-orientation exceeds the savings. See SYSTEM.md §5 for full details.
-
----
-
 ### Adjudication Task Routing
 
 **Symptom:** Ethics role doesn't see adjudication tasks created by Coder.
@@ -257,8 +254,7 @@ Don't put 200-line documents into `Write.content`. Use seed-and-Edit (50-line ch
 The Opus 4.7 bug silently drops large inputs — you get `InputValidationError` or no output at all.
 
 ### 4. Premature Compact
-Don't compact at 13% utilization. Wait until 60%+ (≥600K tokens).
-Premature compact costs ~50K tokens of cold prefill for nothing.
+Don't compact below 60% utilization. See Critical Rule #4 above.
 
 ### 5. Ignoring Gru Priority
 Handle `sender_id=gru` or `initiator_id=gru` events FIRST. Supervisor traffic must never be starved.
@@ -277,8 +273,7 @@ Never call `mos_reset_context` on transient EACN3 errors. Use exponential backof
 Cold restart costs ~50K tokens; the backend usually recovers in <30s.
 
 ### 9. Periodic Compact Without Checking Utilization
-"I've been running for 20 minutes, maybe I should compact" — no. Check actual token count first.
-Compact is triggered by utilization, not time.
+Compact is triggered by utilization (60% threshold), not time. See Critical Rule #4.
 
 ### 10. Extra Work on Keepalive Turns
 When `mos_await_events()` returns `cache_keepalive`, do ONLY: `ack` + `mos_await_events()`.
@@ -331,7 +326,7 @@ Plan → Dispatch → Verify:
   VERIFY — check output, emit EACN responses
 
 Context Discipline:
-  Compact only when utilization > 60% (≥600K tokens)
+  Compact only when utilization > 60% (≥600K tokens) — see Critical Rule #4
 
 Tool Input Limit:
   ≤50 lines / ≤3 KB per tool_use
@@ -396,7 +391,7 @@ Step 3: Repeat until done
 **Check actual utilization first:**
 1. Have you read >600K tokens worth of files?
 2. If yes, call `mos_compact_context(reason="...", pending_plans=[...])`
-3. If no, keep working — premature compact costs more than it saves
+3. If no, keep working — see Critical Rule #4
 
 **After compact:**
 - The next turn starts fresh (cache is gone)
@@ -587,7 +582,7 @@ Cost: ~50K tokens. **Prevention:** Never call `mos_reset_context` on transient e
 - Subagent: Codex GPT-5.5 xhigh for analysis
 
 ### Gru
-- Wake mode: pull (uses `mos_get_events(port)` to inspect without draining)
+- Wake mode: pull (uses `mos_get_events(port)` to drain queue on demand)
 - Job: project supervision, role evolution, watchdog
 - See `minions/roles/gru/SYSTEM.md` for full contract
 - **Special:** Gru is the only role that can spawn/dismiss other roles

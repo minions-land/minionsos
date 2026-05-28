@@ -1,5 +1,10 @@
 # MinionsOS Common Role Contract
 
+**Document Access Boundary:**
+- **This file (SYSTEM.md)**: Injected before every role-specific SYSTEM.md at wake; canonical protocol
+- **QUICKSTART.md**: Role agents read on first wake for operational orientation  
+- **CLAUDE.md**: For human developers only; agents do not read this
+
 This contract is injected before every Role-specific `SYSTEM.md`. If a
 Role-specific prompt conflicts with this contract, the **common contract
 wins**. Each rule below has exactly one canonical home; Role-specific

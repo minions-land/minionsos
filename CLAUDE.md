@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+**Document Access Boundary:**
+- **This file (CLAUDE.md)**: For human developers working on MinionsOS codebase
+- **SYSTEM.md**: For Role agents; injected at wake; canonical runtime protocol
+- **QUICKSTART.md**: For Role agents; read on first wake for operational orientation
+
 This file provides guidance to Claude Code (claude.ai/code) when working with **MinionsOS codebase development**. If you are a **Role agent** (Noter, Coder, Ethics, Writer, Expert, Gru), read `minions/roles/QUICKSTART.md` instead — that's your runtime orientation guide.
 
 **Claude Code is the primary and default agent host** for every Role. Codex is no longer used to host a Role process directly — it is reachable as a sub-agent through the `codex-subagent` MCP server (`mcp-servers/codex-subagent/`) when a Role wants to delegate high-intensity execution to GPT-5.5. Keep that delegation path working when refactoring; do not ground new Role behavior in Codex-as-host.
