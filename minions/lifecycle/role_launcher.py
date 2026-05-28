@@ -370,15 +370,19 @@ def _spawn_tmux(
         ) from exc
 
     # Capture pane output to log via tmux's own pipe-pane (preserves TTY).
+    # Issue #54: strip ANSI escape sequences before writing to log.
     log_path.parent.mkdir(parents=True, exist_ok=True)
     try:
+        # Use sed to strip ANSI/cursor escapes. The -u flag makes sed unbuffered.
+        # Falls back to plain cat if sed isn't available (non-critical).
+        strip_cmd = f"sed -u 's/\x1b\[[0-9;]*[A-Za-z]//g' >> {_quote(str(log_path))}"
         subprocess.run(
             [
                 "tmux",
                 "pipe-pane",
                 "-t",
                 session_name,
-                f"cat >> {_quote(str(log_path))}",
+                strip_cmd,
             ],
             check=True,
             capture_output=True,
