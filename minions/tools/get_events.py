@@ -26,6 +26,8 @@ from typing import Any
 
 import httpx
 
+from minions.lifecycle._path_placeholder import decode_project_paths
+from minions.paths import project_dir as _project_dir
 from minions.tools import events_log
 from minions.tools.await_events import _build_suggested_action
 
@@ -54,7 +56,24 @@ def _drain_gru_queue(port: int) -> list[dict[str, Any]]:
     except Exception as exc:
         raise RuntimeError(f"EACN3 drain on port {port} failed: {exc}") from exc
     raw = data.get("events") or data.get("messages") or []
-    return [e for e in raw if isinstance(e, dict)]
+    # Issue #47: rehydrate ${PROJECT_DIR} placeholders before mirroring to
+    # disk and surfacing to Gru. Done at the boundary so events_log writes
+    # the path-correct form for this host.
+    try:
+        pdir = str(_project_dir(port))
+    except Exception:
+        pdir = ""
+    decoded: list[dict[str, Any]] = []
+    for e in raw:
+        if not isinstance(e, dict):
+            continue
+        if pdir:
+            try:
+                e = decode_project_paths(e, pdir)
+            except Exception:
+                pass
+        decoded.append(e)
+    return decoded
 
 
 def get_events(port: int) -> dict[str, Any]:
