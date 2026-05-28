@@ -1,11 +1,17 @@
 # CLAUDE.md
 
-**Document Access Boundary:**
-- **This file (CLAUDE.md)**: For human developers working on MinionsOS codebase
-- **SYSTEM.md**: For Role agents; injected at wake; canonical runtime protocol
-- **QUICKSTART.md**: For Role agents; read on first wake for operational orientation
+**Who reads this file:**
+In default (non-hermetic) mode, Claude Code's cwd walk includes this file for
+all Role processes as well as developer sessions. In hermetic mode
+(`MINIONS_ROLE_HERMETIC_CWD=1`), Role processes use a stub cwd and never reach
+this file. **Role agents should treat this file as developer documentation and
+not apply its architectural details as runtime rules.** Runtime rules for Role
+agents live exclusively in `minions/roles/SYSTEM.md` (injected via
+`--append-system-prompt`) and the initial_prompt built by `agent_host.py`.
 
-This file provides guidance to Claude Code (claude.ai/code) when working with **MinionsOS codebase development**. If you are a **Role agent** (Noter, Coder, Ethics, Writer, Expert, Gru), read `minions/roles/QUICKSTART.md` instead — that's your runtime orientation guide.
+This file provides guidance to Claude Code when working with **MinionsOS
+codebase development**. If you are a **Role agent** at runtime and somehow
+reading this: your operative contract is SYSTEM.md, not this file.
 
 **Claude Code is the primary and default agent host** for every Role. Codex is no longer used to host a Role process directly — it is reachable as a sub-agent through the `codex-subagent` MCP server (`mcp-servers/codex-subagent/`) when a Role wants to delegate high-intensity execution to GPT-5.5. Keep that delegation path working when refactoring; do not ground new Role behavior in Codex-as-host.
 
