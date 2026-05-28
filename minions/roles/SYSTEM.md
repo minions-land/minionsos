@@ -195,6 +195,14 @@ source for this host bug: `~/.claude/CLAUDE.md`; project restate at
   cold-start penalty ~50k tokens. Use only when behavior has drifted or
   `SYSTEM.md` was externally updated.
 
+**NEVER call `mos_reset_context` on transient EACN3 connection errors**
+(issue #53). If `mos_await_events` fails with `Connection refused` or
+`EACN3 poll failed`, that is a backend-state signal (backend is down or
+restarting), NOT a role-state signal. The correct response is: retry
+`mos_await_events` with exponential backoff (5s, 15s, 45s, 120s, 300s).
+The Gru watchdog auto-respawns dead backends (issue #51). Self-kill on
+conn-refused makes recovery harder, not easier.
+
 Before either, follow the `cognitive-checkpoint` skill.
 
 ---
