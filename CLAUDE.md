@@ -1,14 +1,16 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. **Claude Code is the primary and default agent host** for every Role. Codex is no longer used to host a Role process directly — it is reachable as a sub-agent through the `codex-subagent` MCP server (`mcp-servers/codex-subagent/`) when a Role wants to delegate high-intensity execution to GPT-5.5. Keep that delegation path working when refactoring; do not ground new Role behavior in Codex-as-host.
+This file provides guidance to Claude Code (claude.ai/code) when working with **MinionsOS codebase development**. If you are a **Role agent** (Noter, Coder, Ethics, Writer, Expert, Gru), read `minions/roles/QUICKSTART.md` instead — that's your runtime orientation guide.
+
+**Claude Code is the primary and default agent host** for every Role. Codex is no longer used to host a Role process directly — it is reachable as a sub-agent through the `codex-subagent` MCP server (`mcp-servers/codex-subagent/`) when a Role wants to delegate high-intensity execution to GPT-5.5. Keep that delegation path working when refactoring; do not ground new Role behavior in Codex-as-host.
 
 ## Tool-use input must stay small (Opus 4.7 empty-input bug)
 
 > **Canonical source:** `~/.claude/CLAUDE.md` (host-level). This section
 > restates the rule for contributors who clone the repo without the host
 > file. If the rule needs to change (e.g. a future Opus release fixes
-> the bug), update `~/.claude/CLAUDE.md` first, then sync this section
-> and `minions/roles/SYSTEM.md` §4 host-fallback paragraph.
+> the bug), update `~/.claude/CLAUDE.md` first, then sync this section,
+> `minions/roles/QUICKSTART.md`, and `minions/roles/SYSTEM.md` §4 host-fallback paragraph.
 
 NEVER inline a large payload in a single `tool_use`'s `input` object — neither `Write.content`, `Edit.new_string`, nor `Bash.command` containing a long heredoc. **Hard cap per tool_use input: ~50 lines / ~3 KB of actual payload.**
 
