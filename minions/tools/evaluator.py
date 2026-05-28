@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, Field
 
@@ -181,7 +181,10 @@ def mos_evaluate(args: EvaluateArgs) -> dict[str, object]:
 
         logger.info("mos_evaluate: adjudication gate depth=%s", adj_depth)
         adjudication_result = mos_adjudicate(
-            AdjudicateArgs(port=port, depth=adj_depth)  # type: ignore[arg-type]
+            AdjudicateArgs(
+                port=port,
+                depth=cast(Literal["none", "single", "panel"], adj_depth),
+            )
         )
         decision = adjudication_result.get("decision")
         if decision == "Reject":
@@ -223,7 +226,7 @@ def mos_evaluate(args: EvaluateArgs) -> dict[str, object]:
     if adjudication_result is not None:
         details = result.setdefault("details", {})
         if isinstance(details, dict):
-            details["adjudication"] = adjudication_result
+            cast(dict[str, object], details)["adjudication"] = adjudication_result
 
     # on_done wiring: if profile declares shutdown_project / dormant and the
     # grader returned a passing verdict, transition the project. Failures and
@@ -237,7 +240,7 @@ def mos_evaluate(args: EvaluateArgs) -> dict[str, object]:
             _apply_on_done(port, on_done)
             details = result.setdefault("details", {})
             if isinstance(details, dict):
-                details["on_done"] = on_done
+                cast(dict[str, object], details)["on_done"] = on_done
         except Exception as exc:
             logger.warning("mos_evaluate: on_done=%s failed for port=%d: %s", on_done, port, exc)
 

@@ -29,7 +29,7 @@ import os
 import re
 from math import ceil
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from minions.paths import project_shared_subdir
 
@@ -50,9 +50,10 @@ def _empty_shelf() -> dict[str, object]:
 def _normalise_shelf(data: object) -> dict[str, object]:
     if not isinstance(data, dict):
         return _empty_shelf()
-    projects = data.get("projects")
-    nodes = data.get("nodes")
-    links = data.get("links")
+    data_dict = cast(dict[str, object], data)
+    projects = data_dict.get("projects")
+    nodes = data_dict.get("nodes")
+    links = data_dict.get("links")
     return {
         "projects": projects if isinstance(projects, dict) else {},
         "nodes": nodes if isinstance(nodes, list) else [],
@@ -97,7 +98,7 @@ def _token_overlap_score(text_a: str, text_b: str) -> float:
 def _dict_items(value: object) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
-    return [dict(item) for item in value if isinstance(item, dict)]
+    return [dict(cast(dict[str, Any], item)) for item in value if isinstance(item, dict)]
 
 
 def _node_id(node: dict[str, Any]) -> str:
@@ -124,7 +125,7 @@ def _node_project_port(node: dict[str, Any]) -> int | None:
 
 
 def _endpoint_id(value: object) -> str | None:
-    raw = value.get("id") if isinstance(value, dict) else value
+    raw = cast(dict[str, object], value).get("id") if isinstance(value, dict) else value
     if raw is None:
         return None
     endpoint = str(raw)
@@ -168,7 +169,7 @@ def _registered_project_ports(data: dict[str, object]) -> set[int]:
     if isinstance(projects, dict):
         for key in projects:
             try:
-                ports.add(int(key))
+                ports.add(int(str(key)))
             except (TypeError, ValueError):
                 continue
     for node in _dict_items(data.get("nodes")):
@@ -251,7 +252,10 @@ def mos_shelf_register(port: int) -> dict[str, object]:
         new_links.append(new_link)
 
     data = _load_shelf()
-    projects = dict(data.get("projects") if isinstance(data.get("projects"), dict) else {})
+    projects_raw = data.get("projects")
+    projects: dict[str, Any] = (
+        dict(cast(dict[str, Any], projects_raw)) if isinstance(projects_raw, dict) else {}
+    )
     nodes = _dict_items(data.get("nodes"))
     links = _dict_items(data.get("links"))
 
