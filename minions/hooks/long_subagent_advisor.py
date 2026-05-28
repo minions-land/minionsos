@@ -69,11 +69,11 @@ CHECK_TOOL = {
 
 
 def _looks_long(prompt: str, description: str) -> tuple[bool, str]:
-    if LONG_KEYWORDS.search(description):
-        m = LONG_KEYWORDS.search(description)
+    m = LONG_KEYWORDS.search(description)
+    if m is not None:
         return True, f'description mentions "{m.group(0)}"'
-    if LONG_KEYWORDS.search(prompt):
-        m = LONG_KEYWORDS.search(prompt)
+    m = LONG_KEYWORDS.search(prompt)
+    if m is not None:
         return True, f'prompt mentions "{m.group(0)}"'
     n = len(prompt.encode("utf-8"))
     if n > LONG_PROMPT_BYTES:

@@ -148,17 +148,20 @@ def benchmark_evaluate_all(
 
             eval_result = mos_evaluate(EvaluateArgs(port=port))
 
+            score_raw = eval_result.get("score")
+            score_val: float | None = (
+                float(score_raw) if isinstance(score_raw, (int, float)) else None
+            )
+            details_raw = eval_result.get("details", {})
+            details_val: dict = details_raw if isinstance(details_raw, dict) else {}
+
             results.append(
                 BenchmarkResult(
                     task_id=task.task_id,
                     port=port,
-                    score=(
-                        float(eval_result.get("score"))
-                        if eval_result.get("score") is not None
-                        else None
-                    ),
+                    score=score_val,
                     verdict=str(eval_result.get("verdict") or ""),
-                    details=eval_result.get("details", {}),
+                    details=details_val,
                     project_real_name=real_name,
                 )
             )

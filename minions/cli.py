@@ -18,9 +18,11 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 import subprocess
 from pathlib import Path
+from typing import cast
 
 import typer
 from rich.console import Console
@@ -643,7 +645,7 @@ def heartbeats_cmd(
         table.add_column("detail")
         for r in rows:
             age = r.get("age_sec")
-            if age is None:
+            if not isinstance(age, (int, float)):
                 table.add_row(str(r["name"]), "⚪", "—", str(r.get("detail", "")))
             else:
                 emoji, label = _heartbeat_band(float(age))
@@ -656,9 +658,9 @@ def heartbeats_cmd(
         console.print(table)
     if exit_on_stale:
         bad = any(
-            isinstance(r.get("age_sec"), (int, float))
-            and float(r["age_sec"]) >= _HEARTBEAT_WARN_SEC  # type: ignore[arg-type]
+            isinstance(age_val, (int, float)) and float(age_val) >= _HEARTBEAT_WARN_SEC
             for r in rows
+            for age_val in (r.get("age_sec"),)
         )
         if bad:
             raise typer.Exit(2)
@@ -701,7 +703,7 @@ def upgrade_cmd(
     else:
         console.print(f"[green]{pull_msg}[/green]")
 
-    env = {**subprocess.os.environ}
+    env = {**os.environ}
     if force:
         env["MINIONS_FORCE_INSTALL"] = "1"
 
@@ -1167,7 +1169,11 @@ def role_kick(
 
     if (prompt is None) == (prompt_file is None):
         raise _fail("Provide exactly one of --prompt or --prompt-file.")
-    text = prompt if prompt is not None else prompt_file.read_text(encoding="utf-8")  # type: ignore[union-attr]
+    if prompt is not None:
+        text = prompt
+    else:
+        assert prompt_file is not None  # narrowed by the XOR check above
+        text = prompt_file.read_text(encoding="utf-8")
     if not text.strip():
         raise _fail("Prompt is empty.")
     if not session_alive(port, name):
@@ -1269,11 +1275,16 @@ def issues_tail(
         return
     for rec in records:
         console.print("─" * 60)
+        reporter = rec.get("reporter")
+        if isinstance(reporter, dict):
+            reporter_role = cast(dict[str, object], reporter).get("role", "?")
+        else:
+            reporter_role = "?"
         console.print(
             f"[cyan]{rec.get('id')}[/cyan]  "
             f"[dim]{rec.get('ts')}[/dim]  "
             f"[bold]{rec.get('severity')}[/bold]/{rec.get('component')}  "
-            f"[magenta]{(rec.get('reporter') or {}).get('role', '?')}[/magenta]"
+            f"[magenta]{reporter_role}[/magenta]"
         )
         console.print(f"[bold]{rec.get('title', '')}[/bold]")
         if rec.get("summary"):

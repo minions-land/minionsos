@@ -2495,7 +2495,8 @@ def project_migrate_bare_slug_experts(
         if not isinstance(item, dict):
             kept_records.append(item)
             continue
-        name = item.get("name")
+        item_dict = cast(dict[str, Any], item)
+        name = item_dict.get("name")
         if not isinstance(name, str):
             kept_records.append(item)
             continue

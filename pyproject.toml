@@ -42,3 +42,15 @@ dev = [
     "ruff>=0.15.11",
     "ty>=0.0.34",
 ]
+
+[tool.ty.src]
+# Exclude Writer skill reference scripts: these are templates shipped with the
+# figure-chart-atlas / pdf-vector-layout skills, executed by Writer in its own
+# (matplotlib / pikepdf) environment. They are not part of the MinionsOS runtime
+# Python package, so their optional-dep imports are unresolvable from the dev
+# environment. Excluding them from ty avoids spurious "unresolved-import"
+# diagnostics without changing what the skills do.
+exclude = [
+    "minions/roles/writer/skills/figure-chart-atlas/references",
+    "minions/roles/writer/skills/pdf-vector-layout/scripts",
+]
