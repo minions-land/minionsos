@@ -8,8 +8,7 @@ will activate automatically once V3 defines a stable per-project source.
 
 V3 DESIGN NOTES (fill in before activating):
   - Source format: Book-derived JSON (``mos_book_export_graph`` or
-    equivalent). graphify is an optional per-role MCP tool, NOT the
-    system-level Shelf source.
+    equivalent).
   - Trigger: Gru-periodic (not Noter), to keep Shelf cross-project-only.
   - Input path: replace ``_project_graph_path`` return value below.
   - Library (L4): see ``minions/tools/library.py`` stub.
@@ -143,9 +142,9 @@ def _link_touches_prefix(link: dict[str, Any], prefix: str) -> bool:
 
 def _project_graph_path(port: int) -> Path:
     # V3-FUTURE: replace this path with the V3-defined per-project export
-    # (e.g. Book-derived graph or mos_book_export_graph output).
-    # For now returns the legacy graphify shelf path; it won't exist on V2+
-    # projects so _load_project_graph returns None gracefully.
+    # (e.g. Book-derived graph or mos_book_export_graph output). Returns
+    # the project-local shelf path; absent on V2+ projects so
+    # _load_project_graph returns None gracefully.
     return project_shared_subdir(port, "shelf") / "shelf.json"
 
 

@@ -17,8 +17,8 @@ status: stable
 
 ## Cause
 
-Cosmetic. Usually one of `codex-subagent`, `keepalive`, `graphify`, or
-`playwright` is briefly unreachable while the project boots. Your role's own
+Cosmetic. Usually one of `codex-subagent`, `keepalive`, or `playwright`
+is briefly unreachable while the project boots. Your role's own
 `minionsos` and `eacn3` are still up.
 
 ## Recipe

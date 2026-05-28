@@ -2224,7 +2224,7 @@
       "source": "minions/tools/mcp/memory_tools.py:367",
       "since": "stub",
       "status": "deprecated",
-      "summary": "Deprecated (Memory V2 2026-05): project-level Shelf removed. Use per-role graphify MCP tools instead.",
+      "summary": "Deprecated (Memory V2 2026-05): project-level Shelf removed.",
       "keywords": [],
       "related": []
     },
@@ -2236,7 +2236,7 @@
       "source": "minions/tools/mcp/memory_tools.py:360",
       "since": "stub",
       "status": "deprecated",
-      "summary": "Deprecated (Memory V2 2026-05): project-level Shelf removed. Per-role graphify instances have no register step.",
+      "summary": "Deprecated (Memory V2 2026-05): project-level Shelf removed.",
       "keywords": [],
       "related": []
     },

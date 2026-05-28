@@ -107,22 +107,6 @@ def main() -> None:
             ),
         )
     )
-    parts.append(
-        "\n"
-        + _block(
-            "graphify",
-            "bash",
-            _args_toml([str(project_root / "mcp-servers" / "graphify" / "launcher.sh")]),
-        )
-    )
-    parts.append(
-        "\n"
-        + _block(
-            "codegraph",
-            "bash",
-            _args_toml([str(project_root / "mcp-servers" / "codegraph" / "launcher.sh")]),
-        )
-    )
 
     output.write_text("".join(parts), encoding="utf-8")
 

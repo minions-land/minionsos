@@ -74,8 +74,7 @@ Roles do **not** `Write` here directly. All writes go through
   ingested artefact, Noter-compiled).
 
 The L3 Shelf is Gru's cross-project structural index (V3-pending), derived
-from Book. graphify is an optional per-role MCP tool — each role that wants
-graph retrieval runs its own instance at ``branches/<role>/graphify-out/``.
+from Book.
 """
 
 

@@ -18,6 +18,7 @@ import asyncio
 import contextlib
 import logging
 import os
+import threading
 import time
 from datetime import UTC, datetime
 
@@ -67,6 +68,7 @@ class GruLoop:
         self._last_drive_ts: dict[tuple[int, str], float] = {}
         self._last_wedge_kill_ts: dict[tuple[int, str], float] = {}
         self._stopped = False
+        self._stop_event = threading.Event()
 
     # ------------------------------------------------------------------
     # Public
@@ -75,6 +77,7 @@ class GruLoop:
     def stop(self) -> None:
         """Signal the loop to stop after the current iteration."""
         self._stopped = True
+        self._stop_event.set()
 
     def run(self) -> None:
         """Run the monitor loop synchronously (blocking).
@@ -82,15 +85,12 @@ class GruLoop:
         Suitable for use in a daemon thread or as ``__main__``. An experiment
         scheduler thread runs in parallel with Gru's heartbeat.
         """
-        import threading
 
         def _experiment_scheduler_thread() -> None:
             while not self._stopped:
                 self._reconcile_experiment_queues()
-                for _ in range(max(1, self.experiment_reconcile_interval) * 2):
-                    if self._stopped:
-                        break
-                    time.sleep(0.5)
+                if self._stop_event.wait(max(1, self.experiment_reconcile_interval)):
+                    break
 
         def _role_evolution_thread() -> None:
             while not self._stopped:
@@ -98,10 +98,8 @@ class GruLoop:
                     self._evaluate_role_evolution()
                 except Exception as exc:
                     logger.error("role_evolution tick error: %s", exc, exc_info=True)
-                for _ in range(max(1, self.role_evolution_interval) * 2):
-                    if self._stopped:
-                        break
-                    time.sleep(0.5)
+                if self._stop_event.wait(max(1, self.role_evolution_interval)):
+                    break
 
         def _gru_drive_thread() -> None:
             while not self._stopped:
@@ -109,10 +107,8 @@ class GruLoop:
                     self._drive_active_projects()
                 except Exception as exc:
                     logger.error("gru_drive tick error: %s", exc, exc_info=True)
-                for _ in range(max(1, self.gru_drive_interval) * 2):
-                    if self._stopped:
-                        break
-                    time.sleep(0.5)
+                if self._stop_event.wait(max(1, self.gru_drive_interval)):
+                    break
 
         def _wedge_watchdog_thread() -> None:
             while not self._stopped:
@@ -120,10 +116,8 @@ class GruLoop:
                     self._sweep_wedged_roles()
                 except Exception as exc:
                     logger.error("wedge_watchdog tick error: %s", exc, exc_info=True)
-                for _ in range(max(1, self.wedge_watchdog_interval) * 2):
-                    if self._stopped:
-                        break
-                    time.sleep(0.5)
+                if self._stop_event.wait(max(1, self.wedge_watchdog_interval)):
+                    break
 
         def _gru_digest_thread() -> None:
             while not self._stopped:
@@ -131,10 +125,8 @@ class GruLoop:
                     self._tick_gru_digest()
                 except Exception as exc:
                     logger.error("gru_digest tick error: %s", exc, exc_info=True)
-                for _ in range(max(1, self.gru_digest_interval) * 2):
-                    if self._stopped:
-                        break
-                    time.sleep(0.5)
+                if self._stop_event.wait(max(1, self.gru_digest_interval)):
+                    break
 
         def _stagnation_vote_thread() -> None:
             # Run on the same cadence as the digest — both are activity
@@ -145,10 +137,8 @@ class GruLoop:
                     self._tick_stagnation_vote()
                 except Exception as exc:
                     logger.error("stagnation_vote tick error: %s", exc, exc_info=True)
-                for _ in range(max(1, self.gru_digest_interval) * 2):
-                    if self._stopped:
-                        break
-                    time.sleep(0.5)
+                if self._stop_event.wait(max(1, self.gru_digest_interval)):
+                    break
 
         def _parked_prompt_thread() -> None:
             while not self._stopped:
@@ -156,10 +146,8 @@ class GruLoop:
                     self._sweep_parked_roles()
                 except Exception as exc:
                     logger.error("parked_prompt tick error: %s", exc, exc_info=True)
-                for _ in range(max(1, self.parked_prompt_interval) * 2):
-                    if self._stopped:
-                        break
-                    time.sleep(0.5)
+                if self._stop_event.wait(max(1, self.parked_prompt_interval)):
+                    break
 
         exp_t = threading.Thread(
             target=_experiment_scheduler_thread,
@@ -241,10 +229,8 @@ class GruLoop:
                     self._tick()
                 except Exception as exc:
                     logger.error("Gru monitor tick error: %s", exc, exc_info=True)
-                for _ in range(self.interval * 2):
-                    if self._stopped:
-                        break
-                    time.sleep(0.5)
+                if self._stop_event.wait(max(1, self.interval)):
+                    break
         finally:
             pass
         logger.info("Gru monitor loop stopped.")

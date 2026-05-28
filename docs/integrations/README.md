@@ -9,7 +9,6 @@ updates, and the upgrade/fallback strategy.
 
 | Dependency | Our surface | Version lock | Doc |
 |---|---|---|---|
-| **graphify** (safishamsi/graphify) | Layer 3 structural index: `extract` CLI + `serve` MCP | `graphifyy>=0.8.13,<0.9` in `mcp-servers/graphify/pyproject.toml` | [graphify.md](graphify.md) |
 | **EACN3** | Per-project coordination backend (SQLite + HTTP + Node MCP plugin) | Editable dep in root `pyproject.toml` pointing at `mcp-servers/eacn3/` | [eacn3.md](eacn3.md) |
 | **Claude Code** (Anthropic CLI) | Role host process, hooks, settings, prompt caching | System install; version tracked in `dev-log/CHANGELOG.md` | [claude-code.md](claude-code.md) |
 | **Codex GPT-5.5** (OpenAI) | High-intensity execution subagent via `mcp-servers/codex-subagent/` | Node MCP bridge; model pinned to `gpt-5.5` in dispatch | [codex-subagent.md](codex-subagent.md) |
@@ -23,7 +22,7 @@ updates, and the upgrade/fallback strategy.
    version) and a ceiling (next major). Upgrades are deliberate events
    tested against our unit suite before merge.
 3. **Fallback path.** Each integration has a degraded mode when the dep
-   is unavailable (graphify: skip corpus graph rebuild; codex: fall back
-   to Sonnet; EACN3: project can't start; Claude Code: nothing works).
+   is unavailable (codex: fall back to Sonnet; EACN3: project can't
+   start; Claude Code: nothing works).
 4. **Audit trail.** Version bumps are logged in `dev-log/` with the
    reason, what changed in the upstream, and what we tested.

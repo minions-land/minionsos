@@ -101,18 +101,17 @@ class TestEthicsAdjudicateAuthz:
 
 # ---------------------------------------------------------------------------
 # Issue #11 — Shelf bootstrap at project_create (SUPERSEDED by Memory V2,
-# 2026-05). The shared per-project shelf path was removed when graphify was
-# downgraded to per-role; the L3 Shelf graph now lives at
-# branches/<role>/graphify-out/graph.json (see test_graphify_per_role.py).
-# We invert the original assertion to guard against a regression that
-# silently re-adds shared/shelf/.
+# 2026-05). The shared per-project shelf path was removed; the L3 Shelf
+# is now Gru-aggregated cross-project from Book (V3-pending). We invert the
+# original assertion to guard against a regression that silently re-adds
+# shared/shelf/.
 # ---------------------------------------------------------------------------
 
 
 class TestShelfBootstrap:
     def test_create_shared_worktree_does_not_seed_shelf(self, tmp_path: Path) -> None:
         """create_shared_worktree must NOT write branches/shared/shelf/ after
-        the Memory V2 downgrade — graphify is per-role now.
+        the Memory V2 downgrade.
         """
         from minions.lifecycle._project_worktree import create_shared_worktree
 
@@ -173,7 +172,7 @@ class TestShelfBootstrap:
             shared = project_shared_workspace(port)
             assert not (shared / "shelf").exists(), (
                 "shared/shelf/ must not be seeded; L3 Shelf is Gru cross-project "
-                "(V3-pending), graphify is optional per-role."
+                "(V3-pending)."
             )
 
 

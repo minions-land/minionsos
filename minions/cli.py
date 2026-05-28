@@ -339,19 +339,6 @@ def doctor(
         node_detail = str(exc)
     _check("node>=16", node_ok, node_detail)
 
-    # graphify MCP — optional per-role graph analysis tool. Not a system
-    # dependency; MinionsOS runs fine without it.
-    graphify_py = MINIONS_ROOT / "mcp-servers" / "graphify" / ".venv" / "bin" / "python"
-    if not graphify_py.exists():
-        graphify_py = MINIONS_ROOT / "mcp-servers" / "graphify" / ".venv" / "Scripts" / "python.exe"
-    _check(
-        "graphify-venv",
-        True,  # never fail — optional component
-        str(graphify_py)
-        if graphify_py.exists()
-        else "not installed (optional — graphify MCP will be unavailable)",
-    )
-
     # .mcp.json mounts both minionsos and eacn3 servers.
     try:
         import json as _json

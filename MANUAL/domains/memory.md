@@ -21,13 +21,6 @@ Four layers, top-down:
 | **L2 Book** | durable compiled knowledge, citation-shaped | Noter only | `branches/shared/book/sources/*.md` |
 | **L3 Shelf** | Gru cross-project structural index (V3-pending) | Gru | `~/.minionsos/shelf.json` |
 
-Optional per-role tools (NOT system layers):
-
-| Tool | What | Availability |
-|---|---|---|
-| **graphify** (`mcp__graphify__*`) | structural graph over prose artefacts | optional MCP, per-role on-demand |
-| **codegraph** (`mcp__codegraph__*`) | code intelligence (callers, impact, search) | optional MCP, auto-indexed |
-
 ## Top tools
 
 ```bash
