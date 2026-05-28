@@ -125,6 +125,7 @@ def mos_dismiss_role(args: DismissRoleArgs) -> dict:
     return _dismiss_role(
         project_port=args.project_port,
         role_name=args.role_name,
+        caller="mcp:mos_dismiss_role",
     )
 
 

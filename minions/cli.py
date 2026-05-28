@@ -948,7 +948,7 @@ def role_dismiss(
     from minions.lifecycle.role import dismiss_role
 
     try:
-        result = dismiss_role(port, name)
+        result = dismiss_role(port, name, caller="cli:mos role dismiss")
     except MinionsError as e:
         raise _fail(str(e)) from e
     console.print(f"[green]Dismissed role {result['name']}.[/green]")

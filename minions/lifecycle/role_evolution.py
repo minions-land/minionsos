@@ -798,7 +798,12 @@ def apply_split(
                 notes.append(f"spawn failed for {name}: {e!r}")
         if len(new_names) >= 2:
             try:
-                dismiss_role(project_port=project_port, role_name=source_role)
+                dismiss_role(
+                    project_port=project_port,
+                    role_name=source_role,
+                    caller="role_evolution:apply_split",
+                    reason=reason,
+                )
                 notes.append(f"dismissed source role {source_role}")
             except Exception as e:
                 notes.append(f"dismiss failed for {source_role}: {e!r}")
@@ -860,7 +865,12 @@ def apply_merge(
             roles_out = []
         for src in source_roles:
             try:
-                dismiss_role(project_port=project_port, role_name=src)
+                dismiss_role(
+                    project_port=project_port,
+                    role_name=src,
+                    caller="role_evolution:apply_merge",
+                    reason=reason,
+                )
                 notes.append(f"dismissed source role {src}")
             except Exception as e:
                 notes.append(f"dismiss failed for {src}: {e!r}")
@@ -903,7 +913,12 @@ def apply_dismiss(
         notes.append("dry_run=True; no dismiss performed")
     else:
         try:
-            dismiss_role(project_port=project_port, role_name=role_name)
+            dismiss_role(
+                project_port=project_port,
+                role_name=role_name,
+                caller="role_evolution:apply_dismiss",
+                reason=reason,
+            )
             notes.append(f"dismissed {role_name}")
         except Exception as e:
             notes.append(f"dismiss failed for {role_name}: {e!r}")

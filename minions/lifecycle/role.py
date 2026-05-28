@@ -488,8 +488,17 @@ def dismiss_role(
     project_port: int,
     role_name: str,
     store: StateStore | None = None,
+    *,
+    reason: str | None = None,
+    caller: str | None = None,
 ) -> dict[str, str]:
-    """Mark a role dismissed in the registry and unregister it from EACN3."""
+    """Mark a role dismissed in the registry and unregister it from EACN3.
+
+    The optional ``reason`` and ``caller`` arguments feed the audit-trail
+    log line so operators can later trace who terminated what and why
+    (e.g. caller="gru" when invoked by the watchdog/role-evolution path,
+    caller="operator" when invoked from the CLI).
+    """
     _store = store or StateStore()
     entry = _store.get_project(project_port)
     if entry is None:
@@ -498,6 +507,14 @@ def dismiss_role(
     role = next((r for r in entry.active_roles if r.name == role_name), None)
     if role is None:
         raise RoleError(f"Role {role_name!r} not found on port {project_port}.")
+
+    logger.info(
+        "role dismissed: role=%s port=%d reason=%s caller=%s",
+        role_name,
+        project_port,
+        reason or "unspecified",
+        caller or "unspecified",
+    )
 
     # Noter is not registered on EACN3 — skip unregistration.
     if role_name != "noter":
