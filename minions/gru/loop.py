@@ -18,6 +18,7 @@ import asyncio
 import contextlib
 import logging
 import os
+import subprocess
 import threading
 import time
 from datetime import UTC, datetime
@@ -346,8 +347,36 @@ class GruLoop:
             for role in project.active_roles:
                 if role.state != "active":
                     continue
+
+                # Issue #61: Cache-refresh watchdog. Check heartbeat staleness
+                # for alive sessions. If stale >4 min, send tmux continue to
+                # force a cache-refresh turn before the 5-min cache TTL expires.
                 if session_alive(port, role.name):
+                    hb_age = self._heartbeat_age_seconds(port, role.name)
+                    if hb_age is not None and hb_age > 240:  # 4 min threshold
+                        try:
+                            sess = f"mos-{port}-{role.name}"
+                            subprocess.run(
+                                ["tmux", "send-keys", "-t", sess, "continue", "Enter"],
+                                check=True,
+                                capture_output=True,
+                                timeout=5,
+                            )
+                            msg = (
+                                f"[INFO] Role {role.name!r} on port {port} heartbeat "
+                                f"stale {int(hb_age)}s; sent cache-refresh nudge."
+                            )
+                            logger.info(msg)
+                            events.append(msg)
+                        except Exception as exc:
+                            logger.warning(
+                                "Cache-refresh nudge failed for role=%s port=%d: %s",
+                                role.name,
+                                port,
+                                exc,
+                            )
                     continue
+
                 # Session is gone. Distinguish a deliberate
                 # ``mos_reset_context`` from a real crash by checking the
                 # marker file the reset tool drops before killing tmux.

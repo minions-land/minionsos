@@ -74,13 +74,13 @@ _KEEPALIVE_EVENT: dict[str, Any] = {
         "payload": {},
     },
     "suggested_action": (
-        "Cache keepalive — no work to do. Reply with a single short ack "
-        "(e.g. 'ack') AND in the same turn immediately call "
-        "mos_await_events() again to continue the loop. The ack is text "
-        "only; mos_await_events IS the required next tool call. Do not "
-        "write to the Draft and do not send EACN messages, but DO call "
-        "mos_await_events — that is the loop. Ending the turn without "
-        "calling mos_await_events stops the role silently (issue #59)."
+        "Cache refresh — no real work pending. The ONLY action permitted "
+        "this turn is: reply 'ack' (literal three characters) and call "
+        "mos_await_events(). Do not analyze, do not plan, do not think "
+        "out loud, do not write to the Draft, do not send EACN messages. "
+        "mos_await_events is the one tool you must call; nothing else. "
+        "Ending the turn without calling mos_await_events stops the role "
+        "silently and kills the cache (issue #61)."
     ),
     "suggested_tool": "mos_await_events",
     "suggested_params": {},
