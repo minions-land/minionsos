@@ -126,11 +126,11 @@ Consult skills **before** non-trivial actions that have known good procedures.
 
 ---
 
-## Known Issues & Solutions (Critical Fixes)
+## Critical Operational Rules
 
-These are the most important operational issues found in production. Read all of them.
+These rules prevent common failure modes. Read all of them.
 
-### Issue #53 — Never `mos_reset_context` on EACN3 Connection Errors
+### Never `mos_reset_context` on Connection Errors
 
 **Symptom:** `mos_await_events` fails with `Connection refused` or `EACN3 poll failed`.
 
@@ -144,13 +144,13 @@ The Gru watchdog auto-respawns dead backends. Self-kill on conn-refused makes re
 
 ---
 
-### Issue #59/#63 — Idle Roles Stall and Die
+### Idle Role Keepalive Protocol
 
 **Symptom:** Your role works fine when busy but becomes unresponsive after 5-15 minutes of idle.
 
 **Root cause:** When idle, the event loop depends on `mos_await_events()` returning the synthetic `cache_keepalive` event and you calling it again. This is "voluntary" — a model can decide to stop after the ack ceremony.
 
-**What Gru does:** The Gru watchdog checks heartbeat files every tick. If your heartbeat is stale >4 min, Gru sends a `/goal` kick via tmux to wake you (PR #84).
+**What Gru does:** The Gru watchdog checks heartbeat files every tick. If your heartbeat is stale >4 min, Gru sends a `/goal` kick via tmux to wake you.
 
 **Your job:** When you receive a `cache_keepalive` event (synthetic keepalive):
 1. Reply **exactly** `ack` (3 characters, nothing else)
@@ -162,7 +162,7 @@ If you do extra work on keepalive turns, you'll break the cache and consume toke
 
 ---
 
-### Issue #61 — Cache TTL Is 5 Minutes, Not Infinite
+### Prompt Cache TTL and Keepalive
 
 **Symptom:** Roles pay full cold-prefill costs (~50K tokens) repeatedly.
 
@@ -177,7 +177,7 @@ If you do extra work on keepalive turns, you'll break the cache and consume toke
 
 ---
 
-### Issue #62 — Premature Compact Is Expensive
+### Context Compaction Threshold
 
 **Symptom:** Role calls `mos_compact_context` at 7-15% context utilization (78K-136K tokens out of 1M).
 
@@ -197,19 +197,17 @@ Compact only when Gru explicitly requests it or actual utilization > 60%.
 
 ---
 
-### Issue #55 — Ethics Must Bid on Adjudication Tasks
+### Adjudication Task Routing
 
-**Symptom:** Ethics role doesn't see or respond to adjudication tasks created by Coder.
+**Symptom:** Ethics role doesn't see adjudication tasks created by Coder.
 
-**Root cause (now fixed):** Auto-created adjudication tasks had no `audit` domain tag and no `invited_agents=["ethics"]`. Ethics never received them.
+**Expected behavior:** Adjudication tasks are automatically tagged with `["adjudication", "audit", "ethics"]` domains and `invited_agent_ids=["ethics"]`.
 
-**Current state:** `create_adjudication_task()` now adds `["adjudication", "audit", "ethics"]` domains and `invited_agent_ids=["ethics"]`. Ethics should now receive adjudication tasks automatically.
-
-**If adjudication tasks still don't appear:** Check that backend is healthy and your EACN subscription includes the `audit` domain.
+**If adjudication tasks don't appear:** Check that backend is healthy and your EACN subscription includes the `audit` domain.
 
 ---
 
-### Issue #57 — MCP Tools May Not Re-attach After Revive (Gru Only)
+### MCP Tool Re-attachment After Revive (Gru Only)
 
 **Symptom:** After `mos_project_revive`, `eacn3_*` MCP tools are missing from the tool list.
 
@@ -219,7 +217,7 @@ Compact only when Gru explicitly requests it or actual utilization > 60%.
 
 ---
 
-### Issue #56 — Detect and Avoid Port Conflicts
+### Port Conflicts and Backend Startup
 
 **Symptom:** Backend fails to start, `Connection refused`, port already in use.
 
@@ -235,7 +233,7 @@ The `_start_backend()` function now detects foreign processes and raises `Backen
 
 ---
 
-### Issue #60 — Introspecting Role State
+### Introspecting Role State
 
 **Symptom:** Operator wants to see what a role is doing right now.
 
@@ -246,17 +244,13 @@ The `_start_backend()` function now detects foreign processes and raises `Backen
 tmux attach -t mos-<port>-<role>    # Attach to role's tmux session
 ```
 
-**Note:** There is no `mos role capture` subcommand (despite commit e39e997 message). Use `tmux attach` or `./mos logs` instead.
-
 ---
 
-### Issue #54 — Logs Have ANSI Escape Codes Stripped
+### Log File Format
 
-**Background:** Earlier logs contained raw ANSI/cursor escapes that broke `less`, `grep`, and JSONL parsers.
+**Log files are clean by default:** Role launcher automatically strips ANSI escape codes before writing to log files.
 
-**Current state:** Role launcher pipes tmux output through `sed -u 's/\x1b\[[0-9;]*[A-Za-z]//g'` to strip ANSI escapes before writing to log files.
-
-**You don't need to do anything** — logs are clean by default.
+**You don't need to do anything** — logs are safe for `less`, `grep`, and JSONL parsers.
 
 ---
 
