@@ -677,6 +677,37 @@ else
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
+# Check that claude CLI is reachable — Role processes spawn 'claude' and fail
+# silently if it is not on PATH (seen on servers where claude is installed via
+# nvm or VS Code extension but PATH is not set in non-interactive shells).
+if command -v claude >/dev/null 2>&1; then
+    CLAUDE_PATH=$(command -v claude)
+    ok "claude CLI found: ${CLAUDE_PATH}"
+else
+    # Check common non-PATH install locations
+    FOUND_CLAUDE=""
+    for candidate in \
+        "$HOME/.nvm/versions/node/"*/bin/claude \
+        "$HOME/.local/bin/claude" \
+        "$HOME/.vscode-server/extensions/anthropic.claude-code-"*/resources/native-binary/claude \
+        "/usr/local/bin/claude"; do
+        # shellcheck disable=SC2086
+        if [ -x "$candidate" ] 2>/dev/null; then
+            FOUND_CLAUDE="$candidate"
+            break
+        fi
+    done
+    if [ -n "$FOUND_CLAUDE" ]; then
+        warn "claude CLI found at ${FOUND_CLAUDE} but NOT on PATH."
+        warn "Role processes will fail with 'Failed to spawn: claude' on revive."
+        warn "Fix: add the directory to PATH in ~/.bashrc or ~/.profile:"
+        warn "  export PATH=\"$(dirname "$FOUND_CLAUDE"):\$PATH\""
+    else
+        warn "claude CLI NOT found. Role processes cannot start without it."
+        warn "Install Claude Code CLI: https://docs.anthropic.com/en/docs/claude-code"
+    fi
+fi
+echo ""
 echo ""
 echo -e "${BOLD}${GREEN}MinionsOS core installation complete — ./gru is ready to launch.${RESET}"
 if [ "$VISUAL_INSTALLED" = "0" ] && [ -z "${MINIONS_SKIP_VISUAL:-}" ] && [ -z "${MINIONS_VISUAL_FOREGROUND:-}" ]; then
