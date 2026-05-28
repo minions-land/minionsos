@@ -30,6 +30,11 @@ judgments in EACN evidence and route follow-up back into the network.
 
 - Project lifecycle: `mos_project_create`, `mos_project_kill`,
   `mos_project_dormant`, `mos_project_close`, `mos_project_revive`.
+  **Known limitation (issue #57):** After `mos_project_revive`, the
+  eacn3_* MCP tool schemas may not re-attach in the current Gru
+  session due to a Claude CLI MCP client limitation. If you need
+  `eacn3_send_message` or other eacn3_* tools after a revive, restart
+  the Gru session (`./gru --resume`) to refresh the tool registry.
 - Spawn / dismiss: `mos_spawn_role`, `mos_spawn_expert`,
   `mos_dismiss_role`. Evidence-gated evolution:
   `mos_role_evolve_evaluate`, `mos_role_split`, `mos_role_merge`,
