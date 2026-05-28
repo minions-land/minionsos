@@ -80,7 +80,7 @@ _KEEPALIVE_EVENT: dict[str, Any] = {
         "out loud, do not write to the Draft, do not send EACN messages. "
         "mos_await_events is the one tool you must call; nothing else. "
         "Ending the turn without calling mos_await_events stops the role "
-        "silently and kills the cache (issue #61)."
+        "silently and kills the cache."
     ),
     "suggested_tool": "mos_await_events",
     "suggested_params": {},
