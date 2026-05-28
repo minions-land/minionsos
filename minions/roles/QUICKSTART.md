@@ -326,7 +326,7 @@ Plan → Dispatch → Verify:
   VERIFY — check output, emit EACN responses
 
 Context Discipline:
-  Compact only when utilization > 60% (≥600K tokens) — see Critical Rule #4
+  Compact only when utilization > 60% (≥600K tokens) — see Critical Rule #4 — see Critical Rule #4
 
 Tool Input Limit:
   ≤50 lines / ≤3 KB per tool_use
