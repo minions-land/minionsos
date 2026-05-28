@@ -293,6 +293,7 @@ class GruLoop:
                     logger.error(msg)
                     events.append(msg)
                 else:
+                    # Below threshold — attempt backend respawn
                     msg = f"[WARN] Backend on port {port} ({project.real_name}) is unhealthy."
                     self._emit_health_event(
                         port=port,
@@ -303,6 +304,24 @@ class GruLoop:
                     )
                     logger.warning(msg)
                     events.append(msg)
+                    # Attempt auto-respawn
+                    try:
+                        from minions.lifecycle.project import respawn_backend
+                        respawn_backend(port)
+                        respawn_msg = f"[INFO] Backend respawned on port {port}."
+                        self._emit_health_event(
+                            port=port,
+                            kind="backend_respawn",
+                            severity="info",
+                            message=respawn_msg,
+                            metadata={"project_name": project.real_name},
+                        )
+                        logger.info(respawn_msg)
+                        events.append(respawn_msg)
+                    except Exception as exc:
+                        err_msg = f"[ERROR] Backend respawn failed on port {port}: {exc}"
+                        logger.error(err_msg)
+                        events.append(err_msg)
             else:
                 self._crash_counter.reset_backend(port)
                 try:
