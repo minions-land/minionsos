@@ -284,7 +284,7 @@ def _spawn_claude_adjudicate(
     *,
     workspace: Path,
     prompt: str,
-    timeout: int,
+    timeout: int = _ADJUDICATOR_STAGE_TIMEOUT_SECONDS,
     lock_label: str | None = None,
 ) -> tuple[bool, str | None]:
     """Run a single ``claude --print`` adjudication pass.
