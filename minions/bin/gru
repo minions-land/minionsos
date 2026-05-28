@@ -367,5 +367,18 @@ if [ "$DAEMON" -eq 1 ]; then
     ok "Attach with:  $0 attach"
     ok "Follow logs:  tail -f $LOG_FILE"
 else
+    # ── tmux safety warning for interactive (non-daemon) launches ────────────
+    # Interactive Gru runs directly attached to the SSH/terminal session. If
+    # the session dies (SSH disconnect, terminal close), Gru and all its MCP
+    # server children are killed instantly. Use --daemon or wrap in tmux to
+    # get a persistent session that survives disconnects.
+    if ! command -v tmux &>/dev/null; then
+        warn "tmux is not installed. Gru will die if this terminal closes."
+        warn "Install tmux for a persistent session: apt install tmux / brew install tmux"
+    elif [ -z "${TMUX:-}" ] && [ -z "${TMUX_PANE:-}" ]; then
+        warn "Not running inside tmux. Gru will die if this SSH session drops."
+        warn "For a persistent session: tmux new-session -s gru './gru'"
+        warn "Or use daemon mode:       ./gru --daemon"
+    fi
     exec "${AGENT_CMD[@]}"
 fi

@@ -21,6 +21,7 @@ ever needs to.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from typing import Any
 
@@ -68,10 +69,8 @@ def _drain_gru_queue(port: int) -> list[dict[str, Any]]:
         if not isinstance(e, dict):
             continue
         if pdir:
-            try:
+            with contextlib.suppress(Exception):
                 e = decode_project_paths(e, pdir)
-            except Exception:
-                pass
         decoded.append(e)
     return decoded
 
