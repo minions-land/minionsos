@@ -663,7 +663,7 @@ def respawn_backend(port: int) -> None:
 
     # Re-register server (updates server_id and token)
     try:
-        server_id, token = _register_server(port)
+        server_id, _token = _register_server(port)
         logger.info("Backend re-registered: server_id=%s", server_id)
     except Exception as exc:
         logger.warning("Backend respawn succeeded but re-registration failed: %s", exc)
