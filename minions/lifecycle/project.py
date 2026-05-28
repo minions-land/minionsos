@@ -319,16 +319,16 @@ def _clear_stale_role_pids(port: int, entry: ProjectEntry, store: StateStore) ->
 def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
     """Best-effort RoleEntry list from raw meta.json.
 
-    Drops records that should not be revived:
+    Drops records whose names are neither in :data:`FIXED_ROLES` nor pass
+    :func:`is_expert_role` — these are pre-fix bare-slug expert records
+    (see GitHub Issue #44). The EACN registry already holds whatever
+    identity was minted at original spawn, so silently coercing the name
+    here would create a different agent than what's on EACN. Skip with
+    a WARNING instead.
 
-    1. ``state == "dismissed"`` — dismissed roles have no business in a live
-       ``active_roles`` list. Logged at INFO.
-    2. Role names that are neither in :data:`FIXED_ROLES` nor pass
-       :func:`is_expert_role` — these are pre-fix bare-slug expert records
-       (see GitHub Issue #44). The EACN registry already holds whatever
-       identity was minted at original spawn, so silently coercing the name
-       here would create a different agent than what's on EACN. Skip with
-       a WARNING instead.
+    ``state == "dismissed"`` is *not* a drop signal: ``project_dormant``
+    legitimately sets every role to ``"dismissed"`` as its dormant marker,
+    and ``project_revive`` relies on those records to re-launch.
     """
     from minions.lifecycle.role import FIXED_ROLES
 
@@ -343,12 +343,6 @@ def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
             role = RoleEntry.model_validate(item)
         except Exception as exc:
             logger.debug("Skipping invalid role entry from meta.json: %s", exc)
-            continue
-        if role.state == "dismissed":
-            logger.info(
-                "Skipping dismissed role %r from meta.json (revive filter)",
-                role.name,
-            )
             continue
         if role.name not in FIXED_ROLES and not is_expert_role(role.name):
             logger.warning(
@@ -459,12 +453,6 @@ def _roles_for_revive(entry: ProjectEntry, raw_meta: dict[str, object]) -> list[
 
     roles: list[RoleEntry] = []
     for role in entry.active_roles:
-        if role.state == "dismissed":
-            logger.info(
-                "Skipping dismissed role %r from projects.json (revive filter)",
-                role.name,
-            )
-            continue
         if role.name not in FIXED_ROLES and not is_expert_role(role.name):
             logger.warning(
                 "Skipping malformed role name %r from projects.json: "
