@@ -2460,3 +2460,213 @@ def project_migrate_bare_slug_experts(
         len(kept_records),
     )
     return summary
+
+
+# ---------------------------------------------------------------------------
+# Recovery / relocation operations (issue #41)
+# ---------------------------------------------------------------------------
+
+
+def project_reimport(
+    port: int,
+    store: StateStore | None = None,
+) -> ProjectEntry:
+    """Rebuild a missing ``ProjectEntry`` from ``project_<port>/meta.json``.
+
+    Used when ``projects.json`` has lost the entry but the on-disk artifacts
+    are intact. Status is forced to ``dormant``; the operator should follow
+    up with ``project_revive`` to bring the project back online.
+    """
+    _store = store or StateStore()
+    if _store.get_project(port) is not None:
+        raise ProjectError(f"Project {port} already registered.")
+    meta_path = project_meta_json(port)
+    if not meta_path.exists():
+        raise ProjectError(
+            f"Project {port} meta.json missing at {meta_path}; cannot reimport."
+        )
+    raw = _read_meta_raw(port)
+
+    # Build ProjectEntry from meta payload. Force status -> dormant.
+    payload: dict[str, Any] = dict(raw)
+    payload["port"] = port
+    payload["status"] = "dormant"
+    if not payload.get("real_name"):
+        payload["real_name"] = f"project-{port}"
+    if not payload.get("created"):
+        payload["created"] = _now_iso()
+    payload["active_roles"] = [r.model_dump() for r in _role_entries_from_meta(raw)]
+
+    try:
+        entry = ProjectEntry.model_validate(payload)
+    except Exception as exc:
+        raise ProjectError(
+            f"Project {port} meta.json could not be coerced to a ProjectEntry: {exc}"
+        ) from exc
+    _store.add_project(entry)
+    logger.info("project_reimport port=%d real_name=%s", port, entry.real_name)
+    return entry
+
+
+def _replace_path_prefix(value: str, old: str, new: str) -> str | None:
+    if value == old:
+        return new
+    if value.startswith(old + os.sep):
+        return new + value[len(old) :]
+    return None
+
+
+def _rewrite_strings_in_json(node: Any, old: str, new: str) -> bool:
+    changed = False
+    if isinstance(node, dict):
+        for key, value in list(node.items()):
+            if isinstance(value, str):
+                replaced = _replace_path_prefix(value, old, new)
+                if replaced is not None:
+                    node[key] = replaced
+                    changed = True
+            elif isinstance(value, dict | list):
+                if _rewrite_strings_in_json(value, old, new):
+                    changed = True
+    elif isinstance(node, list):
+        for idx, value in enumerate(node):
+            if isinstance(value, str):
+                replaced = _replace_path_prefix(value, old, new)
+                if replaced is not None:
+                    node[idx] = replaced
+                    changed = True
+            elif isinstance(value, dict | list):
+                if _rewrite_strings_in_json(value, old, new):
+                    changed = True
+    return changed
+
+
+def _rewrite_json_file(path: Path, old: str, new: str) -> None:
+    if not path.exists() or not path.is_file():
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning("project_relocate: skipping unreadable JSON %s: %s", path, exc)
+        return
+    if _rewrite_strings_in_json(data, old, new):
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        os.replace(tmp, path)
+
+
+def _rewrite_text_file(path: Path, old: str, new: str) -> None:
+    if not path.exists() or not path.is_file():
+        return
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        logger.warning("project_relocate: skipping unreadable text %s: %s", path, exc)
+        return
+    if old in text:
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(text.replace(old, new), encoding="utf-8")
+        os.replace(tmp, path)
+
+
+def project_relocate(
+    port: int,
+    new_path: Path,
+    store: StateStore | None = None,
+) -> ProjectEntry:
+    """Move ``project_<port>/`` to *new_path* and rewrite all absolute path refs.
+
+    Refuses to operate on a non-dormant project. The destination must not
+    already exist. After the filesystem move, every JSON / git pointer file
+    under the project tree has its old absolute-path strings rewritten to
+    *new_path*.
+    """
+    _store = store or StateStore()
+    entry = _store.get_project(port)
+    if entry is None:
+        raise ProjectError(f"Project {port} not found.")
+    if entry.status != "dormant":
+        raise ProjectError(
+            f"Project {port} status is {entry.status!r}; relocate requires 'dormant'."
+        )
+
+    old_dir = project_dir(port)
+    if not old_dir.exists():
+        raise ProjectError(f"Project {port} directory missing at {old_dir}.")
+    new_path = Path(new_path)
+    if new_path.exists():
+        raise ProjectError(f"Relocate target already exists: {new_path}")
+    new_path.parent.mkdir(parents=True, exist_ok=True)
+
+    old_str = str(old_dir)
+    new_str = str(new_path)
+
+    shutil.move(old_str, new_str)
+
+    # Rewrite JSON sites.
+    _rewrite_json_file(new_path / "meta.json", old_str, new_str)
+    _rewrite_json_file(new_path / "eacn3_data" / "agent_map.json", old_str, new_str)
+    _rewrite_json_file(
+        new_path / "branches" / "shared" / "draft" / "draft.json",
+        old_str,
+        new_str,
+    )
+
+    # Rewrite git worktree pointers in the bare repo's worktrees registry.
+    worktrees_meta = new_path / "parent_repo.git" / "worktrees"
+    if worktrees_meta.is_dir():
+        for wt_meta in worktrees_meta.iterdir():
+            if wt_meta.is_dir():
+                _rewrite_text_file(wt_meta / "gitdir", old_str, new_str)
+
+    # Rewrite each worktree's .git pointer file.
+    branches_root = new_path / "branches"
+    if branches_root.is_dir():
+        for wt in branches_root.iterdir():
+            git_pointer = wt / ".git"
+            if git_pointer.is_file():
+                _rewrite_text_file(git_pointer, old_str, new_str)
+
+    # Best-effort verify: walk worktrees and run `git worktree list`.
+    if branches_root.is_dir():
+        for wt in branches_root.iterdir():
+            if not wt.is_dir():
+                continue
+            try:
+                result = subprocess.run(
+                    ["git", "worktree", "list"],
+                    cwd=str(wt),
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if result.returncode != 0:
+                    logger.warning(
+                        "project_relocate: git worktree list failed in %s: %s",
+                        wt,
+                        result.stderr.strip(),
+                    )
+            except (OSError, subprocess.SubprocessError) as exc:
+                logger.warning("project_relocate: git verify skipped for %s: %s", wt, exc)
+
+    # Update workspace_* fields on the entry if they pointed under the old dir.
+    workspace_updates: dict[str, Any] = {}
+    for field_name in (
+        "workspace_root",
+        "workspace_main",
+        "workspace_roles_root",
+        "workspace_shared",
+    ):
+        current = getattr(entry, field_name, None)
+        if isinstance(current, str):
+            replaced = _replace_path_prefix(current, old_str, new_str)
+            if replaced is not None:
+                workspace_updates[field_name] = replaced
+    updated = _store.update_project(port, **workspace_updates) if workspace_updates else entry
+    logger.info(
+        "project_relocate port=%d old=%s new=%s",
+        port,
+        old_str,
+        new_str,
+    )
+    return updated

@@ -851,6 +851,36 @@ def project_revive_cmd(port: int = typer.Argument(..., help="Project port.")) ->
     console.print(f"[green]Revived project {entry.port}.[/green]")
 
 
+@project_app.command(name="reimport")
+def project_reimport_cmd(port: int = typer.Argument(..., help="Project port.")) -> None:
+    """Rebuild a missing projects.json entry from project_<port>/meta.json."""
+    from minions.lifecycle.project import project_reimport
+
+    try:
+        entry = project_reimport(port)
+    except MinionsError as e:
+        raise _fail(str(e)) from e
+    console.print(
+        f"[green]Reimported project {entry.port}[/green] status={entry.status} "
+        f"real_name={entry.real_name}"
+    )
+
+
+@project_app.command(name="relocate")
+def project_relocate_cmd(
+    port: int = typer.Argument(..., help="Project port."),
+    new_path: Path = typer.Argument(..., help="New absolute path for project_<port>/."),
+) -> None:
+    """Move project_<port>/ to a new path and rewrite all absolute-path references."""
+    from minions.lifecycle.project import project_relocate
+
+    try:
+        entry = project_relocate(port, new_path)
+    except MinionsError as e:
+        raise _fail(str(e)) from e
+    console.print(f"[green]Relocated project {entry.port} to {new_path}.[/green]")
+
+
 @project_app.command(name="repair")
 def project_repair_cmd(port: int = typer.Argument(..., help="Project port.")) -> None:
     """Repair a running project's project-local EACN registrations and stale role PIDs."""
