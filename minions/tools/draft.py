@@ -1263,7 +1263,9 @@ def mos_draft_communities() -> dict[str, Any]:
         for nid in group:
             if nid in nodes_by_id:
                 type_counts[nodes_by_id[nid].get("type", "unknown")] += 1
-        dominant = max(type_counts, key=type_counts.get) if type_counts else "unknown"
+        dominant = (
+            max(type_counts, key=lambda k: type_counts[k]) if type_counts else "unknown"
+        )
         communities_out.append(
             {
                 "id": idx,

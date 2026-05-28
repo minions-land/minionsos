@@ -30,7 +30,7 @@ import re
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from minions.config import slugify
 from minions.paths import (
@@ -667,7 +667,12 @@ def _render_signals_block(
         opp_unmarked = (
             _source_role_unmarked_ratio(book_root, opposing_role) if opposing_role else None
         )
-        terms = list(contradiction.get("shared_terms", []) or [])
+        shared_terms_raw = contradiction.get("shared_terms")
+        terms: list[str] = (
+            [str(t) for t in shared_terms_raw]
+            if isinstance(shared_terms_raw, list)
+            else []
+        )
         sig = _draft_signals_for_terms(port, terms)
         lines.append(
             "| "
@@ -719,12 +724,18 @@ def _render_contradiction_page(
         "",
     ]
     for idx, contradiction in enumerate(contradictions, start=1):
-        excerpts = contradiction.get("excerpts", {})
-        if not isinstance(excerpts, dict):
-            excerpts = {}
-        new_excerpt = _oneline(excerpts.get("new", ""))
-        opposing_excerpt = _oneline(excerpts.get("opposing", ""))
-        shared_terms = contradiction.get("shared_terms", [])
+        excerpts_raw = contradiction.get("excerpts", {})
+        excerpts: dict[str, object] = (
+            cast(dict[str, object], excerpts_raw)
+            if isinstance(excerpts_raw, dict)
+            else {}
+        )
+        new_excerpt = _oneline(str(excerpts.get("new", "")))
+        opposing_excerpt = _oneline(str(excerpts.get("opposing", "")))
+        shared_terms_raw = contradiction.get("shared_terms", [])
+        shared_terms: list[object] = (
+            list(shared_terms_raw) if isinstance(shared_terms_raw, list) else []
+        )
         terms = ", ".join(f"`{term}`" for term in shared_terms) if shared_terms else "(none)"
         lines.extend(
             [
@@ -1486,8 +1497,9 @@ def _find_dag_node_id(draft: dict[str, object], excerpt: object) -> str | None:
     for node in nodes:
         if not isinstance(node, dict):
             continue
-        node_id = node.get("id", "")
-        node_text = _normalise_match_text(node.get("text", ""))
+        node_dict = cast(dict[str, object], node)
+        node_id = node_dict.get("id", "")
+        node_text = _normalise_match_text(node_dict.get("text", ""))
         if (
             isinstance(node_id, str)
             and node_id
@@ -1506,23 +1518,26 @@ def _emit_contradiction_dag_edges(port: int, contradictions: list[dict[str, obje
     raw_edges = draft.get("edges", [])
     if not isinstance(raw_edges, list):
         raw_edges = []
-    existing_edges = {
-        (
-            edge.get("from_id"),
-            edge.get("to_id"),
-            edge.get("relation"),
-        )
-        for edge in raw_edges
-        if isinstance(edge, dict)
-    }
+    existing_edges: set[tuple[object, object, object]] = set()
+    for edge in raw_edges:
+        if isinstance(edge, dict):
+            edge_dict = cast(dict[str, object], edge)
+            existing_edges.add(
+                (
+                    edge_dict.get("from_id"),
+                    edge_dict.get("to_id"),
+                    edge_dict.get("relation"),
+                )
+            )
     edges: list[dict[str, object]] = []
     queued: set[tuple[str, str, str]] = set()
     for contradiction in contradictions:
         excerpts = contradiction.get("excerpts", {})
         if not isinstance(excerpts, dict):
             continue
-        new_node_id = _find_dag_node_id(draft, excerpts.get("new", ""))
-        opposing_node_id = _find_dag_node_id(draft, excerpts.get("opposing", ""))
+        excerpts_dict = cast(dict[str, object], excerpts)
+        new_node_id = _find_dag_node_id(draft, excerpts_dict.get("new", ""))
+        opposing_node_id = _find_dag_node_id(draft, excerpts_dict.get("opposing", ""))
         if not new_node_id or not opposing_node_id or new_node_id == opposing_node_id:
             continue
         edge_key = (new_node_id, opposing_node_id, "contradicts")
