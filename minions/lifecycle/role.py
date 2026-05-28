@@ -538,20 +538,40 @@ def list_roles(
     project_port: int,
     store: StateStore | None = None,
 ) -> list[dict[str, object]]:
+    """List roles for a project, reconciling state with tmux reality.
+
+    Issue #52: projects.json can drift from reality after backend crashes.
+    This function cross-checks tmux session liveness and decorates the
+    returned state accordingly.
+    """
+    from minions.lifecycle.role_launcher import session_alive
+
     _store = store or StateStore()
     entry = _store.get_project(project_port)
     if entry is None:
         raise RoleError(f"Project {project_port} not found.")
-    return [
-        {
+
+    result = []
+    for r in entry.active_roles:
+        tmux_alive = session_alive(project_port, r.name)
+        # Reconcile state with tmux reality
+        if r.state == "active" and not tmux_alive:
+            actual_state = "dead"
+        elif r.state == "dismissed" and tmux_alive:
+            actual_state = "dismissed"  # keep dismissed, but flag orphan
+        else:
+            actual_state = r.state
+
+        result.append({
             "name": r.name,
-            "state": r.state,
+            "state": actual_state,
             "pid": r.pid,
             "eacn_agent_id": r.eacn_agent_id or r.name,
             "session_name": getattr(r, "session_name", None),
             "session_resumable": getattr(r, "session_resumable", False),
             "workspace_path": getattr(r, "workspace_path", None),
             "workspace_branch": getattr(r, "workspace_branch", None),
-        }
-        for r in entry.active_roles
-    ]
+            "tmux_alive": tmux_alive,
+            "tmux_orphan": r.state == "dismissed" and tmux_alive,
+        })
+    return result

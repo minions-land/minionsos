@@ -204,6 +204,14 @@ def _start_backend(port: int) -> subprocess.Popen:  # type: ignore[type-arg]
     Logs go to ``project_{port}/logs/backend.log``.
     """
     if not _port_is_free(port):
+        # Check if the occupying process is a foreign (non-MinionsOS) backend
+        pids = _backend_listener_pids(port)
+        for pid in pids:
+            if not _is_minions_backend_pid(pid, port):
+                raise BackendError(
+                    f"Port {port} is held by foreign process PID={pid} "
+                    f"(command: {_pid_command(pid)[:80]}). Refusing to start."
+                )
         raise BackendError(f"Port {port} is already occupied. Cannot start backend.")
 
     db_path = str(project_eacn_db(port))
@@ -624,6 +632,41 @@ def _stop_backend(port: int, pid: int | None) -> bool:
 
     logger.warning("Backend on port %d is still listening after stop attempt.", port)
     return False
+
+
+def respawn_backend(port: int) -> None:
+    """Respawn the EACN3 backend for *port* after a crash.
+
+    Called by gru.loop when backend health check fails but crash threshold
+    not yet exceeded. Stops any stale backend process, starts a fresh one,
+    waits for /health, and re-registers the server.
+
+    Raises BackendError if respawn fails.
+    """
+    # Stop any existing backend process
+    pids = _backend_listener_pids(port)
+    for pid in pids:
+        if _is_minions_backend_pid(pid, port):
+            _terminate_backend_pid(port, pid)
+            time.sleep(0.5)
+
+    # Verify port is free
+    if not _port_is_free(port):
+        raise BackendError(f"Port {port} still occupied after stop; cannot respawn.")
+
+    # Start fresh backend
+    proc = _start_backend(port)
+    logger.info("Backend respawned on port %d (PID=%d).", port, proc.pid)
+
+    # Wait for health
+    _wait_for_health(port)
+
+    # Re-register server (updates server_id and token)
+    try:
+        server_id, token = _register_server(port)
+        logger.info("Backend re-registered: server_id=%s", server_id)
+    except Exception as exc:
+        logger.warning("Backend respawn succeeded but re-registration failed: %s", exc)
 
 
 class _AdoptedBackend:
