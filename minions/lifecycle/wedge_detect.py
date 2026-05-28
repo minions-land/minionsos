@@ -44,6 +44,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from minions.tools.utils import strip_ansi_escapes
+
 logger = logging.getLogger(__name__)
 
 # Claude Code prints assistant turn markers as `●`. A bare `ack` turn
@@ -52,7 +54,6 @@ logger = logging.getLogger(__name__)
 # inside narrative text.
 _ACK_LINE_RE = re.compile(r"^\s*●\s*ack\s*$")
 _EMPTY_MARKER = "[upstream returned no content]"
-_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 _MCP_DEAD_MARKER = "MCP error -32000"
 
 
@@ -90,7 +91,7 @@ def inspect_log_tail(log_path: Path, *, tail_bytes: int = 16384) -> WedgeSignal:
         return WedgeSignal(0, 0, 0, log_path)
 
     text = raw.decode("utf-8", errors="replace")
-    text = _ANSI_ESCAPE_RE.sub("", text)
+    text = strip_ansi_escapes(text)
     lines = text.splitlines()
     empty_count = sum(1 for line in lines if _EMPTY_MARKER in line)
     ack_count = sum(1 for line in lines if _ACK_LINE_RE.match(line))

@@ -41,15 +41,13 @@ import subprocess
 import time
 from dataclasses import dataclass
 
+from minions.tools.utils import strip_ansi_escapes
+
 logger = logging.getLogger(__name__)
 
 # The Claude Code TUI's input cursor. Captured verbatim from project_37596
 # pane snapshots — a single ❯ glyph followed by whitespace and end-of-line.
 _PROMPT_CURSOR_RE = re.compile(r"^\s*❯\s*$", re.MULTILINE)
-
-# ANSI strip — same regex shape as wedge_detect, but inlined so this
-# module has no dependencies on its sibling.
-_ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 
 
 @dataclass(frozen=True)
@@ -79,7 +77,7 @@ def _capture_pane(session_name: str, *, lines: int = 40) -> str | None:
         return None
     if result.returncode != 0:
         return None
-    return _ANSI_RE.sub("", result.stdout or "")
+    return strip_ansi_escapes(result.stdout or "")
 
 
 def detect_parked_pane(session_name: str, *, lines: int = 40) -> ParkedSignal:

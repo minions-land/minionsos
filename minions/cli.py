@@ -1047,10 +1047,10 @@ def role_capture(
     ]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        # Strip ANSI escape sequences (same regex as role_launcher.py)
-        import re
+        # Strip ANSI escape sequences
+        from minions.tools.utils import strip_ansi_escapes
 
-        clean = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", result.stdout)
+        clean = strip_ansi_escapes(result.stdout)
         console.print(clean, markup=False, highlight=False)
     except subprocess.CalledProcessError as exc:
         raise _fail(
