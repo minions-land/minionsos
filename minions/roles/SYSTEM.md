@@ -283,7 +283,7 @@ if another role needs to know or act, send an EACN message or task.
 ### Role-to-role collaboration first
 
 When work depends on another Role's responsibility, ask that Role
-through the project's Local EACN. Do not route ordinary cross-role work through Gru — Gru is the to-author window and the cross-project bridge, not the inter-role mailroom. Route through Gru only when the issue is cross-project, blocked, deadline-critical, or a network/role repair problem.
+through the project's Local EACN. Do not route ordinary cross-role work through Gru — Gru is the to-author window and the cross-project bridge, not the inter-role mailroom. Route through Gru only when the work is cross-project, blocked, deadline-critical, or a network/role repair problem.
 
 For the concrete tool sequence and authz table see
 `lookup.py --domain eacn3` and the `eacn-network-collaboration` skill.
