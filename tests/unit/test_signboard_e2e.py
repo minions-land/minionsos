@@ -91,7 +91,7 @@ def test_e2e_submit_ready_full_flow(
         ("writer", "branches/writer/draft.tex@a3f7c91"),
     ]
 
-    print("\n=== submit_ready field test (port=%d) ===" % port)
+    print(f"\n=== submit_ready field test (port={port}) ===")
     raise_times = []
     eval_times = []
 
@@ -162,7 +162,8 @@ def test_e2e_submit_ready_full_flow(
     )
     print("=== timing summary ===")
     print(
-        f"  raise:    avg={avg_raise:6.1f} ms  p95={p95_raise:6.1f} ms  (file lock + json + git noop)"
+        f"  raise:    avg={avg_raise:6.1f} ms  p95={p95_raise:6.1f} ms  "
+        f"(file lock + json + git noop)"
     )
     print(f"  evaluate: avg={avg_eval:6.1f} ms")
     print(f"  consume:  {dt_consume:6.1f} ms")
