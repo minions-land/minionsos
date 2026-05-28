@@ -743,7 +743,7 @@ def append_audit(project_port, kind, roles_in, roles_out, reason, extra=None):
 
 @dataclass
 class ApplyResult:
-    kind: Literal["split", "merge"]
+    kind: Literal["split", "merge", "dismiss"]
     roles_in: list[str]
     roles_out: list[str]
     notes: list[str] = field(default_factory=list)

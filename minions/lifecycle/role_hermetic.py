@@ -30,6 +30,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+from collections.abc import Mapping
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -60,13 +61,13 @@ this directory is not inside any worktree.
 """
 
 
-def hermetic_enabled(env: dict[str, str] | None = None) -> bool:
+def hermetic_enabled(env: Mapping[str, str] | None = None) -> bool:
     """Whether Tier 1 (hermetic cwd) is requested."""
     src = env if env is not None else os.environ
     return src.get(ENV_HERMETIC_CWD, "0") == "1"
 
 
-def hermetic_home_enabled(env: dict[str, str] | None = None) -> bool:
+def hermetic_home_enabled(env: Mapping[str, str] | None = None) -> bool:
     """Whether Tier 2 (hermetic HOME) is requested. Implies Tier 1."""
     src = env if env is not None else os.environ
     return src.get(ENV_HERMETIC_HOME, "0") == "1" and hermetic_enabled(src)
