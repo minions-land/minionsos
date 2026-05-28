@@ -37,9 +37,17 @@ class AdjudicationService:
         Adjudication tasks:
         - type = ADJUDICATION (prevents further adjudication spawning)
         - budget = 0 (no monetary compensation)
-        - Inherit parent's domains and deadline
+        - Inherit parent's domains PLUS ethics-aligned domains (issue #55)
+        - invited_agent_ids includes "ethics" for direct routing
         - parent_id links to original task
         """
+        # Issue #55: adjudication tasks need ethics-aligned domains + invited_agent_ids
+        # to ensure Ethics can discover them via /api/discovery/agents.
+        adj_domains = list(parent_task.domains) + ["adjudication", "audit", "ethics"]
+        # Deduplicate while preserving order
+        seen = set()
+        adj_domains = [d for d in adj_domains if not (d in seen or seen.add(d))]
+
         return Task(
             id=f"adj-{parent_task.id}-{result_agent_id}-{uuid4().hex[:6]}",
             content={
@@ -49,7 +57,8 @@ class AdjudicationService:
             },
             type=TaskType.ADJUDICATION,
             initiator_id="system",
-            domains=parent_task.domains,
+            domains=adj_domains,
+            invited_agent_ids=["ethics"],
             status=TaskStatus.UNCLAIMED,
             parent_id=parent_task.id,
             depth=parent_task.depth + 1,
