@@ -32,7 +32,7 @@ You are a **long-lived agent-host process** for one Role. Your job:
 
 **Exceptions:**
 - **Noter** uses `mos_noter_wait()` (timer-based, 3 min) instead of EACN
-- **Gru** is pull-mode, uses `mos_get_events(port)` instead of `mos_await_events()`
+- **Gru** is pull-mode, uses `mos_get_events(port)` to inspect without draining queues
 
 ---
 
@@ -95,7 +95,7 @@ Compact only when:
 ### Event Loop
 - `mos_await_events()` — block until EACN queue delivers work (most roles)
 - `mos_noter_wait()` — timer-based wake (Noter only)
-- `mos_get_events(port)` — pull-mode (Gru only)
+- `mos_get_events(port)` — pull-mode for Gru to inspect events without draining queues
 
 ### Draft (Working Memory)
 - `mos_draft_summary()` — read Draft tree, get bootstrap node on first wake
@@ -150,7 +150,7 @@ The Gru watchdog auto-respawns dead backends. Self-kill on conn-refused makes re
 
 **Root cause:** When idle, the event loop depends on `mos_await_events()` returning the synthetic `cache_keepalive` event and you calling it again. This is "voluntary" — a model can decide to stop after the ack ceremony.
 
-**What Gru does:** The Gru watchdog checks heartbeat files every tick. If your heartbeat is stale >4 min, Gru sends a `/goal` kick via tmux to wake you.
+**What Gru does:** The Gru watchdog checks heartbeat files every tick. If your heartbeat is stale >4 min, Gru sends `continue` via tmux to nudge you into the next turn.
 
 **Your job:** When you receive a `cache_keepalive` event (synthetic keepalive):
 1. Reply **exactly** `ack` (3 characters, nothing else)
@@ -179,21 +179,9 @@ If you do extra work on keepalive turns, you'll break the cache and consume toke
 
 ### Context Compaction Threshold
 
-**Symptom:** Role calls `mos_compact_context` at 7-15% context utilization (78K-136K tokens out of 1M).
-
-**Cost of premature compact:**
-1. Full cold prefill of post-compact prompt (~30-80K tokens at full rate)
-2. Loss of just-read working set (files you read last few turns are summarized, not preserved)
-3. Re-orientation cycle: must call `mos_draft_summary` + `mos_await_events` again (~1 wasted turn)
-
 **Rule:** Only call `mos_compact_context` when context exceeds **~60% of the model window** (≥600K tokens for 1M window).
 
-Do NOT compact based on:
-- Periodic timers ("periodic noter compact")
-- "Medium pressure" heuristics
-- Self-judgment without checking actual token utilization
-
-Compact only when Gru explicitly requests it or actual utilization > 60%.
+**Why:** Below 60%, the cost of cache miss + re-orientation exceeds the savings. See SYSTEM.md §5 for full details.
 
 ---
 
@@ -599,7 +587,7 @@ Cost: ~50K tokens. **Prevention:** Never call `mos_reset_context` on transient e
 - Subagent: Codex GPT-5.5 xhigh for analysis
 
 ### Gru
-- Wake mode: pull (uses `mos_get_events(port)` not `mos_await_events()`)
+- Wake mode: pull (uses `mos_get_events(port)` to inspect without draining)
 - Job: project supervision, role evolution, watchdog
 - See `minions/roles/gru/SYSTEM.md` for full contract
 - **Special:** Gru is the only role that can spawn/dismiss other roles
