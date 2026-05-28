@@ -359,7 +359,7 @@ def test_apply_dismiss_invokes_dismiss_role(tmp_path, monkeypatch):
     monkeypatch.setattr(RE, "_shared_dir", lambda port: tmp_path)
     dismissed: list[str] = []
 
-    def fake_dismiss_role(*, project_port, role_name):
+    def fake_dismiss_role(*, project_port, role_name, reason=None, caller=None):
         dismissed.append(role_name)
         return {"name": role_name}
 
@@ -390,7 +390,7 @@ def test_apply_split_invokes_spawn_then_dismiss(tmp_path, monkeypatch):
         spawn_calls.append(kwargs)
         return {"name": kwargs["name"]}
 
-    def fake_dismiss_role(*, project_port, role_name):
+    def fake_dismiss_role(*, project_port, role_name, reason=None, caller=None):
         dismiss_calls.append(role_name)
         return {"name": role_name}
 
@@ -425,7 +425,7 @@ def test_apply_split_keeps_source_alive_on_partial_spawn_failure(tmp_path, monke
 
     dismissed: list[str] = []
 
-    def fake_dismiss(*, project_port, role_name):
+    def fake_dismiss(*, project_port, role_name, reason=None, caller=None):
         dismissed.append(role_name)
         return {}
 
