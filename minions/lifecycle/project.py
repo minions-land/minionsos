@@ -2531,9 +2531,7 @@ def project_reimport(
         raise ProjectError(f"Project {port} already registered.")
     meta_path = project_meta_json(port)
     if not meta_path.exists():
-        raise ProjectError(
-            f"Project {port} meta.json missing at {meta_path}; cannot reimport."
-        )
+        raise ProjectError(f"Project {port} meta.json missing at {meta_path}; cannot reimport.")
     raw = _read_meta_raw(port)
 
     # Build ProjectEntry from meta payload. Force status -> dormant.

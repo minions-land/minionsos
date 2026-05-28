@@ -869,7 +869,7 @@ def project_reimport_cmd(port: int = typer.Argument(..., help="Project port.")) 
 @project_app.command(name="relocate")
 def project_relocate_cmd(
     port: int = typer.Argument(..., help="Project port."),
-    new_path: Path = typer.Argument(..., help="New absolute path for project_<port>/."),
+    new_path: Path = typer.Argument(..., help="New absolute path for project_<port>/."),  # noqa: B008
 ) -> None:
     """Move project_<port>/ to a new path and rewrite all absolute-path references."""
     from minions.lifecycle.project import project_relocate

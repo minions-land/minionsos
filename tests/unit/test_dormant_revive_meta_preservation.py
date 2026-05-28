@@ -233,7 +233,7 @@ def test_revive_restores_noter_from_meta_and_repairs_timer(
     store.update_project(port, status="dormant", dormant_at="x", active_roles=[])
     meta_role = RoleEntry(
         name="noter",
-        state="dismissed",
+        state="sleeping",
         pid=123,
         time_trigger_interval=None,
     )
@@ -479,7 +479,7 @@ def test_revive_relaunches_roles_cold(tmp_path: Path, monkeypatch: pytest.Monkey
     rebuilding context from the Exploration DAG is strictly cheaper."""
     port = 40115
     store, entry, pdir = _seed_project(tmp_path, port=port)
-    role = RoleEntry(name="coder", state="dismissed", eacn_agent_id="coder")
+    role = RoleEntry(name="coder", state="sleeping", eacn_agent_id="coder")
     store.update_project(port, status="dormant", dormant_at="x", active_roles=[role])
     dormant = entry.model_copy(
         update={"status": "dormant", "dormant_at": "x", "active_roles": [role]}

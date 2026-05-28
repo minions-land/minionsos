@@ -38,7 +38,7 @@ def _encode_str(value: str, project_dir_norm: str) -> str:
         return PROJECT_DIR_PLACEHOLDER
     prefix = project_dir_norm + sep
     if value.startswith(prefix):
-        return PROJECT_DIR_PLACEHOLDER + sep + value[len(prefix):]
+        return PROJECT_DIR_PLACEHOLDER + sep + value[len(prefix) :]
     return value
 
 
@@ -47,11 +47,11 @@ def _decode_str(value: str, project_dir_norm: str) -> str:
         return project_dir_norm
     prefix = PROJECT_DIR_PLACEHOLDER + os.sep
     if value.startswith(prefix):
-        return project_dir_norm + os.sep + value[len(prefix):]
+        return project_dir_norm + os.sep + value[len(prefix) :]
     # Be lenient: also accept a forward-slash form for cross-platform safety.
     alt_prefix = PROJECT_DIR_PLACEHOLDER + "/"
     if value.startswith(alt_prefix):
-        return project_dir_norm + os.sep + value[len(alt_prefix):]
+        return project_dir_norm + os.sep + value[len(alt_prefix) :]
     return value
 
 
