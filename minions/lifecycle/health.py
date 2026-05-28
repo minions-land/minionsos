@@ -79,7 +79,14 @@ def append_health_event(
         with path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(event, default=str) + "\n")
     except Exception as exc:
-        logger.debug("append_health_event failed port=%d: %s", port, exc)
+        logger.warning(
+            "append_health_event failed port=%d kind=%s severity=%s: %s",
+            port,
+            kind,
+            severity,
+            exc,
+            exc_info=True,
+        )
     return event
 
 
