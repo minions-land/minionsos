@@ -285,7 +285,12 @@ def _query_agent_tasks(
                 ):
                     completed.append(task)
     except Exception as exc:
-        logger.debug("idle check task query failed: %s", exc)
+        logger.debug(
+            "idle check task query failed port=%d agent=%s: %s",
+            port,
+            agent_id,
+            exc,
+        )
     return active, delegated, completed
 
 
@@ -339,7 +344,12 @@ def _query_biddable_tasks(
             if len(biddable) >= 5:
                 break
     except Exception as exc:
-        logger.debug("idle check biddable-tasks query failed: %s", exc)
+        logger.debug(
+            "idle check biddable-tasks query failed port=%d agent=%s: %s",
+            port,
+            agent_id,
+            exc,
+        )
     return biddable
 
 
@@ -466,7 +476,12 @@ def _has_event_history(port: int, agent_id: str) -> bool:
         path = events_log.event_log_path(port, agent_id)
         return path.exists() and path.stat().st_size > 0
     except Exception as exc:
-        logger.debug("cold-start event-history probe failed: %s", exc)
+        logger.debug(
+            "cold-start event-history probe failed port=%d agent=%s: %s",
+            port,
+            agent_id,
+            exc,
+        )
         return False
 
 
@@ -505,7 +520,11 @@ def _build_cold_start_hint(
                 encoding="utf-8",
             )
         except Exception as exc:
-            logger.debug("cold-start flag write (skip-path) failed: %s", exc)
+            logger.debug(
+                "cold-start flag write (skip-path) failed agent=%s: %s",
+                agent_id,
+                exc,
+            )
         return None
 
     try:
@@ -655,7 +674,12 @@ def _poll_once(
 
         raw_events = decode_project_paths(raw_events, str(project_dir(port)))
     except Exception as exc:
-        logger.debug("decode_project_paths failed in mos_await_events: %s", exc)
+        logger.debug(
+            "decode_project_paths failed in mos_await_events port=%d agent=%s: %s",
+            port,
+            agent_id,
+            exc,
+        )
     out: list[dict[str, Any]] = []
     # Issue #47: decode ${PROJECT_DIR} placeholders to the live project_dir
     # before annotation / return. Done MinionsOS-side because the EACN3
