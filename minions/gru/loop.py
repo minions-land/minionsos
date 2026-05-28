@@ -307,6 +307,7 @@ class GruLoop:
                     # Attempt auto-respawn
                     try:
                         from minions.lifecycle.project import respawn_backend
+
                         respawn_backend(port)
                         respawn_msg = f"[INFO] Backend respawned on port {port}."
                         self._emit_health_event(

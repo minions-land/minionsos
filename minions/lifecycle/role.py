@@ -562,16 +562,18 @@ def list_roles(
         else:
             actual_state = r.state
 
-        result.append({
-            "name": r.name,
-            "state": actual_state,
-            "pid": r.pid,
-            "eacn_agent_id": r.eacn_agent_id or r.name,
-            "session_name": getattr(r, "session_name", None),
-            "session_resumable": getattr(r, "session_resumable", False),
-            "workspace_path": getattr(r, "workspace_path", None),
-            "workspace_branch": getattr(r, "workspace_branch", None),
-            "tmux_alive": tmux_alive,
-            "tmux_orphan": r.state == "dismissed" and tmux_alive,
-        })
+        result.append(
+            {
+                "name": r.name,
+                "state": actual_state,
+                "pid": r.pid,
+                "eacn_agent_id": r.eacn_agent_id or r.name,
+                "session_name": getattr(r, "session_name", None),
+                "session_resumable": getattr(r, "session_resumable", False),
+                "workspace_path": getattr(r, "workspace_path", None),
+                "workspace_branch": getattr(r, "workspace_branch", None),
+                "tmux_alive": tmux_alive,
+                "tmux_orphan": r.state == "dismissed" and tmux_alive,
+            }
+        )
     return result
