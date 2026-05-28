@@ -1013,6 +1013,50 @@ def role_inspect(
     raise typer.Exit(subprocess.run(cmd, cwd=workspace).returncode)
 
 
+@role_app.command(name="capture")
+def role_capture(
+    port: int = typer.Argument(..., help="Project port."),
+    name: str = typer.Argument(..., help="Role name."),
+    lines: int = typer.Option(
+        100,
+        "--lines",
+        "-n",
+        help="Number of lines to capture from scrollback (default: 100).",
+    ),
+) -> None:
+    """Capture and print the role's current tmux pane output (issue #60).
+
+    Shows what the role is currently doing by capturing its tmux pane.
+    ANSI escape sequences are stripped for readability. Use this for quick
+    inspection during incident triage when the role appears stuck.
+    """
+    from minions.lifecycle.role_launcher import session_name as _session_name
+
+    sess = _session_name(port, name)
+    # tmux capture-pane -t <session> -S <start-line> -p | strip ANSI
+    cmd = [
+        "tmux",
+        "capture-pane",
+        "-t",
+        sess,
+        "-S",
+        f"-{lines}",
+        "-p",
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        # Strip ANSI escape sequences (same regex as role_launcher.py)
+        import re
+
+        clean = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", result.stdout)
+        console.print(clean, markup=False, highlight=False)
+    except subprocess.CalledProcessError as exc:
+        raise _fail(
+            f"tmux capture-pane failed for session {sess}. "
+            f"Is the role running? Error: {exc.stderr}"
+        )
+
+
 @role_app.command(name="drive")
 def role_drive(
     port: int = typer.Argument(..., help="Project port."),
