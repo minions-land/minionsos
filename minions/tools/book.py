@@ -669,9 +669,7 @@ def _render_signals_block(
         )
         shared_terms_raw = contradiction.get("shared_terms")
         terms: list[str] = (
-            [str(t) for t in shared_terms_raw]
-            if isinstance(shared_terms_raw, list)
-            else []
+            [str(t) for t in shared_terms_raw] if isinstance(shared_terms_raw, list) else []
         )
         sig = _draft_signals_for_terms(port, terms)
         lines.append(
@@ -726,9 +724,7 @@ def _render_contradiction_page(
     for idx, contradiction in enumerate(contradictions, start=1):
         excerpts_raw = contradiction.get("excerpts", {})
         excerpts: dict[str, object] = (
-            cast(dict[str, object], excerpts_raw)
-            if isinstance(excerpts_raw, dict)
-            else {}
+            cast(dict[str, object], excerpts_raw) if isinstance(excerpts_raw, dict) else {}
         )
         new_excerpt = _oneline(str(excerpts.get("new", "")))
         opposing_excerpt = _oneline(str(excerpts.get("opposing", "")))
