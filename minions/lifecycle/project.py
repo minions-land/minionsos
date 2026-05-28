@@ -21,7 +21,7 @@ from typing import Any, cast
 
 import httpx
 
-from minions.config import slugify
+from minions.config import is_expert_role, slugify
 from minions.errors import BackendError, ProjectError
 from minions.lifecycle import (
     _project_phase,
@@ -317,7 +317,21 @@ def _clear_stale_role_pids(port: int, entry: ProjectEntry, store: StateStore) ->
 
 
 def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
-    """Best-effort RoleEntry list from raw meta.json."""
+    """Best-effort RoleEntry list from raw meta.json.
+
+    Drops records that should not be revived:
+
+    1. ``state == "dismissed"`` — dismissed roles have no business in a live
+       ``active_roles`` list. Logged at INFO.
+    2. Role names that are neither in :data:`FIXED_ROLES` nor pass
+       :func:`is_expert_role` — these are pre-fix bare-slug expert records
+       (see GitHub Issue #44). The EACN registry already holds whatever
+       identity was minted at original spawn, so silently coercing the name
+       here would create a different agent than what's on EACN. Skip with
+       a WARNING instead.
+    """
+    from minions.lifecycle.role import FIXED_ROLES
+
     raw_roles = raw.get("active_roles")
     if not isinstance(raw_roles, list):
         return []
@@ -326,9 +340,25 @@ def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
         if not isinstance(item, dict):
             continue
         try:
-            roles.append(RoleEntry.model_validate(item))
+            role = RoleEntry.model_validate(item)
         except Exception as exc:
             logger.debug("Skipping invalid role entry from meta.json: %s", exc)
+            continue
+        if role.state == "dismissed":
+            logger.info(
+                "Skipping dismissed role %r from meta.json (revive filter)",
+                role.name,
+            )
+            continue
+        if role.name not in FIXED_ROLES and not is_expert_role(role.name):
+            logger.warning(
+                "Skipping malformed role name %r from meta.json: "
+                "not in FIXED_ROLES and not a valid expert role shape "
+                "(see GitHub Issue #44; EACN identity preserved, no coercion)",
+                role.name,
+            )
+            continue
+        roles.append(role)
     return roles
 
 
@@ -422,9 +452,28 @@ def _roles_for_revive(entry: ProjectEntry, raw_meta: dict[str, object]) -> list[
 
     ``projects.json`` is the normal source of truth. ``meta.json`` is kept as a
     fallback because older lifecycle paths and manual repairs can leave one file
-    ahead of the other.
+    ahead of the other. Both paths apply the dismissed/malformed-name filter
+    documented on :func:`_role_entries_from_meta` (see GitHub Issue #44).
     """
-    roles = list(entry.active_roles)
+    from minions.lifecycle.role import FIXED_ROLES
+
+    roles: list[RoleEntry] = []
+    for role in entry.active_roles:
+        if role.state == "dismissed":
+            logger.info(
+                "Skipping dismissed role %r from projects.json (revive filter)",
+                role.name,
+            )
+            continue
+        if role.name not in FIXED_ROLES and not is_expert_role(role.name):
+            logger.warning(
+                "Skipping malformed role name %r from projects.json: "
+                "not in FIXED_ROLES and not a valid expert role shape "
+                "(see GitHub Issue #44; EACN identity preserved, no coercion)",
+                role.name,
+            )
+            continue
+        roles.append(role)
     if not roles:
         roles = _role_entries_from_meta(raw_meta)
     return [_normalise_revived_role(role) for role in roles]
