@@ -101,7 +101,7 @@ def test_spawn_tmux_uses_pipe_pane_for_logging(tmp_path: Path) -> None:
     assert "-t" in pp and "mos-12345-coder" in pp, "pipe-pane must target the new session"
     # The shell command piped into pipe-pane should append to log_path
     shell_cmd = pp[-1]
-    assert "cat" in shell_cmd
+    assert "sed" in shell_cmd  # ANSI stripping via sed (issue #7)
     assert ">>" in shell_cmd
     assert str(log_path) in shell_cmd
 

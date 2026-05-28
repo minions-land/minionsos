@@ -195,6 +195,14 @@ source for this host bug: `~/.claude/CLAUDE.md`; project restate at
   cold-start penalty ~50k tokens. Use only when behavior has drifted or
   `SYSTEM.md` was externally updated.
 
+**When to compact:** Only call `mos_compact_context` when context
+utilization exceeds ~60% of the model context window (≥600K tokens for
+the 1M-window model). Below that threshold, prefer to keep working — the
+cost of cache miss + re-orientation exceeds the savings. Do not compact
+on a periodic timer or "medium pressure" heuristics; compact only when
+actual utilization crosses the threshold or when explicitly requested by
+Gru (issue #62).
+
 **NEVER call `mos_reset_context` on transient EACN3 connection errors**
 (issue #53). If `mos_await_events` fails with `Connection refused` or
 `EACN3 poll failed`, that is a backend-state signal (backend is down or
