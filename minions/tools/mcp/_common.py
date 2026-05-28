@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from minions.config import resolve_server_authz
 from minions.paths import STATE_DIR
-from minions.tools.mcp import mcp
+from minions.tools.mcp._registry import mcp
 
 logger = logging.getLogger(__name__)
 

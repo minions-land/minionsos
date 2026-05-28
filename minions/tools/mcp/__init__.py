@@ -13,14 +13,11 @@ from __future__ import annotations
 
 import logging
 
-from fastmcp import FastMCP
-
 from minions.logging_setup import configure_logging
+from minions.tools.mcp._registry import mcp
 
 configure_logging()
 logger = logging.getLogger(__name__)
-
-mcp = FastMCP("minions")
 
 # Importing submodules triggers @mcp.tool() side effects.
 from minions.tools.mcp import (  # noqa: E402, F401
