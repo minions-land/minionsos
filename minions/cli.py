@@ -1595,6 +1595,11 @@ def benchmark_list_profiles() -> None:
 
 
 def main() -> None:
+    """Console-script entry point for the ``mos`` CLI.
+
+    Wired through ``pyproject.toml`` ``[project.scripts]``; delegates to the
+    Typer app so subcommands receive the standard ``argv`` / exit-code flow.
+    """
     app()
 
 
