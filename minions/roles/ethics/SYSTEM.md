@@ -137,6 +137,39 @@ operational instead of policy-only. If you ever notice an
 to Gru on EACN — that is a routing/wiring bug worth
 `mos_issue_report`.
 
+### §Eth4.1. Active pull for unrouted adjudication tasks
+
+The events-queue push path is not enough. Auto-created `adj-*`
+tasks (`initiator_id=system`, `type=adjudication`) are sometimes
+stamped with the parent task's technical `domains` (e.g.
+`["coda-moe", "triton-kernel", ...]`) and an empty
+`invited_agent_ids`. The EACN3 discovery layer then does not
+deliver them into your event queue — and §Eth4 step 1's
+"adjudication tasks addressed to you" silently misses them.
+
+To close that gap, **at every wake — before triaging the events
+batch — call `eacn3_list_open_tasks(type="adjudication")` and
+union the result with the events-batch tasks**. Treat any
+returned task with `status="unclaimed"` and `bids=[]` as a
+§Eth4 step 1 candidate, regardless of `domains` membership or
+`invited_agent_ids`.
+
+Then bid as normal:
+
+1. `eacn3_submit_bid(task_id, ...)` with a one-line audit plan.
+2. If accepted, run the adjudication and `eacn3_submit_result`.
+3. Publish the verdict to `branches/shared/ethics/adjudication-<task-id>.md` via `mos_publish_to_shared`.
+
+If `eacn3_list_open_tasks` returns nothing, skip — this is a
+cheap probe (one read, no events drained), so doing it every
+wake is fine.
+
+This standing pull is what makes "adjudication-first" actually
+operational instead of policy-only. If you ever notice an
+`adj-*` task that's been `unclaimed` for >1 hour, surface it
+to Gru on EACN — that is a routing/wiring bug worth
+`mos_issue_report`.
+
 ## §Eth5. Contradiction surface (Book Layer 2 — phase 5+)
 
 Treat `branches/shared/book/contradictions/contradiction-*.md` as
