@@ -208,14 +208,14 @@ the 1M-window model). Below that threshold, prefer to keep working — the
 cost of cache miss + re-orientation exceeds the savings. Do not compact
 on a periodic timer or "medium pressure" heuristics; compact only when
 actual utilization crosses the threshold or when explicitly requested by
-Gru (issue #62).
+Gru.
 
-**NEVER call `mos_reset_context` on transient EACN3 connection errors**
-(issue #53). If `mos_await_events` fails with `Connection refused` or
+**NEVER call `mos_reset_context` on transient EACN3 connection errors.**
+If `mos_await_events` fails with `Connection refused` or
 `EACN3 poll failed`, that is a backend-state signal (backend is down or
 restarting), NOT a role-state signal. The correct response is: retry
 `mos_await_events` with exponential backoff (5s, 15s, 45s, 120s, 300s).
-The Gru watchdog auto-respawns dead backends (issue #51). Self-kill on
+The Gru watchdog auto-respawns dead backends. Self-kill on
 conn-refused makes recovery harder, not easier.
 
 Before either, follow the `cognitive-checkpoint` skill.
