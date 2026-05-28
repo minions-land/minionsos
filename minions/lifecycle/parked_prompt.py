@@ -98,7 +98,26 @@ def detect_parked_pane(session_name: str, *, lines: int = 40) -> ParkedSignal:
     return ParkedSignal(parked=parked, snapshot_lines=len(sample), session_name=session_name)
 
 
-def kick_pane(session_name: str, *, prompt: str = "Continue per resume protocol.") -> bool:
+# The recovery kick. We send a Claude Code ``/goal`` slash command rather than
+# a plain-text "Continue per resume protocol." sentence, because the slash
+# command goes into a different UI state than user messages: Claude Code
+# renders ``◎ /goal active (Ns)`` in the TUI footer for the entire goal
+# lifetime, so the model sees the stopping rule at every subsequent turn
+# boundary and cannot "decide to stop" while the goal is unsatisfied. Plain
+# text was a one-shot user message that got read, ack'd, and forgotten —
+# observed empirically against this project's roles when 0/7 plain-text kicks
+# woke any role, while 6/7 ``/goal`` kicks woke them within 30s. See
+# GitHub Issue #64 for the empirical study and the original ``/goal`` insight
+# from the project author. The stopping rule names ``mos_await_events`` so
+# the goal exits cleanly when a real EACN event finally arrives.
+DEFAULT_KICK_PROMPT = (
+    "/goal Continue your event loop: stopping rule = your next "
+    "mos_await_events() call returns with a real EACN event. Do not stop "
+    "before then. Heartbeat must stay <60 s."
+)
+
+
+def kick_pane(session_name: str, *, prompt: str = DEFAULT_KICK_PROMPT) -> bool:
     """Send the recovery kick (literal paste + Enter) to *session_name*.
 
     Mirrors the post-compact hook's ``_kick_own_pane`` shape but runs

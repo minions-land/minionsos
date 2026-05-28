@@ -97,9 +97,12 @@ class TestKickPane:
         with patch.object(subprocess, "run", side_effect=_run):
             assert parked_prompt.kick_pane("mos-37596-noter") is True
 
-        # First call: literal paste of the prompt.
+        # First call: literal paste of the prompt — the /goal slash command
+        # so Claude Code keeps the stopping rule active across turns.
         assert calls[0][:5] == ["tmux", "send-keys", "-t", "mos-37596-noter", "-l"]
-        assert calls[0][5] == "Continue per resume protocol."
+        assert calls[0][5].startswith("/goal ")
+        assert "mos_await_events" in calls[0][5]
+        assert calls[0][5] == parked_prompt.DEFAULT_KICK_PROMPT
         # Second call: Enter.
         assert calls[1] == ["tmux", "send-keys", "-t", "mos-37596-noter", "Enter"]
 
