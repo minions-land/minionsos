@@ -3,7 +3,7 @@ id: mos_shelf_shared_concepts
 kind: tool
 domain: memory
 auth: [*]
-source: minions/tools/mcp/memory_tools.py:374
+source: minions/tools/mcp/memory_tools.py:428
 since: stub
 keywords: []
 related: []
@@ -13,4 +13,4 @@ status: stub
 # mos_shelf_shared_concepts
 
 No curated MANUAL page yet. The MCP description is in your Role system prompt.
-Source: minions/tools/mcp/memory_tools.py:374
+Source: minions/tools/mcp/memory_tools.py:428
