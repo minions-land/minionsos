@@ -1052,9 +1052,8 @@ def role_capture(
         console.print(clean, markup=False, highlight=False)
     except subprocess.CalledProcessError as exc:
         raise _fail(
-            f"tmux capture-pane failed for session {sess}. "
-            f"Is the role running? Error: {exc.stderr}"
-        )
+            f"tmux capture-pane failed for session {sess}. Is the role running? Error: {exc.stderr}"
+        ) from exc
 
 
 @role_app.command(name="drive")

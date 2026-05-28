@@ -375,7 +375,7 @@ def _spawn_tmux(
     try:
         # Use sed to strip ANSI/cursor escapes. The -u flag makes sed unbuffered.
         # Falls back to plain cat if sed isn't available (non-critical).
-        strip_cmd = f"sed -u 's/\x1b\[[0-9;]*[A-Za-z]//g' >> {_quote(str(log_path))}"
+        strip_cmd = rf"sed -u 's/\x1b\[[0-9;]*[A-Za-z]//g' >> {_quote(str(log_path))}"
         subprocess.run(
             [
                 "tmux",
