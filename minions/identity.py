@@ -62,7 +62,7 @@ def identity_exists() -> bool:
     return (d / _SEED_FILE).exists() and (d / _FINGERPRINT_FILE).exists()
 
 
-def generate_identity(*, force: bool = False) -> dict[str, str]:
+def generate_identity(*, force: bool = False) -> dict[str, str | bool]:
     """Generate a new installation identity. Idempotent unless force=True.
 
     Returns {"fingerprint": "...", "identity_dir": "...", "created": bool}.

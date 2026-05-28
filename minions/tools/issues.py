@@ -61,7 +61,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -239,13 +239,20 @@ def _resolve_github_repo() -> str | None:
 
 def _format_github_body(record: dict[str, object]) -> str:
     """Render an issue record as a GitHub-flavoured markdown body."""
-    reporter = record.get("reporter") or {}
-    role = reporter.get("role") if isinstance(reporter, dict) else None
-    port = reporter.get("project_port") if isinstance(reporter, dict) else None
-    phase = reporter.get("phase") if isinstance(reporter, dict) else None
+    reporter_raw = record.get("reporter")
+    role: object = None
+    port: object = None
+    phase: object = None
+    if isinstance(reporter_raw, dict):
+        reporter = cast(dict[str, object], reporter_raw)
+        role = reporter.get("role")
+        port = reporter.get("project_port")
+        phase = reporter.get("phase")
 
-    steps = record.get("steps_to_reproduce") or []
-    evidence = record.get("evidence") or []
+    steps_raw = record.get("steps_to_reproduce")
+    steps: list[object] = list(steps_raw) if isinstance(steps_raw, list) else []
+    evidence_raw = record.get("evidence")
+    evidence: list[object] = list(evidence_raw) if isinstance(evidence_raw, list) else []
 
     lines: list[str] = []
     lines.append(f"**Reporter:** role=`{role}` port=`{port}` phase=`{phase}`")
