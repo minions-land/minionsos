@@ -2366,3 +2366,97 @@ def project_repair_gru_agent(
         "gru_agent_id": str(result.get("gru_agent_id") or ""),
         "gru_agent_token": str(result.get("gru_agent_token") or ""),
     }
+
+
+def project_migrate_bare_slug_experts(
+    port: int,
+    *,
+    dry_run: bool = False,
+    store: StateStore | None = None,
+) -> dict[str, Any]:
+    """Strip bare-slug expert role records from a project's ``meta.json``.
+
+    Background: prior to the ``register_expert`` coercion fix, a Gru that
+    called ``mos_spawn_expert(name="coda-epilogue")`` would persist a
+    bare-slug AgentCard whose authz lookup falls through to the empty
+    list. After the fix, fresh spawns are coerced to ``expert-<slug>``,
+    but already-persisted bare-slug records survive in ``active_roles``
+    on disk and would be re-registered on the next ``project_revive``.
+
+    This helper rewrites ``meta.json`` in place, removing any
+    ``active_roles`` record whose ``name`` is neither in :data:`FIXED_ROLES`
+    nor accepted by :func:`is_expert_role`. Returns a summary dict:
+    ``{"port", "removed": [<name>, ...], "kept": <int>, "dry_run": bool}``.
+
+    With ``dry_run=True`` no files are mutated; the returned plan reports
+    what *would* be removed.
+
+    Note: the on-disk ``meta.json`` is the source of truth consulted by
+    ``project_revive``; the in-memory ``StateStore`` snapshot of
+    ``active_roles`` is also synced via ``update_project`` so the next
+    ``mos role list`` reflects the cleanup immediately.
+    """
+    from minions.config import is_expert_role
+    from minions.lifecycle.role import FIXED_ROLES
+
+    _store = store or StateStore()
+    project = _store.get_project(port)
+    if project is None:
+        raise ProjectError(f"Project {port} not found.")
+
+    raw = _read_meta_raw(port)
+    raw_roles = raw.get("active_roles")
+    if not isinstance(raw_roles, list):
+        return {"port": port, "removed": [], "kept": 0, "dry_run": dry_run}
+
+    kept_records: list[Any] = []
+    removed: list[str] = []
+    for item in raw_roles:
+        if not isinstance(item, dict):
+            kept_records.append(item)
+            continue
+        name = item.get("name")
+        if not isinstance(name, str):
+            kept_records.append(item)
+            continue
+        if name in FIXED_ROLES or is_expert_role(name):
+            kept_records.append(item)
+        else:
+            removed.append(name)
+
+    summary: dict[str, Any] = {
+        "port": port,
+        "removed": removed,
+        "kept": len(kept_records),
+        "dry_run": dry_run,
+    }
+
+    if dry_run or not removed:
+        return summary
+
+    # Persist to meta.json (source of truth for revive). Use a fresh entry
+    # so _write_meta's overlay logic preserves runtime extras.
+    raw["active_roles"] = kept_records
+    path = project_meta_json(port)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+
+    # Sync the StateStore snapshot so list_roles reflects the cleanup.
+    filtered_role_entries = _role_entries_from_meta({"active_roles": kept_records})
+    try:
+        _store.update_project(port, active_roles=filtered_role_entries)
+    except Exception as exc:
+        logger.warning(
+            "project_migrate_bare_slug_experts: store sync failed for port=%d: %s",
+            port,
+            exc,
+        )
+
+    logger.info(
+        "project_migrate_bare_slug_experts port=%d removed=%s kept=%d",
+        port,
+        removed,
+        len(kept_records),
+    )
+    return summary
