@@ -21,7 +21,7 @@ from typing import Any, cast
 
 import httpx
 
-from minions.config import slugify
+from minions.config import is_expert_role, slugify
 from minions.errors import BackendError, ProjectError
 from minions.lifecycle import (
     _project_phase,
@@ -317,7 +317,23 @@ def _clear_stale_role_pids(port: int, entry: ProjectEntry, store: StateStore) ->
 
 
 def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
-    """Best-effort RoleEntry list from raw meta.json."""
+    """Best-effort RoleEntry list from raw meta.json.
+
+    Drops records that should not be revived:
+
+    1. ``state == "dismissed"`` for non-fixed roles — dismissed expert
+       records have no business in a live ``active_roles`` list. Logged at
+       INFO. Fixed roles (Noter etc.) keep their existing
+       dismissed-then-revive repair semantics.
+    2. Role names that are neither in :data:`FIXED_ROLES` nor pass
+       :func:`is_expert_role` — these are pre-fix bare-slug expert records
+       (see GitHub Issue #44). The EACN registry already holds whatever
+       identity was minted at original spawn, so silently coercing the name
+       here would create a different agent than what's on EACN. Skip with
+       a WARNING instead.
+    """
+    from minions.lifecycle.role import FIXED_ROLES
+
     raw_roles = raw.get("active_roles")
     if not isinstance(raw_roles, list):
         return []
@@ -326,9 +342,25 @@ def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
         if not isinstance(item, dict):
             continue
         try:
-            roles.append(RoleEntry.model_validate(item))
+            role = RoleEntry.model_validate(item)
         except Exception as exc:
             logger.debug("Skipping invalid role entry from meta.json: %s", exc)
+            continue
+        if role.state == "dismissed" and role.name not in FIXED_ROLES:
+            logger.info(
+                "Skipping dismissed role %r from meta.json (revive filter)",
+                role.name,
+            )
+            continue
+        if role.name not in FIXED_ROLES and not is_expert_role(role.name):
+            logger.warning(
+                "Skipping malformed role name %r from meta.json: "
+                "not in FIXED_ROLES and not a valid expert role shape "
+                "(see GitHub Issue #44; EACN identity preserved, no coercion)",
+                role.name,
+            )
+            continue
+        roles.append(role)
     return roles
 
 
@@ -422,9 +454,28 @@ def _roles_for_revive(entry: ProjectEntry, raw_meta: dict[str, object]) -> list[
 
     ``projects.json`` is the normal source of truth. ``meta.json`` is kept as a
     fallback because older lifecycle paths and manual repairs can leave one file
-    ahead of the other.
+    ahead of the other. Both paths apply the dismissed/malformed-name filter
+    documented on :func:`_role_entries_from_meta` (see GitHub Issue #44).
     """
-    roles = list(entry.active_roles)
+    from minions.lifecycle.role import FIXED_ROLES
+
+    roles: list[RoleEntry] = []
+    for role in entry.active_roles:
+        if role.state == "dismissed" and role.name not in FIXED_ROLES:
+            logger.info(
+                "Skipping dismissed role %r from projects.json (revive filter)",
+                role.name,
+            )
+            continue
+        if role.name not in FIXED_ROLES and not is_expert_role(role.name):
+            logger.warning(
+                "Skipping malformed role name %r from projects.json: "
+                "not in FIXED_ROLES and not a valid expert role shape "
+                "(see GitHub Issue #44; EACN identity preserved, no coercion)",
+                role.name,
+            )
+            continue
+        roles.append(role)
     if not roles:
         roles = _role_entries_from_meta(raw_meta)
     return [_normalise_revived_role(role) for role in roles]
@@ -2462,3 +2513,304 @@ def project_repair_gru_agent(
         "gru_agent_id": str(result.get("gru_agent_id") or ""),
         "gru_agent_token": str(result.get("gru_agent_token") or ""),
     }
+
+
+# ---------------------------------------------------------------------------
+# Recovery / relocation operations (issue #41)
+# ---------------------------------------------------------------------------
+
+
+def project_reimport(
+    port: int,
+    store: StateStore | None = None,
+) -> ProjectEntry:
+    """Rebuild a missing ``ProjectEntry`` from ``project_<port>/meta.json``.
+
+    Used when ``projects.json`` has lost the entry but the on-disk artifacts
+    are intact. Status is forced to ``dormant``; the operator should follow
+    up with ``project_revive`` to bring the project back online.
+    """
+    _store = store or StateStore()
+    if _store.get_project(port) is not None:
+        raise ProjectError(f"Project {port} already registered.")
+    meta_path = project_meta_json(port)
+    if not meta_path.exists():
+        raise ProjectError(
+            f"Project {port} meta.json missing at {meta_path}; cannot reimport."
+        )
+    raw = _read_meta_raw(port)
+
+    # Build ProjectEntry from meta payload. Force status -> dormant.
+    payload: dict[str, Any] = dict(raw)
+    payload["port"] = port
+    payload["status"] = "dormant"
+    if not payload.get("real_name"):
+        payload["real_name"] = f"project-{port}"
+    if not payload.get("created"):
+        payload["created"] = _now_iso()
+    payload["active_roles"] = [r.model_dump() for r in _role_entries_from_meta(raw)]
+
+    try:
+        entry = ProjectEntry.model_validate(payload)
+    except Exception as exc:
+        raise ProjectError(
+            f"Project {port} meta.json could not be coerced to a ProjectEntry: {exc}"
+        ) from exc
+    _store.add_project(entry)
+    logger.info("project_reimport port=%d real_name=%s", port, entry.real_name)
+    return entry
+
+
+def _replace_path_prefix(value: str, old: str, new: str) -> str | None:
+    if value == old:
+        return new
+    if value.startswith(old + os.sep):
+        return new + value[len(old) :]
+    return None
+
+
+def _rewrite_strings_in_json(node: Any, old: str, new: str) -> bool:
+    changed = False
+    if isinstance(node, dict):
+        for key, value in list(node.items()):
+            if isinstance(value, str):
+                replaced = _replace_path_prefix(value, old, new)
+                if replaced is not None:
+                    node[key] = replaced
+                    changed = True
+            elif isinstance(value, dict | list):
+                if _rewrite_strings_in_json(value, old, new):
+                    changed = True
+    elif isinstance(node, list):
+        for idx, value in enumerate(node):
+            if isinstance(value, str):
+                replaced = _replace_path_prefix(value, old, new)
+                if replaced is not None:
+                    node[idx] = replaced
+                    changed = True
+            elif isinstance(value, dict | list):
+                if _rewrite_strings_in_json(value, old, new):
+                    changed = True
+    return changed
+
+
+def _rewrite_json_file(path: Path, old: str, new: str) -> None:
+    if not path.exists() or not path.is_file():
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning("project_relocate: skipping unreadable JSON %s: %s", path, exc)
+        return
+    if _rewrite_strings_in_json(data, old, new):
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        os.replace(tmp, path)
+
+
+def _rewrite_text_file(path: Path, old: str, new: str) -> None:
+    if not path.exists() or not path.is_file():
+        return
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        logger.warning("project_relocate: skipping unreadable text %s: %s", path, exc)
+        return
+    if old in text:
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(text.replace(old, new), encoding="utf-8")
+        os.replace(tmp, path)
+
+
+def project_relocate(
+    port: int,
+    new_path: Path,
+    store: StateStore | None = None,
+) -> ProjectEntry:
+    """Move ``project_<port>/`` to *new_path* and rewrite all absolute path refs.
+
+    Refuses to operate on a non-dormant project. The destination must not
+    already exist. After the filesystem move, every JSON / git pointer file
+    under the project tree has its old absolute-path strings rewritten to
+    *new_path*.
+    """
+    _store = store or StateStore()
+    entry = _store.get_project(port)
+    if entry is None:
+        raise ProjectError(f"Project {port} not found.")
+    if entry.status != "dormant":
+        raise ProjectError(
+            f"Project {port} status is {entry.status!r}; relocate requires 'dormant'."
+        )
+
+    old_dir = project_dir(port)
+    if not old_dir.exists():
+        raise ProjectError(f"Project {port} directory missing at {old_dir}.")
+    new_path = Path(new_path)
+    if new_path.exists():
+        raise ProjectError(f"Relocate target already exists: {new_path}")
+    new_path.parent.mkdir(parents=True, exist_ok=True)
+
+    old_str = str(old_dir)
+    new_str = str(new_path)
+
+    shutil.move(old_str, new_str)
+
+    # Rewrite JSON sites.
+    _rewrite_json_file(new_path / "meta.json", old_str, new_str)
+    _rewrite_json_file(new_path / "eacn3_data" / "agent_map.json", old_str, new_str)
+    _rewrite_json_file(
+        new_path / "branches" / "shared" / "draft" / "draft.json",
+        old_str,
+        new_str,
+    )
+
+    # Rewrite git worktree pointers in the bare repo's worktrees registry.
+    worktrees_meta = new_path / "parent_repo.git" / "worktrees"
+    if worktrees_meta.is_dir():
+        for wt_meta in worktrees_meta.iterdir():
+            if wt_meta.is_dir():
+                _rewrite_text_file(wt_meta / "gitdir", old_str, new_str)
+
+    # Rewrite each worktree's .git pointer file.
+    branches_root = new_path / "branches"
+    if branches_root.is_dir():
+        for wt in branches_root.iterdir():
+            git_pointer = wt / ".git"
+            if git_pointer.is_file():
+                _rewrite_text_file(git_pointer, old_str, new_str)
+
+    # Best-effort verify: walk worktrees and run `git worktree list`.
+    if branches_root.is_dir():
+        for wt in branches_root.iterdir():
+            if not wt.is_dir():
+                continue
+            try:
+                result = subprocess.run(
+                    ["git", "worktree", "list"],
+                    cwd=str(wt),
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if result.returncode != 0:
+                    logger.warning(
+                        "project_relocate: git worktree list failed in %s: %s",
+                        wt,
+                        result.stderr.strip(),
+                    )
+            except (OSError, subprocess.SubprocessError) as exc:
+                logger.warning("project_relocate: git verify skipped for %s: %s", wt, exc)
+
+    # Update workspace_* fields on the entry if they pointed under the old dir.
+    workspace_updates: dict[str, Any] = {}
+    for field_name in (
+        "workspace_root",
+        "workspace_main",
+        "workspace_roles_root",
+        "workspace_shared",
+    ):
+        current = getattr(entry, field_name, None)
+        if isinstance(current, str):
+            replaced = _replace_path_prefix(current, old_str, new_str)
+            if replaced is not None:
+                workspace_updates[field_name] = replaced
+    updated = _store.update_project(port, **workspace_updates) if workspace_updates else entry
+    logger.info(
+        "project_relocate port=%d old=%s new=%s",
+        port,
+        old_str,
+        new_str,
+    )
+    return updated
+
+
+# ---------------------------------------------------------------------------
+# Migration: drop legacy bare-slug expert records (issue #49)
+# ---------------------------------------------------------------------------
+
+
+def project_migrate_bare_slug_experts(
+    port: int,
+    *,
+    dry_run: bool = False,
+    store: StateStore | None = None,
+) -> dict[str, Any]:
+    """Strip bare-slug expert role records from a project's ``meta.json``.
+
+    Background: prior to the ``register_expert`` coercion fix, a Gru that
+    called ``mos_spawn_expert(name="coda-epilogue")`` would persist a
+    bare-slug AgentCard whose authz lookup falls through to the empty
+    list. After the fix, fresh spawns are coerced to ``expert-<slug>``,
+    but already-persisted bare-slug records survive in ``active_roles``
+    on disk and would be re-registered on the next ``project_revive``.
+
+    This helper rewrites ``meta.json`` in place, removing any
+    ``active_roles`` record whose ``name`` is neither in :data:`FIXED_ROLES`
+    nor accepted by :func:`is_expert_role`. Returns a summary dict:
+    ``{"port", "removed": [<name>, ...], "kept": <int>, "dry_run": bool}``.
+
+    With ``dry_run=True`` no files are mutated; the returned plan reports
+    what *would* be removed.
+    """
+    from minions.config import is_expert_role
+    from minions.lifecycle.role import FIXED_ROLES
+
+    _store = store or StateStore()
+    project = _store.get_project(port)
+    if project is None:
+        raise ProjectError(f"Project {port} not found.")
+
+    raw = _read_meta_raw(port)
+    raw_roles = raw.get("active_roles")
+    if not isinstance(raw_roles, list):
+        return {"port": port, "removed": [], "kept": 0, "dry_run": dry_run}
+
+    kept_records: list[Any] = []
+    removed: list[str] = []
+    for item in raw_roles:
+        if not isinstance(item, dict):
+            kept_records.append(item)
+            continue
+        name = item.get("name")
+        if not isinstance(name, str):
+            kept_records.append(item)
+            continue
+        if name in FIXED_ROLES or is_expert_role(name):
+            kept_records.append(item)
+        else:
+            removed.append(name)
+
+    summary: dict[str, Any] = {
+        "port": port,
+        "removed": removed,
+        "kept": len(kept_records),
+        "dry_run": dry_run,
+    }
+
+    if dry_run or not removed:
+        return summary
+
+    raw["active_roles"] = kept_records
+    path = project_meta_json(port)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+
+    filtered_role_entries = _role_entries_from_meta({"active_roles": kept_records})
+    try:
+        _store.update_project(port, active_roles=filtered_role_entries)
+    except Exception as exc:
+        logger.warning(
+            "project_migrate_bare_slug_experts: store sync failed for port=%d: %s",
+            port,
+            exc,
+        )
+
+    logger.info(
+        "project_migrate_bare_slug_experts port=%d removed=%s kept=%d",
+        port,
+        removed,
+        len(kept_records),
+    )
+    return summary

@@ -42,6 +42,9 @@ from typing import Any
 
 import httpx
 
+from minions.lifecycle._path_placeholder import decode_project_paths
+from minions.paths import project_dir as _project_dir
+
 logger = logging.getLogger(__name__)
 
 EACN3_POLL_TIMEOUT_SEC = 60
@@ -641,9 +644,22 @@ def _poll_once(
             raise RuntimeError(f"EACN3 poll failed: {exc}") from exc
     raw_events = data.get("events") or data.get("messages") or []
     out: list[dict[str, Any]] = []
+    # Issue #47: decode ${PROJECT_DIR} placeholders to the live project_dir
+    # before annotation / return. Done MinionsOS-side because the EACN3
+    # server is project-agnostic and does not know the port→project_dir
+    # mapping.
+    try:
+        pdir = str(_project_dir(port))
+    except Exception:
+        pdir = ""
     for evt in raw_events:
         if not isinstance(evt, dict):
             continue
+        if pdir:
+            try:
+                evt = decode_project_paths(evt, pdir)
+            except Exception:
+                pass
         # Drop upstream-emitted cache_keepalive frames silently. The
         # synthetic one this module fires (when keepalive cliff hits) is
         # the only legitimate keepalive path; anything else is noise.

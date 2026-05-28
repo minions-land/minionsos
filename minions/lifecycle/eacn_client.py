@@ -16,6 +16,11 @@ from typing import Any
 import httpx
 
 from minions.errors import BackendError
+from minions.lifecycle._path_placeholder import (
+    decode_project_paths,
+    encode_project_paths,
+)
+from minions.paths import project_dir as _project_dir
 
 logger = logging.getLogger(__name__)
 
@@ -463,10 +468,21 @@ def _post_message_raw(
 ) -> dict[str, Any]:
     """Send a direct message via ``POST /api/messages`` without local validation."""
     url = f"{base_url(port)}/api/messages"
+    # Issue #47: rewrite host-specific absolute paths in the message content
+    # to the literal ${PROJECT_DIR} so the persisted offline_messages row
+    # stays portable. Conservative: only strings that ARE the project dir
+    # (or are prefixed by it + os.sep) are touched; embedded substrings in
+    # arbitrary text are left alone. Best-effort: if the project dir cannot
+    # be resolved we fall through with the raw content rather than fail the
+    # send.
+    try:
+        encoded_content = encode_project_paths(content, str(_project_dir(port)))
+    except Exception:
+        encoded_content = content
     payload = {
         "to": {"agent_id": to_agent_id, "server_id": "", "network_id": ""},
         "from": {"agent_id": from_agent_id, "server_id": "", "network_id": ""},
-        "content": content,
+        "content": encoded_content,
     }
     try:
         resp = httpx.post(url, json=payload, timeout=timeout)
@@ -513,6 +529,12 @@ def poll_events(
             timeout=http_timeout + timeout_secs,
         )
         resp.raise_for_status()
-        return dict(resp.json())
+        data = dict(resp.json())
     except Exception as exc:
         raise BackendError(f"poll_events {agent_id!r} on port {port} failed: {exc}") from exc
+    # Issue #47: rehydrate ${PROJECT_DIR} placeholders in payloads/content
+    # back to the live project_dir before handing off to callers.
+    try:
+        return decode_project_paths(data, str(_project_dir(port)))
+    except Exception:
+        return data
