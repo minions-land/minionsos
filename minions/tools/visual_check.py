@@ -39,7 +39,7 @@ import re
 from dataclasses import dataclass
 from itertools import pairwise
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -55,11 +55,11 @@ except ImportError as _e:  # pragma: no cover
     _VISUAL_MISSING = (
         f"Visual tools are not installed: {_e}. Run: uv pip install 'minionsos[visual]'"
     )
-    cv2 = None  # type: ignore[assignment]
-    np = None  # type: ignore[assignment]
-    convert_from_path = None  # type: ignore[assignment]
-    PDFInfoNotInstalledError = Exception  # type: ignore[assignment,misc]
-    PDFPageCountError = Exception  # type: ignore[assignment,misc]
+    cv2: Any = None  # type: ignore[no-redef]
+    np: Any = None  # type: ignore[no-redef]
+    convert_from_path: Any = None  # type: ignore[no-redef]
+    PDFInfoNotInstalledError: type[Exception] = Exception  # type: ignore[no-redef]
+    PDFPageCountError: type[Exception] = Exception  # type: ignore[no-redef]
 
 
 def _require_visual() -> None:
