@@ -58,7 +58,10 @@ class TestKickOwnPane:
         # and include both the prompt and the Enter press.
         assert "mos-39999-coder" in kick_cmd
         assert "-l" in kick_cmd
-        assert "Continue per resume protocol." in kick_cmd
+        # The injected kick is now a Claude Code /goal slash command so the
+        # stopping rule persists across turns; see GH #64 + parked_prompt.py.
+        assert "/goal" in kick_cmd
+        assert "mos_await_events" in kick_cmd
         assert "Enter" in kick_cmd
         # Detached so the hook can return immediately.
         kwargs = popen_calls[0]["kwargs"]

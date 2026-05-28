@@ -200,15 +200,37 @@ def _structured_extract(summary: str) -> dict:
     }
 
 
+def _kick_prompt() -> str:
+    """Return the kick prompt to inject after compact.
+
+    Imported lazily because hooks run in a minimal subprocess where importing
+    the full ``minions`` package can fail on path-resolution edge cases. We
+    duplicate the literal default if the import fails — worst-case the kick
+    works but skips the ``/goal`` upgrade. Keep the literal aligned with
+    ``parked_prompt.DEFAULT_KICK_PROMPT``.
+    """
+    try:
+        from minions.lifecycle.parked_prompt import DEFAULT_KICK_PROMPT
+
+        return DEFAULT_KICK_PROMPT
+    except ImportError:
+        return (
+            "/goal Continue your event loop: stopping rule = your next "
+            "mos_await_events() call returns with a real EACN event. Do not "
+            "stop before then. Heartbeat must stay <60 s."
+        )
+
+
 def _kick_own_pane(port: int, role_name: str) -> bool:
     """Spawn a delayed background ``tmux send-keys`` into this role's pane.
 
     GitHub Issue #29: after Claude Code's ``/compact`` lands, the role
     parks at the input prompt — the resume-protocol text is a hint the
     model would obey *if* it got a turn, but no turn arrives until
-    input does. We inject a short "Continue per resume protocol."
-    prompt + Enter via tmux, on a 2-second delay so Claude Code finishes
-    redrawing the prompt before keys land.
+    input does. We inject a Claude Code ``/goal`` slash command (see
+    ``minions/lifecycle/parked_prompt.DEFAULT_KICK_PROMPT``) + Enter via
+    tmux, on a 2-second delay so Claude Code finishes redrawing the
+    prompt before keys land.
 
     The literal-string ``send-keys -l`` flag is the same path
     ``mos role kick`` uses (#17) — it bypasses the TUI's bracketed-paste
@@ -241,7 +263,7 @@ def _kick_own_pane(port: int, role_name: str) -> bool:
     kick_cmd = (
         f"sleep 2 && "
         f"tmux send-keys -t {shlex.quote(session_name)} -l "
-        f"{shlex.quote('Continue per resume protocol.')} && "
+        f"{shlex.quote(_kick_prompt())} && "
         f"sleep 0.5 && "
         f"tmux send-keys -t {shlex.quote(session_name)} Enter"
     )
