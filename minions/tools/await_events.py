@@ -643,6 +643,17 @@ def _poll_once(
             )
             raise RuntimeError(f"EACN3 poll failed: {exc}") from exc
     raw_events = data.get("events") or data.get("messages") or []
+    # Issue #47: hydrate ${PROJECT_DIR} placeholders back to absolute paths
+    # using the live project_port -> project_dir mapping. Server stays
+    # project-agnostic; substitution only happens here at the role-side
+    # boundary, where we know which project_port owns the queue.
+    try:
+        from minions.lifecycle._path_placeholder import decode_project_paths
+        from minions.paths import project_dir
+
+        raw_events = decode_project_paths(raw_events, str(project_dir(port)))
+    except Exception as exc:
+        logger.debug("decode_project_paths failed in mos_await_events: %s", exc)
     out: list[dict[str, Any]] = []
     # Issue #47: decode ${PROJECT_DIR} placeholders to the live project_dir
     # before annotation / return. Done MinionsOS-side because the EACN3

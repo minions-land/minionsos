@@ -188,50 +188,6 @@ _REEL_TOOLS = [
     "mos_reel_window",
 ]
 
-# Read-only graphify MCP tools — optional per-role graph analysis.
-# ``graphify`` is a per-role optional tool; each Role that wants it runs
-# graphify rooted at its own ``branches/<role>/graphify-out/`` workspace.
-# No longer used for a shared project-level Shelf. Whitelisted to all
-# EACN-visible roles except Noter (Noter has no code analysis need).
-# mcp-servers/graphify/launcher.sh resolves the graph path from
-# MINIONS_ROLE_NAME + MINIONS_PROJECT_PORT env vars.
-_GRAPHIFY_READ_TOOLS = [
-    "mcp__graphify__query_graph",
-    "mcp__graphify__get_node",
-    "mcp__graphify__get_neighbors",
-    "mcp__graphify__get_community",
-    "mcp__graphify__god_nodes",
-    "mcp__graphify__graph_stats",
-    "mcp__graphify__shortest_path",
-]
-
-# Read-only codegraph MCP tools — Coder graph (L3) primitives over source code.
-# `@colbymchenry/codegraph` is the upstream npm package that backs the Coder
-# graph layer; the package keyword and tool prefix stay `codegraph` deliberately
-# to preserve the upstream tool names. Built by `npm install` in
-# mcp-servers/codegraph/, served by mcp-servers/codegraph/launcher.sh, kept
-# fresh by codegraph's own bundled OS-event file watcher (no Noter cron).
-#
-# Split into LIGHT / HEAVY:
-#   LIGHT — symbol / caller / impact / status. Cheap, structured output.
-#           Universally whitelisted because every read is non-destructive.
-#   HEAVY — context / explore. Return large source-code sections that can
-#           blow context budgets for roles that don't write code. Server-side
-#           authz (resolve_server_authz) restricts these to coder + expert.
-_CODEGRAPH_LIGHT_TOOLS = [
-    "mcp__codegraph__codegraph_search",
-    "mcp__codegraph__codegraph_callers",
-    "mcp__codegraph__codegraph_callees",
-    "mcp__codegraph__codegraph_impact",
-    "mcp__codegraph__codegraph_node",
-    "mcp__codegraph__codegraph_files",
-    "mcp__codegraph__codegraph_status",
-]
-_CODEGRAPH_HEAVY_TOOLS = [
-    "mcp__codegraph__codegraph_context",
-    "mcp__codegraph__codegraph_explore",
-]
-
 _SHELF_GRU_TOOLS = [
     "mos_shelf_query",
     "mos_shelf_shared_concepts",
@@ -328,13 +284,6 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     # at server side. Both appear in CLI whitelist for KV cache parity.
     *_BOOK_OPEN_QUESTION_TOOLS,
     *_BOOK_DEAD_END_TOOLS,
-    # Graphify read (Shelf L3 primitives — prose graph)
-    *_GRAPHIFY_READ_TOOLS,
-    # Codegraph read (Coder L3 primitives — code graph). LIGHT + HEAVY both
-    # appear in the unified CLI surface for KV cache parity; server-side
-    # authz restricts HEAVY (context/explore) to coder + expert.
-    *_CODEGRAPH_LIGHT_TOOLS,
-    *_CODEGRAPH_HEAVY_TOOLS,
     # Shelf (Gru queries + register; non-Gru blocked at server side, in
     # CLI whitelist for KV cache parity).
     *_SHELF_GRU_TOOLS,
@@ -432,9 +381,6 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "mos_book_promote_verified",
         "mos_book_crystallize_session",
         *_BOOK_READ_TOOLS,
-        # Graphify is a per-role optional tool; Noter does not use it.
-        # Coder graph — stat/file probes only; never source-returning tools.
-        *_CODEGRAPH_LIGHT_TOOLS,
         *_PAPER_SEARCH_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
@@ -614,9 +560,6 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_BOOK_SYNTHESIS_WRITE_TOOLS,  # Gru can materialize syntheses
         *_BOOK_AUDIT_TOOLS,  # Gru is the only role besides Ethics that audits
         *_BOOK_OPEN_QUESTION_TOOLS,  # Gru can flag pending questions
-        *_GRAPHIFY_READ_TOOLS,
-        # Coder graph read (light); Gru needs structural oversight, not source dumps.
-        *_CODEGRAPH_LIGHT_TOOLS,
         *_SHELF_GRU_TOOLS,
         *_SHELF_REGISTER_TOOLS,  # Gru-only: cross-project shelf registrar
         "mos_publish_to_shared",
@@ -680,8 +623,6 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_BOOK_READ_TOOLS,
         *_BOOK_OPEN_QUESTION_TOOLS,  # Noter flags pending questions
         *_BOOK_DEAD_END_TOOLS,  # Noter is the sole direct writer for dead-ends
-        # Codegraph light tools for stat/file probes; never source-returning tools.
-        *_CODEGRAPH_LIGHT_TOOLS,
         *_PAPER_SEARCH_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
@@ -710,9 +651,6 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_DRAFT_RW_TOOLS,
         *_BOOK_READ_TOOLS,
         *_BOOK_OPEN_QUESTION_TOOLS,  # any EACN role may flag a pending question
-        *_GRAPHIFY_READ_TOOLS,
-        *_CODEGRAPH_LIGHT_TOOLS,
-        *_CODEGRAPH_HEAVY_TOOLS,  # Coder is the primary code consumer; full surface
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_signboard_set",
@@ -772,7 +710,6 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_DRAFT_RW_TOOLS,
         *_BOOK_READ_TOOLS,
         *_BOOK_OPEN_QUESTION_TOOLS,  # any EACN role may flag a pending question
-        *_GRAPHIFY_READ_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_signboard_set",
@@ -811,9 +748,6 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_DRAFT_RW_TOOLS,
         *_BOOK_READ_TOOLS,
         *_BOOK_OPEN_QUESTION_TOOLS,  # any EACN role may flag a pending question
-        *_GRAPHIFY_READ_TOOLS,
-        *_CODEGRAPH_LIGHT_TOOLS,
-        *_CODEGRAPH_HEAVY_TOOLS,  # Expert reviews Coder's code for scientific direction
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_signboard_set",
@@ -855,8 +789,6 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_BOOK_RATIFY_TOOLS,  # Ethics-only: ratify-promotion is the audit gate
         *_BOOK_OPEN_QUESTION_TOOLS,  # any EACN role may flag a pending question
         "mos_book_lint",
-        *_GRAPHIFY_READ_TOOLS,
-        *_CODEGRAPH_LIGHT_TOOLS,  # Ethics traces provenance from claim to code; light surface only
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_signboard_set",

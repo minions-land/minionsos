@@ -167,27 +167,26 @@ sign-off — the most consequential operation in the system.
 
 When a new experiment report lands at
 `branches/shared/exp/exp-<id>/report.md`, gauge structural impact
-before deciding audit depth. If the graphify MCP is available
-(optional; not always present), use it for graph-based impact
-analysis. Otherwise, query the Book directly via `mos_book_query`.
-
-**If graphify MCP is available:**
+before deciding audit depth by querying the Book directly via
+`mos_book_query`.
 
 1. Extract key terms from report title + abstract (first 500 chars).
-2. Call `mcp__graphify__query_graph` — note matched communities.
-3. Call `mcp__graphify__god_nodes` — check whether any matched node
-   is a god-node (high-degree hub).
+2. Call `mos_book_query` with those terms — note how many distinct
+   Book pages match and whether any sit in well-connected concept
+   clusters (pages with many `[[wikilinks]]` in or out).
+3. Cross-check `mos_book_hot_get` for whether the report touches
+   the project's load-bearing claims.
 
 | Signal | Audit depth | Action |
 |---|---|---|
-| Report touches **≥3 communities** | Deep | Codex subagent: citation sweep + metric recomputation + cross-community consistency |
-| Report touches 1-2 communities, no god-node | Standard | Read report + verify evidence tags + check Draft provenance |
-| Report affects a god-node (changes support_status) | Critical | Deep audit + flag Gru via EACN |
-| Project graph unavailable/empty | Standard | Read report directly. Never block on graph availability |
+| Report touches **≥3 distinct Book clusters** | Deep | Codex subagent: citation sweep + metric recomputation + cross-cluster consistency |
+| Report touches 1-2 clusters, no hub page | Standard | Read report + verify evidence tags + check Draft provenance |
+| Report affects a hub page (changes support_status of a load-bearing claim) | Critical | Deep audit + flag Gru via EACN |
+| Book empty / no matches | Standard | Read report directly. Never block on Book population |
 
 Heuristic guide, not a rigid gate. If content clearly warrants
 deep audit regardless (e.g. claims to refute a core hypothesis),
-escalate. If `query_graph` returns no matches (novel terminology),
+escalate. If `mos_book_query` returns no matches (novel terminology),
 treat as standard.
 
 ## §Eth8. Cross-reference: Writer quality contract

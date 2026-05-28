@@ -319,18 +319,16 @@ def _clear_stale_role_pids(port: int, entry: ProjectEntry, store: StateStore) ->
 def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
     """Best-effort RoleEntry list from raw meta.json.
 
-    Drops records that should not be revived:
+    Drops records whose names are neither in :data:`FIXED_ROLES` nor pass
+    :func:`is_expert_role` — these are pre-fix bare-slug expert records
+    (see GitHub Issue #44). The EACN registry already holds whatever
+    identity was minted at original spawn, so silently coercing the name
+    here would create a different agent than what's on EACN. Skip with
+    a WARNING instead.
 
-    1. ``state == "dismissed"`` for non-fixed roles — dismissed expert
-       records have no business in a live ``active_roles`` list. Logged at
-       INFO. Fixed roles (Noter etc.) keep their existing
-       dismissed-then-revive repair semantics.
-    2. Role names that are neither in :data:`FIXED_ROLES` nor pass
-       :func:`is_expert_role` — these are pre-fix bare-slug expert records
-       (see GitHub Issue #44). The EACN registry already holds whatever
-       identity was minted at original spawn, so silently coercing the name
-       here would create a different agent than what's on EACN. Skip with
-       a WARNING instead.
+    ``state == "dismissed"`` is *not* a drop signal: ``project_dormant``
+    legitimately sets every role to ``"dismissed"`` as its dormant marker,
+    and ``project_revive`` relies on those records to re-launch.
     """
     from minions.lifecycle.role import FIXED_ROLES
 
@@ -345,12 +343,6 @@ def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
             role = RoleEntry.model_validate(item)
         except Exception as exc:
             logger.debug("Skipping invalid role entry from meta.json: %s", exc)
-            continue
-        if role.state == "dismissed" and role.name not in FIXED_ROLES:
-            logger.info(
-                "Skipping dismissed role %r from meta.json (revive filter)",
-                role.name,
-            )
             continue
         if role.name not in FIXED_ROLES and not is_expert_role(role.name):
             logger.warning(
@@ -461,12 +453,6 @@ def _roles_for_revive(entry: ProjectEntry, raw_meta: dict[str, object]) -> list[
 
     roles: list[RoleEntry] = []
     for role in entry.active_roles:
-        if role.state == "dismissed" and role.name not in FIXED_ROLES:
-            logger.info(
-                "Skipping dismissed role %r from projects.json (revive filter)",
-                role.name,
-            )
-            continue
         if role.name not in FIXED_ROLES and not is_expert_role(role.name):
             logger.warning(
                 "Skipping malformed role name %r from projects.json: "
@@ -1200,111 +1186,7 @@ def ensure_role_workspace(
     """Public wrapper that returns the role branch and workspace path."""
     branch, workspace = _create_role_worktree(port, role_name, base_branch=base_branch)
     _seed_claude_settings(workspace)
-    if role_name == "coder":
-        _bootstrap_coder_graph(workspace)
     return branch, workspace
-
-
-def _bootstrap_coder_graph(workspace: Path) -> None:
-    """One-shot ``codegraph init -i`` over the Coder branch.
-
-    Mechanical bootstrap so the project's codegraph MCP launcher (which
-    fail-fasts on a missing index) has something to serve from the first
-    Coder wake. Roles autonomously decide *when* to query the graph; the
-    lifecycle decides *where* the index lives, identical to how
-    ``_seed_claude_settings`` seeds hooks without consulting any LLM.
-
-    Idempotent: skips if ``.codegraph/`` already exists. Non-fatal: a
-    failed bootstrap warns, drops a marker into
-    ``<workspace>/.codegraph-bootstrap.error`` so the operator notices,
-    and continues — the launcher's bootstrap instruction tells the
-    operator how to recover, and Coder can still do everything else
-    (write code, run experiments) without the graph.
-
-    By default the actual ``codegraph init -i`` invocation runs on a
-    daemon thread so ``register_role("coder")`` returns immediately.
-    On a real codebase this command can take 30-60 s, which would
-    otherwise block ``mos_spawn_role(role="coder")``. The codegraph
-    MCP launcher already handles "index missing" gracefully (warns,
-    waits for the file watcher to populate), so backgrounding is
-    safe. Tests / dev-loops that need the index to be ready before
-    proceeding can opt in via ``MINIONS_BOOTSTRAP_CODER_GRAPH_SYNC=1``.
-    """
-    if (workspace / ".codegraph").exists():
-        return
-    cg_bin = MINIONS_ROOT / "mcp-servers" / "codegraph" / "node_modules" / ".bin" / "codegraph"
-    if not cg_bin.is_file() or not os.access(cg_bin, os.X_OK):
-        logger.warning(
-            "codegraph binary missing at %s; skipping Coder graph bootstrap. "
-            "Run ./install.sh to populate node_modules.",
-            cg_bin,
-        )
-        return
-
-    sync = os.environ.get("MINIONS_BOOTSTRAP_CODER_GRAPH_SYNC") == "1"
-    if sync:
-        _run_codegraph_init(cg_bin, workspace)
-        return
-
-    import threading
-
-    def _run() -> None:
-        try:
-            _run_codegraph_init(cg_bin, workspace)
-        except Exception as exc:  # daemon thread — never propagate
-            logger.warning(
-                "_bootstrap_coder_graph: background init failed for %s: %s",
-                workspace,
-                exc,
-            )
-
-    threading.Thread(
-        target=_run,
-        name=f"codegraph-init-{workspace.name}",
-        daemon=True,
-    ).start()
-    logger.info(
-        "Bootstrapping Coder graph in background for %s (codegraph init -i; non-blocking)",
-        workspace,
-    )
-
-
-def _run_codegraph_init(cg_bin: Path, workspace: Path) -> None:
-    """Execute ``codegraph init -i`` synchronously and log the outcome.
-
-    Separated from :func:`_bootstrap_coder_graph` so the sync vs daemon-
-    thread choice and the actual subprocess work are independently
-    testable. Drops an error-marker file on failure so the operator can
-    spot a missed bootstrap without scraping logs.
-    """
-    logger.info("Running codegraph init -i at %s", workspace)
-    result = subprocess.run(
-        [str(cg_bin), "init", "-i"],
-        cwd=str(workspace),
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    if result.returncode != 0:
-        logger.warning(
-            "codegraph init -i failed at %s (exit %d); Coder will see an "
-            "index-missing error from the MCP launcher until the operator "
-            "runs the bootstrap manually. stderr: %s",
-            workspace,
-            result.returncode,
-            result.stderr.strip()[:500],
-        )
-        marker = workspace / ".codegraph-bootstrap.error"
-        from contextlib import suppress
-
-        with suppress(OSError):
-            marker.write_text(
-                f"codegraph init -i exit={result.returncode}\n"
-                f"stderr:\n{result.stderr.strip()[:2000]}\n",
-                encoding="utf-8",
-            )
-        return
-    logger.info("Coder graph bootstrapped: %s/.codegraph/", workspace)
 
 
 def _seed_claude_settings(workspace: Path) -> None:
@@ -2047,6 +1929,14 @@ def project_close(
     _write_meta(port, updated)
     _store.retire_port(port)
     _remove_all_worktrees(port)
+    try:
+        from minions.lifecycle.role_hermetic import cleanup_hermetic_cwd as _cleanup_hermetic
+
+        removed = _cleanup_hermetic(port)
+        if removed:
+            logger.info("project_close: cleaned %d hermetic cwd path(s)", len(removed))
+    except Exception as exc:
+        logger.warning("project_close: hermetic cleanup failed for port=%d: %s", port, exc)
     logger.info("project_close done: port=%d", port)
     return updated
 
@@ -2515,6 +2405,100 @@ def project_repair_gru_agent(
     }
 
 
+def project_migrate_bare_slug_experts(
+    port: int,
+    *,
+    dry_run: bool = False,
+    store: StateStore | None = None,
+) -> dict[str, Any]:
+    """Strip bare-slug expert role records from a project's ``meta.json``.
+
+    Background: prior to the ``register_expert`` coercion fix, a Gru that
+    called ``mos_spawn_expert(name="coda-epilogue")`` would persist a
+    bare-slug AgentCard whose authz lookup falls through to the empty
+    list. After the fix, fresh spawns are coerced to ``expert-<slug>``,
+    but already-persisted bare-slug records survive in ``active_roles``
+    on disk and would be re-registered on the next ``project_revive``.
+
+    This helper rewrites ``meta.json`` in place, removing any
+    ``active_roles`` record whose ``name`` is neither in :data:`FIXED_ROLES`
+    nor accepted by :func:`is_expert_role`. Returns a summary dict:
+    ``{"port", "removed": [<name>, ...], "kept": <int>, "dry_run": bool}``.
+
+    With ``dry_run=True`` no files are mutated; the returned plan reports
+    what *would* be removed.
+
+    Note: the on-disk ``meta.json`` is the source of truth consulted by
+    ``project_revive``; the in-memory ``StateStore`` snapshot of
+    ``active_roles`` is also synced via ``update_project`` so the next
+    ``mos role list`` reflects the cleanup immediately.
+    """
+    from minions.config import is_expert_role
+    from minions.lifecycle.role import FIXED_ROLES
+
+    _store = store or StateStore()
+    project = _store.get_project(port)
+    if project is None:
+        raise ProjectError(f"Project {port} not found.")
+
+    raw = _read_meta_raw(port)
+    raw_roles = raw.get("active_roles")
+    if not isinstance(raw_roles, list):
+        return {"port": port, "removed": [], "kept": 0, "dry_run": dry_run}
+
+    kept_records: list[Any] = []
+    removed: list[str] = []
+    for item in raw_roles:
+        if not isinstance(item, dict):
+            kept_records.append(item)
+            continue
+        name = item.get("name")
+        if not isinstance(name, str):
+            kept_records.append(item)
+            continue
+        if name in FIXED_ROLES or is_expert_role(name):
+            kept_records.append(item)
+        else:
+            removed.append(name)
+
+    summary: dict[str, Any] = {
+        "port": port,
+        "removed": removed,
+        "kept": len(kept_records),
+        "dry_run": dry_run,
+    }
+
+    if dry_run or not removed:
+        return summary
+
+    # Persist to meta.json (source of truth for revive). Use a fresh entry
+    # so _write_meta's overlay logic preserves runtime extras.
+    raw["active_roles"] = kept_records
+    path = project_meta_json(port)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+
+    # Sync the StateStore snapshot so list_roles reflects the cleanup.
+    filtered_role_entries = _role_entries_from_meta({"active_roles": kept_records})
+    try:
+        _store.update_project(port, active_roles=filtered_role_entries)
+    except Exception as exc:
+        logger.warning(
+            "project_migrate_bare_slug_experts: store sync failed for port=%d: %s",
+            port,
+            exc,
+        )
+
+    logger.info(
+        "project_migrate_bare_slug_experts port=%d removed=%s kept=%d",
+        port,
+        removed,
+        len(kept_records),
+    )
+    return summary
+
+
 # ---------------------------------------------------------------------------
 # Recovery / relocation operations (issue #41)
 # ---------------------------------------------------------------------------
@@ -2535,9 +2519,7 @@ def project_reimport(
         raise ProjectError(f"Project {port} already registered.")
     meta_path = project_meta_json(port)
     if not meta_path.exists():
-        raise ProjectError(
-            f"Project {port} meta.json missing at {meta_path}; cannot reimport."
-        )
+        raise ProjectError(f"Project {port} meta.json missing at {meta_path}; cannot reimport.")
     raw = _read_meta_raw(port)
 
     # Build ProjectEntry from meta payload. Force status -> dormant.
@@ -2723,94 +2705,3 @@ def project_relocate(
         new_str,
     )
     return updated
-
-
-# ---------------------------------------------------------------------------
-# Migration: drop legacy bare-slug expert records (issue #49)
-# ---------------------------------------------------------------------------
-
-
-def project_migrate_bare_slug_experts(
-    port: int,
-    *,
-    dry_run: bool = False,
-    store: StateStore | None = None,
-) -> dict[str, Any]:
-    """Strip bare-slug expert role records from a project's ``meta.json``.
-
-    Background: prior to the ``register_expert`` coercion fix, a Gru that
-    called ``mos_spawn_expert(name="coda-epilogue")`` would persist a
-    bare-slug AgentCard whose authz lookup falls through to the empty
-    list. After the fix, fresh spawns are coerced to ``expert-<slug>``,
-    but already-persisted bare-slug records survive in ``active_roles``
-    on disk and would be re-registered on the next ``project_revive``.
-
-    This helper rewrites ``meta.json`` in place, removing any
-    ``active_roles`` record whose ``name`` is neither in :data:`FIXED_ROLES`
-    nor accepted by :func:`is_expert_role`. Returns a summary dict:
-    ``{"port", "removed": [<name>, ...], "kept": <int>, "dry_run": bool}``.
-
-    With ``dry_run=True`` no files are mutated; the returned plan reports
-    what *would* be removed.
-    """
-    from minions.config import is_expert_role
-    from minions.lifecycle.role import FIXED_ROLES
-
-    _store = store or StateStore()
-    project = _store.get_project(port)
-    if project is None:
-        raise ProjectError(f"Project {port} not found.")
-
-    raw = _read_meta_raw(port)
-    raw_roles = raw.get("active_roles")
-    if not isinstance(raw_roles, list):
-        return {"port": port, "removed": [], "kept": 0, "dry_run": dry_run}
-
-    kept_records: list[Any] = []
-    removed: list[str] = []
-    for item in raw_roles:
-        if not isinstance(item, dict):
-            kept_records.append(item)
-            continue
-        name = item.get("name")
-        if not isinstance(name, str):
-            kept_records.append(item)
-            continue
-        if name in FIXED_ROLES or is_expert_role(name):
-            kept_records.append(item)
-        else:
-            removed.append(name)
-
-    summary: dict[str, Any] = {
-        "port": port,
-        "removed": removed,
-        "kept": len(kept_records),
-        "dry_run": dry_run,
-    }
-
-    if dry_run or not removed:
-        return summary
-
-    raw["active_roles"] = kept_records
-    path = project_meta_json(port)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(raw, indent=2), encoding="utf-8")
-    os.replace(tmp, path)
-
-    filtered_role_entries = _role_entries_from_meta({"active_roles": kept_records})
-    try:
-        _store.update_project(port, active_roles=filtered_role_entries)
-    except Exception as exc:
-        logger.warning(
-            "project_migrate_bare_slug_experts: store sync failed for port=%d: %s",
-            port,
-            exc,
-        )
-
-    logger.info(
-        "project_migrate_bare_slug_experts port=%d removed=%s kept=%d",
-        port,
-        removed,
-        len(kept_records),
-    )
-    return summary

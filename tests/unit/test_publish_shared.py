@@ -316,7 +316,7 @@ def test_create_shared_worktree_seeds_subdirs(shared_project: dict[str, object])
     workspace = shared_project["shared_workspace"]
     seeded = sorted(p.name for p in workspace.iterdir() if p.is_dir())  # type: ignore[union-attr]
     # Memory V2 (2026-05) removed the shared per-project shelf path.
-    # L3 Shelf is Gru cross-project (V3-pending); graphify is optional per-role.
+    # L3 Shelf is Gru cross-project (V3-pending).
     expected = sorted(
         ["draft", "notes", "ethics", "exp", "reviews", "handoffs", "governance", "book"]
     )

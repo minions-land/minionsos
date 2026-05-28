@@ -13,19 +13,15 @@ def test_generated_mcp_json_uses_absolute_paths(tmp_path: Path) -> None:
 
     Role processes run with cwd=branches/<role>/ — relative paths in
     .mcp.json fail to resolve and the MCP server silently drops, leaving
-    the role with no eacn3_*, no graphify_*, no codegraph_* tools.
+    the role with no eacn3_* tools.
     """
     # Build a minimal fake MinionsOS-shaped layout under tmp_path so the
     # generator's `codex_dist.is_file()` branch is exercised either way.
     fake_root = tmp_path / "MinionsOS"
     (fake_root / "mcp-servers" / "eacn3" / "plugin" / "dist").mkdir(parents=True)
     (fake_root / "mcp-servers" / "keepalive").mkdir(parents=True)
-    (fake_root / "mcp-servers" / "graphify").mkdir(parents=True)
-    (fake_root / "mcp-servers" / "codegraph").mkdir(parents=True)
     (fake_root / "mcp-servers" / "eacn3" / "plugin" / "dist" / "server.js").write_text("// stub")
     (fake_root / "mcp-servers" / "keepalive" / "server.py").write_text("# stub")
-    (fake_root / "mcp-servers" / "graphify" / "launcher.sh").write_text("#!/bin/bash")
-    (fake_root / "mcp-servers" / "codegraph" / "launcher.sh").write_text("#!/bin/bash")
 
     repo_root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
@@ -45,7 +41,7 @@ def test_generated_mcp_json_uses_absolute_paths(tmp_path: Path) -> None:
     data = json.loads(out_path.read_text(encoding="utf-8"))
     servers = data["mcpServers"]
 
-    expected = {"minionsos", "eacn3", "keepalive", "graphify", "codegraph"}
+    expected = {"minionsos", "eacn3", "keepalive"}
     assert expected.issubset(set(servers.keys()))
 
     # No relative paths in any command/args.
@@ -83,11 +79,8 @@ def test_generated_mcp_json_eacn3_present_for_role_cwd(tmp_path: Path) -> None:
     eacn3_path = fake_root / "mcp-servers" / "eacn3" / "plugin" / "dist"
     eacn3_path.mkdir(parents=True)
     (eacn3_path / "server.js").write_text("// stub")
-    for sub in ("keepalive", "graphify", "codegraph"):
-        (fake_root / "mcp-servers" / sub).mkdir(parents=True)
+    (fake_root / "mcp-servers" / "keepalive").mkdir(parents=True)
     (fake_root / "mcp-servers" / "keepalive" / "server.py").write_text("")
-    (fake_root / "mcp-servers" / "graphify" / "launcher.sh").write_text("")
-    (fake_root / "mcp-servers" / "codegraph" / "launcher.sh").write_text("")
 
     repo_root = Path(__file__).resolve().parents[2]
     subprocess.run(
@@ -122,11 +115,8 @@ def test_generated_codex_config_uses_absolute_paths(tmp_path: Path) -> None:
     eacn3_path = fake_root / "mcp-servers" / "eacn3" / "plugin" / "dist"
     eacn3_path.mkdir(parents=True)
     (eacn3_path / "server.js").write_text("// stub")
-    for sub in ("keepalive", "graphify", "codegraph"):
-        (fake_root / "mcp-servers" / sub).mkdir(parents=True)
+    (fake_root / "mcp-servers" / "keepalive").mkdir(parents=True)
     (fake_root / "mcp-servers" / "keepalive" / "server.py").write_text("")
-    (fake_root / "mcp-servers" / "graphify" / "launcher.sh").write_text("")
-    (fake_root / "mcp-servers" / "codegraph" / "launcher.sh").write_text("")
 
     repo_root = Path(__file__).resolve().parents[2]
     out = fake_root / ".codex" / "config.toml"

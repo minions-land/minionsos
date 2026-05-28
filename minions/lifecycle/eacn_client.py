@@ -20,7 +20,7 @@ from minions.lifecycle._path_placeholder import (
     decode_project_paths,
     encode_project_paths,
 )
-from minions.paths import project_dir as _project_dir
+from minions.paths import project_dir
 
 logger = logging.getLogger(__name__)
 
@@ -468,16 +468,15 @@ def _post_message_raw(
 ) -> dict[str, Any]:
     """Send a direct message via ``POST /api/messages`` without local validation."""
     url = f"{base_url(port)}/api/messages"
-    # Issue #47: rewrite host-specific absolute paths in the message content
-    # to the literal ${PROJECT_DIR} so the persisted offline_messages row
-    # stays portable. Conservative: only strings that ARE the project dir
-    # (or are prefixed by it + os.sep) are touched; embedded substrings in
-    # arbitrary text are left alone. Best-effort: if the project dir cannot
-    # be resolved we fall through with the raw content rather than fail the
-    # send.
+    # Issue #47: substitute the live project_dir(port) prefix with the
+    # ${PROJECT_DIR} placeholder before the payload is persisted by EACN3,
+    # so offline_messages.payload stays portable across project relocations.
+    # Substitution is prefix-only; arbitrary text containing the path as a
+    # substring is left untouched. See _path_placeholder for the exact rule.
     try:
-        encoded_content = encode_project_paths(content, str(_project_dir(port)))
-    except Exception:
+        encoded_content = encode_project_paths(content, str(project_dir(port)))
+    except Exception as exc:  # never block the send path on encoder bugs
+        logger.debug("encode_project_paths failed for port=%d: %s", port, exc)
         encoded_content = content
     payload = {
         "to": {"agent_id": to_agent_id, "server_id": "", "network_id": ""},
@@ -532,9 +531,11 @@ def poll_events(
         data = dict(resp.json())
     except Exception as exc:
         raise BackendError(f"poll_events {agent_id!r} on port {port} failed: {exc}") from exc
-    # Issue #47: rehydrate ${PROJECT_DIR} placeholders in payloads/content
-    # back to the live project_dir before handing off to callers.
+    # Issue #47: hydrate ${PROJECT_DIR} placeholders back to absolute paths
+    # using the live project_port -> project_dir mapping, so callers see
+    # working filesystem paths regardless of where the project lives now.
     try:
-        return decode_project_paths(data, str(_project_dir(port)))
-    except Exception:
+        return decode_project_paths(data, str(project_dir(port)))
+    except Exception as exc:
+        logger.debug("decode_project_paths failed for port=%d: %s", port, exc)
         return data

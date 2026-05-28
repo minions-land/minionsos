@@ -292,3 +292,68 @@ class TestRegister:
                 store=store,
             )
         assert out["name"] == "expert-foo-bar"
+
+    # ---- issue #49: register_expert name coercion (regression coverage) ----
+
+    def test_register_expert_coerces_bare_slug_name_issue49(self) -> None:
+        """name="foo-bar" (bare slug) is coerced to "expert-foo-bar"."""
+        store = FakeStore()
+        with (
+            patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
+            patch("minions.lifecycle.eacn_client.send_message", return_value={}),
+        ):
+            out = role_mod.register_expert(
+                37596,
+                domain="foo bar",
+                name="foo-bar",
+                init_brief=None,
+                store=store,
+            )
+        assert out["name"] == "expert-foo-bar"
+
+    def test_register_expert_accepts_expert_prefix_unchanged(self) -> None:
+        """name="expert-already" is already an expert authz key — keep verbatim."""
+        store = FakeStore()
+        with (
+            patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
+            patch("minions.lifecycle.eacn_client.send_message", return_value={}),
+        ):
+            out = role_mod.register_expert(
+                37596,
+                domain="already prefixed domain",
+                name="expert-already",
+                init_brief=None,
+                store=store,
+            )
+        assert out["name"] == "expert-already"
+
+    def test_register_expert_accepts_expert_suffix_unchanged(self) -> None:
+        """name="already-expert" already ends in -expert — keep verbatim."""
+        store = FakeStore()
+        with (
+            patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
+            patch("minions.lifecycle.eacn_client.send_message", return_value={}),
+        ):
+            out = role_mod.register_expert(
+                37596,
+                domain="already suffixed domain",
+                name="already-expert",
+                init_brief=None,
+                store=store,
+            )
+        assert out["name"] == "already-expert"
+
+    def test_register_expert_default_name_uses_expert_prefix(self) -> None:
+        """name=None + domain="foo bar" -> "expert-foo-bar"."""
+        store = FakeStore()
+        with (
+            patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])),
+            patch("minions.lifecycle.eacn_client.send_message", return_value={}),
+        ):
+            out = role_mod.register_expert(
+                37596,
+                domain="foo bar",
+                init_brief=None,
+                store=store,
+            )
+        assert out["name"] == "expert-foo-bar"

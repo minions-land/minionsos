@@ -174,17 +174,16 @@ minions-viz/                # read-only React/Vite dashboard
 mcp-servers/                # standalone MCP servers
   eacn3/                    # local editable EACN3 dependency (Python + Node plugin)
   codex-subagent/           # Codex GPT-5.5 sub-agent bridge (Node)
-  codegraph/                # Coder repo-graph MCP (Node)
 docs/                       # delivery docs
   reel-l0-memory.md         #   L0 Reel layer design + tool surface
-  integrations/             #   plug-in guides (claude-code, codex, eacn3, graphify)
+  integrations/             #   plug-in guides (claude-code, codex, eacn3)
   research/                 #   empirical bases for runtime decisions
 tests/unit/                 # fast behavior tests
 tests/smoke/                # integration-style smoke checks
 ```
 
 Generated runtime output such as `projects/`, `minions/state/`, logs,
-caches, and `graphify-out/` is not committed.
+and caches is not committed.
 
 ### Prerequisites
 
@@ -797,16 +796,15 @@ minions-viz/                # 只读 React/Vite 仪表盘
 mcp-servers/                # 独立 MCP server
   eacn3/                    # 本地 editable EACN3 依赖（Python + Node 插件）
   codex-subagent/           # Codex GPT-5.5 子代理桥接（Node）
-  codegraph/                # Coder 仓库代码图 MCP（Node）
 docs/                       # 交付文档
   reel-l0-memory.md         #   L0 Reel 层设计与工具面
-  integrations/             #   集成指南（claude-code / codex / eacn3 / graphify）
+  integrations/             #   集成指南（claude-code / codex / eacn3）
   research/                 #   运行时设计决策的经验依据
 tests/unit/                 # 快速单元测试
 tests/smoke/                # 集成式 smoke 检查
 ```
 
-`projects/`、`minions/state/`、日志、缓存、`graphify-out/` 等运行时
+`projects/`、`minions/state/`、日志、缓存等运行时
 输出不会进入 git。
 
 ### 环境要求
