@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from minions.errors import ReelError
 from minions.tools.reel import (
     _validate_ref_component,
     mos_reel_backfill_draft_ref,
@@ -79,7 +80,7 @@ def test_validate_ref_component_accepts_normal():
 
 def test_validate_ref_component_rejects_traversal():
     for bad in ["", " ", ".", "..", "../etc", "foo/bar", ".hidden"]:
-        with pytest.raises(ValueError, match="Invalid reel ref"):
+        with pytest.raises(ReelError, match="Invalid reel ref"):
             _validate_ref_component(bad, "label")
 
 
@@ -186,7 +187,7 @@ def test_mos_reel_window_returns_centred_slice(reel_env, monkeypatch):
 def test_mos_reel_window_ref_not_found(reel_env, monkeypatch):
     port, _tmp, branches_dir = reel_env
     monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
-    with pytest.raises(ValueError, match="not found in reel index"):
+    with pytest.raises(ReelError, match="not found in reel index"):
         mos_reel_window("coder/sess-missing/tid-xxx")
 
 

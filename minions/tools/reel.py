@@ -40,6 +40,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from minions.errors import ReelError
 from minions.paths import project_role_workspace
 
 logger = logging.getLogger(__name__)
@@ -62,9 +63,9 @@ def _validate_ref_component(value: str, label: str) -> str:
     """Reject path components that could escape the reel root."""
     cleaned = value.strip()
     if not cleaned:
-        raise ValueError(f"Invalid reel ref {label}: empty")
+        raise ReelError(f"Invalid reel ref {label}: empty")
     if cleaned in {".", ".."} or "/" in cleaned or "\\" in cleaned or cleaned.startswith("."):
-        raise ValueError(f"Invalid reel ref {label}: {value!r}")
+        raise ReelError(f"Invalid reel ref {label}: {value!r}")
     return cleaned
 
 
@@ -129,11 +130,11 @@ def mos_reel_get(ref: str) -> dict[str, Any]:
     """
     port = int(os.environ.get("MINIONS_PROJECT_PORT", "0"))
     if port == 0:
-        raise ValueError("MINIONS_PROJECT_PORT not set")
+        raise ReelError("MINIONS_PROJECT_PORT not set")
 
     parts = ref.split("/")
     if len(parts) != 3:
-        raise ValueError(f"Invalid reel ref format: {ref!r} (want <role>/<session>/<id>)")
+        raise ReelError(f"Invalid reel ref format: {ref!r} (want <role>/<session>/<id>)")
     role, session_id, tool_use_id = parts
     role = _validate_ref_component(role, "role")
     session_id = _validate_ref_component(session_id, "session_id")
@@ -145,7 +146,7 @@ def mos_reel_get(ref: str) -> dict[str, Any]:
     entries = _read_index(index_path)
     entry = next((e for e in entries if e.get("ref") == ref), None)
     if entry is None:
-        raise ValueError(f"Ref {ref!r} not found in reel index")
+        raise ReelError(f"Ref {ref!r} not found in reel index")
 
     lines: list[Any] = []
     claude_jsonl = entry.get("claude_jsonl", "")
@@ -159,7 +160,7 @@ def mos_reel_get(ref: str) -> dict[str, Any]:
                         except json.JSONDecodeError:
                             lines.append({"_raw": line.rstrip()})
         except OSError as exc:
-            raise ValueError(f"Failed to read claude_jsonl: {exc}") from exc
+            raise ReelError(f"Failed to read claude_jsonl: {exc}") from exc
 
     return {
         "ref": ref,
@@ -191,11 +192,11 @@ def mos_reel_window(ref: str, span: int = 5) -> list[dict[str, Any]]:
     """
     port = int(os.environ.get("MINIONS_PROJECT_PORT", "0"))
     if port == 0:
-        raise ValueError("MINIONS_PROJECT_PORT not set")
+        raise ReelError("MINIONS_PROJECT_PORT not set")
 
     parts = ref.split("/")
     if len(parts) != 3:
-        raise ValueError(f"Invalid reel ref format: {ref!r} (expected <role>/<session>/<id>)")
+        raise ReelError(f"Invalid reel ref format: {ref!r} (expected <role>/<session>/<id>)")
     role, session_id, tool_use_id = parts
     role = _validate_ref_component(role, "role")
     session_id = _validate_ref_component(session_id, "session_id")
@@ -213,7 +214,7 @@ def mos_reel_window(ref: str, span: int = 5) -> list[dict[str, Any]]:
     # Find target index
     target_idx = next((i for i, e in enumerate(session_entries) if e.get("ref") == ref), None)
     if target_idx is None:
-        raise ValueError(f"Ref {ref!r} not found in reel index")
+        raise ReelError(f"Ref {ref!r} not found in reel index")
 
     lo = max(0, target_idx - span)
     hi = min(len(session_entries), target_idx + span + 1)
@@ -236,11 +237,11 @@ def mos_reel_backfill_draft_ref(ref: str, draft_node_id: str) -> dict[str, str]:
     """
     port = int(os.environ.get("MINIONS_PROJECT_PORT", "0"))
     if port == 0:
-        raise ValueError("MINIONS_PROJECT_PORT not set")
+        raise ReelError("MINIONS_PROJECT_PORT not set")
 
     parts = ref.split("/")
     if len(parts) != 3:
-        raise ValueError(f"Invalid reel ref format: {ref!r}")
+        raise ReelError(f"Invalid reel ref format: {ref!r}")
     role, session_id, tool_use_id = parts
     role = _validate_ref_component(role, "role")
     session_id = _validate_ref_component(session_id, "session_id")
@@ -261,7 +262,7 @@ def mos_reel_backfill_draft_ref(ref: str, draft_node_id: str) -> dict[str, str]:
             break
 
     if not updated:
-        raise ValueError(f"Ref {ref!r} not found in reel index")
+        raise ReelError(f"Ref {ref!r} not found in reel index")
 
     # Rewrite index atomically
     tmp_path = index_path.with_suffix(".tmp")
