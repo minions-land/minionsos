@@ -34,7 +34,7 @@ from collections import defaultdict, deque
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, get_args
 
 from minions.paths import project_shared_draft_json, project_shared_subdir
 
@@ -44,8 +44,11 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-# Suggested node types. Agents may use any string — these are recommendations.
-NODE_TYPES = (
+# Canonical node types. ``mos_draft_append`` still accepts free-form strings
+# in dict inputs for backward compatibility (logs an info-level note when an
+# unknown value is seen), but the Literal narrows the typed surfaces in
+# ``mos_draft_query`` and the Pydantic MCP args.
+DraftNodeType = Literal[
     "hypothesis",
     "question",
     "assumption",
@@ -57,24 +60,27 @@ NODE_TYPES = (
     "insight",
     "method",
     "bootstrap",
-)
+]
+NODE_TYPES: tuple[str, ...] = get_args(DraftNodeType)
 
-# Suggested support statuses. Agents may use any string.
-SUPPORT_STATUSES = (
+# Canonical support statuses.
+DraftSupportStatus = Literal[
     "unverified",
     "tentative",
     "verified",
     "refuted",
     "blocked",
     "out_of_scope",
-)
+]
+SUPPORT_STATUSES: tuple[str, ...] = get_args(DraftSupportStatus)
 
-# Suggested provenance labels. Agents may use any string.
-PROVENANCES = (
+# Canonical provenance labels.
+DraftProvenance = Literal[
     "extracted",
     "inferred",
     "speculative",
-)
+]
+PROVENANCES: tuple[str, ...] = get_args(DraftProvenance)
 # extracted: from a cited source/artifact
 # inferred: derived from prior nodes (low-medium confidence)
 # speculative: agent's working hypothesis, not yet evidenced
@@ -468,8 +474,8 @@ def _emit_book_status_event(
 
 
 def mos_draft_query(
-    node_type: str | None = None,
-    support_status: str | None = None,
+    node_type: DraftNodeType | None = None,
+    support_status: DraftSupportStatus | None = None,
     author_role: str | None = None,
     text_contains: str | None = None,
     related_to: str | None = None,
@@ -652,9 +658,9 @@ def mos_draft_append(
 
 def mos_draft_annotate(
     node_id: str,
-    support_status: str | None = None,
+    support_status: DraftSupportStatus | None = None,
     evidence_tag: str | None = None,
-    provenance: str | None = None,
+    provenance: DraftProvenance | None = None,
     confidence: float | None = None,
     metadata_update: dict[str, Any] | None = None,
 ) -> dict[str, Any]:

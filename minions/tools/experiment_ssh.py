@@ -34,7 +34,7 @@ import subprocess
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -49,6 +49,21 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 MAX_DOWNLOAD_BYTES = 500 * 1024 * 1024  # 500 MB
+
+# ---------------------------------------------------------------------------
+# Run-state types
+# ---------------------------------------------------------------------------
+
+ExperimentRunState = Literal["running", "exited"]
+
+
+class ExperimentRunStatus(TypedDict, total=False):
+    """Shape returned by ``_local_status`` / ``_ssh_status`` / ``exp_status``."""
+
+    state: ExperimentRunState
+    exit_code: int
+    log_tail: str
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -477,7 +492,7 @@ def _read_meta_pid(meta_path: Path) -> int | None:
     return int(pid) if isinstance(pid, int) else None
 
 
-def _local_status(workdir: str, run_id: str) -> dict:
+def _local_status(workdir: str, run_id: str) -> ExperimentRunStatus:
     _logs_dir, log_path, meta_path, exit_path = _local_paths(workdir, run_id)
     if not meta_path.exists():
         raise ExperimentError(f"Unknown run_id: {run_id}")
@@ -509,7 +524,7 @@ def _local_status(workdir: str, run_id: str) -> dict:
     return {"state": "running", "log_tail": log_tail}
 
 
-def _ssh_status(host: str, key: str, workdir: str, run_id: str) -> dict:
+def _ssh_status(host: str, key: str, workdir: str, run_id: str) -> ExperimentRunStatus:
     _logs_dir, log_path, meta_path, exit_path = _remote_paths(workdir, run_id)
     # Combined probe: read pid out of meta, check exit file, check pid alive.
     # Output is one of:
@@ -552,7 +567,7 @@ def _ssh_status(host: str, key: str, workdir: str, run_id: str) -> dict:
     return {"state": "running", "log_tail": log_tail}
 
 
-def exp_status(args: ExpStatusArgs) -> dict:
+def exp_status(args: ExpStatusArgs) -> ExperimentRunStatus:
     """Check run state. Returns ``{state, exit_code?, log_tail}``."""
     target_id = _resolve_target_id(args.target_id)
     kind, workdir, host, key = _resolve_workdir(target_id)
@@ -562,7 +577,7 @@ def exp_status(args: ExpStatusArgs) -> dict:
     return _ssh_status(host, key, workdir, args.run_id)
 
 
-def exp_wait(args: ExpWaitArgs) -> dict:
+def exp_wait(args: ExpWaitArgs) -> ExperimentRunStatus:
     """Poll every 2 s up to *timeout* seconds for the run to exit."""
     target_id = _resolve_target_id(args.target_id)
     kind, workdir, host, key = _resolve_workdir(target_id)

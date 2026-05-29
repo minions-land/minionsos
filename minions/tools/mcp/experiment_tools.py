@@ -38,14 +38,14 @@ def mos_exp_run(args: _exp.ExpRunArgs) -> dict:
 
 
 @mcp.tool()
-def mos_exp_status(args: _exp.ExpStatusArgs) -> dict:
+def mos_exp_status(args: _exp.ExpStatusArgs) -> _exp.ExperimentRunStatus:
     """Check an experiment run state."""
     _require_tool_allowed("mos_exp_status")
     return _exp.exp_status(args)
 
 
 @mcp.tool()
-def mos_exp_wait(args: _exp.ExpWaitArgs) -> dict:
+def mos_exp_wait(args: _exp.ExpWaitArgs) -> _exp.ExperimentRunStatus:
     """Poll up to timeout seconds for a run to exit."""
     _require_tool_allowed("mos_exp_wait")
     return _exp.exp_wait(args)

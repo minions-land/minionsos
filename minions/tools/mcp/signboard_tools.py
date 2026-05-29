@@ -9,10 +9,11 @@ from pydantic import BaseModel, Field
 from minions.tools import signboard as _signboard
 from minions.tools.mcp import mcp
 from minions.tools.mcp._common import _require_tool_allowed
+from minions.tools.signboard import MilestoneSlug
 
 
 class SignboardSetArgs(BaseModel):
-    milestone: str = Field(
+    milestone: MilestoneSlug = Field(
         description=(
             "Milestone slug. One of: experiments_ready, writing_ready, "
             "submit_ready, resubmit_ready, camera_ready."
@@ -40,14 +41,14 @@ class SignboardSetArgs(BaseModel):
 
 
 class SignboardReadArgs(BaseModel):
-    milestone: str | None = Field(
+    milestone: MilestoneSlug | None = Field(
         default=None,
         description=("Optional milestone slug. Omit to read the full signboard state."),
     )
 
 
 class SignboardMilestoneArgs(BaseModel):
-    milestone: str = Field(
+    milestone: MilestoneSlug = Field(
         description=(
             "Milestone slug. One of: experiments_ready, writing_ready, "
             "submit_ready, resubmit_ready, camera_ready."
