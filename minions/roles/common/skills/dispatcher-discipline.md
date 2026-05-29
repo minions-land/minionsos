@@ -96,6 +96,7 @@ Picking the model for a dispatched subagent has its own discipline.
 |---|---|---|
 | Trivial lookup, formatting, narrow Q&A | Haiku | `Agent(model: "haiku")` direct |
 | Everything else (default) | **Codex GPT-5.5 xhigh** wrapped in a Haiku Agent shell | see `~/.claude/skills/codex/SKILL.md` |
+| Multi-step structured orchestration with fan-out, pipeline, or verification stages | Workflow | Optional, not default — pick when the task has ≥3 independent subtasks OR needs an adversarial verifier that single-Agent dispatch can't capture |
 | Sonnet | Only when one of two conditions below holds | `Agent(model: "sonnet")` |
 
 **Sonnet is allowed iff at least one is true:**

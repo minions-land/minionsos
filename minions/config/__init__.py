@@ -347,6 +347,10 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     # Subagent dispatch
     "Task",
     *_CODEX_BRIDGE_TOOLS,
+    # Workflow plugin invocation (Claude Code built-in). Server-side authz
+    # enforces the per-role boundary; subagents do not get Workflow to
+    # preserve the anti-recursion principle.
+    "Workflow",
     # General tools
     "WebSearch",
     "WebFetch",
@@ -590,6 +594,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_PAPER_SEARCH_TOOLS,
         *_VISUAL_CHECK_TOOLS,
         *_REEL_TOOLS,  # Gru can read any role's reel
+        "Workflow",
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -672,6 +677,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_exp_gpu_pool_*",
         *_VISUAL_CHECK_TOOLS,
         *_REEL_TOOLS,  # Coder can read own reel
+        "Workflow",
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -721,6 +727,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_CODEX_BRIDGE_TOOLS,
         *_VISUAL_CHECK_TOOLS,
         *_REEL_TOOLS,  # Writer can read own reel
+        "Workflow",
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -759,6 +766,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_PAPER_SEARCH_TOOLS,
         *_VISUAL_CHECK_TOOLS,
         *_REEL_TOOLS,  # Expert can read own reel
+        "Workflow",
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -804,6 +812,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_CODEX_BRIDGE_TOOLS,
         *_VISUAL_CHECK_TOOLS,
         *_REEL_TOOLS,  # Ethics can read own reel
+        "Workflow",
         "WebSearch",
         "WebFetch",
         "Read",
