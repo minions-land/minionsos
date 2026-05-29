@@ -83,8 +83,35 @@ class GruLoop:
     def run(self) -> None:
         """Run the monitor loop synchronously (blocking).
 
-        Suitable for use in a daemon thread or as ``__main__``. An experiment
-        scheduler thread runs in parallel with Gru's heartbeat.
+        Suitable for use in a daemon thread or as ``__main__``. All enabled
+        watchdog threads (experiment scheduler, role evolution, gru-drive,
+        wedge, digest, stagnation-vote, parked-prompt) run in parallel with
+        Gru's heartbeat ``_tick`` loop. The watchdog set is started by
+        :meth:`_start_watchdog_threads` so the sync and async entrypoints can
+        never drift apart on which supervisors are live.
+        """
+        self._start_watchdog_threads()
+        logger.info("Gru monitor loop started (interval=%ds).", self.interval)
+        try:
+            while not self._stopped:
+                try:
+                    self._tick()
+                except Exception as exc:
+                    logger.error("Gru monitor tick error: %s", exc, exc_info=True)
+                if self._stop_event.wait(max(1, self.interval)):
+                    break
+        finally:
+            pass
+        logger.info("Gru monitor loop stopped.")
+
+    def _start_watchdog_threads(self) -> None:
+        """Start every enabled background watchdog as a daemon thread.
+
+        Single source of truth for the supervisor set so ``run()`` and
+        ``run_async()`` cannot diverge on which watchdogs are live (the
+        divergence that previously left the production sidecar running with
+        only the experiment-reconcile loop). Each thread loops on
+        ``_stop_event.wait(interval)`` so ``stop()`` drains them promptly.
         """
 
         def _experiment_scheduler_thread() -> None:
@@ -223,23 +250,18 @@ class GruLoop:
                 self.parked_prompt_interval,
                 self.parked_prompt_min_age,
             )
-        logger.info("Gru monitor loop started (interval=%ds).", self.interval)
-        try:
-            while not self._stopped:
-                try:
-                    self._tick()
-                except Exception as exc:
-                    logger.error("Gru monitor tick error: %s", exc, exc_info=True)
-                if self._stop_event.wait(max(1, self.interval)):
-                    break
-        finally:
-            pass
-        logger.info("Gru monitor loop stopped.")
 
     async def run_async(self) -> None:
-        """Async variant for use inside an existing asyncio event loop."""
+        """Async variant for use inside an existing asyncio event loop.
+
+        Starts the same full watchdog set as :meth:`run` via
+        :meth:`_start_watchdog_threads` (daemon threads — they block on I/O and
+        release the GIL, so they coexist with the event loop), then drives the
+        heartbeat ``_tick`` from the loop so an external ``asyncio.run`` owner
+        can cancel it. Kept in sync with ``run()`` by construction.
+        """
         logger.info("Gru monitor async loop started (interval=%ds).", self.interval)
-        experiment_task = asyncio.create_task(self._experiment_reconcile_async())
+        self._start_watchdog_threads()
         try:
             while not self._stopped:
                 try:
@@ -252,9 +274,7 @@ class GruLoop:
                         break
                     await asyncio.sleep(0.5)
         finally:
-            experiment_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await experiment_task
+            self._stop_event.set()
 
     # ------------------------------------------------------------------
     # Internal
@@ -470,11 +490,6 @@ class GruLoop:
             else:
                 logger.debug("Gru heartbeat [%s]: all systems nominal.", ts)
             self._last_report_ts = now
-
-    async def _experiment_reconcile_async(self) -> None:
-        while not self._stopped:
-            self._reconcile_experiment_queues()
-            await asyncio.sleep(max(1, self.experiment_reconcile_interval))
 
     def _reconcile_experiment_queues(self) -> None:
         """Run Python-side Coder experiment queue scheduling for active projects."""
@@ -1009,9 +1024,15 @@ class GruLoop:
         import subprocess
 
         try:
-            result = subprocess.run(["tmux", "ls"], capture_output=True, text=True, check=False)
-        except FileNotFoundError:
-            return  # no tmux, nothing to reap
+            result = subprocess.run(
+                ["tmux", "ls"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=10,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return  # no tmux (or wedged server), nothing to reap this tick
         if result.returncode != 0:
             return  # no tmux server / no sessions
 
@@ -1035,6 +1056,7 @@ class GruLoop:
                     ["tmux", "kill-session", "-t", session_name],
                     capture_output=True,
                     check=False,
+                    timeout=10,
                 )
                 logger.info(
                     "Reaped orphan tmux session %s (port %d not active)", session_name, port
@@ -1066,7 +1088,16 @@ def main() -> None:
     signal.signal(signal.SIGTERM, _signal_handler)
     signal.signal(signal.SIGINT, _signal_handler)
 
-    asyncio.run(loop.run_async())
+    # Use the synchronous run() path: it is the complete supervision driver
+    # that starts ALL enabled watchdog threads (experiment-scheduler,
+    # role-evolution, gru-drive, wedge, digest, stagnation-vote, parked-prompt)
+    # alongside the heartbeat _tick loop. The earlier run_async() entrypoint
+    # only started experiment-reconcile + _tick, silently dropping 6 of 7
+    # watchdogs in the production sidecar (bin/gru -> python -m minions.gru.loop).
+    # run() blocks this thread; the SIGTERM/SIGINT handlers above call
+    # loop.stop(), which sets the threading.Event that every loop waits on, so
+    # shutdown stays prompt and clean without an asyncio event loop.
+    loop.run()
 
 
 if __name__ == "__main__":

@@ -434,6 +434,16 @@ Substantive EACN messages start with one of:
 Ethics audits unmarked-claim ratios statistically; a single missed
 marker is not a violation. The convention is cultural, not mechanical.
 
+**Practice over claims.** When you propose a design, an
+algorithm, or a change to how the project works, do **not** assert its
+benefits from intuition. Run the smallest experiment that settles the
+question against real project data, and report the measured before/after
+on the same inputs (e.g. "recall 0/17 → 16/17", "candidate noise −63%").
+A proposal without a measured result is `[speculation]`, and must be
+marked as such. If a measurement's verdict depends on a judgement your
+oracle cannot make reliably, say so and report the deterministic part
+you *can* stand behind — never round a shaky oracle up to a clean number.
+
 ---
 
 ## §10. Workflow handoff & agent-host portability

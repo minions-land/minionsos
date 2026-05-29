@@ -339,7 +339,12 @@ def _parse_iso(ts: str) -> datetime | None:
 
 
 def _support_balance(node_id: str, edges: list[dict]) -> tuple[int, int]:
-    """Count supports / contradicts edges incident to node_id."""
+    """Count literal supports / contradicts edges incident to node_id.
+
+    Kept for the decay sidecar's human-facing ``supports``/``contradicts``
+    display fields and the pinned-count tests. The *confidence math* uses the
+    broader :func:`_relation_weights` (see P4 below).
+    """
     supports = 0
     contradicts = 0
     for edge in edges:
@@ -353,19 +358,133 @@ def _support_balance(node_id: str, edges: list[dict]) -> tuple[int, int]:
     return supports, contradicts
 
 
+# P4 (2026-05-29 audit): a live project's Draft carried 41 distinct edge
+# relations, 61% used exactly once, yet decay only ever read ``supports`` and
+# ``contradicts`` — the other ~40 relations were dead weight invisible to every
+# algorithm. This closed-set map folds the open relation vocabulary onto two
+# decay signals so every meaningful edge participates:
+#   reinforce > 0 : an incident edge that should roll the decay clock back
+#                   (corroboration, verification, completion, ratification).
+#   accelerate > 0: an incident edge that should age the node faster
+#                   (contradiction; or being superseded/absorbed/deprecated).
+# Structural / navigational relations (refines, depends_on, cites, …) map to a
+# small reinforce weight: a connected node is fresher than an orphan, but a
+# bare link is weaker evidence than an explicit "supports". Unknown relations
+# fall through to a tiny reinforce floor (presence of an edge ≠ zero signal).
+_REINFORCE = "reinforce"
+_ACCELERATE = "accelerate"
+RELATION_DECAY_WEIGHT: dict[str, tuple[str, float]] = {
+    # Strong corroboration — full reinforcement (parity with legacy supports=1).
+    "supports": (_REINFORCE, 1.0),
+    "verifies": (_REINFORCE, 1.0),
+    "verified_by": (_REINFORCE, 1.0),
+    "reaffirms": (_REINFORCE, 1.0),
+    "ratifies": (_REINFORCE, 1.0),
+    "corroborates": (_REINFORCE, 1.0),
+    "concurs_with": (_REINFORCE, 0.8),
+    "endorses": (_REINFORCE, 0.8),
+    "strengthens": (_REINFORCE, 0.8),
+    "partially_corroborates": (_REINFORCE, 0.5),
+    "reviews": (_REINFORCE, 0.5),
+    # Lifecycle progress — the node is being acted on / carried forward.
+    "resolves": (_REINFORCE, 0.6),
+    "resolves_open_ask": (_REINFORCE, 0.6),
+    "closes_acceptance": (_REINFORCE, 0.6),
+    "completes": (_REINFORCE, 0.6),
+    "delivers": (_REINFORCE, 0.6),
+    "delivers_phase2_followup_for": (_REINFORCE, 0.6),
+    "elevates": (_REINFORCE, 0.6),
+    "anchors": (_REINFORCE, 0.5),
+    "preserves": (_REINFORCE, 0.5),
+    "polishes": (_REINFORCE, 0.3),
+    # Structural / navigational — mild freshness from being connected.
+    "refines": (_REINFORCE, 0.3),
+    "tests": (_REINFORCE, 0.3),
+    "implements": (_REINFORCE, 0.3),
+    "instantiates": (_REINFORCE, 0.3),
+    "extends": (_REINFORCE, 0.3),
+    "elaborated_by": (_REINFORCE, 0.3),
+    "responds_to": (_REINFORCE, 0.3),
+    "reviews_for": (_REINFORCE, 0.3),
+    "depends_on": (_REINFORCE, 0.2),
+    "derived_from": (_REINFORCE, 0.2),
+    "follows": (_REINFORCE, 0.2),
+    "related_to": (_REINFORCE, 0.2),
+    "references": (_REINFORCE, 0.2),
+    "cites": (_REINFORCE, 0.2),
+    "uses": (_REINFORCE, 0.2),
+    "observes": (_REINFORCE, 0.2),
+    "qualifies": (_REINFORCE, 0.2),
+    # Negative / deprecating — age the node faster (parity with contradicts=1).
+    "contradicts": (_ACCELERATE, 1.0),
+    "supersedes": (_ACCELERATE, 1.0),
+    "supersedes_naming": (_ACCELERATE, 0.6),
+    "supersedes_runtime": (_ACCELERATE, 1.0),
+    "supersedes_action": (_ACCELERATE, 1.0),
+    "absorbs": (_ACCELERATE, 0.8),
+    "deferred_from": (_ACCELERATE, 0.4),
+    "blocks": (_ACCELERATE, 0.4),
+}
+_RELATION_UNKNOWN_REINFORCE = 0.1
+
+
+def _relation_weights(node_id: str, edges: list[dict]) -> tuple[float, float]:
+    """Sum reinforce / accelerate weights over ALL edges incident to node_id.
+
+    A directed relation that deprecates its *target* (``supersedes``,
+    ``absorbs``) accelerates decay only on the ``to_id`` endpoint — the
+    superseding ``from_id`` node is not itself aged by it. Symmetric relations
+    (``supports``, ``contradicts``, ``related_to``, …) apply to both endpoints,
+    preserving the legacy behaviour exactly.
+    """
+    _TARGET_ONLY_ACCELERATORS = {
+        "supersedes",
+        "supersedes_naming",
+        "supersedes_runtime",
+        "supersedes_action",
+        "absorbs",
+        "deferred_from",
+        "blocks",
+    }
+    reinforce = 0.0
+    accelerate = 0.0
+    for edge in edges:
+        is_from = edge.get("from_id") == node_id
+        is_to = edge.get("to_id") == node_id
+        if not is_from and not is_to:
+            continue
+        rel = str(edge.get("relation", ""))
+        mapped = RELATION_DECAY_WEIGHT.get(rel)
+        if mapped is None:
+            reinforce += _RELATION_UNKNOWN_REINFORCE
+            continue
+        kind, weight = mapped
+        if kind == _ACCELERATE:
+            # Directed deprecation ages only the deprecated (to_id) endpoint.
+            if rel in _TARGET_ONLY_ACCELERATORS and not is_to:
+                continue
+            accelerate += weight
+        else:
+            reinforce += weight
+    return reinforce, accelerate
+
+
 def _effective_confidence(
     stored: float,
     node_type: str,
     age_days: float,
-    supports: int,
-    contradicts: int,
+    supports: float,
+    contradicts: float,
 ) -> float:
     """Compute effective_confidence from stored confidence, age, and topology.
 
-    Pure function — no IO, no LLM. Each support edge resets ~half the elapsed
-    age (reinforcement); each contradicts edge accelerates decay. Ebbinghaus
-    pattern: decay is exponential with half-life by type, reinforcement
-    effectively rolls back the clock.
+    Pure function — no IO, no LLM. ``supports`` is the summed reinforcement
+    weight (each unit resets ~half a half-life of elapsed age); ``contradicts``
+    is the summed acceleration weight (each unit ages the node by ~half a
+    half-life). Ebbinghaus pattern: decay is exponential with half-life by
+    type, reinforcement effectively rolls back the clock. The parameters are
+    floats since P4 — literal ``supports``/``contradicts`` edges still weigh
+    1.0 each, so legacy integer-count behaviour is preserved exactly.
     """
     half_life = DECAY_HALF_LIFE_DAYS.get(node_type, DECAY_HALF_LIFE_DEFAULT)
     reinforced_age = max(0.0, age_days - 0.5 * half_life * supports)
@@ -381,6 +500,13 @@ def mos_draft_decay_compute() -> dict[str, Any]:
     Pure observation: walks every node, records age, support/contradicts edge
     counts, and effective_confidence. **Does not mutate any node** — Noter is
     forbidden from making claims, so decay is reported, never enforced.
+
+    The confidence math uses the full relation vocabulary via
+    :func:`_relation_weights` (P4): every meaningful edge reinforces or
+    accelerates, not just literal ``supports``/``contradicts``. The sidecar
+    still reports the literal integer ``supports``/``contradicts`` counts for
+    display, plus the summed ``reinforce``/``accelerate`` weights actually fed
+    to the decay function.
 
     Whitelisted to Noter only. Other roles read decay through
     ``mos_draft_summary()`` (which joins the sidecar when present).
@@ -399,17 +525,20 @@ def mos_draft_decay_compute() -> dict[str, Any]:
         created = _parse_iso(node.get("created_at", ""))
         age_days = 0.0 if created is None else max(0.0, (now - created).total_seconds() / 86400.0)
         supports, contradicts = _support_balance(node_id, edges)
+        reinforce, accelerate = _relation_weights(node_id, edges)
         eff = _effective_confidence(
             stored=float(node.get("confidence", 1.0) or 0.0),
             node_type=str(node.get("type", "")),
             age_days=age_days,
-            supports=supports,
-            contradicts=contradicts,
+            supports=reinforce,
+            contradicts=accelerate,
         )
         out[node_id] = {
             "age_days": round(age_days, 2),
             "supports": supports,
             "contradicts": contradicts,
+            "reinforce": round(reinforce, 3),
+            "accelerate": round(accelerate, 3),
             "stored_confidence": float(node.get("confidence", 1.0) or 0.0),
             "effective_confidence": round(eff, 3),
         }

@@ -93,9 +93,19 @@ agent_host: claude
 # cross-role consistency — Sonnet's self-tangling on long Draft / Book
 # curation sessions outweighed the per-token cost gap. The `[1m]` suffix
 # selects the 1M-context variant; bare aliases like `opus` or
-# `claude-opus-4-7` resolve to the 200k window. Override only on short-leaf
+# `claude-opus-4-8` resolve to the 200k window. Override only on short-leaf
 # Noter projects where curation dominates and reasoning depth doesn't matter.
-noter_model: claude-opus-4-7[1m]
+noter_model: claude-opus-4-8[1m]
+
+# Launch every long-lived Role process with the Claude Code `ultracode`
+# session setting: xhigh reasoning effort + standing dynamic-workflow
+# orchestration. NOTE: this is a settings key, NOT an --effort value —
+# `claude --effort ultracode` is rejected by the CLI (valid levels are
+# low/medium/high/xhigh/max). agent_host passes it as
+# `--settings '{"ultracode": true}'`. Per-process override via env:
+# MINIONS_ROLE_ULTRACODE=0 (disable) / 1 (enable). Set false to revert
+# roles to the model's plain default effort.
+role_ultracode: true
 
 # Fallback model (Claude Code 2.1.152+). When the primary model returns a
 # 404 (temporary API outage, model rotation), Claude Code switches to this

@@ -2,14 +2,25 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import json
 import os
 import subprocess
 import sys
+import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+
+# A bounded wall-clock ceiling on the `mos` subprocess. `mos doctor` / `mos
+# status` shell-outs must stay hermetic; if a future change reintroduces a
+# live-backend probe the timeout converts an unbounded hang into a fast,
+# legible failure instead of stalling the whole unit suite.
+_MOS_TIMEOUT = 60.0
+
+_REPO_ROOT = Path(__file__).parent.parent.parent
 
 
 def _run_mos(args: list[str], env_overrides: dict | None = None) -> subprocess.CompletedProcess:
@@ -19,12 +30,53 @@ def _run_mos(args: list[str], env_overrides: dict | None = None) -> subprocess.C
         capture_output=True,
         text=True,
         env=env,
-        cwd=str(Path(__file__).parent.parent.parent),
+        cwd=str(_REPO_ROOT),
+        timeout=_MOS_TIMEOUT,
     )
 
 
+@contextlib.contextmanager
+def _hermetic_root() -> Iterator[str]:
+    """Yield a MINIONS_ROOT that mirrors the real repo but has an empty registry.
+
+    ``mos doctor`` reads many ``MINIONS_ROOT``-relative paths (``.codex``,
+    ``.mcp.json``, ``mcp-servers/``, ``minions/config/`` …) AND iterates every
+    *active* project in ``minions/state/projects.json``, probing each backend
+    over HTTP. On a developer host that registry can hold hundreds of live
+    projects, so a real-root run fans out into hundreds of 3s HTTP probes and
+    appears to hang. We symlink every real top-level entry into a temp root —
+    and every ``minions/`` child except ``state`` — then drop in a fresh empty
+    ``minions/state``. The doctor sees real config/.codex/.mcp.json but a zero
+    -project registry, so it never touches a live backend.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        for entry in _REPO_ROOT.iterdir():
+            if entry.name == "minions":
+                continue
+            (root / entry.name).symlink_to(entry)
+        pkg = root / "minions"
+        pkg.mkdir()
+        real_pkg = _REPO_ROOT / "minions"
+        for child in real_pkg.iterdir():
+            if child.name == "state":
+                continue
+            (pkg / child.name).symlink_to(child)
+        (pkg / "state").mkdir()
+        yield str(root)
+
+
 def _doctor_checks(env_overrides: dict | None = None) -> list[dict]:
-    result = _run_mos(["doctor", "--json"], env_overrides)
+    """Run `mos doctor --json` hermetically and return the checks list.
+
+    Runs against a throwaway root with an empty project registry (see
+    :func:`_hermetic_root`) so no live EACN3 backend is ever probed, keeping
+    the test fast and independent of host state. *env_overrides* still wins for
+    any key it sets (e.g. ``MINIONS_AGENT_HOST``).
+    """
+    with _hermetic_root() as root:
+        env = {"MINIONS_ROOT": root, **(env_overrides or {})}
+        result = _run_mos(["doctor", "--json"], env)
     return json.loads(result.stdout)
 
 
@@ -129,3 +181,50 @@ class TestGruLoopDebugFlag:
 
         importlib.reload(gru_loop)
         assert gru_loop.DEBUG_MODE is True
+
+
+class TestConfigKeyDrift:
+    """`mos upgrade` ships new *.yaml.example keys but never merges them into an
+    existing live *.yaml. The doctor `config-keys-current` check surfaces that
+    gap via `cli._config_key_drift`.
+    """
+
+    def test_no_drift_when_keys_match(self, tmp_path: Path) -> None:
+        from minions import cli
+
+        (tmp_path / "gru.yaml.example").write_text("a: 1\nb: 2\n")
+        (tmp_path / "gru.yaml").write_text("a: 9\nb: 8\n")
+        assert cli._config_key_drift(tmp_path) == []
+
+    def test_detects_missing_key(self, tmp_path: Path) -> None:
+        from minions import cli
+
+        (tmp_path / "gru.yaml.example").write_text("a: 1\nb: 2\nc: 3\n")
+        (tmp_path / "gru.yaml").write_text("a: 1\nb: 2\n")  # missing c
+        drift = cli._config_key_drift(tmp_path)
+        assert len(drift) == 1
+        assert "gru.yaml" in drift[0]
+        assert "c" in drift[0]
+
+    def test_ignores_unseeded_target(self, tmp_path: Path) -> None:
+        from minions import cli
+
+        # Example exists but no live target yet — install.sh will seed it, so
+        # this is not drift.
+        (tmp_path / "gru.yaml.example").write_text("a: 1\n")
+        assert cli._config_key_drift(tmp_path) == []
+
+    def test_extra_live_keys_are_not_drift(self, tmp_path: Path) -> None:
+        from minions import cli
+
+        # Operator added their own key not in the example — that's fine.
+        (tmp_path / "gru.yaml.example").write_text("a: 1\n")
+        (tmp_path / "gru.yaml").write_text("a: 1\nmy_extra: 5\n")
+        assert cli._config_key_drift(tmp_path) == []
+
+    def test_real_config_dir_does_not_crash(self) -> None:
+        from minions import cli
+        from minions.paths import CONFIG_DIR
+
+        # Should return a list (possibly with real drift) and never raise.
+        assert isinstance(cli._config_key_drift(CONFIG_DIR), list)

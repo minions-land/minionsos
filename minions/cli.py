@@ -91,6 +91,37 @@ def _find_orphan_project_dirs(root: Path, known_ports: set[int]) -> list[Path]:
     return out
 
 
+def _config_key_drift(config_dir: Path) -> list[str]:
+    """Top-level keys present in each ``*.yaml.example`` but missing from its
+    live ``*.yaml`` sibling.
+
+    install.sh copies ``*.yaml.example`` → ``*.yaml`` only when the target is
+    ABSENT, so an upgrade that adds new example keys never merges them into an
+    existing live config. Pydantic defaults prevent a crash, but the operator
+    silently never gains the new tunable. Each returned entry is
+    ``"<file>: [missing, keys]"``. Targets that don't exist yet are ignored
+    (install.sh will seed them). Files that fail to parse surface as an
+    ``"<file>: <error>"`` entry rather than being silently dropped.
+    """
+    import yaml
+
+    drift: list[str] = []
+    for example in sorted(config_dir.glob("*.yaml.example")):
+        target = example.with_suffix("")  # drops ".example" → "*.yaml"
+        if not target.exists():
+            continue
+        try:
+            example_keys = set((yaml.safe_load(example.read_text()) or {}).keys())
+            live_keys = set((yaml.safe_load(target.read_text()) or {}).keys())
+        except Exception as exc:
+            drift.append(f"{target.name}: parse error: {exc}")
+            continue
+        missing = sorted(example_keys - live_keys)
+        if missing:
+            drift.append(f"{target.name}: {missing}")
+    return drift
+
+
 # ---------------------------------------------------------------------------
 # status
 # ---------------------------------------------------------------------------
@@ -476,6 +507,26 @@ def doctor(
     except Exception as exc:
         _check("state-dir-writable", False, str(exc))
 
+    # Config-key drift: install.sh seeds *.yaml from *.yaml.example only when
+    # the target is ABSENT, so a `mos upgrade` that ships new example keys never
+    # merges them into an existing live config. Pydantic defaults keep it from
+    # crashing, but the operator silently never gains the new tunable. Surface
+    # any top-level key present in *.yaml.example but missing from the live YAML.
+    try:
+        drift = _config_key_drift(CONFIG_DIR)
+        _check(
+            "config-keys-current",
+            not drift,
+            "all *.yaml have every *.yaml.example key"
+            if not drift
+            else (
+                "new example keys not in live config (defaults apply; "
+                "merge manually to tune): " + "; ".join(drift)
+            ),
+        )
+    except Exception as exc:
+        _check("config-keys-current", False, str(exc))
+
     # Per-project: Gru queue agent and active/sleeping Role AgentCards present.
     try:
         from minions.config import load_gru_config
@@ -548,7 +599,10 @@ def doctor(
     console.print(table)
 
     if not all(
-        c["ok"] for c in checks if not c["name"].startswith("viz-") and c["name"] != "visual-extras"
+        c["ok"]
+        for c in checks
+        if not c["name"].startswith("viz-")
+        and c["name"] not in {"visual-extras", "config-keys-current"}
     ):
         raise typer.Exit(1)
 
@@ -712,7 +766,150 @@ def upgrade_cmd(
         cwd=str(MINIONS_ROOT),
         env=env,
     )
-    raise typer.Exit(install.returncode)
+    if install.returncode != 0:
+        raise typer.Exit(install.returncode)
+
+    # New code/prompts are on disk, but nothing already running has reloaded.
+    # Roles freeze SYSTEM.md + whitelist + MCP authz at launch; the Gru monitor
+    # snapshots gru.yaml once. Detect live processes and tell the operator how
+    # to apply the upgrade to them. This is advisory — never fails the upgrade.
+    try:
+        from minions.lifecycle.restart import (
+            gru_monitor_status,
+            list_active_projects,
+        )
+
+        mon = gru_monitor_status()
+        active = list_active_projects()
+        if mon.get("running") or active:
+            bits = []
+            if mon.get("running"):
+                bits.append(f"Gru monitor (pid {mon.get('pid')})")
+            if active:
+                preview = ", ".join(str(p) for p in active[:8])
+                if len(active) > 8:
+                    preview += f", … (+{len(active) - 8} more)"
+                bits.append(f"{len(active)} active project(s): {preview}")
+            console.print(
+                "[yellow]Note: running processes are still on the OLD code — "
+                + "; ".join(bits)
+                + ".[/yellow]"
+            )
+            console.print(
+                "[yellow]Roles do not hot-reload SYSTEM.md / whitelist / MCP. "
+                "Apply the upgrade to them with:[/yellow]\n"
+                "  [bold]mos restart --all[/bold]    (Gru monitor + every running role)\n"
+                "  [bold]mos restart --gru[/bold]    (just the Gru monitor)\n"
+                "  [bold]mos restart <port>[/bold]   (one project's running roles)"
+            )
+    except Exception as exc:  # advisory only
+        logger.debug("post-upgrade live-process check failed: %s", exc)
+
+    raise typer.Exit(0)
+
+
+@app.command(name="restart")
+def restart_cmd(
+    port: int | None = typer.Argument(None, help="Project port to restart all active roles for."),
+    role: str | None = typer.Option(
+        None, "--role", "-r", help="Restart only this role (requires a port)."
+    ),
+    gru: bool = typer.Option(False, "--gru", help="Restart the Gru monitor / watchdog sidecar."),
+    all_: bool = typer.Option(
+        False, "--all", help="Restart the Gru monitor AND every active project's roles."
+    ),
+    json_flag: bool = typer.Option(False, "--json"),
+) -> None:
+    """Cold-restart live processes so an upgrade's on-disk code/prompts take effect.
+
+    A running Role froze its SYSTEM.md, tool whitelist, and MCP authz at launch;
+    the Gru monitor snapshotted gru.yaml once. After `mos upgrade` (or any edit
+    to a role prompt / whitelist / gru.yaml) the change only reaches a process
+    when it restarts. This command recycles the tmux sessions / monitor process
+    WITHOUT touching project data, EACN DBs, worktrees, or the Draft — roles
+    cold-start and reconstruct context from the Draft (L1).
+
+    Targets:
+      mos restart --all                 Gru monitor + all active projects' roles
+      mos restart --gru                 just the Gru monitor sidecar
+      mos restart <port>                all active roles of one project
+      mos restart <port> --role NAME    one role of one project
+    """
+    from minions.lifecycle.restart import (
+        gru_monitor_status,
+        list_active_projects,
+        restart_gru_monitor,
+        restart_project_roles,
+        restart_role,
+    )
+
+    if role is not None and port is None:
+        raise _fail("--role requires a project port: `mos restart <port> --role NAME`.")
+    if not (all_ or gru or port is not None):
+        raise _fail(
+            "Specify a target: --all, --gru, or a project <port> (optionally with --role NAME)."
+        )
+
+    result: dict[str, object] = {}
+    try:
+        if all_:
+            result["gru_monitor"] = restart_gru_monitor()
+            ports = list_active_projects()
+            result["projects"] = [restart_project_roles(p) for p in ports]
+        else:
+            if gru:
+                result["gru_monitor"] = restart_gru_monitor()
+            if port is not None:
+                if role is not None:
+                    result["role"] = restart_role(port, role)
+                else:
+                    result["projects"] = [restart_project_roles(port)]
+    except MinionsError as e:
+        raise _fail(str(e)) from e
+
+    if json_flag:
+        _json_out(result)
+        return
+
+    if "gru_monitor" in result:
+        gm = cast(dict[str, object], result["gru_monitor"])
+        console.print(
+            f"[green]Gru monitor restarted[/green] "
+            f"(killed {gm.get('killed_pid')} → new pid {gm.get('new_pid')}, host {gm.get('host')})."
+        )
+    if "role" in result:
+        rr = cast(dict[str, object], result["role"])
+        console.print(
+            f"[green]Restarted role {rr.get('role')}[/green] on project {port} "
+            f"(session {rr.get('session_name')})."
+        )
+    projects = cast(list[dict[str, object]], result.get("projects", []) or [])
+    shown = 0
+    for proj in projects:
+        restarted = cast(list[dict[str, object]], proj.get("restarted", []))
+        failed = proj.get("failed", [])
+        # Suppress no-op projects (no live role recycled, nothing failed) so a
+        # fleet restart against hundreds of stale `active` entries stays quiet.
+        if not restarted and not failed:
+            continue
+        shown += 1
+        names = ", ".join(str(r.get("role")) for r in restarted) or "none"
+        console.print(
+            f"[green]Project {proj.get('port')}:[/green] restarted [{names}]"
+            + (f"; [red]failed {failed}[/red]" if failed else "")
+        )
+    if projects and shown == 0:
+        console.print(
+            f"[dim]No live roles to restart across {len(projects)} project(s) "
+            "(none had a running tmux session).[/dim]"
+        )
+    # Surface any monitor that ended up not running (defensive).
+    status = gru_monitor_status()
+    if ("gru_monitor" in result) and not status.get("running"):
+        console.print(
+            "[yellow]Warning: Gru monitor does not appear to be running after restart; "
+            "check minions/state/logs/gru-monitor.log[/yellow]"
+        )
 
 
 # ---------------------------------------------------------------------------

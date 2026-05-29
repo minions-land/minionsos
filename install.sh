@@ -78,6 +78,78 @@ _stamp_save() {
     _stamp_hash "$@" > "$STAMP_DIR/$step"
 }
 
+_src_tree_hash() {
+    # Usage: _src_tree_hash <dir> [<pathspec> ...]
+    # Emit a single sha256 over the *content* of the source files in <dir>.
+    #
+    # Why this exists: the Node components (eacn3 plugin, codex-subagent,
+    # minions-viz) are compiled from TypeScript that lives directly in this
+    # repo. The old freshness checks keyed only on package.json (or a
+    # dist-newer-than-package.json mtime test), so a commit that changed ONLY
+    # *.ts/*.tsx left the stamp "fresh" and `mos upgrade` shipped a stale
+    # build. Hashing the tracked source tree closes that hole.
+    #
+    # Primary path: `git ls-files` enumerates tracked source, and we hash the
+    # working-tree content of each so an uncommitted local edit also rebuilds.
+    # Fallback (no git / detached source export): a sorted find+shasum over the
+    # same extensions. Either way the output is a stable single digest.
+    local dir="$1"; shift
+    local pathspec=("$@")
+    [ ${#pathspec[@]} -gt 0 ] || pathspec=('*.ts' '*.tsx' '*.json' 'tsconfig*.json')
+    if [ ! -d "$dir" ]; then
+        printf '%s' "absent" | shasum -a 256 | cut -d' ' -f1
+        return
+    fi
+    local files=""
+    if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        files="$(git -C "$dir" ls-files -- "${pathspec[@]}" 2>/dev/null | sort)"
+    fi
+    if [ -z "$files" ]; then
+        # Non-git fallback: recursive find, excluding build/dep output.
+        files="$(cd "$dir" && find . \
+            \( -name node_modules -o -name dist -o -name .git \) -prune -o \
+            \( -name '*.ts' -o -name '*.tsx' -o -name '*.json' \) -print 2>/dev/null \
+            | sed 's|^\./||' | sort)"
+    fi
+    if [ -z "$files" ]; then
+        printf '%s' "empty" | shasum -a 256 | cut -d' ' -f1
+        return
+    fi
+    # Hash each file's content (path-prefixed so renames register), then fold
+    # into one digest. Read the relative list from stdin to tolerate spaces.
+    printf '%s\n' "$files" | while IFS= read -r rel; do
+        [ -n "$rel" ] || continue
+        if [ -f "$dir/$rel" ]; then
+            printf '%s:%s\n' "$rel" "$(shasum -a 256 "$dir/$rel" | cut -d' ' -f1)"
+        else
+            printf '%s:missing\n' "$rel"
+        fi
+    done | shasum -a 256 | cut -d' ' -f1
+}
+
+_node_build_fresh() {
+    # Usage: _node_build_fresh <step_name> <dir> <dist_artifact>
+    # Returns 0 (skip build) only when ALL hold:
+    #   - MINIONS_FORCE_INSTALL is unset (force always rebuilds), AND
+    #   - the built dist artifact exists, AND
+    #   - the saved stamp equals a fresh content hash of the source tree.
+    # The stamp value is the source-tree digest, so a source-only commit
+    # (no package.json change) correctly invalidates and forces a rebuild.
+    local step="$1" dir="$2" artifact="$3"
+    [ -z "${MINIONS_FORCE_INSTALL:-}" ] || return 1
+    [ -f "$artifact" ] || return 1
+    local stamp_file="$STAMP_DIR/$step"
+    [ -f "$stamp_file" ] || return 1
+    local current; current="$(_src_tree_hash "$dir")"
+    [ "$(cat "$stamp_file")" = "$current" ]
+}
+
+_node_build_save() {
+    # Usage: _node_build_save <step_name> <dir>
+    local step="$1" dir="$2"
+    _src_tree_hash "$dir" > "$STAMP_DIR/$step"
+}
+
 # ── 0. Launcher permissions first ────────────────────────────────────────────
 # Do this before dependency/build steps so a partially failed install still
 # leaves ./gru, ./mos, ./noter, and ./viz usable for diagnostics.
@@ -353,20 +425,18 @@ else
     fi
 
     EACN3_PLUGIN_DIR="$ROOT/mcp-servers/eacn3/plugin"
-    EACN3_PLUGIN_PKG="$EACN3_PLUGIN_DIR/package.json"
-    EACN3_PLUGIN_LOCK="$EACN3_PLUGIN_DIR/package-lock.json"
-    if _stamp_fresh eacn3_plugin "$EACN3_PLUGIN_PKG" "$EACN3_PLUGIN_LOCK"; then
+    PLUGIN_DIST="$EACN3_PLUGIN_DIR/dist/server.js"
+    if _node_build_fresh eacn3_plugin "$EACN3_PLUGIN_DIR" "$PLUGIN_DIST"; then
         ok "EACN3 MCP plugin — up to date, skipped"
     else
         info "Building EACN3 MCP plugin (npm dependency install + build)..."
-        if ! (npm_project_install "$ROOT/mcp-servers/eacn3/plugin" && cd "$ROOT/mcp-servers/eacn3/plugin" && npm run build); then
+        if ! (npm_project_install "$EACN3_PLUGIN_DIR" && cd "$EACN3_PLUGIN_DIR" && npm run build); then
             die "EACN3 plugin build failed.\n       Inspect the output above; fix the error, then re-run ./install.sh."
         fi
-        PLUGIN_DIST="$ROOT/mcp-servers/eacn3/plugin/dist/server.js"
         if [ ! -f "$PLUGIN_DIST" ]; then
             die "EACN3 plugin build reported success but $PLUGIN_DIST is missing.\n       This indicates a broken build script in mcp-servers/eacn3/plugin/."
         fi
-        _stamp_save eacn3_plugin "$EACN3_PLUGIN_PKG" "$EACN3_PLUGIN_LOCK"
+        _node_build_save eacn3_plugin "$EACN3_PLUGIN_DIR"
         ok "EACN3 MCP plugin built: $PLUGIN_DIST"
     fi
 
@@ -382,19 +452,19 @@ else
     CSA_MARKER="$CSA_DIR/dist/server.js"
     if [ -d "$CSA_DIR" ]; then
         need_csa_build=1
-        if [ -f "$CSA_MARKER" ] && [ -z "${MINIONS_CSA_REBUILD:-}" ]; then
-            # Rebuild only if package.json or any tracked source is newer
-            # than the built artifact. Avoids reinstalling node_modules on
-            # every install.sh run.
-            if [ "$CSA_MARKER" -nt "$CSA_DIR/package.json" ]; then
-                need_csa_build=0
-            fi
+        # Skip only when the built artifact exists AND the tracked source
+        # tree is unchanged since the last build. Honors MINIONS_FORCE_INSTALL
+        # (via _node_build_fresh) and the explicit MINIONS_CSA_REBUILD knob.
+        if [ -z "${MINIONS_CSA_REBUILD:-}" ] \
+            && _node_build_fresh codex_subagent "$CSA_DIR" "$CSA_MARKER"; then
+            need_csa_build=0
         fi
         if [ "$need_csa_build" = "1" ]; then
             info "Building codex-subagent MCP (npm install + build)..."
             if npm_project_install "$CSA_DIR" \
                 && (cd "$CSA_DIR" && npm run build); then
                 if [ -f "$CSA_MARKER" ]; then
+                    _node_build_save codex_subagent "$CSA_DIR"
                     ok "codex-subagent built: $CSA_MARKER"
                 else
                     warn "codex-subagent npm build reported success but $CSA_MARKER is missing."
@@ -416,15 +486,17 @@ else
     VIZ_MARKER="$VIZ_DIR/dist/web/index.html"
     if [ -d "$VIZ_DIR" ]; then
         need_build=1
-        if [ -f "$VIZ_MARKER" ] && [ -z "${MINIONS_VIZ_REBUILD:-}" ]; then
-            if [ "$VIZ_MARKER" -nt "$VIZ_DIR/package.json" ]; then
-                need_build=0
-            fi
+        if [ -z "${MINIONS_VIZ_REBUILD:-}" ] \
+            && _node_build_fresh minions_viz "$VIZ_DIR" "$VIZ_MARKER"; then
+            need_build=0
         fi
         if [ "$need_build" = "1" ]; then
             info "Building minions-viz Observatory (npm dependency install + build)..."
             npm_project_install "$VIZ_DIR"
             (cd "$VIZ_DIR" && npm run build)
+            if [ -f "$VIZ_MARKER" ]; then
+                _node_build_save minions_viz "$VIZ_DIR"
+            fi
             ok "minions-viz built"
         else
             ok "minions-viz already built (set MINIONS_VIZ_REBUILD=1 to force)"

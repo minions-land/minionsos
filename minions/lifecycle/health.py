@@ -4,16 +4,23 @@ Crash threshold (per spec §3 / §7):
 - Backend: 3 crashes within 1 h → notify author, stop auto-restart.
 - Role: 3 crashes within 1 h → mark dismissed, notify author.
 
-The crash counters are in-process (not persisted); they reset on process
-restart.  The Gru loop (``minions/gru/loop.py``) calls these helpers.
+The crash counters are **persisted to disk** (``state/crash_counter.json``) so
+the rolling-window guard survives a monitor restart — notably the restart that
+``mos upgrade`` itself performs, which previously reset the guard and let a
+crash-looping backend/role evade the ≥3-in-1h threshold. Timestamps use
+wall-clock ``time.time()`` (not ``time.monotonic()``) precisely so they remain
+comparable across processes. The Gru loop (``minions/gru/loop.py``) calls these
+helpers.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
+import threading
 import time
-from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,7 +29,7 @@ from typing import Any
 import httpx
 
 from minions.config import load_gru_config
-from minions.paths import project_logs_dir
+from minions.paths import STATE_DIR, project_logs_dir
 
 logger = logging.getLogger(__name__)
 
@@ -120,73 +127,154 @@ class _CrashRecord:
     timestamps: list[float] = field(default_factory=list)
 
 
+def crash_counter_path() -> Path:
+    """Return the on-disk persistence path for the crash counter."""
+    return STATE_DIR / "crash_counter.json"
+
+
 class CrashCounter:
-    """Rolling-window crash counter for backends and roles.
+    """Rolling-window crash counter for backends and roles, persisted to disk.
+
+    Crash timestamps survive a monitor process restart (including the restart
+    ``mos upgrade`` performs) so the ≥3-in-1h guard cannot be reset by simply
+    recycling the monitor. Wall-clock ``time.time()`` is used so timestamps are
+    comparable across processes.
 
     Usage::
 
         counter = CrashCounter()
-        counter.record_crash("backend", port=37596)
-        if counter.threshold_exceeded("backend", port=37596):
+        counter.record_backend_crash(port=37596)
+        if counter.backend_threshold_exceeded(port=37596):
             # notify author
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, path: Path | None = None) -> None:
         cfg = load_gru_config()
         self._window: float = float(cfg.crash_window_seconds)
         self._backend_threshold: int = cfg.backend_crash_threshold
         self._role_threshold: int = cfg.role_crash_threshold
-        self._backend_crashes: dict[int, _CrashRecord] = defaultdict(_CrashRecord)
-        self._role_crashes: dict[tuple[int, str], _CrashRecord] = defaultdict(_CrashRecord)
+        self._path: Path = path if path is not None else crash_counter_path()
+        self._lock = threading.Lock()
+        self._backend_crashes: dict[int, _CrashRecord] = {}
+        self._role_crashes: dict[tuple[int, str], _CrashRecord] = {}
+        self._load()
+
+    # -- persistence -------------------------------------------------------
+
+    def _load(self) -> None:
+        """Load persisted timestamps, pruning anything already outside the window."""
+        try:
+            raw = json.loads(self._path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return
+        cutoff = time.time() - self._window
+        for port_s, ts in (raw.get("backend") or {}).items():
+            kept = [float(t) for t in ts if float(t) >= cutoff]
+            if kept:
+                try:
+                    self._backend_crashes[int(port_s)] = _CrashRecord(kept)
+                except ValueError:
+                    continue
+        for key_s, ts in (raw.get("role") or {}).items():
+            # role keys serialize as "port\x1frole_name"
+            port_part, _, role_name = str(key_s).partition("\x1f")
+            kept = [float(t) for t in ts if float(t) >= cutoff]
+            if kept and role_name:
+                try:
+                    self._role_crashes[(int(port_part), role_name)] = _CrashRecord(kept)
+                except ValueError:
+                    continue
+
+    def _save(self) -> None:
+        """Persist current timestamps atomically (tmp-in-same-dir + os.replace).
+
+        Never raises — a persistence failure must not take down the monitor.
+        """
+        payload = {
+            "backend": {str(p): r.timestamps for p, r in self._backend_crashes.items()},
+            "role": {f"{p}\x1f{name}": r.timestamps for (p, name), r in self._role_crashes.items()},
+        }
+        try:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(dir=str(self._path.parent), suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    json.dump(payload, fh)
+                os.replace(tmp, self._path)
+            finally:
+                if os.path.exists(tmp):
+                    os.unlink(tmp)
+        except Exception as exc:
+            logger.warning("CrashCounter persist failed path=%s: %s", self._path, exc)
+
+    # -- internal ----------------------------------------------------------
 
     def _prune(self, record: _CrashRecord) -> None:
-        cutoff = time.monotonic() - self._window
+        cutoff = time.time() - self._window
         record.timestamps = [t for t in record.timestamps if t >= cutoff]
+
+    # -- backend -----------------------------------------------------------
 
     def record_backend_crash(self, port: int) -> None:
         """Record a backend crash for *port*."""
-        record = self._backend_crashes[port]
-        record.timestamps.append(time.monotonic())
-        self._prune(record)
+        with self._lock:
+            record = self._backend_crashes.setdefault(port, _CrashRecord())
+            record.timestamps.append(time.time())
+            self._prune(record)
+            count = len(record.timestamps)
+            self._save()
         logger.warning(
             "Backend crash recorded: port=%d count_in_window=%d",
             port,
-            len(record.timestamps),
+            count,
         )
 
     def backend_threshold_exceeded(self, port: int) -> bool:
         """Return True if the backend crash threshold has been exceeded for *port*."""
-        record = self._backend_crashes[port]
-        self._prune(record)
-        return len(record.timestamps) >= self._backend_threshold
+        with self._lock:
+            record = self._backend_crashes.setdefault(port, _CrashRecord())
+            self._prune(record)
+            return len(record.timestamps) >= self._backend_threshold
+
+    def reset_backend(self, port: int) -> None:
+        """Reset crash counter for *port* (e.g. after successful restart)."""
+        with self._lock:
+            if port in self._backend_crashes:
+                del self._backend_crashes[port]
+                self._save()
+
+    # -- role --------------------------------------------------------------
 
     def record_role_crash(self, port: int, role_name: str) -> None:
         """Record a role crash for (*port*, *role_name*)."""
         key = (port, role_name)
-        record = self._role_crashes[key]
-        record.timestamps.append(time.monotonic())
-        self._prune(record)
+        with self._lock:
+            record = self._role_crashes.setdefault(key, _CrashRecord())
+            record.timestamps.append(time.time())
+            self._prune(record)
+            count = len(record.timestamps)
+            self._save()
         logger.warning(
             "Role crash recorded: port=%d role=%r count_in_window=%d",
             port,
             role_name,
-            len(record.timestamps),
+            count,
         )
 
     def role_threshold_exceeded(self, port: int, role_name: str) -> bool:
         """Return True if the role crash threshold has been exceeded."""
         key = (port, role_name)
-        record = self._role_crashes[key]
-        self._prune(record)
-        return len(record.timestamps) >= self._role_threshold
-
-    def reset_backend(self, port: int) -> None:
-        """Reset crash counter for *port* (e.g. after successful restart)."""
-        self._backend_crashes[port] = _CrashRecord()
+        with self._lock:
+            record = self._role_crashes.setdefault(key, _CrashRecord())
+            self._prune(record)
+            return len(record.timestamps) >= self._role_threshold
 
     def reset_role(self, port: int, role_name: str) -> None:
         """Reset crash counter for (*port*, *role_name*)."""
-        self._role_crashes[(port, role_name)] = _CrashRecord()
+        with self._lock:
+            if (port, role_name) in self._role_crashes:
+                del self._role_crashes[(port, role_name)]
+                self._save()
 
 
 # Module-level singleton for use by the Gru loop.

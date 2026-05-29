@@ -205,7 +205,21 @@ class TestWhitelistResolver:
 class TestGruConfigModel:
     def test_default_claude_model(self, tmp_path: Path) -> None:
         cfg = load_gru_config(tmp_path / "nonexistent.yaml")
-        assert cfg.claude_model == "claude-opus-4-7[1m]"
+        assert cfg.claude_model == "claude-opus-4-8[1m]"
+
+    def test_default_noter_model(self, tmp_path: Path) -> None:
+        cfg = load_gru_config(tmp_path / "nonexistent.yaml")
+        assert cfg.noter_model == "claude-opus-4-8[1m]"
+
+    def test_default_role_ultracode_on(self, tmp_path: Path) -> None:
+        cfg = load_gru_config(tmp_path / "nonexistent.yaml")
+        assert cfg.role_ultracode is True
+
+    def test_role_ultracode_overridable(self, tmp_path: Path) -> None:
+        p = tmp_path / "gru.yaml"
+        p.write_text(yaml.dump({"role_ultracode": False}))
+        cfg = load_gru_config(p)
+        assert cfg.role_ultracode is False
 
     def test_custom_claude_model(self, tmp_path: Path) -> None:
         p = tmp_path / "gru.yaml"

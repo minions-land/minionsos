@@ -158,6 +158,7 @@ def build_role_invocation(
     claude_session_id: str | None = None,
     hermetic_cwd: Path | None = None,
     add_dirs: list[Path] | None = None,
+    ultracode: bool = False,
 ) -> RoleInvocation:
     """Build the ``claude`` invocation for a long-lived Role.
 
@@ -199,6 +200,20 @@ def build_role_invocation(
     ]
     if model:
         cmd += ["--model", model]
+    if ultracode:
+        # ultracode == xhigh reasoning effort + standing dynamic-workflow
+        # orchestration. It is a Claude Code *session setting*, NOT an
+        # --effort value: `claude --effort ultracode` is rejected by the CLI
+        # validator (valid --effort levels are low/medium/high/xhigh/max).
+        # The binary documents it as "set per session via the `ultracode`
+        # settings key (--settings ...)", and internally
+        # `settings.ultracode===true` resolves the effort to "xhigh" while
+        # enabling the standing workflow-orchestration posture. We therefore
+        # pass it through --settings as a JSON literal. --settings merges
+        # additively over the resolved settings stack, so this does not clobber
+        # other settings the role inherits. Verified working against
+        # claude 2.1.156 via a live --print probe (2026-05-29).
+        cmd += ["--settings", '{"ultracode": true}']
     # NOTE: --fallback-model is intentionally NOT applied here. The Claude
     # Code 2.1.152 CLI documents it as "only works with --print", and
     # empirical testing under a real PTY confirms the flag is silently

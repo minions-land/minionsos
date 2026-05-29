@@ -43,6 +43,31 @@ def test_claude_invocation_basic_argv(tmp_path: Path, monkeypatch: pytest.Monkey
     assert "--print" not in invocation.command
 
 
+def test_ultracode_omitted_by_default(tmp_path: Path) -> None:
+    # ultracode is opt-in at the builder layer; role_launcher passes the
+    # cfg-resolved value. With no override the builder must not emit --settings.
+    invocation = _build(tmp_path)
+    assert "--settings" not in invocation.command
+
+
+def test_ultracode_emits_settings_flag(tmp_path: Path) -> None:
+    invocation = _build(tmp_path, ultracode=True)
+    cmd = invocation.command
+    assert "--settings" in cmd
+    # The value must be the ultracode JSON literal, NOT an --effort flag:
+    # `claude --effort ultracode` is rejected by the CLI validator.
+    idx = cmd.index("--settings")
+    assert cmd[idx + 1] == '{"ultracode": true}'
+    assert "--effort" not in cmd
+
+
+def test_ultracode_pairs_with_model(tmp_path: Path) -> None:
+    invocation = _build(tmp_path, model="claude-opus-4-8[1m]", ultracode=True)
+    cmd = invocation.command
+    assert "--model" in cmd and cmd[cmd.index("--model") + 1] == "claude-opus-4-8[1m]"
+    assert "--settings" in cmd
+
+
 def test_claude_invocation_carries_session_name(tmp_path: Path) -> None:
     invocation = _build(tmp_path, session_name="p37596/coder")
     assert "--name" in invocation.command

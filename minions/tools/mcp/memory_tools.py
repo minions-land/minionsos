@@ -201,15 +201,26 @@ async def mos_book_query(
     text: str,
     max_pages: int = 5,
     include_status: bool = True,
+    include_contradictions: bool = False,
 ) -> _book.BookQueryResult:
-    """Query Book index entries with progressive disclosure.
+    """Query Book pages (title + filename + body) with progressive disclosure.
 
-    Each match includes ``status`` (frontmatter ``status:`` value) when
-    ``include_status=True`` (default), so a role can see at a glance
-    whether a hit is contradicted/resolved/active before opening it.
+    Scoring is body-aware (title/filename token overlap + BM25 over the page
+    body), so a content question retrieves a distilled page even when the
+    query words are not in its filename. Each match includes ``status``
+    (frontmatter ``status:`` value) when ``include_status=True`` (default),
+    so a role can see at a glance whether a hit is contradicted/resolved/
+    active before opening it. ``contradiction-*`` pages are excluded unless
+    ``include_contradictions=True`` — reach them via each match's
+    ``relations`` edges.
     """
     _require_tool_allowed("mos_book_query")
-    return _book.mos_book_query(text=text, max_pages=max_pages, include_status=include_status)
+    return _book.mos_book_query(
+        text=text,
+        max_pages=max_pages,
+        include_status=include_status,
+        include_contradictions=include_contradictions,
+    )
 
 
 @mcp.tool()

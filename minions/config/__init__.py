@@ -1260,21 +1260,34 @@ class GruConfig(BaseModel):
         ),
     )
     claude_model: str = Field(
-        default="claude-opus-4-7[1m]",
+        default="claude-opus-4-8[1m]",
         description=(
             "Claude model name passed to the claude CLI. The `[1m]` suffix "
             "selects the 1M-context variant; without it the runtime falls back "
-            "to the 200k window. Use `claude-opus-4-7` for the 200k variant."
+            "to the 200k window. Use `claude-opus-4-8` for the 200k variant."
         ),
     )
     noter_model: str = Field(
-        default="claude-opus-4-7[1m]",
+        default="claude-opus-4-8[1m]",
         description=(
             "Model for the Noter role. As of v15.19.1, all roles default to "
             "Opus for cross-role consistency — Sonnet's self-tangling on long "
             "Draft sessions outweighed the per-token cost difference. The "
             "`[1m]` suffix is required for the 1M-context variant; bare aliases "
-            "like `opus` or `claude-opus-4-7` resolve to the 200k window."
+            "like `opus` or `claude-opus-4-8` resolve to the 200k window."
+        ),
+    )
+    role_ultracode: bool = Field(
+        default=True,
+        description=(
+            "Launch every long-lived Role process with the Claude Code "
+            "`ultracode` session setting (xhigh reasoning effort + standing "
+            "dynamic-workflow orchestration). Wired via `--settings "
+            "'{\"ultracode\": true}'' in agent_host (NOT `--effort ultracode`; "
+            "the CLI rejects that value — valid --effort levels are "
+            "low/medium/high/xhigh/max). Per-process override: env "
+            "MINIONS_ROLE_ULTRACODE=0/1. Set false to revert roles to the "
+            "model's plain default effort."
         ),
     )
     fallback_model: str | None = Field(
@@ -1324,6 +1337,8 @@ class GruConfig(BaseModel):
 
     _KNOWN_MODELS: frozenset[str] = frozenset(
         {
+            "claude-opus-4-8",
+            "claude-opus-4-8[1m]",
             "claude-opus-4-7",
             "claude-opus-4-7[1m]",
             "claude-sonnet-4-6",

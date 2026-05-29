@@ -29,5 +29,8 @@ jobs:
       - name: Lint with ruff
         run: uv run ruff check .
 
+      - name: Type-check minions core with ty
+        run: uv run ty check minions
+
       - name: Run unit tests
         run: uv run pytest tests/unit -q

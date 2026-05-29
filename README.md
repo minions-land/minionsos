@@ -225,6 +225,44 @@ the EACN3 MCP plugin, builds MinionsVIZ when needed, creates launcher
 symlinks, and copies `minions/config/*.yaml.example` to local `.yaml` files
 without overwriting existing config.
 
+### Update
+
+Pull a new release without disturbing your running projects:
+
+```bash
+./mos upgrade           # git pull --ff-only && incremental ./install.sh
+./mos restart --all     # apply the new code/prompts to running processes
+```
+
+`mos upgrade` only touches the repo: it fast-forwards `git`, then runs an
+incremental `install.sh` that rebuilds only what changed (Python deps, the
+EACN3 plugin, codex-subagent, MinionsVIZ — each gated on a content hash of its
+source tree, so a source-only commit rebuilds correctly). Your projects under
+`projects/` are gitignored and never touched; EACN3 databases, worktrees, and
+the Draft survive untouched.
+
+What `upgrade` does **not** do is restart anything already running. A live Role
+froze its `SYSTEM.md`, tool whitelist, and MCP authorization at launch, and the
+Gru monitor snapshotted `gru.yaml` once — none of these hot-reload. To apply an
+upgrade to live processes, cold-restart them:
+
+```bash
+./mos restart --all              # Gru monitor + every running role
+./mos restart --gru              # just the Gru monitor / watchdog sidecar
+./mos restart <port>             # one project's running roles
+./mos restart <port> --role coder  # a single role
+```
+
+Restart only recycles processes that are actually running; a not-running role
+is left for the watchdog (or `mos project revive`) to start later on the new
+code. Roles cold-start and reconstruct context from the Draft (L1), so no work
+is lost. After upgrading, `mos upgrade` prints the exact restart command for
+any live processes it detects.
+
+`mos doctor` includes a `config-keys-current` check that flags any new
+`*.yaml.example` key that an upgrade added but your existing local `*.yaml`
+never gained (defaults still apply — merge the key manually to tune it).
+
 ### Configure
 
 Local configuration lives under `minions/config/` and is intentionally ignored
@@ -843,6 +881,41 @@ cd MinionsOS
 安装本地 `mcp-servers/eacn3/`、构建 EACN3 MCP 插件、按需构建 MinionsVIZ、
 创建启动脚本链接，并把 `minions/config/*.yaml.example` 复制为本地 `.yaml`
 配置且不覆盖已有文件。
+
+### 更新
+
+拉取新版本而不破坏正在运行的项目：
+
+```bash
+./mos upgrade           # git pull --ff-only && 增量 ./install.sh
+./mos restart --all     # 把新代码/prompt 应用到正在运行的进程
+```
+
+`mos upgrade` 只动仓库本身：先 fast-forward `git`，再跑增量 `install.sh`，
+只重建发生变化的部分（Python 依赖、EACN3 插件、codex-subagent、MinionsVIZ
+—— 每一项都按其源码树的内容哈希判定，所以只改源码的提交也能正确触发重建）。
+`projects/` 下的项目已被 gitignore，完全不受影响；EACN3 数据库、worktree、
+Draft 都原样保留。
+
+`upgrade` **不会**重启任何已在运行的进程。一个活跃的 Role 在启动时就冻结了它的
+`SYSTEM.md`、工具白名单和 MCP 授权，Gru monitor 也只在启动时读取过一次
+`gru.yaml` —— 这些都不会热重载。要把升级应用到活跃进程，需要冷重启：
+
+```bash
+./mos restart --all              # Gru monitor + 所有正在运行的 Role
+./mos restart --gru              # 仅 Gru monitor / 看门狗 sidecar
+./mos restart <port>             # 某个项目正在运行的 Role
+./mos restart <port> --role coder  # 单个 Role
+```
+
+restart 只回收真正在运行的进程；没在运行的 Role 会留给看门狗（或
+`mos project revive`）之后用新代码启动。Role 冷启动后会从 Draft（L1）重建
+上下文，不丢工作。升级完成后，`mos upgrade` 会针对检测到的活跃进程打印出
+对应的 restart 命令。
+
+`mos doctor` 含一项 `config-keys-current` 检查：当升级新增了某个
+`*.yaml.example` 键、而你已有的本地 `*.yaml` 没有同步到时会被标出（此时仍走
+默认值 —— 手动合并该键即可调参）。
 
 ### 配置
 

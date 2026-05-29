@@ -25,6 +25,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import math
 import os
 import re
 from collections import Counter
@@ -79,33 +80,87 @@ _NEGATION_MARKERS = frozenset(
 _COMMON_SHARED_TERMS = frozenset(
     {
         "about",
+        "across",
         "after",
         "again",
+        "among",
+        "around",
         "because",
         "before",
+        "behind",
         "being",
+        "below",
+        "between",
+        "beyond",
         "could",
+        "during",
         "first",
         "frontmatter",
         "index",
+        "instead",
         "other",
         "page",
         "pages",
         "shared",
         "should",
+        "since",
         "source",
         "sources",
+        "their",
         "there",
         "these",
         "those",
         "through",
         "title",
+        "toward",
         "under",
+        "until",
+        "versus",
         "where",
         "which",
         "while",
+        "within",
         "would",
     }
+)
+# P2 subject-gate (2026-05-29 audit): the lexical detector fired on 71% false
+# positives because a single shared >=5-char token + asymmetric nearby
+# negation was enough. Most FPs rode on provenance/scaffolding nouns (role
+# names, GPU/harness words, dates) or on stock idioms ("load-bearing"). These
+# sets gate the shared term to plausible *claim subjects* only.
+_PROVENANCE_SHARED_TERMS = frozenset(
+    {
+        "artifact",
+        "bench",
+        "coder",
+        "commit",
+        "cuda",
+        "ethics",
+        "expert",
+        "gru",
+        "harness",
+        "kernel",
+        "noter",
+        "phase",
+        "profiler",
+        "reel",
+        "report",
+        "scaffolding",
+        "session",
+        "torch",
+        "wrapper",
+        "writer",
+    }
+)
+# Stock phrases whose negation marker is idiomatic, not an assertion about the
+# shared term. If either excerpt contains one, the pair is not a contradiction.
+_CONTRADICTION_IDIOMS = (
+    "load-bearing",
+    "load bearing",
+    "no blocking flags",
+    "not applicable",
+    "not_refuted",
+    "not refuted",
 )
 _MIN_CONTRADICTION_SENTENCE_CHARS = 40
 _MIN_SHARED_TERM_CHARS = 5
@@ -414,14 +469,37 @@ def _strip_frontmatter(text: str) -> str:
     return text
 
 
+def _is_structural_line(sentence: str) -> bool:
+    """True for non-claim lines: headings, tables, provenance bylines, dates.
+
+    P2 gate (2026-05-29 audit): these lines are not declarative claims, so a
+    shared token between two of them is never a real contradiction. Filtering
+    them out removed the bulk of the detector's 71% false-positive rate.
+    """
+    s = sentence.strip()
+    if not s:
+        return True
+    if s[0] in "#|>":  # markdown heading, table row, residual blockquote
+        return True
+    # Provenance byline: "**Coder · 2026-05-28 · cuda:1 ..." — a middot or a
+    # leading bold-role stamp marks metadata, not an assertion.
+    if "·" in s[:40]:
+        return True
+    lowered = s.lower()
+    return lowered.startswith(("**coder", "**noter", "**expert", "**ethics", "**writer", "**gru"))
+
+
 def _sentence_candidates(text: str) -> list[str]:
     body = _strip_frontmatter(text)
     body = re.sub(r"^>+\s?", "", body, flags=re.MULTILINE)
     sentences: list[str] = []
     for chunk in _SENTENCE_SPLIT_RE.split(body):
         sentence = " ".join(chunk.strip().split())
-        if len(sentence) >= _MIN_CONTRADICTION_SENTENCE_CHARS:
-            sentences.append(sentence)
+        if len(sentence) < _MIN_CONTRADICTION_SENTENCE_CHARS:
+            continue
+        if _is_structural_line(sentence):
+            continue
+        sentences.append(sentence)
     return sentences
 
 
@@ -432,22 +510,20 @@ def _tokens_for_sentence(sentence: str) -> list[str]:
 
 
 def _shared_claim_terms(left_tokens: list[str], right_tokens: list[str]) -> list[str]:
-    right_terms = {
-        token
-        for token in right_tokens
-        if len(token) >= _MIN_SHARED_TERM_CHARS
-        and token not in _NEGATION_MARKERS
-        and token not in _COMMON_SHARED_TERMS
-    }
+    def _is_subject(token: str) -> bool:
+        return (
+            len(token) >= _MIN_SHARED_TERM_CHARS
+            and token not in _NEGATION_MARKERS
+            and token not in _COMMON_SHARED_TERMS
+            and token not in _PROVENANCE_SHARED_TERMS  # P2: drop provenance/scaffolding nouns
+            and not token.isdigit()  # P2: drop bare dates / numeric ids
+        )
+
+    right_terms = {token for token in right_tokens if _is_subject(token)}
     seen: set[str] = set()
     terms: list[str] = []
     for token in left_tokens:
-        if (
-            token in right_terms
-            and token not in seen
-            and token not in _NEGATION_MARKERS
-            and token not in _COMMON_SHARED_TERMS
-        ):
+        if token in right_terms and token not in seen and _is_subject(token):
             seen.add(token)
             terms.append(token)
     return terms
@@ -465,6 +541,11 @@ def _negated_terms(tokens: list[str], terms: set[str]) -> set[str]:
 
 
 def _opposed_shared_terms(new_sentence: str, existing_sentence: str) -> list[str]:
+    # P2: stock idioms carry an idiomatic negation, not an assertion about the
+    # shared term — skip the pair entirely if either side is idiomatic.
+    combined = f"{new_sentence}\n{existing_sentence}".lower()
+    if any(idiom in combined for idiom in _CONTRADICTION_IDIOMS):
+        return []
     new_tokens = _tokens_for_sentence(new_sentence)
     existing_tokens = _tokens_for_sentence(existing_sentence)
     shared_terms = _shared_claim_terms(new_tokens, existing_tokens)
@@ -1287,6 +1368,11 @@ def _short_lint_value(value: object, *, limit: int = 160) -> str:
 
 
 def _render_lint_hot_block(result: dict[str, object]) -> str:
+    # P3 (2026-05-29 audit): hot.md is injected at every role wake, and the
+    # verbose per-finding list dominated it (≈21 of 22 lines were lint noise,
+    # 1:21 signal:lint). The full findings already persist in book/log.md, so
+    # the wake cache keeps only the count line + a pointer; this hands the
+    # reclaimed wake-budget back to actual research signal.
     lines = [
         _LINT_SUMMARY_START,
         "## Book Lint",
@@ -1301,20 +1387,21 @@ def _render_lint_hot_block(result: dict[str, object]) -> str:
     if error:
         lines.append(f"error: {_short_lint_value(error)}")
 
-    findings = result.get("findings", [])
-    if isinstance(findings, list) and findings:
-        lines.extend(["", "Top findings:"])
-        for finding in findings[:10]:
-            if not isinstance(finding, dict):
-                continue
-            severity = _short_lint_value(finding.get("severity", "info"), limit=24)
-            check = _short_lint_value(finding.get("check", ""), limit=40)
-            slug = _short_lint_value(finding.get("slug", ""), limit=80)
-            book_path = _short_lint_value(finding.get("book_path", ""), limit=120)
-            detail = _short_lint_value(finding.get("detail", ""), limit=140)
-            lines.append(f"- {severity} {check}: `{slug}` at `{book_path}` - {detail}")
+    findings_raw = result.get("findings", [])
+    findings = findings_raw if isinstance(findings_raw, list) else []
+    finding_count = len(findings)
+    if finding_count:
+        # One-line pointer instead of the full list — drill into book/log.md.
+        warnings = sum(
+            1
+            for f in findings
+            if isinstance(f, dict) and str(cast(dict, f).get("severity", "")).lower() == "warning"
+        )
+        lines.append(
+            f"findings: {finding_count} ({warnings} warning) — see `book/log.md` for detail."
+        )
     else:
-        lines.extend(["", "No lint findings."])
+        lines.append("findings: 0.")
 
     lines.append(_LINT_SUMMARY_END)
     return "\n".join(lines).rstrip() + "\n"
@@ -1726,6 +1813,87 @@ def mos_book_ingest(
 
 def _tokens(text: str) -> set[str]:
     return {token for token in _TOKEN_RE.findall(text.lower()) if len(token) >= 3}
+
+
+def _token_list(text: str) -> list[str]:
+    """Ordered token list (with repeats) for term-frequency scoring."""
+    return [token for token in _TOKEN_RE.findall(text.lower()) if len(token) >= 3]
+
+
+def _is_contradiction_entry(entry: dict[str, str]) -> bool:
+    """True if an index entry points at a tool-derived contradiction page.
+
+    Contradiction pages are W2 callouts, not knowledge. They were polluting
+    ~58% of ``mos_book_query`` result slots on live projects (the detector's
+    lexical pass is high-recall / low-precision), so they are excluded from
+    knowledge retrieval by default and reached instead through the
+    ``relations`` edges on their source pages.
+    """
+    kind = (entry.get("page_kind") or entry.get("type") or "").strip().strip("`")
+    if kind == "contradiction":
+        return True
+    slug = (entry.get("slug") or "").strip().strip("`")
+    book_path = (entry.get("book_path") or "").strip().strip("`")
+    return slug.startswith("contradiction-") or "/contradictions/" in book_path
+
+
+def _read_page_body_tokens(book_root: Path, book_path: str) -> list[str]:
+    """Tokenize a Book page body (frontmatter stripped) for BM25 scoring."""
+    abs_path = book_root.parent.parent.parent / "branches" / "shared" / book_path
+    if not abs_path.exists():
+        rel = book_path[len("book/") :] if book_path.startswith("book/") else book_path
+        abs_path = book_root / rel
+    if not abs_path.exists():
+        return []
+    try:
+        text = abs_path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return []
+    return _token_list(_strip_frontmatter(text))
+
+
+def _bm25_scores(
+    query_tokens: set[str],
+    docs: dict[str, list[str]],
+    *,
+    k1: float = 1.5,
+    b: float = 0.75,
+) -> dict[str, float]:
+    """Okapi BM25 over a small in-memory corpus. Pure function, no LLM.
+
+    ``docs`` maps page slug -> body token list. Returns slug -> score for
+    pages with a positive score only. This is the body-aware retrieval layer
+    that lifted content-query recall from 0/17 to 16/17 on the live CODA
+    project audit (2026-05-29) versus the prior title+filename-only match.
+    """
+    n_docs = len(docs)
+    if not query_tokens or n_docs == 0:
+        return {}
+    df: Counter[str] = Counter()
+    for tokens in docs.values():
+        for term in set(tokens):
+            if term in query_tokens:
+                df[term] += 1
+    total_len = sum(len(tokens) for tokens in docs.values())
+    avgdl = (total_len / n_docs) if n_docs else 0.0
+    scores: dict[str, float] = {}
+    for slug, tokens in docs.items():
+        if not tokens:
+            continue
+        tf = Counter(tokens)
+        dl = len(tokens)
+        score = 0.0
+        for term in query_tokens:
+            term_freq = tf.get(term, 0)
+            if term_freq == 0:
+                continue
+            doc_freq = df.get(term, 0)
+            idf = math.log(1 + (n_docs - doc_freq + 0.5) / (doc_freq + 0.5))
+            denom = term_freq + k1 * (1 - b + b * (dl / avgdl if avgdl else 0.0))
+            score += idf * (term_freq * (k1 + 1)) / denom if denom else 0.0
+        if score > 0:
+            scores[slug] = score
+    return scores
 
 
 def mos_book_ingest_batch(
@@ -2306,14 +2474,21 @@ def mos_book_query(
     port: int | None = None,
     include_status: bool = True,
     include_relations: bool = True,
+    include_contradictions: bool = False,
     status_filter: str | None = None,
     paper_role_filter: str | None = None,
 ) -> BookQueryResult:
-    """Keyword-only search over book/index.md headers + page filenames.
+    """Body-aware keyword search over Book pages (title + filename + body).
+
+    Scoring combines an integer title/filename token-overlap with an Okapi
+    BM25 score over the page **body**. The body signal is what lets a role
+    retrieve a distilled page by a content question even when the query words
+    are not in the (often opaque-ID) filename — on the live CODA audit
+    (2026-05-29) this lifted content-query recall from 0/17 to 16/17.
 
     Args:
-        text: Free-text query; tokenized and matched against page titles
-            and filenames.
+        text: Free-text query; tokenized and matched against page titles,
+            filenames, and bodies.
         max_pages: Maximum number of matches to return (default 5).
         port: Project port (default: read from env).
         include_status: If True (default), each match carries a ``status``
@@ -2327,6 +2502,11 @@ def mos_book_query(
             directory). Each edge is ``{"to", "relation", "evidence"}``.
             Lets a role drill from a source into the pages that
             contradict it without an extra index read.
+        include_contradictions: If False (default), ``contradiction-*`` pages
+            are excluded from results — they are tool-derived W2 callouts,
+            not knowledge, and the lexical detector's low precision was
+            occupying ~58% of result slots. Reach them through the
+            ``relations`` edges instead. Set True to include them.
 
     Returns:
         A :class:`BookQueryResult` (dict-like) with ``matches``, ``total``,
@@ -2342,6 +2522,8 @@ def mos_book_query(
         return BookQueryResult(matches=[], total=0, queried=text)
 
     entries = _parse_index_entries(index_path.read_text(encoding="utf-8"))
+    if not include_contradictions:
+        entries = [e for e in entries if not _is_contradiction_entry(e)]
     edges_by_from: dict[str, list[dict[str, str]]] = {}
     if include_relations:
         for edge in _scan_book_edges(book_root):
@@ -2352,10 +2534,21 @@ def mos_book_query(
                     "evidence": edge["evidence"],
                 }
             )
+
+    # Build the BM25 body corpus once over the candidate entries, then score
+    # each page as (title/filename overlap) + (BM25 over body). The body term
+    # surfaces content-only matches the title-only pass missed.
+    body_tokens_by_slug: dict[str, list[str]] = {
+        entry["slug"]: _read_page_body_tokens(book_root, entry["book_path"]) for entry in entries
+    }
+    bm25_by_slug = _bm25_scores(query_tokens, body_tokens_by_slug)
+
     scored: list[dict[str, object]] = []
     for entry in entries:
         haystack = f"{entry.get('title', '')} {Path(entry.get('book_path', '')).name}"
-        score = len(query_tokens & _tokens(haystack))
+        title_score = len(query_tokens & _tokens(haystack))
+        body_score = bm25_by_slug.get(entry["slug"], 0.0)
+        score: float = title_score + round(body_score, 4)
         if score <= 0:
             continue
         page_fm = _read_page_frontmatter(book_root, entry["book_path"])
@@ -2367,12 +2560,15 @@ def mos_book_query(
             continue
         if paper_role_filter is not None and page_paper_role != paper_role_filter:
             continue
+        # Preserve the historical integer score when the body contributes
+        # nothing (keeps title-only callers and pinned tests stable).
+        emitted_score: float | int = title_score if body_score == 0 else score
         match: dict[str, object] = {
             "slug": entry["slug"],
             "title": entry.get("title", entry["slug"]),
             "page_kind": entry.get("page_kind", entry.get("type", "")),
             "book_path": entry["book_path"],
-            "score": score,
+            "score": emitted_score,
         }
         if include_status:
             match["status"] = page_status
@@ -2383,7 +2579,7 @@ def mos_book_query(
             match["relations"] = edges_by_from.get(entry["slug"], [])
         scored.append(match)
 
-    scored.sort(key=lambda item: (-int(item["score"]), str(item["title"]), str(item["slug"])))
+    scored.sort(key=lambda item: (-float(item["score"]), str(item["title"]), str(item["slug"])))
     total = len(scored)
     limit = max(0, int(max_pages))
     return BookQueryResult(matches=scored[:limit], total=total, queried=text)

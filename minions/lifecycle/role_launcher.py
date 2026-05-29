@@ -58,6 +58,14 @@ from minions.state.store import RoleEntry
 
 logger = logging.getLogger(__name__)
 
+# Control-plane tmux commands (kill/ls/has-session/new-session/pipe-pane/
+# load-buffer/paste-buffer/send-keys) normally return in well under a second.
+# A bounded timeout converts a wedged tmux server — which would otherwise hang
+# the calling thread (including a Gru watchdog thread) forever — into a
+# recoverable subprocess.TimeoutExpired. Generous enough never to trip on a
+# healthy server.
+_TMUX_TIMEOUT: float = 10.0
+
 
 def session_name(project_port: int, role_name: str) -> str:
     """Return the tmux session name for *(port, role)*."""
@@ -84,10 +92,11 @@ def kill_session(project_port: int, role_name: str) -> bool:
             ["tmux", "kill-session", "-t", name],
             check=True,
             capture_output=True,
+            timeout=_TMUX_TIMEOUT,
         )
         logger.info("kill_session: tmux session=%s killed", name)
         return True
-    except subprocess.CalledProcessError as exc:
+    except subprocess.SubprocessError as exc:
         logger.warning("kill_session: tmux kill-session failed for %s: %s", name, exc)
         return False
 
@@ -117,8 +126,9 @@ def list_project_sessions(project_port: int) -> list[str]:
             ["tmux", "ls", "-F", "#{session_name}"],
             capture_output=True,
             text=True,
+            timeout=_TMUX_TIMEOUT,
         )
-    except FileNotFoundError:
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         return []
     if proc.returncode != 0:
         return []
@@ -139,10 +149,11 @@ def kill_project_sessions(project_port: int) -> list[str]:
                 ["tmux", "kill-session", "-t", name],
                 check=True,
                 capture_output=True,
+                timeout=_TMUX_TIMEOUT,
             )
             killed.append(name)
             logger.info("kill_project_sessions: tmux session=%s killed", name)
-        except subprocess.CalledProcessError as exc:
+        except subprocess.SubprocessError as exc:
             logger.warning(
                 "kill_project_sessions: tmux kill-session failed for %s: %s",
                 name,
@@ -261,6 +272,7 @@ def launch_role_process(
         claude_session_id=claude_session_id,
         hermetic_cwd=_hermetic_cwd_for(project_port, role_name),
         add_dirs=_hermetic_add_dirs_for(project_port, role_name, workspace=workspace),
+        ultracode=_role_ultracode(cfg),
     )
 
     # Lock the registry entry BEFORE the claude process starts so the
@@ -316,6 +328,7 @@ def _tmux_has_session(name: str) -> bool:
         proc = subprocess.run(
             ["tmux", "has-session", "-t", name],
             capture_output=True,
+            timeout=_TMUX_TIMEOUT,
         )
         return proc.returncode == 0
     except FileNotFoundError:
@@ -363,11 +376,16 @@ def _spawn_tmux(
     new_session_cmd.append(cmd_str)
 
     try:
-        subprocess.run(new_session_cmd, check=True, capture_output=True)
+        subprocess.run(new_session_cmd, check=True, capture_output=True, timeout=_TMUX_TIMEOUT)
     except subprocess.CalledProcessError as exc:
         stderr = (exc.stderr or b"").decode("utf-8", errors="replace")
         raise RoleError(
             f"tmux new-session failed for {session_name}: {stderr.strip() or exc}"
+        ) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise RoleError(
+            f"tmux new-session timed out for {session_name} after {_TMUX_TIMEOUT}s "
+            f"(tmux server may be wedged)"
         ) from exc
 
     # Capture pane output to log via tmux's own pipe-pane (preserves TTY).
@@ -387,8 +405,9 @@ def _spawn_tmux(
             ],
             check=True,
             capture_output=True,
+            timeout=_TMUX_TIMEOUT,
         )
-    except subprocess.CalledProcessError as exc:
+    except subprocess.SubprocessError as exc:
         # Logging is optional — never fail the spawn over a missing log.
         logger.warning(
             "_spawn_tmux: pipe-pane failed for %s; role will run without log: %s",
@@ -528,11 +547,13 @@ def _tmux_paste_prompt(session_name: str, prompt: str) -> None:
             ["tmux", "load-buffer", "-b", buf_name, buf_path],
             check=True,
             capture_output=True,
+            timeout=_TMUX_TIMEOUT,
         )
         subprocess.run(
             ["tmux", "paste-buffer", "-d", "-b", buf_name, "-t", session_name],
             check=True,
             capture_output=True,
+            timeout=_TMUX_TIMEOUT,
         )
     finally:
         with suppress(OSError):
@@ -580,6 +601,7 @@ def _tmux_send_initial_prompt(session_name: str, prompt: str) -> None:
                 ["tmux", "send-keys", "-t", session_name, "Enter"],
                 check=True,
                 capture_output=True,
+                timeout=_TMUX_TIMEOUT,
             )
             # 4. Brief settle.
             time.sleep(0.5)
@@ -588,9 +610,11 @@ def _tmux_send_initial_prompt(session_name: str, prompt: str) -> None:
                 ["tmux", "send-keys", "-t", session_name, "Enter"],
                 check=True,
                 capture_output=True,
+                timeout=_TMUX_TIMEOUT,
             )
-        except subprocess.CalledProcessError as exc:
-            stderr = (exc.stderr or b"").decode("utf-8", errors="replace").strip()
+        except subprocess.SubprocessError as exc:
+            stderr_raw = getattr(exc, "stderr", None)
+            stderr = (stderr_raw or b"").decode("utf-8", errors="replace").strip()
             logger.warning(
                 "_tmux_send_initial_prompt: tmux call failed for %s: %s; stderr=%r",
                 session_name,
@@ -726,7 +750,7 @@ def _role_env(
         # "the actual threshold is the minimum of this setting and your
         # model's maximum context window".
         #
-        # Roles run on `claude-opus-4-7[1m]` (1M-window variant), so
+        # Roles run on `claude-opus-4-8[1m]` (1M-window variant), so
         # without this knob auto-compact would only fire near 1M tokens.
         # MinionsOS is a continuous-workflow project: a single long task
         # legitimately needs to burst above 200K (tool-result chains,
@@ -827,6 +851,23 @@ def _role_model(cfg: GruConfig, role_name: str) -> str | None:
     if role_name == "noter":
         return cfg.noter_model
     return cfg.claude_model or None
+
+
+def _role_ultracode(cfg: GruConfig) -> bool:
+    """Return whether to launch this Role with the ultracode session setting.
+
+    Defaults to ``cfg.role_ultracode`` (True), but a per-process env override
+    ``MINIONS_ROLE_ULTRACODE`` (``0``/``false`` disables, ``1``/``true``
+    enables) wins so an operator can flip a single revive without editing
+    gru.yaml. ultracode == xhigh effort + standing dynamic-workflow
+    orchestration, wired through ``--settings`` in ``build_role_invocation``.
+    """
+    raw = os.environ.get("MINIONS_ROLE_ULTRACODE", "").strip().lower()
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    return cfg.role_ultracode
 
 
 def _combined_system_prompt(role_name: str, *, extra_domain_md: Path | None = None) -> Path | None:
