@@ -34,7 +34,7 @@ from collections import defaultdict, deque
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal, get_args, Literal, get_args
+from typing import Any, Literal, get_args
 
 from minions.paths import project_shared_draft_json, project_shared_subdir
 

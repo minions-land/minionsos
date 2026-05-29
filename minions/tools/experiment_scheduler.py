@@ -876,7 +876,9 @@ class ExperimentScheduler:
             return self._exp_status_fn(target_id, run_id)
         from minions.tools.experiment_ssh import ExpStatusArgs, exp_status
 
-        return exp_status(ExpStatusArgs(target_id=target_id, run_id=run_id))
+        # ExperimentRunStatus is a TypedDict view onto a regular dict.
+        status = exp_status(ExpStatusArgs(target_id=target_id, run_id=run_id))
+        return {k: v for k, v in status.items()}
 
     def _exp_kill(self, target_id: str, run_id: str) -> dict[str, Any]:
         if self._exp_kill_fn is not None:
