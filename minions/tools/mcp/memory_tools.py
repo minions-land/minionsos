@@ -58,7 +58,7 @@ class DraftCommitSharedArgs(BaseModel):
 
 
 @mcp.tool()
-def mos_draft_query(args: DraftQueryArgs) -> dict:
+def mos_draft_query(args: DraftQueryArgs) -> _draft.DraftQueryResult:
     """Query the Draft. Returns matching nodes and their edges."""
     _require_tool_allowed("mos_draft_query")
     return _draft.mos_draft_query(

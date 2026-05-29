@@ -30,8 +30,12 @@ class DictLikeBaseModel(BaseModel):
     Adds ``__getitem__``, ``get``, and ``__contains__`` so callers used to
     indexing into the prior ``dict[str, object]`` return shape (e.g.
     ``result["port"]``, ``result.get("commit_sha")``) keep working without
-    modification. Writes are not supported — typed result models are
-    immutable contracts; mutate by constructing a new instance instead.
+    modification. Also overrides ``__eq__`` to compare equal against the
+    plain-dict form (``model_dump()``) — useful for tests asserting strict
+    return shape via ``result == {...}``.
+
+    Writes are not supported — typed result models are immutable contracts;
+    mutate by constructing a new instance instead.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -49,5 +53,16 @@ class DictLikeBaseModel(BaseModel):
     def __contains__(self, key: object) -> bool:
         return isinstance(key, str) and key in type(self).model_fields
 
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, dict):
+            return self.model_dump() == other
+        return super().__eq__(other)
+
+    def __hash__(self) -> int:  # pragma: no cover - models stay unhashable
+        # Pydantic BaseModel is unhashable by default; restate to keep mypy/ty
+        # happy when overriding __eq__.
+        raise TypeError(f"unhashable type: {type(self).__name__!r}")
+
 
 __all__ = ["DictLikeBaseModel"]
+

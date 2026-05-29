@@ -36,8 +36,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal, cast, get_args
 
+from pydantic import Field, model_serializer
+
 from minions.errors import DraftError
 from minions.paths import project_shared_draft_json, project_shared_subdir
+from minions.tools._returns import DictLikeBaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +154,49 @@ TYPE_PREFIX: dict[str, str] = {
     "method": "M",
     "bootstrap": "B",
 }
+
+# ---------------------------------------------------------------------------
+# Typed return shapes
+# ---------------------------------------------------------------------------
+
+
+class DraftQueryResult(DictLikeBaseModel):
+    """Result shape for ``mos_draft_query``.
+
+    Surfaces matching nodes plus the edges that connect them. ``total_matched``
+    is the count of matching nodes (after filters, before the ``limit`` slice
+    or token-budget truncation). ``truncated`` is set to ``True`` only when
+    the token budget forced node-list truncation; the field is omitted from
+    the serialized wire payload when not truncated to preserve the original
+    pre-typing dict shape.
+
+    Field population:
+
+    - ``related_to`` mode returns the connected subgraph for the given node id
+      (filters are ignored).
+    - Filter mode applies ``node_type`` / ``support_status`` / ``author_role``
+      / ``text_contains`` and returns the matched nodes plus their incident
+      edges.
+    """
+
+    nodes: list[dict[str, Any]] = Field(description="Matching Draft nodes.")
+    edges: list[dict[str, Any]] = Field(description="Edges incident to matching nodes.")
+    total_matched: int = Field(description="Count of matching nodes after limit slice.")
+    truncated: bool | None = Field(
+        default=None,
+        description="True if token-budget truncation reduced the node count; omitted otherwise.",
+    )
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):  # type: ignore[no-untyped-def]
+        # Preserve the pre-typing wire shape: omit ``truncated`` when None so
+        # callers do not see a new ``truncated: null`` key for non-truncated
+        # results. ``total_matched`` and the lists always serialize.
+        data = handler(self)
+        if data.get("truncated") is None:
+            data.pop("truncated", None)
+        return data
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -482,8 +528,12 @@ def mos_draft_query(
     related_to: str | None = None,
     limit: int = 50,
     max_tokens: int = 2000,
-) -> dict[str, Any]:
-    """Query the Draft. Returns matching nodes and their immediate edges."""
+) -> DraftQueryResult:
+    """Query the Draft. Returns matching nodes and their immediate edges.
+
+    Returns a :class:`DraftQueryResult` (dict-like) carrying ``nodes``,
+    ``edges``, ``total_matched``, and an optional ``truncated`` flag.
+    """
     port = _env_port()
     draft = _load_draft(port)
     nodes: list[dict] = draft["nodes"]
@@ -524,10 +574,12 @@ def mos_draft_query(
         max_nodes = max(1, (max_tokens - len(edges) * 30) // 50)
         nodes = nodes[:max_nodes]
         truncated = True
-    result: dict[str, Any] = {"nodes": nodes, "edges": edges, "total_matched": len(nodes)}
-    if truncated:
-        result["truncated"] = True
-    return result
+    return DraftQueryResult(
+        nodes=nodes,
+        edges=edges,
+        total_matched=len(nodes),
+        truncated=True if truncated else None,
+    )
 
 
 def mos_draft_append(
