@@ -10,7 +10,9 @@ from minions.tools.adjudicator import (
 )
 from minions.tools.evaluator import (
     EvaluateArgs,
+    EvaluateResult,
     SubmitArgs,
+    SubmitResult,
 )
 from minions.tools.evaluator import (
     mos_evaluate as _mos_evaluate,
@@ -23,7 +25,7 @@ from minions.tools.mcp._common import _require_tool_allowed
 
 
 @mcp.tool()
-def mos_submit(args: SubmitArgs) -> dict:
+def mos_submit(args: SubmitArgs) -> SubmitResult:
     """Persist a deliverable under branches/shared/submissions/.
 
     The calling Role (typically Expert or Writer) composes the payload and
@@ -38,7 +40,7 @@ def mos_submit(args: SubmitArgs) -> dict:
 
 
 @mcp.tool()
-def mos_evaluate(args: EvaluateArgs) -> dict:
+def mos_evaluate(args: EvaluateArgs) -> EvaluateResult:
     """Evaluate the project's deliverable using its profile-defined strategy.
 
     Reads the project's mission profile from meta.json, dispatches to the

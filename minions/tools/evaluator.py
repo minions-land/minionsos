@@ -21,12 +21,13 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
 
 from minions.errors import ProjectError
 from minions.paths import project_dir, project_meta_json, project_shared_subdir
+from minions.tools._returns import DictLikeBaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,56 @@ class EvaluateArgs(BaseModel):
     )
 
 
-def mos_submit(args: SubmitArgs) -> dict[str, object]:
+class SubmitResult(DictLikeBaseModel):
+    """Result shape for ``mos_submit``.
+
+    Returned after a deliverable is persisted under ``branches/shared/submissions/``
+    and committed on the shared branch. ``commit_sha`` is ``None`` only if the
+    publish was a no-op (e.g. the file on disk already matched HEAD).
+    """
+
+    port: int = Field(description="Project port the deliverable was submitted to.")
+    kind: Literal["answer", "paper", "patch", "report"] = Field(
+        description="Deliverable kind."
+    )
+    path: str = Field(description="Absolute path to the persisted submission file.")
+    commit_sha: str | None = Field(
+        default=None,
+        description="SHA of the shared-branch commit, or None if no diff was produced.",
+    )
+
+
+class EvaluateResult(DictLikeBaseModel):
+    """Result shape for ``mos_evaluate``.
+
+    All evaluation strategies (``scientific_peer_review``, ``answer_grader``,
+    ``test_runner``) and the adjudication-gate short-circuits return this shape.
+    ``score`` may be ``None`` for strategies that produce a verdict label rather
+    than a numeric score (e.g. peer review) or for ``revise_required`` outcomes.
+    ``details`` carries strategy-specific information: peer review surfaces
+    ``round_number``/``consolidated_path``; answer_grader surfaces
+    ``expected``/``submitted``/``comparison_mode``; the adjudication gate adds
+    ``adjudication`` and ``reason``; ``on_done`` is recorded when a passing
+    verdict triggers a project transition.
+    """
+
+    port: int = Field(description="Project port that was evaluated.")
+    strategy: str = Field(description="Evaluation strategy that ran.")
+    score: float | None = Field(
+        default=None,
+        description="Numeric score (None if the strategy emits a label-only verdict).",
+    )
+    verdict: str | None = Field(
+        default=None,
+        description="Verdict label (e.g. correct/incorrect/rejected/revise_required/Accept).",
+    )
+    details: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Strategy-specific details, plus adjudication/on_done extras.",
+    )
+
+
+def mos_submit(args: SubmitArgs) -> SubmitResult:
     """Persist a deliverable under branches/shared/submissions/.
 
     The calling Role (typically Expert or Writer) composes the payload and
@@ -59,7 +109,9 @@ def mos_submit(args: SubmitArgs) -> dict[str, object]:
     project's profile deliverable schema, writes it to disk, and commits
     on the shared branch.
 
-    Returns ``{port, kind, path, commit_sha}``.
+    Returns a :class:`SubmitResult` with ``port``, ``kind``, ``path``, and
+    ``commit_sha``. The result is dict-like so callers using ``result["port"]``
+    or ``result.get("commit_sha")`` keep working.
     """
     port = args.port
     kind = args.kind
@@ -138,15 +190,15 @@ def mos_submit(args: SubmitArgs) -> dict[str, object]:
         result.get("commit_sha"),
     )
 
-    return {
-        "port": port,
-        "kind": kind,
-        "path": str(submission_path),
-        "commit_sha": result.get("commit_sha"),
-    }
+    return SubmitResult(
+        port=port,
+        kind=kind,
+        path=str(submission_path),
+        commit_sha=cast(str | None, result.get("commit_sha")),
+    )
 
 
-def mos_evaluate(args: EvaluateArgs) -> dict[str, object]:
+def mos_evaluate(args: EvaluateArgs) -> EvaluateResult:
     """Evaluate the project's deliverable using its profile-defined strategy.
 
     Reads the project's mission profile from meta.json, dispatches to the
@@ -159,7 +211,9 @@ def mos_evaluate(args: EvaluateArgs) -> dict[str, object]:
     ``{verdict=revise_required}``. Adjudication depth ``none`` (default for
     scientific-paper) skips the gate and goes straight to the grader.
 
-    Returns ``{port, strategy, score, verdict, details}``.
+    Returns an :class:`EvaluateResult` with ``port``, ``strategy``, ``score``,
+    ``verdict``, and ``details``. The result is dict-like so callers using
+    ``result["score"]`` or ``result.get("verdict")`` keep working.
     """
     port = args.port
     meta_path = project_meta_json(port)
@@ -188,27 +242,27 @@ def mos_evaluate(args: EvaluateArgs) -> dict[str, object]:
         )
         decision = adjudication_result.get("decision")
         if decision == "Reject":
-            return {
-                "port": port,
-                "strategy": strategy,
-                "score": 0.0,
-                "verdict": "rejected",
-                "details": {
+            return EvaluateResult(
+                port=port,
+                strategy=strategy,
+                score=0.0,
+                verdict="rejected",
+                details={
                     "adjudication": adjudication_result,
                     "reason": "adjudication_rejected",
                 },
-            }
+            )
         if decision == "Revise":
-            return {
-                "port": port,
-                "strategy": strategy,
-                "score": None,
-                "verdict": "revise_required",
-                "details": {
+            return EvaluateResult(
+                port=port,
+                strategy=strategy,
+                score=None,
+                verdict="revise_required",
+                details={
                     "adjudication": adjudication_result,
                     "reason": "adjudication_revise_required",
                 },
-            }
+            )
         # decision == "Accept" or status="skipped" / "error" — fall through to
         # the grader. An adjudication error must not silently bypass scoring;
         # the grader still runs and reports its own verdict, with the
@@ -224,23 +278,19 @@ def mos_evaluate(args: EvaluateArgs) -> dict[str, object]:
         raise ProjectError(f"Unknown evaluation strategy: {strategy}")
 
     if adjudication_result is not None:
-        details = result.setdefault("details", {})
-        if isinstance(details, dict):
-            cast(dict[str, object], details)["adjudication"] = adjudication_result
+        result.details["adjudication"] = adjudication_result
 
     # on_done wiring: if profile declares shutdown_project / dormant and the
     # grader returned a passing verdict, transition the project. Failures and
     # revise_required leave the project active so the team can iterate.
     on_done = str(meta.get("profile_on_done", "none")).strip().lower()
-    verdict = result.get("verdict")
-    score = result.get("score")
+    verdict = result.verdict
+    score = result.score
     passed = verdict in {"correct", "Accept"} or (isinstance(score, (int, float)) and score >= 1.0)
     if passed and on_done in {"shutdown_project", "dormant"}:
         try:
             _apply_on_done(port, on_done)
-            details = result.setdefault("details", {})
-            if isinstance(details, dict):
-                cast(dict[str, object], details)["on_done"] = on_done
+            result.details["on_done"] = on_done
         except Exception as exc:
             logger.warning("mos_evaluate: on_done=%s failed for port=%d: %s", on_done, port, exc)
 
@@ -266,7 +316,7 @@ def _apply_on_done(port: int, on_done: str) -> None:
 
 def _evaluate_scientific_peer_review(
     port: int, meta: dict, reference_override: str | None
-) -> dict[str, object]:
+) -> EvaluateResult:
     """Delegate to review_run for full peer review."""
     from minions.tools.review import ReviewRunArgs, review_run
 
@@ -297,23 +347,23 @@ def _evaluate_scientific_peer_review(
     )
     result = review_run(review_args)
 
-    return {
-        "port": port,
-        "strategy": "scientific_peer_review",
-        "score": None,  # Peer review produces a decision label, not a numeric score
-        "verdict": result.get("decision"),
-        "details": {
+    return EvaluateResult(
+        port=port,
+        strategy="scientific_peer_review",
+        score=None,  # Peer review produces a decision label, not a numeric score
+        verdict=cast(str | None, result.get("decision")),
+        details={
             "round_number": result.get("round"),
             "consolidated_path": result.get("consolidated_path"),
             "summary_path": result.get("summary_path"),
             "status": result.get("status"),
         },
-    }
+    )
 
 
 def _evaluate_answer_grader(
     port: int, meta: dict, reference_override: str | None
-) -> dict[str, object]:
+) -> EvaluateResult:
     """Compare submission answer to reference (exact match or numeric close)."""
     profile_eval = meta.get("profile_evaluation", {})
     reference_path_rel = reference_override or profile_eval.get(
@@ -359,25 +409,32 @@ def _evaluate_answer_grader(
         correct,
     )
 
-    return {
-        "port": port,
-        "strategy": "answer_grader",
-        "score": score,
-        "verdict": verdict,
-        "details": {
+    return EvaluateResult(
+        port=port,
+        strategy="answer_grader",
+        score=score,
+        verdict=verdict,
+        details={
             "expected": expected_answer,
             "submitted": submitted_answer,
             "comparison_mode": comparison_mode,
         },
-    }
+    )
 
 
 def _evaluate_test_runner(
     port: int, meta: dict, reference_override: str | None
-) -> dict[str, object]:
+) -> EvaluateResult:
     """Run test suite and report pass/fail (SWE-bench style)."""
     # Placeholder for test_runner strategy (v15-δ will implement this for SWE-bench)
     raise ProjectError("test_runner strategy not yet implemented (reserved for v15-δ).")
 
 
-__all__ = ["EvaluateArgs", "SubmitArgs", "mos_evaluate", "mos_submit"]
+__all__ = [
+    "EvaluateArgs",
+    "EvaluateResult",
+    "SubmitArgs",
+    "SubmitResult",
+    "mos_evaluate",
+    "mos_submit",
+]
