@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from minions.config import slugify
+from minions.errors import BookError
 from minions.paths import (
     project_shared_draft_json,
     project_shared_subdir,
@@ -112,10 +113,6 @@ _MAX_HOT_BYTES = 4096
 _STALE_CLAIM_SECONDS = 72 * 60 * 60
 
 
-class BookError(Exception):
-    """Raised when a book operation violates Phase 2 policy."""
-
-
 def _book_root(port: int) -> Path:
     return project_shared_subdir(port, "book")
 
@@ -123,7 +120,7 @@ def _book_root(port: int) -> Path:
 def _env_port() -> int:
     raw = os.environ.get("MINIONS_PROJECT_PORT", "")
     if not raw:
-        raise RuntimeError("MINIONS_PROJECT_PORT not set")
+        raise BookError("MINIONS_PROJECT_PORT not set")
     return int(raw)
 
 

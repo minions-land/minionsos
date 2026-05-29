@@ -49,3 +49,15 @@ class CircuitBreakError(ExperimentError):
 
 class PermissionError(MinionsError):
     """Authorization / role-boundary violation in MinionsOS internals."""
+
+
+class ReelError(MinionsError):
+    """Reel layer (L0 raw transcripts) operations failed."""
+
+
+class DraftError(MinionsError):
+    """Draft layer (L1 shared process graph) operations failed."""
+
+
+class BookError(MinionsError):
+    """Book layer (L2 durable product memory) operations failed."""

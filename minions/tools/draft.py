@@ -36,6 +36,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal, get_args
 
+from minions.errors import DraftError
 from minions.paths import project_shared_draft_json, project_shared_subdir
 
 logger = logging.getLogger(__name__)
@@ -171,7 +172,7 @@ def _journal_path(port: int) -> Path:
 def _env_port() -> int:
     raw = os.environ.get("MINIONS_PROJECT_PORT", "")
     if not raw:
-        raise RuntimeError("MINIONS_PROJECT_PORT not set")
+        raise DraftError("MINIONS_PROJECT_PORT not set")
     return int(raw)
 
 
@@ -271,9 +272,9 @@ def _validate_confidence(confidence: Any) -> float:
     try:
         value = float(confidence)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"Node confidence must be a number, got {confidence!r}") from exc
+        raise DraftError(f"Node confidence must be a number, got {confidence!r}") from exc
     if not (0.0 <= value <= 1.0):
-        raise ValueError(f"Node confidence must be 0.0-1.0, got {value}")
+        raise DraftError(f"Node confidence must be 0.0-1.0, got {value}")
     return value
 
 
@@ -617,7 +618,7 @@ def mos_draft_append(
             logger.info("Custom edge relation: %s (not in suggested relations)", relation)
         strength = edge.get("strength", 1.0)
         if not (0.0 <= strength <= 1.0):
-            raise ValueError(f"Edge strength must be 0.0-1.0, got {strength}")
+            raise DraftError(f"Edge strength must be 0.0-1.0, got {strength}")
         new_edge = {
             "from_id": edge["from_id"],
             "to_id": edge["to_id"],
@@ -675,7 +676,7 @@ def mos_draft_annotate(
             target = node
             break
     if target is None:
-        raise ValueError(f"Node not found: {node_id}")
+        raise DraftError(f"Node not found: {node_id}")
 
     annotator = _env_role() or target.get("author_role", "")
     changes: dict[str, Any] = {}
@@ -799,7 +800,7 @@ def mos_draft_path(
     edges = draft["edges"]
 
     if target_node_id not in nodes_by_id:
-        raise ValueError(f"Target node not found: {target_node_id}")
+        raise DraftError(f"Target node not found: {target_node_id}")
 
     # Build adjacency (undirected). Weight = 1.0 - strength (high strength = low cost).
     adj: dict[str, list[tuple[float, str, dict]]] = defaultdict(list)
@@ -813,11 +814,11 @@ def mos_draft_path(
         start = from_node_id
     else:
         if not draft["nodes"]:
-            raise ValueError("Draft is empty")
+            raise DraftError("Draft is empty")
         start = draft["nodes"][0]["id"]
 
     if start not in nodes_by_id:
-        raise ValueError(f"Start node not found: {start}")
+        raise DraftError(f"Start node not found: {start}")
 
     if start == target_node_id:
         return {"path_nodes": [nodes_by_id[start]], "path_edges": []}

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from minions.errors import DraftError
 from minions.tools import draft
 
 
@@ -102,7 +103,7 @@ class TestMosDraftAppend:
 
     @pytest.mark.parametrize("confidence", [-0.1, 1.1])
     def test_append_rejects_out_of_range_confidence(self, confidence: float):
-        with pytest.raises(ValueError, match=r"Node confidence must be 0\.0-1\.0"):
+        with pytest.raises(DraftError, match=r"Node confidence must be 0\.0-1\.0"):
             draft.mos_draft_append(
                 nodes=[{"type": "hypothesis", "text": "Invalid", "confidence": confidence}]
             )
@@ -237,7 +238,7 @@ class TestMosDraftAnnotate:
         assert [entry["field"] for entry in entries[1:]] == ["provenance", "confidence"]
 
     def test_annotate_nonexistent_raises(self):
-        with pytest.raises(ValueError, match="Node not found"):
+        with pytest.raises(DraftError, match="Node not found"):
             draft.mos_draft_annotate(node_id="X-999", support_status="verified")
 
 
