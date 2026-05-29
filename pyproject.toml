@@ -39,9 +39,18 @@ paper-search-mcp = { git = "https://github.com/openags/paper-search-mcp.git", re
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
+    "pytest-xdist>=3.6",
     "ruff>=0.15.11",
     "ty>=0.0.34",
 ]
+
+[tool.pytest.ini_options]
+# -n 4 is the thermal sweet spot on a fanless M-series MacBook Air: enough
+# parallelism to cut wall time materially, conservative enough not to
+# heat-soak the chassis. CI / machines with active cooling can override
+# with ``pytest -n auto``; ``pytest -n 0`` disables xdist for debugging.
+addopts = "-n 4"
+testpaths = ["tests"]
 
 [tool.ty.src]
 # Exclude Writer skill reference scripts: these are templates shipped with the
