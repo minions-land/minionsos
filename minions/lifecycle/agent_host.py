@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from minions.config import GruConfig
+from minions.errors import RoleError
 from minions.paths import MINIONS_ROOT, project_shared_subdir
 
 logger = logging.getLogger(__name__)
@@ -228,10 +229,25 @@ def build_role_invocation(
     if resume and session_name:
         cmd += ["--resume", session_name]
     effective_cwd = hermetic_cwd if hermetic_cwd is not None else workspace
+    if not effective_cwd.exists():
+        # Silent fallback to MINIONS_ROOT used to write Workflow / Task /
+        # subagent scratchpads into the developer-shared
+        # /Users/mjm/MinionsOS/.claude/ directory, corrupting the dev
+        # workspace and bypassing the per-role isolation contract
+        # (common §10.1). Fail loudly instead so the launcher can surface
+        # the missing-branch / missing-hermetic-stub condition before any
+        # tmux session is spawned.
+        raise RoleError(
+            f"build_role_invocation: effective cwd does not exist: {effective_cwd!s}. "
+            "If this is a Role process, the role's branch worktree (or hermetic "
+            "stub) must be prepared by lifecycle.project / role_hermetic before "
+            "launch. Refusing to fall back to MINIONS_ROOT — that fallback "
+            "leaks Workflow scratchpad into the dev workspace."
+        )
     return RoleInvocation(
         host_name="claude",
         command=cmd,
-        cwd=effective_cwd if effective_cwd.exists() else MINIONS_ROOT,
+        cwd=effective_cwd,
         initial_prompt=build_forever_loop_prompt(
             role_name=role_name,
             port=project_port,

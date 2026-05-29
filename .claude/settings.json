@@ -53,6 +53,16 @@
         ]
       },
       {
+        "matcher": "Workflow|Write|Edit|Bash|Task|mcp__codex-subagent__codex",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/scratchpad_isolation_guard.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/scratchpad_isolation_guard.py\" || exit 0",
+            "timeout": 3
+          }
+        ]
+      },
+      {
         "matcher": "Read|Bash",
         "hooks": [
           {
@@ -87,7 +97,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash|Agent|Task",
+        "matcher": "Bash|Agent|Task|Workflow",
         "hooks": [
           {
             "type": "command",
@@ -97,7 +107,7 @@
         ]
       },
       {
-        "matcher": "Agent|Task|mcp__codex-subagent__codex",
+        "matcher": "Agent|Task|mcp__codex-subagent__codex|Workflow",
         "hooks": [
           {
             "type": "command",

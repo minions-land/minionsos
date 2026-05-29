@@ -275,6 +275,7 @@ def launch_role_process(
         project_port=project_port,
         role_entry=role_entry,
         workspace=workspace,
+        effective_cwd=invocation.cwd,
     )
     _spawn_tmux(
         session_name=name,
@@ -627,6 +628,7 @@ def _role_env(
     project_port: int,
     role_entry: RoleEntry,
     workspace: Path,
+    effective_cwd: Path | None = None,
 ) -> dict[str, str]:
     """Build the environment passed to the Role's claude process.
 
@@ -653,7 +655,20 @@ def _role_env(
         "MINIONS_WORKSPACE_ROOT": str(project_workspace_root(project_port)),
         "MINIONS_WORKSPACE_MAIN": str(project_workspace(project_port)),
         "MINIONS_ROLE_WORKSPACE": str(workspace),
+        # Canonical name used by scratchpad_isolation_guard hook + Workflow
+        # spec template + per-role SYSTEM.md pointers. Equal to
+        # MINIONS_ROLE_WORKSPACE in legacy mode; under hermetic mode the
+        # branch path remains the durable audit anchor (Reel target),
+        # while MINIONS_ROLE_HERMETIC_DIR exposes the ephemeral cwd.
+        "MINIONS_ROLE_BRANCH": str(workspace),
         "MINIONS_ROLE_WORKSPACE_BRANCH": role_entry.workspace_branch or "",
+        # Hermetic-mode scratchpad anchor. Empty in legacy mode; set to the
+        # absolute hermetic stub path when MINIONS_ROLE_HERMETIC_CWD=1 (Tier 1)
+        # or MINIONS_ROLE_HERMETIC_HOME=1 (Tier 2). The scratchpad_isolation
+        # hook adds this dir's `.claude/scratchpad/` to the legal-roots set.
+        "MINIONS_ROLE_HERMETIC_DIR": str(effective_cwd)
+        if effective_cwd is not None and effective_cwd != workspace
+        else "",
         "EACN3_NETWORK_URL": f"http://127.0.0.1:{project_port}",
         "EACN3_STATE_DIR": str(plugin_state_dir(project_port, eacn_agent_id).resolve()),
         "MINIONS_GITHUB_PUSH_TARGET": role_entry.github_push_target or "",

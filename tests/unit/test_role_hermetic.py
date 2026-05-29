@@ -267,32 +267,37 @@ def test_build_role_invocation_hermetic_emits_add_dirs(tmp_path):
     assert invocation.cwd == cwd
 
 
-def test_build_role_invocation_hermetic_falls_back_when_cwd_missing(tmp_path):
-    """If hermetic_cwd path doesn't exist on disk, fall back to MINIONS_ROOT.
+def test_build_role_invocation_hermetic_hard_fails_when_cwd_missing(tmp_path):
+    """If hermetic_cwd path doesn't exist on disk, raise RoleError.
 
-    Mirrors the pre-existing workspace fallback behavior so a misconfigured
-    path doesn't crash the launcher with FileNotFoundError downstream.
+    The silent-fallback-to-MINIONS_ROOT path was retired in v17 because it
+    leaked Workflow scratchpads into the dev workspace .claude/. The
+    launcher must surface the misconfiguration loudly via RoleError before
+    spawning any tmux session. See common SYSTEM.md §10.1.
     """
+    from minions.errors import RoleError
+
     workspace = tmp_path / "ws"
     workspace.mkdir()
     cwd = tmp_path / "does-not-exist"
     # NOTE: cwd not created
     cfg = _stub_config(tmp_path)
-    invocation = build_role_invocation(
-        cfg=cfg,
-        role_name="coder",
-        project_port=37596,
-        project_agent_id="coder@37596",
-        system_path=None,
-        allowed_tools="Read,Edit",
-        workspace=workspace,
-        session_name="mos-37596-coder",
-        hermetic_cwd=cwd,
+    with pytest.raises(RoleError) as exc_info:
+        build_role_invocation(
+            cfg=cfg,
+            role_name="coder",
+            project_port=37596,
+            project_agent_id="coder@37596",
+            system_path=None,
+            allowed_tools="Read,Edit",
+            workspace=workspace,
+            session_name="mos-37596-coder",
+            hermetic_cwd=cwd,
+        )
+    assert "effective cwd does not exist" in str(exc_info.value)
+    assert "MINIONS_ROOT" in str(exc_info.value), (
+        "error must explain why fallback was rejected"
     )
-    # Falls back; cwd is the package root or some real dir, never the
-    # missing path.
-    assert invocation.cwd != cwd
-    assert invocation.cwd.exists()
 
 
 # ---------------------------------------------------------------------------
