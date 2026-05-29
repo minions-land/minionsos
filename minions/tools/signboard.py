@@ -23,7 +23,7 @@ import json
 import logging
 import os
 from datetime import UTC, datetime
-from typing import Any, Literal, get_args, Literal, get_args
+from typing import Any, Literal, get_args
 
 from minions.errors import ProjectError
 from minions.lifecycle import eacn_client

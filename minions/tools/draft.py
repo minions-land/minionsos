@@ -37,7 +37,6 @@ from pathlib import Path
 from typing import Any, Literal, get_args
 
 from minions.errors import DraftError
-from minions.errors import DraftError
 from minions.paths import project_shared_draft_json, project_shared_subdir
 
 logger = logging.getLogger(__name__)
