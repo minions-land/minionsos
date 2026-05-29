@@ -23,7 +23,7 @@ import json
 import logging
 import os
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal, get_args, Literal, get_args
 
 from minions.errors import ProjectError
 from minions.lifecycle import eacn_client
@@ -40,15 +40,14 @@ logger = logging.getLogger(__name__)
 # Milestones recognised by the signboard. Anything else is rejected — we
 # do not want a free-form milestone string blossoming into an unbounded
 # state file.
-KNOWN_MILESTONES: frozenset[str] = frozenset(
-    {
-        "experiments_ready",
-        "writing_ready",
-        "submit_ready",
-        "resubmit_ready",
-        "camera_ready",
-    }
-)
+MilestoneSlug = Literal[
+    "experiments_ready",
+    "writing_ready",
+    "submit_ready",
+    "resubmit_ready",
+    "camera_ready",
+]
+KNOWN_MILESTONES: frozenset[str] = frozenset(get_args(MilestoneSlug))
 
 
 # Eligibility describes *which roles must be present* for each milestone.
@@ -227,7 +226,7 @@ def _notify_gru(
 
 def mos_signboard_set(
     *,
-    milestone: str,
+    milestone: MilestoneSlug,
     raised: bool,
     evidence: str | None = None,
     reason: str | None = None,
@@ -317,7 +316,7 @@ def mos_signboard_set(
     }
 
 
-def mos_signboard_read(milestone: str | None = None) -> dict[str, Any]:
+def mos_signboard_read(milestone: MilestoneSlug | None = None) -> dict[str, Any]:
     """Return the current signboard state. Pure read — no lock, no notify.
 
     With *milestone* unset, returns the full state. With *milestone* set,
@@ -357,7 +356,7 @@ def _registered_expert_ids(port: int) -> list[str]:
     return out
 
 
-def evaluate_quorum(port: int, milestone: str) -> dict[str, Any]:
+def evaluate_quorum(port: int, milestone: MilestoneSlug) -> dict[str, Any]:
     """Return whether *milestone* has met its quorum on *port*.
 
     Gru-side helper — not advertised as an MCP tool because Gru can drive
@@ -401,7 +400,7 @@ def evaluate_quorum(port: int, milestone: str) -> dict[str, Any]:
     }
 
 
-def consume_milestone(port: int, milestone: str) -> dict[str, Any]:
+def consume_milestone(port: int, milestone: MilestoneSlug) -> dict[str, Any]:
     """Mark *milestone* as consumed (Gru-side bookkeeping after dispatch).
 
     Idempotent: re-consuming a consumed milestone is a no-op. Always
@@ -426,7 +425,7 @@ def consume_milestone(port: int, milestone: str) -> dict[str, Any]:
         }
 
 
-def reopen_milestone(port: int, milestone: str) -> dict[str, Any]:
+def reopen_milestone(port: int, milestone: MilestoneSlug) -> dict[str, Any]:
     """Clear *milestone*'s raised map and consumed marker.
 
     Used by Gru after reviewer feedback returns and a new round of
@@ -452,6 +451,7 @@ def reopen_milestone(port: int, milestone: str) -> dict[str, Any]:
 
 __all__ = [
     "KNOWN_MILESTONES",
+    "MilestoneSlug",
     "consume_milestone",
     "evaluate_quorum",
     "mos_signboard_read",
