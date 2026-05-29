@@ -42,6 +42,8 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+from pydantic import Field
+
 from minions.errors import ProjectError
 from minions.lifecycle.git_utils import is_git_work_tree, run_git
 from minions.paths import (
@@ -50,8 +52,72 @@ from minions.paths import (
     project_shared_workspace,
 )
 from minions.state.store import StateStore
+from minions.tools._returns import DictLikeBaseModel
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Typed return shapes
+# ---------------------------------------------------------------------------
+
+
+class PublishToSharedResult(DictLikeBaseModel):
+    """Result shape for ``mos_publish_to_shared``.
+
+    Returned after a single-file publish on the shared branch. ``commit_sha``
+    is ``None`` when the publish was a no-op (``src`` already matched the
+    on-disk destination — no diff). ``pushed`` is ``True`` only when a
+    GitHub push target is configured for the project AND the commit landed.
+    """
+
+    port: int = Field(description="Project port the publish was scoped to.")
+    role: str = Field(description="Calling role (gru/noter/coder/...).")
+    dst_path: str = Field(
+        description="Relative path under branches/shared/ that was written."
+    )
+    commit_sha: str | None = Field(
+        default=None,
+        description="SHA of the shared-branch commit, or None on a no-op publish.",
+    )
+    pushed: bool = Field(
+        default=False,
+        description="True if the commit was also pushed to the configured GitHub remote.",
+    )
+    push_branch: str | None = Field(
+        default=None,
+        description="Remote branch name written by the push, or None when not pushed.",
+    )
+    branch: str = Field(description="Shared-branch name (minionsos/project-{port}-shared).")
+
+
+class PublishFilesToSharedResult(DictLikeBaseModel):
+    """Result shape for ``mos_publish_files_to_shared`` (multi-file batched publish).
+
+    The same lock + commit pipeline as :class:`PublishToSharedResult`, but lands
+    multiple files in one commit so a logical Noter ingest doesn't fragment
+    into N separate commits (see GitHub Issue #13). ``dst_paths`` is the list
+    of relative paths committed; ``commit_sha`` covers the union diff.
+    """
+
+    port: int = Field(description="Project port the publish was scoped to.")
+    role: str = Field(description="Calling role (gru/noter/coder/...).")
+    dst_paths: list[str] = Field(
+        description="Relative paths under branches/shared/ written in this commit."
+    )
+    commit_sha: str | None = Field(
+        default=None,
+        description="SHA of the union commit, or None on a no-op publish.",
+    )
+    pushed: bool = Field(
+        default=False,
+        description="True if the commit was also pushed to the configured GitHub remote.",
+    )
+    push_branch: str | None = Field(
+        default=None,
+        description="Remote branch name written by the push, or None when not pushed.",
+    )
+    branch: str = Field(description="Shared-branch name (minionsos/project-{port}-shared).")
 
 
 # ---------------------------------------------------------------------------
@@ -279,16 +345,17 @@ def mos_publish_to_shared(
     commit_message: str,
     port: int | None = None,
     store: StateStore | None = None,
-) -> dict[str, object]:
+) -> PublishToSharedResult:
     """Atomically publish *src_path* into ``branches/shared/<dst_subpath>``.
 
     The tool serialises concurrent writers via a per-project flock,
     enforces per-role subdir policy, and commits each publish on the
     shared branch (``minionsos/project-{port}-shared``) with
-    *commit_message*. Returns a small status dict:
-
-    ``{"port": int, "role": str, "dst_path": str, "commit_sha": str | None,
-       "pushed": bool, "push_branch": str | None, "branch": str}``
+    *commit_message*. Returns a :class:`PublishToSharedResult` with
+    ``port``, ``role``, ``dst_path``, ``commit_sha``, ``pushed``,
+    ``push_branch``, and ``branch``. The result is dict-like so callers
+    using ``result["dst_path"]`` or ``result.get("commit_sha")`` keep
+    working unchanged.
 
     A ``commit_sha`` of ``None`` means the publish was a no-op (the file
     on disk already matched and no diff was produced).
@@ -381,15 +448,15 @@ def mos_publish_to_shared(
     except Exception:
         pass
 
-    return {
-        "port": resolved_port,
-        "role": role,
-        "dst_path": str(rel_dst),
-        "commit_sha": commit_sha,
-        "pushed": pushed,
-        "push_branch": push_branch,
-        "branch": project_shared_branch_name(resolved_port),
-    }
+    return PublishToSharedResult(
+        port=resolved_port,
+        role=role,
+        dst_path=str(rel_dst),
+        commit_sha=commit_sha,
+        pushed=pushed,
+        push_branch=push_branch,
+        branch=project_shared_branch_name(resolved_port),
+    )
 
 
 def mos_publish_files_to_shared(
@@ -399,7 +466,7 @@ def mos_publish_files_to_shared(
     commit_message: str,
     port: int | None = None,
     store: StateStore | None = None,
-) -> dict[str, object]:
+) -> PublishFilesToSharedResult:
     """Atomically publish *multiple* files into ``branches/shared/`` in one commit.
 
     Each entry in ``files`` is ``{"src_path": str, "dst_subpath": str}``. All
@@ -411,18 +478,22 @@ def mos_publish_files_to_shared(
     This avoids the ingest commit amplification (one logical Noter event
     landing as 3-10 separate commits — see GitHub Issue #13). Use the single
     :func:`mos_publish_to_shared` for one-file publishes.
+
+    Returns a :class:`PublishFilesToSharedResult` (dict-like) with
+    ``port``, ``role``, ``dst_paths``, ``commit_sha``, ``pushed``,
+    ``push_branch``, and ``branch``.
     """
     resolved_port = _resolve_port(port)
     if not files:
-        return {
-            "port": resolved_port,
-            "role": role,
-            "dst_paths": [],
-            "commit_sha": None,
-            "pushed": False,
-            "push_branch": None,
-            "branch": project_shared_branch_name(resolved_port),
-        }
+        return PublishFilesToSharedResult(
+            port=resolved_port,
+            role=role,
+            dst_paths=[],
+            commit_sha=None,
+            pushed=False,
+            push_branch=None,
+            branch=project_shared_branch_name(resolved_port),
+        )
 
     validated: list[tuple[Path, Path]] = []
     for entry in files:
@@ -513,15 +584,20 @@ def mos_publish_files_to_shared(
     except Exception:
         pass
 
-    return {
-        "port": resolved_port,
-        "role": role,
-        "dst_paths": rel_dst_strs,
-        "commit_sha": commit_sha,
-        "pushed": pushed,
-        "push_branch": push_branch,
-        "branch": project_shared_branch_name(resolved_port),
-    }
+    return PublishFilesToSharedResult(
+        port=resolved_port,
+        role=role,
+        dst_paths=rel_dst_strs,
+        commit_sha=commit_sha,
+        pushed=pushed,
+        push_branch=push_branch,
+        branch=project_shared_branch_name(resolved_port),
+    )
 
 
-__all__ = ["mos_publish_files_to_shared", "mos_publish_to_shared"]
+__all__ = [
+    "PublishFilesToSharedResult",
+    "PublishToSharedResult",
+    "mos_publish_files_to_shared",
+    "mos_publish_to_shared",
+]

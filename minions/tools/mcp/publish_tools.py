@@ -13,7 +13,7 @@ from minions.tools.mcp._common import (
 
 
 @mcp.tool()
-def mos_publish_to_shared(args: PublishToSharedArgs) -> dict:
+def mos_publish_to_shared(args: PublishToSharedArgs) -> _publish.PublishToSharedResult:
     """Publish a file from the calling role's worktree into the shared tree.
 
     Behavior:

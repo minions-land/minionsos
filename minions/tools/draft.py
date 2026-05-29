@@ -34,7 +34,7 @@ from collections import defaultdict, deque
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal, get_args
+from typing import Any, Literal, cast, get_args
 
 from minions.errors import DraftError
 from minions.paths import project_shared_draft_json, project_shared_subdir
@@ -1034,12 +1034,19 @@ def mos_draft_commit_shared(message: str | None = None) -> dict[str, Any]:
             "skipped": "draft.json does not exist yet",
         }
     msg = message or f"noter: draft flush {_now_iso()}"
-    return mos_publish_to_shared(
-        role=_env_role() or "noter",
-        src_path=str(draft_path),
-        dst_subpath="draft/draft.json",
-        commit_message=msg,
-        port=port,
+    # mos_publish_to_shared returns a PublishToSharedResult (DictLikeBaseModel)
+    # which is read-compatible with dict[str, Any] via __getitem__/get. Cast
+    # preserves the existing tool contract while keeping the typed return
+    # at the publish layer.
+    return cast(
+        "dict[str, Any]",
+        mos_publish_to_shared(
+            role=_env_role() or "noter",
+            src_path=str(draft_path),
+            dst_subpath="draft/draft.json",
+            commit_message=msg,
+            port=port,
+        ),
     )
 
 

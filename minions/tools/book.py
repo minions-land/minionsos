@@ -1007,12 +1007,19 @@ def _publish_file(
     rel_dst = Path(rel_dst_under_book)
     if rel_dst.is_absolute() or any(part == ".." for part in rel_dst.parts):
         raise BookError(f"book destination may not escape book/: {rel_dst_under_book!r}")
-    return mos_publish_to_shared(
-        role="noter",
-        src_path=str(abs_src.resolve()),
-        dst_subpath=f"book/{rel_dst.as_posix()}",
-        commit_message=message,
-        port=port,
+    # mos_publish_to_shared returns a PublishToSharedResult (DictLikeBaseModel),
+    # which is read-compatible with dict[str, object] via __getitem__/get; the
+    # cast keeps the existing book.py contract while preserving the typed model
+    # at the publish layer.
+    return cast(
+        "dict[str, object]",
+        mos_publish_to_shared(
+            role="noter",
+            src_path=str(abs_src.resolve()),
+            dst_subpath=f"book/{rel_dst.as_posix()}",
+            commit_message=message,
+            port=port,
+        ),
     )
 
 
@@ -1038,11 +1045,14 @@ def _publish_files(
                 "dst_subpath": f"book/{rel_dst.as_posix()}",
             }
         )
-    return mos_publish_files_to_shared(
-        role="noter",
-        files=payload,
-        commit_message=message,
-        port=port,
+    return cast(
+        "dict[str, object]",
+        mos_publish_files_to_shared(
+            role="noter",
+            files=payload,
+            commit_message=message,
+            port=port,
+        ),
     )
 
 
