@@ -100,6 +100,32 @@ All public exception classes exported from `minions/errors.py`.
 
 ---
 
+## ReelError
+
+**Parent**: `MinionsError`  
+**Raised when**: A Reel (L0 raw transcripts) operation cannot complete — malformed `<role>/<session>/<id>` ref, missing `MINIONS_PROJECT_PORT`, ref not found in the role's `reel-index.jsonl`, or unreadable `claude_jsonl` transcript file.  
+**Example**: `mos_reel_get("writer/sess-7/missing")` looks up an entry not present in the writer reel index.  
+**Note**: Cross-role authorization failures still raise `PermissionError`, not `ReelError`.
+
+---
+
+## DraftError
+
+**Parent**: `MinionsError`  
+**Raised when**: A Draft (L1 process graph) operation cannot complete — out-of-range confidence, malformed edge strength, missing `MINIONS_PROJECT_PORT`, or a node id referenced by `mos_draft_annotate` / `mos_draft_path` does not exist.  
+**Example**: `mos_draft_annotate(node_id="H-999")` when no such node has been appended; `mos_draft_append` called with `confidence=1.5`.
+
+---
+
+## BookError
+
+**Parent**: `MinionsError`  
+**Raised when**: A Book (L2 durable product memory) operation cannot complete — page-kind violation, missing required fields (claim / question / evidence_review), source path outside the project workspace, ratify call from a non-Ethics role, or contradiction page lookup miss.  
+**Example**: `mos_book_ratify(slug="X", ...)` invoked with `ratifier_role="coder"`; `mos_book_dead_end(claim="", evidence="...")`.  
+**Note**: This class is also re-exported from `minions.tools.book` for backward compatibility with existing `pytest.raises(BookError)` call sites.
+
+---
+
 ## Class hierarchy
 
 ```
@@ -115,7 +141,10 @@ Exception
     ├── ProjectBridgeError
     ├── ExperimentError
     │   └── CircuitBreakError
-    └── PermissionError
+    ├── PermissionError
+    ├── ReelError
+    ├── DraftError
+    └── BookError
 ```
 
 *Source of truth: `minions/errors.py`. Keep this reference in sync when adding new exception classes.*
