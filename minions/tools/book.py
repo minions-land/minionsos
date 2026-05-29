@@ -32,6 +32,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
+from pydantic import Field
+
 from minions.config import slugify
 from minions.errors import BookError
 from minions.paths import (
@@ -41,6 +43,7 @@ from minions.paths import (
     project_state_dir,
     project_workspace_root,
 )
+from minions.tools._returns import DictLikeBaseModel
 from minions.tools.publish import mos_publish_files_to_shared, mos_publish_to_shared
 
 logger = logging.getLogger(__name__)
@@ -111,6 +114,31 @@ _MAX_CONTRADICTIONS = 5
 _MAX_LINT_FINDINGS = 100
 _MAX_HOT_BYTES = 4096
 _STALE_CLAIM_SECONDS = 72 * 60 * 60
+
+
+# ---------------------------------------------------------------------------
+# Typed return shapes
+# ---------------------------------------------------------------------------
+
+
+class BookQueryResult(DictLikeBaseModel):
+    """Result shape for ``mos_book_query``.
+
+    ``matches`` is the ordered match list. Each entry always carries
+    ``slug``/``title``/``page_kind``/``book_path``/``score``, plus
+    ``paper_role``/``motif_kind``/``ratified_by`` read from the page
+    frontmatter (empty string when absent). ``status`` is included when
+    the caller passes ``include_status=True`` (default), and ``relations``
+    is included when ``include_relations=True`` (default). ``total`` is
+    the pre-``max_pages``-slice count of matches; ``queried`` echoes the
+    raw query string.
+    """
+
+    matches: list[dict[str, Any]] = Field(
+        description="Ranked Book index matches (sliced to max_pages)."
+    )
+    total: int = Field(description="Total match count before max_pages slice.")
+    queried: str = Field(description="The raw query text the caller passed in.")
 
 
 def _book_root(port: int) -> Path:
@@ -2280,7 +2308,7 @@ def mos_book_query(
     include_relations: bool = True,
     status_filter: str | None = None,
     paper_role_filter: str | None = None,
-) -> dict[str, object]:
+) -> BookQueryResult:
     """Keyword-only search over book/index.md headers + page filenames.
 
     Args:
@@ -2301,16 +2329,17 @@ def mos_book_query(
             contradict it without an extra index read.
 
     Returns:
-        ``{"matches": [...], "total": N, "queried": text}`` where each match
-        is ``{"slug", "title", "page_kind", "book_path", "score", "status"?,
-        "paper_role"?, "motif_kind"?, "ratified_by"?, "relations"?}``.
+        A :class:`BookQueryResult` (dict-like) with ``matches``, ``total``,
+        and ``queried``. Each match is ``{"slug", "title", "page_kind",
+        "book_path", "score", "status"?, "paper_role"?, "motif_kind"?,
+        "ratified_by"?, "relations"?}``.
     """
     resolved_port = _resolve_port(port)
     query_tokens = _tokens(text)
     book_root = _book_root(resolved_port)
     index_path = book_root / "index.md"
     if not query_tokens or not index_path.exists():
-        return {"matches": [], "total": 0, "queried": text}
+        return BookQueryResult(matches=[], total=0, queried=text)
 
     entries = _parse_index_entries(index_path.read_text(encoding="utf-8"))
     edges_by_from: dict[str, list[dict[str, str]]] = {}
@@ -2357,7 +2386,7 @@ def mos_book_query(
     scored.sort(key=lambda item: (-int(item["score"]), str(item["title"]), str(item["slug"])))
     total = len(scored)
     limit = max(0, int(max_pages))
-    return {"matches": scored[:limit], "total": total, "queried": text}
+    return BookQueryResult(matches=scored[:limit], total=total, queried=text)
 
 
 def _read_page_frontmatter(book_root: Path, book_path: str) -> dict[str, str]:

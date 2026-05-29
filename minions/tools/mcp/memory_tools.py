@@ -201,7 +201,7 @@ async def mos_book_query(
     text: str,
     max_pages: int = 5,
     include_status: bool = True,
-) -> dict:
+) -> _book.BookQueryResult:
     """Query Book index entries with progressive disclosure.
 
     Each match includes ``status`` (frontmatter ``status:`` value) when
