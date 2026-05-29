@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from minions.tools import book as _book
 from minions.tools import draft as _draft
 from minions.tools import shelf as _shelf
+from minions.tools.draft import DraftNodeType, DraftSupportStatus
 from minions.tools.mcp import mcp
 from minions.tools.mcp._common import _require_tool_allowed
 
@@ -14,8 +15,10 @@ from minions.tools.mcp._common import _require_tool_allowed
 
 
 class DraftQueryArgs(BaseModel):
-    node_type: str | None = Field(default=None, description="Filter by node type.")
-    support_status: str | None = Field(default=None, description="Filter by support status.")
+    node_type: DraftNodeType | None = Field(default=None, description="Filter by node type.")
+    support_status: DraftSupportStatus | None = Field(
+        default=None, description="Filter by support status."
+    )
     author_role: str | None = Field(default=None, description="Filter by author role.")
     text_contains: str | None = Field(default=None, description="Substring search in node text.")
     related_to: str | None = Field(
@@ -35,7 +38,9 @@ class DraftAppendArgs(BaseModel):
 
 class DraftAnnotateArgs(BaseModel):
     node_id: str = Field(description="ID of the node to annotate.")
-    support_status: str | None = Field(default=None, description="New support status.")
+    support_status: DraftSupportStatus | None = Field(
+        default=None, description="New support status."
+    )
     evidence_tag: str | None = Field(default=None, description="Evidence reference.")
     metadata_update: dict | None = Field(default=None, description="Metadata keys to merge.")
 
