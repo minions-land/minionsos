@@ -31,14 +31,13 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Literal, Protocol, cast, get_args
 
 from pydantic import BaseModel, Field
 
 from minions.paths import (
     MINIONS_ROOT,
     REVIEW_DIR,
-    project_reviews_dir,
     project_shared_subdir,
     project_shared_workspace,
 )
@@ -46,7 +45,8 @@ from minions.paths import (
 logger = logging.getLogger(__name__)
 
 # Decision labels for adjudication (simpler than paper review).
-ADJUDICATION_DECISIONS: frozenset[str] = frozenset({"Accept", "Revise", "Reject"})
+AdjudicationDecision = Literal["Accept", "Revise", "Reject"]
+ADJUDICATION_DECISIONS: frozenset[str] = frozenset(get_args(AdjudicationDecision))
 
 # Per-stage timeouts (same as review.py).
 _ADJUDICATOR_STAGE_TIMEOUT_SECONDS = int(os.environ.get("MOS_ADJUDICATE_TIMEOUT", str(15 * 60)))
@@ -83,7 +83,7 @@ def mos_adjudicate(args: AdjudicateArgs) -> dict[str, object]:
             "reason": f"Submission answer.json not found at {submission_path}",
         }
 
-    reviews_dir = project_reviews_dir(args.port)
+    reviews_dir = project_shared_subdir(args.port, "governance") / "adjudication"
     round_num = _current_round_number(reviews_dir)
     round_dir = reviews_dir / f"round-{round_num}"
     round_dir.mkdir(parents=True, exist_ok=True)
@@ -495,18 +495,19 @@ def _concat_fresh_md(round_dir: Path, adjudicator_reports: list[Path]) -> Path:
     return fresh
 
 
-def _extract_decision(consolidated_path: Path) -> str | None:
+def _extract_decision(consolidated_path: Path) -> AdjudicationDecision | None:
     """Extract the chair decision label from consolidated.md."""
     if not consolidated_path.exists():
         return None
     text = consolidated_path.read_text(encoding="utf-8")
     canonical_sorted = sorted(ADJUDICATION_DECISIONS, key=lambda s: -len(s))
 
-    def _label_at(pos_in_text: str) -> str | None:
+    def _label_at(pos_in_text: str) -> AdjudicationDecision | None:
         label = pos_in_text.strip().strip("*_`").splitlines()[0].strip().strip("*_`")
         for canonical in canonical_sorted:
             if re.fullmatch(rf"\s*{re.escape(canonical)}\s*\.?\s*", label, flags=re.IGNORECASE):
-                return canonical
+                # Cast: re-derive narrow type after lookup against canonical set.
+                return cast(AdjudicationDecision, canonical)
         return None
 
     # Find the first `## Decision` block.
@@ -549,7 +550,9 @@ def _extract_evidence_refs(consolidated_path: Path) -> list[str]:
     return refs
 
 
-def _commit_adjudication_round_to_shared(*, port: int, round_num: int, decision: str) -> str | None:
+def _commit_adjudication_round_to_shared(
+    *, port: int, round_num: int, decision: AdjudicationDecision
+) -> str | None:
     """Commit the round's outputs on the shared branch."""
     from minions.tools.publish import _shared_lock
 
@@ -561,7 +564,7 @@ def _commit_adjudication_round_to_shared(*, port: int, round_num: int, decision:
     msg = f"adjudicate: round-{round_num} consolidated ({decision})"
     with _shared_lock(port):
         add = subprocess.run(
-            ["git", "add", "-A", "reviews"],
+            ["git", "add", "-A", "governance/adjudication"],
             cwd=str(workspace),
             capture_output=True,
             text=True,
@@ -600,4 +603,10 @@ def _commit_adjudication_round_to_shared(*, port: int, round_num: int, decision:
         return head.stdout.strip() or None
 
 
-__all__ = ["AdjudicateArgs", "get_spawner", "mos_adjudicate", "set_spawner"]
+__all__ = [
+    "AdjudicateArgs",
+    "AdjudicationDecision",
+    "get_spawner",
+    "mos_adjudicate",
+    "set_spawner",
+]
