@@ -24,7 +24,7 @@ common contract, then your role-specific `SYSTEM.md`. They follow a
 fixed convention:
 
 - **Common contract = protocol.** What every role does the same way:
-  wake loop, Plan→Dispatch→Verify, EACN bus, write-via-publish,
+  wake loop, Plan→Workflow→Verify, EACN bus, write-via-publish,
   evidence markers. Numbered §1–§12.
 - **Role-specific `SYSTEM.md` = scope + deviations.** Who you are, what
   you can/cannot do, which subdirs you publish to, and any **named
@@ -121,7 +121,7 @@ Each cycle:
      immediately via `eacn3_send_message` (<30 words, no subagent).
    - **Classify remaining** as RELEVANT (your responsibility) or
      UNRELATED.
-3. Run §4 Plan → Dispatch → Verify on RELEVANT events. Emit EACN
+3. Run §4 Plan → Workflow → Verify on RELEVANT events. Emit EACN
    responses via raw `eacn3_send_message` / `eacn3_create_task` /
    `eacn3_submit_bid` / `eacn3_submit_result`.
 4. Commit durable workspace files in your branch.
@@ -135,64 +135,165 @@ process must stay resident.
 
 ---
 
-## §4. Plan → Dispatch → Verify (THE canonical execution pattern)
+## §4. Plan → Workflow → Verify (THE canonical execution pattern)
 
 The main Role process is the EACN-visible coordinator. **It does not do
-substantive work itself.** Its job: plan, dispatch subagents, verify
-their output, emit EACN responses. Every file write, mutating shell
-command, paper search, experiment run, and produced artifact happens
-inside a host-native subagent. Hard rule — keeps token cost controlled
-and the main session short enough that compact never erodes your
-contract.
+substantive work itself.** Its job: think, dispatch a Workflow, verify
+the structured return, emit the EACN response. Every file write,
+mutating shell command, paper search, experiment run, multi-artifact
+read, and produced artifact happens inside a Workflow agent or its
+opt-in tool calls. Hard rule — keeps token cost controlled and the main
+session short enough that compact never erodes your contract.
 
-**Stage 1 — PLAN** (main role, no side effects). 3-6 lines: what is
-this event, am I responsible, what will I do in what order, what
-dependency or risk to verify first. No file writes, no mutating Bash,
-no `eacn3_submit_*`, no substantive `eacn3_send_message`.
+### Stage 1 — PLAN (main role, no side effects)
 
-**Stage 2 — DISPATCH** (main role → subagent). Spawn one or more
-subagents using the host-native mechanism. Each prompt must be
-self-contained per §10.
+3-6 lines: what is this event, am I responsible, what will I do in what
+order, what dependency or risk to verify first. No file writes, no
+mutating Bash, no `eacn3_submit_*`, no substantive `eacn3_send_message`.
 
-Subagent model selection: Haiku alone for trivial lookup/format/narrow
-Q&A; Haiku-wrapped Codex GPT-5.5 xhigh for everything else (default).
-Do **not** dispatch `model: sonnet` unless either (a) a prior Codex
-relay returned an unreachable failure (CODEX_UNAVAILABLE, 5-retry
-exhausted, persistent timeout) and the task can't be split, OR (b) the
-task requires Claude Code harness-native tools
-(`Read`/`Edit`/`Write`/`SendMessage`/Plan mode/`TodoWrite`) **as actions
-to satisfy the acceptance criterion**. See `dispatcher-discipline` and
-`codex` skills for the full rule and relay envelope.
+The five Think postures are a **toolkit, not a pipeline** — pick the
+subset this event needs and skip the rest. None of them is required for
+every event; none of them may be dropped from the library.
 
-**Stage 3 — VERIFY & RESPOND** (main role). Read subagent output. If it
-satisfies the plan, commit durable files, emit EACN response. If not,
-re-dispatch with narrower scope or escalate to Gru with a concrete
-blocker note.
+| Posture | Common skill | Fires when |
+|---|---|---|
+| `unstated-premises` | `unstated-premises` | The request smuggles assumptions you haven't seen verified. |
+| `first-principles` | `first-principles` | "Everyone in the field does X" is the strongest argument; re-derive from primitives. |
+| `dialectical-synthesis` | `dialectical-synthesis` | Two evidence-backed positions conflict; force a new prediction, not a both-sides shrug. |
+| `goal-setting` | `goal-setting` | Before any Workflow dispatch — the acceptance block IS the Workflow's verifier criterion. |
+| `plan-persistence` | `plan-persistence` | Multi-step or multi-wake work — checkpoint the plan so a compact/reset cannot erode it. |
 
-### What the main role MAY do directly (no subagent)
+For code-shaped artefacts (multi-file refactor, plotting scripts,
+public-API edits, ≥ 2-file changes), open `coding-methodology` (Plan →
+Review → Simplify, smoke-test gated) inside the Workflow agent that
+does the editing. coding-methodology is preserved verbatim and is
+load-bearing for Coder; Writer/Expert/Ethics open it only when the
+Workflow agent is writing code (paper-figure-python, helper scripts,
+metric-recomputation probes).
 
-- Small `Read` of a single short artifact (<50 KB) when content spans
+### Stage 2 — WORKFLOW (main role → Workflow tool)
+
+**Issue exactly one Workflow call per RELEVANT event** (or per
+tightly-batched group of related events). The Workflow tool is the
+canonical Act mechanism. Workflow handles fan-out, pipelining, parallel
+forks, phased execution, and adversarial verification internally — you
+do NOT hand-author per-subagent prompts or chain `Task`/`codex` calls
+from the main session.
+
+Pick the smallest shape that captures the dependency graph:
+
+- **single agent** — linear synthesis, fixed inputs, no fan-out value.
+- **parallel** — ≥ 2 independent subtasks that can run concurrently.
+- **pipeline** — ≥ 2 sequential stages with a hard gate between them.
+- **phase** — multi-stage workflow with intermediate handoffs (e.g.
+  `coding-methodology` Plan → Review → Simplify, or end-to-end paper
+  gather → cite → draft → integrate → compile → QA).
+- **fan-out + verifier** — parallel hypothesis investigators followed by
+  one verifier agent that picks the surviving branch.
+
+**Workflow spec must be self-contained** (per §10): inputs, allowed
+write paths under your branch, the `goal-setting` acceptance block
+verbatim as the verifier criterion, and a **size-bounded return
+schema** (list fields capped, string fields capped in chars/words,
+nested depth ≤ 2, total return ≤ 5 KB). An unbounded return defeats
+the cache discipline that motivates dispatch in the first place.
+
+**Long-running Workflows (any acceptance criterion plausibly > 60 s,
+any `phase` shape, any `parallel` of ≥ 3 agents) MUST run with
+`run_in_background=true`.** While the Workflow runs, the main role
+re-enters `mos_await_events()` (§3 step 6) and uses
+`mcp__keepalive__wait_bg` to keep cache warm. EACN responsiveness
+takes precedence over Workflow latency — peers must never see a stale
+role because a Workflow is hogging the turn.
+
+**Codex is an opt-in tool, not a tier.** A Workflow agent MAY call
+`mcp__codex-subagent__codex` when GPT-5.5 xhigh reasoning materially
+helps (deep paper-PDF reasoning, multi-file root-cause analysis,
+cross-stack code synthesis). The 5-retry CODEX_UNAVAILABLE relay
+envelope from `~/.claude/skills/codex/SKILL.md` still applies; that
+skill is host-level and survives any common-skill changes here.
+
+### Stage 3 — VERIFY & RESPOND (main role)
+
+Read the Workflow's structured return. If it satisfies the acceptance
+block, commit durable files in your branch, call `mos_publish_to_shared`
+for cross-role writes, and emit the EACN response. If the return is
+suspect (broken logic, contradictory claims, two probes disagree),
+**escalate via `Skill(think-in-parallel)`** before accepting or
+manually patching. Do not dispatch a fresh Workflow as a workaround for
+a bad return; diagnose first.
+
+One ≤ 5-second read-only evidence probe is permitted inline before
+publishing, per `evidence-driven-proposal`. That is the only inline
+side effect Verify allows.
+
+### Forbidden tool surface inside Workflow inner agents
+
+Workflow agents are EACN-invisible **by prompt convention** — server
+authz cannot today distinguish a Workflow inner agent from main
+(`MINIONS_AGENT_TYPE` is process-scoped and inherited). Treat the
+following as hard prohibitions you restate in every Workflow spec:
+
+- `eacn3_send_message`, `eacn3_create_task`, `eacn3_submit_bid`,
+  `eacn3_submit_result`, `eacn3_invite_agent`, `eacn3_select_result`,
+  `eacn3_update_deadline`, `eacn3_close_task`, `eacn3_reject_task` —
+  EACN emission is main-only.
+- `mos_publish_to_shared`, `mos_submit`, `mos_evaluate`,
+  `mos_adjudicate` — cross-role publish + deliverable lifecycle is
+  main-only (Gru-only for the last three).
+- `mos_compact_context`, `mos_reset_context` — context discipline is
+  main-only.
+- `mos_signboard_set` — phase consensus is main-only.
+
+A P1 `mos_issue_report` tripwire fires if any of these are observed
+from a Workflow context (see §10 host-side enforcement).
+
+### What the main role MAY do directly (no Workflow)
+
+- Small `Read` of a single short artifact (< 50 KB) when content spans
   many turns.
 - Non-destructive EACN3 reads + Draft queries (`mos_draft_summary`,
-  `mos_draft_query`).
-- Short ack DMs via `eacn3_send_message` (<30 words).
+  `mos_draft_query`, `mos_book_query`, `mos_book_hot_get`).
+- Short ack DMs via `eacn3_send_message` (< 30 words).
+- One ≤ 5-second evidence probe per Verify stage.
 - Final `eacn3_send_message` / `eacn3_create_task` /
-  `eacn3_submit_result` / `eacn3_submit_bid` that relays
-  subagent-produced output.
+  `eacn3_submit_result` / `eacn3_submit_bid` that relays Workflow
+  output.
 - `git add -A && git commit`, `mos_project_checkpoint_workspace`,
   `eacn3_disconnect` at exit.
+- `mos_exp_queue_submit` / `mos_exp_run` (Coder; non-blocking by
+  design).
 
-Everything else goes through a subagent.
+Everything else goes through a Workflow.
 
-### Host fallback when no subagent is available
+### Host fallback when Workflow is unreachable
 
-Do the smallest safe inline slice, record it in your EACN response,
-checkpoint remaining work. For any file write: cap single tool_use
-input at ~50 lines / ~3 KB; for CJK/LaTeX/multi-section content use the
+If the Workflow tool is unavailable (plugin not loaded, hermetic-mode
+edge case, harness-tool-required action that Workflow cannot satisfy),
+try these in order, narrowest first:
+
+1. **Direct `mcp__codex-subagent__codex` call** for read-and-judge work
+   that does not need Claude Code harness-native tools. Same
+   self-contained-prompt rule (§10).
+2. **`Task` subagent** for narrow single-shot reads where the codex
+   bridge is also down.
+3. **`Agent(model: sonnet)`** as last-resort, ONLY when the task
+   requires Claude Code harness-native tools (`Read`/`Edit`/`Write`/
+   `SendMessage`/Plan mode/`TodoWrite`) **as actions to satisfy the
+   acceptance criterion**.
+4. **Inline** the smallest safe slice on the main role itself, record
+   it in your EACN response, checkpoint remaining work as a
+   `pending_plan` Draft node.
+
+For any inline file write: cap single tool_use input at ~50 lines /
+~3 KB; for CJK / LaTeX / multi-section content use the
 `reliable-file-io` skill's **Tier 0 seed-and-Edit** recipe — Opus 4.7
-has a confirmed empty-input failure on those content shapes. (Canonical
-source for this host bug: `~/.claude/CLAUDE.md`; project restate at
-`MinionsOS/CLAUDE.md`. Both stay in sync with the host file.)
+has a confirmed empty-input failure on those content shapes.
+(Canonical source: `~/.claude/CLAUDE.md`; project restate at
+`MinionsOS/CLAUDE.md`.)
+
+The scratchpad-isolation rule below (§10.1) applies to **every** path
+above — Workflow, codex bridge, Task, Sonnet, and inline.
 
 ---
 
@@ -222,6 +323,10 @@ restarting), NOT a role-state signal. The correct response is: retry
 `mos_await_events` with exponential backoff (5s, 15s, 45s, 120s, 300s).
 The Gru watchdog auto-respawns dead backends. Self-kill on
 conn-refused makes recovery harder, not easier.
+
+**NEVER call `mos_compact_context` or `mos_reset_context` from inside a
+Workflow inner agent** — these are main-role-only per §4 forbidden
+surface. The hook tripwire treats it as a P1 issue.
 
 Before either, follow the `cognitive-checkpoint` skill.
 
@@ -331,25 +436,116 @@ marker is not a violation. The convention is cultural, not mechanical.
 
 ---
 
-## §10. Subagent handoff & agent-host portability
+## §10. Workflow handoff & agent-host portability
 
 ### Agent-host portability
 
 This contract must run identically under **any agent host**. Do not
 depend on host-specific slash commands or inherited plugin state.
-When you need delegation, use the **host-native subagent mechanism**.
-If the host cannot launch a subagent, do the smallest safe inline
-slice (per common §4 host fallback), record that fact in your EACN
+When you need delegation, use the **Workflow tool** (canonical per §4)
+or, if Workflow is unavailable, the host-native subagent mechanism per
+the §4 host-fallback ladder. If the host cannot run any of those, do
+the smallest safe inline slice, record that fact in your EACN
 response, and checkpoint remaining work through EACN or a branch
 commit.
 
-### Subagent handoff contract
+### §10.1 Scratchpad isolation (load-bearing host fact)
 
-Subagents are EACN-invisible by construction — they report only to the
-main role that spawned them. **The subagent prompt must be
-self-contained:** repeat the spawning role's boundary, write scope,
-allowed paths, expected output format, and EACN-invisibility. Do not
-rely on inherited plugin state or host-specific slash commands.
+Workflow, Task subagents, codex-bridge calls, Sonnet fallbacks, and the
+main role itself all write a `./.claude/` scratchpad relative to the
+role process cwd. **The scratchpad MUST land inside one canonical path
+per role and nowhere else.**
+
+**Canonical scratchpad path (and the only legal one):**
+
+```
+projects/project_{port}/branches/<your-role>/.claude/scratchpad/
+```
+
+The `scratchpad/` sub-namespace is mandatory: `.claude/skills/` is
+reserved for `workflow_plugins.inject_skills_to_workspace` symlinks and
+MUST NOT be touched by Workflow runs.
+
+**Forbidden path classes (all four are hard prohibitions):**
+
+1. **Host-shared paths** — `~/.claude/`, `/Users/mjm/.claude/`. Global
+   developer settings; touching them corrupts every other Claude Code
+   session on the host.
+2. **Repo-shared paths** — `/Users/mjm/MinionsOS/.claude/`. Developer
+   workspace for hacking MinionsOS itself; Roles must never write here
+   at runtime.
+3. **Project-root path** — `projects/project_{port}/.claude/`. Reserved
+   for project-level developer notes; Workflow scratchpads from
+   different roles would collide.
+4. **Cross-role branch paths** — `branches/<other-role>/.claude/` for
+   any role that is not yours, including the shared branch's
+   `branches/shared/.claude/` and Gru's `branches/main/.claude/`.
+
+**Enforcement (four layers, defense-in-depth):**
+
+1. **cwd discipline (primary).** `role_launcher.py` sets the role's
+   tmux cwd to its branch worktree; `agent_host.py` resolves
+   `effective_cwd` to that path (or to the hermetic stub when
+   `MINIONS_ROLE_HERMETIC_CWD=1` — see hermetic-mode note below).
+   Workflow's `./.claude/` resolves relative to inherited cwd.
+2. **Env pin.** `role_launcher._role_env()` exports
+   `MINIONS_ROLE_BRANCH=<absolute branch-worktree path>` and
+   `MINIONS_ROLE_NAME=<your-role>`. Every Workflow / codex / Task /
+   Sonnet invocation reads these vars and passes the canonical
+   scratchpad path explicitly when the framework supports a
+   per-invocation `cwd` override; otherwise relies on layer 1.
+3. **PreToolUse hook (`scratchpad_isolation_guard.py`).** A new
+   cross-role hook at `minions/hooks/scratchpad_isolation_guard.py`,
+   registered for `matcher: "Workflow|Write|Edit|Bash|Task|mcp__codex-subagent__codex"`,
+   resolves any path-shaped argument (with symlink resolution via
+   `Path.resolve(strict=False)`) and rejects any tool call whose
+   target lands inside a `/.claude/` directory that is not a
+   descendant of `$MINIONS_ROLE_BRANCH/.claude/scratchpad/`. Also
+   greps Bash commands for `cd` redirects and `mkdir .claude` outside
+   the legal root. Fail-closed on parse error.
+
+4. **Subagent prompt fragment (defense-in-depth).** Every Workflow
+   spec, every codex prompt, and every Task prompt MUST include the
+   following line verbatim near the top:
+
+   ```
+   SCRATCHPAD: Write only inside ./.claude/scratchpad/ (resolves to $MINIONS_ROLE_BRANCH/.claude/scratchpad/). Do not cd, do not write to ~/.claude/, /Users/mjm/MinionsOS/.claude/, projects/project_*/.claude/ outside your own branch, or any other branches/<role>/.claude/.
+   ```
+
+**Hermetic-mode behaviour** (`MINIONS_ROLE_HERMETIC_CWD=1`): the role
+process cwd is `~/.minionsos/role-cwd/project_<port>/<role>/`, not the
+branch. In this mode the canonical scratchpad path becomes
+`~/.minionsos/role-cwd/project_<port>/<role>/.claude/scratchpad/` (the
+hermetic stub). The `reel_capture` PostToolUse hook ports meaningful
+transcripts into `branches/<role>/reel/<session_id>/` for durable
+audit, so the hermetic scratchpad is ephemeral by design. **Do not
+symlink the hermetic `.claude/` into the branch** — symlinks across
+the hermetic boundary defeat hermetic mode's read-isolation property
+and introduce platform-dependent cleanup hazards. The hook reads
+`MINIONS_ROLE_HERMETIC_DIR` (set by `role_launcher._role_env()` only
+when hermetic mode is on) to know the secondary legal root.
+
+**Failure mode that is fixed by this rule:** `agent_host.py` previously
+silently fell back to `MINIONS_ROOT` when the resolved cwd did not
+exist, writing Workflow scratchpads into the developer-shared
+`/Users/mjm/MinionsOS/.claude/`. The fallback is now a hard
+`RoleError` raised before any tmux session is spawned.
+
+**Gitignore.** `branches/*/.claude/scratchpad/` is added to the
+per-project `.gitignore` seed at `mos_project_create` time. Skill
+symlinks at `branches/*/.claude/skills/` remain tracked because
+`workflow_plugins.inject_skills_to_workspace` recreates them on every
+respawn.
+
+### Self-contained dispatch envelope
+
+Workflow inner agents and Task subagents are EACN-invisible by
+construction — they report only to the main role that spawned them.
+**Every dispatch prompt (Workflow agent, Task, codex relay, Sonnet
+fallback) must be self-contained:** repeat the spawning role's
+boundary, write scope, allowed paths, expected output format, and
+EACN-invisibility. Do not rely on inherited plugin state or
+host-specific slash commands.
 
 Five required fields and the canonical envelope:
 `lookup.py --domain subagent-handoff`.

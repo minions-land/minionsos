@@ -127,7 +127,7 @@ hermetic-mode settings.
 
 | Topic | Canonical home |
 |---|---|
-| Wake loop, triage, Plan→Dispatch→Verify | SYSTEM.md §3, §4 |
+| Wake loop, triage, Plan→Workflow→Verify | SYSTEM.md §3, §4 |
 | Context compact vs reset | SYSTEM.md §5 |
 | Memory layers L0–L3 | SYSTEM.md §6; `lookup.py --domain memory` |
 | Inter-role EACN rules | SYSTEM.md §7 |

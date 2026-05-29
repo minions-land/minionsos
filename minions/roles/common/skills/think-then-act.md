@@ -1,11 +1,11 @@
 ---
 slug: think-then-act
-summary: Think then act — toolkit of five postures for structured planning and dispatch. Use any combination of unstated-premises audit, first-principles derivation, dialectical synthesis, goal-setting, and plan-persistence before dispatching execution.
+summary: Think then act — toolkit of five postures for structured planning before Workflow dispatch. Use any combination of unstated-premises audit, first-principles derivation, dialectical synthesis, goal-setting, and plan-persistence; then issue a single Workflow per common §4.
 layer: logical
-tools: eacn3_send_message, codex
-version: 6
+tools: Workflow, eacn3_send_message
+version: 7
 status: active
-references: unstated-premises, first-principles, dialectical-synthesis, goal-setting, plan-persistence, think-in-parallel, evidence-driven-proposal
+references: unstated-premises, first-principles, dialectical-synthesis, goal-setting, plan-persistence, think-in-parallel, evidence-driven-proposal, role-act-via-workflow, coding-methodology
 provenance: human+agent
 ---
 
@@ -67,19 +67,20 @@ Synthesis (Posture 3) tends to end with "so we should build X". That is the reco
 
 The agent decides. The skill does not decide for you.
 
-## After the postures: dispatch (never self-execute)
+## After the postures: Workflow (never self-execute)
 
-**Hard rule: once Think-then-Act is invoked, the main agent becomes a pure
-dispatcher for implementation work. It does NOT implement, edit files,
-produce artifacts, or run experiments itself — not even for single-step
-tasks.** All implementation execution goes through a subagent. This is
-non-negotiable regardless of task simplicity.
+**Hard rule: once Think-then-Act is invoked, the main agent becomes a
+pure dispatcher for implementation work. It does NOT implement, edit
+files, produce artifacts, or run experiments itself — not even for
+single-step tasks.** All implementation execution goes through the
+**Workflow tool** per common SYSTEM.md §4 Plan → Workflow → Verify.
+This is non-negotiable regardless of task simplicity.
 
 **Carve-out for verification probes.** A ≤5-second read-only probe per
 `evidence-driven-proposal.md` (e.g. `grep`, `head` of a config, `python
 -c "import x; print(x.__version__)"`, single-test rerun) is **not**
-implementation work — it is the publication gate, and dispatching it
-through a subagent would defeat the low-cost anchor value the probe is
+implementation work — it is the publication gate, and routing it
+through a Workflow would defeat the low-cost anchor value the probe is
 for. Run those probes inline, mark the claim with `[evidence: …]`, and
 keep dispatching the actual work.
 
@@ -90,23 +91,45 @@ degrades on subsequent tasks.
 
 When you have enough clarity (from however many postures you used):
 
-- **Write a plan**: Use Superpowers `writing-plans` if available, or write a markdown checklist.
-- **Persist the plan if ≥2 steps** — read `plan-persistence.md`. Single-step work skips persistence — still dispatch.
-- **Dispatch ALL execution** via one of (in priority order):
-  1. `delegate-heavy-task` (Codex subagent) — preferred for implementation work.
-  2. `subagent-driven-development` — when multiple independent tasks can parallelize.
-  3. Host-native `Task` tool or `Agent` tool — fallback when Codex is unavailable.
-- **If the dispatched answer returns suspect** (broken logic, contradictory reasoning, or two probes disagree): escalate to `think-in-parallel` — do NOT accept or fix manually.
-- **Pass goals verbatim**: Copy your Goal-Setting threshold (specific numbers, not "a good report") into the dispatch as its acceptance criterion. No placeholders — "TBD", "reasonable", "appropriate" are plan failures.
-- **Dispatch is fire-and-forget. Do NOT await the subagent inline.**
-  Always pass `run_in_background: true` to the `Agent`/`Task` tool. After
-  dispatching, flip the plan step to `dispatched` and immediately call
-  `mos_await_events()`. Claude Code will notify this process when the
-  background agent completes — handle the result in that wake cycle.
-- **On result arrival**: verify acceptance criteria, then run `evidence-driven-proposal.md` before publishing the finding. Flip step to `done` with the `[evidence: …]` / `[derived: …]` / `[speculation]` markers it produces.
+- **Write a plan** as a markdown checklist or use a host-native
+  planning tool if available.
+- **Persist the plan if ≥2 steps** — read `plan-persistence.md`.
+  Single-step work skips persistence — still dispatch via Workflow.
+- **Dispatch ALL execution via Workflow** (canonical per common §4).
+  Pick the shape that captures the dependency graph: `single agent`,
+  `parallel`, `pipeline`, `phase` (e.g. `coding-methodology` Plan →
+  Review → Simplify), or `fan-out + verifier`. See `role-act-via-
+  workflow.md` for per-role recipe pointers.
+- **For code-shaped artefacts** (multi-file refactor, plotting
+  scripts, public-API edits, ≥ 2-file changes), open
+  `coding-methodology` (Plan → Review → Simplify, smoke-test gated)
+  inside the Workflow agent that does the editing.
+- **If the Workflow's return is suspect** (broken logic, contradictory
+  reasoning, two probes disagree): escalate via
+  `Skill(think-in-parallel)` — do NOT accept or fix manually, and do
+  NOT dispatch a fresh Workflow as a workaround.
+- **Pass goals verbatim**: copy your Goal-Setting threshold (specific
+  numbers, not "a good report") into the Workflow spec as its
+  acceptance criterion. No placeholders — "TBD", "reasonable",
+  "appropriate" are plan failures.
+- **Long Workflows** (acceptance criterion plausibly > 60 s, any
+  `phase`, any `parallel` of ≥ 3 agents) MUST run with
+  `run_in_background=true`. Re-enter `mos_await_events` while polling
+  via `mcp__keepalive__wait_bg`. EACN responsiveness takes precedence
+  over Workflow latency.
+- **Host fallback** (Workflow unreachable): follow the §4
+  host-fallback ladder — codex bridge → Task subagent → Sonnet (only
+  when harness-native tools are required as actions to satisfy the
+  acceptance criterion) → inline. Inline writes follow the
+  `reliable-file-io` Tier 0 recipe for CJK / LaTeX / multi-section
+  content.
+- **On Workflow return**: verify acceptance criteria, then run
+  `evidence-driven-proposal.md` before publishing the finding. Flip
+  step to `done` with the `[evidence: …]` / `[derived: …]` /
+  `[speculation]` markers it produces.
 
 ## Hard constraints
 
-1. **Autonomous-only, evidence-first**: You cannot reach a human terminal. Messaging another role and exiting is a LAST resort — first try `codex` (read-only) or a `Task` subagent on the codebase, git history, EACN logs, and artifacts. Most "I need to ask X" questions are answerable from the repo. Only message another role when (a) the answer is a fact about that role's intent or external state that cannot be inferred from artifacts, AND (b) the role is reachable this wake. Never pause for human input.
+1. **Autonomous-only, evidence-first**: You cannot reach a human terminal. Messaging another role and exiting is a LAST resort — first try a Workflow that reads the codebase, git history, EACN logs, and artifacts. Most "I need to ask X" questions are answerable from the repo. Only message another role when (a) the answer is a fact about that role's intent or external state that cannot be inferred from artifacts, AND (b) the role is reachable this wake. Never pause for human input.
 2. **Time-aware**: The postures are thinking tools, not rituals. 2–8 minutes total, not hours.
 3. **Evidence-marked**: Tag every load-bearing claim per `evidence-driven-proposal.md` — `[evidence: …]` (anchor probe with command + outcome) / `[derived: …]` (basis stated) / `[speculation]` (cannot probe or derive).
