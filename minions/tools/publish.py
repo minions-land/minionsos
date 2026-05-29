@@ -73,9 +73,7 @@ class PublishToSharedResult(DictLikeBaseModel):
 
     port: int = Field(description="Project port the publish was scoped to.")
     role: str = Field(description="Calling role (gru/noter/coder/...).")
-    dst_path: str = Field(
-        description="Relative path under branches/shared/ that was written."
-    )
+    dst_path: str = Field(description="Relative path under branches/shared/ that was written.")
     commit_sha: str | None = Field(
         default=None,
         description="SHA of the shared-branch commit, or None on a no-op publish.",

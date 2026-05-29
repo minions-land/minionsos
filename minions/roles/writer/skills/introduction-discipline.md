@@ -1,9 +1,9 @@
 ---
 slug: introduction-discipline
-summary: Introduction covers only background + method-class overview + contribution bullets; no implementation details. 4–6 paragraph hourglass structure ending with contribution itemize.
+summary: Introduction covers background, method-class overview, and substantive 2–3-line contribution bullets; no implementation details, no one-line drive-by bullets.
 layer: logical
 tools:
-version: 2
+version: 3
 status: active
 supersedes:
 references: abstract-writing, end-to-end-paper-workflow
@@ -47,11 +47,19 @@ The Introduction must specifically explain why prior work is insufficient. Gener
 
 ## Closing format
 
-The Introduction ends with 2–4 noun-phrase contribution bullets (`\begin{itemize}`). This is the only location in the paper where itemize is permitted. Contribution bullets are noun-phrases, not full sentences.
+The Introduction ends with 2–4 substantive contribution bullets (`\begin{itemize}`). This is the only location in the paper where itemize is permitted.
+
+Each bullet is a 2–3-line noun-phrase or compact prose block, not a one-sentence drive-by summary. Each bullet must name:
+- what the contribution is;
+- why it is novel; and
+- for multi-agent systems, how the contribution expresses multi-agent coordination.
+
+The bullet should be readable as a self-contained contribution statement. A reader who stops at the Introduction should still understand the substance of the novelty, not only a label for it.
 
 ## Pitfalls
 
 - Pulling Method content into the Introduction (parameter counts, optimizers, batch size).
 - Writing contribution bullets as full sentences rather than noun-phrases.
+- Contribution bullets reduced to one-line summaries that lose the why — each bullet must carry enough substance that a reader stopping at the Introduction understands the contribution.
 - Only 3 paragraphs (too short, insufficient substance).
 - Why-not analysis too vague ("neither approach alone achieves satisfactory performance").

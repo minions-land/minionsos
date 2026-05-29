@@ -602,9 +602,10 @@ def check_dispatch_posture(
 ) -> list[Issue]:
     """Warn when live Role main sessions self-execute past the threshold.
 
-    The ``dispatcher-discipline`` skill says the main role process must
-    dispatch all heavy work to a Task / codex subagent, not Bash / Edit /
-    Write itself. This check counts ``tool_use`` records across live (cwd
+    The ``dispatcher-discipline`` skill (now advisory cache discipline) says
+    the main role process should keep its working set small and let heavy
+    work land inside Workflow agents (common §4), not Bash / Edit / Write
+    itself. This check counts ``tool_use`` records across live (cwd
     still exists) Role main session jsonls. If ``heavy_self`` exceeds
     ``MINIONS_AUDIT_DISPATCH_HEAVY_SELF_THRESHOLD`` (default 15%) it
     raises an info-level Issue.
@@ -638,9 +639,10 @@ def check_dispatch_posture(
                 f"across {posture.total()} live tool_uses ({bucket_summary})."
             ),
             hint=(
-                "Main role is self-executing instead of dispatching. Open "
-                "minions/roles/common/skills/dispatcher-discipline.md and "
-                "delegate Bash / Edit / Write through Task or codex subagent."
+                "Main role is self-executing instead of dispatching to a "
+                "Workflow. Open minions/roles/common/skills/dispatcher-discipline.md "
+                "and move heavy Bash / Edit / Write work into a Workflow agent "
+                "(common §4)."
             ),
         )
     ]

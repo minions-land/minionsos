@@ -1,9 +1,9 @@
 ---
 slug: writing-style
-summary: Eliminate AI-generated tone and translationese; ensure academic prose is natural, precise, and free of redundancy. Blacklist high-frequency AI words such as delve/pivotal/landscape.
+summary: Eliminate AI tone, translationese, redundancy, and code-level identifiers in body prose; use abstract scientific terminology and blacklist high-frequency AI words.
 layer: logical
 tools:
-version: 2
+version: 3
 status: active
 supersedes:
 references: cn-en-academic-polish
@@ -32,6 +32,14 @@ Academic prose should be invisible — the reader sees the argument, not the wri
 
 **Use specific nouns.** "this result" → "the 30× speedup" / "the convergence guarantee". Vague referents force the reader to backtrack.
 
+**No code-level identifiers in body prose.** Code-level identifiers are forbidden in body sections: function names, file paths, folder names, version numbers, language/runtime requirements, package names, command names, and implementation labels. These belong in the Appendix or Methods-implementation supplement. Body text uses abstract scientific or engineering terminology only.
+
+Replacement examples:
+- `eacn3_create_subtask` → `the subtask-decomposition primitive`
+- `mcp-servers/eacn3/` → `the coordination-bus implementation`
+- `Python 3.11 package` → omit entirely, or write `the runtime` only if the runtime itself is scientifically relevant
+- `five milestones: experiments_ready, writing_ready, ...` → `five milestones spanning the natural progression from experiment readiness to camera-ready submission`
+
 ## Sentence structure
 
 **Keep subject and verb adjacent.** Do not insert long relative clauses between subject and verb.
@@ -52,3 +60,4 @@ Academic prose should be invisible — the reader sees the argument, not the wri
 - Three consecutive sentences beginning with "We".
 - Every paragraph containing an "X, Y, and Z" tricolon enumeration.
 - "this approach" with unclear antecedent (forces the reader to backtrack).
+- Code-level identifiers in body prose; replace implementation names with abstract terms and move substrate details to the Appendix.

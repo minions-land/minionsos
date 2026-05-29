@@ -91,9 +91,9 @@ def test_ethics_main_whitelist() -> None:
 def test_ethics_subagent_whitelist() -> None:
     """Ethics subagent executes the writes the main session plans.
 
-    Per the common SYSTEM.md Plan → Dispatch → Verify contract, substantive
+    Per the common SYSTEM.md Plan → Workflow → Verify contract, substantive
     work (flag files, report files under artifacts/ethics/) is produced by a
-    subagent, not the main role. The subagent must therefore be able to
+    Workflow agent, not the main role. The agent must therefore be able to
     Write/Edit inside that scope; it remains EACN-invisible because there are
     no eacn3_* tools in this whitelist.
     """
@@ -168,14 +168,16 @@ def test_ethics_mock_review_template_exists() -> None:
 
 
 def test_ethics_system_prefers_subagent_dispatch() -> None:
-    """SYSTEM.md must steer Ethics toward subagent dispatch with codex preferred."""
+    """SYSTEM.md must steer Ethics toward Workflow as the canonical Act mechanism."""
     from minions.paths import ROLES_DIR
 
     body = (ROLES_DIR / "ethics" / "SYSTEM.md").read_text(encoding="utf-8")
-    assert "Subagent dispatch preference" in body
+    assert "Workflow as the canonical Act mechanism" in body
+    assert "Workflow is the default" in body
+    # Codex remains reachable, now as an opt-in tool inside Workflow agents.
     assert "codex" in body
-    assert "Task" in body
-    assert "CODEX_UNAVAILABLE" in body
+    # Workflow scratchpad isolation must be pinned in the Ethics contract.
+    assert "Workflow scratchpad isolation" in body
 
 
 def test_fixed_roles_contains_ethics() -> None:

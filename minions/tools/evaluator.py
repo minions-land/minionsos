@@ -61,9 +61,7 @@ class SubmitResult(DictLikeBaseModel):
     """
 
     port: int = Field(description="Project port the deliverable was submitted to.")
-    kind: Literal["answer", "paper", "patch", "report"] = Field(
-        description="Deliverable kind."
-    )
+    kind: Literal["answer", "paper", "patch", "report"] = Field(description="Deliverable kind.")
     path: str = Field(description="Absolute path to the persisted submission file.")
     commit_sha: str | None = Field(
         default=None,
@@ -422,9 +420,7 @@ def _evaluate_answer_grader(
     )
 
 
-def _evaluate_test_runner(
-    port: int, meta: dict, reference_override: str | None
-) -> EvaluateResult:
+def _evaluate_test_runner(port: int, meta: dict, reference_override: str | None) -> EvaluateResult:
     """Run test suite and report pass/fail (SWE-bench style)."""
     # Placeholder for test_runner strategy (v15-δ will implement this for SWE-bench)
     raise ProjectError("test_runner strategy not yet implemented (reserved for v15-δ).")

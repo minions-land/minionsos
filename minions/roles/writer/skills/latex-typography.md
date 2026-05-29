@@ -1,9 +1,9 @@
 ---
 slug: latex-typography
-summary: LaTeX formatting conventions — all recurring named entities use preamble \newcommand macros and must not be hardcoded in the body; avoid itemize, short heads, and gratuitous emphasis. Booktabs grouping recipe for benchmark tables added in v4.
+summary: LaTeX conventions for CNS-grade structure — all recurring named entities use preamble \newcommand macros (no body hardcoding); three-tier heading hierarchy (section / pillar subsection / run-in head), no \subsubsection*{} chains; no itemize outside Introduction contributions; no short heads or gratuitous emphasis. Booktabs grouping recipe for benchmark tables (v4); CNS structural hierarchy merged (v5).
 layer: logical
 tools:
-version: 4
+version: 5
 status: active
 supersedes:
 references: make-latex-model, paper-compile
@@ -98,9 +98,18 @@ Avoid these macro-specific pitfalls:
 
 ## Structural formatting
 
+Use a three-tier heading hierarchy:
+- `\section*{}` for top-level paper sections such as Introduction, Methods, Results, and Discussion.
+- `\subsection*{}` for pillar-level contributions, with one subsection per major contribution.
+- `\noindent\textbf{Heading.}` run-in heads for in-paragraph topical breaks; the paragraph continues on the same line.
+
+Do not use chains of `\subsubsection*{}` as a replacement for paragraph structure. The `\subsubsection*{}` form is reserved for genuine multi-paragraph subsections, not two-sentence asides or short topical labels.
+
+Avoid blunt umbrella headings such as `Scientific Contributions`. Prefer a publication-grade phrase such as `The MinionsOS Multi-Agent Harness`, or remove the umbrella heading and let the pillar-level `\subsection*{}` contributions stand alone.
+
 **No itemize outside Introduction contributions.** The only permitted `\begin{itemize}` in the paper is the contribution bullet list at the end of the Introduction. All other enumerations must be rewritten as prose.
 
-**No `\paragraph{}` short heads.** Do not use `\paragraph{Step 1.}` style formatting. When subheadings are needed, use `\noindent\textbf{...}` or `\subsection{}`. A `\paragraph{}` followed by only one line of content indicates a structural problem that formatting cannot solve.
+**No `\paragraph{}` short heads.** Do not use `\paragraph{Step 1.}` style formatting. When subheadings are needed, use `\noindent\textbf{...}` or `\subsection*{}`. A `\paragraph{}` followed by only one line of content indicates a structural problem that formatting cannot solve.
 
 ## Inline formatting
 
@@ -190,5 +199,6 @@ The right form makes orthogonality visible. The wrong form invites reviewers to 
 - Forgetting `\xspace` so `\methodname is fast.` renders as `RetroDiffis fast.`.
 - Defining macros inline at first use instead of collecting them in the preamble.
 - Treating one-time names as recurring; single-use names do not need a macro.
+- `\subsubsection*{}` chains used for every short topical heading inside a Scientific Contributions section, producing visual fragmentation.
 - `\paragraph{}` followed by only one line of content (indicates a structural problem).
 - Excessive bold for emphasis (sentence structure and position should carry emphasis, not formatting).
