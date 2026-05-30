@@ -24,13 +24,23 @@ Background (from issue #38 analysis 2026-05-27):
 
 Threshold rationale:
 
-  At cache_read price $1.5/M, a 100K cr/turn turn costs $0.15. A compact
-  cycle costs ~$0.05-0.15 (compact model output) plus a one-time prefill
-  rebuild on the next turn. Below ~80K cr/turn, compact is net-negative
-  (cache_write of new prefix > savings). Above ~100K cr/turn, every
-  subsequent turn until the next compact saves ≥30K read = $0.045.
-  Default threshold therefore: 100K cr/turn averaged over the last 10
-  assistant turns.
+  These thresholds gate a compaction *advisory*, not a hard auto-compact.
+  They are expressed in cache_read tokens-per-turn averaged over the
+  recent window, which tracks the size of the accumulated prefix.
+
+  Original calibration (issue #38) optimized pure cache COST: at
+  $1.5/M cache_read, ~100K cr/turn was the break-even where a compact
+  pays for itself. But cost-break-even is the wrong target on a 1M
+  window — it fired "medium" at 77K cr/turn while a role was mid-task,
+  proposing to discard a warm 1M-capable prefix to save cents.
+
+  Revised default (2026-05-30): keep the full 1M window and only advise
+  compaction once the transcript is genuinely large — MEDIUM (soft hint)
+  at 150K cr/turn, HIGH ("compact now") at 200K. Operators tune via
+  gru.yaml ``context_pressure_{high,medium}_tokens`` or the
+  ``MINIONS_CTX_PRESSURE_{HIGH,MEDIUM}_TOKENS`` env vars (see
+  ``_load_thresholds``). The 1M window is unchanged; this only moves the
+  point at which the advisory fires.
 
 Cooldown:
 
@@ -63,10 +73,65 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 CACHE_TTL_SECONDS = 30
-DEFAULT_THRESHOLD_HIGH = 100_000
-DEFAULT_THRESHOLD_MEDIUM = 70_000
+# Context-pressure thresholds, in cache_read tokens-per-turn averaged over the
+# recent window. These gate the compaction ADVISORY surfaced via
+# mos_await_events — NOT a hard auto-compact.
+#
+# Calibration (revised 2026-05-30): the original 70K/100K defaults were tuned
+# for pure cache-COST optimization (issue #38: "above ~100K cr/turn a compact
+# pays for itself"). But on the 1M-context model that is far too eager — a role
+# was observed self-assessing "medium" pressure at only 77K cr/turn while
+# mid-task, i.e. proposing to throw away a warm 1M-capable prefix to save a few
+# cents. The window is 1M; we want roles to USE it and only consider compaction
+# once the transcript is genuinely large. New floor: do not even hint until
+# ~150K, do not say "compact now" until ~200K. Operators can override via
+# gru.yaml (context_pressure_*_tokens) or the MINIONS_CTX_PRESSURE_*_TOKENS env
+# vars; the 1M window itself is preserved — this only moves the advisory point.
+DEFAULT_THRESHOLD_HIGH = 200_000
+DEFAULT_THRESHOLD_MEDIUM = 150_000
 DEFAULT_WINDOW_TURNS = 10
 DEFAULT_COOLDOWN_SECONDS = 300
+
+
+def _load_thresholds() -> tuple[int, int]:
+    """Resolve (high, medium) cr/turn thresholds: env > gru.yaml > defaults.
+
+    Read lazily (not at import) so a Role process stays decoupled from
+    gru.yaml availability — a malformed config never breaks the event
+    loop, it just falls back to the built-in defaults. Env vars
+    ``MINIONS_CTX_PRESSURE_HIGH_TOKENS`` / ``..._MEDIUM_TOKENS`` win so an
+    operator can tune a single revive without editing gru.yaml.
+    """
+    high = DEFAULT_THRESHOLD_HIGH
+    medium = DEFAULT_THRESHOLD_MEDIUM
+    try:
+        from minions.config import load_gru_config
+
+        cfg = load_gru_config()
+        high = int(getattr(cfg, "context_pressure_high_tokens", high) or high)
+        medium = int(getattr(cfg, "context_pressure_medium_tokens", medium) or medium)
+    except Exception as exc:
+        logger.debug("context_pressure threshold config load failed; using defaults: %s", exc)
+    for env_key, which in (
+        ("MINIONS_CTX_PRESSURE_HIGH_TOKENS", "high"),
+        ("MINIONS_CTX_PRESSURE_MEDIUM_TOKENS", "medium"),
+    ):
+        raw = os.environ.get(env_key, "").strip()
+        if raw:
+            try:
+                val = int(raw)
+                if which == "high":
+                    high = val
+                else:
+                    medium = val
+            except ValueError:
+                logger.debug("context_pressure: ignoring non-int %s=%r", env_key, raw)
+    # Guard against an inverted config (medium must be < high or the medium
+    # band vanishes / inverts). If misconfigured, clamp medium below high.
+    if medium >= high:
+        medium = max(1, int(high * 0.75))
+    return high, medium
+
 
 # Per-process memo: (workspace_path, mtime) -> result
 _memo: dict[str, tuple[float, dict[str, Any]]] = {}
@@ -205,8 +270,8 @@ def _last_compact_at(workspace: Path) -> float | None:
 def probe(
     workspace: Path | None = None,
     *,
-    threshold_high: int = DEFAULT_THRESHOLD_HIGH,
-    threshold_medium: int = DEFAULT_THRESHOLD_MEDIUM,
+    threshold_high: int | None = None,
+    threshold_medium: int | None = None,
     window_turns: int = DEFAULT_WINDOW_TURNS,
     cooldown_seconds: int = DEFAULT_COOLDOWN_SECONDS,
     now: float | None = None,
@@ -216,10 +281,21 @@ def probe(
     ``workspace`` defaults to ``MINIONS_WORKSPACE``. ``now`` is
     injected for tests; defaults to ``time.time()``.
 
+    ``threshold_high`` / ``threshold_medium`` default to ``None``, in
+    which case they are resolved from gru.yaml + env via
+    ``_load_thresholds`` (the configurable, operator/TUI-settable path).
+    Pass explicit ints to override (tests do this).
+
     Returns a ``ContextPressure`` with ``level`` in {low, medium, high}.
     A ``high`` reading on cooldown returns ``level == "medium"`` so we
     surface a softer signal but don't oscillate.
     """
+    if threshold_high is None or threshold_medium is None:
+        cfg_high, cfg_medium = _load_thresholds()
+        if threshold_high is None:
+            threshold_high = cfg_high
+        if threshold_medium is None:
+            threshold_medium = cfg_medium
     if workspace is None:
         ws_env = os.environ.get("MINIONS_WORKSPACE", "")
         workspace = Path(ws_env) if ws_env else None

@@ -355,7 +355,11 @@ the 1M-window model). Below that threshold, prefer to keep working — the
 cost of cache miss + re-orientation exceeds the savings. Do not compact
 on a periodic timer or "medium pressure" heuristics; compact only when
 actual utilization crosses the threshold or when explicitly requested by
-Gru.
+Gru. The automated context-pressure advisory (surfaced via
+`mos_await_events`) is tuned to the same intent — it stays silent until
+the transcript is genuinely large (default ~200K cache_read/turn; operator-
+and TUI-configurable). A 77K-token transcript is NOT pressure on a 1M
+window; keep working.
 
 **NEVER call `mos_reset_context` on transient EACN3 connection errors.**
 If `mos_await_events` fails with `Connection refused` or

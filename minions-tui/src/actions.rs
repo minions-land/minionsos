@@ -64,6 +64,21 @@ pub fn project_list_json(ctx: &GruContext) -> Result<CmdOutput> {
     run_mos(ctx, &["project", "list", "--json"])
 }
 
+// ---- Config (settings panel) ---------------------------------------------
+
+/// `mos config --json` — full runtime config snapshot (includes the
+/// context-pressure tunables the settings panel edits).
+pub fn config_json(ctx: &GruContext) -> Result<CmdOutput> {
+    run_mos(ctx, &["config", "--json"])
+}
+
+/// `mos config set KEY VALUE --json` — write one scalar tunable to gru.yaml.
+/// The CLI enforces the allowlist + the medium<high invariant, so the TUI
+/// never has to replicate that logic; it just surfaces the result.
+pub fn config_set(ctx: &GruContext, key: &str, value: &str) -> Result<CmdOutput> {
+    run_mos(ctx, &["config", "set", key, value, "--json"])
+}
+
 // ---- The argv for a full TAKEOVER, run via suspend-then-exec -------------
 
 /// `mos role drive PORT NAME --i-know-this-kills-autonomy` — the heavy

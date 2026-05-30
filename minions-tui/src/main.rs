@@ -286,6 +286,7 @@ fn handle_key(app: &mut App, code: KeyCode) -> Option<ExitRequest> {
         Mode::Confirm(label) => return handle_confirm(app, code, &label),
         Mode::Steer => return handle_steer(app, code),
         Mode::Haiku { .. } => return handle_haiku(app, code),
+        Mode::Settings { .. } => return handle_settings(app, code),
         Mode::Normal => {}
     }
 
@@ -347,6 +348,129 @@ fn handle_key(app: &mut App, code: KeyCode) -> Option<ExitRequest> {
         }
         KeyCode::Char('l') if app.focus == Focus::Cockpit => {
             app.cockpit_view = app.cockpit_view.next();
+        }
+        KeyCode::Char('S') => open_settings(app),
+        _ => {}
+    }
+    None
+}
+
+/// Open the context-pressure settings panel and kick off an off-thread
+/// `mos config --json` load so the panel shows live values without blocking
+/// the render loop. Defaults are shown until the load lands.
+fn open_settings(app: &mut App) {
+    app.mode = Mode::Settings {
+        high: 200_000,
+        medium: 150_000,
+        window: 1_000_000,
+        sel: 0,
+        dirty: false,
+        loaded: false,
+    };
+    let ctx = app.ctx.clone();
+    let tx = app.jobs_tx.clone();
+    app.inflight += 1;
+    std::thread::spawn(move || {
+        let msg = match actions::config_json(&ctx) {
+            Ok(out) if out.ok => parse_config_json(&out.stdout)
+                .map(|(high, medium, window)| JobMsg::Config { high, medium, window })
+                .unwrap_or_else(|| JobMsg::Toast("config: could not parse mos output".into())),
+            Ok(out) => JobMsg::Toast(format!("config load failed: {}", out.stderr.trim())),
+            Err(e) => JobMsg::Toast(format!("config load error: {e}")),
+        };
+        let _ = tx.send(msg);
+    });
+}
+
+/// Pull the three context-pressure tunables out of `mos config --json`.
+fn parse_config_json(s: &str) -> Option<(u64, u64, u64)> {
+    let v: serde_json::Value = serde_json::from_str(s).ok()?;
+    let get = |k: &str| v.get(k).and_then(|x| x.as_u64());
+    Some((
+        get("CONTEXT_PRESSURE_HIGH_TOKENS")?,
+        get("CONTEXT_PRESSURE_MEDIUM_TOKENS")?,
+        get("MODEL_CONTEXT_WINDOW_TOKENS").unwrap_or(1_000_000),
+    ))
+}
+
+/// Settings panel: ↑/↓ pick a field, +/-/←/→ adjust by 25K, Enter persists
+/// via `mos config set` (off-thread), Esc cancels. The CLI enforces the
+/// medium<high invariant + allowlist, so the panel only has to surface the
+/// result.
+fn handle_settings(app: &mut App, code: KeyCode) -> Option<ExitRequest> {
+    const STEP: u64 = 25_000;
+    const MIN: u64 = 25_000;
+    const MAX: u64 = 2_000_000;
+    match code {
+        KeyCode::Esc | KeyCode::Char('q') => app.mode = Mode::Normal,
+        KeyCode::Up | KeyCode::Char('k') => {
+            if let Mode::Settings { sel, .. } = &mut app.mode {
+                *sel = 0;
+            }
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            if let Mode::Settings { sel, .. } = &mut app.mode {
+                *sel = 1;
+            }
+        }
+        KeyCode::Right | KeyCode::Char('+') | KeyCode::Char('=') => {
+            if let Mode::Settings { high, medium, sel, dirty, .. } = &mut app.mode {
+                if *sel == 0 {
+                    *high = (*high + STEP).min(MAX);
+                } else {
+                    *medium = (*medium + STEP).min(MAX);
+                }
+                *dirty = true;
+            }
+        }
+        KeyCode::Left | KeyCode::Char('-') | KeyCode::Char('_') => {
+            if let Mode::Settings { high, medium, sel, dirty, .. } = &mut app.mode {
+                if *sel == 0 {
+                    *high = high.saturating_sub(STEP).max(MIN);
+                } else {
+                    *medium = medium.saturating_sub(STEP).max(MIN);
+                }
+                *dirty = true;
+            }
+        }
+        KeyCode::Enter => {
+            let (high, medium) = if let Mode::Settings { high, medium, .. } = &app.mode {
+                (*high, *medium)
+            } else {
+                return None;
+            };
+            if medium >= high {
+                app.mode = Mode::Toast("medium must be < high — adjust before saving".into());
+                return None;
+            }
+            let ctx = app.ctx.clone();
+            let tx = app.jobs_tx.clone();
+            app.inflight += 1;
+            app.mode = Mode::Normal;
+            std::thread::spawn(move || {
+                // Write high first, then medium. The CLI guards the invariant on
+                // each write; ordering high-up-first avoids a transient reject.
+                let hi = actions::config_set(&ctx, "context_pressure_high_tokens", &high.to_string());
+                let md =
+                    actions::config_set(&ctx, "context_pressure_medium_tokens", &medium.to_string());
+                let ok = matches!(&hi, Ok(o) if o.ok) && matches!(&md, Ok(o) if o.ok);
+                let msg = if ok {
+                    format!(
+                        "saved: high={} medium={} (restart a role to apply)",
+                        high, medium
+                    )
+                } else {
+                    let err = [hi, md]
+                        .iter()
+                        .filter_map(|r| r.as_ref().ok())
+                        .filter(|o| !o.ok)
+                        .map(|o| o.stderr.trim().to_string())
+                        .collect::<Vec<_>>()
+                        .join("; ");
+                    format!("save failed: {}", if err.is_empty() { "see logs" } else { &err })
+                };
+                let _ = tx.send(JobMsg::Toast(msg));
+            });
         }
         _ => {}
     }

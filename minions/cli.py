@@ -917,11 +917,31 @@ def restart_cmd(
 # ---------------------------------------------------------------------------
 
 
-@app.command(name="config")
+config_app = typer.Typer(
+    help="Show or set MinionsOS configuration.",
+    invoke_without_command=True,
+)
+app.add_typer(config_app, name="config")
+
+# Settings an operator (or the TUI) may write to gru.yaml via `mos config set`.
+# Kept to a small, type-checked allowlist so the write path can never corrupt
+# structural config (whitelists, role rosters, profiles) — only scalar tunables.
+_CONFIG_SETTABLE: dict[str, type] = {
+    "context_pressure_high_tokens": int,
+    "context_pressure_medium_tokens": int,
+    "cache_keepalive_seconds": int,
+    "model_context_window_tokens": int,
+}
+
+
+@config_app.callback()
 def config_cmd(
+    ctx: typer.Context,
     json_flag: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Print MinionsOS path configuration."""
+    """Print MinionsOS path + key runtime configuration (when no subcommand)."""
+    if ctx.invoked_subcommand is not None:
+        return
     data: dict[str, object] = {
         "MINIONS_ROOT": str(MINIONS_ROOT),
         "CONFIG_DIR": str(CONFIG_DIR),
@@ -940,6 +960,11 @@ def config_cmd(
         data["AUTHOR_REPO"] = cfg.author_repo
         data["PROJECTS_ROOT"] = str(projects_root())
         data["HEALTH_EVENT_EACN_NOTIFICATIONS"] = cfg.health_event_eacn_notifications
+        # Context-pressure tunables (TUI-settable via `mos config set`).
+        data["CONTEXT_PRESSURE_HIGH_TOKENS"] = cfg.context_pressure_high_tokens
+        data["CONTEXT_PRESSURE_MEDIUM_TOKENS"] = cfg.context_pressure_medium_tokens
+        data["MODEL_CONTEXT_WINDOW_TOKENS"] = cfg.model_context_window_tokens
+        data["CACHE_KEEPALIVE_SECONDS"] = cfg.cache_keepalive_seconds
     except Exception as exc:
         data["AGENT_HOST_ERROR"] = str(exc)
     if json_flag:
@@ -947,6 +972,76 @@ def config_cmd(
         return
     for k, v in data.items():
         console.print(f"[cyan]{k}[/cyan] = {v}")
+
+
+@config_app.command("set")
+def config_set_cmd(
+    key: str = typer.Argument(..., help="Setting name (see `mos config set --help`)."),
+    value: str = typer.Argument(..., help="New value."),
+    json_flag: bool = typer.Option(False, "--json"),
+) -> None:
+    """Write a scalar tunable to gru.yaml (creating it from defaults if absent).
+
+    Only a small allowlist of scalar runtime tunables is settable — structural
+    config (whitelists, profiles, role rosters) is never writable here. The
+    rest of gru.yaml is preserved verbatim. This is the write path the TUI
+    settings panel shells out to, honoring the TUI's "writes go through mos"
+    invariant.
+    """
+    import yaml as _yaml
+
+    if key not in _CONFIG_SETTABLE:
+        allowed = ", ".join(sorted(_CONFIG_SETTABLE))
+        raise _fail(f"'{key}' is not a settable config key. Allowed: {allowed}")
+    caster = _CONFIG_SETTABLE[key]
+    try:
+        typed_value: object = caster(value)
+    except (TypeError, ValueError) as exc:
+        raise _fail(f"value {value!r} is not a valid {caster.__name__} for {key}: {exc}") from exc
+
+    # Cross-field invariant: medium must stay strictly below high so the
+    # medium band does not vanish/invert (mirrors context_pressure._load_thresholds).
+    gru_yaml = CONFIG_DIR / "gru.yaml"
+    existing: dict = {}
+    if gru_yaml.exists():
+        try:
+            loaded = _yaml.safe_load(gru_yaml.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                existing = loaded
+        except _yaml.YAMLError as exc:
+            raise _fail(f"existing gru.yaml is not valid YAML: {exc}") from exc
+    merged = dict(existing)
+    merged[key] = typed_value
+    hi = merged.get("context_pressure_high_tokens", 200_000)
+    md = merged.get("context_pressure_medium_tokens", 150_000)
+    if isinstance(hi, int) and isinstance(md, int) and md >= hi:
+        raise _fail(
+            f"context_pressure_medium_tokens ({md}) must be < "
+            f"context_pressure_high_tokens ({hi}). Adjust the other key first."
+        )
+
+    # Validate the merged config loads before persisting (fail-closed).
+    from minions.config import GruConfig
+
+    try:
+        GruConfig(**{k: v for k, v in merged.items() if k in GruConfig.model_fields})
+    except Exception as exc:
+        raise _fail(f"resulting config would be invalid: {exc}") from exc
+
+    gru_yaml.parent.mkdir(parents=True, exist_ok=True)
+    tmp = gru_yaml.with_suffix(".yaml.tmp")
+    tmp.write_text(_yaml.safe_dump(merged, sort_keys=True, allow_unicode=True), encoding="utf-8")
+    os.replace(tmp, gru_yaml)
+
+    result = {"key": key, "value": typed_value, "path": str(gru_yaml)}
+    if json_flag:
+        _json_out(result)
+        return
+    console.print(f"[green]set[/green] {key} = {typed_value}  [dim]({gru_yaml})[/dim]")
+    console.print(
+        "[dim]Note: live role processes snapshot gru.yaml at launch; restart a "
+        "role (or let it cold-start) to pick up the new value.[/dim]"
+    )
 
 
 # ---------------------------------------------------------------------------

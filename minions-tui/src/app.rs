@@ -23,6 +23,9 @@ pub enum JobMsg {
     Haiku { req: u64, text: Result<String, String> },
     /// A generic transient result (steer "sent", errors) -> a Toast.
     Toast(String),
+    /// Loaded context-pressure config (high, medium, window tokens) from
+    /// `mos config --json`, populating an open Settings panel.
+    Config { high: u64, medium: u64, window: u64 },
 }
 
 /// Which screen / focus the operator is in.
@@ -64,6 +67,21 @@ pub enum Mode {
     },
     /// A transient status/result toast.
     Toast(String),
+    /// Context-pressure settings panel (summoned with `S`). Lets the operator
+    /// view + adjust the compaction-advisory thresholds, then persist them via
+    /// `mos config set` (which enforces the allowlist + medium<high invariant).
+    /// `high`/`medium` are the live edit values in tokens; `window` is the
+    /// (read-only here) 1M context window; `sel` is which field is selected;
+    /// `dirty` marks unsaved edits; `loaded` is false until the first
+    /// `mos config --json` populates real values.
+    Settings {
+        high: u64,
+        medium: u64,
+        window: u64,
+        sel: u8,
+        dirty: bool,
+        loaded: bool,
+    },
 }
 
 /// What the cockpit pane shows for the selected role.
@@ -291,6 +309,29 @@ impl App {
                 // Don't stomp an open haiku box with a steer toast.
                 if !matches!(self.mode, Mode::Haiku { .. }) {
                     self.mode = Mode::Toast(msg);
+                }
+            }
+            JobMsg::Config {
+                high: h,
+                medium: m,
+                window: w,
+            } => {
+                // Only fold into a Settings panel the operator hasn't edited yet.
+                if let Mode::Settings {
+                    high,
+                    medium,
+                    window,
+                    dirty,
+                    loaded,
+                    ..
+                } = &mut self.mode
+                {
+                    if !*dirty {
+                        *high = h;
+                        *medium = m;
+                        *window = w;
+                        *loaded = true;
+                    }
                 }
             }
         }

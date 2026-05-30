@@ -80,20 +80,39 @@ def test_low_pressure_for_short_session(tmp_path: Path, monkeypatch) -> None:
     assert p.avg_cr_recent < cp.DEFAULT_THRESHOLD_MEDIUM
 
 
-def test_medium_pressure_above_70k(tmp_path: Path, monkeypatch) -> None:
-    """Approaching the high threshold: medium hint."""
+def test_default_thresholds_are_1m_window_appropriate() -> None:
+    """Regression for the 77K-fired-medium bug: defaults must NOT advise
+    compaction at small context. medium >= 150K, high >= 200K — the role
+    keeps using the 1M window until the transcript is genuinely large."""
+    assert cp.DEFAULT_THRESHOLD_MEDIUM >= 150_000
+    assert cp.DEFAULT_THRESHOLD_HIGH >= 200_000
+    assert cp.DEFAULT_THRESHOLD_MEDIUM < cp.DEFAULT_THRESHOLD_HIGH
+
+
+def test_77k_no_longer_fires_medium(tmp_path: Path, monkeypatch) -> None:
+    """The exact observed regression: ~77K cr/turn must read 'low', not
+    'medium'. On a 1M model that is nowhere near needing compaction."""
     ws = _setup_workspace(
-        tmp_path, [70_000, 75_000, 80_000, 85_000, 80_000], monkeypatch=monkeypatch
+        tmp_path, [75_000, 77_000, 80_000, 76_000, 78_000], monkeypatch=monkeypatch
+    )
+    p = cp.probe(workspace=ws)
+    assert p.level == "low", f"77K cr/turn must be low, got {p.level} (avg {p.avg_cr_recent})"
+
+
+def test_medium_pressure_above_medium_threshold(tmp_path: Path, monkeypatch) -> None:
+    """Approaching the high threshold (>=150K, <200K): medium hint."""
+    ws = _setup_workspace(
+        tmp_path, [150_000, 160_000, 170_000, 165_000, 155_000], monkeypatch=monkeypatch
     )
     p = cp.probe(workspace=ws)
     assert p.level == "medium"
 
 
-def test_high_pressure_above_100k(tmp_path: Path, monkeypatch) -> None:
-    """Past the high threshold: hard advisory."""
+def test_high_pressure_above_high_threshold(tmp_path: Path, monkeypatch) -> None:
+    """Past the high threshold (>=200K): hard advisory."""
     ws = _setup_workspace(
         tmp_path,
-        [100_000, 110_000, 120_000, 130_000, 140_000, 150_000, 160_000, 170_000, 180_000, 190_000],
+        [200_000, 210_000, 220_000, 230_000, 240_000, 250_000, 260_000, 270_000, 280_000, 290_000],
         monkeypatch=monkeypatch,
     )
     p = cp.probe(workspace=ws)
@@ -101,11 +120,24 @@ def test_high_pressure_above_100k(tmp_path: Path, monkeypatch) -> None:
     assert p.avg_cr_recent >= cp.DEFAULT_THRESHOLD_HIGH
 
 
+def test_thresholds_configurable_via_env(tmp_path: Path, monkeypatch) -> None:
+    """Operator/TUI override path: env vars move the advisory point."""
+    monkeypatch.setenv("MINIONS_CTX_PRESSURE_HIGH_TOKENS", "400000")
+    monkeypatch.setenv("MINIONS_CTX_PRESSURE_MEDIUM_TOKENS", "300000")
+    # 250K would be 'high' under defaults, but with a 400K high threshold
+    # it must read 'low' (below the configured 300K medium).
+    ws = _setup_workspace(tmp_path, [250_000] * 10, monkeypatch=monkeypatch)
+    p = cp.probe(workspace=ws)
+    assert p.threshold_high == 400_000
+    assert p.threshold_medium == 300_000
+    assert p.level == "low"
+
+
 def test_cooldown_demotes_high_to_medium(tmp_path: Path, monkeypatch) -> None:
     """A recent compact event suppresses 'high' to 'medium' to avoid loop."""
     ws = _setup_workspace(
         tmp_path,
-        [120_000] * 10,
+        [220_000] * 10,
         monkeypatch=monkeypatch,
     )
     # Write a recent compact entry to the shared journal.
@@ -133,7 +165,7 @@ def test_cooldown_demotes_high_to_medium(tmp_path: Path, monkeypatch) -> None:
 
 def test_cooldown_expires_allows_high(tmp_path: Path, monkeypatch) -> None:
     """Old compact event (older than cooldown) does not suppress."""
-    ws = _setup_workspace(tmp_path, [120_000] * 10, monkeypatch=monkeypatch)
+    ws = _setup_workspace(tmp_path, [220_000] * 10, monkeypatch=monkeypatch)
     shared_journal = ws.parent / "shared" / "draft" / "journal.jsonl"
     shared_journal.parent.mkdir(parents=True)
     from datetime import UTC, datetime, timedelta
@@ -254,7 +286,7 @@ def test_memo_invalidates_on_file_change(tmp_path: Path, monkeypatch) -> None:
                     "type": "assistant",
                     "timestamp": f"2026-05-27T01:00:0{i}Z",
                     "message": {
-                        "usage": {"cache_read_input_tokens": 150_000},
+                        "usage": {"cache_read_input_tokens": 220_000},
                     },
                 }
             )
@@ -299,7 +331,7 @@ def _setup_eacn_role(tmp_path: Path, cr_values, monkeypatch):
 
 def test_pattern_b_preempts_compact_when_idle_and_high(tmp_path, monkeypatch):
     """Pattern B: high pressure + empty queue → schedule compact + return synthetic."""
-    workspace = _setup_eacn_role(tmp_path, [120_000] * 10, monkeypatch=monkeypatch)
+    workspace = _setup_eacn_role(tmp_path, [220_000] * 10, monkeypatch=monkeypatch)
 
     # Patch project_shared_subdir so journal lands in our tmp_path
     from minions import paths as _paths
@@ -364,7 +396,7 @@ def test_pattern_b_preempts_compact_when_idle_and_high(tmp_path, monkeypatch):
 
 def test_pattern_b_falls_through_when_queue_has_events(tmp_path, monkeypatch):
     """Pattern B aborts and Pattern A path runs when queue has events."""
-    workspace = _setup_eacn_role(tmp_path, [120_000] * 10, monkeypatch=monkeypatch)
+    workspace = _setup_eacn_role(tmp_path, [220_000] * 10, monkeypatch=monkeypatch)
     from minions import paths as _paths
 
     monkeypatch.setattr(

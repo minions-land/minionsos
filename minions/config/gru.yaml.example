@@ -151,6 +151,22 @@ context_soft_pct: 0.10   # gentle compression hint
 context_hard_pct: 0.15   # require compression before new events
 context_veto_pct: 0.20   # block normal work, try maintenance compaction, alert Gru
 
+# Context-pressure ADVISORY thresholds (cache_read tokens per turn, averaged
+# over the recent window). These DO drive live behavior: minions/tools/
+# context_pressure.py surfaces a compaction hint via mos_await_events when the
+# recent average crosses them. Distinct from the context_*_pct block above
+# (which is still reserved/unwired).
+#
+# Revised 2026-05-30: the old 70K/100K hardcoded defaults fired "medium" at
+# only ~77K cr/turn — far too eager on a 1M-context model (a role proposed
+# compacting mid-task to save cents). New default keeps the full 1M window and
+# only advises compaction once the transcript is genuinely large. Tune here, or
+# at runtime with `mos config set context_pressure_high_tokens <n>` (the TUI
+# settings panel uses that path), or per-process via
+# MINIONS_CTX_PRESSURE_{HIGH,MEDIUM}_TOKENS. Constraint: medium < high.
+context_pressure_high_tokens: 200000     # "compact now" advisory floor
+context_pressure_medium_tokens: 150000   # soft "consider compacting" hint
+
 
 # Evidence-gated Role evolution. Three primitives:
 #   - SPLIT:   one Role becomes >=2 specialists when artifact-grounded

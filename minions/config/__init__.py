@@ -1404,6 +1404,36 @@ class GruConfig(BaseModel):
         ),
     )
 
+    # --- Context-pressure advisory thresholds (cache_read tokens/turn) ---
+    # These drive the compaction ADVISORY surfaced by mos_await_events
+    # (minions/tools/context_pressure.py), measured as cache_read tokens per
+    # turn averaged over the recent window. Distinct from context_*_pct above
+    # (which are an unrelated, currently-unwired percentage-of-window scheme).
+    #
+    # Revised 2026-05-30: the old 70K/100K hardcoded defaults fired "medium"
+    # at 77K cr/turn — far too eager on a 1M-context model. A role would
+    # propose compacting (discarding a warm prefix) mid-task to save cents.
+    # New default keeps the full 1M window and only advises compaction once
+    # the transcript is genuinely large. Operator/TUI-settable via
+    # `mos config set context_pressure_high_tokens <n>`; per-process override
+    # via MINIONS_CTX_PRESSURE_{HIGH,MEDIUM}_TOKENS.
+    context_pressure_high_tokens: int = Field(
+        default=200_000,
+        description=(
+            "Context-pressure HIGH threshold (cache_read tokens/turn). At/above "
+            "this the role is told to compact now. Default 200K — only fires "
+            "when the transcript is genuinely large; the 1M window is preserved."
+        ),
+    )
+    context_pressure_medium_tokens: int = Field(
+        default=150_000,
+        description=(
+            "Context-pressure MEDIUM threshold (cache_read tokens/turn). At/above "
+            "this the role gets a soft 'consider compacting after current work' "
+            "hint. Must be < context_pressure_high_tokens. Default 150K."
+        ),
+    )
+
     @field_validator("agent_host", mode="before")
     @classmethod
     def _valid_agent_host(cls, v: object) -> object:

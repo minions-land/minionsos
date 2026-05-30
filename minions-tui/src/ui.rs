@@ -35,6 +35,9 @@ pub fn draw(f: &mut Frame, app: &App) {
             draw_haiku(f, area, input, reply, *busy, app.spinner(), elapsed);
         }
         Mode::Toast(msg) => draw_toast(f, area, msg),
+        Mode::Settings { high, medium, window, sel, dirty, loaded } => {
+            draw_settings(f, area, *high, *medium, *window, *sel, *dirty, *loaded);
+        }
         Mode::Normal => {}
     }
 }
@@ -509,6 +512,7 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from("  h            ask haiku (transient, read-only chat box)"),
         Line::from("  l            cockpit view: cycle live / logs / health"),
         Line::from("  g            open the Gru cockpit (starts mos-gru if needed)"),
+        Line::from("  S            settings: context-pressure / compaction thresholds"),
         Line::from("  r            force refresh"),
         Line::from("  ?            toggle this help"),
         Line::from("  q            quit"),
@@ -517,6 +521,91 @@ fn draw_help(f: &mut Frame, area: Rect) {
     ];
     let p = Paragraph::new(text).block(block("Help", true)).wrap(Wrap { trim: false });
     f.render_widget(p, r);
+}
+
+#[allow(clippy::too_many_arguments)]
+fn draw_settings(
+    f: &mut Frame,
+    area: Rect,
+    high: u64,
+    medium: u64,
+    window: u64,
+    sel: u8,
+    dirty: bool,
+    loaded: bool,
+) {
+    let r = centered(area, 64, 50);
+    f.render_widget(Clear, r);
+
+    let row = |label: &str, val: u64, active: bool| -> Line {
+        let marker = if active { "▸ " } else { "  " };
+        let style = if active {
+            Style::default().fg(GOLD).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
+        Line::from(vec![
+            Span::styled(format!("  {marker}{label:<26}"), style),
+            Span::styled(format!("{:>9}", fmt_k(val)), style),
+        ])
+    };
+
+    let status = if !loaded {
+        Line::from(Span::styled("  loading current values…", Style::default().fg(DEAD)))
+    } else if dirty {
+        Line::from(Span::styled("  ● unsaved — Enter to save", Style::default().fg(WARN)))
+    } else {
+        Line::from(Span::styled("  saved values (live)", Style::default().fg(DEAD)))
+    };
+
+    let mut text = vec![
+        Line::from(Span::styled(
+            "Context-pressure thresholds",
+            Style::default().fg(GOLD).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            "  when to ADVISE compaction (cache_read tokens/turn)",
+            Style::default().fg(DEAD),
+        )),
+        Line::from(""),
+        row("compact-now (high)", high, sel == 0),
+        row("soft hint (medium)", medium, sel == 1),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  context window: ", Style::default().fg(DEAD)),
+            Span::styled(fmt_k(window), Style::default().fg(Color::White)),
+            Span::styled("  (full 1M preserved)", Style::default().fg(DEAD)),
+        ]),
+        Line::from(""),
+        status,
+    ];
+    if medium >= high {
+        text.push(Line::from(Span::styled(
+            "  ! medium must be < high",
+            Style::default().fg(Color::Rgb(220, 80, 80)),
+        )));
+    }
+    text.push(Line::from(""));
+    text.push(Line::from(Span::styled(
+        "  ↑/↓ pick   ←/→ or -/+ adjust 25K   Enter save   Esc cancel",
+        Style::default().fg(DEAD),
+    )));
+
+    let p = Paragraph::new(text)
+        .block(block("Settings", true))
+        .wrap(Wrap { trim: false });
+    f.render_widget(p, r);
+}
+
+/// Format a token count compactly, e.g. 200000 -> "200K", 1000000 -> "1.0M".
+fn fmt_k(n: u64) -> String {
+    if n >= 1_000_000 {
+        format!("{:.1}M", n as f64 / 1_000_000.0)
+    } else if n >= 1_000 {
+        format!("{}K", n / 1_000)
+    } else {
+        n.to_string()
+    }
 }
 
 fn draw_confirm(f: &mut Frame, area: Rect, label: &str) {
