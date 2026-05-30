@@ -21,6 +21,7 @@ import logging
 import os
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
@@ -923,14 +924,27 @@ config_app = typer.Typer(
 )
 app.add_typer(config_app, name="config")
 
+
 # Settings an operator (or the TUI) may write to gru.yaml via `mos config set`.
 # Kept to a small, type-checked allowlist so the write path can never corrupt
 # structural config (whitelists, role rosters, profiles) — only scalar tunables.
-_CONFIG_SETTABLE: dict[str, type] = {
+def _bool_caster(value: str) -> bool:
+    """Parse a CLI string into a bool. ``bool("0")`` is True, so don't use it."""
+    v = value.strip().lower()
+    if v in ("1", "true", "yes", "on"):
+        return True
+    if v in ("0", "false", "no", "off"):
+        return False
+    raise ValueError(f"expected a boolean (true/false/1/0), got {value!r}")
+
+
+_CONFIG_SETTABLE: dict[str, Callable[[str], object]] = {
     "context_pressure_high_tokens": int,
     "context_pressure_medium_tokens": int,
     "cache_keepalive_seconds": int,
     "model_context_window_tokens": int,
+    "review_timeout_seconds": int,
+    "review_ultracode": _bool_caster,
 }
 
 
@@ -965,6 +979,9 @@ def config_cmd(
         data["CONTEXT_PRESSURE_MEDIUM_TOKENS"] = cfg.context_pressure_medium_tokens
         data["MODEL_CONTEXT_WINDOW_TOKENS"] = cfg.model_context_window_tokens
         data["CACHE_KEEPALIVE_SECONDS"] = cfg.cache_keepalive_seconds
+        # Review-round tunables (TUI-settable via `mos config set`).
+        data["REVIEW_TIMEOUT_SECONDS"] = cfg.review_timeout_seconds
+        data["REVIEW_ULTRACODE"] = cfg.review_ultracode
     except Exception as exc:
         data["AGENT_HOST_ERROR"] = str(exc)
     if json_flag:

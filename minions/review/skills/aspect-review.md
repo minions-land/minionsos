@@ -51,7 +51,7 @@ What stays here: the *decision pressure* (your stance-shaped judgment) and the f
 ## Procedure
 
 1. Read the assigned current submission materials (or delegate the volume read to Codex).
-2. If the aspect is `presentation` / `novelty` / `experiments` / `reproducibility` and the submission is non-trivial in size, call `codex.ask_codex` with the aspect prompt + stance + submission pointers and treat its return as evidence input.
+2. If the aspect is `presentation` / `novelty` / `experiments` / `reproducibility` and the submission is non-trivial in size, call the `codex` MCP tool (`sandbox="read-only"`) with the aspect prompt + stance + submission pointers and treat its return as evidence input.
 3. Apply the assigned stance / persona to the evidence, but keep every criticism evidence-backed.
 4. Identify aspect-specific weaknesses, questions, required revisions, evidence pointers.
 5. State decision pressure, not a final reviewer decision.

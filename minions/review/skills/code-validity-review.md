@@ -31,8 +31,8 @@ Output of `code-validity-review` lands inside the same aspect note (an `experime
 
 Code-trace is the canonical Codex use case for review work. **Default to delegating the trace to Codex** rather than reading the submitted code line-by-line yourself:
 
-- `codex.run_codex_worker` — full-access subagent that can read the entire submitted code tree, follow imports, grep for patterns, and return a structured trace. Use this when the validity question touches more than one file.
-- `codex.ask_codex` — read-only analysis when a single file or short snippet suffices.
+- `codex` with `sandbox="danger-full-access"` — full-access subagent that can read the entire submitted code tree, follow imports, grep for patterns, and return a structured trace. Use this when the validity question touches more than one file.
+- `codex` with `sandbox="read-only"` — read-only analysis when a single file or short snippet suffices.
 
 Hand Codex: the paper claim being audited, the validity-risk checklist below, the file paths it may read, and a request for a structured finding (claim → code evidence → risk severity → minimum fix). Codex returns evidence; you decide whether the evidence invalidates the claim and write the aspect-note.
 
@@ -54,7 +54,7 @@ Validity-risk checklist: data leakage, train / test mixups, hardcoded results, b
 ## Procedure
 
 1. **Bind code to claims.** Identify the paper claim, experiment report, table, or figure the code supports.
-2. **Delegate the trace to Codex.** Hand `codex.run_codex_worker` the claim, the validity-risk checklist, and the submitted code paths. Ask for a structured trace: script → config → data loader → metric → output, with file:line evidence at each step.
+2. **Delegate the trace to Codex.** Hand the `codex` MCP tool (`sandbox="danger-full-access"`) the claim, the validity-risk checklist, and the submitted code paths. Ask for a structured trace: script → config → data loader → metric → output, with file:line evidence at each step.
 3. **Check validity risks** per the checklist above against Codex's returned evidence.
 4. **Check reproducibility hooks.** Seeds, configs, commit SHAs, dataset versions, command lines recorded well enough for the claim — Codex can sweep these in one pass.
 5. **Separate bugs from style.** Ignore style and maintainability unless they create a realistic validity risk.

@@ -101,6 +101,68 @@ def test_review_spawn_omits_when_config_none(
     assert "--fallback-model" not in capture.argv
 
 
+def test_review_spawn_allows_task_but_not_workflow(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, patched_config: None
+) -> None:
+    """The Area-Chair fans out via concurrent foreground Task; Workflow is denied.
+
+    A `--print` turn ends before a backgrounded Workflow completes, so the
+    reliable parallelism primitive is concurrent foreground `Task`. `Workflow`
+    must not be in `--allowed-tools`.
+    """
+    capture = _RunCapture()
+    monkeypatch.setattr(rev_mod.subprocess, "run", capture)
+
+    rev_mod._spawn_claude_review(workspace=tmp_path, prompt="x", timeout=1)
+    assert capture.argv is not None
+    idx = capture.argv.index("--allowed-tools")
+    allowed = capture.argv[idx + 1]
+    tools = {t.strip() for t in allowed.split(",")}
+    assert "Task" in tools, "Area-Chair must be able to fan out via Task"
+    assert "codex" in tools, "aspect subagents delegate volume reading to Codex"
+    assert "Workflow" not in tools, "Workflow is background-only; abandoned on --print exit"
+
+
+def test_review_spawn_sets_ultracode_when_enabled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, patched_config: None
+) -> None:
+    monkeypatch.setenv("MOS_REVIEW_ULTRACODE", "1")
+    capture = _RunCapture()
+    monkeypatch.setattr(rev_mod.subprocess, "run", capture)
+
+    rev_mod._spawn_claude_review(workspace=tmp_path, prompt="x", timeout=1)
+    assert capture.argv is not None
+    assert "--settings" in capture.argv
+    idx = capture.argv.index("--settings")
+    assert "ultracode" in capture.argv[idx + 1]
+
+
+def test_review_spawn_omits_ultracode_when_disabled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, patched_config: None
+) -> None:
+    monkeypatch.setenv("MOS_REVIEW_ULTRACODE", "0")
+    capture = _RunCapture()
+    monkeypatch.setattr(rev_mod.subprocess, "run", capture)
+
+    rev_mod._spawn_claude_review(workspace=tmp_path, prompt="x", timeout=1)
+    assert capture.argv is not None
+    assert "--settings" not in capture.argv
+
+
+@pytest.mark.parametrize("falsey", ["false", "False", "FALSE", "no", "No", "OFF", "off", "0"])
+def test_review_spawn_ultracode_disable_is_case_insensitive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, patched_config: None, falsey: str
+) -> None:
+    """Any case/spelling of a falsey value disables ultracode (regression guard)."""
+    monkeypatch.setenv("MOS_REVIEW_ULTRACODE", falsey)
+    capture = _RunCapture()
+    monkeypatch.setattr(rev_mod.subprocess, "run", capture)
+
+    rev_mod._spawn_claude_review(workspace=tmp_path, prompt="x", timeout=1)
+    assert capture.argv is not None
+    assert "--settings" not in capture.argv, f"{falsey!r} should disable ultracode"
+
+
 def test_adjudicate_spawn_includes_fallback_from_config(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

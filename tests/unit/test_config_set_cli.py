@@ -83,3 +83,27 @@ class TestConfigSet:
 
         cfg = load_gru_config(_tmp_config)
         assert cfg.context_pressure_high_tokens == 300000
+
+    def test_set_review_timeout_seconds_roundtrips(self, _tmp_config: Path) -> None:
+        result = runner.invoke(cli.app, ["config", "set", "review_timeout_seconds", "1800"])
+        assert result.exit_code == 0, result.output
+        from minions.config import load_gru_config
+
+        assert load_gru_config(_tmp_config).review_timeout_seconds == 1800
+
+    def test_set_review_ultracode_bool_roundtrips(self, _tmp_config: Path) -> None:
+        """review_ultracode is a bool key — '0'/'false' must persist as False."""
+        result = runner.invoke(cli.app, ["config", "set", "review_ultracode", "false"])
+        assert result.exit_code == 0, result.output
+        # Persisted as a real YAML bool, not the string "false".
+        assert _read(_tmp_config / "gru.yaml")["review_ultracode"] is False
+        from minions.config import load_gru_config
+
+        assert load_gru_config(_tmp_config).review_ultracode is False
+
+    def test_set_review_ultracode_rejects_garbage(self, _tmp_config: Path) -> None:
+        """A non-boolean value for review_ultracode is rejected (not coerced)."""
+        result = runner.invoke(cli.app, ["config", "set", "review_ultracode", "maybe"])
+        assert result.exit_code != 0
+        assert "boolean" in result.output.lower()
+        assert not (_tmp_config / "gru.yaml").exists()

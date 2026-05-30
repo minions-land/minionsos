@@ -54,17 +54,62 @@ CONDITIONAL_HEADER = "## Conditionally required"
 CHECKLIST_BLOCK_OPEN = "[SUBMISSION CHECKLIST]"
 CHECKLIST_BLOCK_CLOSE = "[/SUBMISSION CHECKLIST]"
 
-# Per-stage timeouts. Each stage is bounded so a single slow / runaway
-# claude call cannot stall the whole tool. Defaults err on the generous
-# side; override via env vars when debugging.
-_REVIEWER_STAGE_TIMEOUT_SECONDS = int(os.environ.get("MOS_REVIEW_REVIEWER_TIMEOUT", str(15 * 60)))
-_CONSOLIDATE_STAGE_TIMEOUT_SECONDS = int(
-    os.environ.get("MOS_REVIEW_CONSOLIDATE_TIMEOUT", str(10 * 60))
-)
-_FALLBACK_STAGE_TIMEOUT_SECONDS = int(os.environ.get("MOS_REVIEW_FALLBACK_TIMEOUT", str(60 * 60)))
+# Single review-round wall. The Area-Chair drives the WHOLE round inside one
+# `claude --print` subprocess, fanning reviewer instances out as concurrent
+# foreground `Task` subagents (not N serial subprocesses, and never background
+# tasks — a backgrounded task / `Workflow` is abandoned when a `--print` turn
+# ends). The wall therefore bounds the entire round, whose wall-clock is
+# ~the slowest reviewer plus consolidation rather than the sum of N reviewers
+# run in series. Generous by default; override via env or GruConfig.
+_DEFAULT_REVIEW_TIMEOUT_SECONDS = 60 * 60
+_DEFAULT_MIN_REVIEWERS = 3
+_DEFAULT_MAX_REVIEWERS = 5
 
-_DEFAULT_REVIEWER_COUNT = 3
-_MAX_REVIEWER_COUNT = 5
+
+def _review_timeout_seconds() -> int:
+    """Wall for one review round. Env ``MOS_REVIEW_TIMEOUT`` > GruConfig > 1h."""
+    env = os.environ.get("MOS_REVIEW_TIMEOUT", "").strip()
+    if env:
+        try:
+            return max(60, int(env))
+        except ValueError:
+            pass
+    try:
+        from minions.config import load_gru_config
+
+        return max(60, int(load_gru_config().review_timeout_seconds))
+    except Exception:  # pragma: no cover — config load failure is non-fatal
+        return _DEFAULT_REVIEW_TIMEOUT_SECONDS
+
+
+def _review_ultracode_enabled() -> bool:
+    """Whether to launch the Area-Chair with ultracode. Env > GruConfig > True."""
+    env = os.environ.get("MOS_REVIEW_ULTRACODE", "").strip().lower()
+    if env:
+        return env not in ("0", "false", "no", "off")
+    try:
+        from minions.config import load_gru_config
+
+        return bool(load_gru_config().review_ultracode)
+    except Exception:  # pragma: no cover — config load failure is non-fatal
+        return True
+
+
+def _reviewer_band() -> tuple[int, int]:
+    """(min, max) reviewer instances. Env ``MOS_REVIEW_{MIN,MAX}_REVIEWERS``."""
+
+    def _int_env(name: str, default: int) -> int:
+        raw = os.environ.get(name, "").strip()
+        if raw:
+            try:
+                return int(raw)
+            except ValueError:
+                pass
+        return default
+
+    lo = max(1, _int_env("MOS_REVIEW_MIN_REVIEWERS", _DEFAULT_MIN_REVIEWERS))
+    hi = max(lo, _int_env("MOS_REVIEW_MAX_REVIEWERS", _DEFAULT_MAX_REVIEWERS))
+    return lo, hi
 
 
 class ReviewRunArgs(BaseModel):
@@ -142,11 +187,12 @@ def _resolve_submission_dir(port: int, submission_path: str) -> Path:
 def _current_round_number(reviews_dir: Path) -> int:
     """Return the round number to use for the next ``review_run``.
 
-    If the most recent round directory is missing ``consolidated.md`` (the
-    final artifact), reuse that round number — `review_run` will resume the
-    incomplete round rather than start a new one and waste the partial work.
-    Only allocate a fresh round number when the previous round has its
-    consolidated.md on disk.
+    A round counts as *complete* only when both its ``consolidated.md`` and its
+    rolling summary (``summaries/round-<n>.md``) are on disk — the same pair
+    ``_run_review_round`` uses as its skip-spawn guard. If the most recent round
+    is missing either, reuse that round number so ``review_run`` resumes and
+    finishes it rather than abandoning the partial work and starting fresh. Only
+    allocate a new number when the previous round has both final artifacts.
     """
     if not reviews_dir.exists():
         return 1
@@ -158,131 +204,96 @@ def _current_round_number(reviews_dir: Path) -> int:
     if not existing:
         return 1
     last = existing[-1]
-    if not (reviews_dir / f"round-{last}" / "consolidated.md").exists():
+    consolidated = reviews_dir / f"round-{last}" / "consolidated.md"
+    summary = reviews_dir / "summaries" / f"round-{last}.md"
+    if not (consolidated.exists() and summary.exists()):
         return last
     return last + 1
 
 
-def _build_reviewer_prompt(
-    *,
-    port: int,
-    submission_dir: Path,
-    round_num: int,
-    reviewer_index: int,
-    round_dir: Path,
-    earlier_reviewers: list[Path],
-) -> str:
-    """Prompt for a single reviewer-instance spawn (Pass A, one reviewer).
-
-    Each reviewer instance is a separate ``claude --print`` call so the model
-    cannot decide "I'm done" mid-round. The prompt is tightly scoped: produce
-    exactly one ``reviewer-<i>.md`` plus its aspect notes. No fresh.md, no
-    consolidated.md, no rolling summary — those happen later as their own
-    stages.
-    """
-    earlier_note = (
-        f"Earlier reviewer reports already exist in this round: "
-        f"{', '.join(p.name for p in earlier_reviewers)}. You may peek at "
-        "them only to decide whether your independent perspective adds new "
-        "weaknesses; do not copy from them, do not converge prematurely."
-        if earlier_reviewers
-        else "You are the first reviewer in this round; no peer reports exist yet."
-    )
-    return (
-        f"You are reviewer {reviewer_index} for review round {round_num} on "
-        f"project port {port}.\n"
-        f"Submission package (read-only): `{submission_dir}`.\n"
-        f"Round output dir: `{round_dir}`.\n"
-        f"\n"
-        f"{earlier_note}\n"
-        "\n"
-        "Drive the `simulate-reviewer-instance` skill to produce ONE "
-        f"reviewer instance — `reviewer-{reviewer_index}.md` plus its aspect "
-        f"notes under `aspect-notes/reviewer-{reviewer_index}-<aspect>.md`. "
-        "Spawn aspect subagents per the skill (mixed stances). Use Codex via "
-        "the `codex` MCP tool when an aspect needs to read volume.\n"
-        "\n"
-        f"Your single deliverable for this run is `{round_dir}/reviewer-"
-        f"{reviewer_index}.md` ending in a `## Decision` line with one of: "
-        "`Strong Accept | Accept | Weak Accept | Borderline | Weak Reject | "
-        "Reject | Strong Reject`. Do NOT write fresh.md, consolidated.md, "
-        "revision_delta.md, or any rolling summary — those are owned by "
-        "later stages of `mos_review_run`. Exit when reviewer-"
-        f"{reviewer_index}.md and its aspect notes are on disk."
-    )
-
-
-def _build_revision_delta_prompt(
-    *,
-    port: int,
-    submission_dir: Path,
-    round_num: int,
-    round_dir: Path,
-    prior_summary_path: Path,
-) -> str:
-    """Prompt for the dedicated revision-delta subagent (Pass B / Pass C)."""
-    return (
-        f"You are the revision-delta agent for review round {round_num} on "
-        f"project port {port}.\n"
-        f"Submission package (Pass C input): `{submission_dir}`.\n"
-        f"Prior rolling summary (Pass B input, ONLY allowed historical input): "
-        f"`{prior_summary_path}`.\n"
-        f"Round output dir: `{round_dir}`.\n"
-        "\n"
-        "Drive the `revision-delta` skill: Pass B reads the prior summary "
-        "ONLY; Pass C then reads the current submission and any author "
-        "rebuttal/changelog. Produce "
-        f"`{round_dir}/revision_delta.md` per `templates/revision_delta.md`.\n"
-        "\n"
-        "Do NOT read current-round reviewer-i.md, fresh.md, or "
-        "consolidated.md — those would contaminate independence. Do NOT "
-        "write anything except revision_delta.md."
-    )
-
-
-def _build_consolidation_prompt(
+def _build_review_round_prompt(
     *,
     port: int,
     submission_dir: Path,
     round_num: int,
     round_dir: Path,
     summary_path: Path,
+    prior_summary: Path | None,
+    min_reviewers: int,
+    max_reviewers: int,
 ) -> str:
-    """Prompt for a consolidation-only pass when the first run left it incomplete."""
+    """Prompt for the single Area-Chair spawn that drives the WHOLE round.
+
+    One ``claude --print`` process runs all three passes per the review
+    SYSTEM.md, fanning reviewer instances out as concurrent foreground
+    ``Task`` subagents. The detailed procedure lives in SYSTEM.md and the
+    review skills; this prompt only pins the round-specific paths, the
+    reviewer-count band, and the concurrency / no-background contract.
+    """
+    pass_bc = (
+        "A prior rolling summary EXISTS for this submission:\n"
+        f"  `{prior_summary}`\n"
+        "Run Pass B / Pass C: spawn exactly ONE dedicated revision-delta\n"
+        "subagent that reads ONLY that prior summary first, then the current\n"
+        "submission + any author rebuttal/changelog, and writes\n"
+        f"`{round_dir}/revision_delta.md`. It does NOT count toward the\n"
+        "reviewer band and must NOT see current-round reviewer reports."
+        if prior_summary is not None
+        else (
+            "No prior rolling summary exists — this is the first round for\n"
+            "this submission. SKIP Pass B / Pass C: write\n"
+            f"`{round_dir}/revision_delta.md` containing only the single line\n"
+            "`skipped: no prior summary`."
+        )
+    )
     return (
-        f"You are finishing review round {round_num} for project on port {port}.\n"
-        f"Pass A reviewer reports already exist under `{round_dir}`:\n"
-        f"  - `fresh.md` (concatenation of all reviewer-i.md)\n"
-        "  - `reviewer-1.md`, `reviewer-2.md`, `reviewer-3.md`, etc.\n"
-        f"  - `revision_delta.md`\n"
-        f"  - aspect notes under `aspect-notes/`\n"
-        f"\n"
-        f"Submission package (read-only context if you need to disambiguate a "
-        f"reviewer claim): `{submission_dir}`.\n"
-        f"\n"
-        "Your only job in this pass is to produce two missing artifacts:\n"
-        f"\n"
-        f"1. `{round_dir / 'consolidated.md'}` — the Area-Chair / Editor "
-        "meta-review packet, following `templates/consolidated.md`. It must "
-        "contain: a short notification, the meta-review synthesis, "
-        "`## Decision` on its own line with exactly one of "
-        "`Strong Accept | Accept | Weak Accept | Borderline | Weak Reject | "
-        "Reject | Strong Reject`, required revisions, revision-delta highlights "
-        "if applicable, and the full text of every reviewer-i.md inlined.\n"
-        f"\n"
-        f"2. `{summary_path}` — the compressed rolling summary following "
-        "`templates/summary.md`. Unresolved issues, newly raised issues, "
-        "resolved-since-last-round items, long-standing unanswered questions, "
-        "and the final decision. No raw quotations, no notification prose.\n"
+        f"You are the Area Chair / Editor for review round {round_num} on "
+        f"project port {port}. Drive the COMPLETE round per your SYSTEM.md "
+        "and the `run-review-round` skill — all passes, in one process.\n"
         "\n"
-        "Read `fresh.md` and the individual `reviewer-i.md` files first, then "
-        "write both outputs. You may use `codex.ask_codex` to help synthesize a "
-        "long packet — it is faster and cheaper than composing turn-by-turn.\n"
+        f"Submission package (read-only): `{submission_dir}`.\n"
+        f"Round output dir (already created): `{round_dir}`.\n"
+        f"Aspect notes go under: `{round_dir}/aspect-notes/`.\n"
+        f"Rolling summary path to write: `{summary_path}`.\n"
         "\n"
-        "Do not re-run reviewer instances. Do not modify aspect notes or "
-        "reviewer-i.md. Exit when both files exist on disk; end with the "
-        "absolute path to consolidated.md and the decision label on its own "
-        "line."
+        "## Reviewer band\n"
+        f"Convene at least {min_reviewers} and at most {max_reviewers} "
+        "independent reviewer instances (Pass A). Start at "
+        f"{min_reviewers}; add a 4th/5th only when the submission is complex "
+        "or reviewers materially disagree; stop when the marginal reviewer is "
+        "redundant. Each reviewer instance is a composite of aspect subagents "
+        "with mixed stances, per `simulate-reviewer-instance`.\n"
+        "\n"
+        "## Concurrency contract (this is what makes the round finish in time)\n"
+        "Spawn the reviewer instances' aspect subagents as CONCURRENT "
+        "foreground `Task` subagents — issue multiple `Task` calls in a "
+        "single turn so they run in parallel, then read their notes once they "
+        "return. Do NOT run reviewers one fully-finished-before-the-next in "
+        "series. Do NOT use `run_in_background` or the `Workflow` tool: this "
+        "is a `--print` process and a backgrounded task is abandoned when the "
+        "turn ends. Delegate volume reading (long PDF, code tracing, citation "
+        "sweeps) to Codex via the `codex` MCP tool inside aspect subagents.\n"
+        "\n"
+        "## Passes\n"
+        "1. Pass A — independent reviewer instances, history-isolated. Merge "
+        "each instance's aspect notes into "
+        f"`{round_dir}/reviewer-<i>.md` (each ending in a `## Decision` "
+        "line), then concatenate them verbatim into "
+        f"`{round_dir}/fresh.md` (raw concat, no synthesis).\n"
+        f"2. {pass_bc}\n"
+        "3. Consolidation — synthesize the meta-review into "
+        f"`{round_dir}/consolidated.md` per `templates/consolidated.md`: "
+        "notification, AC/Editor meta-review, `## Decision` on its own line "
+        "with exactly one of `Strong Accept | Accept | Weak Accept | "
+        "Borderline | Weak Reject | Reject | Strong Reject`, required "
+        "revisions, revision-delta highlights if any, and the full text of "
+        f"every reviewer-<i>.md inlined. Then write `{summary_path}` per "
+        "`templates/summary.md` (compressed; safe as the next round's only "
+        "historical input).\n"
+        "\n"
+        "End your final turn with the absolute path to consolidated.md and "
+        "the decision label on its own last line. `mos_review_run` parses the "
+        "decision from consolidated.md; do not stay resident or poll."
     )
 
 
@@ -290,14 +301,26 @@ def _spawn_claude_review(
     *,
     workspace: Path,
     prompt: str,
-    timeout: int = _FALLBACK_STAGE_TIMEOUT_SECONDS,
+    timeout: int = _DEFAULT_REVIEW_TIMEOUT_SECONDS,
     lock_label: str | None = None,
 ) -> tuple[bool, str | None]:
-    """Run a single ``claude --print`` review pass. Returns (ok, error_reason).
+    """Run the Area-Chair ``claude --print`` review process. Returns (ok, error).
+
+    One process drives the whole round and fans reviewer instances out as
+    concurrent foreground ``Task`` subagents. ``Workflow`` is intentionally
+    absent from ``--allowed-tools``: a ``--print`` turn ends before a
+    backgrounded workflow completes, so the reliable parallelism primitive
+    here is concurrent foreground ``Task`` calls, not the background-only
+    ``Workflow`` tool.
 
     Reads ``MOS_REVIEW_MODEL`` from the environment to pick the model. Defaults
     to whatever the user's claude session would pick; set ``MOS_REVIEW_MODEL=haiku``
     for fast / cheap runs where review-quality details are not the goal.
+
+    When ``review_ultracode`` is on (GruConfig, default; env override
+    ``MOS_REVIEW_ULTRACODE=0/1``), the process launches with the Claude Code
+    ``ultracode`` session setting (xhigh effort), mirroring how long-lived
+    Roles are launched in ``agent_host``.
 
     When *lock_label* is set, allocates a Claude Code ``--session-id`` UUID
     and pre-locks its title in the global sidecar registry so any host-side
@@ -323,6 +346,11 @@ def _spawn_claude_review(
         "--permission-mode",
         "bypassPermissions",
     ]
+    if _review_ultracode_enabled():
+        # ultracode == xhigh reasoning effort + standing orchestration posture,
+        # passed as a session setting (NOT --effort, which rejects the value).
+        # See agent_host.build_role_invocation for the canonical rationale.
+        cmd += ["--settings", '{"ultracode": true}']
     if lock_label:
         sid = allocate_session_id()
         cmd += ["--session-id", sid]
@@ -463,97 +491,7 @@ def _concat_fresh_md(round_dir: Path, reviewer_reports: list[Path]) -> Path:
     return fresh
 
 
-def _stage_pass_a_reviewer(
-    *,
-    spawner: Spawner,
-    workspace: Path,
-    port: int,
-    submission_dir: Path,
-    round_num: int,
-    round_dir: Path,
-    reviewer_index: int,
-) -> tuple[bool, str | None]:
-    """Run one reviewer-instance spawn (Stage 1, idempotent per index)."""
-    target = round_dir / f"reviewer-{reviewer_index}.md"
-    if target.exists():
-        logger.info(
-            "review_run stage1 reviewer %d already exists; skipping spawn",
-            reviewer_index,
-        )
-        return True, None
-    earlier = _existing_reviewer_reports(round_dir)
-    prompt = _build_reviewer_prompt(
-        port=port,
-        submission_dir=submission_dir,
-        round_num=round_num,
-        reviewer_index=reviewer_index,
-        round_dir=round_dir,
-        earlier_reviewers=earlier,
-    )
-    logger.info(
-        "review_run stage1 spawning reviewer %d for round %d (timeout=%ds)",
-        reviewer_index,
-        round_num,
-        _REVIEWER_STAGE_TIMEOUT_SECONDS,
-    )
-    ok, err = spawner(
-        workspace=workspace,
-        prompt=prompt,
-        timeout=_REVIEWER_STAGE_TIMEOUT_SECONDS,
-        lock_label=f"mos-review-p{port}-r{round_num}-rev{reviewer_index}",
-    )
-    if not ok:
-        return False, err
-    if not target.exists():
-        return False, (
-            f"reviewer {reviewer_index} spawn returned ok but {target.name} was not written"
-        )
-    return True, None
-
-
-def _stage_revision_delta(
-    *,
-    spawner: Spawner,
-    workspace: Path,
-    port: int,
-    submission_dir: Path,
-    round_num: int,
-    round_dir: Path,
-    prior_summary: Path | None,
-) -> tuple[bool, str | None]:
-    """Run Pass B / Pass C as one bounded spawn, or write the skip placeholder."""
-    target = round_dir / "revision_delta.md"
-    if target.exists():
-        return True, None
-    if prior_summary is None:
-        target.write_text("skipped: no prior summary\n", encoding="utf-8")
-        return True, None
-    prompt = _build_revision_delta_prompt(
-        port=port,
-        submission_dir=submission_dir,
-        round_num=round_num,
-        round_dir=round_dir,
-        prior_summary_path=prior_summary,
-    )
-    logger.info(
-        "review_run stage2 spawning revision-delta for round %d (timeout=%ds)",
-        round_num,
-        _REVIEWER_STAGE_TIMEOUT_SECONDS,
-    )
-    ok, err = spawner(
-        workspace=workspace,
-        prompt=prompt,
-        timeout=_REVIEWER_STAGE_TIMEOUT_SECONDS,
-        lock_label=f"mos-review-p{port}-r{round_num}-delta",
-    )
-    if not ok:
-        return False, err
-    if not target.exists():
-        return False, "revision-delta spawn returned ok but revision_delta.md was not written"
-    return True, None
-
-
-def _stage_consolidation(
+def _run_review_round(
     *,
     spawner: Spawner,
     workspace: Path,
@@ -562,34 +500,87 @@ def _stage_consolidation(
     round_num: int,
     round_dir: Path,
     summary_path: Path,
+    prior_summary: Path | None,
 ) -> tuple[bool, str | None]:
-    """Produce consolidated.md + rolling summary as one bounded spawn."""
+    """Drive a complete review round in ONE Area-Chair spawn, then validate.
+
+    The single ``claude --print`` Area-Chair process runs all three passes and
+    fans reviewer instances out as concurrent foreground ``Task`` subagents
+    (see ``_build_review_round_prompt`` and the review SYSTEM.md). This replaces
+    the old N-serial-subprocess pipeline whose per-reviewer 900 s wall blew up
+    on multi-aspect Opus 4.8 reviews.
+
+    Idempotent: if ``consolidated.md`` and the rolling summary already exist on
+    disk (a prior run completed the round), the spawn is skipped — the
+    structural check below still runs so a resumed round is validated.
+
+    After the spawn we structurally verify the round on disk rather than
+    trusting the process exit code: at least ``min_reviewers`` reviewer reports,
+    a ``revision_delta.md``, ``consolidated.md``, and the rolling summary.
+    ``fresh.md`` is repaired by deterministic Python concat if the Area-Chair
+    skipped it (it is a raw concatenation, not a synthesis).
+    """
     consolidated = round_dir / "consolidated.md"
-    if consolidated.exists() and summary_path.exists():
-        return True, None
+    min_reviewers, max_reviewers = _reviewer_band()
     summary_path.parent.mkdir(parents=True, exist_ok=True)
-    prompt = _build_consolidation_prompt(
-        port=port,
-        submission_dir=submission_dir,
-        round_num=round_num,
-        round_dir=round_dir,
-        summary_path=summary_path,
-    )
-    logger.info(
-        "review_run stage4 spawning consolidation for round %d (timeout=%ds)",
-        round_num,
-        _CONSOLIDATE_STAGE_TIMEOUT_SECONDS,
-    )
-    ok, err = spawner(
-        workspace=workspace,
-        prompt=prompt,
-        timeout=_CONSOLIDATE_STAGE_TIMEOUT_SECONDS,
-        lock_label=f"mos-review-p{port}-r{round_num}-consolidate",
-    )
-    if not ok:
-        return False, err
+
+    already_complete = consolidated.exists() and summary_path.exists()
+    if not already_complete:
+        prompt = _build_review_round_prompt(
+            port=port,
+            submission_dir=submission_dir,
+            round_num=round_num,
+            round_dir=round_dir,
+            summary_path=summary_path,
+            prior_summary=prior_summary,
+            min_reviewers=min_reviewers,
+            max_reviewers=max_reviewers,
+        )
+        timeout = _review_timeout_seconds()
+        logger.info(
+            "review_run spawning Area-Chair for round %d port %d "
+            "(timeout=%ds, ultracode=%s, band=%d-%d)",
+            round_num,
+            port,
+            timeout,
+            _review_ultracode_enabled(),
+            min_reviewers,
+            max_reviewers,
+        )
+        ok, err = spawner(
+            workspace=workspace,
+            prompt=prompt,
+            timeout=timeout,
+            lock_label=f"mos-review-p{port}-r{round_num}",
+        )
+        if not ok:
+            return False, f"Area-Chair review process failed: {err}"
+
+    # Structural validation — trust disk artifacts, not the exit code.
+    reports = _existing_reviewer_reports(round_dir)
+    if len(reports) < min_reviewers:
+        return False, (
+            f"review round produced {len(reports)} reviewer report(s); "
+            f"at least {min_reviewers} are required"
+        )
+    revision_delta = round_dir / "revision_delta.md"
+    if not revision_delta.exists():
+        if prior_summary is None:
+            # No-prior-summary skip placeholder is as deterministic as fresh.md —
+            # write it ourselves rather than hard-failing on a forgotten one-liner.
+            revision_delta.write_text("skipped: no prior summary\n", encoding="utf-8")
+        else:
+            # A revision round's delta carries real model judgment; we cannot
+            # synthesize it, so a missing one is a genuine failure.
+            return False, "review round did not produce revision_delta.md"
+    # fresh.md is a deterministic concat — repair it rather than failing.
+    fresh_md = round_dir / "fresh.md"
+    if not fresh_md.exists():
+        _concat_fresh_md(round_dir, reports)
     if not consolidated.exists():
-        return False, "consolidation spawn returned ok but consolidated.md was not written"
+        return False, "review round did not produce consolidated.md"
+    if not summary_path.exists():
+        return False, "review round did not produce the rolling summary"
     return True, None
 
 
@@ -616,19 +607,18 @@ def _find_manuscript_pdf(submission_dir: Path) -> Path | None:
 def review_run(args: ReviewRunArgs) -> dict[str, object]:
     """Run one review round for *args.submission_path* under project *args.port*.
 
-    The round is decomposed into bounded stages, each its own ``claude --print``
-    call (when a spawn is required) or pure Python (when the work is just file
-    concatenation). Every stage is idempotent: if its output already exists,
-    the stage is skipped. This makes ``review_run`` safely re-runnable after
-    any partial failure.
+    After the upstream gates (submission dir, checklist, compiled-PDF format),
+    the round is driven by a SINGLE Area-Chair ``claude --print`` process that
+    runs all three passes and fans reviewer instances out as concurrent
+    foreground ``Task`` subagents (see ``_run_review_round`` and the review
+    SYSTEM.md). The whole round is bounded by one wall (``review_timeout_seconds``,
+    default 1 h) rather than the old per-reviewer 900 s wall x N serial spawns
+    that timed out on multi-aspect Opus 4.8 reviews.
 
-    Stages:
-      1. Pass A — N independent reviewer-instance spawns (default 3).
-      2. fresh.md — Python concatenation of reviewer-i.md files.
-      3. revision-delta — one spawn (Pass B / Pass C) when a prior summary
-         exists; otherwise Python writes a "skipped" placeholder.
-      4. consolidation — one spawn that produces consolidated.md + the
-         rolling summary.
+    The round is idempotent: a completed round on disk (consolidated.md +
+    rolling summary) is not re-spawned, and the round is always structurally
+    validated on disk (≥ min reviewers, revision_delta.md, consolidated.md,
+    rolling summary) rather than trusting the process exit code.
 
     Returns one of three shapes::
 
@@ -698,61 +688,13 @@ def review_run(args: ReviewRunArgs) -> dict[str, object]:
     spawner = get_spawner()
 
     logger.info(
-        "review_run round=%d port=%d submission=%s (staged pipeline)",
+        "review_run round=%d port=%d submission=%s (single Area-Chair)",
         round_num,
         args.port,
         submission_dir,
     )
 
-    # Stage 1: Pass A — N reviewer instances, one spawn each.
-    for i in range(1, _DEFAULT_REVIEWER_COUNT + 1):
-        ok, err = _stage_pass_a_reviewer(
-            spawner=spawner,
-            workspace=workspace,
-            port=args.port,
-            submission_dir=submission_dir,
-            round_num=round_num,
-            round_dir=round_dir,
-            reviewer_index=i,
-        )
-        if not ok:
-            return {
-                "status": "error",
-                "reason": f"reviewer {i} stage failed: {err}",
-                "round": round_num,
-            }
-
-    # Stage 2: fresh.md — pure-Python concat. No spawn.
-    reports = _existing_reviewer_reports(round_dir)
-    if not reports:
-        return {
-            "status": "error",
-            "reason": "stage1 produced no reviewer reports",
-            "round": round_num,
-        }
-    fresh_md = round_dir / "fresh.md"
-    if not fresh_md.exists():
-        _concat_fresh_md(round_dir, reports)
-
-    # Stage 3: revision-delta. Spawn only when there is a prior summary.
-    ok, err = _stage_revision_delta(
-        spawner=spawner,
-        workspace=workspace,
-        port=args.port,
-        submission_dir=submission_dir,
-        round_num=round_num,
-        round_dir=round_dir,
-        prior_summary=prior_summary,
-    )
-    if not ok:
-        return {
-            "status": "error",
-            "reason": f"revision-delta stage failed: {err}",
-            "round": round_num,
-        }
-
-    # Stage 4: consolidation — produce consolidated.md and rolling summary.
-    ok, err = _stage_consolidation(
+    ok, err = _run_review_round(
         spawner=spawner,
         workspace=workspace,
         port=args.port,
@@ -760,11 +702,12 @@ def review_run(args: ReviewRunArgs) -> dict[str, object]:
         round_num=round_num,
         round_dir=round_dir,
         summary_path=summary_path,
+        prior_summary=prior_summary,
     )
     if not ok:
         return {
             "status": "error",
-            "reason": f"consolidation stage failed: {err}",
+            "reason": err,
             "round": round_num,
         }
 

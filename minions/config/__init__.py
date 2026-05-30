@@ -1302,6 +1302,32 @@ class GruConfig(BaseModel):
             "MOS_REVIEW_FALLBACK_MODEL, MOS_ADJUDICATE_FALLBACK_MODEL."
         ),
     )
+    review_timeout_seconds: int = Field(
+        default=3600,
+        description=(
+            "Wall-clock cap (seconds) for one `mos_review_run` round. The "
+            "Area-Chair drives the whole round inside a single `claude "
+            "--print` subprocess, fanning reviewer instances out as "
+            "concurrent foreground Task subagents, so this bounds the entire "
+            "round (≈ slowest reviewer + consolidation), NOT each reviewer in "
+            "series. Default 3600 s (1 h). Env override: MOS_REVIEW_TIMEOUT. "
+            "Raised from the old per-reviewer 900 s wall that, with reviewers "
+            "run serially, blew up on multi-aspect Opus 4.8 reviews."
+        ),
+    )
+    review_ultracode: bool = Field(
+        default=True,
+        description=(
+            "Launch the `mos_review_run` Area-Chair subprocess with the "
+            "Claude Code `ultracode` session setting (xhigh reasoning effort + "
+            "standing dynamic-orchestration posture), mirroring role_ultracode "
+            'for long-lived Roles. Wired via `--settings \'{"ultracode": '
+            "true}'`. The Area-Chair fans reviewers out as concurrent "
+            "foreground Task subagents — the `Workflow` tool is intentionally "
+            "NOT exposed, since a `--print` turn ends before a backgrounded "
+            "workflow completes. Env override: MOS_REVIEW_ULTRACODE=0/1."
+        ),
+    )
     agent_host: Literal["claude", "codex"] = Field(
         default="claude",
         description="Default agent host for Gru and role wakeups: claude or codex.",

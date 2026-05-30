@@ -123,6 +123,29 @@ role_ultracode: true
 # Per-call overrides via env: MOS_REVIEW_FALLBACK_MODEL, MOS_ADJUDICATE_FALLBACK_MODEL.
 fallback_model: claude-sonnet-4-6[1m]
 
+# --- Paper review round (mos_review_run) -----------------------------------
+# A review round is driven by ONE Area-Chair `claude --print` process that runs
+# all three passes and fans reviewer instances out as CONCURRENT foreground
+# `Task` subagents. The whole round is bounded by a single wall below (not the
+# old per-reviewer 900 s tool wall × N serial spawns, which timed out on
+# multi-aspect Opus 4.8 reviews). The reviewer count is dynamic — the
+# Area-Chair convenes 3-5 instances depending on submission complexity and
+# reviewer disagreement.
+#
+# Wall-clock cap for the whole round, in seconds. Default 1 h. Per-call env
+# override: MOS_REVIEW_TIMEOUT. Settable at runtime: `mos config set
+# review_timeout_seconds <n>`.
+review_timeout_seconds: 3600
+# Launch the Area-Chair with the Claude Code `ultracode` session setting (xhigh
+# reasoning effort + standing orchestration posture), mirroring how long-lived
+# Roles launch. Per-call env override: MOS_REVIEW_ULTRACODE=0/1. Settable:
+# `mos config set review_ultracode true|false`.
+review_ultracode: true
+# Reviewer-instance band (min/max) the Area-Chair must stay within is fixed at
+# 3-5 in the review prompt. Override only via env for a one-off run:
+# MOS_REVIEW_MIN_REVIEWERS / MOS_REVIEW_MAX_REVIEWERS. There is no gru.yaml key.
+# ---------------------------------------------------------------------------
+
 # Optional Codex model. Leave null to use the Codex CLI profile/default.
 codex_model:
 codex_reasoning_effort: xhigh
