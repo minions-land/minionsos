@@ -2,11 +2,70 @@
 
 All notable changes to MinionsOS are documented here.
 Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
-Version numbers follow the internal `vX.Y` / `vX.Y.Z` scheme used in commit messages.
+
+**Versioning.** The `vN` milestone tag used in commit messages maps one-to-one
+to the package minor version: milestone `vN` ⇒ pyproject `0.N.x`, and a `vN.M`
+polish commit ⇒ `0.N.M`. The single source of truth is
+`pyproject.toml [project].version`; `minions.__version__` reads it from package
+metadata. (Historical note: entries below `0.5.x` predate this convention, when
+the `vN` commit tags and the frozen `0.5.x` package version were decoupled.)
 
 ---
 
-## [0.5.3] - 2026-05-16 (current)
+## [0.20.0] - 2026-05-30 (current)
+
+Milestone `v17`–`v20`. Package version realigned with the `vN` milestone series
+(see Versioning above): the `0.5.x`-frozen-while-commits-ran-to-`v16` drift is
+resolved — `v20` ⇒ `0.20.0`.
+
+### Added
+- Per-role `SYSTEM.md` + role skills; `Workflow` tool on the Noter whitelist (v17)
+- Scratchpad isolation infra; role-launcher hard-fails on a bad cwd (v17)
+- `mos restart` primitives — cold-restart Role tmux sessions and the Gru monitor
+  sidecar so `mos upgrade` reaches already-running processes (v19)
+- CI type gate: `uv run ty check minions` (v19)
+- `docs/README.md` — documents the doc-layer boundary (docs = contributor, MANUAL
+  = agent runtime, dev-log = journal, root `*.md` = release) (v20)
+
+### Changed
+- Common role contract: Plan→Workflow→Verify + §10.1; per-role skills (v17)
+- Dispatch tests/audit aligned to the v17 Workflow contract; Writer CNS skill
+  upgrades (v18)
+- `uv.lock` registry switched from the aliyun mirror back to pypi.org (v16)
+- Book retrieval is body-aware (BM25 over page bodies); tighter contradiction
+  detector subject filter (v19)
+- Draft decay confidence driven by weighted reinforce/accelerate edge relations
+  rather than raw supports/contradicts counts (v19)
+- `install.sh` incremental rebuild keyed on source-tree hash; model binding
+  defaults to `claude-opus-4-8[1m]`; `role_ultracode` passthrough (v19)
+- Single version source of truth: `minions.__version__` now reads package
+  metadata instead of a hard-coded literal (v20)
+
+### Fixed
+- Gru-monitor watchdog drift: production sidecar (`run_async`) silently started
+  only 1 of 7 watchdogs; both entrypoints now share `_start_watchdog_threads`
+  and `main()` drives the complete `run()` path (v19)
+- `CrashCounter` now persists to disk (wall-clock timestamps) so the ≥3-in-1h
+  crash guard survives a `mos upgrade` monitor restart (v19)
+- Bounded `timeout=` on all supervision-critical tmux subprocess calls so a
+  wedged tmux server can no longer hang a watchdog thread (v19)
+- `test_doctor_checks` no longer hangs the suite — runs against a hermetic
+  `MINIONS_ROOT` instead of probing every live backend over HTTP (v19)
+
+### Removed
+- Unwired `agent_host/` quota/telemetry prototype + its orphan test (v20)
+- Stale `docs/eacn3-mcp-tools-reference.html` (superseded by MANUAL) (v20)
+- `outline/` 21GB research/dataset workspace relocated out of the repo
+  (gitignored; was never pushed) (v20)
+
+---
+
+## [0.5.3 → 0.16.x equivalent] - 2026-05-16 (the `v6`–`v16` patch series)
+
+> **Historical framing.** During this window the package version was frozen at
+> `0.5.3` while commit milestones ran from `v6` to `v16`. Under the current
+> convention these would be `0.6.x`–`0.16.x`. The version-by-version timeline is
+> preserved below as it was recorded at the time.
 
 Version bump commit: `ed1b81a`
 
@@ -21,12 +80,12 @@ Version bump commit: `ed1b81a`
 
 ---
 
-## [0.5.x internal patch series] - 2026-05-16 to 2026-05-28
+## [`v6`–`v16` detailed timeline] - 2026-05-16 to 2026-05-28
 
-The v0.5.3 release was followed by an extensive patch series tracked as
-`v6.x` through `v16.x` in commit messages. These patches are part of the
-same pyproject.toml version (0.5.3) and represent ongoing hardening.
-Key milestones are documented below in reverse chronological order.
+Version-by-version detail for the milestone series above. During this window the
+pyproject package version stayed frozen at `0.5.3` while commit milestones ran
+`v6`→`v16` (the drift the current `vN ⇒ 0.N.x` convention fixes). Listed in
+reverse chronological order.
 
 ### v16.1 (2026-05-27)
 - Compact-hook scope gate, fallback-model wiring, codex-subagent install hardening
@@ -251,4 +310,5 @@ documented in this changelog.
 
 ---
 
-[0.5.3]: https://github.com/MinionsOS/MinionsOS/releases/tag/v0.5.3
+[0.20.0]: https://github.com/Minions-Land/MinionsOS/releases/tag/v20
+[0.5.3]: https://github.com/Minions-Land/MinionsOS/releases/tag/v0.5.3

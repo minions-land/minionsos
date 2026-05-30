@@ -956,7 +956,7 @@ wheels = [
 
 [[package]]
 name = "minionsos"
-version = "0.5.3"
+version = "0.20.0"
 source = { editable = "." }
 dependencies = [
     { name = "eacn3" },

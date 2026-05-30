@@ -83,10 +83,16 @@ Non-breaking (allowed in any release):
 ## Versioning scheme
 
 MinionsOS follows [SemVer](https://semver.org/) at the `pyproject.toml`
-level (`major.minor.patch`). The `vX.Y` tags in commit messages are
-**internal milestone tags** and do not, on their own, correspond to
-pyproject version bumps. Pyproject version bumps occur at deliberate
-release points and are tagged in git (e.g. `v0.5.3`).
+level (`major.minor.patch`). The `vN` milestone tags used in commit
+messages and `CHANGELOG.md` correspond **one-to-one** with the minor
+version: milestone `vN` is package version `0.N.x`, and a `vN.M` polish
+commit maps to `0.N.M`. So commit `v20` ⇒ pyproject `0.20.0`.
+
+There is a single version source of truth: `pyproject.toml [project].version`.
+`minions.__version__` reads it from installed package metadata
+(`importlib.metadata`) rather than hard-coding it, so the two can never
+drift. On a milestone bump, update `pyproject.toml` (and the literal
+fallback in `minions/__init__.py`), then `uv sync`.
 
 ## Out-of-scope (no stability claim)
 
