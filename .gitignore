@@ -29,6 +29,11 @@ minions/state/*.host
 # Pattern: projects.json.bak-cleanup-YYYYMMDD-HHMMSS. These are local-only
 # and never meant to land in the repo.
 minions/state/*.bak-*
+# Timestamped backups produced by `mos project prune` before it mutates
+# projects.json. Pattern: projects.json.prune-bak-YYYYMMDD-HHMMSS. Local-only.
+minions/state/*.prune-bak-*
+# Gru crash watchdog counter — runtime liveness state, regenerated on demand.
+minions/state/crash_counter.json
 # Codex Gru role contract file: regenerated from minions/roles/SYSTEM.md +
 # minions/roles/gru/SYSTEM.md on every ./gru (codex) launch. Runtime artifact.
 minions/state/codex-gru.AGENTS.md

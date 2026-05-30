@@ -112,6 +112,40 @@ class TestRetirePort:
         assert store2.is_port_retired(37596)
 
 
+class TestRemoveProject:
+    def test_remove_existing_returns_true_and_drops_row(self, store: StateStore) -> None:
+        store.add_project(_project(37596))
+        assert store.remove_project(37596) is True
+        assert store.get_project(37596) is None
+
+    def test_remove_missing_returns_false(self, store: StateStore) -> None:
+        assert store.remove_project(99999) is False
+
+    def test_remove_retires_port_by_default(self, store: StateStore) -> None:
+        store.add_project(_project(37596))
+        store.remove_project(37596)
+        assert store.is_port_retired(37596)
+
+    def test_remove_can_skip_retirement(self, store: StateStore) -> None:
+        store.add_project(_project(37596))
+        store.remove_project(37596, retire=False)
+        assert not store.is_port_retired(37596)
+
+    def test_remove_leaves_other_rows_intact(self, store: StateStore) -> None:
+        store.add_project(_project(37596))
+        store.add_project(_project(37597))
+        store.remove_project(37596)
+        assert store.get_project(37596) is None
+        assert store.get_project(37597) is not None
+
+    def test_remove_persists_across_reopen(self, store: StateStore, tmp_path: Path) -> None:
+        store.add_project(_project(37596))
+        store.remove_project(37596)
+        store2 = StateStore(root=tmp_path)
+        assert store2.get_project(37596) is None
+        assert store2.is_port_retired(37596)
+
+
 class TestAtomicWrite:
     def test_state_file_is_valid_json_after_write(self, store: StateStore, tmp_path: Path) -> None:
         store.add_project(_project(37596))

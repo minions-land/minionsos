@@ -980,6 +980,200 @@ def noter_cmd(
         raise _fail(str(e)) from e
 
 
+class _StrayDir:
+    """Lightweight stand-in for an on-disk project_<port>/ dir with no row."""
+
+    def __init__(self, port: int) -> None:
+        self.port = port
+        self.real_name = "(orphan dir, no row)"
+        self.status = "orphan"
+        self.active_roles: list = []
+
+
+def _orphan_dirs_without_row(known_ports: set[int]) -> list[int]:
+    """Return ports whose project_<port>/ dir exists on disk but has no row."""
+    import re as _re
+
+    root = projects_root()
+    if not root.exists():
+        return []
+    found: list[int] = []
+    for name in os.listdir(root):
+        m = _re.fullmatch(r"project_(\d+)", name)
+        if not m:
+            continue
+        port = int(m.group(1))
+        if port not in known_ports and (root / name).is_dir():
+            found.append(port)
+    return sorted(found)
+
+
+def _is_prunable(p, include_test_stubs: bool) -> bool:
+    """True if project *p* is safe to prune (orphan dir, or stale test stub).
+
+    Never matches a real, in-progress project: an orphan has no dir at all, and
+    a test stub must both carry a known fixture name AND hold zero real
+    research artifacts AND have no live role pid.
+    """
+    pdir = project_dir(p.port)
+    if not pdir.exists():
+        return True  # orphan row — dir already gone
+    if not include_test_stubs:
+        return False
+    if (p.real_name or "") not in {"test-bootstrap", "no-brief-project"}:
+        return False
+    # A live role pid means something is genuinely running — never prune.
+    if any(getattr(r, "pid", None) for r in getattr(p, "active_roles", [])):
+        return False
+    # Real research output would live under shared/{notes,exp,book,reviews,submissions}.
+    shared = pdir / "branches" / "shared"
+    for sub in ("notes", "exp", "book", "reviews", "submissions"):
+        d = shared / sub
+        try:
+            if d.is_dir() and any(d.iterdir()):
+                return False  # has real artifacts — not a disposable stub
+        except OSError:
+            return False  # unreadable -> be conservative, do not prune
+    return True
+
+
+def _prune_apply(store, victims, *, assume_yes: bool, json_flag: bool) -> None:
+    """Confirm, back up projects.json, then fully tear down each victim."""
+    import shutil as _shutil
+    from datetime import datetime as _dt
+
+    if not assume_yes:
+        confirm = typer.confirm(
+            f"Prune {len(victims)} projects? This stops their backends, removes "
+            f"their project_<port>/ dirs, and retires their ports."
+        )
+        if not confirm:
+            console.print("[yellow]Aborted — nothing changed.[/yellow]")
+            raise typer.Exit(0)
+
+    # Timestamped backup of projects.json before any mutation.
+    from minions.paths import PROJECTS_JSON
+
+    if PROJECTS_JSON.exists():
+        backup = PROJECTS_JSON.with_name(
+            f"projects.json.prune-bak-{_dt.now().strftime('%Y%m%d-%H%M%S')}"
+        )
+        _shutil.copy2(PROJECTS_JSON, backup)
+        if not json_flag:
+            console.print(f"[dim]Backed up projects.json → {backup.name}[/dim]")
+
+    removed = 0
+    backends_stopped = 0
+    dirs_removed = 0
+    for p in victims:
+        # 1. kill any role tmux sessions for this port.
+        try:
+            from minions.lifecycle.role_launcher import kill_session as _kill
+
+            for r in getattr(p, "active_roles", []):
+                _kill(p.port, r.name)
+        except Exception as exc:
+            logger.warning("prune: kill_session failed port=%d: %s", p.port, exc)
+        # 2. stop the EACN backend listening on the port.
+        backends_stopped += _stop_port_listeners(p.port)
+        # 3. remove the on-disk project dir.
+        pdir = project_dir(p.port)
+        if pdir.exists():
+            try:
+                _shutil.rmtree(pdir)
+                dirs_removed += 1
+            except OSError as exc:
+                logger.warning("prune: rmtree failed for %s: %s", pdir, exc)
+        # 4. drop the row + retire the port.
+        if store.remove_project(p.port, retire=True):
+            removed += 1
+
+    if json_flag:
+        _json_out(
+            {"removed": removed, "dirs_removed": dirs_removed, "backends_stopped": backends_stopped}
+        )
+        return
+    console.print(
+        f"[green]Pruned {removed} projects[/green] "
+        f"(dirs removed={dirs_removed}, backends stopped={backends_stopped}). "
+        f"Ports retired; TUI/status will be clean."
+    )
+
+
+def _stop_port_listeners(port: int) -> int:
+    """SIGTERM any process LISTENING on *port*. Returns count terminated."""
+    import signal as _signal
+
+    try:
+        out = subprocess.run(
+            ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return 0
+    pids = [int(x) for x in out.stdout.split() if x.strip().isdigit()]
+    stopped = 0
+    for pid in pids:
+        try:
+            os.kill(pid, _signal.SIGTERM)
+            stopped += 1
+        except OSError as exc:
+            logger.warning("prune: could not SIGTERM pid=%d on port=%d: %s", pid, port, exc)
+    return stopped
+
+
+# ---------------------------------------------------------------------------
+# tui — terminal control plane (Rust)
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="tui")
+def tui_cmd(
+    rebuild: bool = typer.Option(
+        False, "--rebuild", help="Force `cargo build --release` before launching."
+    ),
+    probe: bool = typer.Option(
+        False, "--probe", help="Non-interactive read-path check; print a summary and exit."
+    ),
+    gru: bool = typer.Option(
+        False, "--gru", help="Open straight into the Gru cockpit (starts mos-gru if needed)."
+    ),
+) -> None:
+    """Launch the MinionsOS TUI — a keyboard-driven terminal control plane.
+
+    The TUI lets an operator browse every project's role-agent sessions one by
+    one and drive them (capture-pane live view + send-keys steer + attach /
+    drive takeover), reusing the same `mos role *` authorization and guardrails.
+
+    The Rust binary lives in `minions-tui/`. On first run (or `--rebuild`) we
+    `cargo build --release`; thereafter we exec the cached binary directly.
+    """
+    crate = MINIONS_ROOT / "minions-tui"
+    binary = crate / "target" / "release" / "mtui"
+    if not crate.exists():
+        raise _fail(f"minions-tui crate not found at {crate}.")
+    if rebuild or not binary.exists():
+        if shutil.which("cargo") is None:
+            raise _fail(
+                "cargo not found — install Rust (https://rustup.rs) to build the TUI. "
+                "macOS: brew install rust, or curl https://sh.rustup.rs | sh."
+            )
+        console.print("[dim]Building minions-tui (cargo build --release)…[/dim]")
+        rc = subprocess.run(["cargo", "build", "--release"], cwd=crate).returncode
+        if rc != 0 or not binary.exists():
+            raise _fail(f"cargo build failed (rc={rc}).")
+    # Hand the terminal entirely to the Rust binary. MINIONS_ROOT is already in
+    # the environment (exported by the launcher); the TUI also walks the cwd and
+    # the Gru registry to resolve context.
+    argv = [str(binary)]
+    if probe:
+        argv.append("--probe")
+    if gru:
+        argv.append("--gru")
+    raise typer.Exit(subprocess.run(argv, cwd=MINIONS_ROOT).returncode)
+
+
 # ---------------------------------------------------------------------------
 # project subcommands
 # ---------------------------------------------------------------------------
@@ -1102,6 +1296,88 @@ def project_repair_cmd(port: int = typer.Argument(..., help="Project port.")) ->
         f"[green]Repaired project {port} EACN state.[/green] "
         f"gru={result.get('gru_status')} roles_registered={roles} stale_pids_cleared={cleared}"
     )
+
+
+@project_app.command(name="prune")
+def project_prune_cmd(
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would be pruned without changing anything."
+    ),
+    include_test_stubs: bool = typer.Option(
+        True,
+        "--test-stubs/--no-test-stubs",
+        help="Also prune stale test-fixture projects (test-bootstrap / no-brief-project) "
+        "that hold no real research artifacts. On by default.",
+    ),
+    json_flag: bool = typer.Option(False, "--json"),
+) -> None:
+    """Prune stale / orphaned projects from projects.json (one-shot cleanup).
+
+    Two safe categories are pruned:
+
+    1. ORPHAN ROWS — a row whose on-disk ``project_{port}/`` no longer exists.
+    2. TEST STUBS — a project named ``test-bootstrap`` or ``no-brief-project``
+       whose shared tree holds NO real research artifacts (no notes / exp /
+       book / reviews / submissions) and has no live role pid. These are the
+       leftovers of automated test runs. (Disable with ``--no-test-stubs``.)
+
+    For each pruned project the full teardown runs: any role tmux session is
+    killed, the EACN backend listening on the port is stopped, the
+    ``project_{port}/`` directory is removed, the projects.json row is deleted,
+    and the port is retired (never re-allocated). A real, in-progress project
+    can never match either category, so this is safe to run anytime.
+
+    Always back up projects.json first is unnecessary — the command makes a
+    timestamped backup itself before mutating.
+    """
+    store = _get_store()
+    projects = store.list_projects("all")
+    victims = [p for p in projects if _is_prunable(p, include_test_stubs)]
+
+    by_reason = {"orphan-dir": 0, "test-stub": 0}
+    for p in victims:
+        by_reason["orphan-dir" if not project_dir(p.port).exists() else "test-stub"] += 1
+
+    # Also sweep on-disk project_<port>/ dirs that have NO row at all — leftover
+    # directories from earlier retirements. Represent each as a lightweight
+    # placeholder so the same teardown applies.
+    known_ports = {p.port for p in projects}
+    stray_dirs = _orphan_dirs_without_row(known_ports)
+    for port in stray_dirs:
+        victims.append(_StrayDir(port))
+        by_reason["orphan-dir"] += 1
+
+    if json_flag and dry_run:
+        _json_out(
+            {
+                "total": len(projects),
+                "prunable": [{"port": p.port, "name": p.real_name} for p in victims],
+                "by_reason": by_reason,
+            }
+        )
+        return
+
+    if not victims:
+        console.print("[green]Nothing to prune — projects.json is clean.[/green]")
+        return
+
+    import collections as _collections
+
+    by_name = _collections.Counter(p.real_name or "(unnamed)" for p in victims)
+    console.print(
+        f"[yellow]Found {len(victims)} prunable projects[/yellow] "
+        f"(orphan-dir={by_reason['orphan-dir']}, test-stub={by_reason['test-stub']}) "
+        f"out of {len(projects)} total:"
+    )
+    for name, count in by_name.most_common():
+        console.print(f"  {count:5d}  {name}")
+
+    if dry_run:
+        console.print("[dim]--dry-run: nothing changed.[/dim]")
+        return
+
+    _prune_apply(store, victims, assume_yes=yes, json_flag=json_flag)
 
 
 # ---------------------------------------------------------------------------
@@ -1524,6 +1800,53 @@ def issues_archive(
             size = 0
         table.add_row(str(f), f"{size}B")
     console.print(table)
+
+
+@issues_app.command("file")
+def issues_file(
+    port: int = typer.Argument(..., help="Project port to file the issue against."),
+    payload: str = typer.Option(
+        "-",
+        "--payload",
+        help="JSON issue body (IssueReportArgs shape), or '-' to read stdin.",
+    ),
+    reporter_role: str = typer.Option(
+        "operator",
+        "--reporter-role",
+        help="Reporter role recorded on the issue (default: operator, for TUI/human-filed).",
+    ),
+) -> None:
+    """File an issue from a JSON payload (operator / TUI / haiku path).
+
+    This is the write counterpart to `issues list/tail`. The TUI's one-click
+    haiku issue-filer drafts an IssueReportArgs JSON, then pipes it here so the
+    write goes through the same `report_issue()` storage + GitHub-upload path a
+    Role would use. Identity is stamped from MINIONS_ROLE_NAME (set below) so
+    operator-filed issues are distinguishable from role-filed ones.
+    """
+    import os as _os
+    import sys as _sys
+
+    from minions.tools.issues import IssueReportArgs, report_issue
+
+    raw = _sys.stdin.read() if payload == "-" else payload
+    raw = raw.strip()
+    if not raw:
+        raise _fail("Empty issue payload.")
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise _fail(f"Issue payload is not valid JSON: {e}") from e
+    try:
+        args = IssueReportArgs.model_validate(data)
+    except Exception as e:  # pydantic ValidationError
+        raise _fail(f"Issue payload failed validation: {e}") from e
+
+    # Stamp identity for `report_issue`'s env-based reporter resolution.
+    _os.environ.setdefault("MINIONS_PROJECT_PORT", str(port))
+    _os.environ["MINIONS_ROLE_NAME"] = reporter_role
+    record = report_issue(args, port=port)
+    _json_out(record)
 
 
 # ---------------------------------------------------------------------------

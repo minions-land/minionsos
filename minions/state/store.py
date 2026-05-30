@@ -280,6 +280,29 @@ class StateStore:
         """Return True if *port* has been retired."""
         return port in self._read_data().retired_ports
 
+    def remove_project(self, port: int, *, retire: bool = True) -> bool:
+        """Delete the project row for *port* from projects.json entirely.
+
+        Unlike ``project_close`` (which transitions status and does git/disk
+        work), this drops the row outright — for pruning stale/orphaned
+        entries whose on-disk ``project_{port}/`` no longer exists. When
+        ``retire`` is True the port is added to ``retired_ports`` so it is
+        never re-allocated. Returns True if a row was removed.
+        """
+
+        def _remove(data: ProjectsData) -> bool:
+            before = len(data.projects)
+            data.projects = [p for p in data.projects if p.port != port]
+            removed = len(data.projects) < before
+            if removed and retire and port not in data.retired_ports:
+                data.retired_ports.append(port)
+            return removed
+
+        removed = self._mutate(_remove)
+        if removed:
+            logger.info("remove_project port=%d retired=%s", port, retire)
+        return removed
+
     def find_next_port(self) -> int:
         """Find the next free port via bind-probe, skipping retired/in-use ports."""
         data = self._read_data()
