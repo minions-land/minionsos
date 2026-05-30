@@ -9,7 +9,10 @@ production config). Variants:
 Reports per-variant total input tokens; computes delta.
 """
 from __future__ import annotations
-import json, subprocess, sys, time
+
+import json
+import subprocess
+import time
 from pathlib import Path
 
 REPO = Path("/Users/mjm/MinionsOS")
@@ -76,11 +79,11 @@ def main():
     if slim and orig:
         delta = slim["total"] - orig["total"]
         pct = (delta / orig["total"] * 100) if orig["total"] else 0
-        print(f"\n=== SUMMARY ===")
+        print("\n=== SUMMARY ===")
         print(f"ORIGINAL total: {orig['total']:>8}")
         print(f"SLIM     total: {slim['total']:>8}")
         print(f"DELTA: {delta:+d} ({pct:+.1f}%)")
-        print(f"\nSYSTEM.md content alone:")
+        print("\nSYSTEM.md content alone:")
         slim_md = (REPO/'minions/roles/SYSTEM.md').read_text()
         # original is currently restored
         orig_md_chars = 26750  # measured earlier

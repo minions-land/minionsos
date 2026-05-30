@@ -16,7 +16,7 @@ import pytest
 
 from minions.errors import ProjectError
 from minions.lifecycle import project as proj_mod
-from minions.state.store import ProjectEntry, RoleEntry, StateStore
+from minions.state.store import ProjectEntry, StateStore
 
 
 def _make_store(tmp_path: Path, *, port: int = 8123) -> StateStore:

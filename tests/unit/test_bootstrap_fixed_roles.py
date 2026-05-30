@@ -10,7 +10,6 @@ These tests use a stub `register_role` so they are tmux/EACN3-free.
 
 from __future__ import annotations
 
-from concurrent.futures import Future
 from types import SimpleNamespace
 from unittest.mock import patch
 

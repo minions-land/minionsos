@@ -26,10 +26,8 @@ Permission matrix being tested:
 """
 
 import importlib
-import os
-import sys
-import pytest
 
+import pytest
 
 # ---------------------------------------------------------------------------
 # Helpers

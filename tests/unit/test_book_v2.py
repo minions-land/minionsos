@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-import os
 from pathlib import Path
 
 import pytest
@@ -16,7 +14,6 @@ from minions.tools.book import (
     mos_book_query,
     mos_book_ratify,
 )
-
 
 # ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -37,8 +34,9 @@ def book_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> int:
     import minions.tools.book as _book_mod
 
     def _fake_publish(port: int, files: list, message: str) -> dict:  # type: ignore[type-arg]
-        from minions.tools.book import _book_root
         import shutil
+
+        from minions.tools.book import _book_root
 
         book_root = _book_root(port)
         for stage_path, rel in files:

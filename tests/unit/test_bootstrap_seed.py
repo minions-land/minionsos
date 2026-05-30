@@ -14,9 +14,19 @@ from minions.state.store import StateStore
 
 @pytest.fixture
 def mock_project_env(tmp_path: Path, monkeypatch):
-    """Mock project environment for bootstrap testing."""
+    """Mock project environment for bootstrap testing.
+
+    Returns ``(projects_root, state_root)``. ``state_root`` holds an isolated
+    ``projects.json`` so ``StateStore(root=state_root)`` never touches the real
+    ``minions/state/projects.json`` — a bare ``StateStore()`` reads the live
+    state dir (``MINIONS_PROJECTS_ROOT`` does not redirect it), which exhausts
+    the port range once enough real projects exist and makes this test fail for
+    reasons unrelated to bootstrap seeding.
+    """
     monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path))
     monkeypatch.setenv("MINIONS_AUTHOR_REPO", str(tmp_path / "author_repo"))
+    state_root = tmp_path / "state"
+    state_root.mkdir()
 
     # Create minimal author repo
     author_repo = tmp_path / "author_repo"
@@ -45,12 +55,13 @@ def mock_project_env(tmp_path: Path, monkeypatch):
         capture_output=True,
     )
 
-    return tmp_path
+    return tmp_path, state_root
 
 
-def test_project_create_seeds_bootstrap_node(mock_project_env: Path):
+def test_project_create_seeds_bootstrap_node(mock_project_env: tuple[Path, Path]):
     """project_create should seed Draft with B-000 bootstrap node."""
-    store = StateStore()
+    _projects_root, state_root = mock_project_env
+    store = StateStore(root=state_root)
 
     entry = project_create(
         real_name="test-bootstrap",
@@ -97,9 +108,10 @@ def test_project_create_seeds_bootstrap_node(mock_project_env: Path):
     assert "deliverable" in metadata
 
 
-def test_bootstrap_node_without_brief(mock_project_env: Path):
+def test_bootstrap_node_without_brief(mock_project_env: tuple[Path, Path]):
     """Bootstrap should use project name when brief is not provided."""
-    store = StateStore()
+    _projects_root, state_root = mock_project_env
+    store = StateStore(root=state_root)
 
     entry = project_create(
         real_name="no-brief-project",

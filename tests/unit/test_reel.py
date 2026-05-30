@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import time
 from pathlib import Path
 
 import pytest
@@ -15,7 +14,6 @@ from minions.tools.reel import (
     mos_reel_get,
     mos_reel_window,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

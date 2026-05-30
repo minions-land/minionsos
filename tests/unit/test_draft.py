@@ -413,7 +413,7 @@ class TestNoterMotifContract:
             encoding="utf-8",
         )
 
-        import importlib, sys, os
+        import os
         env_backup = os.environ.copy()
         os.environ["MINIONS_PORT"] = str(port)
         os.environ["MINIONS_ROLE"] = "noter"
