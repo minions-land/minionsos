@@ -130,6 +130,47 @@ Each cycle:
    per §5.
 6. Loop to step 1.
 
+### Quiet-branch discipline (idle / blocked / no-decision)
+
+Two failure modes live in the quiet turns, and they pull in opposite
+directions — the rule pairs them so neither over-corrects into the
+other. (Telling a role only "idle silently when nothing is pending,"
+without the paired initiate rule, is what deadlocked a 7-role team for
+20+ min: everyone politely waited for someone else to move first.)
+
+- **No-decision event → drain silently.** If a drained event needs no
+  decision and carries no new content — an ack of your ack, a courtesy
+  close, an already-resolved collision — acknowledge it by *draining
+  only*: no `eacn3_send_message` reply, no Draft node, return to the
+  poll. Recognize this cheaply; do not spend a full reasoning turn
+  arriving at "I'll let it rest."
+
+- **Idle / blocked / stalled → initiate, do NOT wait.** When you wake on
+  an `idle_check`, are waiting on a peer, or the project has gone quiet
+  with your responsibility still unmet, passively re-polling is the
+  wrong move — that mutual yield is how the whole team deadlocks. Take
+  one concrete forward step instead. **For a cross-role dependency,
+  prefer a targeted task** (`eacn3_create_task` with `invited_agent_ids`)
+  over a DM: a task carries a claim/bid/result obligation, so once a peer
+  claims it, *someone owns the next move*. A DM carries no obligation —
+  a thread of DMs lets everyone keep yielding ("you go first") forever,
+  which is precisely the deadlock. Use `eacn3_send_message` for a short
+  unblock nudge, status, or coordination beat; use a task to hand off
+  substantive interdependent work. Conversely, when a task that fits you
+  is already open, **bid / claim / submit-result promptly** rather than
+  waiting to be invited — an idle role letting fitting work sit unclaimed
+  is the other half of the same deadlock. "Wait for someone else to frame
+  it" is never the answer when you can frame it yourself. (Gru is the
+  exception — Gru does not post tasks; it nudges the owning Role to post
+  its own; see §7 and Gru §G2 / §G16.)
+
+`eacn3_send_message` and `eacn3_create_task` are always available to
+work Roles — first-class, on the same footing as `mos_await_events`.
+Reaching for them on an idle or blocked turn is the intended behavior,
+not an exception. This is distinct from the `cache_keepalive` ack turn,
+which is strictly ack-only (no EACN emission) — see your forever-loop
+prompt.
+
 Never end a turn without another call to `mos_await_events()`. The
 process must stay resident.
 
@@ -389,6 +430,13 @@ if another role needs to know or act, send an EACN message or task.
   Writer submits to Gru, not to a "Reviewer" Role.
 - **Non-blocking:** send messages as soon as ready; do not batch until
   end of work.
+- **When blocked or idle, initiate — do not wait.** If your work depends
+  on input that has not arrived, or the project has gone quiet with your
+  responsibility unmet, send the DM or post the task that moves it
+  forward. Waiting for a peer to move first is how the team
+  deadlocks (§3 quiet-branch discipline). `eacn3_send_message` and
+  `eacn3_create_task` are first-class, always-available tools for this —
+  use them on an idle turn the same way you use them on a busy one.
 
 ### Role-to-role collaboration first
 

@@ -13,6 +13,7 @@ Two halves:
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -160,6 +161,19 @@ def _empty_tasks_response():
     return FakeResp()
 
 
+def _open_tasks_response(tasks):
+    class FakeResp:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return tasks
+
+    return FakeResp()
+
+
 class TestKeepaliveReturn:
     def test_keepalive_fires_after_threshold(self, _await_env):
         """When wall-clock elapsed >= cache_keepalive_seconds and no events,
@@ -187,6 +201,61 @@ class TestKeepaliveReturn:
 
         assert result["count"] == 1
         assert result["events"][0]["event"]["type"] == "cache_keepalive"
+
+    def test_keepalive_cliff_surfaces_biddable_task_instead_of_ack(self, _await_env):
+        """Issue #86 invited-task starvation fix: when the keepalive cliff is
+        reached but an unclaimed biddable task exists, the idle-check runs
+        BEFORE the keepalive and surfaces the task — instead of a bare ack.
+
+        Before this fix, the consecutive_empty>=5 idle branch never ran in
+        production (the 240s cliff trips at ce=4), so an invited/open task a
+        role hadn't bid on sat unclaimed forever. The keepalive cliff is now
+        the place the biddable recovery query is guaranteed to run.
+        """
+        # Pre-seed cold-start flag so the no-work path can't divert to a
+        # cold_start_hint — we want to prove the biddable-task surfacing.
+        import os as _os
+
+        from minions.tools import await_events as ae
+
+        ws = Path(_os.environ["MINIONS_WORKSPACE"])
+        (ws / ".minionsos").mkdir(parents=True, exist_ok=True)
+        (ws / ".minionsos" / "cold_start_hint_emitted").write_text("seeded")
+
+        biddable = {
+            "id": "t-invited-001",
+            "status": "unclaimed",
+            "initiator_id": "expert-moe-arch",
+            "domains": ["e2e"],
+            "bids": [],
+        }
+
+        time_values = iter([0.0, 100.0])
+
+        def fake_monotonic():
+            return next(time_values)
+
+        def fake_get(url, **_kw):
+            if "/api/tasks/open" in url:
+                return _open_tasks_response([biddable])
+            if "/api/tasks" in url:
+                return _empty_tasks_response()
+            return _empty_poll_response()
+
+        with (
+            patch.object(ae, "_load_keepalive_seconds", return_value=50),
+            patch.object(ae.time, "monotonic", side_effect=fake_monotonic),
+            patch.object(ae.httpx, "get", side_effect=fake_get),
+        ):
+            result = ae.await_events()
+
+        evt = result["events"][0]
+        assert evt["event"]["type"] == "idle_check", (
+            "keepalive cliff must run the idle-check and surface the biddable "
+            f"task, not return a bare keepalive; got {evt['event']['type']}"
+        )
+        assert "t-invited-001" in evt["event"]["payload"].get("biddable_tasks", [])
+        assert evt["suggested_tool"] == "eacn3_submit_bid"
 
     def test_keepalive_payload_is_byte_stable(self):
         """Two await_events calls returning keepalive must produce identical

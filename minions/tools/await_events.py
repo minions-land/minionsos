@@ -712,6 +712,47 @@ def _poll_once(
 # ─── Public entry point ─────────────────────────────────────────────────
 
 
+def _idle_probe_before_keepalive(
+    port: int,
+    agent_id: str,
+) -> dict[str, Any] | None:
+    """Run the idle-check (biddable/delegated/invited task scan) before a keepalive.
+
+    THE FIX for the invited-task starvation bug: with the default
+    ``cache_keepalive_seconds=240`` and ~60s long-polls, the keepalive
+    cliff fires while ``consecutive_empty`` is still 4 — so the
+    ``consecutive_empty >= IDLE_CHECK_THRESHOLD`` (5) branch in the main
+    loop NEVER runs in production, and the only recovery net for a
+    missed/unacted task (the ``/api/tasks/open`` biddable query in
+    ``_build_idle_check``) is structurally unreachable. A role that was
+    invited to a task — but drained the one-shot ``task_broadcast``
+    without bidding, or never received it because the best-effort
+    broadcast was lost — would then sit idle forever while the task
+    stays ``unclaimed``. This was the live ``expert-moe-arch → coder``
+    stall.
+
+    By probing here, every keepalive interval (~240s) re-evaluates task
+    state at least once, exactly as the legacy ``eacn3_next`` driver did
+    on every call. Returns the actionable idle_check event if there is
+    one, else ``None`` (caller then sends the byte-stable keepalive so
+    the no-work cache-refresh path stays cacheable).
+
+    Scope note: this deliberately runs ONLY ``_build_idle_check`` (the
+    task/message recovery scan), NOT the one-shot ``_build_cold_start_hint``.
+    The cold-start hint has its own trigger + once-per-lifetime flag in
+    the main loop's no-idle branch; folding it into the keepalive cliff
+    would change *when* that one-shot fires. The keepalive's job here is
+    only to stop starving the recovery net.
+    """
+    try:
+        return _build_idle_check(port, agent_id)
+    except Exception as exc:
+        # Idle intelligence is advisory — never let it break the
+        # keepalive cliff guard, which is a cache-correctness mechanism.
+        logger.debug("idle probe before keepalive failed: %s", exc)
+        return None
+
+
 def await_events() -> dict[str, Any]:
     """Block until EACN3 delivers actionable content, then return it.
 
@@ -901,6 +942,9 @@ def await_events() -> dict[str, Any]:
         # configured value as headroom.
         if keepalive_seconds > 0 and (time.monotonic() - started_monotonic) >= keepalive_seconds:
             _touch_heartbeat(workspace, agent_id)
+            actionable = _idle_probe_before_keepalive(port, agent_id)
+            if actionable is not None:
+                return _return([actionable], real=True)
             return _return([_KEEPALIVE_EVENT], real=False)
 
         events = _poll_once(port, agent_id)
@@ -947,7 +991,17 @@ def await_events() -> dict[str, Any]:
         # a full system-prompt + tool-definitions cold start (~50k input
         # tokens uncached). The synthetic event payload is constant so the
         # post-keepalive conversation tail stays cacheable.
+        #
+        # Before sending the bare keepalive, run one idle probe: with the
+        # default 240s cliff the consecutive_empty>=5 idle branch above never
+        # fires (the cliff trips at ce=4), so this is the ONLY place the
+        # biddable-task recovery query actually runs. If it finds actionable
+        # work (an unclaimed invited/open task, delegated results, etc.),
+        # surface that instead of the keepalive.
         if keepalive_seconds > 0 and (time.monotonic() - started_monotonic) >= keepalive_seconds:
+            actionable = _idle_probe_before_keepalive(port, agent_id)
+            if actionable is not None:
+                return _return([actionable], real=True)
             return _return([_KEEPALIVE_EVENT], real=False)
 
 

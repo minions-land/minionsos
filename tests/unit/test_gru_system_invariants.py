@@ -68,9 +68,21 @@ class TestGruSystemInvariants:
         # negation marker within ±2 lines.
         lines = t.splitlines()
         negation_markers = (
-            "NOT", "Not ", "not post", "never", "Never", "NEVER",
-            "do not", "Do not", "denied", "no `eacn3_create_task",
-            "stay out", "phantom", "instead of", "not bid", "not invite",
+            "NOT",
+            "Not ",
+            "not post",
+            "never",
+            "Never",
+            "NEVER",
+            "do not",
+            "Do not",
+            "denied",
+            "no `eacn3_create_task",
+            "stay out",
+            "phantom",
+            "instead of",
+            "not bid",
+            "not invite",
         )
         for i, line in enumerate(lines):
             if "eacn3_create_task" not in line:
@@ -108,3 +120,21 @@ class TestGruSystemInvariants:
 
     def test_references_repair_command(self) -> None:
         assert "mos project repair" in _text()
+
+    def test_task_based_collaboration_mode_section(self) -> None:
+        """Issue #86 / live-session lesson: Gru must push roles into
+        task-based collaboration and NOT become the inter-role mailroom
+        that DM-feeds tasks one by one."""
+        t = _text()
+        collapsed = " ".join(t.split())
+        assert "Task-based collaboration mode" in t
+        # The anti-pattern (DM-feeding tasks) must be named as wrong.
+        assert "mailroom" in collapsed
+        # The right move: nudge the OWNING role to post its own task chain.
+        assert "owning" in collapsed.lower()
+        assert "invited_agent_ids" in collapsed
+        # The agent_id-is-the-role-name fact must be stated so roles don't
+        # stall waiting for Gru to hand them an id map.
+        assert "role name" in collapsed
+        # Executor-side encouragement: bid / claim / retrieve.
+        assert "claim" in collapsed and "retriev" in collapsed.lower()

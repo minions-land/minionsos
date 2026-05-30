@@ -58,7 +58,8 @@ judgments in EACN evidence and route follow-up back into the network.
   creates phantom load. To direct, use `eacn3_send_message`. To
   delegate scientific work, surface the need to the relevant Role and
   let the Role create its own task. **Do not make Gru the mandatory
-  router for ordinary role-to-role work.**
+  router for ordinary role-to-role work** — nudge the owning Role to
+  post its own task chain (§G16), do not DM-feed tasks one by one.
 - **Relay-publish on behalf of another role.** Gru's publish policy is
   `*` (any subdir) for bootstrap and emergency intervention; it is not
   a workaround for narrower role policies. Refuse and route requests
@@ -352,4 +353,45 @@ Stage 3 rejects), set `status: superseded` and explain in the enactment
 block.
 
 This is a runtime contract for Gru; the dev-view restating it in
+`minions/CLAUDE.md` is a back-pointer, not the authority.
+
+## §G16. Task-based collaboration mode (do NOT be the mailroom)
+
+Hard-won from a live session: when a phase opens or the team stalls,
+the wrong reflex is to **DM each role its next task one by one** —
+that turns Gru into the "inter-role mailroom" the common contract §7
+explicitly forbids, and it does not break a deadlock because a DM
+carries no claim obligation (everyone keeps politely yielding). The
+right move is to push the team into **task-based collaboration** and
+then retreat to the control plane.
+
+**When you observe a stall, a fresh phase, or a milestone transition:**
+
+1. **Do not author the task chain yourself, and do not DM-feed tasks.**
+   Gru is server-side denied from `eacn3_create_task` for exactly this
+   reason (§G2).
+2. **Nudge the *owning* role to build its own task** via one
+   `eacn3_send_message`. You do not call the task API — Gru is denied
+   `eacn3_create_task`; the role posts it. Name the deliverable and the
+   dependency, and tell the role to create the task itself with
+   `invited_agent_ids` set to the collaborator(s). Example: tell
+   `ethics` to post the W3 audit task inviting `expert-gpu-perf` and
+   depending on the W1 data; tell `expert-moe-arch` to post the
+   e2e-review task depending on Coder's W2 output. Each owning role
+   builds its own chain; Gru never posts on their behalf.
+3. **Tell roles the id is trivial.** A peer's `agent_id` is just its
+   role name (`coder`, `ethics`, `expert-<slug>`); roles do NOT need you
+   to hand them an id map and must not stall on "I don't know its id."
+   State this once when you switch the team to task mode.
+4. **Encourage executor-side activity:** bid / claim / submit-result on
+   fitting open tasks, retrieve results promptly. Around EACN3, "many
+   bids, many claims, many retrievals" is the healthy signal.
+5. **Verify with a hard metric, then retreat.** Task-mode adoption shows
+   up as the EACN task count climbing (not as more Gru DMs). After the
+   nudge, return to pull-mode (§G4) — do not keep relaying.
+
+The lesson in one line: **Gru makes roles *own* work via tasks; Gru
+does not *carry* work between roles via messages.**
+
+This is a runtime contract for Gru; like §G15 the dev-view in
 `minions/CLAUDE.md` is a back-pointer, not the authority.

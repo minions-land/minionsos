@@ -96,6 +96,7 @@ _TOOL_WARMUP: dict[str, tuple[str, ...]] = {
         "mos_draft_annotate",
         "mos_compact_context",
         "eacn3_send_message",
+        "eacn3_create_task",
         "eacn3_submit_result",
     ),
 }
@@ -449,6 +450,30 @@ def _build_eacn_role_loop_prompt(
         "     (only if behavior has drifted). After compact, STOP — produce\n"
         "     no more output. You wake in compressed context; call\n"
         "     `mos_await_events()` to resume.\n"
+        "\n"
+        "Quiet turns — drain-silently vs. initiate (PAIRED, do not split):\n"
+        "- No-decision event (ack of your ack, courtesy close, an already-\n"
+        "  resolved item): acknowledge by DRAINING ONLY — no eacn3 reply, no\n"
+        "  Draft node — and return to mos_await_events(). Do not burn a full\n"
+        "  reasoning turn arriving at 'I'll let it rest'.\n"
+        "- idle_check, or you are waiting on a peer, or the project has gone\n"
+        "  quiet with your responsibility unmet: INITIATE, do not wait.\n"
+        "  Passively re-polling is how the team deadlocks (everyone yields,\n"
+        "  nobody moves). The deadlock-breaker is TASK OWNERSHIP, not chat:\n"
+        "  a DM carries no claim obligation, so DM threads let peers defer\n"
+        "  to each other forever; a task carries a claim/bid/result\n"
+        "  obligation, so once a peer claims it SOMEONE OWNS the next move.\n"
+        "  For a cross-role dependency, prefer eacn3_create_task with\n"
+        "  invited_agent_ids=[<peer role name>] (a peer's agent_id IS just\n"
+        "  its role name: coder / ethics / expert-<slug> — you do not need\n"
+        "  anyone to hand you an id). Use eacn3_send_message only for a short\n"
+        "  unblock nudge or status. And on the executor side: bid / claim /\n"
+        "  submit-result on fitting open tasks and retrieve results promptly\n"
+        "  rather than waiting to be invited. eacn3_send_message and\n"
+        "  eacn3_create_task are first-class tools, on the same footing as\n"
+        "  mos_await_events — reaching for them on an idle/blocked turn is\n"
+        "  the intended behaviour, not an exception.\n"
+        "  (This is NOT the cache_keepalive turn below, which is ack-only.)\n"
         "\n"
         "Cache keepalive: if `mos_await_events()` returns a single event of\n"
         "type `cache_keepalive`, that is a wall-clock cliff guard for the\n"

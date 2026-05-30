@@ -210,3 +210,44 @@ def test_warmup_block_appears_before_step_1() -> None:
     step0 = prompt.index(_WARMUP_HEADER)
     step1 = prompt.index("1. Call `mos_draft_summary()`")
     assert step0 < step1
+
+
+# --- Issue #86: quiet-branch discipline (initiate vs drain-silently) ---
+
+
+def test_eacn_prompt_pairs_drain_silently_with_initiate() -> None:
+    # Issue #86 failure mode 3: roles that only learn "idle silently" mutually
+    # yield and deadlock. The forever-loop prompt must teach BOTH halves:
+    # drain a no-decision event silently, AND initiate (DM / task) when idle
+    # or blocked rather than passively re-polling.
+    for role in ("coder", "ethics", "writer", "expert"):
+        prompt = _cold_prompt(role)
+        flat = " ".join(prompt.split())
+        assert "drain-silently vs. initiate" in flat, f"missing paired rule for {role}"
+        assert "INITIATE, do not wait" in flat, f"missing initiate half for {role}"
+        assert "DRAINING ONLY" in flat, f"missing drain-silently half for {role}"
+        # The deadlock-breaker is task ownership, not chat — pin that framing.
+        assert "TASK OWNERSHIP" in flat, f"missing task-ownership framing for {role}"
+        assert "invited_agent_ids" in flat, f"missing invited_agent_ids for {role}"
+        # Both initiation tools are named in the quiet-branch guidance.
+        assert "eacn3_send_message" in prompt
+        assert "eacn3_create_task" in prompt
+
+
+def test_eacn_prompt_keeps_initiate_distinct_from_keepalive_ack() -> None:
+    # The initiate-when-idle rule must NOT bleed into the cache_keepalive turn,
+    # which is strictly ack-only. Pin that the quiet-branch block flags the
+    # distinction and precedes the keepalive section.
+    prompt = _cold_prompt("coder")
+    assert "NOT the cache_keepalive turn" in prompt
+    assert prompt.index("drain-silently vs. initiate") < prompt.index("Cache keepalive:")
+
+
+def test_writer_warmup_pins_create_task() -> None:
+    # Issue #86: eacn3_create_task must be first-class at cold start for every
+    # EACN role. Writer's warmup previously omitted it, forcing a ToolSearch
+    # round-trip before Writer could ever publish a task.
+    prompt = _cold_prompt("writer")
+    warmup = prompt[prompt.index(_WARMUP_HEADER) : prompt.index("1. Call `mos_draft_summary()`")]
+    assert "eacn3_create_task" in warmup
+    assert "eacn3_send_message" in warmup

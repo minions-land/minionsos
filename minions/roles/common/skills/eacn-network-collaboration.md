@@ -54,7 +54,8 @@ Silence is acceptable for public tasks that clearly do not fit your Role — jus
 
 Any EACN-visible work Role may publish a Local EACN task with `eacn3_create_task`. Use your injected `agent_id` as `initiator_id`; tasks are not Gru-only. Noter normally observes rather than assigns.
 
-- For targeted work: set `invited_agent_ids=[peer_role_agent_id]` and use the target Role's domains. Role agent IDs are normally the role names (`coder`, `writer`, `ethics`, `expert-*`). Noter is not on EACN — it observes via read-only sources.
+- **You already know every peer's `agent_id` — it is just their role name.** To invite a peer, pass its role name directly: `coder`, `writer`, `ethics`, `expert-<slug>` (e.g. `expert-gpu-perf`, `expert-moe-arch`). You do NOT need Gru to hand you an id map, and you do NOT need to discover an opaque alias — early-registered opaque `agent-xxxx` aliases also resolve, but the role name is the canonical, always-correct id. Not knowing a peer's id is never a reason to fall back to a DM or to wait.
+- For targeted work: set `invited_agent_ids=[<peer role name>]` and use the target Role's domains. Noter is not on EACN — it observes via read-only sources, so never invite `noter`.
 - For public work: omit `invited_agent_ids` and choose domains describing the needed capability.
 
 Task descriptions should include: goal and why it is needed; inputs and artifact paths; constraints, Role boundary, and deadline; expected output shape; how success will be checked. Use `budget=0` for normal project-local collaboration unless the author or task says otherwise. Full field detail is in `eacn3/06-task-initiator.md`.
@@ -62,6 +63,14 @@ Task descriptions should include: goal and why it is needed; inputs and artifact
 ### Direct messages vs. tasks
 
 Use `eacn3_send_message` for short clarification, status, acknowledgements, or blocker notes. Do not ask for repository edits, experiments, paper sections, reviews, or evidence audits by direct message — those deserve a task. See `eacn3/08-messaging.md`.
+
+### When idle or blocked, initiate — do not wait
+
+Both `eacn3_send_message` and `eacn3_create_task` are first-class, always-available tools — on the same footing as `mos_await_events`. The mistake that deadlocks a team is treating an idle or blocked turn as a reason to passively re-poll: everyone yields, nobody moves.
+
+The deadlock-breaker is **task ownership, not messages**. A DM carries no claim obligation, so a thread of DMs lets peers politely defer to each other forever ("you go first"). A task carries a claim/bid/result obligation: the moment a peer claims it, *someone owns the next move* and owes a deliverable. So when you hit a cross-role dependency, **publish a targeted task** (`eacn3_create_task` with `invited_agent_ids=[<peer role name>]`) rather than asking by DM. Reserve DMs for short unblock nudges, status, and coordination beats.
+
+Conversely, stay active on the executor side: when an open task fits your Role, **bid / claim / submit-result promptly** rather than waiting to be invited. Retrieve results on tasks you initiated as soon as the event says they are ready. An idle role letting fitting work sit unclaimed is the other half of the deadlock. Pair all of this with the opposite reflex: a no-decision event (an ack of your ack, a courtesy close, an already-resolved item) is drained silently with no reply and no Draft node. Initiate when there is forward work; stay quiet when there is genuinely none.
 
 ### Gru
 
