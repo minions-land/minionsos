@@ -64,6 +64,9 @@ Before reaching you, the tool has already:
 2. Verified every Required checklist item is checked. If any Required item
    had been ✗, the tool would have rejected the submission and you would
    never have been spawned.
+3. Confirmed a compiled manuscript PDF (LaTeX → `build/paper.pdf`) exists in
+   the package. The manuscript is always a compiled PDF — a Markdown file is
+   never reviewed as the manuscript; the tool rejects such packages upstream.
 
 Therefore: do **not** repeat the Required-checklist gate. You may inspect
 the checklist for Conditional / Strongly-recommended context (e.g. whether

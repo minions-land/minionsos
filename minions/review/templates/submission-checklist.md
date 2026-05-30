@@ -4,6 +4,7 @@ Standard checklist that must accompany every paper submission to Reviewer. Revie
 
 ## Required (all must be checked ✓)
 
+- [ ] Manuscript format: compiled LaTeX → PDF (`build/paper.pdf`), built from `main.tex` + `sections/*.tex`. A Markdown file is not an acceptable manuscript.
 - [ ] Problem statement: clearly defined research problem with motivation
 - [ ] Literature survey: relevant prior work cited (≥10 references for a standard ML paper)
 - [ ] Main experiment: quantitative results with clear metrics
@@ -29,6 +30,7 @@ When submitting to Reviewer via EACN, attach this checklist as a structured bloc
 
 ```
 [SUBMISSION CHECKLIST]
+- [✓] Manuscript format: compiled PDF (build/paper.pdf)
 - [✓] Problem statement
 - [✓] Literature survey (N references)
 - [✓] Main experiment (metrics: ...)
@@ -40,4 +42,4 @@ When submitting to Reviewer via EACN, attach this checklist as a structured bloc
 [/SUBMISSION CHECKLIST]
 ```
 
-Reviewer will reject without review if any Required item shows ✗.
+Reviewer will reject without review if any Required item shows ✗ — including a manuscript that is not a compiled LaTeX→PDF.

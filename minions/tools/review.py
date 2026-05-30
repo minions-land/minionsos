@@ -593,6 +593,26 @@ def _stage_consolidation(
     return True, None
 
 
+def _find_manuscript_pdf(submission_dir: Path) -> Path | None:
+    """Return a compiled manuscript PDF inside *submission_dir*, or None.
+
+    The manuscript deliverable is always LaTeX → compiled PDF. We accept the
+    canonical ``build/paper.pdf`` first, then any non-trivial ``*.pdf`` in the
+    package root or ``build/``. A PDF must be > 1 KB to count — a zero-byte or
+    placeholder file does not satisfy the format gate. This is the mechanical
+    backstop behind the checklist's "Manuscript format" Required item, so a
+    package whose only manuscript is a ``.md`` cannot pass by gaming the
+    checkbox.
+    """
+    candidates = [submission_dir / "build" / "paper.pdf", submission_dir / "paper.pdf"]
+    candidates += sorted(submission_dir.glob("*.pdf"))
+    candidates += sorted(submission_dir.glob("build/*.pdf"))
+    for pdf in candidates:
+        if pdf.exists() and pdf.is_file() and pdf.stat().st_size > 1024:
+            return pdf
+    return None
+
+
 def review_run(args: ReviewRunArgs) -> dict[str, object]:
     """Run one review round for *args.submission_path* under project *args.port*.
 
@@ -641,6 +661,21 @@ def review_run(args: ReviewRunArgs) -> dict[str, object]:
             "status": "rejected",
             "reason": "Required checklist items unchecked; submission not reviewable.",
             "missing_required": gate.missing_required,
+        }
+
+    # Manuscript-format gate: the deliverable is always LaTeX → compiled PDF.
+    # Reject a package whose manuscript is not a real PDF even if the checklist
+    # claims otherwise — markdown is never an acceptable manuscript.
+    if _find_manuscript_pdf(submission_dir) is None:
+        logger.info("review_run gate rejected: port=%d no compiled manuscript PDF", args.port)
+        return {
+            "status": "rejected",
+            "reason": (
+                "No compiled manuscript PDF found in the submission package. "
+                "The manuscript must be LaTeX compiled to build/paper.pdf; a "
+                "Markdown file is not an acceptable manuscript."
+            ),
+            "missing_required": ["Manuscript format: compiled LaTeX -> PDF"],
         }
 
     reviews_dir = project_reviews_dir(args.port)

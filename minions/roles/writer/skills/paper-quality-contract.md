@@ -42,7 +42,12 @@ These apply globally; sub-skills enforce them, but the contract is non-negotiabl
 1. **No fake citations, no invented bibkeys.** Web search → reverse-lookup `references/*.bib` → cite if entry exists, else add entry first. Inventing a key is a fireable offense. See `citation-audit.md` bidirectional check.
 2. **No engineering details in the body.** Paths, version numbers, code identifiers, git branch names, agent IDs go to the appendix. Body stays scientific.
 3. **No checkmark / half-checkmark capability tables.** Replace ✓/½/✗ with per-feature explicit content (numbers, scopes, names). See `latex-typography.md`.
-4. **Don't compile the PDF unless asked.** Edit `.tex`; the user runs `latexmk`. QA-readiness check is the only exception.
+4. **Compile to PDF before submission / handoff.** The manuscript is
+   LaTeX → `paper.pdf`; in an autonomous project there is no human to
+   run `latexmk`, so Writer owns the compile (`paper-compile` skill via
+   a Workflow agent). A Markdown file is never the manuscript. Mid-draft
+   you may edit `.tex` without recompiling, but a submission, handoff,
+   or "done" without a compiled PDF is incomplete.
 5. **Cross-section propagation on every fix.** A correction to one location must propagate to abstract / intro / discussion / capability table / every appendix. Coexistence of corrected and uncorrected is Major-Revision-class.
 6. **Generic anything is fluff.** No "Common Development Tasks", no "Tips for Development", no "we propose a novel framework that…", no lettered enumerations `(a)…(b)…(c)…` in body prose, no single-line contribution bullets.
 7. **Names bind method to object.** Not "Memory" but "Tri-Layer Memory (Draft/Book/Shelf)". Not "Reflection" but "Two-Tier Reflection (Ethics + Reviewer)". A name that doesn't bind a method is a renaming opportunity.

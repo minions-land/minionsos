@@ -59,8 +59,15 @@ def _write_checklist(submission: Path, *, all_required_checked: bool = True) -> 
 
 
 def _write_manuscript(submission: Path) -> None:
-    (submission / "manuscript.md").write_text(
-        "# Tiny Study\n\n## Method\nLinear classifier.\n\n## Results\n5% improvement.\n",
+    # The manuscript deliverable is always LaTeX -> compiled PDF. Seed a
+    # >1 KB build/paper.pdf so the review_run manuscript-format gate passes.
+    # A real LaTeX source tree would also be present; the gate only requires
+    # the compiled PDF.
+    build = submission / "build"
+    build.mkdir(parents=True, exist_ok=True)
+    (build / "paper.pdf").write_bytes(b"%PDF-1.5\n" + b"0" * 2048 + b"\n%%EOF\n")
+    (submission / "main.tex").write_text(
+        "\\documentclass{article}\\begin{document}Tiny Study\\end{document}\n",
         encoding="utf-8",
     )
 
@@ -319,6 +326,40 @@ class TestChecklistGate:
         )
         assert result["status"] == "rejected"
         assert any("Baseline" in m for m in result["missing_required"])
+        assert spawner.calls == []
+
+    def test_markdown_only_manuscript_rejects_without_spawn(
+        self, project_tree, install_spawner
+    ) -> None:
+        """A passing checklist + .md-only package (no compiled PDF) must reject."""
+        port, pdir = project_tree
+        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        # Markdown manuscript only — the exact failure this gate prevents.
+        (sub / "manuscript.md").write_text("# Tiny Study\n\nResults.\n", encoding="utf-8")
+        _write_checklist(sub)
+        spawner = FakeSpawner(scripts=[full_round_script()])
+        install_spawner(spawner)
+        result = review_run(
+            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+        )
+        assert result["status"] == "rejected"
+        assert "pdf" in result["reason"].lower()
+        assert spawner.calls == [], "must not spawn claude when manuscript is not a compiled PDF"
+
+    def test_placeholder_pdf_under_1kb_rejects(self, project_tree, install_spawner) -> None:
+        """A zero/placeholder PDF (<= 1 KB) does not satisfy the format gate."""
+        port, pdir = project_tree
+        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        (sub / "build").mkdir(parents=True, exist_ok=True)
+        (sub / "build" / "paper.pdf").write_bytes(b"%PDF-1.5\n")  # tiny placeholder
+        _write_checklist(sub)
+        spawner = FakeSpawner(scripts=[full_round_script()])
+        install_spawner(spawner)
+        result = review_run(
+            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+        )
+        assert result["status"] == "rejected"
+        assert "pdf" in result["reason"].lower()
         assert spawner.calls == []
 
 

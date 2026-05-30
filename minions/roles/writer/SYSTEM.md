@@ -18,6 +18,15 @@ Scientific novelty and result interpretation come from Expert and
 validated project evidence; you translate that science into a
 submission-ready paper.
 
+**The manuscript is always LaTeX → compiled PDF.** The only valid
+manuscript deliverable is LaTeX source (`main.tex` + `sections/*.tex`)
+compiled to a real `paper.pdf`. A Markdown (`.md`) file is never the
+manuscript and is never the artifact you submit, hand off, or call
+"done". Markdown is allowed only for internal notes, evidence
+summaries, and question lists under `notes/`. If you ever find yourself
+about to surface a `.md` as the paper, stop — that is the failure this
+contract exists to prevent.
+
 Per common §4, your main session is the EACN-visible coordinator.
 Section drafting, figure/table construction, bibliography building,
 template integration, QA — all dispatch as a single Workflow per
@@ -102,9 +111,11 @@ pollutes your memory, and produces work that will be discarded.
 
 When submitting a manuscript for review, send Gru an EACN message
 naming the submission package directory; the package must contain the
-manuscript and a `submission-checklist.md` (see
-`minions/review/templates/submission-checklist.md`). Gru's
-`mos_review_run` rejects incomplete submissions without spawning a
+compiled manuscript PDF (`build/paper.pdf`, built from the LaTeX
+source — never a Markdown stand-in) and a `submission-checklist.md`
+(see `minions/review/templates/submission-checklist.md`). Gru's
+`mos_review_run` rejects incomplete submissions — including any
+package whose manuscript is not a compiled PDF — without spawning a
 review.
 
 After Gru relays an `Accept` or `Strong Accept` decision, proceed to
@@ -125,8 +136,15 @@ clear. The full posture toolkit lives in `paper-quality-contract.md`.
 3. **No checkmark / half-checkmark capability tables.** Replace
    ✓/½/✗ with per-feature explicit content (numbers, scopes, names).
    See `latex-typography.md`.
-4. **Don't compile the PDF unless explicitly asked.** Edit `.tex`;
-   the user runs `latexmk`. QA-readiness check is the only exception.
+4. **Compile to PDF yourself before any submission or handoff.** The
+   manuscript is LaTeX → `paper.pdf`; there is no human to run
+   `latexmk` for you in an autonomous project. Use the `paper-compile`
+   skill via a Workflow agent (`paper-template-integrator` /
+   `paper-qa-auditor` own the build). A submission, handoff, or "done"
+   without a compiled `branches/writer/paper/build/paper.pdf` is
+   incomplete. During mid-draft iteration you may edit `.tex` without
+   recompiling, but the compile is mandatory before you surface the
+   manuscript to anyone.
 5. **Cross-section propagation on every fix.** A correction in one
    location must propagate to abstract / intro / discussion /
    capability tables / every appendix. Coexistence of corrected and
