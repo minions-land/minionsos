@@ -16,7 +16,7 @@
 ## Version lock
 
 No explicit pin — we use whatever `claude` binary is installed system-wide.
-Version is tracked in `dev-log/CHANGELOG.md` (copy of Anthropic's release notes).
+Version is tracked in `dev-log/claude-code-upstream-changelog.md` (copy of Anthropic's release notes).
 Current: **2.1.143**.
 
 ## What we explicitly avoid
@@ -49,7 +49,7 @@ Current: **2.1.143**.
 ## Upgrade path
 
 1. Claude Code auto-updates (or manual `claude update`).
-2. Check `dev-log/CHANGELOG.md` for breaking changes.
+2. Check `dev-log/claude-code-upstream-changelog.md` for breaking changes.
 3. Re-apply 1h-cache patch if needed: `~/.claude/skills/claude-cache-1h-patch/`.
 4. Run `uv run pytest tests/unit/ -x -q` — hooks and agent_host tests catch regressions.
 5. Smoke: `./mos doctor` verifies claude binary is reachable.
@@ -62,6 +62,6 @@ as the sole agent host. There is no fallback runtime.
 ## Key references
 
 - Anthropic docs: claude.ai/code
-- Our CHANGELOG mirror: `dev-log/CHANGELOG.md`
+- Our CHANGELOG mirror: `dev-log/claude-code-upstream-changelog.md`
 - Hook scripts: `minions/hooks/` (project) + `~/.claude/hooks/` (global)
 - Settings: `.claude/settings.json` (project) + `.claude/settings.local.json`
