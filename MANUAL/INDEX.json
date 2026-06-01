@@ -1,7 +1,7 @@
 {
-  "version": "f973823",
-  "built_at": "2026-05-28T16:09:21.681825+00:00",
-  "page_count": 159,
+  "version": "aa3c5f3",
+  "built_at": "2026-06-01T14:09:59.482165+00:00",
+  "page_count": 154,
   "pages": {
     "eacn3_a2a_server": {
       "kind": "tool",
@@ -883,20 +883,6 @@
       ],
       "related": []
     },
-    "mos_adjudicate": {
-      "kind": "tool",
-      "path": "tools/mos_adjudicate.md",
-      "domain": "deliverables",
-      "auth": [
-        "gru"
-      ],
-      "source": "minions/tools/mcp/evaluator_tools.py:60",
-      "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
-      "related": []
-    },
     "mos_attach_role": {
       "kind": "tool",
       "path": "tools/mos_attach_role.md",
@@ -1156,8 +1142,7 @@
       "related": [
         "mos_book_hot_get",
         "mos_book_ingest",
-        "mos_book_save_synthesis",
-        "mos_shelf_query"
+        "mos_book_save_synthesis"
       ]
     },
     "mos_book_ratify": {
@@ -2300,48 +2285,6 @@
       "keywords": [],
       "related": []
     },
-    "mos_shelf_query": {
-      "kind": "tool",
-      "path": "tools/mos_shelf_query.md",
-      "domain": "memory",
-      "auth": [
-        "*"
-      ],
-      "source": "minions/tools/mcp/memory_tools.py:421",
-      "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
-      "related": []
-    },
-    "mos_shelf_register": {
-      "kind": "tool",
-      "path": "tools/mos_shelf_register.md",
-      "domain": "memory",
-      "auth": [
-        "*"
-      ],
-      "source": "minions/tools/mcp/memory_tools.py:414",
-      "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
-      "related": []
-    },
-    "mos_shelf_shared_concepts": {
-      "kind": "tool",
-      "path": "tools/mos_shelf_shared_concepts.md",
-      "domain": "memory",
-      "auth": [
-        "*"
-      ],
-      "source": "minions/tools/mcp/memory_tools.py:428",
-      "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
-      "related": []
-    },
     "mos_signboard_consume": {
       "kind": "tool",
       "path": "tools/mos_signboard_consume.md",
@@ -2546,34 +2489,6 @@
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
-    },
-    "pitfall-adjudicate-misuse": {
-      "kind": "pitfall",
-      "path": "pitfalls/pitfall-adjudicate-misuse.md",
-      "domain": "deliverables",
-      "auth": [
-        "gru",
-        "ethics"
-      ],
-      "source": "minions/tools/mcp/evaluator_tools.py:60",
-      "since": "stable",
-      "status": "stable",
-      "summary": "**Symptom (project_37596 / role-ethics):**",
-      "keywords": [
-        "adjudicate",
-        "mid",
-        "run",
-        "closure",
-        "submission",
-        "answer",
-        "panel"
-      ],
-      "related": [
-        "mos_adjudicate",
-        "mos_submit",
-        "mos_book_resolve_contradiction",
-        "mos_signboard_evaluate"
-      ]
     },
     "pitfall-deferred-schema": {
       "kind": "pitfall",
@@ -2853,9 +2768,7 @@
       "related": [
         "mos_submit",
         "mos_evaluate",
-        "mos_adjudicate",
-        "mos_review_run",
-        "pitfall-adjudicate-misuse"
+        "mos_review_run"
       ]
     },
     "domain-eacn3": {
@@ -3176,13 +3089,6 @@
       "eacn3_update_deadline",
       "eacn3_update_discussions"
     ],
-    "deliverables": [
-      "domain-deliverables",
-      "mos_adjudicate",
-      "mos_evaluate",
-      "mos_submit",
-      "pitfall-adjudicate-misuse"
-    ],
     "runtime": [
       "domain-runtime",
       "mos_attach_role",
@@ -3220,9 +3126,6 @@
       "mos_draft_summary",
       "mos_reel_get",
       "mos_reel_window",
-      "mos_shelf_query",
-      "mos_shelf_register",
-      "mos_shelf_shared_concepts",
       "pitfall-subagent-boilerplate"
     ],
     "lifecycle": [
@@ -3265,6 +3168,11 @@
       "mos_search_papers_federated",
       "mos_search_pubmed",
       "mos_search_semantic"
+    ],
+    "deliverables": [
+      "domain-deliverables",
+      "mos_evaluate",
+      "mos_submit"
     ],
     "experiments": [
       "domain-experiments",
@@ -3365,7 +3273,6 @@
       "eacn3_update_agent",
       "eacn3_update_deadline",
       "eacn3_update_discussions",
-      "mos_adjudicate",
       "mos_await_events",
       "mos_book_dead_end",
       "mos_book_hot_get",
@@ -3406,7 +3313,6 @@
       "mos_visual_check",
       "mos_visual_inspect",
       "mos_visual_render",
-      "pitfall-adjudicate-misuse",
       "pitfall-empty-authz"
     ],
     "coder": [
@@ -3516,8 +3422,7 @@
       "mos_reset_context",
       "mos_visual_check",
       "mos_visual_inspect",
-      "mos_visual_render",
-      "pitfall-adjudicate-misuse"
+      "mos_visual_render"
     ],
     "writer": [
       "domain-papers",
@@ -3652,9 +3557,6 @@
       "mos_get_events",
       "mos_kill_role",
       "mos_reel_window",
-      "mos_shelf_query",
-      "mos_shelf_register",
-      "mos_shelf_shared_concepts",
       "mos_start_monitor",
       "mos_unread_summary",
       "pitfall-deferred-schema",
@@ -4184,8 +4086,7 @@
       "mos_exp_run"
     ],
     "run": [
-      "mos_exp_run",
-      "pitfall-adjudicate-misuse"
+      "mos_exp_run"
     ],
     "gpu": [
       "domain-experiments",
@@ -4331,26 +4232,6 @@
     "slug": [
       "mos_spawn_expert",
       "pitfall-empty-authz"
-    ],
-    "adjudicate": [
-      "domain-deliverables",
-      "pitfall-adjudicate-misuse"
-    ],
-    "mid": [
-      "pitfall-adjudicate-misuse"
-    ],
-    "closure": [
-      "pitfall-adjudicate-misuse"
-    ],
-    "submission": [
-      "pitfall-adjudicate-misuse"
-    ],
-    "answer": [
-      "domain-deliverables",
-      "pitfall-adjudicate-misuse"
-    ],
-    "panel": [
-      "pitfall-adjudicate-misuse"
     ],
     "tool": [
       "pitfall-deferred-schema"
@@ -4528,12 +4409,18 @@
     "evaluate": [
       "domain-deliverables"
     ],
+    "adjudicate": [
+      "domain-deliverables"
+    ],
     "deliverable": [
       "domain-deliverables"
     ],
     "paper": [
       "domain-deliverables",
       "domain-papers"
+    ],
+    "answer": [
+      "domain-deliverables"
     ],
     "comms": [
       "domain-eacn3"

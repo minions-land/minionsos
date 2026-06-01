@@ -10,12 +10,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 GRU = ROOT / "minions" / "bin" / "gru"
 
-FAKE_CODEX = r"""#!/usr/bin/env bash
-set -u
-echo "FAKE_GRU_CODEX_ARGV: $*" >&2
-exit 0
-"""
-
 FAKE_CLAUDE = r"""#!/usr/bin/env bash
 set -u
 echo "FAKE_GRU_CLAUDE_ARGV: $*" >&2
@@ -47,12 +41,10 @@ def _write_executable(path: Path, text: str) -> None:
     path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
-def _fake_bin(tmp_path: Path, *, codex: bool = False, claude: bool = False) -> Path:
+def _fake_bin(tmp_path: Path, *, claude: bool = False) -> Path:
     bindir = tmp_path / "bin"
     bindir.mkdir()
     _write_executable(bindir / "uv", FAKE_UV)
-    if codex:
-        _write_executable(bindir / "codex", FAKE_CODEX)
     if claude:
         _write_executable(bindir / "claude", FAKE_CLAUDE)
     return bindir

@@ -31,8 +31,8 @@ mos_book_open_question(
 ## When to call
 - When you identify a gap or unresolved question during investigation that
   future work (same or other projects) should address.
-- Before abandoning a line of inquiry — capturing the open question lets
-  `mos_shelf_query` surface it cross-project.
+- Before abandoning a line of inquiry — capturing the open question preserves
+  it for future reference.
 - Do NOT use for definitively refuted claims — use `mos_book_dead_end` instead.
 
 ## Authz

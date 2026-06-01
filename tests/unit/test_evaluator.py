@@ -12,8 +12,8 @@ from minions.tools.evaluator import SubmitArgs, mos_submit
 
 
 @pytest.fixture
-def mock_hle_project(tmp_path: Path, monkeypatch):
-    """Create a minimal HLE-style project structure for testing.
+def mock_paper_project(tmp_path: Path, monkeypatch):
+    """Create a minimal scientific-paper project structure for testing.
 
     Patches every path helper used by both the evaluator and publish layers
     so that mos_submit + mos_evaluate work end-to-end against ``tmp_path``.
@@ -22,33 +22,24 @@ def mock_hle_project(tmp_path: Path, monkeypatch):
     project_root = tmp_path / f"project_{port}"
     project_root.mkdir()
 
-    # Create meta.json with hle-answer profile
+    # Create meta.json with the scientific-paper profile
     meta = {
         "port": port,
-        "real_name": "test-hle",
-        "profile": "hle-answer",
+        "real_name": "test-paper",
+        "profile": "scientific-paper",
         "profile_evaluation": {
-            "strategy": "answer_grader",
-            "reference_path": "input/expected.json",
-            "comparison_mode": "exact_match",
+            "strategy": "scientific_peer_review",
         },
         "profile_deliverable_schema": {
-            "required": ["branches/shared/submissions/answer.json"],
+            "required": ["branches/shared/submissions/paper.pdf"],
             "publish_whitelist": {
                 "gru": ["*"],
                 "expert": ["handoffs", "submissions"],
-                "coder": ["exp", "handoffs", "submissions"],
             },
         },
     }
     meta_path = project_root / "meta.json"
     meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
-
-    # Create input/expected.json
-    input_dir = project_root / "input"
-    input_dir.mkdir()
-    expected = {"answer": 42}
-    (input_dir / "expected.json").write_text(json.dumps(expected), encoding="utf-8")
 
     # Create branches/shared/submissions/
     shared_dir = project_root / "branches" / "shared"
@@ -169,9 +160,9 @@ def test_scientific_peer_review_import_path():
     assert ReviewRunArgs is not None
 
 
-def test_paper_submit_path_traversal_rejected(mock_hle_project, tmp_path):
+def test_paper_submit_path_traversal_rejected(mock_paper_project, tmp_path):
     """mos_submit kind=paper must reject paths outside the project tree."""
-    port, _project_root = mock_hle_project
+    port, _project_root = mock_paper_project
 
     # Try to submit a PDF from outside the project (a path traversal attempt)
     outside_pdf = tmp_path / "evil.pdf"
@@ -187,9 +178,9 @@ def test_paper_submit_path_traversal_rejected(mock_hle_project, tmp_path):
         mos_submit(submit_args)
 
 
-def test_paper_submit_missing_pdf_path_rejected(mock_hle_project):
+def test_paper_submit_missing_pdf_path_rejected(mock_paper_project):
     """mos_submit kind=paper must reject empty pdf_path."""
-    port, _project_root = mock_hle_project
+    port, _project_root = mock_paper_project
 
     submit_args = SubmitArgs(
         port=port,

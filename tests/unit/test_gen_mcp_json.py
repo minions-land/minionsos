@@ -15,8 +15,7 @@ def test_generated_mcp_json_uses_absolute_paths(tmp_path: Path) -> None:
     .mcp.json fail to resolve and the MCP server silently drops, leaving
     the role with no eacn3_* tools.
     """
-    # Build a minimal fake MinionsOS-shaped layout under tmp_path so the
-    # generator's `codex_dist.is_file()` branch is exercised either way.
+    # Build a minimal fake MinionsOS-shaped layout under tmp_path.
     fake_root = tmp_path / "MinionsOS"
     (fake_root / "mcp-servers" / "eacn3" / "plugin" / "dist").mkdir(parents=True)
     (fake_root / "mcp-servers" / "keepalive").mkdir(parents=True)

@@ -6,7 +6,7 @@ auth: [gru, coder, ethics, writer, expert, noter]
 source: minions/tools/mcp/memory_tools.py:194
 since: stable
 keywords: [book, query, search, page, knowledge, durable]
-related: [mos_book_hot_get, mos_book_ingest, mos_book_save_synthesis, mos_shelf_query]
+related: [mos_book_hot_get, mos_book_ingest, mos_book_save_synthesis]
 status: stable
 ---
 
@@ -32,10 +32,6 @@ mos_book_query(
 ## vs `mos_book_hot_get`
 - `_hot_get` returns the rolling ~500-word cache, auto-injected at wake.
 - `_query` runs a real search against the full Book corpus.
-
-## vs `mos_shelf_query`
-- `mos_book_query` text-matches pages.
-- `mos_shelf_query` walks the typed graph (claim ↔ source ↔ method).
 
 ## See also
 - domain-memory

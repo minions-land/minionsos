@@ -1070,16 +1070,6 @@ class GruConfig(BaseModel):
             "to the 200k window. Use `claude-opus-4-8` for the 200k variant."
         ),
     )
-    noter_model: str = Field(
-        default="claude-opus-4-8[1m]",
-        description=(
-            "Model for the Noter role. As of v15.19.1, all roles default to "
-            "Opus for cross-role consistency — Sonnet's self-tangling on long "
-            "Draft sessions outweighed the per-token cost difference. The "
-            "`[1m]` suffix is required for the 1M-context variant; bare aliases "
-            "like `opus` or `claude-opus-4-8` resolve to the 200k window."
-        ),
-    )
     role_ultracode: bool = Field(
         default=True,
         description=(

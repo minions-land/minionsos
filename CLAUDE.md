@@ -184,26 +184,23 @@ The parent directory containing this repository is the **author seed repo**: at 
 
 A *Mission Profile* is a project-level YAML manifest under `minions/profiles/<name>.yaml` that decouples the runtime topology from the "always a paper" assumption. Each profile declares:
 
-- `roles_active`: which Roles spawn at `mos_project_create` time (e.g. scientific-paper spawns `gru/noter/coder/ethics`).
+- `roles_active`: which Roles spawn at `mos_project_create` time (e.g. scientific-paper bootstraps `gru/ethics` and auto-spawns one generalist `expert`).
 - `role_prompt_overlay`: per-role markdown overlay paths appended to the role's `SYSTEM.md` so a profile can reshape Role focus without forking prompts.
 - `deliverable_schema`: required output paths under `branches/shared/`, plus a per-role `publish_whitelist` overriding the default scientific-paper baseline. The default whitelist (in `minions/tools/publish.py`) is the fallback when no profile is set.
-- `evaluation`: strategy + reference path + adjudication depth. Strategies dispatch through `mos_evaluate`: `scientific_peer_review` (delegates to `mos_review_run`), `answer_grader` (compares `branches/shared/submissions/answer.json` to `input/expected.json`), `test_runner` (reserved for SWE-bench). Adjudication depth (`none` / `single` / `panel`) controls fine-grained answer review before the grader; `panel` spawns 3 independent adjudicator instances that audit reasoning chains, search counterexamples, check self-consistency, and ground external claims.
+- `evaluation`: strategy + reference path. The single strategy is `scientific_peer_review`, which dispatches through `mos_evaluate` and delegates to `mos_review_run`.
 - `phase_schema`: `scientific_three_stage` (exploration → experiment → writing → review) or `minimal` (no phase progression).
 - `on_done`: `none` (default), `dormant`, or `shutdown_project` once the deliverable is submitted+evaluated.
 
 The two MCP entry points that close the deliverable lifecycle:
 
-- `mos_submit(port, payload, kind)` — Role asks Gru to persist a deliverable (kinds: `answer` / `paper` / `patch` / `report`) under `branches/shared/submissions/` and commit on the shared branch.
-- `mos_evaluate(port)` — Gru runs the project's profile-defined evaluation strategy and returns `{score, verdict, details}`. If the profile declares `evaluation.adjudication.depth` as `single` or `panel`, runs `mos_adjudicate` first as a gate; the grader only fires when adjudication returns `decision=Accept`.
-- `mos_adjudicate(port, depth)` — Spawns 1-3 independent adjudicator instances (depending on depth) that audit the submitted answer's reasoning chain, search counterexamples, check self-consistency, and ground external claims. Returns `{decision: Accept | Revise | Reject, confidence, evidence_refs}`. Reuses the Reviewer's Pass A/B/C multi-reviewer-instance structure but with answer-shape templates (`minions/review/templates/answer/` and `minions/review/skills/answer/`).
-
-For batch leaderboard / 打榜 scenarios, `mos benchmark run <jsonl>` (or `minions.tools.benchmark.benchmark_run_from_jsonl`) creates one project per task, evaluates each, and writes a single aggregate JSON under `minions/state/benchmark_runs/run-<id>.json`.
+- `mos_submit(port, payload, kind)` — Role asks Gru to persist a deliverable (kinds: `paper` / `patch` / `report`) under `branches/shared/submissions/` and commit on the shared branch.
+- `mos_evaluate(port)` — Gru runs the project's profile-defined evaluation strategy (`scientific_peer_review`, which delegates to `mos_review_run`) and returns `{score, verdict, details}`.
 
 Available profiles ship in `minions/profiles/`:
 
 | Profile | Use case | Roles | Evaluation | Deliverable |
 |---|---|---|---|---|
-| `scientific-paper` (default) | Full Autonomous Scientific Discovery — peer-reviewed paper | gru, noter, coder, ethics (writer on-demand) | `scientific_peer_review` (mos_review_run), adjudication depth=none | `branches/shared/notes/`, `exp/`, `ethics/`, `reviews/` |
+| `scientific-paper` (default) | Full Autonomous Scientific Discovery — peer-reviewed paper | gru, ethics, expert (one generalist auto-spawned) | `scientific_peer_review` (mos_review_run) | `branches/shared/notes/`, `exp/`, `ethics/`, `reviews/` |
 
 To add a new profile: drop `minions/profiles/<name>.yaml` matching the `MissionProfile` schema in `minions/profiles/__init__.py`, optionally add a role-prompt overlay, and (if needed) extend `mos_evaluate` with a new strategy in `minions/tools/evaluator.py`.
 
@@ -247,7 +244,7 @@ Profile-specific publish detail: `branches/shared/submissions/` access is grante
 
 Visual format-check tools (`mos_visual_render`, `mos_visual_inspect`, `mos_visual_check`) are available to every EACN-visible role (Gru, Coder, Writer, Ethics, Expert) and denied to Noter; reports persist under `branches/<role>/visual-reports/` and are referenced cross-role by EACN message rather than via a shared subdir.
 
-**Deliverable lifecycle tools.** `mos_submit`, `mos_evaluate`, and `mos_adjudicate` are Gru-only (whitelist + server-side authz). Other Roles must surface a deliverable to Gru by EACN message; Gru then calls `mos_submit` to persist it under `branches/shared/submissions/` and `mos_evaluate` to score it via the profile-defined strategy. The lifecycle separation matches the existing "Gru is the control plane" rule.
+**Deliverable lifecycle tools.** `mos_submit` and `mos_evaluate` are Gru-only (whitelist + server-side authz). Other Roles must surface a deliverable to Gru by EACN message; Gru then calls `mos_submit` to persist it under `branches/shared/submissions/` and `mos_evaluate` to score it via the profile-defined strategy. The lifecycle separation matches the existing "Gru is the control plane" rule.
 
 **Reel (L0) layer.** Every EACN-visible role gets `mos_reel_get` / `mos_reel_window` for drill-down access into its own raw session transcripts at `branches/<role>/reel/<session_id>/`. Gru holds cross-role read permission (so it can audit any role's reasoning when bridging projects or evaluating role evolution); non-Gru roles can only read their own reel. Noter is excluded from the reel surface — it observes the project through events/* and the Draft, not through other roles' transcripts. Capture is automatic: the `reel_capture` PostToolUse hook archives every `Agent` / `Task` output into the calling role's reel directory; roles never call reel-write tools directly. Draft / Book frontmatter carries a `reel_ref` pointer that auditors can follow back to the original execution frame.
 

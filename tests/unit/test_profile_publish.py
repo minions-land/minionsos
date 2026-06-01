@@ -38,19 +38,18 @@ def test_unknown_role_returns_none():
 
 
 def test_profile_overrides_default(tmp_path, monkeypatch):
-    """HLE profile should override default whitelist."""
+    """A profile's publish_whitelist should override the default."""
     port = 8888
     project_root = tmp_path / f"project_{port}"
     project_root.mkdir()
 
     meta = {
         "port": port,
-        "profile": "hle-answer",
+        "profile": "scientific-paper",
         "profile_deliverable_schema": {
             "publish_whitelist": {
                 "gru": ["*"],
-                "expert": ["handoffs", "submissions"],
-                "coder": ["exp", "handoffs", "submissions"],
+                "expert": ["exp", "handoffs", "submissions"],
             },
         },
     }
@@ -67,16 +66,11 @@ def test_profile_overrides_default(tmp_path, monkeypatch):
 
     from minions.tools.publish import _allowed_subdirs_for_role
 
-    # Coder under HLE profile should have submissions allowed
-    coder_allowed = _allowed_subdirs_for_role("coder", port=port)
-    assert coder_allowed is not None
-    assert "submissions" in coder_allowed
-    assert "exp" in coder_allowed
-
-    # Expert under HLE profile should have submissions allowed
+    # Expert under this profile should have the overridden subdirs allowed.
     expert_allowed = _allowed_subdirs_for_role("expert", port=port)
     assert expert_allowed is not None
     assert "submissions" in expert_allowed
+    assert "exp" in expert_allowed
 
 
 def test_validate_dst_default_role():

@@ -39,15 +39,15 @@ def _run_mos(args: list[str], env_overrides: dict | None = None) -> subprocess.C
 def _hermetic_root() -> Iterator[str]:
     """Yield a MINIONS_ROOT that mirrors the real repo but has an empty registry.
 
-    ``mos doctor`` reads many ``MINIONS_ROOT``-relative paths (``.codex``,
-    ``.mcp.json``, ``mcp-servers/``, ``minions/config/`` …) AND iterates every
-    *active* project in ``minions/state/projects.json``, probing each backend
-    over HTTP. On a developer host that registry can hold hundreds of live
-    projects, so a real-root run fans out into hundreds of 3s HTTP probes and
-    appears to hang. We symlink every real top-level entry into a temp root —
-    and every ``minions/`` child except ``state`` — then drop in a fresh empty
-    ``minions/state``. The doctor sees real config/.codex/.mcp.json but a zero
-    -project registry, so it never touches a live backend.
+    ``mos doctor`` reads many ``MINIONS_ROOT``-relative paths (``.mcp.json``,
+    ``mcp-servers/``, ``minions/config/`` …) AND iterates every *active* project
+    in ``minions/state/projects.json``, probing each backend over HTTP. On a
+    developer host that registry can hold hundreds of live projects, so a
+    real-root run fans out into hundreds of 3s HTTP probes and appears to hang.
+    We symlink every real top-level entry into a temp root — and every
+    ``minions/`` child except ``state`` — then drop in a fresh empty
+    ``minions/state``. The doctor sees real config/.mcp.json but a zero-project
+    registry, so it never touches a live backend.
     """
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
