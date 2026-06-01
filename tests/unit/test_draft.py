@@ -490,3 +490,93 @@ class TestNoterMotifContract:
         # No motif_kind field — should not raise, should not inject a warning field
         for node in data["nodes"]:
             assert "warning" not in node.get("metadata", {})
+
+    def test_pending_plan_lifecycle(self, _isolated_project, tmp_path: Path):
+        """Pending plans are replaced (not zombified) when work completes.
+
+        Lifecycle: plan node created with metadata.pending_plan=true
+        → agent executes work → agent calls mos_draft_append with result node
+        + resolves_pending=[plan_id] → plan node deleted, result node exists.
+
+        Safety: non-pending_plan nodes cannot be deleted via resolves_pending.
+        """
+        port = 9999
+
+        # 1. Create a pending_plan node
+        result = draft.mos_draft_append(
+            nodes=[
+                {
+                    "type": "question",
+                    "text": "Should we try approach X?",
+                    "metadata": {"pending_plan": True},
+                }
+            ]
+        )
+        plan_id = result["created_node_ids"][0]
+
+        # 2. Verify plan exists
+        query_result = draft.mos_draft_query(related_to=plan_id)
+        assert len(query_result["nodes"]) == 1
+        plan_node = query_result["nodes"][0]
+        assert plan_node["metadata"]["pending_plan"] is True
+
+        # 3. Execute work: append result node + resolve the plan
+        result2 = draft.mos_draft_append(
+            nodes=[
+                {
+                    "type": "result",
+                    "text": "Tried approach X, got 92% accuracy.",
+                    "support_status": "verified",
+                }
+            ],
+            resolves_pending=[plan_id],
+        )
+        result_id = result2["created_node_ids"][0]
+        resolved_ids = result2["resolved_plan_ids"]
+
+        # 4. Verify: plan is gone, result exists, resolved_ids reports the deletion
+        assert plan_id in resolved_ids, "Plan should be in resolved_plan_ids"
+
+        # Query for plan — should not exist
+        query_plan = draft.mos_draft_query(related_to=plan_id)
+        assert len(query_plan["nodes"]) == 0, "Plan node should be deleted"
+
+        # Query for result — should exist
+        query_result_node = draft.mos_draft_query(related_to=result_id)
+        assert len(query_result_node["nodes"]) == 1
+        assert query_result_node["nodes"][0]["type"] == "result"
+
+        # 5. Verify edges to/from plan are also cleaned
+        all_nodes = draft._load_draft(port)
+        all_edges = all_nodes["edges"]
+        for edge in all_edges:
+            assert edge["from_id"] != plan_id, "Edges from plan should be deleted"
+            assert edge["to_id"] != plan_id, "Edges to plan should be deleted"
+
+        # 6. Safety guard: try to delete a non-pending_plan node (should be ignored)
+        normal_node_result = draft.mos_draft_append(
+            nodes=[
+                {
+                    "type": "hypothesis",
+                    "text": "Normal hypothesis",
+                    "metadata": {},  # No pending_plan flag
+                }
+            ]
+        )
+        normal_id = normal_node_result["created_node_ids"][0]
+
+        # Try to "resolve" the normal node (should be ignored)
+        result3 = draft.mos_draft_append(
+            nodes=[
+                {
+                    "type": "result",
+                    "text": "Another result",
+                }
+            ],
+            resolves_pending=[normal_id],  # Try to delete non-plan node
+        )
+
+        # Verify: normal node still exists (not deleted)
+        assert normal_id not in result3["resolved_plan_ids"], "Non-plan node should not be deleted"
+        query_normal = draft.mos_draft_query(related_to=normal_id)
+        assert len(query_normal["nodes"]) == 1, "Non-plan node should still exist"

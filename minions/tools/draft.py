@@ -779,8 +779,21 @@ def mos_draft_unmarked_audit(threshold: float = 0.2) -> dict[str, Any]:
 def mos_draft_append(
     nodes: list[dict[str, Any]] | None = None,
     edges: list[dict[str, Any]] | None = None,
+    resolves_pending: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Add new nodes and/or edges. Auto-generates IDs if not provided."""
+    """Add new nodes and/or edges. Auto-generates IDs if not provided.
+
+    ``resolves_pending`` is the list of pending-plan node ids this append
+    *replaces*. A plan node is a temporary placeholder for intended work
+    (carries ``metadata.pending_plan == true``); once you execute the plan
+    and land the real ``result`` / ``decision`` node, the plan node has done
+    its job and must disappear — the Draft records what *happened*, not what
+    was *intended*. Pass the plan id(s) here and they are removed in the SAME
+    atomic write that lands the result, so the graph never accumulates zombie
+    "verified question" nodes. Safety: only nodes whose
+    ``metadata.pending_plan`` is true are eligible for removal; any other id
+    is ignored (logged), so this can never delete a real landed imprint.
+    """
     port = _env_port()
     draft = _load_draft(port)
     ts = _now_iso()
@@ -885,6 +898,48 @@ def mos_draft_append(
             },
         )
 
+    # Resolve pending plans: a plan node is a temporary placeholder; once the
+    # work lands as a real node above, the plan must disappear (Draft = what
+    # happened, not what was intended). Remove only nodes that are genuinely
+    # pending plans — never a landed imprint. Edges touching a removed plan are
+    # dropped too, so no dangling references survive.
+    resolved_plan_ids: list[str] = []
+    if resolves_pending:
+        nodes_by_id = {n["id"]: n for n in draft["nodes"]}
+        removable: set[str] = set()
+        for pid in resolves_pending:
+            target = nodes_by_id.get(pid)
+            if target is None:
+                logger.info("resolves_pending: node %s not found; skipping", pid)
+                continue
+            if (target.get("metadata") or {}).get("pending_plan") is not True:
+                logger.warning(
+                    "resolves_pending: node %s is not a pending plan "
+                    "(no metadata.pending_plan); refusing to remove a landed imprint",
+                    pid,
+                )
+                continue
+            removable.add(pid)
+        if removable:
+            draft["nodes"] = [n for n in draft["nodes"] if n["id"] not in removable]
+            draft["edges"] = [
+                e
+                for e in draft["edges"]
+                if e["from_id"] not in removable and e["to_id"] not in removable
+            ]
+            resolved_plan_ids = sorted(removable)
+            for pid in resolved_plan_ids:
+                _append_journal(
+                    port,
+                    {
+                        "op": "resolve_pending",
+                        "node_id": pid,
+                        "replaced_by": created_node_ids,
+                        "timestamp": ts,
+                        "author_role": _env_role(),
+                    },
+                )
+
     _save_draft(port, draft)
     # Soft-audit: increment the per-role append counter so mos_await_events
     # can detect cycles where a role handled real EACN events but wrote no
@@ -900,7 +955,11 @@ def mos_draft_append(
                 _draft_audit.record_append(port, agent_id, count=len(created_node_ids))
         except Exception as exc:
             logger.debug("draft_audit.record_append failed: %s", exc)
-    return {"created_node_ids": created_node_ids, "created_edge_count": created_edge_count}
+    return {
+        "created_node_ids": created_node_ids,
+        "created_edge_count": created_edge_count,
+        "resolved_plan_ids": resolved_plan_ids,
+    }
 
 
 def mos_draft_annotate(

@@ -33,6 +33,17 @@ class DraftAppendArgs(BaseModel):
     edges: list[dict] | None = Field(
         default=None, description="Edges to add (from_id, to_id, relation required)."
     )
+    resolves_pending: list[str] | None = Field(
+        default=None,
+        description=(
+            "Pending-plan node id(s) this append replaces. When you execute a "
+            "pending plan and land its real result/decision node, pass the plan "
+            "id here: the plan node is removed in the same atomic write so the "
+            "Draft never keeps a stale 'verified question' placeholder. Only "
+            "nodes with metadata.pending_plan=true can be removed — any other "
+            "id is ignored, so a real landed node can never be deleted."
+        ),
+    )
 
 
 class DraftAnnotateArgs(BaseModel):
@@ -83,7 +94,11 @@ def mos_draft_query(args: DraftQueryArgs) -> _draft.DraftQueryResult:
 def mos_draft_append(args: DraftAppendArgs) -> dict:
     """Add nodes and/or edges to the Draft. IDs auto-generated if omitted."""
     _require_tool_allowed("mos_draft_append")
-    return _draft.mos_draft_append(nodes=args.nodes, edges=args.edges)
+    return _draft.mos_draft_append(
+        nodes=args.nodes,
+        edges=args.edges,
+        resolves_pending=args.resolves_pending,
+    )
 
 
 @mcp.tool()
