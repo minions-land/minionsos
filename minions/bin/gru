@@ -36,7 +36,7 @@ if [ -n "${VIRTUAL_ENV:-}" ] && [ "$VIRTUAL_ENV" != "$ROOT/.venv" ]; then
     unset VIRTUAL_ENV
 fi
 
-# Export MINIONS_ROOT so the Claude/Codex agent process and its hooks
+# Export MINIONS_ROOT so the Claude agent process and its hooks
 # resolve `.venv/bin/python` and `minions/hooks/*.py` against the real
 # MinionsOS install — not against `$(git rev-parse --show-toplevel)`,
 # which can drift into the user's outer repo or a per-role git worktree.
@@ -76,20 +76,17 @@ if ! command -v uv &>/dev/null; then
 fi
 
 if [ -z "${MINIONS_AGENT_HOST:-}" ]; then
-    MINIONS_AGENT_HOST="$(uv run --project "$ROOT" python -c 'from minions.config import load_gru_config; print(load_gru_config().effective_agent_host())' 2>/dev/null || echo codex)"
+    MINIONS_AGENT_HOST="$(uv run --project "$ROOT" python -c 'from minions.config import load_gru_config; print(load_gru_config().effective_agent_host())' 2>/dev/null || echo claude)"
 fi
 MINIONS_AGENT_HOST="$(printf '%s' "$MINIONS_AGENT_HOST" | tr '[:upper:]' '[:lower:]')"
 export MINIONS_AGENT_HOST
 
-if [ "$MINIONS_AGENT_HOST" = "codex" ]; then
-    if ! command -v codex &>/dev/null; then
-        warn "codex CLI not found on PATH; Codex Gru launch will fail unless codex is available."
-    fi
-else
-    MINIONS_AGENT_HOST="claude"
-    if ! command -v claude &>/dev/null && ! uv run --project "$ROOT" claude --version &>/dev/null 2>&1; then
-        warn "claude CLI not found on PATH; will attempt via 'uv run claude'."
-    fi
+if [ "$MINIONS_AGENT_HOST" != "claude" ]; then
+    die "Only MINIONS_AGENT_HOST=claude is supported. Got: $MINIONS_AGENT_HOST"
+fi
+
+if ! command -v claude &>/dev/null && ! uv run --project "$ROOT" claude --version &>/dev/null 2>&1; then
+    warn "claude CLI not found on PATH; will attempt via 'uv run claude'."
 fi
 
 # ── Parse args ────────────────────────────────────────────────────────────────
@@ -153,15 +150,11 @@ else
 fi
 
 # Author's required Gru invocation defaults. Override with env:
-#   MINIONS_AGENT_HOST=claude|codex  (default: gru.yaml, then codex)
-#   GRU_MODEL=...        (Claude default: claude-opus-4-8[1m]; Codex default: CLI profile)
+#   MINIONS_AGENT_HOST=claude  (default: gru.yaml, then claude)
+#   GRU_MODEL=...        (default: claude-opus-4-8[1m])
 #   GRU_EFFORT=...       (default: max)
 #   GRU_SANDBOX=0        (unset IS_SANDBOX; default: 1)
 #   GRU_SKIP_PERMS=0     (omit --dangerously-skip-permissions; default: 1)
-#   CODEX_BYPASS=0       (use Codex sandbox flags instead of bypass; default: 1)
-#   CODEX_REASONING_EFFORT=... (default: xhigh)
-#   CODEX_SANDBOX=...    (used when CODEX_BYPASS=0; default: danger-full-access)
-#   CODEX_APPROVAL_POLICY=... (used when CODEX_BYPASS=0; default: never)
 #   GRU_VIZ=0            (disable Observatory auto-start; default: 1)
 #   GRU_VIZ_OPEN=0       (do not open browser on interactive launch; default: 1)
 #   MINIONS_VIZ_PORT=N   (override default Observatory port 7891)
@@ -189,91 +182,20 @@ if [ "$GRU_SANDBOX" = "1" ]; then
     export IS_SANDBOX=1
 fi
 
-if [ "$MINIONS_AGENT_HOST" = "codex" ]; then
-    : "${CODEX_BYPASS:=1}"
-    : "${CODEX_REASONING_EFFORT:=xhigh}"
-    CODEX_FLAGS=(--cd "$ROOT" -c "model_reasoning_effort=\"$CODEX_REASONING_EFFORT\"")
-    if [ "$CODEX_BYPASS" = "1" ]; then
-        CODEX_FLAGS+=(--dangerously-bypass-approvals-and-sandbox)
-    else
-        CODEX_FLAGS+=(
-            --sandbox "${CODEX_SANDBOX:-danger-full-access}"
-            -c "approval_policy=\"${CODEX_APPROVAL_POLICY:-never}\""
-        )
-    fi
-    export MINIONS_ROLE_NAME="${MINIONS_ROLE_NAME:-gru}"
-    export MINIONS_AGENT_TYPE="${MINIONS_AGENT_TYPE:-main}"
-    export MINIONS_MCP_PROFILE="${MINIONS_MCP_PROFILE:-codex}"
-    # EACN3_MCP_PROFILE for MCP children is set by .codex/config.toml
-    # (`env = { EACN3_MCP_PROFILE = "minions-role" }`) so the proxy consults
-    # resolve_whitelist for the active role. We deliberately do not export it
-    # here — Codex's MCP env takes precedence for child processes, and a
-    # mismatched launcher export would only mislead readers.
-    if [ -n "${GRU_MODEL:-}" ]; then
-        CODEX_FLAGS+=(--model "$GRU_MODEL")
-    fi
-    if [ ${#RESUME_ARGS[@]} -gt 0 ]; then
-        warn "--resume is Claude-specific in this launcher; ignoring it for Codex."
-    fi
-    # Write a combined (common + Gru) role contract that Codex Gru reads as
-    # a single stable file. Codex has no --append-system-prompt equivalent,
-    # so the contract must still land in the conversation body; we keep that
-    # body small and stable by generating one file per launch instead of
-    # pasting the contract into CODEX_PROMPT every time.
-    CODEX_GRU_CONTRACT="$STATE_DIR/codex-gru.AGENTS.md"
-    if uv run --project "$ROOT" python -c '
-from pathlib import Path
-import sys
-common = Path("minions/roles/SYSTEM.md").read_text(encoding="utf-8") if Path("minions/roles/SYSTEM.md").exists() else ""
-gru = Path("minions/roles/gru/SYSTEM.md").read_text(encoding="utf-8") if Path("minions/roles/gru/SYSTEM.md").exists() else ""
-if not (common or gru):
-    sys.exit(1)
-header = (
-    "<!-- Auto-generated by minions/bin/gru on every Codex Gru launch. "
-    "Do not edit by hand; edits are overwritten. Source of truth is "
-    "minions/roles/SYSTEM.md + minions/roles/gru/SYSTEM.md. -->\n\n"
-)
-parts = []
-if common:
-    parts.append("# Common Role System\n\n" + common.strip() + "\n")
-if gru:
-    parts.append("# Gru Role System\n\n" + gru.strip() + "\n")
-out = Path(sys.argv[1])
-out.parent.mkdir(parents=True, exist_ok=True)
-out.write_text(header + "\n\n---\n\n".join(parts) + "\n", encoding="utf-8")
-' "$CODEX_GRU_CONTRACT" >/dev/null 2>&1; then
-        info "Gru contract file: $CODEX_GRU_CONTRACT"
-    else
-        warn "Could not generate combined Gru contract file; falling back to $SYSTEM_PROMPT"
-        CODEX_GRU_CONTRACT="$SYSTEM_PROMPT"
-    fi
-    CODEX_PROMPT="You are Gru, the MinionsOS human-facing supervisor. Before acting, read and follow $CODEX_GRU_CONTRACT — that is your full role contract (common role rules + Gru-specific rules, combined for the current launch). Start or verify the Gru monitor with gru_start_monitor, then use mos_await_events on each active project's Gru queue and help the author through MinionsOS MCP tools."
-    if [ ${#PASSTHROUGH_ARGS[@]} -gt 0 ]; then
-        CODEX_PROMPT="$CODEX_PROMPT
-
-Initial user request: ${PASSTHROUGH_ARGS[*]}"
-    fi
-    AGENT_CMD=(
-        codex
-        "${CODEX_FLAGS[@]}"
-        "$CODEX_PROMPT"
-    )
-else
-    : "${GRU_MODEL:=claude-opus-4-8[1m]}"
-    GRU_FLAGS=(--model "$GRU_MODEL" --effort "$GRU_EFFORT")
-    if [ "$GRU_SKIP_PERMS" = "1" ]; then
-        GRU_FLAGS+=(--permission-mode bypassPermissions)
-    fi
-    AGENT_CMD=(
-        uv run --project "$ROOT"
-        claude
-        "${GRU_FLAGS[@]}"
-        "${SYSTEM_PROMPT_ARGS[@]+"${SYSTEM_PROMPT_ARGS[@]}"}"
-        "${MCP_ARGS[@]+"${MCP_ARGS[@]}"}"
-        "${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"}"
-        "${PASSTHROUGH_ARGS[@]+"${PASSTHROUGH_ARGS[@]}"}"
-    )
+: "${GRU_MODEL:=claude-opus-4-8[1m]}"
+GRU_FLAGS=(--model "$GRU_MODEL" --effort "$GRU_EFFORT")
+if [ "$GRU_SKIP_PERMS" = "1" ]; then
+    GRU_FLAGS+=(--permission-mode bypassPermissions)
 fi
+AGENT_CMD=(
+    uv run --project "$ROOT"
+    claude
+    "${GRU_FLAGS[@]}"
+    "${SYSTEM_PROMPT_ARGS[@]+"${SYSTEM_PROMPT_ARGS[@]}"}"
+    "${MCP_ARGS[@]+"${MCP_ARGS[@]}"}"
+    "${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"}"
+    "${PASSTHROUGH_ARGS[@]+"${PASSTHROUGH_ARGS[@]}"}"
+)
 
 # ── Auto-start Gru monitor + Role tmux watchdog sidecar ─────────────────────
 ensure_gru_monitor() {
@@ -284,12 +206,7 @@ ensure_gru_monitor() {
         local existing_pid
         existing_pid="$(cat "$MONITOR_PID_FILE" 2>/dev/null || echo "")"
         if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
-            local existing_host
-            existing_host="$(cat "$MONITOR_HOST_FILE" 2>/dev/null || echo "")"
-            if [ "$existing_host" = "$MINIONS_AGENT_HOST" ]; then
-                return 0
-            fi
-            warn "Restarting Gru monitor to align host ($existing_host -> $MINIONS_AGENT_HOST)."
+            return 0
             kill "$existing_pid" 2>/dev/null || true
             for _ in 1 2 3 4 5 6 7 8 9 10; do
                 if ! kill -0 "$existing_pid" 2>/dev/null; then
@@ -319,7 +236,6 @@ ensure_gru_monitor() {
             >> "$MONITOR_LOG_FILE" 2>&1 &
     fi
     echo "$!" > "$MONITOR_PID_FILE"
-    echo "$MINIONS_AGENT_HOST" > "$MONITOR_HOST_FILE"
     info "Gru monitor log: $MONITOR_LOG_FILE"
 }
 

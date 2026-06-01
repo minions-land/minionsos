@@ -302,10 +302,8 @@ def pick_candidate_milestone(
 
     Returns ``None`` for non-scientific-paper profiles or unrecognised
     phases. The signboard's ``KNOWN_MILESTONES`` set is paper-shaped
-    today (experiments_ready / writing_ready / submit_ready / ...);
-    other profiles like ``hle-answer`` use a flat answer-grader path
-    and don't go through milestones at all. CLAUDE.md \"Mission
-    Profiles\" explains the split.
+    today (experiments_ready / writing_ready / submit_ready / ...).
+    CLAUDE.md \"Mission Profiles\" explains the split.
     """
     if (profile_name or "scientific-paper") != "scientific-paper":
         return None

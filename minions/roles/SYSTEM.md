@@ -218,8 +218,8 @@ metric-recomputation probes).
 tightly-batched group of related events). The Workflow tool is the
 canonical Act mechanism. Workflow handles fan-out, pipelining, parallel
 forks, phased execution, and adversarial verification internally — you
-do NOT hand-author per-subagent prompts or chain `Task`/`codex` calls
-from the main session.
+do NOT hand-author per-subagent prompts or chain `Task` calls from the
+main session.
 
 Pick the smallest shape that captures the dependency graph:
 
@@ -247,13 +247,6 @@ re-enters `mos_await_events()` (§3 step 6) and uses
 takes precedence over Workflow latency — peers must never see a stale
 role because a Workflow is hogging the turn.
 
-**Codex is an opt-in tool, not a tier.** A Workflow agent MAY call
-`mcp__codex-subagent__codex` when GPT-5.5 xhigh reasoning materially
-helps (deep paper-PDF reasoning, multi-file root-cause analysis,
-cross-stack code synthesis). The 5-retry CODEX_UNAVAILABLE relay
-envelope from `~/.claude/skills/codex/SKILL.md` still applies; that
-skill is host-level and survives any common-skill changes here.
-
 ### Stage 3 — VERIFY & RESPOND (main role)
 
 Read the Workflow's structured return. If it satisfies the acceptance
@@ -279,9 +272,9 @@ following as hard prohibitions you restate in every Workflow spec:
   `eacn3_submit_result`, `eacn3_invite_agent`, `eacn3_select_result`,
   `eacn3_update_deadline`, `eacn3_close_task`, `eacn3_reject_task` —
   EACN emission is main-only.
-- `mos_publish_to_shared`, `mos_submit`, `mos_evaluate`,
-  `mos_adjudicate` — cross-role publish + deliverable lifecycle is
-  main-only (Gru-only for the last three).
+- `mos_publish_to_shared`, `mos_submit`, `mos_evaluate` — cross-role
+  publish + deliverable lifecycle is main-only (Gru-only for the last
+  two).
 - `mos_compact_context`, `mos_reset_context` — context discipline is
   main-only.
 - `mos_signboard_set` — phase consensus is main-only.
@@ -313,16 +306,13 @@ If the Workflow tool is unavailable (plugin not loaded, hermetic-mode
 edge case, harness-tool-required action that Workflow cannot satisfy),
 try these in order, narrowest first:
 
-1. **Direct `mcp__codex-subagent__codex` call** for read-and-judge work
-   that does not need Claude Code harness-native tools. Same
-   self-contained-prompt rule (§10).
-2. **`Task` subagent** for narrow single-shot reads where the codex
-   bridge is also down.
-3. **`Agent(model: sonnet)`** as last-resort, ONLY when the task
+1. **`Task` subagent** for narrow single-shot reads or isolated execution.
+   Same self-contained-prompt rule (§10).
+2. **`Agent(model: sonnet)`** as last-resort, ONLY when the task
    requires Claude Code harness-native tools (`Read`/`Edit`/`Write`/
    `SendMessage`/Plan mode/`TodoWrite`) **as actions to satisfy the
    acceptance criterion**.
-4. **Inline** the smallest safe slice on the main role itself, record
+3. **Inline** the smallest safe slice on the main role itself, record
    it in your EACN response, checkpoint remaining work as a
    `pending_plan` Draft node.
 
@@ -334,7 +324,7 @@ has a confirmed empty-input failure on those content shapes.
 `MinionsOS/CLAUDE.md`.)
 
 The scratchpad-isolation rule below (§10.1) applies to **every** path
-above — Workflow, codex bridge, Task, Sonnet, and inline.
+above — Workflow, Task, Sonnet, and inline.
 
 ---
 
@@ -513,10 +503,10 @@ commit.
 
 ### §10.1 Scratchpad isolation (load-bearing host fact)
 
-Workflow, Task subagents, codex-bridge calls, Sonnet fallbacks, and the
-main role itself all write a `./.claude/` scratchpad relative to the
-role process cwd. **The scratchpad MUST land inside one canonical path
-per role and nowhere else.**
+Workflow, Task subagents, Sonnet fallbacks, and the main role itself
+all write a `./.claude/` scratchpad relative to the role process cwd.
+**The scratchpad MUST land inside one canonical path per role and
+nowhere else.**
 
 **Canonical scratchpad path (and the only legal one):**
 
@@ -552,23 +542,23 @@ MUST NOT be touched by Workflow runs.
    Workflow's `./.claude/` resolves relative to inherited cwd.
 2. **Env pin.** `role_launcher._role_env()` exports
    `MINIONS_ROLE_BRANCH=<absolute branch-worktree path>` and
-   `MINIONS_ROLE_NAME=<your-role>`. Every Workflow / codex / Task /
-   Sonnet invocation reads these vars and passes the canonical
-   scratchpad path explicitly when the framework supports a
-   per-invocation `cwd` override; otherwise relies on layer 1.
+   `MINIONS_ROLE_NAME=<your-role>`. Every Workflow / Task / Sonnet
+   invocation reads these vars and passes the canonical scratchpad path
+   explicitly when the framework supports a per-invocation `cwd`
+   override; otherwise relies on layer 1.
 3. **PreToolUse hook (`scratchpad_isolation_guard.py`).** A new
    cross-role hook at `minions/hooks/scratchpad_isolation_guard.py`,
-   registered for `matcher: "Workflow|Write|Edit|Bash|Task|mcp__codex-subagent__codex"`,
-   resolves any path-shaped argument (with symlink resolution via
-   `Path.resolve(strict=False)`) and rejects any tool call whose
-   target lands inside a `/.claude/` directory that is not a
-   descendant of `$MINIONS_ROLE_BRANCH/.claude/scratchpad/`. Also
-   greps Bash commands for `cd` redirects and `mkdir .claude` outside
-   the legal root. Fail-closed on parse error.
+   registered for `matcher: "Workflow|Write|Edit|Bash|Task"`, resolves
+   any path-shaped argument (with symlink resolution via
+   `Path.resolve(strict=False)`) and rejects any tool call whose target
+   lands inside a `/.claude/` directory that is not a descendant of
+   `$MINIONS_ROLE_BRANCH/.claude/scratchpad/`. Also greps Bash commands
+   for `cd` redirects and `mkdir .claude` outside the legal root.
+   Fail-closed on parse error.
 
-4. **Subagent prompt fragment (defense-in-depth).** Every Workflow
-   spec, every codex prompt, and every Task prompt MUST include the
-   following line verbatim near the top:
+4. **Subagent prompt fragment (defense-in-depth).** Every Workflow spec
+   and every Task prompt MUST include the following line verbatim near
+   the top:
 
    ```
    SCRATCHPAD: Write only inside ./.claude/scratchpad/ (resolves to $MINIONS_ROLE_BRANCH/.claude/scratchpad/). Do not cd, do not write to ~/.claude/, /Users/mjm/MinionsOS/.claude/, projects/project_*/.claude/ outside your own branch, or any other branches/<role>/.claude/.
@@ -603,11 +593,10 @@ respawn.
 
 Workflow inner agents and Task subagents are EACN-invisible by
 construction — they report only to the main role that spawned them.
-**Every dispatch prompt (Workflow agent, Task, codex relay, Sonnet
-fallback) must be self-contained:** repeat the spawning role's
-boundary, write scope, allowed paths, expected output format, and
-EACN-invisibility. Do not rely on inherited plugin state or
-host-specific slash commands.
+**Every dispatch prompt (Workflow agent, Task, Sonnet fallback) must be
+self-contained:** repeat the spawning role's boundary, write scope,
+allowed paths, expected output format, and EACN-invisibility. Do not
+rely on inherited plugin state or host-specific slash commands.
 
 Five required fields and the canonical envelope:
 `lookup.py --domain subagent-handoff`.

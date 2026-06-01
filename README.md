@@ -22,18 +22,12 @@
 research-grade projects. A persistent **Gru** supervisor manages projects;
 each project owns its own **EACN3** coordination backend; long-lived
 agent-host **Roles** wake up on event arrival, process work, and stay resident
-across many cycles. Claude Code is the only Role host; **Codex GPT-5.5** is
-reachable as a sub-agent through the `codex-subagent` MCP server when a Role
-wants to delegate high-intensity execution.
+across many cycles. Claude Code is the only Role host.
 
 The runtime topology of each project is selected by a *Mission Profile*
 (`minions/profiles/<name>.yaml`). The default `scientific-paper` profile drives
 the full Autonomous Scientific Discovery pipeline (paper-sized projects with
-Noter + Coder + Ethics + Writer producing peer-reviewed PDFs). Lightweight
-profiles like `hle-answer` enable benchmark/leaderboard scenarios (HLE, MMLU,
-GPQA, SWE-bench) by spawning a smaller role roster and evaluating against a
-reference answer instead of running peer review. The full ASD capability is
-preserved as the default — switching to benchmarks is opt-in via `--profile`.
+Noter + Coder + Ethics + Writer producing peer-reviewed PDFs).
 
 The design goal is simple: one author, one checkout, one Gru, many isolated
 research projects.
@@ -66,10 +60,9 @@ research projects.
   (`minions/profiles/<name>.yaml`) declaring `roles_active`, `deliverable_schema`,
   `evaluation` strategy, `phase_schema`, and `on_done` behaviour. The default
   `scientific-paper` profile preserves the original Autonomous Scientific
-  Discovery pipeline; `hle-answer` runs lightweight benchmark Q&A. New profiles
-  ship as a single YAML file plus optional role-prompt overlays. Drives the
-  `mos_submit` / `mos_evaluate` MCP tools and the `mos benchmark run` CLI for
-  打榜 / leaderboard sweeps.
+  Discovery pipeline. New profiles ship as a single YAML file plus optional
+  role-prompt overlays. Drives the `mos_submit` / `mos_evaluate` MCP tools and
+  the `mos benchmark run` CLI for 打榜 / leaderboard sweeps.
 - **Long-lived Roles.** Noter, Coder, Writer, Ethics, and Expert run as
   resident `claude` processes inside named tmux sessions
   (`mos-{port}-{role}`). EACN-registered roles drive their event loop with
@@ -80,9 +73,6 @@ research projects.
 - **Gru as the control plane.** Gru is the human-facing supervisor and the only
   component allowed to create projects, spawn roles, and bridge across
   projects.
-- **Codex as a subagent, not a host.** `codex-subagent` MCP exposes Codex
-  GPT-5.5 to any Role as a full-access delegation target through a single
-  `codex` tool. Codex never hosts a Role process directly.
 - **Tool and write boundaries.** Claude roles receive `--allowed-tools`;
   MinionsOS additionally enforces project-lifecycle authorization inside its
   MCP server. Each Role owns `branches/<role>/`; cross-role artefacts always
@@ -173,10 +163,9 @@ minions/
 minions-viz/                # read-only React/Vite dashboard
 mcp-servers/                # standalone MCP servers
   eacn3/                    # local editable EACN3 dependency (Python + Node plugin)
-  codex-subagent/           # Codex GPT-5.5 sub-agent bridge (Node)
 docs/                       # delivery docs
   reel-l0-memory.md         #   L0 Reel layer design + tool surface
-  integrations/             #   plug-in guides (claude-code, codex, eacn3)
+  integrations/             #   plug-in guides (claude-code, eacn3)
   research/                 #   empirical bases for runtime decisions
 tests/unit/                 # fast behavior tests
 tests/smoke/                # integration-style smoke checks
@@ -192,8 +181,6 @@ and caches is not committed.
 - `git` 2.x
 - Node **16+** and `npm` for the EACN3 MCP plugin and MinionsVIZ
 - Claude CLI on `PATH`
-- Codex CLI on `PATH` is **optional** — only required if a Role will delegate
-  through the `codex-subagent` MCP
 
 MinionsOS seeds project worktrees from the directory that contains this
 checkout. That parent directory must be a git repository before you create
@@ -236,10 +223,10 @@ Pull a new release without disturbing your running projects:
 
 `mos upgrade` only touches the repo: it fast-forwards `git`, then runs an
 incremental `install.sh` that rebuilds only what changed (Python deps, the
-EACN3 plugin, codex-subagent, MinionsVIZ — each gated on a content hash of its
-source tree, so a source-only commit rebuilds correctly). Your projects under
-`projects/` are gitignored and never touched; EACN3 databases, worktrees, and
-the Draft survive untouched.
+EACN3 plugin, MinionsVIZ — each gated on a content hash of its source tree, so
+a source-only commit rebuilds correctly). Your projects under `projects/` are
+gitignored and never touched; EACN3 databases, worktrees, and the Draft survive
+untouched.
 
 What `upgrade` does **not** do is restart anything already running. A live Role
 froze its `SYSTEM.md`, tool whitelist, and MCP authorization at launch, and the
@@ -380,8 +367,8 @@ trajectory itself. The four components live at distinct authority levels:
 
 The decorrelation is structural, not procedural: the proposer (Noter, on
 Sonnet, never makes business decisions), the auditor (Ethics, reads
-artefacts not prompts), the validator (skill-forge, blind A/B with Codex as
-judge), and the consumer Roles all draw from different parametric
+artefacts not prompts), the validator (skill-forge, blind A/B testing),
+and the consumer Roles all draw from different parametric
 distributions, which is the property the pipeline needs to actually reduce
 multi-agent error rates. See `docs/research/role-evolution-experiments.md`
 for the empirical findings that motivated the Agent-axis triggers, and
@@ -563,7 +550,7 @@ allowed to use the bus; they are not part of the MinionsOS MCP server.
 ```text
 projects/project_{port}/
   CLAUDE.md                     # project narrative; Gru/author write, roles read
-  AGENTS.md                     # Codex-subagent's view of project context
+  AGENTS.md                     # subagent's view of project context
   meta.json                     # machine metadata
   parent_repo.git/              # per-project bare git repo, seeded from author HEAD
   branches/                     # one git worktree per role plus shared
@@ -598,7 +585,7 @@ projects/project_{port}/
 ```
 
 The persistent cross-cycle memory surfaces are: **Reel** (L0,
-`branches/<role>/reel-index.jsonl` → native Claude/Codex session jsonl, auto-captured),
+`branches/<role>/reel-index.jsonl` → native Claude session jsonl, auto-captured),
 the **Draft** (L1, `branches/shared/draft/draft.json`, working coordination graph),
 the **Book** (L2, `branches/shared/book/`, compiled durable knowledge — project-level
 top of Memory), and the **Shelf** (L3, cross-project only, Gru-maintained, V3-pending).
@@ -702,8 +689,7 @@ proprietary/internal until a license is added.
 **MinionsOS** 是一个本地多智能体操作系统，用于运行相互隔离、论文级规模的科研项目。
 常驻的 **Gru** 负责总控；每个项目拥有独立的 **EACN3** 协调后端；常驻的
 **Role** 进程在事件触发时唤醒处理任务，跨多个事件周期保持驻留。Claude Code 是
-唯一的 Role 宿主；当 Role 需要委派高强度执行时，可通过 `codex-subagent`
-MCP 调用 **Codex GPT-5.5** 作为子代理。
+唯一的 Role 宿主。
 
 目标很直接：一位作者、一份 checkout、一个 Gru，同时管理多个互不串扰的研究项目。
 
@@ -733,8 +719,7 @@ MCP 调用 **Codex GPT-5.5** 作为子代理。
 - **任务剖面（Mission Profile）。** 每个项目由一份 YAML 任务剖面
   (`minions/profiles/<name>.yaml`) 决定其角色阵容、产物 schema、评估策略、
   阶段调度和完成后行为。默认 `scientific-paper` 完整保留 Autonomous
-  Scientific Discovery 流水线（Noter + Coder + Ethics + Writer 同行评议）；
-  `hle-answer` 等轻量剖面用于打榜场景（HLE / MMLU / GPQA 等单题答案）。
+  Scientific Discovery 流水线（Noter + Coder + Ethics + Writer 同行评议）。
   剖面切换通过 `mos_project_create(profile=...)` 或 CLI `--profile` 完成；
   原 ASD 能力作为默认行为完整保留，零破坏性变化。配套的 `mos_submit` /
   `mos_evaluate` MCP 工具与 `mos benchmark run <jsonl>` CLI 用于批量打榜。
@@ -745,9 +730,6 @@ MCP 调用 **Codex GPT-5.5** 作为子代理。
   项目创建时不会自动启动，由 Gru 在进入论文阶段时通过 `mos_spawn_role` 启动。
 - **Gru 作为控制面。** Gru 是唯一人机入口，也是唯一可以创建项目、spawn Role、
   跨项目桥接的组件。
-- **Codex 是子代理，不是宿主。** `codex-subagent` MCP 通过单一的 `codex`
-  工具，把 Codex GPT-5.5 暴露给所有 Role，作为高强度执行的全权委派目标。
-  Codex 永远不会直接 host 一个 Role 进程。
 - **工具与写入边界。** Claude Role 通过 `--allowed-tools` 限制工具面；
   MinionsOS MCP server 在服务端额外执行项目生命周期工具授权。每个 Role 拥有
   自己的 `branches/<role>/`；跨角色产物始终经由 `branches/shared/<subdir>/`
@@ -833,10 +815,9 @@ minions/
 minions-viz/                # 只读 React/Vite 仪表盘
 mcp-servers/                # 独立 MCP server
   eacn3/                    # 本地 editable EACN3 依赖（Python + Node 插件）
-  codex-subagent/           # Codex GPT-5.5 子代理桥接（Node）
 docs/                       # 交付文档
   reel-l0-memory.md         #   L0 Reel 层设计与工具面
-  integrations/             #   集成指南（claude-code / codex / eacn3）
+  integrations/             #   集成指南（claude-code / eacn3）
   research/                 #   运行时设计决策的经验依据
 tests/unit/                 # 快速单元测试
 tests/smoke/                # 集成式 smoke 检查
@@ -852,8 +833,6 @@ tests/smoke/                # 集成式 smoke 检查
 - `git` 2.x
 - Node **16+** 和 `npm`，用于 EACN3 MCP 插件与 MinionsVIZ
 - Claude CLI 位于 `PATH`
-- Codex CLI 位于 `PATH` 是**可选**的——仅当某 Role 需要通过
-  `codex-subagent` MCP 委派任务时才需要
 
 MinionsOS 会从当前 checkout 的父目录创建项目 worktree。创建项目之前，该
 父目录必须是 git 仓库：
@@ -892,7 +871,7 @@ cd MinionsOS
 ```
 
 `mos upgrade` 只动仓库本身：先 fast-forward `git`，再跑增量 `install.sh`，
-只重建发生变化的部分（Python 依赖、EACN3 插件、codex-subagent、MinionsVIZ
+只重建发生变化的部分（Python 依赖、EACN3 插件、MinionsVIZ
 —— 每一项都按其源码树的内容哈希判定，所以只改源码的提交也能正确触发重建）。
 `projects/` 下的项目已被 gitignore，完全不受影响；EACN3 数据库、worktree、
 Draft 都原样保留。
@@ -1028,7 +1007,7 @@ roster 的演化。四个组件分布在不同的权限层：
 
 去相关性是结构性的，不是流程上的：提案者（Noter，跑在 Sonnet 上、不参与
 业务决策）、审计者（Ethics，读工件而非 prompt）、验证者（skill-forge，
-让 Codex 做盲判 A/B）和被演化的消费 Role 之间，参数分布各不相同——这正
+盲判 A/B 测试）和被演化的消费 Role 之间，参数分布各不相同——这正
 是一条流水线真能压低多智能体错误率所需要的。Agent 轴触发条件的实证依据
 位于 `docs/research/role-evolution-experiments.md`，完整的 Gru intake
 contract 见 `minions/CLAUDE.md` 的 "Skill and Agent population evolution"。
@@ -1208,7 +1187,7 @@ Role main，不属于 MinionsOS MCP server。
 ```text
 project_{port}/
   CLAUDE.md                     # 项目叙事；Gru/作者写，Roles 读
-  AGENTS.md                     # Codex 子代理眼中的项目上下文
+  AGENTS.md                     # 子代理眼中的项目上下文
   meta.json                     # 机器元数据
   parent_repo.git/              # 项目独立的 bare git 仓库，从作者 HEAD seed
   branches/                     # 每个 Role 一棵 worktree，加一棵 shared
@@ -1243,7 +1222,7 @@ project_{port}/
 ```
 
 跨周期持久化记忆共分三层（单项目可用）：
-**Reel**（L0，`branches/<role>/reel-index.jsonl` → 原生 Claude/Codex session jsonl，hook 自动抓取）、
+**Reel**（L0，`branches/<role>/reel-index.jsonl` → 原生 Claude session jsonl，hook 自动抓取）、
 **Draft**（L1，`branches/shared/draft/draft.json`，工作协调图）、
 **Book**（L2，`branches/shared/book/`，编译后稳定知识，项目级 Memory 顶层）。
 **Shelf**（L3）仅限跨项目，由 Gru 维护，V3 待实现；单项目场景下 Memory 到 Book 为止。

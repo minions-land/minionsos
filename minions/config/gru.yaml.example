@@ -113,12 +113,11 @@ role_ultracode: true
 # IMPORTANT: --fallback-model is a `--print`-only flag in Claude Code 2.1.152
 # (verified empirically on 2026-05-27 against `claude --help`). It is honored
 # only by the one-shot spawn sites that use `claude --print` — currently
-# `mos_review_run` (paper review) and `mos_adjudicate` (answer adjudication).
-# Long-lived interactive Role processes (gru, coder, ethics, writer, expert,
-# noter) silently ignore the flag and instead rely on the Gru watchdog to
-# restart a wedged process.
+# `mos_review_run` (paper review). Long-lived interactive Role processes
+# (gru, ethics, expert) silently ignore the flag and instead rely on the Gru
+# watchdog to restart a wedged process.
 #
-# Set to null to disable fallback for review/adjudicate spawns.
+# Set to null to disable fallback for review spawns.
 # Per-call overrides via env: MOS_REVIEW_FALLBACK_MODEL, MOS_ADJUDICATE_FALLBACK_MODEL.
 fallback_model: claude-sonnet-4-6[1m]
 

@@ -1442,9 +1442,8 @@ def _bootstrap_fixed_roles(
     Mechanics:
 
     - Selected roles = ``BOOTSTRAP_ROLES`` ∩ ``mission_profile.roles_active``.
-      A profile that omits a fixed role (e.g. ``hle-answer`` has no
-      ``noter``) skips it; a profile that adds one beyond the bootstrap
-      set still needs Gru's deliberation to spawn it.
+      A profile that omits a fixed role skips it; a profile that adds one
+      beyond the bootstrap set still needs Gru's deliberation to spawn it.
     - Each role's ``register_role`` call serializes the store mutation
       via the existing file-lock; the EACN3 registration HTTP and tmux
       spawn run concurrently.
@@ -1578,7 +1577,7 @@ def project_create(
     7. Register in ``projects.json``.
 
     Args:
-        profile: Mission profile name (e.g., "scientific-paper", "hle-answer").
+        profile: Mission profile name (e.g., "scientific-paper").
                  Defaults to "scientific-paper" if not specified.
 
     Returns the ``ProjectEntry`` for the new project.

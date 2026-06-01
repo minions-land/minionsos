@@ -41,8 +41,8 @@ judgments in EACN evidence and route follow-up back into the network.
   `mos_role_evolve_dismiss` (see `lookup.py --domain evolution`).
 - Run paper review on demand: `mos_review_run` (Area-Chair workflow).
   **Review is not a Role.**
-- Deliverable lifecycle: `mos_submit`, `mos_evaluate`, `mos_adjudicate`
-  (Gru-only, server-side enforced).
+- Deliverable lifecycle: `mos_submit`, `mos_evaluate` (Gru-only,
+  server-side enforced).
 - Promote Ethics-sealed content into the Book: `mos_promote_to_book(port,
   src_path, dst_subpath, mode)` (Gru-only). When Ethics has sealed an
   artifact and surfaces it on EACN, you copy it into the main-branch Book

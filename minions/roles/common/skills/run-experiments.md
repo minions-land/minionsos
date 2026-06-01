@@ -1,8 +1,8 @@
 ---
 slug: run-experiments
-summary: Submit, monitor, and collect GPU experiment results via the Python scheduler. Report-synthesis goes through Workflow (single-agent or pipeline shape), which may opt-in to call codex internally.
+summary: Submit, monitor, and collect GPU experiment results via the Python scheduler. Report-synthesis goes through Workflow (single-agent or pipeline shape).
 layer: logical
-tools: mos_exp_queue_submit, mos_exp_run, mos_exp_status, mos_exp_list, mos_exp_get, mos_exp_tail, mos_query_gpus, mos_exp_gpu_pool_get, Workflow, codex
+tools: mos_exp_queue_submit, mos_exp_run, mos_exp_status, mos_exp_list, mos_exp_get, mos_exp_tail, mos_query_gpus, mos_exp_gpu_pool_get, Workflow
 version: 2
 status: active
 supersedes:
@@ -13,8 +13,7 @@ provenance: human
 # Skill — Run Experiments
 
 Submit, monitor, and collect GPU experiment results via the Python
-scheduler. Report-synthesis goes through Workflow (Workflow may invoke
-`mcp__codex-subagent__codex` internally when GPT-5.5 xhigh helps).
+scheduler. Report-synthesis goes through Workflow.
 
 ## When to invoke
 
@@ -30,12 +29,9 @@ scheduler. Report-synthesis goes through Workflow (Workflow may invoke
 4. **Wait for EACN completion events** (one per experiment). Do not busy-poll status — the Python scheduler sends events automatically.
 5. **On completion**: `mos_exp_get` to pull small result files; `mos_exp_tail` for log inspection.
 6. **Delegate to Workflow**: dispatch a Workflow (`single-agent` for one
-   bundle, `pipeline` shape for multi-experiment cross-analysis). The
-   Workflow agent may opt-in to call `mcp__codex-subagent__codex` when
-   GPT-5.5 xhigh materially helps. Pass metrics, failure log, target
-   schema as inputs; receive a size-bounded
-   `{report_path, summary, next_actions[]}` per `role-act-via-
-   workflow`.
+   bundle, `pipeline` shape for multi-experiment cross-analysis). Pass
+   metrics, failure log, target schema as inputs; receive a size-bounded
+   `{report_path, summary, next_actions[]}` per `role-act-via-workflow`.
 7. **Store** result bundle in `branches/coder/exp/exp-<id>/`, then publish to `branches/shared/exp/exp-<id>/` via `mos_publish_to_shared`.
 8. **Report findings** via EACN to the requesting role.
 

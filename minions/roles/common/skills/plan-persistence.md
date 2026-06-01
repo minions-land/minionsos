@@ -62,7 +62,7 @@ status: active   # active | done | abandoned
 
 | # | What | Goal (sensor / threshold) | Dispatch | Status | Evidence |
 |---|------|---------------------------|----------|--------|----------|
-| 1 | ... | ... | Task / codex / EACN | pending | — |
+| 1 | ... | ... | Workflow / Task / EACN | pending | — |
 | 2 | ... | ... | ... | pending | — |
 
 ## Notes

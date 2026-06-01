@@ -1,6 +1,6 @@
 # CLAUDE.md — minions/ Developer View
 
-This file is shown when you `cd minions/ && claude` to hack MinionsOS itself. It covers the Python package architecture and how to extend it. **Claude Code is the primary and default agent host** for every Role process — `agent_host.py` builds the long-lived `claude` invocation. Codex is no longer used to host a Role process; it remains reachable as a sub-agent through the `codex-subagent` MCP for high-intensity execution delegation. Keep that delegation path working; do not reintroduce a Codex Role host.
+This file is shown when you `cd minions/ && claude` to hack MinionsOS itself. It covers the Python package architecture and how to extend it. **Claude Code is the agent host** for every Role process — `agent_host.py` builds the long-lived `claude` invocation.
 
 ## Package architecture
 
@@ -146,7 +146,7 @@ The **Agent-axis** `merge` collapses two Experts whose domains and bid patterns 
    feeds back into trajectory for the next curation pass
 ```
 
-The four stages are **structurally decorrelated**: Noter (proposer) is on a different backbone and never makes business decisions; Ethics (auditor) reads the proposal artefact, not Noter's reasoning; skill-forge (validator) runs blind A/B with Codex as judge; the operating Roles (consumer) only see admitted artefacts. This satisfies the decorrelation principle that makes the multi-agent error rate fall below the single-agent rate (see [research-report.html §XIII-A](../../Skill/research-report.html) for the framework).
+The four stages are **structurally decorrelated**: Noter (proposer) is on a different backbone and never makes business decisions; Ethics (auditor) reads the proposal artefact, not Noter's reasoning; skill-forge (validator) runs blind A/B testing; the operating Roles (consumer) only see admitted artefacts. This satisfies the decorrelation principle that makes the multi-agent error rate fall below the single-agent rate (see [research-report.html §XIII-A](../../Skill/research-report.html) for the framework).
 
 ### Implementation status
 

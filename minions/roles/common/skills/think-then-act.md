@@ -118,8 +118,8 @@ When you have enough clarity (from however many postures you used):
   via `mcp__keepalive__wait_bg`. EACN responsiveness takes precedence
   over Workflow latency.
 - **Host fallback** (Workflow unreachable): follow the §4
-  host-fallback ladder — codex bridge → Task subagent → Sonnet (only
-  when harness-native tools are required as actions to satisfy the
+  host-fallback ladder — Task subagent → Sonnet (only when
+  harness-native tools are required as actions to satisfy the
   acceptance criterion) → inline. Inline writes follow the
   `reliable-file-io` Tier 0 recipe for CJK / LaTeX / multi-section
   content.

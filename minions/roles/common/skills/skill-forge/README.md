@@ -39,7 +39,7 @@ skill-forge (orchestrator)
 2. **Staged pipeline** — Each stage has clear inputs, outputs, and success criteria
 3. **Flexible entry points** — Start at any stage depending on user needs
 4. **Appraisal reporting** — Consistent format across all stages
-5. **Subagent dispatch** — Haiku for trivial ops, Codex for expensive ops
+5. **Subagent dispatch** — Haiku for trivial ops, Sonnet for complex ops when needed
 
 ## What's New vs. Existing Tools?
 
@@ -89,7 +89,6 @@ skill-forge: [Runs Stage 6 (with final validation)]
 **Your custom skills:**
 - `~/.claude/skills/skill-edit/` — Form validation
 - `~/.claude/skills/skill-evaluator/` — Behavioral validation
-- `~/.claude/skills/codex/` — Subagent dispatch
 
 ## Integration with Existing Infrastructure
 

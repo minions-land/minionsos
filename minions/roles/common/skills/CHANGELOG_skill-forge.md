@@ -32,7 +32,7 @@
 - `MINIONSOS_INTEGRATION.md` — MinionsOS 集成说明
 
 **工具整合:**
-- 自定义工具: skill-edit, skill-evaluator, codex
+- 自定义工具: skill-edit, skill-evaluator
 - 官方工具: 8 个 Python 脚本（init_skill.py, quick_validate.py, run_eval.py, improve_description.py, aggregate_benchmark.py, generate_report.py, package_skill.py, run_loop.py）
 - 评估代理: grader, comparator, analyzer
 
@@ -236,7 +236,6 @@ minions/roles/common/skills/json-format/
 **已有工具（无需修改）:**
 - `~/.claude/skills/skill-edit/`
 - `~/.claude/skills/skill-evaluator/`
-- `~/.claude/skills/codex/`
 
 **官方工具（已整合）:**
 - `~/.codex/skills/.system/skill-creator/scripts/` (8 个 Python 脚本)

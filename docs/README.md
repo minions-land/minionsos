@@ -29,5 +29,5 @@ reference is intentionally NOT duplicated here — `MANUAL/domains/` and
   e.g. `role-evolution-experiments.md` (the split/merge pilot whose findings
   back `minions/lifecycle/role_evolution.py`).
 - **`integrations/`** — how MinionsOS depends on each external project
-  (EACN3, Claude Code, Codex), the surface we consume, version locks, and
+  (EACN3, Claude Code), the surface we consume, version locks, and
   fallback strategy. "Boundary, not fork."

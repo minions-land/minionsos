@@ -2,7 +2,7 @@
 slug: goal-setting
 summary: Open before dispatching any execution — define sensor, metric, feedback period, and stopping rule so every task has a closed verification loop.
 layer: logical
-tools: codex
+tools:
 version: 1
 status: active
 supersedes:
@@ -17,9 +17,9 @@ No task without a way to know it worked. If you cannot say "I will know success 
 ## When to invoke
 
 - You have decided WHAT to do (after first-principles + dialectical-synthesis) and are about to decide HOW to verify it.
-- Writing acceptance criteria for a plan, a subagent prompt, or an EACN task.
+- Writing acceptance criteria for a plan, a Workflow dispatch, or an EACN task.
 - Designing an experiment's success/failure boundary.
-- Any time you are about to dispatch work to a subagent or Codex — the goal is what you hand them as their stopping condition.
+- Any time you are about to dispatch work to a Workflow or Task subagent — the goal is what you hand them as their stopping condition.
 
 Not every task needs a complex metric. A one-line binary check ("test passes") is a valid goal for a simple fix. Reserve the full procedure for multi-step or ambiguous work.
 
@@ -37,7 +37,7 @@ Five-element loop definition: sensor → metric → threshold → feedback perio
    - **Success**: sensor meets threshold → commit, report result, move on.
    - **Failure**: sensor misses threshold after N attempts → report blocker, do not retry indefinitely.
    - **Timeout**: feedback period expires without reading → escalate or exit wake.
-6. **Hand off.** Pass the goal (all 5 elements) to the subagent/Codex as its success criterion. The executor verifies its own output against the metric before returning.
+6. **Hand off.** Pass the goal (all 5 elements) to the Workflow or Task subagent as its success criterion. The executor verifies its own output against the metric before returning.
 
 ## Output format
 

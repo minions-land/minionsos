@@ -62,7 +62,7 @@ every future AI session shares the same context.
 | Document | Location (MinionsOS) | Minimum viable content |
 |---|---|---|
 | `CLAUDE.md` | `project_{port}/CLAUDE.md` | Stack, commands, module responsibilities, coding conventions |
-| `AGENTS.md` | `project_{port}/AGENTS.md` | Mirror for Codex sub-agent sessions |
+| `AGENTS.md` | `project_{port}/AGENTS.md` | Mirror for Workflow sub-agent sessions |
 | Architecture doc | `branches/shared/docs/architecture.md` | Module list + dependency direction + one diagram |
 | Roadmap | `branches/shared/docs/roadmap.md` | Numbered phases, each with deliverable + acceptance |
 

@@ -330,17 +330,11 @@ small batch).
 - `phase + adversarial verifier` — deep §Eth7 audits, adjudication
   rounds.
 
-(b) **Codex is opt-in inside Workflow agents.** A Workflow agent may
-invoke `mcp__codex-subagent__codex` when GPT-5.5 xhigh helps —
-typically metric recomputation against an opaque codebase. Codex is
-no longer the required default tier; the v17 dispatch ladder retired
-that rule (common §4).
-
-(c) **Only main session emits EACN messages and calls
+(b) **Only main session emits EACN messages and calls
 `mos_publish_to_shared`.** The forbidden tool surface (common §4)
 applies to every Workflow inner agent without exception.
 
-(d) **Inline allowed in main:** < 50 KB Read of a named artifact,
+(c) **Inline allowed in main:** < 50 KB Read of a named artifact,
 `mos_book_query` / `mos_book_hot_get` / `mos_draft_summary` probes,
 < 30-word ack DMs, the final EACN reply, one ≤ 5-second evidence
 probe per Verify.

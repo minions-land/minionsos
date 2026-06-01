@@ -2,7 +2,7 @@
 
 ## Concept
 
-Reel is the lowest layer of MinionsOS's multi-agent memory architecture. It captures **verbatim transcripts** of every subagent and codex dispatch, providing the unalterable audit trail that backs every Draft node, Book page, and Shelf entry.
+Reel is the lowest layer of MinionsOS's multi-agent memory architecture. It captures **verbatim transcripts** of every subagent dispatch, providing the unalterable audit trail that backs every Draft node, Book page, and Shelf entry.
 
 **Memory stack:**
 
@@ -18,7 +18,7 @@ L0 is the foundation: every higher layer carries `reel_ref` pointers back to L0,
 
 ## Design principles
 
-1. **Zero role burden.** Roles never call reel-write tools. The `reel_capture` PostToolUse hook archives `Agent` / `Task` / `mcp__codex-subagent__codex` outputs automatically.
+1. **Zero role burden.** Roles never call reel-write tools. The `reel_capture` PostToolUse hook archives `Agent` / `Task` outputs automatically.
 2. **Drill-down only.** Reel is never injected at wake-up. It is read on-demand via `mos_reel_get` / `mos_reel_window`.
 3. **Full fidelity.** Transcripts are copied verbatim, not summarized. Large files are accepted as a deliberate trade-off for replayability.
 4. **Role-private by default.** Each role writes to its own branch under `branches/<role>/reel/`. Gru holds cross-role read permission for coordination and audit.
@@ -30,7 +30,7 @@ L0 is the foundation: every higher layer carries `reel_ref` pointers back to L0,
 project_{port}/branches/<role>/reel/<session_id>/
 ├── index.jsonl          # One line per captured event
 └── transcripts/
-    ├── <task_id>.jsonl  # Verbatim subagent/codex transcript
+    ├── <task_id>.jsonl  # Verbatim subagent transcript
     ├── <task_id>.jsonl
     └── ...
 ```
@@ -41,7 +41,7 @@ project_{port}/branches/<role>/reel/<session_id>/
 {
   "seq": 17,
   "ts": "2026-05-22T12:34:56.789Z",
-  "kind": "subagent" | "codex" | "role_main",
+  "kind": "subagent" | "role_main",
   "task_id": "a1b2c3d4e5f6",
   "draft_refs": ["H-003", "Q-007"]
 }
@@ -108,7 +108,7 @@ The `reel_capture` hook is registered in `.claude/settings.json`:
 {
   "PostToolUse": [
     {
-      "matcher": "Agent|Task|mcp__codex-subagent__codex",
+      "matcher": "Agent|Task",
       "hooks": [
         {
           "type": "command",
@@ -123,7 +123,7 @@ The `reel_capture` hook is registered in `.claude/settings.json`:
 
 The hook:
 1. Reads the PostToolUse payload from stdin.
-2. Skips if `tool_name` is not in `{Agent, Task, mcp__codex-subagent__codex}` or if `output_file` is missing.
+2. Skips if `tool_name` is not in `{Agent, Task}` or if `output_file` is missing.
 3. Reads `MINIONS_PROJECT_PORT`, `MINIONS_ROLE_NAME`, `MINIONS_SESSION_ID` from env.
 4. Copies `tool_response.output_file` to `branches/<role>/reel/<session_id>/transcripts/<task_id>.jsonl`.
 5. Appends an index entry to `branches/<role>/reel/<session_id>/index.jsonl`.

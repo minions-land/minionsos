@@ -13,8 +13,6 @@ This file provides guidance to Claude Code when working with **MinionsOS
 codebase development**. If you are a **Role agent** at runtime and somehow
 reading this: your operative contract is SYSTEM.md, not this file.
 
-**Claude Code is the primary and default agent host** for every Role. Codex is no longer used to host a Role process directly — it is reachable as a sub-agent through the `codex-subagent` MCP server (`mcp-servers/codex-subagent/`) when a Role wants to delegate high-intensity execution to GPT-5.5. Keep that delegation path working when refactoring; do not ground new Role behavior in Codex-as-host.
-
 ## Tool-use input must stay small (Opus 4.7 empty-input bug)
 
 > **Canonical source:** `~/.claude/CLAUDE.md` (host-level). This section
@@ -37,9 +35,9 @@ This rule overrides any habit of "use reliable-file-io Tier 1's Python heredoc".
 
 ## Project overview
 
-MinionsOS is a local multi-agent operating system for running autonomous research projects. A persistent Gru process supervises many isolated paper-sized projects; each project has its own EACN3 backend, git worktree, artifacts, logs, role drafts, and long-lived Role processes hosted by Claude Code. Roles may delegate high-intensity execution to Codex GPT-5.5 through the `codex-subagent` MCP, but Codex never hosts a Role process directly.
+MinionsOS is a local multi-agent operating system for running autonomous research projects. A persistent Gru process supervises many isolated paper-sized projects; each project has its own EACN3 backend, git worktree, artifacts, logs, role drafts, and long-lived Role processes hosted by Claude Code.
 
-**Mission Profiles (v15+).** A project's behaviour is controlled by a *Mission Profile* (`minions/profiles/<name>.yaml`) selected at `mos_project_create` time. Profiles declare which Roles spawn, what the deliverable is, and how it's evaluated. The default `scientific-paper` profile preserves the original Autonomous Scientific Discovery pipeline (Noter + Coder + Ethics + Writer → peer-reviewed paper PDF). Lightweight profiles like `hle-answer` enable benchmark/leaderboard scenarios (HLE, MMLU, GPQA, SWE-bench) by spawning a smaller role roster (Gru + Expert + Coder), persisting deliverables under `branches/shared/submissions/`, and evaluating via `mos_evaluate` strategies (`answer_grader`, `test_runner`, or `scientific_peer_review`). The original Autonomous Scientific Discovery capability is fully preserved as the default profile; no breaking changes to existing projects.
+**Mission Profiles (v15+).** A project's behaviour is controlled by a *Mission Profile* (`minions/profiles/<name>.yaml`) selected at `mos_project_create` time. Profiles declare which Roles spawn, what the deliverable is, and how it's evaluated. The default `scientific-paper` profile preserves the original Autonomous Scientific Discovery pipeline (Noter + Coder + Ethics + Writer → peer-reviewed paper PDF).
 
 `mcp-servers/eacn3/` is a local editable dependency pinned through `pyproject.toml` and `uv.lock`. Treat it as a dependency boundary during normal MinionsOS work: prefer EACN MCP tools and the MinionsOS adapter modules over hand-written HTTP calls or incidental edits inside `mcp-servers/eacn3/`.
 
@@ -109,7 +107,7 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/domains/*.md` — Expert domain packs used as reusable specialty assets.
 - `minions-viz/` — read-only Observatory dashboard, Express/WebSocket server plus React/Vite frontend.
 - `EACN3` — local editable EACN3 dependency (lives at `mcp-servers/eacn3/`).
-- `mcp-servers/` — standalone MCP servers registered in `.mcp.json`. `mcp-servers/README.md` is the canonical registry. Currently houses `eacn3/` (the EACN3 dep + its Node plugin), `codex-subagent/` (Node bridge to Codex GPT-5.5), and `keepalive/` (Python FastMCP — `wait_bg` cache-keepalive + `keepalive_now`). The `minionsos` MCP server itself lives inside the Python package at `minions/tools/mcp/` (with a 50-line shim at `minions/tools/mcp_server.py`) for import-graph reasons; see `mcp-servers/minionsos.md` for why.
+- `mcp-servers/` — standalone MCP servers registered in `.mcp.json`. `mcp-servers/README.md` is the canonical registry. Currently houses `eacn3/` (the EACN3 dep + its Node plugin) and `keepalive/` (Python FastMCP — `wait_bg` cache-keepalive + `keepalive_now`). The `minionsos` MCP server itself lives inside the Python package at `minions/tools/mcp/` (with a 50-line shim at `minions/tools/mcp_server.py`) for import-graph reasons; see `mcp-servers/minionsos.md` for why.
 - `projects/` — runtime projects created by Gru; gitignored. Each project lives at `projects/project_{port}/`.
 
 ### Python package responsibilities
@@ -129,7 +127,6 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/tools/experiment_scheduler.py` keeps the SQLite-backed project experiment queue and GPU packing logic.
 - `minions/tools/paper_search.py` implements Writer paper-search helpers exposed through MCP.
 - `minions/tools/whitelist.py` resolves allowed tool surfaces for main roles vs. subagents.
-- `mcp-servers/codex-subagent/` is a standalone Node MCP server that exposes Codex GPT-5.5 to Claude Code roles as a full-access sub-agent for high-intensity execution (single `codex` tool: read-only analysis or full-access delegation, controlled via the `sandbox` arg).
 
 ### Runtime project model
 
@@ -138,14 +135,14 @@ Every project is identified by its EACN3 backend port and lives under `projects/
 ```text
 projects/project_{port}/
 ├── CLAUDE.md                    # project narrative; author/Gru write, roles read
-├── AGENTS.md                    # Codex sub-agent's view of project context (mirrors CLAUDE.md)
+├── AGENTS.md                    # subagent's view of project context (mirrors CLAUDE.md)
 ├── meta.json                    # machine metadata
 ├── parent_repo.git/             # per-project bare git repo, seeded from author HEAD
 ├── branches/                    # git worktrees, one per role plus a shared tree
 │   ├── main/                    # Gru — branch minionsos/project-{port}
 │   ├── coder/                   # branch minionsos/project-{port}-coder
 │   │   └── reel/<session_id>/   ← Layer 0: raw session traces (Reel)
-│   │       ├── index.jsonl       JSONL index of captured subagent/codex outputs
+│   │       ├── index.jsonl       JSONL index of captured subagent outputs
 │   │       └── transcripts/      Verbatim *.jsonl transcripts per task_id
 │   ├── writer/                  # branch minionsos/project-{port}-writer
 │   │   └── reel/<session_id>/   ← Layer 0: same shape as coder/reel/
@@ -187,7 +184,7 @@ The parent directory containing this repository is the **author seed repo**: at 
 
 A *Mission Profile* is a project-level YAML manifest under `minions/profiles/<name>.yaml` that decouples the runtime topology from the "always a paper" assumption. Each profile declares:
 
-- `roles_active`: which Roles spawn at `mos_project_create` time (e.g. scientific-paper spawns `gru/noter/coder/ethics`; hle-answer only spawns `gru/expert/coder`).
+- `roles_active`: which Roles spawn at `mos_project_create` time (e.g. scientific-paper spawns `gru/noter/coder/ethics`).
 - `role_prompt_overlay`: per-role markdown overlay paths appended to the role's `SYSTEM.md` so a profile can reshape Role focus without forking prompts.
 - `deliverable_schema`: required output paths under `branches/shared/`, plus a per-role `publish_whitelist` overriding the default scientific-paper baseline. The default whitelist (in `minions/tools/publish.py`) is the fallback when no profile is set.
 - `evaluation`: strategy + reference path + adjudication depth. Strategies dispatch through `mos_evaluate`: `scientific_peer_review` (delegates to `mos_review_run`), `answer_grader` (compares `branches/shared/submissions/answer.json` to `input/expected.json`), `test_runner` (reserved for SWE-bench). Adjudication depth (`none` / `single` / `panel`) controls fine-grained answer review before the grader; `panel` spawns 3 independent adjudicator instances that audit reasoning chains, search counterexamples, check self-consistency, and ground external claims.
@@ -207,7 +204,6 @@ Available profiles ship in `minions/profiles/`:
 | Profile | Use case | Roles | Evaluation | Deliverable |
 |---|---|---|---|---|
 | `scientific-paper` (default) | Full Autonomous Scientific Discovery — peer-reviewed paper | gru, noter, coder, ethics (writer on-demand) | `scientific_peer_review` (mos_review_run), adjudication depth=none | `branches/shared/notes/`, `exp/`, `ethics/`, `reviews/` |
-| `hle-answer` | Single-question benchmarks (HLE, MMLU, GPQA) | gru, expert, coder | `answer_grader` (exact match / numeric close), adjudication depth=panel | `branches/shared/submissions/answer.json` |
 
 To add a new profile: drop `minions/profiles/<name>.yaml` matching the `MissionProfile` schema in `minions/profiles/__init__.py`, optionally add a role-prompt overlay, and (if needed) extend `mos_evaluate` with a new strategy in `minions/tools/evaluator.py`.
 
@@ -222,20 +218,20 @@ To add a new profile: drop `minions/profiles/<name>.yaml` matching the `MissionP
 - **Noter** is not on EACN3 — it uses `mos_noter_wait()` (timer-based, default 3 min) and reads `events/*.jsonl` plus `branches/shared/` for observation. Runs on Sonnet (`gru.yaml: noter_model`).
 - **Writer** is on-demand — not bootstrapped at project creation. Gru spawns via `mos_spawn_role(role="writer")` when the project enters a paper-writing phase.
 - Only Gru may spawn EACN-visible agents or use `mos_project_*`, `mos_spawn_*`, `mos_project_bridge`. Subagents/local teams inside a Role are EACN-invisible by design — no `eacn3_*` tools, not in `projects.json`.
-- Claude Code is the only Role host (honors CLI `--allowed-tools` for tool gating). The `codex-subagent` MCP exposes Codex GPT-5.5 as a full-access delegation target through the `codex` tool (`sandbox=read-only` for analysis, `sandbox=danger-full-access` for execution); it does not host a Role process.
+- Claude Code is the only Role host (honors CLI `--allowed-tools` for tool gating).
 - MinionsOS MCP server-side authorization in `minions/tools/mcp_server.py` must remain aligned with `minions.config.resolve_whitelist` so the same boundary applies regardless of which surface a tool call comes through.
 
 Tool/write boundaries (main role write scope; subagents inherit from their parent main role):
 
-| Agent | Project-local EACN access | Experiment tools | Codex subagent | Gru/project/spawn tools | Own branch | Shared subdirs (via mos_publish_to_shared) |
-|---|---|---|---|---|---|---|
-| Gru main | `eacn3_send_message` (out) + read-only inspection (`eacn3_get_events`/`get_messages`/`list_tasks`/`get_task`/`list_agents`/`get_agent`/`health` etc.). Task-creation tools server-side denied — see common contract §7 + Gru §G2. | no | `codex` | yes | `branches/main/` | any subdir |
-| Noter main | `mos_noter_wait` (timer, no EACN) | no | no | no | `branches/noter/` (drafts) | `notes/`, `draft/`, `handoffs/`, `book/` |
-| Coder main | `eacn3_*` | yes | `codex` | no | `branches/coder/` | `exp/`, `handoffs/`, `governance/` |
-| Writer main (on-demand) | `eacn3_*` plus paper-search MCP tools | no | `codex` | no | `branches/writer/` | `handoffs/`, `governance/` |
-| Expert main | `eacn3_*` | no | `codex` | no | `branches/<expert>/` (read-mostly) | `handoffs/`, `governance/` |
-| Ethics main | `eacn3_*` | no | `codex` | no | `branches/ethics/` (drafts) | `ethics/`, `handoffs/`, `governance/` |
-| All roles (read) | - | - | - | - | - | `book/` (via `mos_book_query`/`hot_get`/`save_synthesis`/`audit_walk`/`resolve_contradiction`) |
+| Agent | Project-local EACN access | Experiment tools | Gru/project/spawn tools | Own branch | Shared subdirs (via mos_publish_to_shared) |
+|---|---|---|---|---|---|
+| Gru main | `eacn3_send_message` (out) + read-only inspection (`eacn3_get_events`/`get_messages`/`list_tasks`/`get_task`/`list_agents`/`get_agent`/`health` etc.). Task-creation tools server-side denied — see common contract §7 + Gru §G2. | no | yes | `branches/main/` | any subdir |
+| Noter main | `mos_noter_wait` (timer, no EACN) | no | no | `branches/noter/` (drafts) | `notes/`, `draft/`, `handoffs/`, `book/` |
+| Coder main | `eacn3_*` | yes | no | `branches/coder/` | `exp/`, `handoffs/`, `governance/` |
+| Writer main (on-demand) | `eacn3_*` plus paper-search MCP tools | no | no | `branches/writer/` | `handoffs/`, `governance/` |
+| Expert main | `eacn3_*` | no | no | `branches/<expert>/` (read-mostly) | `handoffs/`, `governance/` |
+| Ethics main | `eacn3_*` | no | no | `branches/ethics/` (drafts) | `ethics/`, `handoffs/`, `governance/` |
+| All roles (read) | - | - | - | - | `book/` (via `mos_book_query`/`hot_get`/`save_synthesis`/`audit_walk`/`resolve_contradiction`) |
 
 **Memory tool authz detail** (tools not captured in column headers above):
 
@@ -247,13 +243,13 @@ Tool/write boundaries (main role write scope; subagents inherit from their paren
 | `mos_book_dead_end` | Noter (direct); other roles propose via handoff → Noter ingests | Prevents direct write pollution of Book's dead-end registry. |
 | `mos_draft_annotate` | All roles for own nodes; Ethics for any node's `support_status` | Ethics is the sole cross-role annotator of ratification fields. |
 
-Profile-specific publish detail: `branches/shared/submissions/` access is granted per-role through the active profile's `publish_whitelist[role]` list (e.g. `hle-answer` grants `expert` and `coder`; `scientific-paper` grants nobody — paper deliverables go through Writer + `mos_review_run` instead). The default `publish_whitelist` baseline lives in `minions/tools/publish.py`.
+Profile-specific publish detail: `branches/shared/submissions/` access is granted per-role through the active profile's `publish_whitelist[role]` list. The default `publish_whitelist` baseline lives in `minions/tools/publish.py`.
 
 Visual format-check tools (`mos_visual_render`, `mos_visual_inspect`, `mos_visual_check`) are available to every EACN-visible role (Gru, Coder, Writer, Ethics, Expert) and denied to Noter; reports persist under `branches/<role>/visual-reports/` and are referenced cross-role by EACN message rather than via a shared subdir.
 
 **Deliverable lifecycle tools.** `mos_submit`, `mos_evaluate`, and `mos_adjudicate` are Gru-only (whitelist + server-side authz). Other Roles must surface a deliverable to Gru by EACN message; Gru then calls `mos_submit` to persist it under `branches/shared/submissions/` and `mos_evaluate` to score it via the profile-defined strategy. The lifecycle separation matches the existing "Gru is the control plane" rule.
 
-**Reel (L0) layer.** Every EACN-visible role gets `mos_reel_get` / `mos_reel_window` for drill-down access into its own raw session transcripts at `branches/<role>/reel/<session_id>/`. Gru holds cross-role read permission (so it can audit any role's reasoning when bridging projects or evaluating role evolution); non-Gru roles can only read their own reel. Noter is excluded from the reel surface — it observes the project through events/* and the Draft, not through other roles' transcripts. Capture is automatic: the `reel_capture` PostToolUse hook archives every `Agent` / `Task` / `mcp__codex-subagent__codex` output into the calling role's reel directory; roles never call reel-write tools directly. Draft / Book frontmatter carries a `reel_ref` pointer that auditors can follow back to the original execution frame.
+**Reel (L0) layer.** Every EACN-visible role gets `mos_reel_get` / `mos_reel_window` for drill-down access into its own raw session transcripts at `branches/<role>/reel/<session_id>/`. Gru holds cross-role read permission (so it can audit any role's reasoning when bridging projects or evaluating role evolution); non-Gru roles can only read their own reel. Noter is excluded from the reel surface — it observes the project through events/* and the Draft, not through other roles' transcripts. Capture is automatic: the `reel_capture` PostToolUse hook archives every `Agent` / `Task` output into the calling role's reel directory; roles never call reel-write tools directly. Draft / Book frontmatter carries a `reel_ref` pointer that auditors can follow back to the original execution frame.
 
 ### Evidence-gated Role evolution (SPLIT / MERGE / DISMISS)
 

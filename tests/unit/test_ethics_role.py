@@ -175,8 +175,6 @@ def test_ethics_system_prefers_subagent_dispatch() -> None:
     body = (ROLES_DIR / "ethics" / "SYSTEM.md").read_text(encoding="utf-8")
     assert "Workflow as the canonical Act mechanism" in body
     assert "Workflow is the default" in body
-    # Codex remains reachable, now as an opt-in tool inside Workflow agents.
-    assert "codex" in body
     # Workflow scratchpad isolation must be pinned in the Ethics contract.
     assert "Workflow scratchpad isolation" in body
 

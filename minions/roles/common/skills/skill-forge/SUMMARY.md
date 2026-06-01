@@ -67,7 +67,6 @@ skill-forge doesn't reimplement existing tools. It routes work to:
 - `skill-edit` (form validation)
 - `skill-evaluator` (behavioral validation)
 - Official skill-creator scripts (description optimization, packaging)
-- `codex` (expensive subagent operations)
 
 ### 2. **Flexible Entry Points**
 You don't have to run the full pipeline. Start at any stage:
@@ -195,8 +194,7 @@ Consistent format across all stages makes chained outputs readable as one docume
 
 ### 4. **Subagent Dispatch**
 - Haiku: trivial operations (file validation, quick checks)
-- Codex: expensive operations (behavioral A/B testing, blind judging)
-- Sonnet: degraded fallback only
+- Sonnet: complex operations when needed (behavioral A/B testing, blind judging)
 
 ---
 
@@ -284,7 +282,6 @@ The name evokes the full lifecycle (从诞生到成熟的完整生命周期) whi
 **Your custom tools:**
 - `~/.claude/skills/skill-edit/SKILL.md` (150 lines)
 - `~/.claude/skills/skill-evaluator/SKILL.md` (215 lines)
-- `~/.claude/skills/codex/SKILL.md`
 
 **Official tools:**
 - `~/.codex/skills/.system/skill-creator/SKILL.md`

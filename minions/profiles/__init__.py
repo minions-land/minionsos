@@ -56,7 +56,7 @@ def load_profile(name: str) -> MissionProfile:
     """Load a mission profile by name.
 
     Args:
-        name: Profile name (e.g., "scientific-paper", "hle-answer").
+        name: Profile name (e.g., "scientific-paper").
 
     Returns:
         Loaded MissionProfile.

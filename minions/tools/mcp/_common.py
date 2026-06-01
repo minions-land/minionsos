@@ -294,7 +294,7 @@ class ProjectCreateArgs(BaseModel):
     profile: str | None = Field(
         default=None,
         description=(
-            "Mission profile name (e.g. 'scientific-paper', 'hle-answer'). "
+            "Mission profile name (e.g. 'scientific-paper'). "
             "Defaults to 'scientific-paper'. See minions/profiles/ for available options. "
             "Profile selects which roles spawn, deliverable schema, and evaluator."
         ),

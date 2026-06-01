@@ -6,7 +6,7 @@ tools:
 version: 1
 status: active
 references: prepare-rebuttal, package-submission, apply-revisions, submission-cleanup-audit
-provenance: human + Codex NeurIPS-2026 EF / ResearchEVO sessions + pingxingshixu compression session
+provenance: human + agent NeurIPS-2026 EF / ResearchEVO sessions + pingxingshixu compression session
 ---
 
 # Skill — Venue Reformat Workflow

@@ -3,8 +3,7 @@
 **Round:** R-future-3 Task 3
 **Date:** 2026-05-17
 **Status:** Design + Python prototype only. Not validated against actual fixture
-yet (validation requires Anthropic API key OR Codex sandbox with
-vision-capable model invocation).
+yet (validation requires Anthropic API key with vision-capable model).
 
 ## Why this is needed
 
@@ -59,7 +58,7 @@ iterate without user-in-the-loop until convergence.
 
 ## Implementation surfaces
 
-### Option A: Anthropic API direct
+### Implementation: Anthropic API direct
 
 Pseudocode for the judge function:
 
@@ -98,19 +97,6 @@ def judge_figure(png_path, exemplar_annotation_path, principles_md_path):
     return json.loads(response.content[0].text)
 ```
 
-### Option B: Codex sandbox with vision
-
-Codex GPT-5.5 has vision capability. Same JSON schema; invoke via the
-codex-subagent MCP. Pseudocode:
-
-```python
-result = codex_call(
-    task="Grade this figure against 6 principles ...",
-    image_path=png_path,
-    return_json=True,
-)
-```
-
 ## Loop driver script (skeleton)
 
 ```python
@@ -127,12 +113,11 @@ def render(plot_script, n):
     return out_dir / f"draft_{n}.png"
 
 def judge(png, exemplar_annotation, principles_md):
-    # call Claude API (Option A) or Codex (Option B)
+    # call Claude API with vision
     ...
 
 def apply_deltas(plot_script, deltas):
-    # rewrite the plot script per top-3 deltas
-    # option (a): string replace; option (b): hand to Codex for code edit
+    # rewrite the plot script per top-3 deltas via string replace
     ...
 
 def main(plot_script_path, exemplar_path):
@@ -152,7 +137,7 @@ def main(plot_script_path, exemplar_path):
 
 ## Prerequisites for actual deployment
 
-1. **API access**: Anthropic API key OR codex-subagent MCP surface with image input.
+1. **API access**: Anthropic API key with vision-capable model access.
 2. **Refactored plot script**: scripts must accept `--iter N --out-dir D` args.
 3. **Delta-application interface**: translate "fix": "reduce signal saturation from 100% to ~70%" into specific code edits. Either string replace OR pass the delta to a code-editing model.
 
@@ -188,12 +173,9 @@ Design + prototype skeleton complete. Actual deployment requires the prerequisit
 ### Discovery: vision-capable model unavailable in current toolchain
 
 Tested in R-future-4:
-1. **Codex sub-agent with image input** — confirmed Codex CLI does NOT pass
-   image data to underlying model (returns hallucinated answers based
-   only on filename / context).
-2. **Read tool with PNG/JPG** — multimodal output not available in this
+1. **Read tool with PNG/JPG** — multimodal output not available in this
    session (consistent with R1.A finding).
-3. **Playwright browser_take_screenshot** — captures the image, but the
+2. **Playwright browser_take_screenshot** — captures the image, but the
    captured image cannot be visually inspected by the runner either.
 
 ### Pivot: structural audit replaces vision-model judging
@@ -243,7 +225,7 @@ takes the user time to articulate.
     → auto-grades P1, P2, P3, editable-text-gate
 [3] if any auto-grade is "concerning" or "fail":
     → flag the top-3 deltas
-    → runner addresses them (manual code edit OR future codex-subagent code-edit)
+    → runner addresses them (manual code edit OR future subagent code-edit)
     → re-render
 [4] when all auto-grades are "good":
     → human visual review for P4-P9 (the principles audit can't grade)
@@ -266,11 +248,10 @@ principles only.
 
 ### Future R-future-5 if vision-capable becomes available
 
-If a vision-capable model becomes available (Codex with image input,
-or Anthropic API key, or local Llama 3.x vision deployment), the
-audit-based loop CAN be augmented with vision judging for P4-P9. The
-`vision_loop.py` already has the hook-points; replace
-`run_audit()` with `run_vision_judge()` for the 6 principles audit
+If a vision-capable model becomes available (Anthropic API key or local
+Llama 3.x vision deployment), the audit-based loop CAN be augmented with
+vision judging for P4-P9. The `vision_loop.py` already has the hook-points;
+replace `run_audit()` with `run_vision_judge()` for the 6 principles audit
 can't cover.
 
 But until then, the audit + human review hybrid is the working

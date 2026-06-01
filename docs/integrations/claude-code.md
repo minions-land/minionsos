@@ -27,7 +27,6 @@ Current: **2.1.143**.
 - **`--dangerously-skip-permissions`** in production role processes. Roles
   run with explicit `--allowed-tools` whitelists.
 - **IDE extensions** (VS Code, JetBrains) — MinionsOS uses CLI only.
-- **Plugin system** — we don't distribute MinionsOS as a Claude Code plugin.
 
 ## Brittle points
 
@@ -43,8 +42,8 @@ Current: **2.1.143**.
    cold-starts the system prompt. The 1h-cache patch mitigates this but
    requires re-patching on every Claude Code update.
 5. **`Agent` tool model parameter.** If `model: "haiku"` stops being valid,
-   our Tier-2 codex dispatch pattern breaks. Mitigation: model names are
-   stable across minor versions.
+   subagent dispatch breaks. Mitigation: model names are stable across
+   minor versions.
 
 ## Upgrade path
 
@@ -56,8 +55,8 @@ Current: **2.1.143**.
 
 ## Fallback when unavailable
 
-If `claude` binary is missing, nothing works. MinionsOS is built on Claude Code
-as the sole agent host. There is no fallback runtime.
+If `claude` binary is missing, MinionsOS cannot run. Claude Code is the sole
+agent host; there is no fallback runtime.
 
 ## Key references
 

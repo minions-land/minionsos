@@ -4,7 +4,7 @@ description: Complete skill lifecycle orchestration — from initial concept thr
 metadata:
   version: 1.1.0
   layer: meta-orchestration
-  references: [skill-edit, skill-evaluator, skill-curator, codex]
+  references: [skill-edit, skill-evaluator, skill-curator]
 allowed-tools: [Agent, Bash, Read, Write, Edit, Skill]
 ---
 
@@ -166,7 +166,7 @@ Read the appraisal report from skill-edit. Apply recommended changes.
 - Invoke `/skill-evaluator` with the skill path
 - This runs:
   - **Stage 0 (SSL Recall):** Can the skill be discovered from its description?
-  - **Stage 1 (Behavioral A/B):** Does it change behavior? (Haiku with/without skill, Codex blind-judges)
+  - **Stage 1 (Behavioral A/B):** Does it change behavior? (Haiku with/without skill, blind-judges)
   - **Stage 2 (Iteration):** Hill-climbing with eval set (if requested)
 
 **Option B: Use official skill-creator eval pipeline** (recommended for multi-skill benchmarking):
@@ -359,7 +359,6 @@ skill-evaluator is calibrated for Haiku. Using Sonnet wastes compute and produce
 
 - [[skill-edit]] — Form validation (Stage 2)
 - [[skill-evaluator]] — Behavioral validation (Stage 3, Option A)
-- [[codex]] — Subagent dispatch for expensive operations
 - [[dev-log]] — Record design decisions and dead ends during skill development
 
 ---
@@ -372,8 +371,7 @@ skill-evaluator is calibrated for Haiku. Using Sonnet wastes compute and produce
 
 **Subagent dispatch:**
 - Use Haiku for trivial operations (file validation, quick checks)
-- Use Codex (via `/codex`) for expensive operations (behavioral A/B testing, blind judging)
-- Use Sonnet only as degraded fallback
+- Use Sonnet for complex operations when needed (behavioral A/B testing, blind judging)
 
 **Reporting format:**
 Emit appraisal-style reports at each stage:

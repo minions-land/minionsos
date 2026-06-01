@@ -88,7 +88,7 @@ pyproject package version stayed frozen at `0.5.3` while commit milestones ran
 reverse chronological order.
 
 ### v16.1 (2026-05-27)
-- Compact-hook scope gate, fallback-model wiring, codex-subagent install hardening
+- Compact-hook scope gate, fallback-model wiring, install hardening
 - Anti-wedge backstop + project tree migration to `projects/`
 
 ### v15.52 (2026-05-26)
@@ -117,7 +117,7 @@ reverse chronological order.
 - MinionsVIZ overhaul: picker, terminals, orbit, packets, tasks, events (v15.20)
 - Book index gains a Relations section (edges) (v15.19.2)
 - `noter_model` defaults to opus; claude_model default flips too (v15.19.1)
-- `.mcp.json` + `.codex/config.toml` use absolute paths (#27) (v15.19)
+- `.mcp.json` + config files use absolute paths (#27) (v15.19)
 - Gru stall breaker: proactive milestone vote on long-term stagnation (v15.18)
 - `wedge_detect` reads session JSONL; queue auto-reconciles in operator mode (v15.17)
 
@@ -146,7 +146,7 @@ reverse chronological order.
 - Batch benchmark harness + CLI + Mission Profile docs (v15-δ)
 - End-to-end profile-aware publish whitelist coverage (v15-γ)
 - Profile-aware publish whitelist + `mos_submit` / `mos_evaluate` (v15-β)
-- Mission Profile loader + `scientific-paper` / `hle-answer` manifests (v15-α)
+- Mission Profile loader + `scientific-paper` manifest (v15-α)
 
 ### v14 series (2026-05-23)
 - v14.2: README rewrite + correct three v14 errors
@@ -183,11 +183,11 @@ reverse chronological order.
 - v8: `mos audit` + `mos scaffold` + MCP authz hardening + dev-log + skills polish
 
 ### v7 series (2026-05-17 to 2026-05-18)
-- v7.9: consolidate MCP servers under `mcp-servers/` — registry + EACN3 / codex-subagent move
+- v7.9: consolidate MCP servers under `mcp-servers/` — registry + EACN3 move
 - v7.8: progressive-disclosure toolkit pattern — orchestrator + nested sub-skills
 - v7.7: per-project bare git repo — author repo seeded once, projects fully isolated
 - v7.6: workspace restructure — retire `artifacts/`, introduce `branches/shared/` + `mos_publish_to_shared`
-- v7.5.1: rename `tools/codex-bridge` → `tools/codex-subagent`; prune stale build/audit/eval artifacts
+- v7.5.1: prune stale build/audit/eval artifacts
 - v7.5: think-then-act skill v3→v4; Observatory DAG view tab
 - v7: CLI role attach/inspect/drive + role-prompt polish; Writer skill expansion (academic discipline library + figure aesthetic exemplars); retire Reviewer-as-Role, scratchpads → DAG, reset/pending_plan, `mos_review_run`
 
@@ -223,8 +223,8 @@ series".
 - `mos audit` + `mos scaffold` CLI subcommands
 - `branches/shared/` publishing model + `mos_publish_to_shared`
 - Per-project bare git repo — author repo seeded once, projects fully isolated
-- `codex-subagent` MCP for high-intensity execution delegation
-- Mission Profile loader (`scientific-paper`, `hle-answer` manifests)
+- High-intensity execution delegation (retired V23.0)
+- Mission Profile loader (`scientific-paper` manifest)
 - `mos_submit` / `mos_evaluate` profile-aware delivery
 - Batch benchmark harness + CLI
 - `mos_review_run` — paper-review tool persona (replaces Reviewer Role)
@@ -238,7 +238,7 @@ series".
 - Cold-start collapse — `project_create` A/C/D phases from 4–5 min to ~30 s
 - Dismissed roles filtered from Noter terminal and project list
 - tmux safety warning on destructive session ops
-- `.mcp.json` + `.codex/config.toml` use absolute paths (issue #27)
+- `.mcp.json` + config files use absolute paths (issue #27)
 - ANSI escape codes in role logs (issue #54)
 - Adjudication task routing to Ethics (issue #55)
 - Commit amplification + Noter unbounded turn (issues #13, #14)
@@ -252,7 +252,6 @@ series".
 - Memory layers renamed: Scratchpad→Draft, Library→Book, Atlas→Shelf, Experimenter→Coder
 - SYSTEM.md slim: 529→232 lines (−56%), ~4k tokens saved per role per turn
 - Graphify/CodeGraph downgraded to per-role optional MCP; removed from project-level Shelf
-- Codex no longer hosts Role processes directly; remains reachable via `codex-subagent` MCP
 - MCP tool namespace prefixed with `mos_` across all role whitelists
 - Common role contract decoupled into single canonical §-numbered file
 - Reviewer retired as Role; replaced by `mos_review_run` tool persona
@@ -276,7 +275,7 @@ exact dates of intermediate releases are approximate. Major themes:
 - All roles (Coder, Writer, Experimenter, Reviewer, Ethics, Expert, Noter) migrated to `mos_*`
 - Gru SYSTEM.md routes internal work through MOS Agent Pool
 - Durable workspace checkpoints + hook-driven wake signals
-- Codex-bridge MCP for GPT-5.5 sub-agent delegation (later renamed `codex-subagent`)
+- High-intensity execution delegation (retired V23.0)
 - SSL-based progressive-disclosure skill library + EACN3 manual
 - Stabilize runtime and observatory wiring; standardize MinionsOS repository naming
 - Refresh observatory dependency lock; prune obsolete docs
@@ -285,7 +284,7 @@ exact dates of intermediate releases are approximate. Major themes:
 - v4: initial public MinionsOS V4 release
 - MinionsVIZ V2 rewrite — network and noter views; dashboard polish
 - Stabilize EACN role collaboration; experiment scheduling and role maintenance flow
-- Recover roles after runtime kill; align codex host and MCP profiles
+- Recover roles after runtime kill
 - Compact scratchpads past veto
 - Vendor EACN3 as plain directory (submodule URL was unreachable)
 - Phase 1 state contract — extend RoleEntry, queue_depth from EACN, pending_events, role lifecycle helpers

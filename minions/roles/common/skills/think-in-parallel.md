@@ -102,7 +102,7 @@ is clear. Typical composition:
 
 ```
 think-then-act (postures clarify the problem)
-  → dispatch via delegate-heavy-task / subagent-driven-development
+  → dispatch via Workflow / subagent-driven-development
   → if answer returns suspect: escalate to think-in-parallel
 ```
 

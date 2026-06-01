@@ -72,7 +72,6 @@ Also invoke proactively when the user asks to "create a new skill", "forge a ski
 ├──────────────────────────────────────────────────────────────────┤
 │ skill-edit                    │ Form validation (150 lines)      │
 │ skill-evaluator│ Behavioral validation (215 lines)│
-│ codex                         │ Subagent dispatch (Tier 1/2/3)   │
 │ 35 other skills               │ Domain-specific capabilities     │
 └──────────────────────────────────────────────────────────────────┘
                               ▲
@@ -176,9 +175,6 @@ skill-forge (orchestrator)
     ├─ Delegates to: skill-evaluator
     │  └─ Returns: validation report (Stage 0/1/2 results)
     │
-    ├─ Delegates to: codex (for expensive ops)
-    │  └─ Returns: subagent summary
-    │
     └─ Invokes: official skill-creator scripts
        └─ Returns: script output (JSON, HTML, .skill file)
 ```
@@ -209,7 +205,6 @@ No scripts, no agents, no assets — pure orchestration.
 - **Your tools:**
   - `~/.claude/skills/skill-edit/SKILL.md`
   - `~/.claude/skills/skill-evaluator/SKILL.md`
-  - `~/.claude/skills/codex/SKILL.md`
 
 - **Official tools:**
   - `~/.codex/skills/.system/skill-creator/SKILL.md`
