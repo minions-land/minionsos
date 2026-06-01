@@ -1,4 +1,4 @@
-"""Reel (L0) — lightweight index of native Claude/Codex session traces.
+"""Reel (L0) — lightweight index of native Claude session traces.
 
 The Reel layer maintains a flat JSONL index per role pointing to native
 session files. No transcript copying — pointers only.
@@ -12,10 +12,9 @@ session files. No transcript copying — pointers only.
     {
       "ref": "<role>/<session_id>/<tool_use_id>",
       "ts": "2026-05-22T12:34:56.789Z",
-      "kind": "subagent" | "codex",
-      "tool_name": "Agent" | "Task" | "mcp__codex-subagent__codex",
+      "kind": "subagent",
+      "tool_name": "Agent" | "Task",
       "claude_jsonl": "/abs/path/to/<session_id>.jsonl",
-      "codex_children": ["/abs/path/.../rollout-*.jsonl"],
       "draft_node_refs": ["H-003", "Q-007"]
     }
 
@@ -122,7 +121,7 @@ def mos_reel_get(ref: str) -> dict[str, Any]:
 
     Returns:
         dict with ref, role, session_id, tool_use_id, kind, ts,
-        claude_jsonl, codex_children, draft_node_refs, lines.
+        claude_jsonl, draft_node_refs, lines.
 
     Raises:
         PermissionError: caller lacks cross-role read permission.
@@ -170,7 +169,6 @@ def mos_reel_get(ref: str) -> dict[str, Any]:
         "kind": entry.get("kind"),
         "ts": entry.get("ts"),
         "claude_jsonl": claude_jsonl,
-        "codex_children": entry.get("codex_children", []),
         "draft_node_refs": entry.get("draft_node_refs", []),
         "lines": lines,
     }

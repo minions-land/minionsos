@@ -61,7 +61,6 @@ def _make_entry(role: str, session_id: str, tool_use_id: str, *, claude_jsonl: s
         "kind": kind,
         "tool_name": "Agent",
         "claude_jsonl": claude_jsonl,
-        "codex_children": [],
         "draft_node_refs": [],
     }
 
@@ -168,7 +167,6 @@ def test_mos_reel_window_returns_centred_slice(reel_env, monkeypatch):
             "kind": "subagent",
             "tool_name": "Agent",
             "claude_jsonl": "",
-            "codex_children": [],
             "draft_node_refs": [],
         }
         _write_index_entry(branches_dir, "coder", entry)

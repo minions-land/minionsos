@@ -126,3 +126,22 @@ minions/roles/common/_behavioral_evals/
 # Phantom project dirs created by old launcher bug (pre-v15.53)
 # Safe to delete after upgrade — real project data lives in projects/ or parent dir
 /project_*/
+
+# Rebuild (v23) local-only references — kept on disk, not delivered:
+#   - the external reference repo our ideas are *based on* (its name must not
+#     scatter across our tree — naming discipline D5); it's a local reference.
+#   - regenerable LaTeX build intermediates from the Book→Paper validation runs.
+#   - pre-rebuild scratch docs with now-stale paths / unrelated slide mockups.
+docs/Reconstruction/Agent-Native-Research-Artifact-main/
+docs/Reconstruction/book2paper-validation/**/*.aux
+docs/Reconstruction/book2paper-validation/**/*.log
+docs/Reconstruction/book2paper-validation/**/*.fls
+docs/Reconstruction/book2paper-validation/**/*.fdb_latexmk
+docs/Reconstruction/book2paper-validation/**/*.out
+docs/Reconstruction/book2paper-validation/**/*.bbl
+docs/Reconstruction/book2paper-validation/**/*.blg
+# Redundant PDF copies — main.pdf is the canonical compiled artifact each
+# round (matches RESULTS.md page counts); paper.pdf is a duplicate/stale copy.
+docs/Reconstruction/book2paper-validation/**/paper.pdf
+docs/Skill_Summary.md
+docs/report/

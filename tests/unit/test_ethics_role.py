@@ -83,8 +83,10 @@ def test_ethics_main_whitelist() -> None:
     assert not any(
         t.startswith("mos_project_") and t != "mos_project_checkpoint_workspace" for t in authz
     )
-    assert "Write" not in authz
-    assert "Edit" not in authz
+    # Ethics (merged curator+auditor) has Write/Edit for its subagent workflow,
+    # but Bash (execution) stays with Coder/Expert.
+    assert "Write" in authz
+    assert "Edit" in authz
     assert "Bash" not in authz
 
 
@@ -99,7 +101,6 @@ def test_ethics_subagent_whitelist() -> None:
     """
     tools = set(resolve_whitelist("ethics", "subagent"))
     required = {
-        "codex",
         "wait_bg",
         "keepalive_now",
         "mos_issue_report",

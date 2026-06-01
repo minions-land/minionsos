@@ -5,7 +5,6 @@ domain owns ~100-200 lines instead of all tools sharing one 1700-line
 file. External entry points still target this module:
 
 - ``.mcp.json`` → ``python -m minions.tools.mcp_server``
-- ``.codex/config.toml`` → same
 - ``tests/unit/test_mcp_authz.py`` → ``from minions.tools.mcp_server
   import _require_tool_allowed``
 - ``tests/unit/test_project_checkpoint.py`` /

@@ -651,9 +651,6 @@ class GruLoop:
             for role in project.active_roles:
                 if role.state != "active":
                     continue
-                if role.name == "noter":
-                    # Noter is on a timer backbone, not EACN — drive doesn't apply.
-                    continue
                 hb_age = self._heartbeat_age_seconds(port, role.name)
                 if hb_age is None:
                     # No heartbeat yet — the Role just spawned. Don't nudge.
@@ -719,11 +716,6 @@ class GruLoop:
             port = project.port
             for role in project.active_roles:
                 if role.state != "active":
-                    continue
-                if role.name == "noter":
-                    # Noter drives off a timer rather than mos_await_events;
-                    # its log shape differs and the wedge signature does
-                    # not apply.
                     continue
                 key = (port, role.name)
                 last_kill = self._last_wedge_kill_ts.get(key, 0.0)
@@ -813,11 +805,6 @@ class GruLoop:
             for role in project.active_roles:
                 if role.state != "active":
                     continue
-                if role.name == "noter":
-                    # Noter doesn't go through /compact in the same shape;
-                    # if it ever parks the noter-wait timer wakes it on
-                    # its own cadence.
-                    continue
                 key = (port, role.name)
                 # Cooldown after a successful kick — the role needs a
                 # cycle to redraw and start its next turn before we look
@@ -871,11 +858,7 @@ class GruLoop:
         projects = self._store.list_projects(filter="active")
         for project in projects:
             port = project.port
-            role_names = [
-                role.name
-                for role in project.active_roles
-                if role.state == "active" and role.name != "noter"
-            ]
+            role_names = [role.name for role in project.active_roles if role.state == "active"]
             if not role_names:
                 continue
             try:
@@ -993,7 +976,7 @@ class GruLoop:
         try:
             from minions.lifecycle import eacn_client
 
-            for target in ("gru", "noter"):
+            for target in ("gru",):
                 try:
                     eacn_client.send_message(
                         port=port,

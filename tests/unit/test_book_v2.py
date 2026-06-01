@@ -22,7 +22,7 @@ from minions.tools.book import (
 def book_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> int:
     """Set up a minimal project layout and return its port."""
     port = 19991
-    shared = tmp_path / f"project_{port}" / "branches" / "shared"
+    shared = tmp_path / f"project_{port}" / "branches" / "main"
     for subdir in ("book/sources", "book/contradictions", "book/queries",
                    "book/open_questions", "state"):
         (shared / subdir).mkdir(parents=True, exist_ok=True)
@@ -64,7 +64,7 @@ def test_dead_end_creates_page_with_refuted_status(book_project: int, tmp_path: 
         port=book_project,
     )
     assert result["book_path"].startswith("book/sources/dead-end-")
-    page_path = tmp_path / f"project_{book_project}" / "branches" / "shared" / result["book_path"]
+    page_path = tmp_path / f"project_{book_project}" / "branches" / "main" / result["book_path"]
     assert page_path.exists()
     content = page_path.read_text(encoding="utf-8")
     assert "status: \"refuted\"" in content or "status: refuted" in content
@@ -89,7 +89,7 @@ def test_open_question_creates_page(book_project: int, tmp_path: Path) -> None:
         port=book_project,
     )
     assert result["book_path"].startswith("book/open_questions/")
-    page_path = tmp_path / f"project_{book_project}" / "branches" / "shared" / result["book_path"]
+    page_path = tmp_path / f"project_{book_project}" / "branches" / "main" / result["book_path"]
     assert page_path.exists()
     content = page_path.read_text(encoding="utf-8")
     assert "status: open_question" in content
@@ -99,7 +99,7 @@ def test_open_question_creates_page(book_project: int, tmp_path: Path) -> None:
 def test_ratify_requires_ethics_role(book_project: int, tmp_path: Path) -> None:
     """mos_book_ratify rejects non-ethics callers."""
     # First ingest a page so there is something to ratify.
-    shared = tmp_path / f"project_{book_project}" / "branches" / "shared"
+    shared = tmp_path / f"project_{book_project}" / "branches" / "main"
     src = shared / "dummy.md"
     src.write_text("# Dummy\n\nSome content.", encoding="utf-8")
     ingest_result = mos_book_ingest(
@@ -115,7 +115,7 @@ def test_ratify_requires_ethics_role(book_project: int, tmp_path: Path) -> None:
 
 def test_ratify_updates_frontmatter(book_project: int, tmp_path: Path) -> None:
     """mos_book_ratify sets ratified_by: ethics and appends Ratification section."""
-    shared = tmp_path / f"project_{book_project}" / "branches" / "shared"
+    shared = tmp_path / f"project_{book_project}" / "branches" / "main"
     src = shared / "ratify-me.md"
     src.write_text("# Finding\n\nCritical result.", encoding="utf-8")
     ingest_result = mos_book_ingest(
@@ -133,7 +133,7 @@ def test_ratify_updates_frontmatter(book_project: int, tmp_path: Path) -> None:
     )
     assert result["slug"] == slug
     page_path = (
-        tmp_path / f"project_{book_project}" / "branches" / "shared" / result["book_path"]
+        tmp_path / f"project_{book_project}" / "branches" / "main" / result["book_path"]
     )
     content = page_path.read_text(encoding="utf-8")
     assert "ratified_by: \"ethics\"" in content or "ratified_by: ethics" in content
@@ -172,7 +172,7 @@ def test_query_status_filter(book_project: int, tmp_path: Path) -> None:
 
 def test_query_returns_paper_role_and_motif_kind(book_project: int, tmp_path: Path) -> None:
     """mos_book_query always returns paper_role, motif_kind, ratified_by fields."""
-    shared = tmp_path / f"project_{book_project}" / "branches" / "shared"
+    shared = tmp_path / f"project_{book_project}" / "branches" / "main"
     src = shared / "simple.md"
     src.write_text("# Simple\n\nA finding.", encoding="utf-8")
     mos_book_ingest(

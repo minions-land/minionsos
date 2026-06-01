@@ -18,8 +18,8 @@ def project_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, P
     port = 39998
     proot = tmp_path / f"project_{port}"
     events = proot / "events"
-    draft_dir = proot / "branches" / "shared" / "draft"
-    governance = proot / "branches" / "shared" / "governance"
+    draft_dir = proot / "branches" / "main" / "draft"
+    governance = proot / "branches" / "main" / "governance"
     for d in (events, draft_dir, governance):
         d.mkdir(parents=True, exist_ok=True)
     return {

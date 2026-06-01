@@ -44,16 +44,11 @@
             "type": "command",
             "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/long_subagent_advisor.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/long_subagent_advisor.py\" || exit 0",
             "timeout": 3
-          },
-          {
-            "type": "command",
-            "command": "ROOT=\"${MINIONS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}\"; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.venv/bin/python\" ] && [ -f \"$ROOT/minions/hooks/agent_route_to_codex.py\" ] && \"$ROOT/.venv/bin/python\" \"$ROOT/minions/hooks/agent_route_to_codex.py\" || exit 0",
-            "timeout": 3
           }
         ]
       },
       {
-        "matcher": "Workflow|Write|Edit|Bash|Task|mcp__codex-subagent__codex",
+        "matcher": "Workflow|Write|Edit|Bash|Task",
         "hooks": [
           {
             "type": "command",
@@ -107,7 +102,7 @@
         ]
       },
       {
-        "matcher": "Agent|Task|mcp__codex-subagent__codex|Workflow",
+        "matcher": "Agent|Task|Workflow",
         "hooks": [
           {
             "type": "command",

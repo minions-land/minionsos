@@ -1,13 +1,7 @@
-"""Evaluator MCP tools: mos_submit, mos_evaluate, and mos_adjudicate."""
+"""Evaluator MCP tools: mos_submit, mos_evaluate, mos_promote_to_book."""
 
 from __future__ import annotations
 
-from minions.tools.adjudicator import (
-    AdjudicateArgs,
-)
-from minions.tools.adjudicator import (
-    mos_adjudicate as _mos_adjudicate,
-)
 from minions.tools.evaluator import (
     EvaluateArgs,
     EvaluateResult,
@@ -22,16 +16,17 @@ from minions.tools.evaluator import (
 )
 from minions.tools.mcp import mcp
 from minions.tools.mcp._common import _require_tool_allowed
+from minions.tools.promote import PromoteToBookArgs, PromoteToBookResult
+from minions.tools.promote import mos_promote_to_book as _mos_promote_to_book
 
 
 @mcp.tool()
 def mos_submit(args: SubmitArgs) -> SubmitResult:
-    """Persist a deliverable under branches/shared/submissions/.
+    """Persist the paper deliverable under branches/shared/submissions/.
 
-    The calling Role (typically Expert or Writer) composes the payload and
-    asks Gru to call this tool. Gru validates the payload against the
-    project's profile deliverable schema, writes it to disk, and commits
-    on the shared branch.
+    The authoring Role composes the payload (with ``pdf_path``) and asks Gru
+    to call this tool. Gru reads the compiled PDF and commits it on the
+    shared branch.
 
     Returns ``{port, kind, path, commit_sha}``.
     """
@@ -41,17 +36,11 @@ def mos_submit(args: SubmitArgs) -> SubmitResult:
 
 @mcp.tool()
 def mos_evaluate(args: EvaluateArgs) -> EvaluateResult:
-    """Evaluate the project's deliverable using its profile-defined strategy.
+    """Evaluate the project's paper deliverable via full peer review.
 
-    Reads the project's mission profile from meta.json, dispatches to the
-    appropriate evaluator, and returns a score/verdict.
-
-    Evaluation strategies:
-    - ``scientific_peer_review`` — delegates to ``mos_review_run`` for full
-      multi-pass peer review (the original MinionsOS behavior).
-    - ``answer_grader`` — compares ``submissions/answer.json`` to
-      ``input/expected.json`` (HLE, MMLU, GPQA, etc.).
-    - ``test_runner`` — runs a test suite and reports pass/fail (SWE-bench, etc.).
+    Runs ``mos_review_run`` (multi-pass Area-Chair review) and returns the
+    decision label. MinionsOS is scientific-discovery only — the single
+    strategy is ``scientific_peer_review``.
 
     Returns ``{port, strategy, score, verdict, details}``.
     """
@@ -60,14 +49,15 @@ def mos_evaluate(args: EvaluateArgs) -> EvaluateResult:
 
 
 @mcp.tool()
-def mos_adjudicate(args: AdjudicateArgs) -> dict:
-    """Run fine-grained adjudication on a submitted answer.
+def mos_promote_to_book(args: PromoteToBookArgs) -> PromoteToBookResult:
+    """Promote an Ethics-sealed artifact into the main-branch Book (Gru-only).
 
-    Spawns 1-3 independent adjudicator instances (depending on profile depth)
-    that audit the submitted answer's reasoning chain, search counterexamples,
-    check self-consistency, and ground external claims.
+    Copies (or appends) a sealed source file into its canonical Book-layout
+    position (``logic/``, ``src/``, ``evidence/``, ``proposal/``, or
+    ``Book.md``) on the main branch and commits. This is the control-plane
+    "Gru moves Ethics-sealed content into main" step; only Gru is authorized.
 
-    Returns ``{status, decision, confidence, evidence_refs, consolidated_path}``.
+    Returns ``{port, dst_path, commit_sha}``.
     """
-    _require_tool_allowed("mos_adjudicate")
-    return _mos_adjudicate(args)
+    _require_tool_allowed("mos_promote_to_book")
+    return _mos_promote_to_book(args)

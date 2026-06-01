@@ -906,15 +906,32 @@ class ExperimentScheduler:
         metrics_summary: str | None = None,
         reason: str | None = None,
     ) -> None:
-        """Best-effort EACN notification to the coder agent on experiment completion.
+        """Best-effort EACN notification to the experiment's requester on completion.
 
-        Sends a structured message so Coder can react to results without polling.
-        Failures are logged but never raised — notification is advisory.
+        The requester is the Expert (the project's general worker) that
+        submitted the batch — resolved from the run's batch ``requester``
+        column. Falls back to the bare ``expert`` queue when the requester is
+        unknown so a generalist Expert still sees the result. Failures are
+        logged but never raised — notification is advisory.
         """
         port = self._resolve_port()
         if port is None:
             logger.debug("_notify_coder: no project port, skipping notification for %s", run_id)
             return
+        # Resolve the submitting agent from the run → batch → requester chain.
+        to_agent = "expert"
+        try:
+            with self._connect() as conn:
+                row = conn.execute(
+                    "SELECT b.requester FROM runs r "
+                    "JOIN batches b ON r.batch_id = b.batch_id "
+                    "WHERE r.run_id = ?",
+                    (run_id,),
+                ).fetchone()
+            if row and row[0]:
+                to_agent = str(row[0])
+        except Exception as exc:  # advisory — never block on requester lookup
+            logger.debug("_notify_coder: requester lookup failed for %s: %s", run_id, exc)
         payload: dict[str, Any] = {
             "type": "experiment_complete",
             "run_id": run_id,
@@ -937,15 +954,17 @@ class ExperimentScheduler:
 
             _post_message_raw(
                 port=port,
-                to_agent_id="coder",
+                to_agent_id=to_agent,
                 from_agent_id="scheduler",
                 content=payload,
                 timeout=5.0,
             )
-            logger.info("Notified coder: run_id=%s status=%s on port %d", run_id, status, port)
+            logger.info(
+                "Notified %s: run_id=%s status=%s on port %d", to_agent, run_id, status, port
+            )
         except Exception as exc:
             logger.warning(
-                "Failed to notify coder for run_id=%s status=%s: %s", run_id, status, exc
+                "Failed to notify %s for run_id=%s status=%s: %s", to_agent, run_id, status, exc
             )
 
     def _check_hard_anomalies(

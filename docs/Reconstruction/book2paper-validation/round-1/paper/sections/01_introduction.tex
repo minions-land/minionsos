@@ -1,0 +1,75 @@
+% [VERIFY] intro traces to: problem.md O1-O5,G1,G2,Insight,A1; Book.md overview; C01,C02,C03,C05,C06,C08
+\section{Introduction}
+\label{sec:intro}
+
+Deep convolutional networks have driven a sequence of breakthroughs in image
+classification, where evidence suggests that network depth is of crucial importance and
+that features can be enriched by the number of stacked layers. A natural question
+follows: is learning better networks as easy as stacking more layers? An obstacle to
+answering it is that simply increasing depth does not monotonically help. When deeper
+networks are able to start converging, a \degprob is exposed: as the depth increases,
+accuracy gets saturated and then degrades rapidly. Crucially, this degradation is not
+caused by overfitting---adding more layers to a suitably deep model leads to higher
+\emph{training} error, as observed both on CIFAR-10 with plain networks of depth 20
+through 110 and on ImageNet, where a 34-layer \plainnet obtains higher top-1 validation
+error than an 18-layer one despite having strictly greater capacity.
+
+The degradation is counter-intuitive because a deeper model should be constructible from
+a shallower one with no loss: copy the shallower network and append identity layers, and
+the constructed deeper network has, by definition, training error no worse than its
+shallower source. That such a solution exists but is not found by stochastic gradient
+descent indicates that the difficulty lies in \emph{optimization} rather than in
+representational capacity. The usual suspect---vanishing or exploding
+gradients---can be ruled out here: batch normalization~\citep{ioffe2015batchnorm} keeps
+forward-signal variances non-zero and backward gradient norms healthy, and the deep
+\plainnet still attains competitive accuracy, so the solver is making progress, only
+slowly. Existing remedies, including improved initialization~\citep{glorot2010xavier,he2015prelu},
+batch normalization, intermediate auxiliary classifiers~\citep{lee2014dsn}, and gated
+highway shortcuts~\citep{srivastava2015highway,srivastava2015trainingverydeep}, allow
+networks of a few tens of layers to converge but have not demonstrated monotonic
+accuracy gains at extreme depth: highway gates are data-dependent and carry parameters,
+and when a gate closes the layer behaves non-residually.
+
+We address the \degprob by introducing a deep residual learning framework. Instead of
+hoping a few stacked layers directly fit a desired underlying mapping $\Hmap(\xin)$, we
+explicitly let these layers fit a residual mapping $\Fmap(\xin) := \Hmap(\xin) - \xin$
+and recover the original mapping as $\Fmap(\xin) + \xin$. The reformulation is motivated
+by the construction argument above and by the empirical observation that layer responses
+in residual nets are smaller in magnitude than in plain nets, consistent with the prior
+that optimal mappings in recognition tasks sit closer to identity than to zero. The
+addition is realized by a parameter-free \emph{identity shortcut} that adds the block
+input to its output, so the residual variant has exactly the same number of parameters,
+depth, and width as the plain counterpart---isolating the effect of residual learning
+from any change in capacity. Identity shortcuts add neither parameters nor computational
+cost beyond an element-wise addition, and the entire network is trained end-to-end by
+ordinary stochastic gradient descent with backpropagation without modifying the
+optimizer.
+
+Our experiments on the ImageNet 2012 classification dataset and on CIFAR-10, together
+with object-detection transfer experiments on PASCAL VOC and COCO, support the following
+contributions:
+
+\begin{itemize}
+  \item \textbf{Diagnosis of the degradation problem.} We give controlled depth scans on
+        both CIFAR-10 and ImageNet showing that deeper plain networks reach higher
+        training and validation error than shallower ones under identical training, and
+        argue---using batch normalization and the identity-construction
+        argument---that this reflects an optimization difficulty rather than overfitting
+        or vanishing gradients.
+  \item \textbf{A parameter-free residual learning framework.} We reformulate stacked
+        layers to fit a residual mapping with identity shortcuts, eliminating the
+        degradation: at matched depth on ImageNet, the residual 34-layer net improves
+        over both its plain counterpart and the shallower residual 18-layer net, and
+        accuracy grows with depth up to 152 layers while the deepest model still has
+        lower complexity than VGG nets.
+  \item \textbf{Bottleneck designs and shortcut analysis at scale.} We show that
+        three-layer bottleneck blocks make 50/101/152-layer networks practical at
+        complexity comparable to a 34-layer net, that identity shortcuts suffice to fix
+        degradation while projection shortcuts give only marginal gains, and that a
+        six-model ensemble wins ILSVRC 2015 classification.
+  \item \textbf{Generality of deep residual representations.} We demonstrate successful
+        training on CIFAR-10 up to 110 layers (and a 1202-layer stress test that trains
+        without optimization difficulty), and show that swapping a VGG-16 detection
+        backbone for a 101-layer residual net yields large COCO and PASCAL VOC gains
+        attributable solely to the learned representations.
+\end{itemize}

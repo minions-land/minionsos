@@ -1,32 +1,34 @@
-"""Cross-role shared-worktree publishing tool.
+"""Cross-role publishing onto the project's shared surface (the main branch).
 
-Provides ``mos_publish_to_shared``, the only sanctioned way for a Role to
-land a file under ``project_{port}/branches/shared/``. The tool:
+Provides ``mos_publish_to_shared``, the sanctioned way for a Role to land a
+file on the project's shared surface — which, since the v23 rebuild, is the
+**main branch** (``project_{port}/branches/main/``). The standalone
+``-shared`` branch was eliminated; main IS the shared surface (the Book).
+The tool:
 
 1. Acquires a per-project ``flock`` on ``state/shared.lock`` so concurrent
-   publishes from different Roles serialize cleanly.
+   publishes from different Roles serialize cleanly onto the one main
+   worktree.
 2. Validates the destination subpath against the calling Role's allowed
-   shared subdirs (e.g. only Noter may publish under ``notes/`` or
-   ``draft/``; only Ethics may publish under ``ethics/``;
-   ``reviews/`` is reserved for ``mos_review_run`` and rejected here).
-3. Copies the source file into the shared worktree.
-4. ``git add`` + ``git commit`` on the shared branch with the supplied
-   message.
-5. Optionally ``git push`` if the project has ``github_push_target``
-   configured.
+   subdirs (e.g. Ethics may publish under ``ethics/``/``notes/``/``draft/``/
+   ``book/``; Expert under ``exp/``; ``reviews/`` is reserved for
+   ``mos_review_run``).
+3. Copies the source file into the main worktree.
+4. ``git add -- <relpath>`` + ``git commit`` on the main branch (path-scoped
+   add, so concurrent publishers touching different files don't clobber).
+5. Optionally ``git push`` if the project has ``github_push_target`` set.
 
-The shared worktree itself is created at ``project_create`` time
-(``minions/lifecycle/project.py:_create_shared_worktree``).
+The main worktree (and its Book layout) is seeded at ``project_create`` time
+(``minions/lifecycle/_project_worktree.py:create_worktree``).
 
 Draft flushes
 ==================
 
-Noter's periodic Draft flush (``mos_draft_commit_shared``) is
-implemented on top of this tool: it publishes
-``branches/shared/draft/draft.json`` in-place under itself. The
-Draft file is buffered to disk by ``mos_draft_append`` between
-flushes and only commits when Noter's cron ticks, keeping shared-branch
-commit churn bounded.
+Ethics' periodic Draft flush (``mos_draft_commit_shared``) is implemented on
+top of this tool: it publishes ``branches/main/draft/draft.json`` in-place.
+The Draft file is buffered to disk by ``mos_draft_append`` between flushes
+and only commits when Ethics' idle tick fires, keeping main-branch commit
+churn bounded.
 """
 
 from __future__ import annotations
@@ -72,7 +74,7 @@ class PublishToSharedResult(DictLikeBaseModel):
     """
 
     port: int = Field(description="Project port the publish was scoped to.")
-    role: str = Field(description="Calling role (gru/noter/coder/...).")
+    role: str = Field(description="Calling role (gru/ethics/expert/...).")
     dst_path: str = Field(description="Relative path under branches/shared/ that was written.")
     commit_sha: str | None = Field(
         default=None,
@@ -99,7 +101,7 @@ class PublishFilesToSharedResult(DictLikeBaseModel):
     """
 
     port: int = Field(description="Project port the publish was scoped to.")
-    role: str = Field(description="Calling role (gru/noter/coder/...).")
+    role: str = Field(description="Calling role (gru/ethics/expert/...).")
     dst_paths: list[str] = Field(
         description="Relative paths under branches/shared/ written in this commit."
     )
@@ -131,16 +133,16 @@ class PublishFilesToSharedResult(DictLikeBaseModel):
 #   exclusively by ``mos_review_run`` which writes commits directly without
 #   going through this tool.
 # - "book/" is owned exclusively by Noter (Book pattern: one curated page
-#   per ingested artefact, Noter-compiled); other roles publish raw artefacts
-#   to their own subdir + Noter ingest-compiles them into book/.
+#   per ingested artefact, Ethics-curated); other roles publish raw artefacts
+#   to their own subdir + Ethics ingest-compiles them into book/.
 _DEFAULT_ROLE_ALLOWED_SHARED_SUBDIRS: dict[str, set[str]] = {
     "gru": {"*"},
-    # Book ownership invariant: Noter is the only non-Gru role that may publish book/.
-    "noter": {"notes", "draft", "handoffs", "book"},
-    "ethics": {"ethics", "handoffs", "governance"},
-    "writer": {"handoffs", "governance"},
-    "coder": {"exp", "handoffs", "governance"},
-    "expert": {"handoffs", "governance"},
+    # Ethics is the merged memory curator + auditor: it owns book/, notes/,
+    # draft/, ethics/, handoffs/, governance/.
+    "ethics": {"ethics", "notes", "draft", "handoffs", "governance", "book"},
+    # Expert is the unified worker — it publishes experiment bundles plus
+    # handoffs and governance.
+    "expert": {"exp", "handoffs", "governance"},
 }
 
 # Backward-compat alias for callers that import the old name.
@@ -438,14 +440,6 @@ def mos_publish_to_shared(
         pushed,
     )
 
-    # Nudge Noter to wake early so it ingests the new artifact promptly.
-    try:
-        from minions.tools.noter_wait import nudge_noter
-
-        nudge_noter(resolved_port)
-    except Exception:
-        pass
-
     return PublishToSharedResult(
         port=resolved_port,
         role=role,
@@ -574,13 +568,6 @@ def mos_publish_files_to_shared(
         commit_sha,
         pushed,
     )
-
-    try:
-        from minions.tools.noter_wait import nudge_noter
-
-        nudge_noter(resolved_port)
-    except Exception:
-        pass
 
     return PublishFilesToSharedResult(
         port=resolved_port,

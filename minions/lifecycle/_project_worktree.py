@@ -20,17 +20,12 @@ from minions.lifecycle.git_utils import (
     is_git_dirty as _gu_is_git_dirty,
 )
 from minions.lifecycle.git_utils import (
-    is_git_work_tree as _gu_is_git_work_tree,
-)
-from minions.lifecycle.git_utils import (
     run_git as _gu_run_git,
 )
 from minions.paths import (
     project_branch_name,
     project_main_workspace,
     project_parent_repo_dir,
-    project_shared_branch_name,
-    project_shared_workspace,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,39 +37,44 @@ SHARED_SUBDIRS = (
     "ethics",
     "exp",
     "reviews",
+    "submissions",
     "handoffs",
     "governance",
     "book",
+    "logic",
+    "src",
+    "evidence",
+    "proposal",
 )
 SHARED_README = """\
-# Project shared worktree
+# Project main branch — the team's shared surface (the "Book")
 
-This directory is the cross-role shared worktree for this project. It is its
-own git branch (`minionsos/project-{port}-shared`) checked out here.
+This is the main branch checkout (`minionsos/project-{port}`). In the v23
+rebuild the standalone `-shared` branch was eliminated: the team's shared
+surface IS the main branch. Gru owns it; Ethics seals content and Gru
+promotes it into the Book layout.
 
-Roles do **not** `Write` here directly. All writes go through
-`mos_publish_to_shared`, which holds a project-local flock on
-`state/shared.lock` and commits each publish on the shared branch.
+## Live process surface (written directly)
 
-## Subdirectories
+- `draft/draft.json` — L1 process graph. The single graph structure; every
+  role appends via `mos_draft_append`; Ethics curates and flushes it.
+- `governance/signboard.json` — milestone consensus state.
+- `reviews/round-<n>/` — `mos_review_run` output (tool-owned).
+- `submissions/` — `mos_submit` deliverables.
+- `notes/`, `ethics/`, `exp/`, `handoffs/` — staged reports, audit reports,
+  experiment bundles, cross-role handoffs.
 
-- `draft/draft.json` — L1 process graph. Buffered local writes via
-  `mos_draft_append`; periodic commits by Noter on a cron through
-  `mos_publish_to_shared`.
-- `notes/` — Noter staged reports.
-- `ethics/` — Ethics published audit reports (flat: `report-*.md`,
-  `flag-*.md`, `mock-review-*.md`, `adjudication-*.md`).
-- `exp/` — Coder experiment result bundles, one per experiment.
-- `reviews/round-<n>/` — `mos_review_run` output. The review tool owns this
-  surface directly; no other role writes here.
-- `handoffs/` — Free-form cross-role handoffs.
-- `governance/` — Signboard consensus state (`signboard.json`) and
-  role-evolution audit log (`role_evolution.jsonl`).
-- `book/` — L2 compiled knowledge base (Book pattern: one curated page per
-  ingested artefact, Noter-compiled).
+## Book layout (Ethics-sealed → Gru-promoted)
 
-The L3 Shelf is Gru's cross-project structural index (V3-pending), derived
-from Book.
+- `Book.md` — root manifest + layer index.
+- `logic/` — cognitive layer: problem, claims, concepts, experiments,
+  solution/ (architecture, algorithm, constraints, heuristics), related_work.
+- `src/` — physical layer: configs, environment.
+- `evidence/` — raw proof: tables, figures.
+- `proposal/` — pre-project materials.
+
+Per-role private scratch lives on each role's own branch
+(`branches/<role>/`); only this shared surface is on main.
 """
 
 
@@ -112,73 +112,28 @@ def create_worktree(port: int, base_branch: str) -> str:
     )
     if result.returncode != 0:
         raise ProjectError(f"git worktree add failed for port {port}: {result.stderr.strip()}")
-    return branch
 
-
-def create_shared_worktree(port: int) -> str:
-    """Create the cross-role shared worktree for *port*.
-
-    Branched off the project's main branch so role outputs published here
-    accumulate in one auditable git history. Seeds the standard subdir
-    layout and an initial commit so role-side publishes land on a populated
-    branch from the start.
-
-    Returns the shared branch name.
-    """
-    branch = project_shared_branch_name(port)
-    workspace = project_shared_workspace(port)
-    workspace.parent.mkdir(parents=True, exist_ok=True)
-
-    if workspace.exists() and _gu_is_git_work_tree(workspace):
-        return branch
-    if workspace.exists():
-        # The directory was created earlier (e.g. by _ensure_workspace_layout)
-        # but is not a worktree. ``git worktree add`` refuses a non-empty
-        # target, so remove the empty placeholder before adding.
-        try:
-            workspace.rmdir()
-        except OSError as exc:
-            raise ProjectError(
-                f"Cannot create shared worktree at {workspace}: "
-                f"directory exists and is not empty: {exc}"
-            ) from exc
-
-    parent_repo = project_parent_repo_dir(port)
-    base = project_branch_name(port)
-    cmd = [
-        "git",
-        "worktree",
-        "add",
-        "-b",
-        branch,
-        str(workspace),
-        base,
-    ]
-    logger.info("Creating shared worktree: %s", " ".join(cmd))
-    result = subprocess.run(
-        cmd,
-        cwd=str(parent_repo),
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise ProjectError(
-            f"git worktree add failed for shared on port {port}: {result.stderr.strip()}"
-        )
-
-    # Seed the canonical subdir layout with .gitkeep so an empty shared
-    # tree still tracks structure. README documents the surface for any
-    # operator dropping into the worktree.
+    # Seed the shared-surface + Book layout directly on the main branch.
+    # The standalone -shared branch is gone; main IS the shared surface.
     for subdir in SHARED_SUBDIRS:
         sub = workspace / subdir
         sub.mkdir(parents=True, exist_ok=True)
         (sub / ".gitkeep").write_text("", encoding="utf-8")
     (workspace / "README.md").write_text(SHARED_README.format(port=port), encoding="utf-8")
-
-    seed_commit = git_commit_workspace(workspace, "shared: seed cross-role layout")
+    seed_commit = git_commit_workspace(workspace, "main: seed Book layout + shared surface")
     if seed_commit is None:
-        logger.debug("shared worktree seed produced no commit (already clean)")
+        logger.debug("main worktree seed produced no commit (already clean)")
     return branch
+
+
+def create_shared_worktree(port: int) -> str:
+    """No-op shim: the standalone shared worktree was eliminated in v23.
+
+    The team's shared surface is now the main branch (seeded by
+    :func:`create_worktree`). Retained so existing call sites keep working;
+    returns the main branch name.
+    """
+    return project_branch_name(port)
 
 
 def git_ref_exists(repo: Path, ref: str) -> bool:

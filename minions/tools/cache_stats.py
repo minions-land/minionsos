@@ -346,7 +346,7 @@ def _format_role_report(port: int, role: str, target_cwd: Path, sessions: list[_
             lines.append(
                 f"Note: heavy_self {100 * posture.heavy_self_pct():.1f}% > 15% baseline. "
                 "Main role is doing work itself instead of dispatching to a "
-                "Task / codex subagent. See dispatcher-discipline skill."
+                "Task subagent. See dispatcher-discipline skill."
             )
     return "\n".join(lines)
 
@@ -433,12 +433,12 @@ _format_report = _format_session_report
 # --------------------------------------------------------------------------
 #
 # Orthogonal to token cost: tells us how often the main role agent
-# *self-executed* (Bash/Edit/Write) vs *dispatched* (Task/codex). The
+# *self-executed* (Bash/Edit/Write) vs *dispatched* (Task subagent). The
 # `dispatcher-discipline` skill says the main role must be a pure
 # dispatcher; this metric checks whether real session traffic agrees.
 #
 # Buckets:
-#   dispatch    — Task / codex / mcp__codex-subagent__* (a real subagent)
+#   dispatch    — Task / Agent (a real subagent)
 #   coord       — eacn3_* / mcp__minionsos__* (project coordination, not heavy)
 #   heavy_self  — Bash / Edit / Write / MultiEdit / NotebookEdit (main does work)
 #   read_self   — Read / Grep / Glob / WebSearch / WebFetch (main reads)
@@ -448,8 +448,8 @@ _format_report = _format_session_report
 # session is leaking work into its own context, which is the largest
 # uncached-input cost driver per empirical measurement on real Roles.
 
-_DISPATCH_NAMES = frozenset({"Task", "Agent", "codex"})
-_DISPATCH_PREFIXES = ("mcp__codex-subagent__",)
+_DISPATCH_NAMES = frozenset({"Task", "Agent"})
+_DISPATCH_PREFIXES: tuple[str, ...] = ()
 _COORD_PREFIXES = ("mcp__minionsos__", "mcp__eacn3__")
 _HEAVY_SELF = frozenset({"Bash", "Edit", "Write", "MultiEdit", "NotebookEdit"})
 _READ_SELF = frozenset({"Read", "Grep", "Glob", "WebSearch", "WebFetch"})

@@ -84,9 +84,8 @@ cache_keepalive_seconds: 240
 # you have renamed the Gru agent on the EACN bus.
 gru_eacn_agent_id: gru
 
-# Agent host. Claude Code is the default for Gru and Role wakeups. Set to
-# "codex" to launch through Codex instead. You can also override per process
-# with MINIONS_AGENT_HOST.
+# Agent host. Claude Code is the only supported host for Gru and Role
+# wakeups.
 agent_host: claude
 
 # Model for the Noter role. As of v15.19.1, all roles default to Opus for
@@ -145,16 +144,6 @@ review_ultracode: true
 # 3-5 in the review prompt. Override only via env for a one-off run:
 # MOS_REVIEW_MIN_REVIEWERS / MOS_REVIEW_MAX_REVIEWERS. There is no gru.yaml key.
 # ---------------------------------------------------------------------------
-
-# Optional Codex model. Leave null to use the Codex CLI profile/default.
-codex_model:
-codex_reasoning_effort: xhigh
-# MinionsOS launches Codex non-interactively. Bypass keeps role wakeups fully
-# automated and avoids platform sandbox/bwrap failures on machines where Codex's
-# local sandbox cannot initialize.
-codex_bypass_approvals_and_sandbox: true
-codex_sandbox: danger-full-access  # used only when bypass is disabled
-codex_approval_policy: never
 
 # Context-window size thresholds, expressed as a fraction of the model context
 # window so they auto-scale as we upgrade to larger-context models.

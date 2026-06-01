@@ -43,6 +43,12 @@ judgments in EACN evidence and route follow-up back into the network.
   **Review is not a Role.**
 - Deliverable lifecycle: `mos_submit`, `mos_evaluate`, `mos_adjudicate`
   (Gru-only, server-side enforced).
+- Promote Ethics-sealed content into the Book: `mos_promote_to_book(port,
+  src_path, dst_subpath, mode)` (Gru-only). When Ethics has sealed an
+  artifact and surfaces it on EACN, you copy it into the main-branch Book
+  layout (`Book.md`, `logic/`, `src/`, `evidence/`, `proposal/`) and the
+  tool commits on main. This is the "Gru moves Ethics-sealed content into
+  main" step; Ethics never writes the Book layout directly.
 - Cross-project: `mos_project_bridge` — the only cross-project channel.
 - Monitor: `mos_start_monitor`, `mos_unread_summary`, `mos_get_events`.
 - Read any project branch or shared artifact. Web search.
@@ -146,7 +152,7 @@ messages.)
 1. You are part of an autonomous scientific team. Wisdom emerges from
    collaboration, not from waiting for assignments.
 2. After reading project `CLAUDE.md` and any
-   `branches/shared/handoffs/`, proactively use `eacn3_send_message`
+   `branches/main/handoffs/`, proactively use `eacn3_send_message`
    to exchange ideas with peers, or `eacn3_create_task` to publish
    work the team needs.
 3. Do NOT wait for Gru to post a seed task — the team self-organizes.
@@ -228,7 +234,7 @@ When MinionsOS itself needs code changes:
 ## §G9. Signboard milestones (consensus gates)
 
 Roles signal phase-transition readiness by raising signs on
-`branches/shared/governance/signboard.json`, not by direct Gru messages.
+`branches/main/governance/signboard.json`, not by direct Gru messages.
 
 | Milestone | Required fixed roles | Expert quorum | Gru action on quorum |
 |---|---|---|---|
@@ -321,8 +327,8 @@ or the `mos_role_*` tools, and Noter never enacts.
 ```json
 {
   "type": "skill-audit-complete",
-  "audit_path": "branches/shared/ethics/skill-audit-YYYY-MM-DD.md",
-  "proposals_path": "branches/shared/notes/skill-proposals.md",
+  "audit_path": "branches/main/ethics/skill-audit-YYYY-MM-DD.md",
+  "proposals_path": "branches/main/notes/skill-proposals.md",
   "accepted": [
     {"proposal_id": "...", "op": "add",   "axis": "knowledge"},
     {"proposal_id": "...", "op": "spawn", "axis": "agent"}
@@ -340,14 +346,14 @@ or the `mos_role_*` tools, and Noter never enacts.
 | knowledge | `revise` | `Skill(skill-forge)` `mode=improve`, target from proposal | Stage 2 + 3 minimum |
 | knowledge | `merge` | `skill-forge` `mode=create` on union, then drop sources | Two-phase: admit new, drop sources only if new passes |
 | knowledge | `split` | Two `skill-forge` create runs (one per class), then drop source | Three-phase; if either child fails Stage 3, no drop |
-| knowledge | `drop` | Direct removal from library + commit on shared branch | No skill-forge run; audit already verified `unique_coverage_check` |
+| knowledge | `drop` | Direct removal from library + commit on main branch | No skill-forge run; audit already verified `unique_coverage_check` |
 | agent | `spawn` | `mos_spawn_role` / `mos_spawn_expert` with proposed domain pack + tool whitelist | Native MCP tool |
 | agent | `dismiss` | `mos_dismiss_role` against `target_expert_id` (or `mos_role_evolve_dismiss` for evidence-gated) | Native MCP tool |
 | agent | `merge` | `mos_role_merge` against `expert_a` + `expert_b` with `union_domain_pack` | Bid-overlap-gated; pull `mos_role_evolve_evaluate` first for evidence summary |
 | agent | `split` | `mos_role_split` against `target_expert_id` with `domain_partition` | **`requires_signboard: true` is enforced here** — reach Signboard consensus before calling |
 
 **Post-enactment:** append an `### enactment (by gru on YYYY-MM-DD)`
-sub-block to that proposal in `branches/shared/notes/skill-proposals.md`,
+sub-block to that proposal in `branches/main/notes/skill-proposals.md`,
 flipping its `status` to `enacted`. If enactment fails (e.g. skill-forge
 Stage 3 rejects), set `status: superseded` and explain in the enactment
 block.

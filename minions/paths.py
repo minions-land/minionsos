@@ -159,39 +159,41 @@ def project_roles_workspace_dir(port: int) -> Path:
 
 
 def project_shared_workspace(port: int) -> Path:
-    """Return the cross-role shared worktree for *port*.
+    """Return the project's shared surface — now the **main branch** worktree.
 
-    Layout under ``branches/shared/`` (a git worktree on branch
-    ``minionsos/project-{port}-shared``):
+    The standalone ``minionsos/project-{port}-shared`` branch was eliminated
+    in the v23 rebuild: the team's shared surface IS the main branch (the
+    Book). Everything cross-role lives under ``branches/main/``:
 
-    - ``draft/draft.json``  L1 — Noter-curated process graph
-    - ``book/``                       L2 — Noter-curated source pages
-    - ``shelf/shelf.json``            L3 — concept structure index
-    - ``notes/``                      Noter staged reports
-    - ``ethics/``                     Ethics published audit reports (flat)
-    - ``exp/``                        Coder experiment result bundles
-    - ``reviews/round-<n>/``          ``mos_review_run`` output
-    - ``handoffs/``                   free-form cross-role handoffs
+    - ``draft/draft.json``      L1 — the single live process graph (every
+                                role appends; Ethics curates)
+    - ``book/``                 L2 — Ethics-curated source pages
+    - ``logic/`` ``src/`` ``evidence/`` ``proposal/``  the Book layout
+                                (Gru promotes Ethics-sealed content here)
+    - ``notes/``                staged memory reports
+    - ``ethics/``               Ethics published audit reports (flat)
+    - ``exp/``                  Expert experiment result bundles
+    - ``reviews/round-<n>/``    ``mos_review_run`` output
+    - ``submissions/``          ``mos_submit`` deliverables
+    - ``governance/``           signboard consensus state
+    - ``handoffs/``             free-form cross-role handoffs
 
-    Roles do **not** ``Write`` to this tree directly. All writes go through
-    ``mos_publish_to_shared`` which holds a project-local flock and commits
-    each publish on the shared branch. The exception is ``mos_review_run``
-    which owns ``reviews/round-<n>/`` directly.
+    Per-role private scratch still lives on each role's own branch
+    (``branches/<role>/``); only the shared surface above is on main.
     """
-    return project_workspace_root(port) / "shared"
+    return project_main_workspace(port)
 
 
 def project_shared_subdir(port: int, subdir: str) -> Path:
-    """Return a subdirectory under ``branches/shared/`` for *port*."""
+    """Return a subdirectory under the shared surface (``branches/main/``)."""
     return project_shared_workspace(port) / _safe_component(subdir)
 
 
 def project_shared_draft_json(port: int) -> Path:
     """Return the canonical L1 Draft path for *port*.
 
-    Lives at ``branches/shared/draft/draft.json`` so the
-    process graph is durable, shared, and committed periodically by Noter
-    on a cron.
+    Lives at ``branches/main/draft/draft.json`` — the single live process
+    graph every role appends to, on the main branch.
     """
     return project_shared_subdir(port, "draft") / "draft.json"
 
@@ -199,16 +201,20 @@ def project_shared_draft_json(port: int) -> Path:
 def project_signboard_json(port: int) -> Path:
     """Return the canonical signboard state path for *port*.
 
-    Lives at ``branches/shared/governance/signboard.json``. Updated
-    atomically by ``mos_signboard_set`` under ``state/shared.lock``;
-    each mutation is committed on the shared branch.
+    Lives at ``branches/main/governance/signboard.json``. Updated atomically
+    by ``mos_signboard_set`` under ``state/shared.lock``; committed on the
+    main branch.
     """
     return project_shared_subdir(port, "governance") / "signboard.json"
 
 
 def project_shared_branch_name(port: int) -> str:
-    """Return the canonical git branch name for the shared worktree."""
-    return f"minionsos/project-{port}-shared"
+    """Return the branch the shared surface lives on — the project main branch.
+
+    The standalone ``-shared`` branch was eliminated; shared content lives on
+    ``minionsos/project-{port}`` (the main branch).
+    """
+    return project_branch_name(port)
 
 
 def project_shared_lock(port: int) -> Path:
@@ -310,7 +316,7 @@ def project_artifacts_dir(port: int) -> Path:
 
 
 def project_reviews_dir(port: int) -> Path:
-    """Return ``branches/shared/reviews/`` (formerly ``artifacts/reviews/``)."""
+    """Return ``branches/main/reviews/`` (formerly ``artifacts/reviews/``)."""
     return project_shared_subdir(port, "reviews")
 
 
@@ -337,7 +343,7 @@ def common_role_system_md() -> Path:
 def project_draft_dir(port: int) -> Path:
     """Return the L1 Draft directory for *port*.
 
-    Lives under ``branches/shared/draft/`` so Draft state is
+    Lives under ``branches/main/draft/`` so Draft state is
     captured in git on the shared branch. Use
     :func:`project_shared_draft_json` for the canonical
     ``draft.json`` path directly.

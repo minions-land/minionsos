@@ -24,14 +24,8 @@ class TestRoleType:
     def test_gru_is_human_side(self) -> None:
         assert ROLE_CLASSIFICATION["gru"] == RoleType.human_side
 
-    def test_noter_is_human_side(self) -> None:
-        assert ROLE_CLASSIFICATION["noter"] == RoleType.human_side
-
-    def test_coder_is_eacn_visible(self) -> None:
-        assert ROLE_CLASSIFICATION["coder"] == RoleType.eacn_visible
-
     def test_no_experimenter_role(self) -> None:
-        """Coder owns experiment execution; there is no separate experimenter role."""
+        """Expert owns experiment execution; there is no separate experimenter role."""
         assert "experimenter" not in ROLE_CLASSIFICATION
 
     def test_ethics_is_eacn_visible(self) -> None:
@@ -50,19 +44,9 @@ class TestWriteBoundaries:
     """MinionsOS role write boundaries live under each role branch plus allowed
     ``branches/shared/<subdir>/`` publish surfaces."""
 
-    def test_noter_cannot_write_branches(self) -> None:
-        allowed = ROLE_WRITE_BOUNDARIES["noter"]
-        # Noter owns its own drafts and the curated shared notes/DAG surfaces;
-        # it never writes to any other role's branch.
-        assert not any(p.startswith("branches/coder/") for p in allowed)
-        assert not any(p.startswith("branches/writer/") for p in allowed)
-        assert any(p.startswith("branches/noter/") for p in allowed)
-        assert any(p.startswith("branches/shared/notes/") for p in allowed)
-        assert any("branches/shared/draft/draft.json" in p for p in allowed)
-
-    def test_coder_owns_its_branch(self) -> None:
-        allowed = ROLE_WRITE_BOUNDARIES["coder"]
-        assert any(p.startswith("branches/coder/") for p in allowed)
+    def test_expert_owns_its_branch(self) -> None:
+        allowed = ROLE_WRITE_BOUNDARIES["expert"]
+        assert any(p.startswith("branches/<expert>/") for p in allowed)
 
     def test_ethics_restricted_to_ethics_branch_and_shared_surface(self) -> None:
         allowed = ROLE_WRITE_BOUNDARIES["ethics"]
@@ -90,26 +74,20 @@ class TestBoundaryContext:
         ctx = _boundary_context("gru", 37596)
         assert "human-side" in ctx.lower() or "human_side" in ctx.lower()
 
-    def test_noter_boundary_mentions_observer(self) -> None:
-        ctx = _boundary_context("noter", 37596)
-        assert "observer" in ctx.lower()
-        assert "not on eacn3" in ctx.lower()
-        assert "mos_noter_wait" in ctx
-
     def test_ethics_boundary_mentions_evidence(self) -> None:
         ctx = _boundary_context("ethics", 37596)
         assert "evidence" in ctx.lower()
 
-    def test_coder_boundary_allows_own_branch(self) -> None:
-        ctx = _boundary_context("coder", 37596)
-        # Coder's write boundary in MinionsOS is its role branch, not the legacy
+    def test_expert_boundary_allows_own_branch(self) -> None:
+        ctx = _boundary_context("expert", 37596)
+        # Expert's write boundary in MinionsOS is its role branch, not the legacy
         # "workspace/" path.
-        assert "branches/coder/" in ctx
+        assert "branches/<expert>/" in ctx
 
-    def test_coder_boundary_allows_assigned_system_maintenance(self) -> None:
-        ctx = _boundary_context("coder", 37596)
+    def test_expert_boundary_allows_assigned_system_maintenance(self) -> None:
+        ctx = _boundary_context("expert", 37596)
         assert "system-maintenance" in ctx
-        assert "MinionsOS repository runtime code" in ctx
+        assert "MinionsOS" in ctx
         assert "explicitly assigns" in ctx
 
     def test_unknown_role_returns_generic(self) -> None:
@@ -119,16 +97,17 @@ class TestBoundaryContext:
 
 class TestEthicsWhitelist:
     def test_non_gru_main_roles_can_spawn_subagents(self) -> None:
-        for role in ("noter", "coder", "writer", "ethics", "expert"):
+        for role in ("ethics", "expert"):
             assert "Task" in resolve_whitelist(role, "main")
 
-    def test_ethics_has_no_write_tools(self) -> None:
-        """Server-side authz blocks Ethics from Write/Edit/Bash."""
+    def test_ethics_has_write_tools_but_not_bash(self) -> None:
+        """Ethics (merged curator+auditor) has Write/Edit for its subagent workflow
+        but not Bash — execution stays with Coder/Expert."""
         from minions.config import resolve_server_authz
 
         authz = resolve_server_authz("ethics", "main")
-        assert "Write" not in authz
-        assert "Edit" not in authz
+        assert "Write" in authz
+        assert "Edit" in authz
         assert "Bash" not in authz
 
 
@@ -138,7 +117,7 @@ class TestSubagentEacnInvisibility:
     every EACN-facing action. This invariant is what lets the main session
     stay short and token-cheap."""
 
-    _ALL_ROLES = ("gru", "noter", "coder", "writer", "ethics", "expert")
+    _ALL_ROLES = ("gru", "ethics", "expert")
 
     def test_no_subagent_has_eacn3_tools(self) -> None:
         for role in self._ALL_ROLES:
@@ -165,7 +144,7 @@ class TestIssueReportUniversallyAllowed:
     and every subagent, otherwise reports get lost behind boundary errors
     at exactly the moments we most need them filed."""
 
-    _ALL_ROLES = ("gru", "noter", "coder", "writer", "ethics", "expert")
+    _ALL_ROLES = ("gru", "ethics", "expert")
 
     def test_main_roles_can_report(self) -> None:
         for role in self._ALL_ROLES:

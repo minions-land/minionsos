@@ -69,7 +69,7 @@ def scaffold_role(
 
 @scaffold_app.command("skill")
 def scaffold_skill(
-    role: str = typer.Argument(..., help="Existing role directory name, e.g. 'coder'."),
+    role: str = typer.Argument(..., help="Existing role directory name, e.g. 'expert'."),
     name: str = typer.Argument(..., help="Skill name, e.g. 'evidence-audit'."),
     summary: str = typer.Option(None, help="One-line summary used by skill discovery."),
     force: bool = typer.Option(False, help="Overwrite if the skill file already exists."),

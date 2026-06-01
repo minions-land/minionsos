@@ -53,7 +53,7 @@ def _mock_publish(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
         store: object | None = None,
     ) -> dict[str, object]:
         del store
-        assert role == "noter"
+        assert role == "ethics"
         assert commit_message.startswith("noter: ingest ")
         resolved_port = port or book._env_port()
         src = Path(src_path)
@@ -267,7 +267,7 @@ def test_dag_edge_emitted_when_both_endpoints_exist(
             "relation": "contradicts",
             "strength": 0.5,
             "created_at": dag["edges"][0]["created_at"],
-            "author_role": "noter",
+            "author_role": "ethics",
         }
     ]
 
@@ -328,7 +328,7 @@ def test_ethics_system_mentions_book_contradiction_workflow() -> None:
     assert "both-correct-different-scope" in text
     assert "needs-experiment" in text
     assert "out-of-scope" in text
-    assert "branches/shared/ethics/contradiction-<slug>-verdict.md" in text
+    assert "branches/main/ethics/contradiction-<slug>-verdict.md" in text
     assert "higher-precedence" in text
     assert "message-stream grepping" in text
-    assert "Do not modify `book/contradictions/*` or `book/index.md`" in text
+    assert "`book/contradictions/*` are auto-generated during ingest" in text

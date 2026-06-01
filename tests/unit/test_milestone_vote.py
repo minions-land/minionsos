@@ -19,7 +19,7 @@ def project_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path))
     port = 41001
     proot = tmp_path / f"project_{port}"
-    shared = proot / "branches" / "shared"
+    shared = proot / "branches" / "main"
     draft = shared / "draft"
     state = proot / "state"
     for d in (shared, draft, state, proot / "events"):
@@ -99,7 +99,7 @@ def test_detect_stagnation_empty_project_is_not_stalled(
     monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path))
     port = 41099
     proot = tmp_path / f"project_{port}"
-    (proot / "branches" / "shared" / "draft").mkdir(parents=True, exist_ok=True)
+    (proot / "branches" / "main" / "draft").mkdir(parents=True, exist_ok=True)
     # Note: no git init on the shared dir → _last_shared_commit_at returns None.
     sig = milestone_vote.detect_stagnation(port, window_seconds=1200)
     assert sig.stalled is False

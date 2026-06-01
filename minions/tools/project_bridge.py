@@ -134,7 +134,7 @@ def project_bridge(
         from_port: Source project port (used only for the attribution header).
         to_port: Destination project port.
         to_agent_id: Target agent_id on the destination project (e.g.
-            ``"expert"``, ``"writer"``). Pass an explicit value rather than
+            ``"expert"``, ``"ethics"``). Pass an explicit value rather than
             relying on a default — the destination project may have any
             registered agent.
         content: The message body to bridge.

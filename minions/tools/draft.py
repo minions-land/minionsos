@@ -8,11 +8,11 @@ Environment:
     MINIONS_PROJECT_PORT — identifies the project.
 
 Storage:
-    project_{port}/branches/shared/draft/draft.json — canonical graph state.
-    project_{port}/branches/shared/draft/journal.jsonl   — append-only mutation log.
+    project_{port}/branches/main/draft/draft.json — canonical graph state.
+    project_{port}/branches/main/draft/journal.jsonl   — append-only mutation log.
 
 The Draft and journal live inside the cross-role shared worktree
-(``branches/shared/`` on branch ``minionsos/project-{port}-shared``) so
+(``branches/main/`` on branch ``minionsos/project-{port}-shared``) so
 Draft history is auditable in git. ``mos_draft_append`` and
 ``mos_draft_annotate`` write to the working tree only; commits happen
 on a cron through ``mos_draft_commit_shared``, which is owned by Noter
@@ -607,7 +607,7 @@ def _emit_book_status_event(
     )
     temp_path: Path | None = None
     try:
-        temp_dir = project_shared_subdir(port, "noter") / ".draft-status-events"
+        temp_dir = project_shared_subdir(port, "ethics") / ".draft-status-events"
         temp_dir.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(
             "w",
@@ -624,7 +624,7 @@ def _emit_book_status_event(
 
         mos_book_ingest(
             src_path=str(temp_path),
-            source_role="noter",
+            source_role="ethics",
             source_slug=(f"draft-status-{node_id.replace('-', '').lower()[:30]}-{new_status}"),
             title=f"Status update: {node_id} → {new_status}",
             port=port,
@@ -711,6 +711,71 @@ def mos_draft_query(
     )
 
 
+# Claim-bearing node types: only these "should" eventually carry an
+# evidence_tag. Plans / questions / context legitimately have none, so
+# excluding them keeps the unmarked-ratio signal from firing on node types
+# that are not assertions. Reuses the Noter-motif claim set.
+_CLAIM_NODE_TYPES = _NOTER_MOTIF_REQUIRED_TYPES  # {result, decision, hypothesis, insight}
+
+
+def _role_unmarked_ratio(
+    nodes: list[dict[str, Any]], author_role: str, *, min_nodes: int = 3
+) -> float | None:
+    """Fraction of a role's claim-bearing Draft nodes whose ``evidence_tag`` is empty.
+
+    Pure (no I/O), so it is trivially unit-testable. Returns ``None`` when the
+    role has fewer than ``min_nodes`` claim nodes (too little signal to report).
+
+    This measures evidence-tag coverage where tags actually live — the Draft
+    node ``evidence_tag`` field — unlike :func:`minions.tools.book._source_role_unmarked_ratio`,
+    which scans Book *prose* pages that almost never carry inline markers and so
+    returns ~1.0 for every role. A higher value here means *worse* coverage.
+    """
+    claims = [
+        n
+        for n in nodes
+        if (n.get("author_role") or "").strip() == author_role
+        and n.get("type") in _CLAIM_NODE_TYPES
+    ]
+    if len(claims) < min_nodes:
+        return None
+    unmarked = sum(1 for n in claims if not str(n.get("evidence_tag") or "").strip())
+    return round(unmarked / len(claims), 3)
+
+
+def mos_draft_unmarked_audit(threshold: float = 0.2) -> dict[str, Any]:
+    """Per-role unmarked-claim ratio over Draft nodes; an Ethics-facing signal.
+
+    Computes, for each authoring role, the fraction of its claim-bearing nodes
+    (types ``result`` / ``decision`` / ``hypothesis`` / ``insight``) that carry
+    no ``evidence_tag``, and flags roles whose ratio exceeds ``threshold``
+    (default ``0.2``). Roles with too few claim nodes report ``None`` and are
+    never flagged.
+
+    **Advisory only.** This does not auto-trigger re-tagging or retraction and
+    does not mutate the Draft — it surfaces a descriptive coverage signal for
+    Ethics to adjudicate, consistent with the "evidence convention is cultural,
+    not mechanical" contract in ``minions/roles/SYSTEM.md``. Whitelisted to
+    Ethics + Gru.
+    """
+    port = _env_port()
+    nodes = _load_draft(port)["nodes"]
+    roles = sorted(
+        {
+            (n.get("author_role") or "").strip()
+            for n in nodes
+            if (n.get("author_role") or "").strip()
+        }
+    )
+    per_role = {role: _role_unmarked_ratio(nodes, role) for role in roles}
+    flagged = sorted(r for r, v in per_role.items() if v is not None and v > threshold)
+    return {
+        "threshold": threshold,
+        "per_role_unmarked": per_role,
+        "flagged_roles": flagged,
+    }
+
+
 def mos_draft_append(
     nodes: list[dict[str, Any]] | None = None,
     edges: list[dict[str, Any]] | None = None,
@@ -744,7 +809,7 @@ def mos_draft_append(
         # Motif contract enforcement for Noter nodes (soft — warnings only, no reject).
         # Existing nodes without motif_kind are treated as motif_kind="none" for read purposes.
         author_role = node.get("author_role", "") or _env_role()
-        if author_role == "noter" and ntype in _NOTER_MOTIF_REQUIRED_TYPES:
+        if author_role == "ethics" and ntype in _NOTER_MOTIF_REQUIRED_TYPES:
             motif_kind = node_metadata.get("motif_kind")
             if not motif_kind:
                 logger.warning(
@@ -1187,7 +1252,7 @@ def mos_draft_commit_shared(message: str | None = None) -> dict[str, Any]:
     """Flush the buffered Draft to a single commit on the shared branch.
 
     Owned by Noter. The Draft file at
-    ``branches/shared/draft/draft.json`` is updated freely by every
+    ``branches/main/draft/draft.json`` is updated freely by every
     role through ``mos_draft_append`` / ``mos_draft_annotate`` (working tree
     only, no commit). This tool performs one auditable commit per call by
     publishing the current Draft state through ``mos_publish_to_shared``.
@@ -1206,7 +1271,7 @@ def mos_draft_commit_shared(message: str | None = None) -> dict[str, Any]:
     if not draft_path.exists():
         return {
             "port": port,
-            "role": _env_role() or "noter",
+            "role": _env_role() or "ethics",
             "dst_path": "draft/draft.json",
             "commit_sha": None,
             "pushed": False,
@@ -1222,7 +1287,7 @@ def mos_draft_commit_shared(message: str | None = None) -> dict[str, Any]:
     return cast(
         "dict[str, Any]",
         mos_publish_to_shared(
-            role=_env_role() or "noter",
+            role=_env_role() or "ethics",
             src_path=str(draft_path),
             dst_subpath="draft/draft.json",
             commit_message=msg,

@@ -5,7 +5,6 @@ Covers:
 - Knowledge promotion (mos_book_promote_verified)
 - Session crystallization (mos_book_crystallize_session)
 - Contradiction statistical signals
-- Shelf 2-hop expansion
 
 Each test uses a tmp project workspace and stubs out mos_publish_to_shared
 so commits don't actually run — we only verify the staging output and the
@@ -20,19 +19,19 @@ from pathlib import Path
 
 import pytest
 
-from minions.tools import book, draft, shelf
+from minions.tools import book, draft
 
 
 @pytest.fixture(autouse=True)
 def _project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     port = 9999
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
-    monkeypatch.setenv("MINIONS_ROLE_NAME", "noter")
+    monkeypatch.setenv("MINIONS_ROLE_NAME", "ethics")
 
     project_root = tmp_path / f"project_{port}"
     branches = project_root / "branches"
     shared = branches / "shared"
-    workspace = branches / "noter"
+    workspace = branches / "ethics"
     state = project_root / "state"
     events = project_root / "events"
     for path in (shared, workspace, state, events):
@@ -273,7 +272,7 @@ class TestKnowledgePromotion:
 
         from minions.tools.book import _book_root
 
-        sources = list((_book_root(port) / "sources").glob("noter-promoted-*.md"))
+        sources = list((_book_root(port) / "sources").glob("ethics-promoted-*.md"))
         assert len(sources) == 1
         body = sources[0].read_text(encoding="utf-8")
         assert "VERBATIM insight body" in body
@@ -441,42 +440,3 @@ class TestContradictionSignals:
         )
         for token in forbidden:
             assert token not in page
-
-
-class TestShelfTwoHop:
-    def test_one_hop_neighbour_surfaces_at_lower_score(self, tmp_path, monkeypatch):
-        # Override shelf global path to tmp.
-        global_path = tmp_path / "shelf-global.json"
-        global_path.write_text(
-            json.dumps(
-                {
-                    "projects": {"41001": {"port": 41001, "nodes": 2, "links": 1}},
-                    "nodes": [
-                        {"id": "p41001_a", "label": "transformer", "project_port": 41001},
-                        {
-                            "id": "p41001_b",
-                            "label": "self-attention layer",
-                            "project_port": 41001,
-                        },
-                    ],
-                    "links": [
-                        {
-                            "source": "p41001_a",
-                            "target": "p41001_b",
-                            "project_port": 41001,
-                        }
-                    ],
-                }
-            ),
-            encoding="utf-8",
-        )
-        monkeypatch.setattr(shelf, "_shelf_path", lambda: global_path)
-        result = shelf.mos_shelf_query("transformer")
-        assert result["total"] == 2
-        labels = {(m["label"], m["via"]) for m in result["matches"]}
-        assert ("transformer", "direct") in labels
-        assert ("self-attention layer", "1-hop") in labels
-        # 1-hop score is 0.4 of direct score.
-        direct = next(m for m in result["matches"] if m["via"] == "direct")
-        hop = next(m for m in result["matches"] if m["via"] == "1-hop")
-        assert hop["score"] == pytest.approx(direct["score"] * 0.4, rel=1e-3)

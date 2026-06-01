@@ -85,13 +85,13 @@ def test_publish_files_to_shared_one_commit(shared_project: dict[str, object]) -
 
     before = _shared_log_count(shared)
     result = mos_publish_files_to_shared(
-        role="noter",
+        role="ethics",
         files=[
             {"src_path": str(a.resolve()), "dst_subpath": "notes/a.md"},
             {"src_path": str(b.resolve()), "dst_subpath": "notes/b.md"},
             {"src_path": str(c.resolve()), "dst_subpath": "notes/c.md"},
         ],
-        commit_message="noter: batch publish",
+        commit_message="ethics: batch publish",
         port=port,
     )
     after = _shared_log_count(shared)
@@ -181,40 +181,3 @@ def test_book_ingest_batch_single_commit_for_all_sources(
 
 
 # --- Issue #14 ---------------------------------------------------------
-
-
-def test_noter_wait_emits_since_iso_marker(
-    shared_project: dict[str, object], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """First wake has since_iso=null; subsequent wakes carry the prior wake_iso."""
-    from minions.tools import noter_wait as nw
-
-    port: int = int(shared_project["port"])  # type: ignore[arg-type]
-    monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
-    # Force a zero-length sleep window.
-    monkeypatch.setattr(nw, "_load_interval_seconds", lambda: 0)
-    monkeypatch.setattr(nw, "_load_keepalive_seconds", lambda: 0)
-    # Note: Memory V2 removed _maybe_rebuild_shelf_graph from noter_wait.
-    # No stub needed here.
-
-    res1 = nw.noter_wait()
-    ev1 = res1["events"][0]
-    assert ev1["type"] == "periodic_wake"
-    assert ev1["since_iso"] is None
-    assert isinstance(ev1["wake_iso"], str) and ev1["wake_iso"]
-
-    res2 = nw.noter_wait()
-    ev2 = res2["events"][0]
-    assert ev2["since_iso"] == ev1["wake_iso"]
-    assert ev2["wake_iso"] >= ev1["wake_iso"]
-
-
-def test_noter_loop_prompt_mentions_since_iso_and_compact() -> None:
-    """Loop prompt instructs Noter to bound reads + self-check ctx."""
-    from minions.lifecycle.agent_host import _build_noter_loop_prompt
-
-    prompt = _build_noter_loop_prompt(port=None, role_system_paths=None)
-    assert "since_iso" in prompt
-    assert "mos_compact_context" in prompt
-    # Bound reads explicitly.
-    assert "DO NOT re-read" in prompt or "do not re-read" in prompt.lower()

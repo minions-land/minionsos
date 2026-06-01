@@ -848,8 +848,7 @@ def _hermetic_add_dirs_for(
 
 def _role_model(cfg: GruConfig, role_name: str) -> str | None:
     """Return the model override for a role, or None for the default."""
-    if role_name == "noter":
-        return cfg.noter_model
+    # All roles use the same model (noter retired into ethics)
     return cfg.claude_model or None
 
 

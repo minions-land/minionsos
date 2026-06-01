@@ -42,7 +42,7 @@ def mos_project_create(args: ProjectCreateArgs) -> dict:
        MinionsOS checkout must be a git repo).
     3. Spawns the project's EACN3 backend as a long-lived subprocess on
        that port and registers a server card.
-    4. Writes ``meta.json``, ``CLAUDE.md``, ``AGENTS.md``, and the
+    4. Writes ``meta.json``, ``CLAUDE.md``, and the
        initial role workspaces.
 
     Use this only when the author asks to start a new project. To bring

@@ -5,8 +5,7 @@ event loop via ``mos_await_events``. This module produces the concrete
 ``claude`` argv plus the initial driver prompt the launcher feeds into the
 session.
 
-Codex is not a Role main host; Codex is reachable through the codex-subagent
-MCP as a subagent. There is therefore no Codex branch here.
+Claude Code is the only Role host.
 """
 
 from __future__ import annotations
@@ -25,30 +24,17 @@ logger = logging.getLogger(__name__)
 HOT_CACHE_BYTE_LIMIT = 4096
 HOT_CACHE_TRUNCATION_LINE = "(truncated for wake-up injection — see book/hot.md for full)"
 
-# Per-role ToolSearch warmup lists. Cold-start expert/coder/noter/ethics roles
+# Per-role ToolSearch warmup lists. Cold-start expert / ethics roles
 # repeatedly missed deferred-tool schemas in project_37596 logs (e.g.
 # expert-gpu-perf: "The ToolSearch for MinionsOS tools didn't find them as
-# deferred tools"; noter: 59 minionsos calls, many retries on args wrapping).
+# deferred tools"; many minionsos calls with retries on args wrapping).
 # `ENABLE_TOOL_SEARCH=auto:30` (set in role_launcher) is a Claude-Code internal
 # heuristic that warms by call frequency; on cold start no calls have been made
 # yet, so high-frequency role-specific tools start deferred and keyword search
 # misses them. We pin the cold-start warmup explicitly.
 # Frequencies derived from project_37596/logs/role-*.log (CODA-MoE, 2026-05-27).
 _TOOL_WARMUP: dict[str, tuple[str, ...]] = {
-    "noter": (
-        "mos_noter_wait",
-        "mos_draft_summary",
-        "mos_draft_query",
-        "mos_draft_append",
-        "mos_draft_annotate",
-        "mos_draft_commit_shared",
-        "mos_publish_to_shared",
-        "mos_compact_context",
-        "mos_book_ingest",
-        "mos_book_hot_update",
-        "mos_book_promote_verified",
-    ),
-    "coder": (
+    "expert": (
         "mos_await_events",
         "mos_draft_summary",
         "mos_draft_query",
@@ -64,36 +50,17 @@ _TOOL_WARMUP: dict[str, tuple[str, ...]] = {
         "eacn3_submit_bid",
         "eacn3_submit_result",
     ),
-    "expert": (
-        "mos_await_events",
-        "mos_draft_summary",
-        "mos_draft_query",
-        "mos_draft_append",
-        "mos_draft_annotate",
-        "mos_compact_context",
-        "eacn3_send_message",
-        "eacn3_create_task",
-        "eacn3_submit_bid",
-        "eacn3_submit_result",
-    ),
     "ethics": (
         "mos_await_events",
         "mos_draft_summary",
         "mos_draft_query",
         "mos_draft_append",
         "mos_draft_annotate",
-        "mos_compact_context",
-        "mos_adjudicate",
-        "eacn3_send_message",
-        "eacn3_create_task",
-        "eacn3_submit_result",
-    ),
-    "writer": (
-        "mos_await_events",
-        "mos_draft_summary",
-        "mos_draft_query",
-        "mos_draft_append",
-        "mos_draft_annotate",
+        "mos_draft_commit_shared",
+        "mos_book_ingest",
+        "mos_book_hot_update",
+        "mos_book_promote_verified",
+        "mos_publish_to_shared",
         "mos_compact_context",
         "eacn3_send_message",
         "eacn3_create_task",
@@ -220,7 +187,7 @@ def build_role_invocation(
     # empirical testing under a real PTY confirms the flag is silently
     # ignored for interactive long-lived sessions (no error, no fallback).
     # The auto-fallback feature is wired into the --print spawn sites
-    # instead: see minions/tools/review.py and minions/tools/adjudicator.py.
+    # instead: see minions/tools/review.py.
     if session_name:
         cmd += ["--name", session_name]
     if claude_session_id:
@@ -282,102 +249,17 @@ def build_forever_loop_prompt(
     """Compose the first user message that boots the Role into its forever loop.
 
     The prompt's job is narrow: anchor the Role's identity, name the
-    event-loop tool (``mos_await_events`` for EACN roles, ``mos_noter_wait``
-    for Noter), and set the supervisor priority rule. All substantive role
-    behavior — boundaries, skills, EACN contract — lives in the appended
-    SYSTEM.md and the role-specific ``SYSTEM.md`` re-injected by Claude on
-    each launch.
+    event-loop tool (``mos_await_events`` for every role), and set the
+    supervisor priority rule. All substantive role behavior — boundaries,
+    skills, EACN contract — lives in the appended SYSTEM.md and the
+    role-specific ``SYSTEM.md`` re-injected by Claude on each launch.
 
     Cache optimization: role-specific SYSTEM.md content is injected here (in
     the first user message) rather than in ``--append-system-prompt``, so the
     system prompt prefix stays byte-identical across all roles and maximizes
     cross-role KV cache sharing at the API level.
     """
-    if role_name == "noter":
-        return _build_noter_loop_prompt(port=port, role_system_paths=role_system_paths)
     return _build_eacn_role_loop_prompt(role_name, port=port, role_system_paths=role_system_paths)
-
-
-def _build_noter_loop_prompt(
-    *, port: int | None = None, role_system_paths: list[Path] | None = None
-) -> str:
-    """Forever-loop prompt for Noter (timer-based, not on EACN)."""
-    hot_cache = _hot_cache_block(port)
-    hot_cache_section = f"{hot_cache}\n" if hot_cache else ""
-    role_contract = _role_contract_block(role_system_paths)
-    warmup = _tool_warmup_block("noter")
-    return (
-        "You are the MinionsOS `noter` role. Your event loop runs forever.\n"
-        "\n"
-        f"{hot_cache_section}"
-        "Cold start (this is your first cycle on a fresh process):\n"
-        f"{warmup}"
-        "1. Call `mos_draft_summary()` first to orient on team state.\n"
-        "2. Inspect `pending_plans` in the summary. These are events your\n"
-        "   previous self received but could not handle in its context;\n"
-        "   it persisted them and reset so YOU could handle them.\n"
-        "   Drain them now: for each pending_plan node:\n"
-        "     - read its full node via `mos_draft_query(related_to=<id>)`,\n"
-        "     - perform the work,\n"
-        "     - call `mos_draft_annotate` (verified/refuted + evidence_tag)\n"
-        "       so it stops surfacing.\n"
-        "3. Only after pending_plans is drained, call `mos_noter_wait()`\n"
-        "   to enter the steady-state loop below.\n"
-        "\n"
-        "Steady-state loop:\n"
-        "1. Call `mos_noter_wait()`. It blocks for the configured interval\n"
-        "   (default 5 min), writing heartbeat files during sleep.\n"
-        "2. On wake: flush the Draft (`mos_draft_commit_shared()`),\n"
-        "   then read project activity **only since `since_iso`** from\n"
-        "   the wake event payload. DO NOT re-read full event/handoff\n"
-        "   history each cycle — that grows the turn unboundedly:\n"
-        "   - `git log --since=<since_iso>` on `branches/shared/`.\n"
-        "   - For `events/*.jsonl`, only tail lines whose timestamp\n"
-        "     >= `since_iso`.\n"
-        "   - Read only artifacts in `branches/shared/exp/`,\n"
-        "     `branches/shared/handoffs/` whose mtime > `since_iso`.\n"
-        "   On the very first cycle (`since_iso` is null), read the\n"
-        "   last 5 minutes only — do not back-fill ancient history.\n"
-        "3. Update the Draft with any new observations.\n"
-        "4. Check whether enough time has elapsed since the last published\n"
-        "   report (target cadence `noter_report_interval`). If due,\n"
-        "   draft and publish a fresh observation report.\n"
-        "4b. Context self-check: if Claude Code has surfaced a `/clear`\n"
-        "    hint or your accumulated context this turn is large,\n"
-        '    call `mos_compact_context(reason="periodic noter\n'
-        '    compact", pending_plans=[])` instead of step 5. The\n'
-        "    post-compact agent picks up via the cold-start path.\n"
-        "5. Call `mos_noter_wait()` again.\n"
-        "\n"
-        "Cache keepalive: if `mos_noter_wait()` returns a single event of\n"
-        "type `cache_keepalive`, that is a wall-clock cliff guard for the\n"
-        "prompt cache, NOT a real event. Reply with exactly the literal\n"
-        "string `ack` and immediately call `mos_noter_wait()` again. Do\n"
-        "not write to the Draft, do not invoke any other tool, do not\n"
-        "vary the ack text — keeping the reply byte-stable is what makes\n"
-        "this turn cacheable.\n"
-        "\n"
-        "Wedge guard: `ack` is ONLY for genuine\n"
-        "`cache_keepalive` returns. If two consecutive turns produce empty\n"
-        "content or bare `ack` despite the prior tool result NOT being a\n"
-        "`cache_keepalive`, OR the pane shows `[upstream returned no\n"
-        "content]` repeating, you are in an empty-upstream wedge — call\n"
-        '`mos_reset_context(reason="upstream-empty-loop")` immediately\n'
-        "instead of continuing to ack.\n"
-        "\n"
-        "Context management — compact vs reset:\n"
-        "- `mos_compact_context(reason, pending_plans)`: PREFERRED. Persists\n"
-        "  pending plans to Draft, then triggers /compact. Process stays\n"
-        "  alive, prompt cache stays warm. Use when context is large but\n"
-        "  process is healthy. After calling, STOP — produce no more output.\n"
-        "- `mos_reset_context(reason)`: HARD RESET. Kills the process entirely.\n"
-        "  Use only when behavior has drifted or compact cannot recover.\n"
-        "\n"
-        "Your output is tool calls. Do not emit a final assistant turn that\n"
-        "does not end with `mos_noter_wait()` (or `mos_reset_context()`,\n"
-        "which terminates this process so the watchdog respawns it).\n"
-        f"{role_contract}"
-    )
 
 
 def _build_eacn_role_loop_prompt(

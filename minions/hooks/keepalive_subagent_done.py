@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """SubagentStop / Stop hook: signal completion to wait_bg.
 
-When a Claude Code subagent (Agent / Task / a wrapped Codex relay) finishes,
+When a Claude Code subagent (Agent / Task) finishes,
 the SubagentStop event fires with `agent_id` (and friends) on stdin. We
 touch a marker file at MARKER_DIR/<agent_id>.done so a wait_bg call running
 in the parent session can early-exit instead of sleeping out the full

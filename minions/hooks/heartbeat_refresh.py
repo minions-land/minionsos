@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """PreToolUse heartbeat refresh.
 
-Fires on every tool call (Bash, Edit, Write, Read, Agent, Task, codex MCP)
+Fires on every tool call (Bash, Edit, Write, Read, Agent, Task, MCP tools)
 and refreshes ``branches/<role>/.minionsos/heartbeat`` so observers know
 the Role is alive WHILE doing work, not just between turns.
 
 The pre-v15.8 design refreshed heartbeat only inside ``mos_await_events``
-and ``mos_noter_wait``. Both run between turns, not during. While a Role
-was deep in a long thinking turn, a multi-minute Codex sub-agent
+which runs between turns, not during. While a Role
+was deep in a long thinking turn, a multi-minute subagent
 dispatch, or a long Bash call, the heartbeat went stale and any health
 view that read ``alive_at`` reported the Role as dead — see GitHub
 Issue #4 for the user-visible misread.

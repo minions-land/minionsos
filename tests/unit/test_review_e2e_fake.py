@@ -35,7 +35,7 @@ def project_tree(tmp_path: Path, monkeypatch) -> tuple[int, Path]:
     port = 99001
     pdir = tmp_path / f"project_{port}"
     (pdir / "branches" / "main").mkdir(parents=True)
-    (pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1").mkdir(parents=True)
+    (pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1").mkdir(parents=True)
     return port, pdir
 
 
@@ -120,7 +120,7 @@ def install_spawner() -> Iterator[Callable[[FakeSpawner], None]]:
 
 def _round_dir(workspace: Path, round_num: int = 1) -> Path:
     project_root = workspace.parent.parent
-    d = project_root / "branches" / "shared" / "reviews" / f"round-{round_num}"
+    d = project_root / "branches" / "main" / "reviews" / f"round-{round_num}"
     d.mkdir(parents=True, exist_ok=True)
     (d / "aspect-notes").mkdir(exist_ok=True)
     return d
@@ -128,7 +128,7 @@ def _round_dir(workspace: Path, round_num: int = 1) -> Path:
 
 def _summary_path(workspace: Path, round_num: int = 1) -> Path:
     project_root = workspace.parent.parent
-    p = project_root / "branches" / "shared" / "reviews" / "summaries" / f"round-{round_num}.md"
+    p = project_root / "branches" / "main" / "reviews" / "summaries" / f"round-{round_num}.md"
     p.parent.mkdir(parents=True, exist_ok=True)
     return p
 
@@ -205,11 +205,11 @@ class TestChecklistGate:
 
     def test_missing_checklist_rejects_without_spawn(self, project_tree, install_spawner) -> None:
         port, pdir = project_tree
-        _write_manuscript(pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1")
+        _write_manuscript(pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1")
         spawner = FakeSpawner(scripts=[full_round_script()])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "rejected"
         assert "checklist" in result["reason"].lower()
@@ -217,13 +217,13 @@ class TestChecklistGate:
 
     def test_failed_required_rejects_without_spawn(self, project_tree, install_spawner) -> None:
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub, all_required_checked=False)
         spawner = FakeSpawner(scripts=[full_round_script()])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "rejected"
         assert any("Baseline" in m for m in result["missing_required"])
@@ -234,13 +234,13 @@ class TestChecklistGate:
     ) -> None:
         """A passing checklist + .md-only package (no compiled PDF) must reject."""
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         (sub / "manuscript.md").write_text("# Tiny Study\n\nResults.\n", encoding="utf-8")
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=[full_round_script()])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "rejected"
         assert "pdf" in result["reason"].lower()
@@ -249,14 +249,14 @@ class TestChecklistGate:
     def test_placeholder_pdf_under_1kb_rejects(self, project_tree, install_spawner) -> None:
         """A zero/placeholder PDF (<= 1 KB) does not satisfy the format gate."""
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         (sub / "build").mkdir(parents=True, exist_ok=True)
         (sub / "build" / "paper.pdf").write_bytes(b"%PDF-1.5\n")  # tiny placeholder
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=[full_round_script()])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "rejected"
         assert "pdf" in result["reason"].lower()
@@ -278,13 +278,13 @@ class TestHappyPath:
     )
     def test_full_round_returns_decision(self, project_tree, install_spawner, decision) -> None:
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=[full_round_script(decision=decision)])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "completed"
         assert result["decision"] == decision
@@ -299,17 +299,17 @@ class TestHappyPath:
     ) -> None:
         """fresh.md is a deterministic concat; review_run repairs it if absent."""
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         # Area-Chair writes everything EXCEPT fresh.md.
         spawner = FakeSpawner(scripts=[full_round_script(decision="Accept", write_fresh=False)])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "completed", result
-        fresh = pdir / "branches" / "shared" / "reviews" / "round-1" / "fresh.md"
+        fresh = pdir / "branches" / "main" / "reviews" / "round-1" / "fresh.md"
         assert fresh.exists(), "review_run must repair a missing fresh.md by concat"
         body = fresh.read_text(encoding="utf-8")
         for i in range(1, 4):
@@ -319,13 +319,13 @@ class TestHappyPath:
     def test_round_spawn_gets_bounded_timeout(self, project_tree, install_spawner) -> None:
         """The single round spawn must carry the configured wall."""
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=[full_round_script(decision="Accept")])
         install_spawner(spawner)
         review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         from minions.tools.review import _review_timeout_seconds
 
@@ -337,13 +337,13 @@ class TestHappyPath:
         """MOS_REVIEW_TIMEOUT overrides the round wall."""
         monkeypatch.setenv("MOS_REVIEW_TIMEOUT", "4242")
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=[full_round_script(decision="Accept")])
         install_spawner(spawner)
         review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert spawner.timeouts[0] == 4242
 
@@ -354,14 +354,14 @@ class TestStructuralValidation:
     def test_too_few_reviewers_is_error(self, project_tree, install_spawner) -> None:
         """A round with fewer than the minimum reviewer reports is an error."""
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         # Only 2 reviewer reports — below the default floor of 3.
         spawner = FakeSpawner(scripts=[full_round_script(decision="Accept", n_reviewers=2)])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "error"
         assert "reviewer" in result["reason"].lower()
@@ -369,7 +369,7 @@ class TestStructuralValidation:
 
     def test_missing_consolidated_is_error(self, project_tree, install_spawner) -> None:
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         spawner = FakeSpawner(
@@ -377,20 +377,20 @@ class TestStructuralValidation:
         )
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "error"
         assert "consolidated.md" in result["reason"]
 
     def test_missing_summary_is_error(self, project_tree, install_spawner) -> None:
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=[full_round_script(decision="Accept", write_summary=False)])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "error"
         assert "summary" in result["reason"].lower()
@@ -404,7 +404,7 @@ class TestStructuralValidation:
         writes it rather than hard-failing on a forgotten one-liner.
         """
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         spawner = FakeSpawner(
@@ -412,10 +412,10 @@ class TestStructuralValidation:
         )
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "completed", result
-        rd = pdir / "branches" / "shared" / "reviews" / "round-1" / "revision_delta.md"
+        rd = pdir / "branches" / "main" / "reviews" / "round-1" / "revision_delta.md"
         assert rd.exists()
         assert "skipped: no prior summary" in rd.read_text(encoding="utf-8")
 
@@ -424,17 +424,17 @@ class TestStructuralValidation:
     ) -> None:
         """Revision round: a missing revision_delta.md (real model output) errors."""
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         # Complete round-1 + its rolling summary so allocation reaches round-2
         # and a prior_summary is in play (revision-delta becomes mandatory).
-        r1 = pdir / "branches" / "shared" / "reviews" / "round-1"
+        r1 = pdir / "branches" / "main" / "reviews" / "round-1"
         r1.mkdir(parents=True)
         (r1 / "consolidated.md").write_text(
             "# Round 1\n\n## Decision\n\nWeak Accept\n", encoding="utf-8"
         )
-        prior = pdir / "branches" / "shared" / "reviews" / "summaries" / "round-1.md"
+        prior = pdir / "branches" / "main" / "reviews" / "summaries" / "round-1.md"
         prior.parent.mkdir(parents=True, exist_ok=True)
         prior.write_text("Round: 1\nDecision: Weak Accept\n", encoding="utf-8")
 
@@ -445,7 +445,7 @@ class TestStructuralValidation:
         result = review_run(
             ReviewRunArgs(
                 port=port,
-                submission_path="../shared/handoffs/submissions/round-1",
+                submission_path="../main/handoffs/submissions/round-1",
                 prior_summary_path=str(prior),
             )
         )
@@ -455,13 +455,13 @@ class TestStructuralValidation:
     def test_dynamic_reviewer_count_five_accepted(self, project_tree, install_spawner) -> None:
         """A round may produce up to 5 reviewer instances; that is valid."""
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=[full_round_script(decision="Borderline", n_reviewers=5)])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "completed", result
         assert result["decision"] == "Borderline"
@@ -483,8 +483,8 @@ class TestResilience:
         workspace = pdir / "branches" / "main"
         # Pre-populate a fully complete round-1 (consolidated + summary).
         full_round_script(decision="Weak Accept")(workspace, "", 0)
-        round_dir = pdir / "branches" / "shared" / "reviews" / "round-1"
-        summary_path = pdir / "branches" / "shared" / "reviews" / "summaries" / "round-1.md"
+        round_dir = pdir / "branches" / "main" / "reviews" / "round-1"
+        summary_path = pdir / "branches" / "main" / "reviews" / "summaries" / "round-1.md"
 
         # No scripts: if the helper tried to spawn, FakeSpawner would fail.
         spawner = FakeSpawner(scripts=[])
@@ -492,7 +492,7 @@ class TestResilience:
             spawner=spawner,
             workspace=workspace,
             port=port,
-            submission_dir=pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1",
+            submission_dir=pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1",
             round_num=1,
             round_dir=round_dir,
             summary_path=summary_path,
@@ -503,7 +503,7 @@ class TestResilience:
 
     def test_spawn_failure_returns_error(self, project_tree, install_spawner) -> None:
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
 
@@ -513,7 +513,7 @@ class TestResilience:
         spawner = FakeSpawner(scripts=[_fail])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "error"
         assert "137" in result["reason"]
@@ -522,7 +522,7 @@ class TestResilience:
     def test_spawn_ok_but_empty_round_is_error(self, project_tree, install_spawner) -> None:
         """Process returns ok but writes nothing -> structural validation fails."""
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
 
@@ -532,7 +532,7 @@ class TestResilience:
         spawner = FakeSpawner(scripts=[_empty])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "error"
         assert len(spawner.calls) == 1
@@ -541,39 +541,39 @@ class TestResilience:
 class TestRoundAllocation:
     def test_second_run_allocates_round_2(self, project_tree, install_spawner) -> None:
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         # Pre-create a *complete* round-1 (consolidated.md + rolling summary)
         # so allocation moves on to round-2.
-        r1 = pdir / "branches" / "shared" / "reviews" / "round-1"
+        r1 = pdir / "branches" / "main" / "reviews" / "round-1"
         r1.mkdir(parents=True)
         (r1 / "consolidated.md").write_text(
             "# Round 1\n\n## Decision\n\nWeak Accept\n", encoding="utf-8"
         )
-        summaries = pdir / "branches" / "shared" / "reviews" / "summaries"
+        summaries = pdir / "branches" / "main" / "reviews" / "summaries"
         summaries.mkdir(parents=True, exist_ok=True)
         (summaries / "round-1.md").write_text("Round: 1\nDecision: Weak Accept\n", encoding="utf-8")
 
         spawner = FakeSpawner(scripts=[full_round_script(decision="Accept", round_num=2)])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "completed", result
         assert result["round"] == 2
 
     def test_prompt_includes_prior_summary_for_round_2(self, project_tree, install_spawner) -> None:
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
-        r1 = pdir / "branches" / "shared" / "reviews" / "round-1"
+        r1 = pdir / "branches" / "main" / "reviews" / "round-1"
         r1.mkdir(parents=True)
         (r1 / "consolidated.md").write_text(
             "# Round 1\n\n## Decision\n\nWeak Accept\n", encoding="utf-8"
         )
-        prior = pdir / "branches" / "shared" / "reviews" / "summaries" / "round-1.md"
+        prior = pdir / "branches" / "main" / "reviews" / "summaries" / "round-1.md"
         prior.parent.mkdir(parents=True, exist_ok=True)
         prior.write_text(
             "Round: 1\nDecision: Weak Accept\nUnresolved: thin baselines\n",
@@ -585,7 +585,7 @@ class TestRoundAllocation:
         result = review_run(
             ReviewRunArgs(
                 port=port,
-                submission_path="../shared/handoffs/submissions/round-1",
+                submission_path="../main/handoffs/submissions/round-1",
                 prior_summary_path=str(prior),
             )
         )
@@ -606,11 +606,11 @@ class TestRoundAllocation:
         the Area-Chair is re-spawned to finish round-1 (not allocate round-2).
         """
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         # Pre-populate round-1 with reviewer reports but NO consolidated.md.
-        r1 = pdir / "branches" / "shared" / "reviews" / "round-1"
+        r1 = pdir / "branches" / "main" / "reviews" / "round-1"
         (r1 / "aspect-notes").mkdir(parents=True)
         for i in range(1, 4):
             (r1 / f"reviewer-{i}.md").write_text(
@@ -623,33 +623,33 @@ class TestRoundAllocation:
         spawner = FakeSpawner(scripts=[full_round_script(decision="Reject")])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "completed", result
         assert result["round"] == 1, "must reuse round-1, not allocate round-2"
         assert result["decision"] == "Reject"
-        assert not (pdir / "branches" / "shared" / "reviews" / "round-2").exists()
+        assert not (pdir / "branches" / "main" / "reviews" / "round-2").exists()
 
     def test_complete_round_does_not_trigger_resume(self, project_tree, install_spawner) -> None:
         """When round-1 has consolidated.md + summary, the next run allocates round-2."""
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
-        r1 = pdir / "branches" / "shared" / "reviews" / "round-1"
+        r1 = pdir / "branches" / "main" / "reviews" / "round-1"
         r1.mkdir(parents=True)
         (r1 / "consolidated.md").write_text(
             "# Round 1\n\n## Decision\n\nWeak Accept\n", encoding="utf-8"
         )
         (r1 / "fresh.md").write_text("# Fresh\n", encoding="utf-8")
-        summaries = pdir / "branches" / "shared" / "reviews" / "summaries"
+        summaries = pdir / "branches" / "main" / "reviews" / "summaries"
         summaries.mkdir(parents=True, exist_ok=True)
         (summaries / "round-1.md").write_text("Round: 1\nDecision: Weak Accept\n", encoding="utf-8")
 
         spawner = FakeSpawner(scripts=[full_round_script(decision="Accept", round_num=2)])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "completed", result
         assert result["round"] == 2, "complete round-1 should not trigger resume"
@@ -664,11 +664,11 @@ class TestRoundAllocation:
         round-2 — round-number completeness == consolidated.md AND summary.
         """
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         # round-1 has consolidated.md + reviewers + delta, but NO summary.
-        r1 = pdir / "branches" / "shared" / "reviews" / "round-1"
+        r1 = pdir / "branches" / "main" / "reviews" / "round-1"
         (r1 / "aspect-notes").mkdir(parents=True)
         for i in range(1, 4):
             (r1 / f"reviewer-{i}.md").write_text(
@@ -683,11 +683,11 @@ class TestRoundAllocation:
         spawner = FakeSpawner(scripts=[full_round_script(decision="Reject")])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "completed", result
         assert result["round"] == 1, "must resume round-1, not allocate round-2"
-        assert not (pdir / "branches" / "shared" / "reviews" / "round-2").exists()
+        assert not (pdir / "branches" / "main" / "reviews" / "round-2").exists()
 
 
 class TestDecisionExtractionInPipeline:
@@ -695,7 +695,7 @@ class TestDecisionExtractionInPipeline:
 
     def test_ac_decision_wins_over_reviewer_decisions(self, project_tree, install_spawner) -> None:
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
 
@@ -727,7 +727,7 @@ class TestDecisionExtractionInPipeline:
         spawner = FakeSpawner(scripts=[_script])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "completed"
         assert result["decision"] == "Borderline", (
@@ -746,13 +746,13 @@ class TestPathSafety:
 
     def test_accepts_submission_path_inside_project(self, project_tree, install_spawner) -> None:
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=[full_round_script()])
         install_spawner(spawner)
         result = review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         assert result["status"] == "completed", result
 
@@ -763,7 +763,7 @@ class TestPathSafety:
         result = review_run(
             ReviewRunArgs(
                 port=port,
-                submission_path="../shared/handoffs/submissions/never-existed",
+                submission_path="../main/handoffs/submissions/never-existed",
             )
         )
         assert result["status"] == "error"
@@ -774,13 +774,13 @@ class TestPromptShape:
     def test_round_prompt_sets_concurrency_contract(self, project_tree, install_spawner) -> None:
         """The single round prompt must pin the band + the no-background rule."""
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=[full_round_script()])
         install_spawner(spawner)
         review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         _, prompt = spawner.calls[0]
         low = prompt.lower()
@@ -794,13 +794,13 @@ class TestPromptShape:
 
     def test_round_prompt_names_outputs(self, project_tree, install_spawner) -> None:
         port, pdir = project_tree
-        sub = pdir / "branches" / "shared" / "handoffs" / "submissions" / "round-1"
+        sub = pdir / "branches" / "main" / "handoffs" / "submissions" / "round-1"
         _write_manuscript(sub)
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=[full_round_script()])
         install_spawner(spawner)
         review_run(
-            ReviewRunArgs(port=port, submission_path="../shared/handoffs/submissions/round-1")
+            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
         )
         _, prompt = spawner.calls[0]
         assert "consolidated.md" in prompt

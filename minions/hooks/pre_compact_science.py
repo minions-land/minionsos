@@ -10,7 +10,7 @@ passthroughs ``custom_instructions`` so Claude Code uses its default
 summarization. The Draft / Book / Shelf prompt only makes sense when
 the post-compact agent is the same Role main process re-entering its
 forever-loop, and the resume contract (mos_draft_summary →
-mos_await_events / mos_noter_wait) only makes sense in that exact
+mos_await_events) only makes sense in that exact
 context. See ``_is_role_main()`` below for the gate.
 
 Reads the hook input from stdin (JSON with ``trigger`` and ``custom_instructions``)
@@ -45,7 +45,7 @@ Per-role resume tool. The Resume_protocol block at the end of the
 emitted instructions tells the post-compact role exactly what its
 first tool call must be. EACN-registered roles drive their loop with
 ``mos_await_events``; Noter is the exception — it has no EACN agent
-identity and uses the timer-based ``mos_noter_wait`` instead. The hook
+identity. The hook
 reads ``MINIONS_ROLE_NAME`` from the env and emits the matching tool;
 without this branching every Noter compact would tell Noter to call
 a tool not in its whitelist and the role would park indefinitely
@@ -68,12 +68,10 @@ import sys
 def _resume_tool() -> str:
     """Return the tool name the post-compact role must call first.
 
-    Noter is on a timer backbone (``mos_noter_wait``); every other Role
-    drives its event loop with ``mos_await_events``. The role identity is
-    set by ``role_launcher.py`` via the ``MINIONS_ROLE_NAME`` env var.
+    Every role drives its event loop with ``mos_await_events`` (the timer-based
+    noter loop was retired when Noter merged into Ethics).
     """
-    role = (os.environ.get("MINIONS_ROLE_NAME") or "").strip().lower()
-    return "mos_noter_wait" if role == "noter" else "mos_await_events"
+    return "mos_await_events"
 
 
 # Roles where the science-compact prompt is the wrong shape:
@@ -88,7 +86,7 @@ def _resume_tool() -> str:
 # their parent role's env, so this distinguishes a Role main process
 # (where the science compact is correct) from a subagent or a delegated
 # child (where it would be misleading).
-_SCIENCE_COMPACT_ROLES = {"noter", "coder", "writer", "ethics", "expert"}
+_SCIENCE_COMPACT_ROLES = {"ethics", "expert"}
 
 
 def _is_role_main() -> bool:

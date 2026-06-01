@@ -106,16 +106,20 @@ def test_validate_dst_rejects_unknown_role() -> None:
 
 
 def test_validate_dst_enforces_role_subdir_policy() -> None:
-    # Writer may publish only into handoffs/.
+    # Expert may publish into exp/handoffs/governance, but NOT ethics/.
     with pytest.raises(ProjectError, match="may not publish"):
-        _validate_dst("writer", "ethics/x.md")
-    # Ethics may not publish into exploration/ (Noter-only).
+        _validate_dst("expert", "ethics/x.md")
+    # Expert may not publish into draft/ (Ethics-curated memory surface).
     with pytest.raises(ProjectError, match="may not publish"):
-        _validate_dst("ethics", "draft/draft.json")
+        _validate_dst("expert", "draft/draft.json")
+    # Ethics is the merged curator — it CAN publish to draft/ and book/.
+    _validate_dst("ethics", "draft/draft.json")
+    _validate_dst("ethics", "book/sources/x.md")
     # Gru can publish anywhere.
     _validate_dst("gru", "ethics/foo.md")
     _validate_dst("gru", "exp/exp-1/report.md")
-    # Expert-<slug> normalises to expert.
+    # Expert-<slug> normalises to expert; exp/ is in its policy.
+    _validate_dst("expert-dl-arch", "exp/exp-1/report.md")
     _validate_dst("expert-dl-arch", "handoffs/scratch.md")
 
 
@@ -124,38 +128,38 @@ def test_validate_dst_enforces_role_subdir_policy() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_publish_writer_handoff_creates_commit(
+def test_publish_expert_handoff_creates_commit(
     shared_project: dict[str, object], tmp_path: Path
 ) -> None:
-    src = tmp_path / "writer-handoff.md"
+    src = tmp_path / "expert-handoff.md"
     src.write_text("# Handoff\nresult.\n", encoding="utf-8")
 
     result = mos_publish_to_shared(
-        role="writer",
+        role="expert",
         src_path=str(src),
-        dst_subpath="handoffs/2026-05-17-writer.md",
-        commit_message="handoff: writer dispatched draft to coder",
+        dst_subpath="handoffs/2026-05-17-expert.md",
+        commit_message="handoff: expert dispatched draft to ethics",
     )
     assert result["pushed"] is False
     assert result["push_branch"] is None
-    assert result["dst_path"] == "handoffs/2026-05-17-writer.md"
+    assert result["dst_path"] == "handoffs/2026-05-17-expert.md"
     assert result["branch"] == shared_project["shared_branch"]
     assert isinstance(result["commit_sha"], str) and len(result["commit_sha"]) == 40
 
     log = _git_log(shared_project["shared_workspace"])  # type: ignore[arg-type]
-    assert any("handoff: writer" in line for line in log)
-    landed = shared_project["shared_workspace"] / "handoffs" / "2026-05-17-writer.md"  # type: ignore[operator]
+    assert any("handoff: expert" in line for line in log)
+    landed = shared_project["shared_workspace"] / "handoffs" / "2026-05-17-expert.md"  # type: ignore[operator]
     assert landed.read_text(encoding="utf-8") == "# Handoff\nresult.\n"
 
 
-def test_publish_rejects_writer_into_ethics(
+def test_publish_rejects_expert_into_ethics(
     shared_project: dict[str, object], tmp_path: Path
 ) -> None:
     src = tmp_path / "src.md"
     src.write_text("nope", encoding="utf-8")
     with pytest.raises(ProjectError, match="may not publish"):
         mos_publish_to_shared(
-            role="writer",
+            role="expert",
             src_path=str(src),
             dst_subpath="ethics/sneak.md",
             commit_message="x",
@@ -214,18 +218,18 @@ def test_publish_does_not_absorb_unrelated_dirty_paths(
     draft_path.write_text('{"nodes": [{"id": "H-001"}]}', encoding="utf-8")
     assert draft_path.exists()
 
-    # Writer publishes a totally unrelated handoff.
+    # Expert publishes a totally unrelated handoff.
     src = tmp_path / "draft.md"
     src.write_text("# draft", encoding="utf-8")
     res = mos_publish_to_shared(
-        role="writer",
+        role="expert",
         src_path=str(src),
         dst_subpath="handoffs/draft.md",
-        commit_message="handoff: writer draft",
+        commit_message="handoff: expert draft",
     )
     assert res["commit_sha"] is not None
 
-    # The Draft file must STILL be dirty (untracked or unstaged) — writer's
+    # The Draft file must STILL be dirty (untracked or unstaged) — expert's
     # publish must not have absorbed it.
     status = subprocess.run(
         ["git", "status", "--porcelain", "--", "draft/draft.json"],
@@ -235,7 +239,7 @@ def test_publish_does_not_absorb_unrelated_dirty_paths(
         check=True,
     )
     assert status.stdout.strip(), (
-        "Draft buffer should remain dirty after writer's unrelated publish, "
+        "Draft buffer should remain dirty after expert's unrelated publish, "
         f"but git reports clean: {status.stdout!r}"
     )
 
@@ -251,10 +255,10 @@ def test_publish_in_place_draft_flush_works(
     draft_path.write_text(json.dumps({"nodes": [{"id": "H-001"}]}), encoding="utf-8")
 
     result = mos_publish_to_shared(
-        role="noter",
+        role="ethics",
         src_path=str(draft_path),
         dst_subpath="draft/draft.json",
-        commit_message="noter: draft flush",
+        commit_message="ethics: draft flush",
     )
     assert result["commit_sha"] is not None
     assert draft_path.exists()
@@ -312,18 +316,33 @@ def test_create_shared_worktree_idempotent(shared_project: dict[str, object]) ->
     assert branch1 == branch2 == shared_project["shared_branch"]
 
 
-def test_create_shared_worktree_seeds_subdirs(shared_project: dict[str, object]) -> None:
+def test_create_worktree_seeds_subdirs(shared_project: dict[str, object]) -> None:
+    # v23 rebuild: the standalone -shared worktree is gone. ``_create_worktree``
+    # (the main worktree) now seeds the Book layout + shared-surface subdirs
+    # directly on ``branches/main/``. The fixture already ran it.
     workspace = shared_project["shared_workspace"]
     seeded = sorted(p.name for p in workspace.iterdir() if p.is_dir())  # type: ignore[union-attr]
-    # Memory V2 (2026-05) removed the shared per-project shelf path.
-    # L3 Shelf is Gru cross-project (V3-pending).
     expected = sorted(
-        ["draft", "notes", "ethics", "exp", "reviews", "handoffs", "governance", "book"]
+        [
+            "draft",
+            "notes",
+            "ethics",
+            "exp",
+            "reviews",
+            "submissions",
+            "handoffs",
+            "governance",
+            "book",
+            "logic",
+            "src",
+            "evidence",
+            "proposal",
+        ]
     )
     assert seeded == expected
-    # Seed commit should exist on the shared branch.
+    # Seed commit should exist on the main branch.
     log = _git_log(workspace)  # type: ignore[arg-type]
-    assert any("shared: seed cross-role layout" in line for line in log)
+    assert any("main: seed Book layout + shared surface" in line for line in log)
 
 
 class TestSharedLockTimeout:

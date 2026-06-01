@@ -98,20 +98,6 @@ class TestDoctorAgentHost:
         names = {c["name"] for c in checks}
         assert "agent-host" in names
 
-    def test_codex_host_reports_codex_cli_and_mcp_config(self) -> None:
-        checks = _doctor_checks({"MINIONS_AGENT_HOST": "codex"})
-        names = {c["name"] for c in checks}
-        assert "codex-cli" in names
-        assert "codex-automation" in names
-        assert "codex-mcp-config-mounts-core" in names
-        assert "codex-mcp-eacn3-direct" in names
-        host = next(c for c in checks if c["name"] == "agent-host")
-        assert host["detail"] == "codex"
-        direct = next(c for c in checks if c["name"] == "codex-mcp-eacn3-direct")
-        assert direct["ok"] is True
-        automation = next(c for c in checks if c["name"] == "codex-automation")
-        assert automation["ok"] is True
-
 
 class TestDoctorDebugFlag:
     def test_debug_flag_check_present(self) -> None:

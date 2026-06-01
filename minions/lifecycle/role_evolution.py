@@ -334,10 +334,10 @@ def collect_failure_events(
         text = _read_text_safe(p)
         if not _has_experiment_failure_signal(text):
             continue
-        # Coder owns experiments
+        # Expert (the unified worker) owns experiments
         events.append(
             FailureEvent(
-                role_name="coder",
+                role_name="expert",
                 when=_mtime(p),
                 source="experiment",
                 text=text[:2000],

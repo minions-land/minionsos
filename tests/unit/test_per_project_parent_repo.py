@@ -83,8 +83,12 @@ def test_seed_creates_bare_repo_with_main_branch(seeded_project: dict[str, objec
 def test_seed_imports_author_head_contents(seeded_project: dict[str, object]) -> None:
     port = int(seeded_project["port"])  # type: ignore[arg-type]
     main = project_main_workspace(port)
-    assert (main / "README.md").read_text(encoding="utf-8") == "hello\n"
+    # ``main.py`` is the clean witness that author HEAD was imported into the
+    # main worktree. ``README.md`` is now overwritten by ``_create_worktree``'s
+    # Book/shared-surface seed step (the content that used to live on the
+    # standalone ``-shared`` branch is committed on main in the v23 rebuild).
     assert (main / "main.py").read_text(encoding="utf-8") == "print('hi')\n"
+    assert "Project main branch" in (main / "README.md").read_text(encoding="utf-8")
 
 
 def test_seed_records_author_sha_in_commit_message(
@@ -181,7 +185,9 @@ def test_remove_all_worktrees_cleans_branches_dir(
     bare = project_parent_repo_dir(port)
     branches = _git(["branch", "--list"], bare)
     assert f"minionsos/project-{port}" in branches
-    assert f"minionsos/project-{port}-shared" in branches
+    # The standalone ``-shared`` branch was eliminated in the v23 rebuild —
+    # the shared surface lives on the main branch now.
+    assert f"minionsos/project-{port}-shared" not in branches
 
 
 def test_remove_all_worktrees_is_safe_when_already_clean(

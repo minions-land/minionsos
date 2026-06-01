@@ -148,33 +148,6 @@ def test_hook_handles_malformed_payload(mock_project_setup):
     assert result.stdout == ""
 
 
-def test_hook_handles_mcp_list_tool_response(mock_project_setup):
-    """MCP tools (e.g., mcp__codex-subagent__codex) deliver tool_response as a
-    list of content blocks, not a dict. The hook must not crash on this shape.
-
-    Regression test for: AttributeError: 'list' object has no attribute 'get'.
-    """
-    hook_payload = {
-        "tool_name": "mcp__codex-subagent__codex",
-        "tool_input": {"prompt": "hi"},
-        "tool_response": [{"type": "text", "text": "hello"}],
-    }
-
-    hook_script = Path(__file__).parent.parent.parent / "minions" / "hooks" / "reel_capture.py"
-
-    result = subprocess.run(
-        [sys.executable, str(hook_script)],
-        input=json.dumps(hook_payload),
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, f"Hook crashed: {result.stderr}"
-    assert "Traceback" not in result.stderr
-    assert "AttributeError" not in result.stderr
-    assert result.stdout == ""
-
-
 def test_hook_handles_missing_env(mock_project_setup):
     """Test that the hook silently skips when not in a role context."""
     hook_payload = {

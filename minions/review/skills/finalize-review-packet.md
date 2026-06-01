@@ -32,8 +32,8 @@ You do not publish on EACN. You have no EACN tools. The orchestrator process is 
 
 ## Procedure
 
-1. Verify `branches/shared/reviews/round-<n>/consolidated.md` contains: notification, AC / Editor meta-review, exact `## Decision <label>` on its own line (one of the seven), required revisions or camera-ready instructions, revision-delta highlights when applicable, every generated `reviewer-<i>.md` inlined in full.
-2. Verify the rolling summary `branches/shared/reviews/summaries/round-<n>.md` exists and contains unresolved issues, newly raised issues, resolved-since-last-round items, long-standing unanswered questions, and the final decision — without raw quotations or notification prose.
+1. Verify `branches/main/reviews/round-<n>/consolidated.md` contains: notification, AC / Editor meta-review, exact `## Decision <label>` on its own line (one of the seven), the Epistemic Rigor Assessment (D1–D6) section (per-dimension means + prominent over-claim flags, kept separate from the Decision), required revisions or camera-ready instructions, revision-delta highlights when applicable, every generated `reviewer-<i>.md` inlined in full.
+2. Verify the rolling summary `branches/main/reviews/summaries/round-<n>.md` exists and contains the D1–D6 means, open over-claim / scope flags, unresolved issues, newly raised issues, resolved-since-last-round items, long-standing unanswered questions, and the final decision — without raw quotations or notification prose.
 3. End your last assistant turn with the absolute path to `consolidated.md` and the final decision label on its own line. `mos_review_run` parses both.
 
 ## Pitfalls
@@ -42,3 +42,4 @@ You do not publish on EACN. You have no EACN tools. The orchestrator process is 
 - Splitting the meta-review and reviewer reports across multiple files instead of one consolidated.md.
 - Attempting to call EACN tools to publish the result. You have no EACN agent identity; Gru relays after you exit.
 - Forgetting to print the path / decision at the end of the run — `mos_review_run` falls back to parsing `consolidated.md`, but the explicit final line aids logging.
+- Letting the rigor assessment bleed into the `## Decision` block, or omitting it entirely. It must be present and must stay a separate, informational section.

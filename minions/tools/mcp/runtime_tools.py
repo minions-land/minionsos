@@ -2,7 +2,7 @@
 
 Covers everything not in a clean domain bucket:
 - mos_start_monitor (Gru heartbeat thread)
-- mos_await_events / mos_noter_wait (Role main-loop blocking)
+- mos_await_events (Role main-loop blocking)
 - mos_get_events / mos_unread_summary (Gru pull-mode events)
 - mos_attach_role / mos_kill_role (tmux helpers)
 - mos_reset_context / mos_compact_context (LLM context management)
@@ -19,7 +19,6 @@ from pydantic import BaseModel, Field
 from minions.tools import await_events as _await_events
 from minions.tools import compact as _compact
 from minions.tools import issues as _issues
-from minions.tools import noter_wait as _noter_wait
 from minions.tools import reset as _reset
 from minions.tools.mcp import mcp
 from minions.tools.mcp._common import _require_tool_allowed, running_sidecar_monitor
@@ -86,25 +85,6 @@ def mos_await_events() -> dict:
     """
     _require_tool_allowed("mos_await_events")
     return _await_events.await_events()
-
-
-# ── mos_noter_wait ──────────────────────────────────────────────────────
-
-
-@mcp.tool()
-def mos_noter_wait() -> dict:
-    """Block for the noter periodic interval, then return a wake event.
-
-    Timer-based wait for the Noter role (which is not on EACN3). Sleeps for
-    ``noter_periodic_interval`` (default 3 min), writing heartbeat files
-    during sleep. Includes the same cache-keepalive guard as mos_await_events.
-
-    Returns {count: 1, events: [{type, delta, suggested_action}]}.
-
-    Identity read from env: MINIONS_PROJECT_PORT, MINIONS_WORKSPACE.
-    """
-    _require_tool_allowed("mos_noter_wait")
-    return _noter_wait.noter_wait()
 
 
 # ── mos_issue_report ───────────────────────────────────────────────────

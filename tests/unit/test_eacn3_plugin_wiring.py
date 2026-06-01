@@ -29,26 +29,6 @@ class TestMcpConfigMountsEacn3:
         assert any("mcp-servers/eacn3/plugin/dist/server.js" in a for a in args), args
 
 
-class TestCodexMcpConfigMountsEacn3:
-    def test_codex_config_has_both_servers(self) -> None:
-        import tomllib
-
-        cfg = tomllib.loads((ROOT / ".codex" / "config.toml").read_text(encoding="utf-8"))
-        servers = cfg.get("mcp_servers", {})
-        assert "minionsos" in servers, "minionsos MCP server missing from Codex config"
-        assert "eacn3" in servers, "eacn3 MCP server missing from Codex config"
-
-    def test_codex_eacn3_entry_runs_plugin_direct(self) -> None:
-        """Codex MCP points at the EACN3 plugin directly — no MinionsOS proxy."""
-        import tomllib
-
-        cfg = tomllib.loads((ROOT / ".codex" / "config.toml").read_text(encoding="utf-8"))
-        eacn3 = cfg["mcp_servers"]["eacn3"]
-        assert eacn3["command"] == "node"
-        args = eacn3["args"]
-        assert any("mcp-servers/eacn3/plugin/dist/server.js" in a for a in args), args
-
-
 class TestInstallShMandatoryPluginBuild:
     def test_install_fails_without_node(self) -> None:
         text = (ROOT / "install.sh").read_text(encoding="utf-8")
@@ -64,7 +44,5 @@ class TestDoctorEacn3Checks:
             "eacn3-plugin-built",
             "node>=16",
             "mcp-config-mounts-core",
-            "codex-mcp-config-mounts-core",
-            "codex-mcp-eacn3-direct",
         ):
             assert name in text, f"doctor lost check: {name}"

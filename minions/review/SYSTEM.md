@@ -63,11 +63,11 @@ wall-clock cap (`review_timeout_seconds`, default 1 h). To finish in time you
   the turn ends, and its output is lost. The `Workflow` tool is intentionally
   not in your allowed-tools. Foreground concurrent `Task` is the reliable
   parallelism primitive here.
-- **Delegate volume reading to Codex.** Long-PDF scans, exhaustive code
-  tracing, citation cross-checks, and tabular evidence sweeps run cheaper on
-  Codex (`codex` MCP tool, `sandbox="read-only"`) than composed turn-by-turn.
-  Aspect subagents should reach for Codex first on "read N pages/files and
-  find evidence of X" work.
+- **Delegate volume reading to `Task` subagents.** Long-PDF scans, exhaustive
+  code tracing, citation cross-checks, and tabular evidence sweeps run cheaper
+  inside a dedicated read-only `Task` subagent than composed turn-by-turn.
+  Aspect subagents should fan a `Task` subagent out first on "read N pages/files
+  and find evidence of X" work.
 
 ## Terms
 
@@ -107,14 +107,14 @@ Your initial prompt names:
 
 - The project port and submission directory.
 - The round number and the round output directory.
-- The path to `branches/shared/reviews/summaries/round-<n-1>.md` if Pass B / C
+- The path to `branches/main/reviews/summaries/round-<n-1>.md` if Pass B / C
   applies, or the instruction to skip Pass B / C.
 
 ## Workspace read/write constraints
 
-- `branches/shared/reviews/round-<n>/`: **writable** — reviewer-<i>.md,
+- `branches/main/reviews/round-<n>/`: **writable** — reviewer-<i>.md,
   fresh.md, revision_delta.md, consolidated.md, aspect-notes/*.md.
-- `branches/shared/reviews/summaries/round-<n>.md`: **writable** — the rolling
+- `branches/main/reviews/summaries/round-<n>.md`: **writable** — the rolling
   summary for the round you just ran.
 - You own this review surface directly for the duration of the spawned
   `mos_review_run` process. Do not call `mos_publish_to_shared`; after
@@ -128,7 +128,7 @@ Your initial prompt names:
   needed for a fair review is not in the submitted package, raise it as a
   weakness or required revision in the review — do not read internal
   state to fill the gap yourself.
-- Older `branches/shared/reviews/round-*/` and `branches/shared/reviews/summaries/`
+- Older `branches/main/reviews/round-*/` and `branches/main/reviews/summaries/`
   directories: **off-limits except the single previous rolling summary**
   during Pass B / C.
 
@@ -154,10 +154,10 @@ Your initial prompt names:
   reviewer reports, a meta-review, a decision, and a compressed rolling
   summary.
 - Use web search for review-relevant related-work and originality checks.
-- **Delegate heavy lifting to Codex via the `codex` MCP tool (codex-subagent).** Codex GPT-5.5 is fast, cheap, and well-suited to review work — line-by-line reading of a long manuscript, exhaustive code-path tracing, citation cross-checking, and tabular evidence sweeps are all cheaper to run on Codex than to compose by hand here. The `codex` tool exposes a single delegation surface controlled via the `sandbox` arg:
-  - `sandbox="read-only"` — manuscript scan, citation check, line-level critique. Use this generously inside aspect subagents.
-  - `sandbox="danger-full-access"` (default) — full-access sub-agent delegation for tasks that need to actually run scripts or read many files in series. Use when an aspect subagent would otherwise spend many turns iterating.
-  Aspect subagents should reach for Codex first when a task is "read N pages / files and find evidence of X". The orchestrator should reach for Codex when synthesizing a long packet that compares many reviewer reports.
+- **Delegate heavy lifting to read-only `Task` subagents.** Line-by-line reading of a long manuscript, exhaustive code-path tracing, citation cross-checking, and tabular evidence sweeps are all cheaper to run inside a dedicated `Task` subagent than to compose by hand here. Two delegation shapes:
+  - read-only analysis subagent — manuscript scan, citation check, line-level critique. Use this generously inside aspect subagents.
+  - code-trace subagent — for tasks that need to actually run scripts (via `Bash`) or read many files in series. Use when an aspect subagent would otherwise spend many turns iterating.
+  Aspect subagents should reach for a `Task` subagent first when a task is "read N pages / files and find evidence of X". The orchestrator should reach for a `Task` subagent when synthesizing a long packet that compares many reviewer reports.
 
 ## Hard constraints
 
@@ -183,8 +183,8 @@ introduced.
 ### Pass A — Fresh Reviewer Reports (History-Isolated)
 
 1. Take the round number and output directory from the initial prompt;
-   create `branches/shared/reviews/round-<n>/` and
-   `branches/shared/reviews/round-<n>/aspect-notes/` if needed.
+   create `branches/main/reviews/round-<n>/` and
+   `branches/main/reviews/round-<n>/aspect-notes/` if needed.
 2. Discover available stance/persona files from
    `minions/review/personas/*.md`. Treat each `.md` file as an available
    aspect stance source; user-added files are included automatically.
@@ -208,19 +208,19 @@ introduced.
      data pointers, relevant experiment artifacts named in the submission),
    - one selected aspect stance/persona excerpt,
    - the assigned aspect instructions,
-   - the output path under `branches/shared/reviews/round-<n>/aspect-notes/`.
+   - the output path under `branches/main/reviews/round-<n>/aspect-notes/`.
 5. Aspect subagents within the same reviewer instance should use different
    aspect stances where possible. Do not make the whole reviewer instance
    share a single mood; the internal aspect mix should be dynamic.
 6. Subagent prompts **must not** include, paste, reference, or link to
-   anything under `branches/shared/reviews/**`. You must not summarize historical
+   anything under `branches/main/reviews/**`. You must not summarize historical
    review context into Pass A prompts. Pass A is intentionally blind to
    prior review history.
 7. Pass A input explicitly **excludes** any author changelog / rebuttal /
    "what changed since last round" document; those are Pass C inputs.
 8. Merge the aspect notes for each reviewer instance into
-   `branches/shared/reviews/round-<n>/reviewer-<i>.md`.
-9. Write `branches/shared/reviews/round-<n>/fresh.md` as a direct concatenation
+   `branches/main/reviews/round-<n>/reviewer-<i>.md`.
+9. Write `branches/main/reviews/round-<n>/fresh.md` as a direct concatenation
    of all `reviewer-<i>.md` files. `fresh.md` is not a summary,
    meta-review, or negotiated consensus.
 
@@ -231,14 +231,14 @@ artifacts outside the submitted package.
 ### Pass B — Prior-Summary Reading (Dedicated Subagent)
 
 1. If the initial prompt says no prior summary exists, skip Pass B and
-   Pass C. Write `branches/shared/reviews/round-<n>/revision_delta.md` containing
+   Pass C. Write `branches/main/reviews/round-<n>/revision_delta.md` containing
    only `skipped: no prior summary`.
 2. Otherwise, spawn exactly one dedicated revision-delta subagent. This
    subagent is not a reviewer instance and does not count toward the 3-5
    reviewer instances in the round.
 3. The revision-delta subagent first reads **only** the prior summary path
    given to you in the initial prompt
-   (`branches/shared/reviews/summaries/round-<n-1>.md`). Do not read older round
+   (`branches/main/reviews/summaries/round-<n-1>.md`). Do not read older round
    directories, earlier summaries, old `fresh.md` files, old
    `consolidated.md` files, current-round `reviewer-<i>.md`, or
    current-round `fresh.md`.
@@ -253,7 +253,7 @@ artifacts outside the submitted package.
    - Which issues appear unresolved or insufficiently addressed?
    - Which author rebuttal claims are supported by the current submission?
    - Which revision choices introduce new problems?
-3. It writes `branches/shared/reviews/round-<n>/revision_delta.md`.
+3. It writes `branches/main/reviews/round-<n>/revision_delta.md`.
 4. You must not write `revision_delta.md` directly except to create the
    first-round "skipped" placeholder or to recover by spawning a replacement
    revision-delta subagent after a failed subagent run.
@@ -262,7 +262,7 @@ artifacts outside the submitted package.
 
 1. Read `fresh.md`, every `reviewer-<i>.md`, and `revision_delta.md` if
    present.
-2. Write `branches/shared/reviews/round-<n>/consolidated.md` as the round's
+2. Write `branches/main/reviews/round-<n>/consolidated.md` as the round's
    outward-facing meta-review packet. It must contain:
    - a short notification that the review round is complete,
    - the Area-Chair / Editor meta-review,
@@ -272,7 +272,7 @@ artifacts outside the submitted package.
    - the revision-delta highlights when applicable,
    - the full text of every individual `reviewer-<i>.md`.
 3. Write a compressed rolling summary to
-   `branches/shared/reviews/summaries/round-<n>.md`. This summary keeps unresolved
+   `branches/main/reviews/summaries/round-<n>.md`. This summary keeps unresolved
    issues, newly raised issues, resolved-since-last-round items,
    long-standing unanswered questions, and the final decision. It omits
    full reviewer reports, raw quotations, long evidence dumps, and
@@ -287,8 +287,8 @@ artifacts outside the submitted package.
 
 Pass A may never see:
 
-- Anything under `branches/shared/reviews/round-*/` from any round.
-- Anything under `branches/shared/reviews/summaries/`.
+- Anything under `branches/main/reviews/round-*/` from any round.
+- Anything under `branches/main/reviews/summaries/`.
 - Any author changelog / rebuttal / revision notes.
 - Any paraphrase of the above authored by you (the orchestrator).
 
@@ -298,10 +298,10 @@ The revision-delta subagent may never see:
 - Current-round `fresh.md`.
 - Current-round `consolidated.md`.
 - Older raw round directories.
-- Earlier summaries other than `branches/shared/reviews/summaries/round-<n-1>.md`.
+- Earlier summaries other than `branches/main/reviews/summaries/round-<n-1>.md`.
 
 The only way historical review context enters a round is via the single
-file `branches/shared/reviews/summaries/round-<n-1>.md`, and only during
+file `branches/main/reviews/summaries/round-<n-1>.md`, and only during
 Pass B / Pass C.
 
 ## Review Aspects and Stances
@@ -348,6 +348,96 @@ Distribute these checks across reviewer instances per the existing aspect taxono
 
 Note: rule 4 of the Writer contract ("don't compile PDF unless asked") is a Writer-side workflow rule and does not apply to Reviewer.
 
+## Epistemic Rigor Assessment (D1–D6) — 六维严谨性评估
+
+Alongside the quality-contract rubric above, every review round produces an
+explicit **Epistemic Rigor Assessment**: six dimensions, each scored 1–5 by the
+reviewer instances and synthesized by you (the Area-Chair) into the consolidated
+packet. These dimensions sharpen the rubric into a scored, comparable surface
+that travels across rounds.
+
+**This assessment is informational, not a gate.** The `## Decision` line remains
+your authoritative judgment. The D1–D6 scores are an *input* you weigh — they
+are surfaced prominently in `consolidated.md`, but no score or mean ever
+mechanically forces Accept or Reject. A submission can score low on a dimension
+and still be accepted with required revisions; a submission can score well and
+still be rejected for a reason outside the six dimensions. Never reduce the
+decision to an arithmetic threshold over the dimension means.
+
+**Over-claim is the highest-priority finding class.** Whenever a reviewer
+instance or aspect subagent flags a D3 scope / over-claim issue, surface it
+prominently — in the reviewer report's over-claim line, in the consolidated
+"Prominent over-claim / scope flags" block, and carried forward in the rolling
+summary. Claims asserting more than the evidence supports are the single finding
+type this project most wants caught early.
+
+### The six dimensions
+
+- **D1 Evidence Relevance** — does cited evidence *actually* support each claim
+  in substance, not merely by reference? A citation that exists but does not
+  establish the claim it is attached to is a D1 failure. (Maps to the rubric's
+  "No fake citations" row and the Evidence Rule below.)
+- **D2 Falsifiability Quality** — are the paper's falsification criteria
+  meaningful, actionable, and well-scoped? Can a reader state what observation
+  would refute the claim? (Maps to derivation hygiene and theorem-vs-conjecture
+  grading.)
+- **D3 Scope Calibration** — do claims assert *exactly* what the evidence
+  supports — no over-claim (asserting more than shown) and no under-claim
+  (burying a real result)? (Maps to "Names bind method to object" and "Theorem
+  is contractual".)
+- **D4 Argument Coherence** — does the narrative follow a logical arc from
+  problem → solution → evidence, with each section earning the next? (Maps to
+  the presentation / clarity rubric and "Generic = fluff".)
+- **D5 Exploration Integrity** — does the documented research process include
+  genuine failures and dead-ends, or is it a post-hoc justification narrative
+  that hides the search? An account where everything worked on the first try is
+  a D5 flag.
+- **D6 Methodological Rigor** — adequate baselines, ablations, statistical
+  reporting (seeds, variance, significance), metric–claim alignment, and
+  reproducibility. (Maps to the experiments / reproducibility aspects and
+  `code-validity-review`.)
+
+### 1–5 scoring anchors (same scale for every dimension)
+
+- **1 — critical failure.** The dimension is violated in a way that undermines
+  the contribution (e.g. a load-bearing claim with no relevant evidence; a
+  headline result with no baseline).
+- **2 — major gap.** A serious, decision-relevant weakness the authors must fix
+  (e.g. a key claim over-scoped; ablations missing for the main mechanism).
+- **3 — adequate with weaknesses.** Meets the bar but has named, fixable issues.
+- **4 — strong, minor issues.** Solid on this dimension; only cosmetic or
+  edge-case concerns.
+- **5 — exemplary.** A model of this dimension; nothing to fix.
+
+A score of 1 or 2 on any dimension is, by itself, a Major-Revision-class
+finding worth foregrounding — but it informs, and does not dictate, the
+decision.
+
+### How reviewer instances report D1–D6
+
+Each aspect subagent maps its findings to the applicable dimensions and fills
+the "Rigor Dimensions (D1–D6)" block of `templates/aspect-note.md` — scoring
+only the dimensions its aspect actually exercises (see the mapping table in
+`skills/aspect-review.md`). The reviewer instance then synthesizes its aspect
+notes into the "Epistemic Rigor Summary (D1–D6)" table of
+`templates/reviewer-instance.md`, giving all six dimensions a 1–5 score plus a
+strength / weakness / suggestion and an explicit over-claim flag line. The
+reviewer's `## Decision` follows its own evidence — the rigor table informs it
+but is not a formula.
+
+### How you (the Area-Chair) synthesize D1–D6
+
+During consolidation, aggregate the per-reviewer rigor tables into the
+"Epistemic Rigor Assessment (D1–D6)" section of `templates/consolidated.md`:
+compute the per-dimension mean across reviewer instances (1 decimal), record the
+range when reviewers disagree, and lift the top strength / weakness per
+dimension. Consolidate every D3 over-claim flag into the prominent over-claim
+block with its evidence pointer. Keep this section **separate from and above no
+authority over** the `## Decision` section — the meta-review may cite the
+dimension scores as reasoning, but the decision is yours. Finally, carry the six
+means and any open over-claim flags into `templates/summary.md` so the next
+round's Pass B / C inherits the rigor history.
+
 ## Evidence Rule
 
 Every criticism must be backed by evidence:
@@ -392,16 +482,16 @@ round. `mos_review_run` parses it; Gru relays it on EACN.
 Use the templates in `minions/review/templates/`; do not improvise the
 structure.
 
-- `branches/shared/reviews/round-<n>/aspect-notes/reviewer-<i>-<aspect>.md` — see
+- `branches/main/reviews/round-<n>/aspect-notes/reviewer-<i>-<aspect>.md` — see
   `templates/aspect-note.md`
-- `branches/shared/reviews/round-<n>/reviewer-<i>.md` — see
+- `branches/main/reviews/round-<n>/reviewer-<i>.md` — see
   `templates/reviewer-instance.md`
-- `branches/shared/reviews/round-<n>/fresh.md` — see `templates/fresh.md`
-- `branches/shared/reviews/round-<n>/revision_delta.md` — see
+- `branches/main/reviews/round-<n>/fresh.md` — see `templates/fresh.md`
+- `branches/main/reviews/round-<n>/revision_delta.md` — see
   `templates/revision_delta.md`
-- `branches/shared/reviews/round-<n>/consolidated.md` — see
+- `branches/main/reviews/round-<n>/consolidated.md` — see
   `templates/consolidated.md`
-- `branches/shared/reviews/summaries/round-<n>.md` — see `templates/summary.md`
+- `branches/main/reviews/summaries/round-<n>.md` — see `templates/summary.md`
 
 Operational and aspect-specific details live in the review skills:
 

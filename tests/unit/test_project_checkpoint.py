@@ -39,7 +39,7 @@ def _isolate_runtime_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 def _make_store(tmp_path: Path, push_target: str | None = None) -> StateStore:
     (tmp_path / "project_37596" / "workspace" / "main").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "project_37596" / "workspace" / "roles" / "coder").mkdir(
+    (tmp_path / "project_37596" / "workspace" / "roles" / "expert").mkdir(
         parents=True,
         exist_ok=True,
     )
@@ -55,13 +55,13 @@ def _make_store(tmp_path: Path, push_target: str | None = None) -> StateStore:
             github_push_branch_prefix="minionsos",
             active_roles=[
                 RoleEntry(
-                    name="coder",
+                    name="expert",
                     state="active",
                     workspace_path=str(
-                        tmp_path / "project_37596" / "workspace" / "roles" / "coder"
+                        tmp_path / "project_37596" / "workspace" / "roles" / "expert"
                     ),
-                    workspace_branch="minionsos/project-37596-coder",
-                    session_name="p37596/coder",
+                    workspace_branch="minionsos/project-37596-expert",
+                    session_name="p37596/expert",
                     github_push_target=push_target,
                 )
             ],
@@ -122,11 +122,11 @@ def test_role_checkpoint_pushes_to_namespaced_remote(
     def fake_run(cmd, cwd=None, capture_output=None, text=None):
         calls.append(list(cmd))
         if cmd == ["git", "status", "--porcelain"]:
-            return FakeRunResult(0, stdout=" M workspace/roles/coder/report.md\n")
+            return FakeRunResult(0, stdout=" M workspace/roles/expert/report.md\n")
         if cmd == ["git", "add", "-A"]:
             return FakeRunResult(0)
         if cmd[:2] == ["git", "commit"]:
-            return FakeRunResult(0, stdout="[coder def456] checkpoint\n")
+            return FakeRunResult(0, stdout="[expert def456] checkpoint\n")
         if cmd == ["git", "rev-parse", "HEAD"]:
             return FakeRunResult(0, stdout="def456\n")
         if cmd[:2] == ["git", "push"]:
@@ -137,25 +137,25 @@ def test_role_checkpoint_pushes_to_namespaced_remote(
 
     out = project_mod.project_checkpoint_workspace(
         37596,
-        role_name="coder",
-        message="checkpoint(coder): durable role checkpoint",
+        role_name="expert",
+        message="checkpoint(expert): durable role checkpoint",
         store=store,
     )
 
     assert out["commit_sha"] == "def456"
     assert out["pushed"] is True
-    assert out["push_branch"] == "minionsos/p37596/coder"
+    assert out["push_branch"] == "minionsos/p37596/expert"
     assert calls[-1] == [
         "git",
         "push",
         "git@github.com:Minions-Land/MinionsOS",
-        "HEAD:minionsos/p37596/coder",
+        "HEAD:minionsos/p37596/expert",
     ]
-    assert "mos_project_checkpoint_workspace" in resolve_whitelist("coder", "main")
+    assert "mos_project_checkpoint_workspace" in resolve_whitelist("expert", "main")
     ledger = json.loads(
         (tmp_path / "project_37596" / "state" / "session-ledger.json").read_text(encoding="utf-8")
     )
-    assert ledger["checkpoints"][0]["role_name"] == "coder"
+    assert ledger["checkpoints"][0]["role_name"] == "expert"
     assert ledger["checkpoints"][0]["pushed"] is True
 
 

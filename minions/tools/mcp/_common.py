@@ -34,16 +34,13 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_draft_path",
     "mos_draft_query",
     "mos_draft_summary",
-    "mos_shelf_query",
-    "mos_shelf_register",
-    "mos_shelf_shared_concepts",
+    "mos_draft_unmarked_audit",
     "mos_issue_report",
     "mos_download_arxiv",
     "mos_download_biorxiv",
     "mos_download_medrxiv",
     "mos_download_pubmed",
     "mos_await_events",
-    "mos_noter_wait",
     "mos_get_events",
     "mos_unread_summary",
     "mos_exp_get",
@@ -122,7 +119,7 @@ _MINIONS_MCP_TOOL_NAMES = {
     "mos_reel_window",
     "mos_submit",
     "mos_evaluate",
-    "mos_adjudicate",
+    "mos_promote_to_book",
 }
 
 

@@ -25,7 +25,6 @@ def test_list_profiles():
     profiles = list_profiles()
     assert isinstance(profiles, list)
     assert "scientific-paper" in profiles
-    assert "hle-answer" in profiles
 
 
 def test_get_default_profile():
@@ -40,9 +39,9 @@ def test_load_scientific_paper_profile():
     assert profile.name == "scientific-paper"
     assert profile.lightweight is False
     assert "gru" in profile.roles_active
-    assert "noter" in profile.roles_active
-    assert "coder" in profile.roles_active
+    assert "expert" in profile.roles_active
     assert "ethics" in profile.roles_active
+    assert "noter" not in profile.roles_active
     assert profile.phase_schema == "scientific_three_stage"
     assert profile.on_done == "none"
 
@@ -51,63 +50,19 @@ def test_load_scientific_paper_profile():
     whitelist = profile.deliverable_schema["publish_whitelist"]
     assert isinstance(whitelist, dict)
     assert "gru" in whitelist
-    assert "noter" in whitelist
     assert "ethics" in whitelist
-    assert "writer" in whitelist
-    assert "coder" in whitelist
     assert "expert" in whitelist
+    assert "noter" not in whitelist
 
     # Check evaluation
     assert "strategy" in profile.evaluation
     assert profile.evaluation["strategy"] == "scientific_peer_review"
 
 
-def test_load_hle_answer_profile():
-    """Load and validate hle-answer profile."""
-    profile = load_profile("hle-answer")
-    assert isinstance(profile, MissionProfile)
-    assert profile.name == "hle-answer"
-    assert profile.lightweight is True
-    assert "gru" in profile.roles_active
-    assert "expert" in profile.roles_active
-    assert "coder" in profile.roles_active
-    # Noter, Writer, Ethics should NOT be in lightweight profile
-    assert "noter" not in profile.roles_active
-    assert "writer" not in profile.roles_active
-    assert "ethics" not in profile.roles_active
-    assert profile.phase_schema == "minimal"
-    assert profile.on_done == "shutdown_project"
-
-    # Check role prompt overlay
-    assert "expert" in profile.role_prompt_overlay
-    assert "hle-answer/expert-overlay.md" in profile.role_prompt_overlay["expert"]
-
-    # Check deliverable schema
-    assert "required" in profile.deliverable_schema
-    required = profile.deliverable_schema["required"]
-    assert "branches/shared/submissions/answer.json" in required
-
-    # Check evaluation
-    assert "strategy" in profile.evaluation
-    assert profile.evaluation["strategy"] == "answer_grader"
-    assert "reference_path" in profile.evaluation
-    assert profile.evaluation["reference_path"] == "input/expected.json"
-
-
 def test_load_nonexistent_profile():
     """Loading a nonexistent profile should raise ConfigError."""
     with pytest.raises(ConfigError, match="not found"):
         load_profile("nonexistent-profile-xyz")
-
-
-def test_profile_overlay_file_exists():
-    """HLE expert overlay file should exist."""
-    overlay_path = PROFILES_DIR / "hle-answer" / "expert-overlay.md"
-    assert overlay_path.exists()
-    assert overlay_path.is_file()
-    content = overlay_path.read_text(encoding="utf-8")
-    assert "hle-answer" in content.lower()
-    assert "mos_submit" in content
 
 
 def test_gru_server_authz_includes_evaluator_tools():
@@ -132,7 +87,7 @@ def test_other_roles_cannot_call_evaluator_tools():
     """
     from minions.config import resolve_server_authz
 
-    for role in ["coder", "writer", "ethics", "expert", "noter"]:
+    for role in ["ethics", "expert", "noter"]:
         try:
             auth = resolve_server_authz(role, "main")
         except Exception:

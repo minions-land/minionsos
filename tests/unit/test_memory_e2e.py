@@ -1,8 +1,7 @@
 """End-to-end integration test simulating a complete project lifecycle.
 
 Exercises: identity layer → Draft creation → Decay computation →
-Book promotion → Session crystallization → Contradiction detection →
-Shelf registration → Cross-project queries.
+Book promotion → Session crystallization → Contradiction detection.
 
 This is the "simulate a project test" that proves all memory mechanisms
 work together coherently in the new naming.
@@ -17,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from minions import identity
-from minions.tools import book, draft, shelf
+from minions.tools import book, draft
 
 
 @pytest.fixture
@@ -25,13 +24,13 @@ def project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Set up a complete simulated project environment with identity."""
     port = 9999
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
-    monkeypatch.setenv("MINIONS_ROLE_NAME", "noter")
+    monkeypatch.setenv("MINIONS_ROLE_NAME", "ethics")
     monkeypatch.setenv("MINIONS_IDENTITY_DIR", str(tmp_path / "identity"))
 
     project_root = tmp_path / f"project_{port}"
     branches = project_root / "branches"
     shared = branches / "shared"
-    workspace = branches / "noter"
+    workspace = branches / "ethics"
     state = project_root / "state"
     events = project_root / "events"
     for path in (shared, workspace, state, events):
@@ -221,7 +220,7 @@ def test_full_memory_pipeline_e2e(project_env, tmp_path: Path, monkeypatch):
 
     # Verify the promoted page contains verbatim content with UID-ready citations
     book_root = book._book_root(port)
-    promoted_pages = list((book_root / "sources").glob("noter-promoted-*.md"))
+    promoted_pages = list((book_root / "sources").glob("ethics-promoted-*.md"))
     assert len(promoted_pages) >= 1
     body = promoted_pages[0].read_text(encoding="utf-8")
     assert "Linear attention" in body
@@ -242,53 +241,6 @@ def test_full_memory_pipeline_e2e(project_env, tmp_path: Path, monkeypatch):
     assert "R-001" in crystallize_result["cited_node_ids"]
     # Expert nodes should NOT appear (different role)
     assert "I-001" not in crystallize_result["cited_node_ids"]
-
-    # Step 9: Shelf registration aggregates project graph for Gru
-    # First create a project shelf/shelf.json (V3-pending Book-derived export)
-    project_graph_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "shelf"
-    project_graph_dir.mkdir(parents=True, exist_ok=True)
-    (project_graph_dir / "shelf.json").write_text(
-        json.dumps(
-            {
-                "nodes": [
-                    {"id": "n1", "label": "linear attention"},
-                    {"id": "n2", "label": "memory complexity"},
-                ],
-                "links": [{"source": "n1", "target": "n2"}],
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    # Override Shelf storage to tmp
-    shelf_path = tmp_path / "shelf-global.json"
-    monkeypatch.setattr(shelf, "_shelf_path", lambda: shelf_path)
-
-    # Override project graph path to use our temp project location
-    def _project_graph_path(p):
-        return tmp_path / f"project_{p}" / "branches" / "shared" / "shelf" / "shelf.json"
-
-    monkeypatch.setattr(shelf, "_project_graph_path", _project_graph_path)
-
-    reg_result = shelf.mos_shelf_register(port)
-    assert reg_result["registered"] is True
-    assert reg_result["nodes_added"] == 2
-
-    # Step 10: Gru queries the Shelf for cross-project concepts
-    query_result = shelf.mos_shelf_query("linear attention")
-    assert query_result["total"] >= 1
-    assert query_result["projects_searched"] == 1
-    matches = query_result["matches"]
-    assert any("linear attention" in m["label"] for m in matches)
-
-    # Step 11: 2-hop expansion catches structural neighbours
-    # "memory" alone wouldn't match "linear attention" by tokens, but the 1-hop
-    # link gives it visibility
-    hop_result = shelf.mos_shelf_query("memory")
-    if hop_result["total"] >= 2:
-        # memory complexity is a direct match, linear attention is 1-hop
-        direct_count = sum(1 for m in hop_result["matches"] if m["via"] == "direct")
-        assert direct_count >= 1
 
 
 def test_book_dead_end_promotion(project_env):
@@ -348,39 +300,6 @@ def test_identity_uid_format_consistency(project_env):
     foreign = "mos://aaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbb/chapter/foreign-thing"
     assert not identity.uid_is_local(foreign)
     assert identity.uid_owner(foreign) == "aaaaaaaaaaaaaaaa"
-
-
-def test_shelf_aggregates_multiple_projects(project_env, tmp_path: Path, monkeypatch):
-    """Multiple projects' graphs should aggregate into a single Shelf."""
-    _, _ = project_env
-
-    shelf_path = tmp_path / "shelf-global.json"
-    monkeypatch.setattr(shelf, "_shelf_path", lambda: shelf_path)
-
-    def _project_graph_path(p):
-        d = tmp_path / f"project_{p}" / "branches" / "shared" / "shelf"
-        d.mkdir(parents=True, exist_ok=True)
-        return d / "shelf.json"
-
-    monkeypatch.setattr(shelf, "_project_graph_path", _project_graph_path)
-
-    # Project 1: attention research
-    _project_graph_path(40001).write_text(
-        json.dumps({"nodes": [{"id": "n1", "label": "attention mechanism"}], "links": []}),
-        encoding="utf-8",
-    )
-    # Project 2: optimization research
-    _project_graph_path(40002).write_text(
-        json.dumps({"nodes": [{"id": "n1", "label": "Adam optimizer"}], "links": []}),
-        encoding="utf-8",
-    )
-
-    shelf.mos_shelf_register(40001)
-    shelf.mos_shelf_register(40002)
-
-    result = shelf.mos_shelf_query("attention")
-    assert result["projects_searched"] == 2
-    assert any(m["project_port"] == 40001 for m in result["matches"])
 
 
 def test_decay_reinforces_with_supports(project_env):

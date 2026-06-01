@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: capture subagent/codex calls into Reel V2 index (L0).
+"""PostToolUse hook: capture subagent calls into Reel V2 index (L0).
 
-Trigger: tool_name in {Agent, Task, mcp__codex-subagent__codex}.
-No output_file requirement — we index native Claude/Codex session files.
+Trigger: tool_name in {Agent, Task}.
+No output_file requirement — we index native Claude session files.
 
 Design:
 - Zero role burden: roles never call reel tools; capture is automatic.
@@ -14,10 +14,9 @@ Index file: branches/<role>/reel-index.jsonl (flat, one line per event).
 Index entry shape:
   {"ref": "<role>/<sessionId>/<tool_use_id>",
    "ts": "<iso>",
-   "kind": "subagent|codex",
+   "kind": "subagent",
    "tool_name": "...",
    "claude_jsonl": "/abs/path/to/<sid>.jsonl",
-   "codex_children": ["/abs/path/.../rollout-*.jsonl"],
    "draft_node_refs": []}
 
 Exits 0 always (advisory). Emits JSON to stderr when triggered.
@@ -33,15 +32,12 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-CAPTURE_TOOLS = {"Agent", "Task", "mcp__codex-subagent__codex"}
+CAPTURE_TOOLS = {"Agent", "Task"}
 
 TOOL_TO_KIND = {
     "Agent": "subagent",
     "Task": "subagent",
-    "mcp__codex-subagent__codex": "codex",
 }
-
-CODEX_MATCH_WINDOW_S = 30
 
 
 def _encode_cwd(cwd: str) -> str:
@@ -63,34 +59,6 @@ def _find_claude_jsonl(session_id: str, cwd: str) -> str:
         return str(candidate)
 
     return ""
-
-
-def _find_codex_children(cwd: str, ts: datetime) -> list[str]:
-    """Find Codex session jsonl files matching cwd and timestamp window."""
-    sessions_root = Path.home() / ".codex" / "sessions"
-    date_dir = sessions_root / ts.strftime("%Y") / ts.strftime("%m") / ts.strftime("%d")
-    if not date_dir.exists():
-        return []
-
-    results: list[str] = []
-    try:
-        for p in sorted(date_dir.glob("rollout-*.jsonl")):
-            # Extract timestamp from filename: rollout-<ts_ms>-<sid>.jsonl
-            stem = p.stem  # rollout-<ts_ms>-<sid>
-            parts = stem.split("-", 2)
-            if len(parts) < 2:
-                continue
-            try:
-                file_ts_ms = int(parts[1])
-                file_ts = datetime.fromtimestamp(file_ts_ms / 1000, tz=UTC)
-                delta = abs((file_ts - ts).total_seconds())
-                if delta <= CODEX_MATCH_WINDOW_S:
-                    results.append(str(p))
-            except (ValueError, OSError):
-                continue
-    except OSError:
-        pass
-    return results
 
 
 def _append_reel_index(index_path: Path, entry: dict) -> None:
@@ -135,11 +103,8 @@ def main() -> None:
     now = datetime.now(UTC)
     kind = TOOL_TO_KIND[tool_name]
 
-    # Locate native session files
+    # Locate native session file
     claude_jsonl = _find_claude_jsonl(session_id, cwd) if session_id else ""
-    codex_children: list[str] = []
-    if kind == "codex":
-        codex_children = _find_codex_children(cwd, now)
 
     # Build index entry
     ref = f"{role}/{session_id or 'unknown'}/{tool_use_id}"
@@ -149,7 +114,6 @@ def main() -> None:
         "kind": kind,
         "tool_name": tool_name,
         "claude_jsonl": claude_jsonl,
-        "codex_children": codex_children,
         "draft_node_refs": [],
     }
 

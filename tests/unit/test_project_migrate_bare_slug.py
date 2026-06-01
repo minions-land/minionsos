@@ -57,7 +57,7 @@ def test_dry_run_returns_plan_without_mutating_meta(
     seed = [
         {"name": "foo-bar"},  # bare slug -> should be removed
         {"name": "expert-data"},  # legit expert
-        {"name": "coder"},  # fixed role
+        {"name": "ethics"},  # fixed role
     ]
     meta_path = _seed_meta(monkeypatch, tmp_path, seed)
 
@@ -81,7 +81,7 @@ def test_non_dry_run_removes_bare_slug_records(
     seed = [
         {"name": "foo-bar"},
         {"name": "expert-data"},
-        {"name": "coder"},
+        {"name": "ethics"},
         {"name": "random-thing"},
     ]
     meta_path = _seed_meta(monkeypatch, tmp_path, seed)
@@ -96,7 +96,7 @@ def test_non_dry_run_removes_bare_slug_records(
 
     on_disk = json.loads(meta_path.read_text(encoding="utf-8"))
     kept_names = [r["name"] for r in on_disk["active_roles"]]
-    assert kept_names == ["expert-data", "coder"]
+    assert kept_names == ["expert-data", "ethics"]
 
 
 def test_fixed_and_expert_roles_survive_untouched(

@@ -47,7 +47,7 @@ Frontmatter is optional but recommended for every new skill. Unknown keys are si
 | `status` | `active` / `deprecated` / `merged` | `active` is visible. `deprecated` and `merged` are hidden from `list_skills()` but remain on disk during a transition window. |
 | `supersedes` | comma list of slugs | Skills this one replaces; set when merging or evolving. |
 | `references` | comma list of slugs | Skills this one links to inside its body. Lets future maintainers detect dangling references before deletion. |
-| `provenance` | `human` / `ai-suggested` / `user-revised` | Who wrote or last revised this skill, borrowed from ARA's provenance tag convention. |
+| `provenance` | `human` / `ai-suggested` / `user-revised` | Who wrote or last revised this skill; a provenance tag for lineage tracking. |
 
 Example minimal frontmatter:
 
@@ -131,6 +131,6 @@ The `[Skills]` block injected per wake-up is roughly `slug + ": " + summary + "\
 Skill management here draws on three 2026 papers:
 
 - **SSL** (Peking University, April 2026) — the four-section structural / scheduling / logical split.
-- **ARA** (MIT / Michigan / Stanford, April 2026) — `provenance` and `supersedes` conventions for lineage.
+- **Provenance-lineage conventions** (MIT / Michigan / Stanford, April 2026) — the `provenance` and `supersedes` tags for skill lineage.
 - **SkillOS** (UIUC / Google, May 2026) — the lifecycle view: ADD / QUERY / MODIFY / DELETE / EVOLVE as first-class library verbs.
 

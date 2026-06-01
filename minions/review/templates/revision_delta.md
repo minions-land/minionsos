@@ -2,7 +2,7 @@
 
 Passes: B / C
 Dedicated subagent: revision-delta
-Previous summary consulted: branches/shared/reviews/summaries/round-<n-1>.md (or: skipped, no prior summary)
+Previous summary consulted: branches/main/reviews/summaries/round-<n-1>.md (or: skipped, no prior summary)
 Current-round reviewer reports consulted: none
 Current-round fresh.md consulted: no
 Author changelog / rebuttal consulted: <path or none>

@@ -1,0 +1,139 @@
+% [VERIFY] experiments trace to: experiments.md E01-E06; Tables 2,3,4,5,6,7,8 + derived; Figs 1,4,6,7; C01-C08
+\section{Experiments}
+\label{sec:exp}
+
+We evaluate residual learning on ImageNet 2012 classification (1.28M training images, 50k
+validation, 100k test, 1000 classes), on CIFAR-10 ($50$k training / $10$k test $32\times32$
+images, 10 classes), and on PASCAL VOC and COCO object detection. Unless stated otherwise,
+ImageNet results use 10-crop testing and all plain and residual variants share the single
+training recipe of \cref{sec:method:impl} so that every comparison is controlled.
+
+\subsection{Plain versus residual networks on ImageNet}
+\label{sec:exp:imagenet}
+We first compare 18- and 34-layer plain networks against their residual counterparts under
+identical training, where the residual nets add only parameter-free \optA{} identity
+shortcuts and therefore have no extra parameters (verifying the diagnosis and the
+elimination of the \degprob). \Cref{tab:plainvsres} reports the controlled comparison. The
+deeper \plainnet is \emph{worse}: plain-34 reaches 28.54\% top-1 error against 27.94\% for
+plain-18. The training curves in the underlying analysis show that plain-34 sits above
+plain-18 throughout optimization, not merely at convergence, so the gap is a degradation of
+the optimization rather than overfitting; we further note that the deep \plainnet still
+reaches competitive accuracy, indicating the solver makes progress only slowly. Adding
+identity shortcuts reverses the ordering: \resnet-34 attains 25.03\% top-1, which is 3.51
+points better than plain-34 and 2.85 points better than \resnet-18 (27.88\%). At 18 layers
+the plain and residual nets reach comparable final accuracy (27.94 vs.\ 27.88), but the
+residual variant converges faster from the start, indicating that residual learning eases
+optimization even where the plain net can ultimately converge. Together these results
+support both the existence of the \degprob and its removal by residual learning.
+
+\input{tables/table2_plain_vs_resnet}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.6\linewidth]{fig_imagenet_plain_vs_resnet.pdf}
+\caption{ImageNet top-1 validation error (\%, 10-crop) for plain versus residual networks
+at 18 and 34 layers (\optA{} identity shortcuts, no extra parameters). The deeper
+\plainnet degrades ($27.94\rightarrow28.54$) while the deeper residual net improves
+(\textbf{$27.88\rightarrow25.03$}), reversing the ordering. Bars are the exact Table~2
+values. $N=1$ trained model per bar.}
+\label{fig:plainvsres}
+\end{figure}
+
+\subsection{Identity versus projection shortcuts}
+\label{sec:exp:shortcut}
+We next ask whether the parameter-bearing projection shortcuts of \cref{eq:projblock} are
+necessary, ablating the three shortcut options on \resnet-34 under the same recipe.
+\Cref{tab:shortcut} isolates the relevant rows. All three options improve over plain-34 by
+a wide margin (3.51 to 4.35 top-1 points), confirming that the gain comes from residual
+learning rather than from a particular shortcut form. The differences among the options are
+small: \optA{} (identity, parameter-free) reaches 25.03\%, \optB{} (projection only where
+dimensions change) reaches 24.52\%, and \optC{} (projection on every shortcut) reaches
+24.19\%. The slight B-over-A margin is attributable to the zero-padded extra channels in A
+carrying no residual learning, and the slight C-over-B margin to the parameters added by the
+13 extra projection shortcuts. Because \optC{} is only marginally better yet costs extra
+parameters and memory, it is not essential for addressing the \degprob; we therefore default
+to identity shortcuts and reserve projections for dimension-matching, which is especially
+important for the bottleneck designs where a projection on the high-dimensional ends would
+roughly double a block's complexity.
+% EXP-MORE
+
+\subsection{Going deeper with bottleneck networks}
+\label{sec:exp:depth}
+Using the bottleneck block of \cref{sec:method:arch} with \optB{} shortcuts, we scale depth
+to 50, 101, and 152 layers and evaluate whether accuracy continues to improve with depth
+(verifying the depth-scaling and bottleneck claims). \Cref{tab:imagenetfull} reports the
+full 10-crop validation table. Top-1 error decreases monotonically with depth---22.85\%
+(\resnet-50), 21.75\% (\resnet-101), 21.43\% (\resnet-152)---and every residual variant
+improves substantially over the 34-layer \plainnet (28.54\%) and over the cross-family
+baselines VGG-16 (28.07 / 9.33) and PReLU-net (24.27 / 7.38). The gains come from depth
+rather than added parameters relative to the plain design, and from \cref{tab:arch} the
+152-layer model has $11.3\times10^{9}$ FLOPs, still below VGG-19's $19.6\times10^{9}$
+despite being eight times deeper. \Cref{fig:resnetdepth} plots the monotone trend for both
+metrics. Under the stronger single-model multi-scale fully-convolutional protocol
+(\cref{tab:singlemodel}), \resnet-152 reaches 19.38 / 4.49 top-1/top-5, surpassing every
+prior single model including PReLU-net (21.59 / 5.71) and BN-inception (21.99 / 5.81).
+Finally, a six-model ensemble attains 3.57\% top-5 error on the ImageNet \emph{test} set
+(\cref{tab:ensemble}), improving on the best prior ensemble (BN-inception, 4.82\%) and
+winning the first place in ILSVRC 2015 classification.
+
+\input{tables/table3_imagenet_full}
+\input{tables/table4_singlemodel}
+\input{tables/table5_ensemble}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.62\linewidth]{fig_resnet_imagenet_depth.pdf}
+\caption{ImageNet validation error (\%, 10-crop) versus residual depth; \resnet-34 uses
+\optA{} and the deeper nets use \optB. Both top-1 and top-5 error fall monotonically as
+depth grows from 34 to 152 (\textbf{top-1 $25.03\rightarrow21.43$}). Markers are the exact
+Table~3 values; no curve is interpolated. $N=1$ trained model per depth.}
+\label{fig:resnetdepth}
+\end{figure}
+
+\subsection{Analysis on CIFAR-10}
+\label{sec:exp:cifar}
+To test whether residual learning generalizes beyond ImageNet and to probe extreme depth,
+we train the minimal $6n{+}2$-layer CIFAR family at depths 20, 32, 44, 56, 110, and 1202,
+with plain nets of matched depth as controls (verifying the extreme-depth generalization and
+warmup claims). \Cref{tab:cifar} and \cref{fig:cifar} report test error. Residual error
+falls steadily with depth, from 8.75\% at 20 layers to 6.43\% at 110 layers (best; mean
+$6.61\pm0.16$ over five runs), while the matched plain nets degrade---plain-110 exceeds 60\%
+error and is omitted from the comparison. The 110-layer residual net required a learning-rate
+warmup to begin converging cleanly: an initial rate of 0.1 was slightly too large at this
+depth, so we warmed up at 0.01 for roughly 400 iterations until training error fell below
+about 80\%, then restored 0.1; this is a stability aid for very deep CIFAR nets rather than a
+fundamental requirement of residual learning. The 1202-layer net trains with no optimization
+difficulty (final training error below 0.1\%), but its test error rises to 7.93\%, higher than
+the 110-layer net. Because optimization is not the bottleneck at 1202 layers, we attribute
+this to overfitting: a 19.4M-parameter model on a 50k-image dataset, trained here without
+strong regularization such as maxout or dropout.
+
+\input{tables/table6_cifar}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.62\linewidth]{fig_cifar10_depth.pdf}
+\caption{CIFAR-10 test error (\%) versus residual depth (log scale; \optA{} identity
+shortcuts). Error decreases monotonically through 110 layers
+(\textbf{$8.75\rightarrow6.43$}) and then rises at 1202 layers (highlighted), where the
+network still trains cleanly but overfits the small dataset. Markers are the exact Table~6
+values; the 110-layer point is the best of five runs.}
+\label{fig:cifar}
+\end{figure}
+
+\subsection{Object-detection transfer}
+\label{sec:exp:detection}
+Finally, we test whether deeper residual representations transfer to localization-sensitive
+tasks by replacing the VGG-16 backbone of a baseline Faster R-CNN detector with \resnet-101,
+holding the detection framework and hyperparameters fixed (verifying the transfer claim).
+\Cref{tab:detection} reports the swap. On PASCAL VOC the mAP@.5 rises from 73.2 to 76.4 on
+VOC07 and from 70.4 to 73.8 on VOC12. On COCO the mAP@.5 improves from 41.5 to 48.4, and the
+stricter mAP@[.5,.95]---which rewards tighter localization---improves from 21.2 to 27.2, a 6.0
+point absolute and 28\% relative gain. That the mAP@[.5,.95] gain is comparable to the
+mAP@.5 gain indicates the deeper features help both recognition and localization, and because
+only the backbone changed, the improvement is attributable to the learned representation.
+
+\input{tables/table_detection}
+
+\input{tables/table_shortcut}
+

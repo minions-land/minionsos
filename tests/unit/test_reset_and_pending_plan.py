@@ -26,7 +26,7 @@ def project_port(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> int:
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
     monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
     proj = tmp_path / f"project_{port}"
-    (proj / "branches" / "shared" / "draft").mkdir(parents=True)
+    (proj / "branches" / "main" / "draft").mkdir(parents=True)
     return port
 
 
@@ -38,7 +38,7 @@ def test_reset_writes_journal_entry(project_port: int, tmp_path: Path) -> None:
 
     assert result["status"] == "reset_acknowledged"
     journal = (
-        tmp_path / f"project_{project_port}" / "branches" / "shared" / "draft" / "journal.jsonl"
+        tmp_path / f"project_{project_port}" / "branches" / "main" / "draft" / "journal.jsonl"
     )
     assert journal.exists()
     rows = [json.loads(line) for line in journal.read_text().splitlines() if line.strip()]
@@ -179,7 +179,7 @@ def test_pending_plan_flag_survives_dag_round_trip(project_port: int, tmp_path: 
             }
         ]
     )
-    dag_path = tmp_path / f"project_{project_port}" / "branches" / "shared" / "draft" / "draft.json"
+    dag_path = tmp_path / f"project_{project_port}" / "branches" / "main" / "draft" / "draft.json"
     raw = json.loads(dag_path.read_text())
     node = raw["nodes"][0]
     assert node["metadata"]["pending_plan"] is True

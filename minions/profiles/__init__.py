@@ -1,15 +1,15 @@
 """Mission Profile system for MinionsOS.
 
 A Mission Profile is a project-level manifest that declares:
-- What deliverable the project produces (paper, answer, patch, etc.)
+- What deliverable the project produces (a peer-reviewed paper)
 - Which roles are active at project creation
 - How the deliverable is evaluated
 - Per-role publish whitelist overrides
-- Phase schema (scientific three-stage vs minimal)
+- Phase schema (scientific three-stage)
 
-Profiles decouple MinionsOS from the "always a paper" assumption, enabling
-benchmark and榜单 scenarios (HLE, SWE-bench, etc.) without losing the
-full Autonomous Scientific Discovery capability.
+MinionsOS is an autonomous-scientific-discovery system: the shipped profile
+is ``scientific-paper``. The profile mechanism is retained as the project
+manifest layer; new profiles can be added under ``minions/profiles/``.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ class MissionProfile(BaseModel):
 
     name: str
     lightweight: bool = False
-    roles_active: list[str] = Field(default_factory=lambda: ["gru", "noter", "coder", "ethics"])
+    roles_active: list[str] = Field(default_factory=lambda: ["gru", "ethics", "expert"])
     role_prompt_overlay: dict[str, str] = Field(default_factory=dict)
     deliverable_schema: dict[str, object] = Field(default_factory=dict)
     evaluation: dict[str, object] = Field(default_factory=dict)

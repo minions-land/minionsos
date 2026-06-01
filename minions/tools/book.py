@@ -17,7 +17,7 @@ contradiction callouts. There are no LLM calls in the Book layer.
 
 Book pages live beside the raw L1 artefacts in the shared worktree so
 git history remains auditable. Writes are staged outside ``branches/shared``
-and published through ``mos_publish_to_shared(role="noter", ...)``.
+and published through ``mos_publish_to_shared(role="ethics", ...)``.
 """
 
 from __future__ import annotations
@@ -1123,7 +1123,7 @@ def _publish_file(
     return cast(
         "dict[str, object]",
         mos_publish_to_shared(
-            role="noter",
+            role="ethics",
             src_path=str(abs_src.resolve()),
             dst_subpath=f"book/{rel_dst.as_posix()}",
             commit_message=message,
@@ -1157,7 +1157,7 @@ def _publish_files(
     return cast(
         "dict[str, object]",
         mos_publish_files_to_shared(
-            role="noter",
+            role="ethics",
             files=payload,
             commit_message=message,
             port=port,
@@ -1668,7 +1668,7 @@ def _emit_contradiction_dag_edges(port: int, contradictions: list[dict[str, obje
                 "to_id": opposing_node_id,
                 "relation": "contradicts",
                 "strength": 0.5,
-                "author_role": "noter",
+                "author_role": "ethics",
             }
         )
 
@@ -1707,7 +1707,7 @@ def mos_book_ingest(
 
     Reads ``src_path`` under ``branches/shared/``, stages a source page,
     idempotently merges ``book/index.md``, appends ``book/log.md``, and
-    publishes the three files through ``mos_publish_to_shared`` as Noter.
+    publishes the three files through ``mos_publish_to_shared`` as Ethics.
 
     Reel-ref propagation (for drill-down audit):
     - ``reel_ref`` becomes the page default: embedded in frontmatter, and
@@ -2191,9 +2191,9 @@ def mos_book_promote_verified(
     book_root = _book_root(resolved_port)
     now = datetime.now(UTC)
 
-    # Dead-ends are first-class citizens (per ARA's "preserve rejected
-    # alternatives" principle) — they are negative knowledge that prevents
-    # other projects from re-running the same failed experiment.
+    # Dead-ends are first-class citizens — preserving rejected alternatives is
+    # negative knowledge that prevents other projects from re-running the same
+    # failed experiment.
     eligible_types = {"insight", "method", "result", "dead_end"}
     candidates: list[dict[str, Any]] = []
     for node in nodes:
@@ -2276,7 +2276,7 @@ def mos_book_promote_verified(
         body_lines.extend(["", "## Verbatim claim", "", node_text, *cite_lines, ""])
         body = "\n".join(body_lines)
 
-        promotion_temp_dir = project_shared_subdir(resolved_port, "noter") / ".promotions"
+        promotion_temp_dir = project_shared_subdir(resolved_port, "ethics") / ".promotions"
         promotion_temp_dir.mkdir(parents=True, exist_ok=True)
         slug_id = node_id.replace("-", "").lower()
         temp_path = promotion_temp_dir / f"promoted-{slug_id}.md"
@@ -2284,7 +2284,7 @@ def mos_book_promote_verified(
         try:
             ingest_result = mos_book_ingest(
                 src_path=str(temp_path),
-                source_role="noter",
+                source_role="ethics",
                 source_slug=f"promoted-{slug_id}",
                 title=f"Promoted {node_type}: {node_id}",
                 port=resolved_port,
@@ -2442,7 +2442,7 @@ def mos_book_crystallize_session(
     body, cited = _crystallize_session_window(
         resolved_port, role, int(window_minutes), int(max_chars)
     )
-    crystallization_dir = project_shared_subdir(resolved_port, "noter") / ".crystallizations"
+    crystallization_dir = project_shared_subdir(resolved_port, "ethics") / ".crystallizations"
     crystallization_dir.mkdir(parents=True, exist_ok=True)
     ts_slug = re.sub(r"[^A-Za-z0-9]", "", _now_iso())
     temp_path = crystallization_dir / f"session-{role}-{ts_slug}.md"
@@ -2450,7 +2450,7 @@ def mos_book_crystallize_session(
     try:
         ingest_result = mos_book_ingest(
             src_path=str(temp_path),
-            source_role="noter",
+            source_role="ethics",
             source_slug=f"session-{role}-{ts_slug.lower()}",
             title=f"Session crystallization: {role} ({window_minutes}m)",
             port=resolved_port,

@@ -6,7 +6,7 @@ exclude = [
     "__pycache__/",
     "examples/",
     "answer/",
-    "minions/roles/writer/skills/figure-aesthetic-exemplars/",
+    "minions/roles/common/skills/figure-aesthetic-exemplars/",
 ]
 
 [lint]

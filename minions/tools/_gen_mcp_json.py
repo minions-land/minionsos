@@ -1,7 +1,6 @@
 """Generate .mcp.json for Claude Code — conditional MCP server registration.
 
 minionsos, eacn3, and keepalive are system-level (always registered).
-codex-subagent is only registered if its dist/server.js exists.
 
 GitHub Issue #27: every MCP server's command/args path must resolve to an
 **absolute** path. Role processes are launched with ``cwd=branches/<role>/``
@@ -48,18 +47,6 @@ def main() -> None:
         "args": [str(root / "mcp-servers" / "eacn3" / "plugin" / "dist" / "server.js")],
         "env": {},
     }
-
-    codex_dist = root / "mcp-servers" / "codex-subagent" / "dist" / "server.js"
-    if codex_dist.is_file():
-        servers["codex-subagent"] = {
-            "type": "stdio",
-            "command": "node",
-            "args": [str(codex_dist)],
-            "env": {},
-        }
-        print("  codex-subagent: registered (dist/server.js found)")
-    else:
-        print("  codex-subagent: skipped (not built)")
 
     servers["keepalive"] = {
         "type": "stdio",

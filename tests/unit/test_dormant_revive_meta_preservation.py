@@ -225,14 +225,14 @@ def test_revive_adopts_running_backend_left_by_failed_kill(
     assert meta["eacn3_server_id"] == "srv-adopted"
 
 
-def test_revive_restores_noter_from_meta_and_repairs_timer(
+def test_revive_restores_ethics_from_meta_cold(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     port = 40113
     store, entry, pdir = _seed_project(tmp_path, port=port)
     store.update_project(port, status="dormant", dormant_at="x", active_roles=[])
     meta_role = RoleEntry(
-        name="noter",
+        name="ethics",
         state="dismissed",
         pid=123,
         time_trigger_interval=None,
@@ -271,7 +271,7 @@ def test_revive_restores_noter_from_meta_and_repairs_timer(
 
     def _register_role(port: int, role_name: str, *, server_id: str | None = None):
         registered.append((port, role_name, server_id or ""))
-        return "noter-token", []
+        return "ethics-token", []
 
     from minions.lifecycle import agent_registry
 
@@ -280,12 +280,13 @@ def test_revive_restores_noter_from_meta_and_repairs_timer(
     proj_mod.project_revive(port, store=store)
 
     role = store.get_project(port).active_roles[0]  # type: ignore[union-attr]
-    assert registered == [(port, "noter", "srv-role")]
-    assert role.name == "noter"
+    assert registered == [(port, "ethics", "srv-role")]
+    assert role.name == "ethics"
     assert role.state == "sleeping"
     assert role.pid is None
-    assert role.time_trigger_interval == "3m"
-    assert role.eacn_agent_token == "noter-token"
+    # Ethics is event-driven (mos_await_events), not a timer role.
+    assert role.time_trigger_interval is None
+    assert role.eacn_agent_token == "ethics-token"
 
 
 def test_repair_gru_agent_works_after_dormant_revive(
@@ -479,7 +480,7 @@ def test_revive_relaunches_roles_cold(tmp_path: Path, monkeypatch: pytest.Monkey
     rebuilding context from the Exploration DAG is strictly cheaper."""
     port = 40115
     store, entry, pdir = _seed_project(tmp_path, port=port)
-    role = RoleEntry(name="coder", state="dismissed", eacn_agent_id="coder")
+    role = RoleEntry(name="expert", state="dismissed", eacn_agent_id="expert")
     store.update_project(port, status="dormant", dormant_at="x", active_roles=[role])
     dormant = entry.model_copy(
         update={"status": "dormant", "dormant_at": "x", "active_roles": [role]}
@@ -529,6 +530,6 @@ def test_revive_relaunches_roles_cold(tmp_path: Path, monkeypatch: pytest.Monkey
 
     proj_mod.project_revive(port, store=store)
 
-    assert launched == [{"role": "coder", "port": port, "resume": False}]
+    assert launched == [{"role": "expert", "port": port, "resume": False}]
     role_after = store.get_project(port).active_roles[0]  # type: ignore[union-attr]
     assert role_after.state == "sleeping"

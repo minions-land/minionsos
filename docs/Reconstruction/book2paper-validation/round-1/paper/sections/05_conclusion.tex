@@ -1,0 +1,42 @@
+% [VERIFY] conclusion traces to: problem.md Insight; C02,C03,C06,C08; constraints.md (limitations); A1 open question; trace N04,N05,N10 (dead-ends); Fig 7 (interpretation only)
+\section{Conclusion}
+\label{sec:conclusion}
+We have shown that the difficulty of training very deep convolutional networks is largely a
+problem of optimization, not of representational capacity, and that reframing each block to
+learn a residual with respect to its input---recovered through a parameter-free identity
+shortcut---makes depth a usable resource rather than a liability. The reformulation removes
+the degradation that afflicts plain networks, lets accuracy grow with depth far beyond what
+was previously trainable, and does so without adding parameters, auxiliary losses, or a
+specialized optimizer. The same deep representations, learned for classification, transfer
+to object detection and improve localization-sensitive metrics, indicating that the depth of
+representations is of central importance across visual recognition tasks rather than a
+classification-specific artifact.
+
+\subsection*{Limitations}
+Several limitations bound these conclusions. First, the claim that residual learning eases
+\emph{optimization} is supported empirically---by the controlled depth comparisons and by the
+observation that residual layer responses are smaller in magnitude than plain ones---but is
+not formally proven; the argument rests on the hypothesis that stacked nonlinear layers can
+asymptotically approximate the desired residual functions, which remains an open question.
+Vanishing gradients and longer training were examined and set aside as explanations: with
+batch normalization the forward signals do not vanish, and training plain networks for three
+times as many iterations did not close the degradation gap, so neither accounts for the
+phenomenon, but ruling out these specific causes is not the same as a positive proof of the
+optimization-landscape claim. Second, gains at extreme depth are not unconditional: on the
+small CIFAR-10 dataset the 1202-layer network optimizes cleanly yet overfits relative to the
+110-layer one, and this work applies no strong regularization to counter it. Third, the
+architecture exploration is limited: a single-layer residual function offers no advantage and
+is excluded, only depth (not width) is scaled, and the solver studied is stochastic gradient
+descent with momentum, with no comparison to second-order methods. Finally, the headline
+results depend on testing protocols that should not be mixed---10-crop and multi-scale
+fully-convolutional testing report different absolute numbers, and the strongest aggregate
+result is a multi-model ensemble that a single model does not reproduce.
+
+\subsection*{Future Work}
+Two concrete directions follow. The extreme-depth overfitting on small data invites combining
+residual networks with explicit regularizers such as maxout or dropout, to test whether the
+1202-layer model's clean optimization can be converted into a test-error improvement rather
+than a regression. Separately, the residual-response analysis motivates studying stronger or
+explicit regularization on the residual functions themselves and characterizing how per-layer
+response magnitude scales with depth, toward a predictive rather than merely descriptive
+account of why residual reformulation eases optimization.

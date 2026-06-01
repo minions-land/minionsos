@@ -1,7 +1,7 @@
 """End-to-end simulation of the Noter+Ethics collaboration chain.
 
 This proves the architectural claims I made about how Noter and Ethics work
-together in the new Draft/Book/Shelf naming. It runs the COMPLETE chain:
+together in the new Draft/Book naming. It runs the COMPLETE chain:
 
   1. Coder publishes an artifact to shared/coder/
   2. Noter (wake cycle) ingests it as a Book chapter, detects a lexical
@@ -29,7 +29,7 @@ import pytest
 
 from minions import identity
 from minions.config import resolve_server_authz
-from minions.tools import book, draft, shelf
+from minions.tools import book, draft
 
 # ---------------------------------------------------------------------------
 # Fixture — full simulated project workspace
@@ -169,8 +169,8 @@ def _coder_publishes_artifact(project_root: Path, slug: str, body: str) -> Path:
 
 
 def _noter_ingests(port: int, artifact_path: Path, role: str, slug: str) -> dict:
-    """Noter step 5 of wake cycle: ingest a fresh shared/ artifact."""
-    os.environ["MINIONS_ROLE_NAME"] = "noter"
+    """Ethics (merged curator) step of wake cycle: ingest a fresh shared/ artifact."""
+    os.environ["MINIONS_ROLE_NAME"] = "ethics"
     return book.mos_book_ingest(
         src_path=str(artifact_path),
         source_role=role,
@@ -391,8 +391,8 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
     )
     assert has_contradicts
 
-    # ─── Phase 6: Noter next wake — recompute decay ────────────────────────
-    os.environ["MINIONS_ROLE_NAME"] = "noter"
+    # ─── Phase 6: Ethics next wake — recompute decay ───────────────────────
+    os.environ["MINIONS_ROLE_NAME"] = "ethics"
     decay_result = draft.mos_draft_decay_compute()
     decay_data = json.loads(Path(decay_result["path"]).read_text(encoding="utf-8"))
     nodes_decay = decay_data["nodes"]
@@ -436,16 +436,17 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
     # (noter's allowed shared subdirs are notes/draft/handoffs/book)
     # — this is enforced in publish.py's _ROLE_ALLOWED_SHARED_SUBDIRS
 
-    # ⭐ ASSERTION 8b: Ethics cannot promote/crystallize Books (Noter-only)
+    # ⭐ ASSERTION 8b: Ethics CAN promote/crystallize Books — it is now the
+    # merged memory curator + auditor (the old Noter curation surface folded in).
     ethics_authz = resolve_server_authz("ethics", "main")
     promote_for_ethics = any(fnmatchcase("mos_book_promote_verified", p) for p in ethics_authz)
-    assert not promote_for_ethics, (
-        "Ethics must not be able to promote Drafts to Books — that's Noter's job"
+    assert promote_for_ethics, (
+        "Ethics (merged curator) must be able to promote verified Drafts to Books"
     )
     crystallize_for_ethics = any(
         fnmatchcase("mos_book_crystallize_session", p) for p in ethics_authz
     )
-    assert not crystallize_for_ethics
+    assert crystallize_for_ethics
 
     # ⭐ ASSERTION 8c: Noter cannot read other roles' private Drafts ...
     # actually Noter reads ALL Drafts because it curates the shared one.
@@ -460,10 +461,11 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
     assert ethics_can_append, "Ethics must be able to append decision nodes"
 
 
-def test_noter_promotes_dead_end_for_other_projects_to_avoid(sim_project):
+def test_ethics_promotes_dead_end_for_other_projects_to_avoid(sim_project):
     """A failed experiment from this project becomes a Book chapter so
     other projects (and the federated Library) can avoid the same dead end.
 
+    Ethics is the merged memory curator now, so it owns this promotion.
     This is the ARA "preserve rejected alternatives" principle in action.
     """
     port, _ = sim_project
@@ -493,7 +495,7 @@ def test_noter_promotes_dead_end_for_other_projects_to_avoid(sim_project):
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(payload), encoding="utf-8")
 
-    os.environ["MINIONS_ROLE_NAME"] = "noter"
+    os.environ["MINIONS_ROLE_NAME"] = "ethics"
     result = book.mos_book_promote_verified(port=port)
 
     # ⭐ Dead-end was promoted (ARA principle realised)
@@ -503,69 +505,8 @@ def test_noter_promotes_dead_end_for_other_projects_to_avoid(sim_project):
 
     # The promoted page exists and contains the verbatim warning
     book_root = book._book_root(port)
-    pages = list((book_root / "sources").glob("noter-promoted-*.md"))
+    pages = list((book_root / "sources").glob("ethics-promoted-*.md"))
     assert len(pages) == 1
     body = pages[0].read_text(encoding="utf-8")
     assert "Naive sparsity below 0.3" in body
     assert "[DEAD-001]" in body
-
-
-def test_shelf_aggregates_books_across_projects(sim_project, tmp_path, monkeypatch):
-    """Verify that Shelf actually does what I said: aggregate per-project
-    knowledge graphs into a single Gru-readable index."""
-    _ = sim_project
-
-    shelf_path = tmp_path / "shelf-global.json"
-    monkeypatch.setattr(shelf, "_shelf_path", lambda: shelf_path)
-
-    def _project_graph_path(p):
-        d = tmp_path / f"project_{p}" / "branches" / "shared" / "shelf"
-        d.mkdir(parents=True, exist_ok=True)
-        return d / "shelf.json"
-
-    monkeypatch.setattr(shelf, "_project_graph_path", _project_graph_path)
-
-    # Project A: published a Book about linear attention
-    _project_graph_path(50001).write_text(
-        json.dumps(
-            {
-                "nodes": [
-                    {"id": "n1", "label": "linear attention low-rank decomposition"},
-                    {"id": "n2", "label": "memory complexity reduction"},
-                ],
-                "links": [{"source": "n1", "target": "n2"}],
-            }
-        ),
-        encoding="utf-8",
-    )
-    # Project B: also touched attention but in a different angle
-    _project_graph_path(50002).write_text(
-        json.dumps(
-            {
-                "nodes": [
-                    {"id": "n1", "label": "sparse attention pattern routing"},
-                ],
-                "links": [],
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    shelf.mos_shelf_register(50001)
-    shelf.mos_shelf_register(50002)
-
-    # Gru queries the Shelf for "attention" → finds both projects' work
-    result = shelf.mos_shelf_query("attention")
-    assert result["projects_searched"] == 2
-    matching_ports = {m["project_port"] for m in result["matches"]}
-    assert 50001 in matching_ports
-    assert 50002 in matching_ports
-
-    # Cross-project shared concepts: Gru can ask "what's similar between A and B"
-    shared_result = shelf.mos_shelf_shared_concepts(50001, 50002, min_score=0.5)
-    assert shared_result["count"] >= 1
-    # "attention" is shared
-    assert any(
-        "attention" in s["label_a"].lower() and "attention" in s["label_b"].lower()
-        for s in shared_result["shared"]
-    )

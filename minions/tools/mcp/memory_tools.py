@@ -1,4 +1,4 @@
-"""Memory layer tools: Draft, Book, Shelf."""
+"""Memory layer tools: Draft and Book."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 
 from minions.tools import book as _book
 from minions.tools import draft as _draft
-from minions.tools import shelf as _shelf
 from minions.tools.draft import DraftNodeType, DraftSupportStatus
 from minions.tools.mcp import mcp
 from minions.tools.mcp._common import _require_tool_allowed
@@ -54,6 +53,15 @@ class DraftCommitSharedArgs(BaseModel):
     message: str | None = Field(
         default=None,
         description=("Optional git commit message; defaults to 'noter: draft flush <iso-ts>'."),
+    )
+
+
+class DraftUnmarkedAuditArgs(BaseModel):
+    threshold: float = Field(
+        default=0.2,
+        ge=0.0,
+        le=1.0,
+        description="Flag roles whose unmarked-claim ratio exceeds this (default 0.2).",
     )
 
 
@@ -105,6 +113,19 @@ def mos_draft_summary() -> dict:
     """Return a high-level Draft summary: node counts, active hypotheses, blocked paths."""
     _require_tool_allowed("mos_draft_summary")
     return _draft.mos_draft_summary()
+
+
+@mcp.tool()
+def mos_draft_unmarked_audit(args: DraftUnmarkedAuditArgs) -> dict:
+    """Per-role unmarked-claim ratio over Draft nodes; advisory threshold flag.
+
+    Descriptive Ethics signal — measures evidence-tag coverage on claim-bearing
+    Draft nodes (result/decision/hypothesis/insight) per authoring role and
+    flags roles above ``threshold`` (default 0.2). Does not mutate the Draft and
+    does not auto-trigger any action. Whitelisted to Ethics + Gru.
+    """
+    _require_tool_allowed("mos_draft_unmarked_audit")
+    return _draft.mos_draft_unmarked_audit(threshold=args.threshold)
 
 
 @mcp.tool()
@@ -421,36 +442,4 @@ async def mos_book_dead_end(
         refutation_evidence=refutation_evidence,
         slug=slug,
         port=port,
-    )
-
-
-# ── Gru-only global Shelf tools ─────────────────────────────────────────
-
-
-@mcp.tool()
-async def mos_shelf_register(port: int) -> dict:
-    """Register a project shelf graph; see minions.tools.shelf."""
-    _require_tool_allowed("mos_shelf_register")
-    return _shelf.mos_shelf_register(port=port)
-
-
-@mcp.tool()
-async def mos_shelf_query(text: str, max_results: int = 10) -> dict:
-    """Query the Gru-only global Shelf; see minions.tools.shelf."""
-    _require_tool_allowed("mos_shelf_query")
-    return _shelf.mos_shelf_query(text=text, max_results=max_results)
-
-
-@mcp.tool()
-async def mos_shelf_shared_concepts(
-    port_a: int,
-    port_b: int,
-    min_score: float = 0.5,
-) -> dict:
-    """Find shared concepts across two projects; see minions.tools.shelf."""
-    _require_tool_allowed("mos_shelf_shared_concepts")
-    return _shelf.mos_shelf_shared_concepts(
-        port_a=port_a,
-        port_b=port_b,
-        min_score=min_score,
     )

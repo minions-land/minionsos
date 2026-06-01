@@ -42,8 +42,8 @@ def test_roles_for_revive_filters_bare_slug_experts(
         "active_roles": [
             {"name": "expert-foo", "state": "sleeping"},
             {"name": "moe-arch", "state": "sleeping"},  # bare-slug expert (broken)
-            {"name": "noter", "state": "sleeping"},
-            {"name": "coder", "state": "dismissed"},  # dormant marker — must be kept
+            {"name": "expert-bar", "state": "sleeping"},
+            {"name": "ethics", "state": "dismissed"},  # dormant marker — must be kept
         ],
     }
     entry = _make_entry(active_roles=[])  # force meta fallback
@@ -53,8 +53,8 @@ def test_roles_for_revive_filters_bare_slug_experts(
 
     names = [r.name for r in roles]
     assert "expert-foo" in names
-    assert "noter" in names
-    assert "coder" in names  # dismissed-state preserved through revive
+    assert "expert-bar" in names
+    assert "ethics" in names  # dismissed-state preserved through revive
     assert "moe-arch" not in names
     assert len(roles) == 3
 
@@ -68,13 +68,13 @@ def test_role_entries_from_meta_directly_filters_same_records() -> None:
         "active_roles": [
             {"name": "expert-foo", "state": "sleeping"},
             {"name": "moe-arch", "state": "sleeping"},
-            {"name": "noter", "state": "sleeping"},
-            {"name": "coder", "state": "dismissed"},
+            {"name": "expert-bar", "state": "sleeping"},
+            {"name": "ethics", "state": "dismissed"},
         ],
     }
     roles = _role_entries_from_meta(raw_meta)
     # Only the malformed bare-slug record is dropped; "dismissed" is kept.
-    assert {r.name for r in roles} == {"expert-foo", "noter", "coder"}
+    assert {r.name for r in roles} == {"expert-foo", "expert-bar", "ethics"}
 
 
 def test_roles_for_revive_filters_active_roles_path_too(
@@ -84,8 +84,8 @@ def test_roles_for_revive_filters_active_roles_path_too(
     entry = _make_entry(
         active_roles=[
             RoleEntry(name="expert-bar", state="sleeping"),
-            RoleEntry(name="writer", state="dismissed"),
-            RoleEntry(name="coder", state="active"),
+            RoleEntry(name="ethics", state="dismissed"),
+            RoleEntry(name="expert-baz", state="active"),
             RoleEntry(name="moe-arch", state="sleeping"),  # bare-slug — drop
         ]
     )
@@ -95,7 +95,7 @@ def test_roles_for_revive_filters_active_roles_path_too(
         roles = _roles_for_revive(entry, raw_meta)
 
     names = [r.name for r in roles]
-    assert names == ["expert-bar", "writer", "coder"]
+    assert names == ["expert-bar", "ethics", "expert-baz"]
 
 
 def test_roles_for_revive_falls_back_to_meta_when_active_empty(
@@ -106,10 +106,10 @@ def test_roles_for_revive_falls_back_to_meta_when_active_empty(
         active_roles=[RoleEntry(name="moe-arch", state="sleeping")],  # all-malformed
     )
     raw_meta = {
-        "active_roles": [{"name": "noter", "state": "sleeping"}],
+        "active_roles": [{"name": "ethics", "state": "sleeping"}],
     }
 
     with caplog.at_level(logging.WARNING, logger="minions.lifecycle.project"):
         roles = _roles_for_revive(entry, raw_meta)
 
-    assert [r.name for r in roles] == ["noter"]
+    assert [r.name for r in roles] == ["ethics"]

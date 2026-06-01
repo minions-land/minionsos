@@ -1,0 +1,66 @@
+% [VERIFY] related work traces to: related_work.md RW01-RW12 + briefer citations; typed edges preserved
+\section{Related Work}
+\label{sec:related}
+
+\noindent\textbf{Residual representations.}
+The idea of representing a signal by its residual with respect to a reference has a long
+history in vision and numerical computation. In image retrieval and classification,
+encoding residual vectors---for example, by quantizing residuals relative to a
+dictionary---has proven more effective than encoding original vectors, as in product
+quantization and related Fisher/VLAD encodings~\citep{jegou2011pq}. In low-level vision
+and graphics, multigrid and hierarchical-basis preconditioning solve partial
+differential equations far faster by reformulating the system in terms of residual
+variables at multiple scales~\citep{briggs2000multigrid,szeliski2006preconditioning}.
+These methods establish a recurring principle---that a good reformulation or
+preconditioning can simplify optimization---but operate on hand-designed
+representations. We carry the principle into deep learning by making every few stacked
+layers fit a residual function, so that the reformulation is learned rather than
+engineered.
+
+\noindent\textbf{Shortcut connections and gating.}
+Skip and shortcut connections predate deep residual learning, appearing in early
+multilayer-perceptron design and in the auxiliary-classifier branches used to combat
+vanishing gradients~\citep{lee2014dsn}. The closest prior method is the highway
+network~\citep{srivastava2015highway,srivastava2015trainingverydeep}, whose shortcuts
+are governed by data-dependent gates with their own parameters. Gating couples the
+shortcut to extra parameters and, more importantly, can ``close'': when a gate
+approaches zero the layer reverts to a non-residual transformation, and highway networks
+have not shown accuracy gains beyond roughly one hundred layers. We adopt the general
+notion of a skip connection but reject the gating mechanism, using instead a
+parameter-free identity shortcut that is never closed and never adds parameters, which
+is what allows depth to be increased without bound on the optimization side.
+
+\noindent\textbf{Deep architectures and training of plain networks.}
+A second line of work scales plain feed-forward depth directly. VGG nets establish the
+design philosophy of stacking small $3\times3$ convolutions under simple width
+rules~\citep{simonyan2015vgg}, and we adopt these rules but reach far greater depth at
+much lower complexity. Inception/GoogLeNet networks add depth through a branching
+topology with internal shortcut-and-merge structure~\citep{szegedy2015googlenet}, which
+we use only as a comparison point rather than as an architectural ingredient. The
+ingredients that make very deep plain training feasible at all---batch
+normalization~\citep{ioffe2015batchnorm}, variance-preserving initialization for
+rectifiers~\citep{he2015prelu,glorot2010xavier}, and rectified linear
+units~\citep{nair2010relu}---are imported wholesale and applied identically to plain and
+residual variants, so that any difference between them is attributable to the residual
+reformulation and not to the training recipe. These techniques let tens-of-layer plain
+nets converge, but, as the long-recognized difficulty of training deep
+networks~\citep{bengio1994longterm} would predict, they do not by themselves remove the
+\degprob, which is precisely the gap residual learning closes.
+
+\noindent\textbf{Object detection frameworks.}
+For the transfer experiments we build on the Faster R-CNN detection
+framework~\citep{ren2015fasterrcnn} together with the Fast R-CNN region
+classifier~\citep{girshick2015fastrcnn} and its R-CNN predecessor~\citep{girshick2014rcnn},
+keeping the detection pipeline---region-proposal network, RoI pooling, and four-step
+alternating training---fixed. To insert a fully-convolutional residual backbone that
+lacks hidden fully-connected layers, we follow the strategy of sharing full-image
+convolutional features and treating a late convolutional stage as the per-region
+classifier~\citep{ren2015noc}. Holding the framework constant and changing only the
+backbone isolates the contribution of the learned representation, and we evaluate it on
+the standard PASCAL VOC~\citep{everingham2010pascalvoc}, ImageNet~\citep{russakovsky2015imagenet},
+and COCO~\citep{lin2014coco} benchmarks, with the CIFAR-10 analysis using the standard
+tiny-image dataset~\citep{krizhevsky2009cifar} and augmentation conventions established
+in prior recognition work~\citep{krizhevsky2012alexnet}. Baselines from this literature,
+including network-in-network~\citep{lin2013nin}, maxout~\citep{goodfellow2013maxout}, and
+thin deep nets~\citep{romero2015fitnets}, anchor our CIFAR-10 comparison, and fully
+convolutional inference~\citep{long2015fcn} underlies the multi-scale testing protocol.

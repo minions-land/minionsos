@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PreToolUse hook for Workflow / Write / Edit / Bash / Task / codex.
+"""PreToolUse hook for Workflow / Write / Edit / Bash / Task.
 
 Enforces the canonical Workflow scratchpad path for Role processes:
 
@@ -173,7 +173,7 @@ def main() -> int:
         return _check_bash(cmd, legal_roots)
 
     # Path-shaped tools: Write, Edit, NotebookEdit, Read (read can leak too
-    # via copy-back), Workflow, Task, mcp__codex-subagent__codex.
+    # via copy-back), Workflow, Task.
     for key in _PATH_KEYS:
         raw = inp.get(key)
         if not raw:

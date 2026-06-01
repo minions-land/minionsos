@@ -82,7 +82,7 @@ _src_tree_hash() {
     # Usage: _src_tree_hash <dir> [<pathspec> ...]
     # Emit a single sha256 over the *content* of the source files in <dir>.
     #
-    # Why this exists: the Node components (eacn3 plugin, codex-subagent,
+    # Why this exists: the Node components (eacn3 plugin,
     # minions-viz) are compiled from TypeScript that lives directly in this
     # repo. The old freshness checks keyed only on package.json (or a
     # dist-newer-than-package.json mtime test), so a commit that changed ONLY
@@ -440,47 +440,6 @@ else
         ok "EACN3 MCP plugin built: $PLUGIN_DIST"
     fi
 
-    # ── 5a-codex-subagent. Build Codex GPT-5.5 bridge MCP ─────────────────
-    # `mcp-servers/codex-subagent/` is the Node TypeScript bridge that
-    # exposes Codex GPT-5.5 to every Role process as the `codex` MCP tool.
-    # Without `dist/server.js` built, `_gen_mcp_json.py` silently skips
-    # registration and tier-2 subagent dispatch silently degrades to
-    # Sonnet-only — operators wouldn't notice until cost spikes. Soft-fail
-    # (warn, not die) so a working Sonnet-fallback path is preserved if
-    # the build environment is broken.
-    CSA_DIR="$ROOT/mcp-servers/codex-subagent"
-    CSA_MARKER="$CSA_DIR/dist/server.js"
-    if [ -d "$CSA_DIR" ]; then
-        need_csa_build=1
-        # Skip only when the built artifact exists AND the tracked source
-        # tree is unchanged since the last build. Honors MINIONS_FORCE_INSTALL
-        # (via _node_build_fresh) and the explicit MINIONS_CSA_REBUILD knob.
-        if [ -z "${MINIONS_CSA_REBUILD:-}" ] \
-            && _node_build_fresh codex_subagent "$CSA_DIR" "$CSA_MARKER"; then
-            need_csa_build=0
-        fi
-        if [ "$need_csa_build" = "1" ]; then
-            info "Building codex-subagent MCP (npm install + build)..."
-            if npm_project_install "$CSA_DIR" \
-                && (cd "$CSA_DIR" && npm run build); then
-                if [ -f "$CSA_MARKER" ]; then
-                    _node_build_save codex_subagent "$CSA_DIR"
-                    ok "codex-subagent built: $CSA_MARKER"
-                else
-                    warn "codex-subagent npm build reported success but $CSA_MARKER is missing."
-                    warn "Roles will fall back to Sonnet for tier-2 subagent dispatch."
-                fi
-            else
-                warn "codex-subagent build failed — Sonnet fallback will be used for subagent dispatch."
-                warn "To retry: cd $CSA_DIR && npm install && npm run build"
-            fi
-        else
-            ok "codex-subagent already built (set MINIONS_CSA_REBUILD=1 to force)"
-        fi
-    else
-        warn "mcp-servers/codex-subagent/ directory missing — codex MCP will not be registered."
-    fi
-
     # ── 5b. Build minions-viz Observatory ───────────────────────────────
     VIZ_DIR="$ROOT/minions-viz"
     VIZ_MARKER="$VIZ_DIR/dist/web/index.html"
@@ -523,51 +482,8 @@ else
     warn "minions/config/ not found — skipping config copy (run install.sh again after full checkout)"
 fi
 
-# ── 6b. Generate Codex project MCP config ────────────────────────────────────
-# Issue #27: regenerate every install so absolute paths refresh when the repo
-# moves between machines. The generator emits paths relative to $ROOT.
-CODEX_CONFIG_DIR="$ROOT/.codex"
-CODEX_CONFIG="$CODEX_CONFIG_DIR/config.toml"
-mkdir -p "$CODEX_CONFIG_DIR"
-"$PROJECT_PYTHON" "$ROOT/minions/tools/_gen_codex_config.py" "$CODEX_CONFIG" "$ROOT"
-ok "Generated Codex MCP config: .codex/config.toml"
-
-# ── 6b-auth. Detect existing Codex auth (no login attempt) ───────────────────
-# We do NOT run `codex login` from install.sh — it's an interactive flow that
-# would block CI and overwrite an operator's existing auth. Instead, surface
-# whichever of these the user already has so they know the codex-subagent
-# MCP will work the moment a Role tries it. Priority order matches what the
-# Codex CLI itself checks:
-#   1. ~/.codex/auth.json            (codex login output)
-#   2. $OPENAI_API_KEY env var       (machine-wide)
-#   3. ~/.codex/config.toml          (alt provider via env_key)
-# Pure detection — no writes, no prompts. Operators who already authed via
-# any of these get a green check; everyone else gets actionable next steps.
-CODEX_AUTH_DETECTED=""
-CODEX_AUTH_SOURCE=""
-if [ -s "$HOME/.codex/auth.json" ]; then
-    CODEX_AUTH_DETECTED="1"
-    CODEX_AUTH_SOURCE="~/.codex/auth.json"
-elif [ -n "${OPENAI_API_KEY:-}" ]; then
-    CODEX_AUTH_DETECTED="1"
-    CODEX_AUTH_SOURCE="\$OPENAI_API_KEY env"
-elif [ -f "$HOME/.codex/config.toml" ] \
-    && grep -qE '^\s*env_key\s*=' "$HOME/.codex/config.toml" 2>/dev/null; then
-    CODEX_AUTH_DETECTED="1"
-    CODEX_AUTH_SOURCE="~/.codex/config.toml (env_key provider)"
-fi
-if [ -n "$CODEX_AUTH_DETECTED" ]; then
-    ok "Codex auth detected: $CODEX_AUTH_SOURCE"
-else
-    warn "No Codex auth found (~/.codex/auth.json absent, OPENAI_API_KEY unset)."
-    warn "Roles will fall back to Sonnet for tier-2 subagent dispatch until auth is configured."
-    warn "Tier-2 default is Codex GPT-5.5; configure auth at your convenience using your"
-    warn "preferred method (existing OPENAI_API_KEY env var, or ~/.codex/auth.json)."
-fi
-
 # ── 6c. Generate .mcp.json (Claude Code MCP servers) ─────────────────────────
 # Always regenerated to stay in sync with what is actually built.
-# codex-subagent is conditional: only registered if its dist/server.js exists.
 info "Generating .mcp.json (Claude Code MCP servers)..."
 "$PROJECT_PYTHON" "$ROOT/minions/tools/_gen_mcp_json.py" "$ROOT"
 ok ".mcp.json generated"
@@ -664,11 +580,11 @@ if ! "$PROJECT_PYTHON" -c "from datetime import UTC" 2>/dev/null; then
     warn "Project Python cannot import datetime.UTC (requires 3.11+)"
     HOOK_VERIFY_FAILED=1
 fi
-# PostToolUse smoke test: MCP tools (e.g. mcp__codex-subagent__codex) deliver
-# tool_response as a list of content blocks, not a dict. Hooks that read
-# tool_response.get(...) without a type guard crash with AttributeError on
-# every codex call. Verify the affected hooks survive the list shape.
-MCP_PAYLOAD='{"tool_name":"mcp__codex-subagent__codex","tool_input":{},"tool_response":[{"type":"text","text":"x"}]}'
+# PostToolUse smoke test: MCP tools (e.g. mcp__eacn3__eacn3_send_message)
+# deliver tool_response as a list of content blocks, not a dict. Hooks that
+# read tool_response.get(...) without a type guard crash with AttributeError
+# on every MCP call. Verify the affected hooks survive the list shape.
+MCP_PAYLOAD='{"tool_name":"mcp__eacn3__eacn3_send_message","tool_input":{},"tool_response":[{"type":"text","text":"x"}]}'
 for hookname in bg_keepalive_nudge.py reel_capture.py; do
     hook="$HOOKS_DIR/$hookname"
     [ -f "$hook" ] || continue

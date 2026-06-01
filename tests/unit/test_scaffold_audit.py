@@ -53,7 +53,6 @@ def _seed_minimal_repo(repo: Path) -> None:
     (repo / "CLAUDE.md").write_text(
         "| Gru main | a | b | c | d | e | f |\n"
         "| Coder main | a | b | c | d | e | f |\n"
-        "| Noter main | a | b | c | d | e | f |\n"
         "| Writer main | a | b | c | d | e | f |\n"
         "| Ethics main | a | b | c | d | e | f |\n"
         "| Expert main | a | b | c | d | e | f |\n",
@@ -70,7 +69,7 @@ def _seed_minimal_repo(repo: Path) -> None:
         encoding="utf-8",
     )
     (repo / "mcp-servers" / "README.md").write_text("# MCP Servers\n", encoding="utf-8")
-    for role in ("gru", "coder", "noter", "writer", "ethics", "expert"):
+    for role in ("gru", "ethics", "expert"):
         _seed_role(repo, role)
 
 
@@ -142,7 +141,7 @@ def test_audit_clean_baseline_has_no_errors(
     fake_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _seed_minimal_repo(fake_repo)
-    monkeypatch.setattr(contracts, "fixed_roles", lambda: {"coder", "noter", "writer", "ethics"})
+    monkeypatch.setattr(contracts, "fixed_roles", lambda: {"ethics"})
     issues = audit_module.audit()
     errors = [i for i in issues if i.severity == "error"]
     assert errors == [], errors
@@ -323,29 +322,6 @@ def test_check_subagent_not_broader_when_aligned(
     )
     monkeypatch.setattr(contracts, "list_registered_mcp_tools", lambda: [])
     assert audit_module.check_subagent_not_broader_than_main() == []
-
-
-def test_check_codex_on_restricted_role_flags_ethics_pattern(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        contracts,
-        "whitelist_table",
-        lambda: {("librarian", "main"): ["codex", "Read"]},
-    )
-    issues = audit_module.check_codex_on_restricted_role()
-    assert any("librarian" in i.message and "codex" in i.message for i in issues)
-
-
-def test_check_codex_silent_when_role_already_has_exec(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        contracts,
-        "whitelist_table",
-        lambda: {("coder", "main"): ["codex", "Bash", "Read", "Write"]},
-    )
-    assert audit_module.check_codex_on_restricted_role() == []
 
 
 def test_check_wildcard_baseline_drift(fake_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -271,7 +271,7 @@ def check_root_claudemd_role_table() -> list[Issue]:
 def _whitelist_entry_resolves(entry: str, registered_tools: set[str]) -> bool:
     """Return True if a whitelist entry matches a real registered tool.
 
-    Entries that don't start with ``mos_`` are host tools (Bash, Read, codex,
+    Entries that don't start with ``mos_`` are host tools (Bash, Read,
     eacn3_*, etc.) and we cannot enumerate them; treat them as resolved.
     """
     if not entry.startswith("mos_"):
@@ -286,7 +286,7 @@ def check_whitelist_entries_resolve() -> list[Issue]:
     """S2: every ``mos_*`` whitelist entry must point at a real registered tool.
 
     Catches dead whitelist entries left behind after a tool rename or removal.
-    Host tools (Bash/Read/codex/eacn3_*) are skipped because their registry
+    Host tools (Bash/Read/eacn3_*) are skipped because their registry
     lives outside this repo.
     """
     issues: list[Issue] = []
@@ -378,22 +378,10 @@ _SUBAGENT_BROADER_EXCEPTIONS: dict[str, frozenset[str]] = {
     # Noter main is observer-only — never writes itself. Its host-native
     # subagents do the actual file work (drafting reports, formatting). The
     # asymmetry is the operating model, not drift.
-    "noter": frozenset({"Write", "Edit"}),
     # Ethics main is read-mostly; concrete writes (mock-reviews, flag files)
-    # are produced by short-lived subagents that can use codex / Write / Edit.
+    # are produced by short-lived subagents that can use Write / Edit.
     "ethics": frozenset({"Write", "Edit"}),
 }
-
-
-# Roles that intentionally hold codex despite lacking Bash/Write/Edit at the
-# main level. They use codex(sandbox="read-only") for analysis and rely on
-# subagents for any execution. Removing these would break the read-mostly
-# operating model.
-_CODEX_INTENTIONAL_RESTRICTED_ROLES: frozenset[tuple[str, str]] = frozenset(
-    {
-        ("ethics", "main"),
-    }
-)
 
 
 def check_subagent_not_broader_than_main() -> list[Issue]:
@@ -500,43 +488,6 @@ def check_wildcard_tool_set_unchanged() -> list[Issue]:
                         ),
                     )
                 )
-    return issues
-
-
-_CODEX_TOOL = "codex"
-_EXEC_TOOLS = frozenset({"Bash", "Write", "Edit"})
-
-
-def check_codex_on_restricted_role() -> list[Issue]:
-    """P2: a role that is otherwise read-only should not hold codex.
-
-    Codex with ``sandbox=danger-full-access`` is a universal execution
-    bridge. If a role's whitelist deliberately omits Bash/Write/Edit but
-    keeps codex, the read-only intent is undermined. Roles where this
-    asymmetry is intentional (Ethics uses codex for analysis-only) live in
-    ``_CODEX_INTENTIONAL_RESTRICTED_ROLES``.
-    """
-    issues: list[Issue] = []
-    for (role, agent_type), tools in contracts.whitelist_table().items():
-        flat = set(tools)
-        if _CODEX_TOOL not in flat:
-            continue
-        if flat & _EXEC_TOOLS:
-            continue
-        if (role, agent_type) in _CODEX_INTENTIONAL_RESTRICTED_ROLES:
-            continue
-        issues.append(
-            Issue(
-                "info",
-                "whitelist",
-                f"({role!r}, {agent_type!r}) has codex but no Bash/Write/Edit. "
-                "codex(sandbox='danger-full-access') would bypass the read-only intent.",
-                hint=(
-                    "Either remove codex, or drop the role to read-only delegations"
-                    " (sandbox='read-only')."
-                ),
-            )
-        )
     return issues
 
 
@@ -661,7 +612,6 @@ _ALL_CHECKS = (
     check_publish_policy_matches_boundaries,
     check_subagent_not_broader_than_main,
     check_wildcard_tool_set_unchanged,
-    check_codex_on_restricted_role,
     check_dispatch_posture,
 )
 
@@ -678,7 +628,6 @@ __all__ = [
     "Issue",
     "Severity",
     "audit",
-    "check_codex_on_restricted_role",
     "check_dispatch_posture",
     "check_fixed_roles_have_dir",
     "check_mcp_servers_have_doc_card",

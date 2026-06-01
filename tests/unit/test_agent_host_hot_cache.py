@@ -16,7 +16,7 @@ def hot_cache_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[
     port = 41234
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
     monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path))
-    book_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "book"
+    book_dir = tmp_path / f"project_{port}" / "branches" / "main" / "book"
     book_dir.mkdir(parents=True)
     return port, book_dir
 

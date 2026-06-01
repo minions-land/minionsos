@@ -2,8 +2,8 @@
 
 These tools are loaded for the ``coder`` role.
 Runtime whitelisting is enforced by MinionsOS; Claude also receives the
-allowlist at spawn time via ``--allowed-tools``, while Codex is constrained
-by MCP server-side authorization.
+allowlist at spawn time via ``--allowed-tools``, and MCP server-side
+authorization is the real enforcement boundary.
 
 All execution is **fire-and-poll**: ``exp_run`` launches the command fully
 detached via ``nohup``/``setsid`` and returns immediately with a ``run_id``.

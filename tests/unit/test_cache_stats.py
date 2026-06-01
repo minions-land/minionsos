@@ -311,8 +311,6 @@ def test_classify_tool_buckets() -> None:
     # Subagent dispatch
     assert _classify_tool("Task") == "dispatch"
     assert _classify_tool("Agent") == "dispatch"
-    assert _classify_tool("codex") == "dispatch"
-    assert _classify_tool("mcp__codex-subagent__codex") == "dispatch"
 
     # Coordination (lightweight, not heavy work)
     assert _classify_tool("mcp__minionsos__mos_draft_append") == "coord"

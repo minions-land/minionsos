@@ -50,7 +50,7 @@ def _run(
 
 
 # Helper: env that satisfies the Role-main gate (Coder is the canonical EACN role).
-_ROLE_ENV = {"MINIONS_ROLE_NAME": "coder", "MINIONS_AGENT_TYPE": "main"}
+_ROLE_ENV = {"MINIONS_ROLE_NAME": "expert", "MINIONS_AGENT_TYPE": "main"}
 
 
 class TestPreCompact:
@@ -103,34 +103,11 @@ class TestPreCompact:
         result = _run(
             PRE_HOOK,
             stdin="{}",
-            env={"MINIONS_ROLE_NAME": "coder", "MINIONS_AGENT_TYPE": "main"},
+            env={"MINIONS_ROLE_NAME": "expert", "MINIONS_AGENT_TYPE": "main"},
         )
         assert result.returncode == 0
         assert "mos_await_events()" in result.stdout
         assert "mos_noter_wait()" not in result.stdout
-
-    def test_noter_resume_tool_is_noter_wait(self) -> None:
-        """Noter is not on EACN; resume must call its timer-based tool.
-        Regression for GitHub Issue #30 — hardcoded mos_await_events()
-        wedges Noter because it's not in Noter's whitelist."""
-        result = _run(
-            PRE_HOOK,
-            stdin="{}",
-            env={"MINIONS_ROLE_NAME": "noter", "MINIONS_AGENT_TYPE": "main"},
-        )
-        assert result.returncode == 0
-        assert "mos_noter_wait()" in result.stdout
-        assert "mos_await_events()" not in result.stdout
-
-    def test_noter_resume_tool_case_insensitive(self) -> None:
-        """MINIONS_ROLE_NAME may be set with any casing."""
-        result = _run(
-            PRE_HOOK,
-            stdin="{}",
-            env={"MINIONS_ROLE_NAME": "NOTER", "MINIONS_AGENT_TYPE": "main"},
-        )
-        assert result.returncode == 0
-        assert "mos_noter_wait()" in result.stdout
 
     def test_expert_role_gets_science_prompt(self) -> None:
         """Expert roles spawn with names like 'expert-rl-theory'; the gate
@@ -198,7 +175,7 @@ class TestPreCompactGate:
         result = _run(
             PRE_HOOK,
             stdin="{}",
-            env={"MINIONS_ROLE_NAME": "coder", "MINIONS_AGENT_TYPE": "subagent"},
+            env={"MINIONS_ROLE_NAME": "expert", "MINIONS_AGENT_TYPE": "subagent"},
         )
         assert result.returncode == 0
         assert "## Working_on" not in result.stdout
@@ -222,7 +199,7 @@ class TestPreCompactGate:
         result = _run(
             PRE_HOOK,
             stdin="{}",
-            env={"MINIONS_ROLE_NAME": "coder", "MINIONS_AGENT_TYPE": ""},
+            env={"MINIONS_ROLE_NAME": "expert", "MINIONS_AGENT_TYPE": ""},
         )
         assert result.returncode == 0
         assert "## Working_on" in result.stdout
@@ -316,7 +293,7 @@ class TestPostCompact:
             stdin="",
             env={
                 "MINIONS_PROJECT_PORT": "99001",
-                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_ROLE_NAME": "expert",
                 "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
@@ -333,7 +310,7 @@ class TestPostCompact:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": str(port),
-                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_ROLE_NAME": "expert",
                 "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
@@ -343,7 +320,7 @@ class TestPostCompact:
         assert len(entries) == 1
         entry = entries[0]
         assert entry["op"] == "post_compact_extract"
-        assert entry["role"] == "coder"
+        assert entry["role"] == "expert"
         assert entry["trigger"] == "auto"
         assert entry["summary_chars"] == len(SAMPLE_SUMMARY)
 
@@ -356,7 +333,7 @@ class TestPostCompact:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": str(port),
-                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_ROLE_NAME": "expert",
                 "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
@@ -380,7 +357,7 @@ class TestPostCompact:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": "65535",
-                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_ROLE_NAME": "expert",
                 "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(fake_root),
             },
@@ -396,7 +373,7 @@ class TestPostCompact:
             stdin="not json at all",
             env={
                 "MINIONS_PROJECT_PORT": "99001",
-                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_ROLE_NAME": "expert",
                 "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
@@ -462,7 +439,7 @@ class TestPostCompactGate:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": str(port),
-                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_ROLE_NAME": "expert",
                 "MINIONS_AGENT_TYPE": "subagent",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
@@ -520,7 +497,7 @@ class TestPostCompactTranscriptPath:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": str(port),
-                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_ROLE_NAME": "expert",
                 "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
@@ -572,7 +549,7 @@ class TestPostCompactTranscriptPath:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": str(port),
-                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_ROLE_NAME": "expert",
                 "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
@@ -593,7 +570,7 @@ class TestPostCompactTranscriptPath:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": str(port),
-                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_ROLE_NAME": "expert",
                 "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
@@ -618,7 +595,7 @@ class TestPostCompactTranscriptPath:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": str(port),
-                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_ROLE_NAME": "expert",
                 "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },
@@ -637,7 +614,7 @@ class TestPostCompactTranscriptPath:
             stdin=payload,
             env={
                 "MINIONS_PROJECT_PORT": str(port),
-                "MINIONS_ROLE_NAME": "coder",
+                "MINIONS_ROLE_NAME": "expert",
                 "MINIONS_AGENT_TYPE": "main",
                 "MINIONS_ROOT": str(project_dir / "MinionsOS"),
             },

@@ -1,0 +1,55 @@
+\documentclass[10pt,twocolumn]{article}
+
+% ===================== Packages =====================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{xspace}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,calc,fit,backgrounds}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[margin=0.75in,columnsep=0.25in]{geometry}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+\usepackage[capitalise,nameinlink]{cleveref}
+
+% ===================== Macros =====================
+% Method / entity names (latex-typography macro discipline).
+\newcommand{\resnet}{\textsc{ResNet}\xspace}
+\newcommand{\plainnet}{plain network\xspace}
+\newcommand{\Fmap}{\ensuremath{\mathcal{F}}}
+\newcommand{\Hmap}{\ensuremath{\mathcal{H}}}
+\newcommand{\xin}{\ensuremath{\mathbf{x}}}
+\newcommand{\yout}{\ensuremath{\mathbf{y}}}
+\newcommand{\optA}{Option~A\xspace}
+\newcommand{\optB}{Option~B\xspace}
+\newcommand{\optC}{Option~C\xspace}
+\newcommand{\degrad}{degradation problem\xspace}
+
+\title{\textbf{Deep Residual Learning for Image Recognition}}
+\author{Kaiming He \quad Xiangyu Zhang \quad Shaoqing Ren \quad Jian Sun}
+\date{}
+
+\begin{document}
+\maketitle
+
+\input{sections/00_abstract.tex}
+\input{sections/01_introduction.tex}
+\input{sections/02_related_work.tex}
+\input{sections/03_methodology.tex}
+\input{sections/04_experiments.tex}
+\input{sections/05_conclusion.tex}
+
+\bibliographystyle{plain}
+\bibliography{references/references}
+
+\appendix
+\input{sections/06_appendix.tex}
+
+\end{document}

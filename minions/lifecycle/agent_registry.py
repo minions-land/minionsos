@@ -50,15 +50,6 @@ def role_agent_domains(role_name: str) -> list[str]:
     """Return discovery domains for a MinionsOS project role."""
     base = _normalise_role(role_name)
     specific = {
-        "coder": [
-            "coding",
-            "debugging",
-            "implementation",
-            "experiments",
-            "execution",
-            "evaluation",
-        ],
-        "writer": ["writing", "paper", "latex"],
         "ethics": [
             "evidence",
             "audit",
@@ -67,7 +58,20 @@ def role_agent_domains(role_name: str) -> list[str]:
             "review",
             "critique",
         ],
-        "expert": ["expert", "research", "analysis"],
+        "expert": [
+            "expert",
+            "research",
+            "analysis",
+            "coding",
+            "debugging",
+            "implementation",
+            "experiments",
+            "execution",
+            "evaluation",
+            "writing",
+            "paper",
+            "latex",
+        ],
     }.get(base, ["coordination"])
     return ["minionsos", "project-local", f"role:{base}", *specific]
 
@@ -82,13 +86,11 @@ def role_agent_tier(role_name: str) -> str:
 def role_agent_description(role_name: str) -> str:
     base = _normalise_role(role_name)
     descriptions = {
-        "coder": (
-            "Project-local Coder role for implementation, debugging, code handoffs, "
-            "experiment execution, and result reporting."
-        ),
-        "writer": "Project-local Writer role for paper drafting and evidence-grounded revisions.",
         "ethics": "Project-local Ethics role for evidence validation and claim audit.",
-        "expert": "Project-local Expert role for domain analysis and research guidance.",
+        "expert": (
+            "Project-local Expert role — the project's general worker: domain analysis, "
+            "research guidance, code, experiment execution, paper writing, and figures."
+        ),
     }
     return descriptions.get(base, f"Project-local MinionsOS role agent: {role_name}.")
 

@@ -1,9 +1,11 @@
 """Unit tests for _bootstrap_fixed_roles in project_create.
 
 The function pre-spawns the profile-active subset of BOOTSTRAP_ROLES
-(noter / coder / ethics) in parallel at project_create time so the live
+(ethics) in parallel at project_create time so the live
 Gru process does not have to issue a serial sequence of mos_spawn_role
 MCP calls (~5 min of LLM deliberation for the scientific-paper profile).
+The generalist Expert worker is bootstrapped on a separate path
+(_bootstrap_generalist_expert via register_expert), not here.
 
 These tests use a stub `register_role` so they are tmux/EACN3-free.
 """
@@ -22,8 +24,15 @@ def _profile(roles_active: list[str]) -> SimpleNamespace:
 
 
 class TestBootstrapFixedRoles:
-    def test_scientific_paper_spawns_noter_coder_ethics(self) -> None:
-        """Default profile should pre-spawn all three fixed roles."""
+    def test_scientific_paper_spawns_ethics(self) -> None:
+        """Default profile pre-spawns the fixed role (ethics only).
+
+        After the P3.5 Noter→Ethics merge, BOOTSTRAP_ROLES is ``{"ethics"}``.
+        The generalist Expert is spawned separately via
+        _bootstrap_generalist_expert (register_expert), so it must NOT
+        appear in the fixed-role bootstrap wave even though the profile
+        lists ``expert`` as active.
+        """
         calls: list[str] = []
 
         def fake_register_role(*, project_port: int, role: str, store: object) -> dict:
@@ -33,40 +42,24 @@ class TestBootstrapFixedRoles:
         with patch("minions.lifecycle.role.register_role", side_effect=fake_register_role):
             results = project_mod._bootstrap_fixed_roles(
                 port=37000,
-                mission_profile=_profile(["gru", "noter", "coder", "ethics"]),
+                mission_profile=_profile(["gru", "ethics", "expert"]),
                 store=object(),
             )
 
-        # Each fixed role spawned exactly once, in parallel.
-        assert sorted(calls) == ["coder", "ethics", "noter"]
+        # The single fixed role spawned exactly once. Expert is not a fixed
+        # role — it goes through the generalist-expert path.
+        assert sorted(calls) == ["ethics"]
         assert all(status == "ok" for _, status in results)
-        assert {role for role, _ in results} == {"coder", "ethics", "noter"}
+        assert {role for role, _ in results} == {"ethics"}
 
-    def test_hle_answer_skips_noter_and_ethics(self) -> None:
-        """hle-answer profile only has coder among the fixed roles."""
-        calls: list[str] = []
+    def test_expert_excluded_from_fixed_bootstrap(self) -> None:
+        """Expert is bootstrapped on a separate path — never in this wave.
 
-        def fake_register_role(*, project_port: int, role: str, store: object) -> dict:
-            calls.append(role)
-            return {"name": role}
-
-        with patch("minions.lifecycle.role.register_role", side_effect=fake_register_role):
-            results = project_mod._bootstrap_fixed_roles(
-                port=37001,
-                mission_profile=_profile(["gru", "expert", "coder"]),
-                store=object(),
-            )
-
-        assert calls == ["coder"]
-        assert results == [("coder", "ok")]
-
-    def test_writer_excluded_even_if_profile_active(self) -> None:
-        """Writer is on-demand — never auto-spawned at project_create.
-
-        Even if a profile lists ``writer`` as active, the bootstrap set
-        is the literal ``BOOTSTRAP_ROLES = {"noter","coder","ethics"}``
-        defined in role.py. A profile that wants Writer up immediately
-        should rely on Gru's spawn path, not this fast-path.
+        Even though the scientific-paper profile lists ``expert`` as
+        active, the fixed-role bootstrap set is the literal
+        ``BOOTSTRAP_ROLES = {"ethics"}`` defined in role.py. The
+        generalist Expert is spawned via _bootstrap_generalist_expert
+        (register_expert), so it must not appear in this fast-path wave.
         """
         calls: list[str] = []
 
@@ -77,40 +70,34 @@ class TestBootstrapFixedRoles:
         with patch("minions.lifecycle.role.register_role", side_effect=fake_register_role):
             project_mod._bootstrap_fixed_roles(
                 port=37002,
-                mission_profile=_profile(["gru", "noter", "coder", "writer", "ethics"]),
+                mission_profile=_profile(["gru", "ethics", "expert"]),
                 store=object(),
             )
 
-        assert "writer" not in calls
+        assert "expert" not in calls
 
     def test_per_role_failure_is_non_fatal(self) -> None:
-        """A failing role spawn must not abort the others.
+        """A failing role spawn must not abort project_create.
 
-        If register_role raises for one role (e.g. EACN3 backend hiccup),
-        the function records the error in the return value but keeps
-        spawning the remaining roles. project_create then completes;
-        Gru's normal respawn path handles the missing role.
+        If register_role raises (e.g. EACN3 backend hiccup), the function
+        records the error in the return value instead of propagating it;
+        Gru's normal respawn path then handles the missing role.
         """
-        succeeded: list[str] = []
 
         def fake_register_role(*, project_port: int, role: str, store: object) -> dict:
-            if role == "coder":
+            if role == "ethics":
                 raise RuntimeError("EACN3 hiccup")
-            succeeded.append(role)
             return {"name": role}
 
         with patch("minions.lifecycle.role.register_role", side_effect=fake_register_role):
             results = project_mod._bootstrap_fixed_roles(
                 port=37003,
-                mission_profile=_profile(["gru", "noter", "coder", "ethics"]),
+                mission_profile=_profile(["gru", "ethics", "expert"]),
                 store=object(),
             )
 
-        assert sorted(succeeded) == ["ethics", "noter"]
         result_map = dict(results)
-        assert result_map["noter"] == "ok"
-        assert result_map["ethics"] == "ok"
-        assert "EACN3 hiccup" in result_map["coder"]
+        assert "EACN3 hiccup" in result_map["ethics"]
 
     def test_empty_intersection_short_circuits(self) -> None:
         """A profile with no fixed-role overlap returns immediately."""
@@ -130,15 +117,14 @@ class TestBootstrapFixedRoles:
         assert calls == []
         assert results == []
 
-    def test_runs_in_parallel(self) -> None:
-        """Three role spawns must overlap in time, not run serially.
+    def test_runs_on_thread_pool(self) -> None:
+        """The fixed-role spawn runs through the thread-pool path.
 
-        The whole point of this function is to collapse what was a
-        ~5-minute serial Gru turn sequence into a ~30-60s parallel wave.
-        Verify that the spawns actually run on a thread pool rather than
-        accidentally serializing through some shared lock by checking
-        that the wall-clock duration is closer to one spawn's latency
-        than to three.
+        After the Noter→Ethics merge BOOTSTRAP_ROLES has a single member,
+        so there is no longer a 2-wide concurrent wave to observe. We still
+        verify the spawn is dispatched (not silently skipped) and completes
+        quickly, guarding against an accidental serial-lock regression if
+        the bootstrap set grows again.
         """
         import threading
         import time
@@ -159,19 +145,18 @@ class TestBootstrapFixedRoles:
 
         with patch("minions.lifecycle.role.register_role", side_effect=fake_register_role):
             t0 = time.monotonic()
-            project_mod._bootstrap_fixed_roles(
+            results = project_mod._bootstrap_fixed_roles(
                 port=37005,
-                mission_profile=_profile(["gru", "noter", "coder", "ethics"]),
+                mission_profile=_profile(["gru", "ethics", "expert"]),
                 store=object(),
             )
             elapsed = time.monotonic() - t0
 
-        # All three must have been in flight at the same instant.
-        assert max_active == 3, f"expected 3 concurrent spawns, saw {max_active}"
-        # Wall-clock should be one spawn's latency (~50ms) plus pool
-        # overhead, not 3× (which would be ~150ms+). 100ms is comfortably
-        # below the serial ceiling and well above realistic CI noise.
-        assert elapsed < 0.10, f"expected parallel speedup, elapsed={elapsed:.3f}s"
+        # The single fixed role was dispatched and ran.
+        assert max_active == 1, f"expected 1 concurrent spawn, saw {max_active}"
+        assert {role for role, _ in results} == {"ethics"}
+        # One spawn (~50ms) plus pool overhead; nowhere near a serial ceiling.
+        assert elapsed < 0.09, f"unexpected slow bootstrap, elapsed={elapsed:.3f}s"
 
 
 class TestBootstrapRolesConstant:
@@ -186,8 +171,9 @@ class TestBootstrapRolesConstant:
         from minions.lifecycle.role import BOOTSTRAP_ROLES
 
         # Sanity on the constant's shape; if these change deliberately,
-        # update this test.
-        assert BOOTSTRAP_ROLES == {"noter", "coder", "ethics"}
+        # update this test. After the P3.5 Noter→Ethics merge the only
+        # fixed bootstrap role is Ethics (merged curator + auditor).
+        assert BOOTSTRAP_ROLES == {"ethics"}
 
         # Confirm the bootstrap function actually references it (rather
         # than e.g. hard-coding a list).

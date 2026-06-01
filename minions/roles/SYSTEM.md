@@ -389,12 +389,12 @@ Four layers exist. The canonical reference is
 
 - **L0 Reel** — raw subagent transcripts at `branches/<role>/reel/`;
   drill-down only, not wake-injected.
-- **L1 Draft** — process graph at `branches/shared/draft/draft.json`;
+- **L1 Draft** — process graph at `branches/main/draft/draft.json`;
   every EACN role writes via `mos_draft_*`. New nodes start
   `unverified`. Mark dead ends `dead_end`. **Never delete** — mark
   failed paths `refuted` or `blocked`. Add edges.
 - **L2 Book** — Noter-curated durable knowledge at
-  `branches/shared/book/`. `book/hot.md` (~500 words) is injected at
+  `branches/main/book/`. `book/hot.md` (~500 words) is injected at
   every wake. Other roles read; Noter writes.
 - **L3 Shelf** — Gru-aggregated cross-project structural index derived
   from Book.
@@ -468,9 +468,9 @@ do not enumerate the cross-role table from memory; query lookup.py.
 
 Reserved subdirs (no role may bypass):
 
-- `branches/shared/reviews/` — owned by `mos_review_run`.
-- `branches/shared/book/` — owned by Noter (other roles read only).
-- `branches/shared/submissions/` — gated by `mos_submit` per the
+- `branches/main/reviews/` — owned by `mos_review_run`.
+- `branches/main/book/` — owned by Noter (other roles read only).
+- `branches/main/submissions/` — gated by `mos_submit` per the
   project's mission-profile `publish_whitelist`.
 
 ---
@@ -540,8 +540,8 @@ MUST NOT be touched by Workflow runs.
    for project-level developer notes; Workflow scratchpads from
    different roles would collide.
 4. **Cross-role branch paths** — `branches/<other-role>/.claude/` for
-   any role that is not yours, including the shared branch's
-   `branches/shared/.claude/` and Gru's `branches/main/.claude/`.
+   any role that is not yours, including Gru's `branches/main/.claude/`
+   (the main branch is the team-shared surface).
 
 **Enforcement (four layers, defense-in-depth):**
 

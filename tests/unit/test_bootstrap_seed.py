@@ -67,7 +67,7 @@ def test_project_create_seeds_bootstrap_node(mock_project_env: tuple[Path, Path]
         real_name="test-bootstrap",
         brief="Test project for bootstrap seeding",
         topic_doc="input/test.md",
-        profile="hle-answer",
+        profile="scientific-paper",
         store=store,
     )
 
@@ -99,10 +99,11 @@ def test_project_create_seeds_bootstrap_node(mock_project_env: tuple[Path, Path]
 
     # Verify metadata
     metadata = bootstrap["metadata"]
-    assert metadata["profile"] == "hle-answer"
+    assert metadata["profile"] == "scientific-paper"
     assert "gru" in metadata["roles_expected"]
     assert "expert" in metadata["roles_expected"]
-    assert "coder" in metadata["roles_expected"]
+    assert "ethics" in metadata["roles_expected"]
+    assert "noter" not in metadata["roles_expected"]
     assert metadata["topic_doc"] == "input/test.md"
     assert metadata["real_name"] == "test-bootstrap"
     assert "deliverable" in metadata

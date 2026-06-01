@@ -332,19 +332,20 @@ def test_quorum_blocked_after_consume(
 def test_whitelist_grants_signboard_to_voters() -> None:
     from minions.config import resolve_whitelist
 
-    for role in ("gru", "coder", "writer", "ethics", "expert"):
+    for role in ("gru", "ethics", "expert"):
         tools = set(resolve_whitelist(role, "main"))
         assert "mos_signboard_set" in tools, f"{role} should be allowed to vote"
         assert "mos_signboard_read" in tools
 
 
-def test_whitelist_denies_signboard_set_to_noter() -> None:
-    """Noter is not registered on EACN and is not a voter — read-only access."""
+def test_whitelist_denies_signboard_set_to_unknown_role() -> None:
+    """An unregistered role gets an empty whitelist — no signboard access at all."""
     from minions.config import resolve_whitelist
 
-    tools = set(resolve_whitelist("noter", "main"))
+    tools = set(resolve_whitelist("nonexistent-role", "main"))
     assert "mos_signboard_set" not in tools
-    assert "mos_signboard_read" in tools
+    assert "mos_signboard_read" not in tools
+    assert tools == set()
 
 
 def test_only_gru_can_evaluate_consume_reopen() -> None:

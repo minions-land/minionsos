@@ -272,7 +272,7 @@ def _build_review_round_prompt(
         "series. Do NOT use `run_in_background` or the `Workflow` tool: this "
         "is a `--print` process and a backgrounded task is abandoned when the "
         "turn ends. Delegate volume reading (long PDF, code tracing, citation "
-        "sweeps) to Codex via the `codex` MCP tool inside aspect subagents.\n"
+        "sweeps) to `Task` subagents.\n"
         "\n"
         "## Passes\n"
         "1. Pass A — independent reviewer instances, history-isolated. Merge "
@@ -342,7 +342,7 @@ def _spawn_claude_review(
         "--mcp-config",
         str(MINIONS_ROOT / ".mcp.json"),
         "--allowed-tools",
-        "Read,Write,Edit,Bash,Task,codex",
+        "Read,Write,Edit,Bash,Task",
         "--permission-mode",
         "bypassPermissions",
     ]

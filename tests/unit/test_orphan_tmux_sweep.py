@@ -251,7 +251,7 @@ def test_project_revive_sweeps_stale_tmux_before_launch(
     (pdir / "branches" / "shared").mkdir(parents=True, exist_ok=True)
 
     store = StateStore(path=tmp_path / "projects.json")
-    role = RoleEntry(name="coder", state="dismissed", pid=None)
+    role = RoleEntry(name="expert", state="dismissed", pid=None)
     entry = ProjectEntry(
         port=port,
         real_name="Stale Tmux",
@@ -272,7 +272,7 @@ def test_project_revive_sweeps_stale_tmux_before_launch(
 
     def fake_sweep(p: int) -> list[str]:
         events.append(f"sweep:{p}")
-        return [f"mos-{p}-coder"]
+        return [f"mos-{p}-expert"]
 
     def fake_launch(role_entry, project_port: int, **_kw):
         events.append(f"launch:{role_entry.name}")
@@ -299,7 +299,7 @@ def test_project_revive_sweeps_stale_tmux_before_launch(
     monkeypatch.setattr(
         proj_mod,
         "ensure_role_workspace",
-        lambda *a, **kw: (f"minionsos/project-{port}-coder", pdir / "branches" / "coder"),
+        lambda *a, **kw: (f"minionsos/project-{port}-expert", pdir / "branches" / "expert"),
     )
     monkeypatch.setattr(
         "minions.lifecycle.agent_registry.register_project_role_agent",
@@ -321,5 +321,5 @@ def test_project_revive_sweeps_stale_tmux_before_launch(
 
     # Sweep happened, and happened BEFORE any launch.
     assert events[0] == f"sweep:{port}", f"sweep must run first, got events={events}"
-    assert "launch:coder" in events
-    assert events.index(f"sweep:{port}") < events.index("launch:coder")
+    assert "launch:expert" in events
+    assert events.index(f"sweep:{port}") < events.index("launch:expert")

@@ -41,7 +41,7 @@ def _mock_publish(
         store: object | None = None,
     ) -> dict[str, object]:
         del store
-        assert role == "noter"
+        assert role == "ethics"
         assert commit_message.startswith("noter: ingest ")
         resolved_port = port or book._env_port()
         src = Path(src_path)
@@ -130,7 +130,7 @@ def test_wiki_ingest_creates_page_index_and_log(
         "type: source",
         'title: "Transformer Result"',
         'slug: "coder-transformer-run"',
-        'source_file: "shared/coder/artifact.md"',
+        'source_file: "main/coder/artifact.md"',
         'source_role: "coder"',
         page_lines[6],
         "page_kind: source",
@@ -151,7 +151,7 @@ def test_wiki_ingest_creates_page_index_and_log(
     assert len(rows) == 1
     assert rows[0]["op"] == "ingest"
     assert rows[0]["slug"] == "coder-transformer-run"
-    assert rows[0]["source_file"] == "shared/coder/artifact.md"
+    assert rows[0]["source_file"] == "main/coder/artifact.md"
 
     assert result["slug"] == "coder-transformer-run"
     assert result["book_path"] == "book/sources/coder-transformer-run.md"
@@ -264,15 +264,18 @@ def test_wiki_hot_get_reads_existing_file(project: dict[str, Any]) -> None:
     }
 
 
-def test_publish_policy_rejects_ethics_book() -> None:
-    with pytest.raises(ProjectError, match="may not publish under branches/shared"):
-        publish._validate_dst("ethics", "book/audit.md")
-
-
-def test_publish_policy_allows_noter_book() -> None:
-    assert publish._validate_dst("noter", "book/sources/source.md") == Path(
+def test_publish_policy_allows_ethics_book() -> None:
+    """Ethics is the merged memory curator now — it owns the book/ surface."""
+    assert publish._validate_dst("ethics", "book/audit.md") == Path("book/audit.md")
+    assert publish._validate_dst("ethics", "book/sources/source.md") == Path(
         "book/sources/source.md"
     )
+
+
+def test_publish_policy_rejects_expert_book() -> None:
+    """Non-curator roles (Expert) may not publish into book/."""
+    with pytest.raises(ProjectError, match="may not publish under branches/shared"):
+        publish._validate_dst("expert", "book/sources/source.md")
 
 
 # ---------------------------------------------------------------------------

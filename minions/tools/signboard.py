@@ -1,7 +1,7 @@
 """Lightweight "signboard" for milestone consensus.
 
 Each project keeps a single state file at
-``branches/shared/governance/signboard.json`` listing, per milestone, which
+``branches/main/governance/signboard.json`` listing, per milestone, which
 agents are currently *raising the sign* (in favor of advancing the project
 to that milestone) along with the evidence they're standing on. Two tools:
 
@@ -54,30 +54,30 @@ KNOWN_MILESTONES: frozenset[str] = frozenset(get_args(MilestoneSlug))
 # "ethics" is a hard requirement for every paper-facing milestone — the
 # evidence-first audit gatekeeper has a single-vote veto by being a
 # required signer. ``experts: True`` means every currently-registered
-# tier=expert agent on the project's EACN is also required.
+# tier=expert agent (the project's general workers) is also required.
 _ELIGIBILITY: dict[str, dict[str, Any]] = {
     "experiments_ready": {
-        "fixed_roles": ("ethics", "coder"),
+        "fixed_roles": ("ethics",),
         "experts": True,
         "expert_quorum_fraction": 2 / 3,
     },
     "writing_ready": {
-        "fixed_roles": ("ethics", "coder"),
+        "fixed_roles": ("ethics",),
         "experts": True,
         "expert_quorum_fraction": 2 / 3,
     },
     "submit_ready": {
-        "fixed_roles": ("ethics", "coder", "writer"),
+        "fixed_roles": ("ethics",),
         "experts": True,
         "expert_quorum_fraction": 1.0,
     },
     "resubmit_ready": {
-        "fixed_roles": ("ethics", "coder", "writer"),
+        "fixed_roles": ("ethics",),
         "experts": True,
         "expert_quorum_fraction": 1.0,
     },
     "camera_ready": {
-        "fixed_roles": ("ethics", "writer"),
+        "fixed_roles": ("ethics",),
         "experts": True,
         "expert_quorum_fraction": 1.0,
     },

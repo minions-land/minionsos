@@ -16,7 +16,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -90,10 +90,6 @@ def slugify(text: str) -> str:
 # Whitelist resolver
 # ---------------------------------------------------------------------------
 
-_CODEX_BRIDGE_TOOLS = [
-    "codex",
-]
-
 # Cache-keepalive MCP tools. Available to every Role and every subagent so
 # the wait_bg / keepalive_now loop (driven by the bg_keepalive_nudge hook)
 # can run anywhere. The MCP server is registered globally in `.mcp.json`.
@@ -147,6 +143,15 @@ _BOOK_AUDIT_TOOLS = [
     "mos_book_resolve_contradiction",
 ]
 
+# Draft audit tools: Ethics-facing descriptive signal over Draft nodes (where
+# evidence_tag actually lives). ``mos_draft_unmarked_audit`` reports per-role
+# unmarked-claim ratios and flags roles above a threshold — advisory only, no
+# mutation, no auto-trigger. Whitelisted to Ethics + Gru, mirroring the Book
+# audit surface.
+_DRAFT_AUDIT_TOOLS = [
+    "mos_draft_unmarked_audit",
+]
+
 # Book ratification — Ethics-only. Promotes a verified Book page from the
 # proposed pool into the ratified set. The other Book write paths (ingest,
 # promote_verified, save_synthesis, crystallize_session) belong to Noter as
@@ -186,11 +191,6 @@ _VISUAL_CHECK_TOOLS = [
 _REEL_TOOLS = [
     "mos_reel_get",
     "mos_reel_window",
-]
-
-_SHELF_GRU_TOOLS = [
-    "mos_shelf_query",
-    "mos_shelf_shared_concepts",
 ]
 
 # Gru's EACN surface is intentionally narrower than the wildcard ``eacn3_*``.
@@ -233,10 +233,6 @@ _GRU_EACN_TOOLS = [
     # Cluster / federation reads — observability only.
     "eacn3_cluster_status",
     "eacn3_reverse_control_status",
-]
-
-_SHELF_REGISTER_TOOLS = [
-    "mos_shelf_register",
 ]
 
 # Maps (role_name, agent_type) → list of allowed tool prefixes / names.
@@ -284,10 +280,6 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     # at server side. Both appear in CLI whitelist for KV cache parity.
     *_BOOK_OPEN_QUESTION_TOOLS,
     *_BOOK_DEAD_END_TOOLS,
-    # Shelf (Gru queries + register; non-Gru blocked at server side, in
-    # CLI whitelist for KV cache parity).
-    *_SHELF_GRU_TOOLS,
-    *_SHELF_REGISTER_TOOLS,
     # Shared branch publish
     "mos_publish_to_shared",
     # Signboard
@@ -324,7 +316,7 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     "mos_review_run",
     "mos_submit",
     "mos_evaluate",
-    "mos_adjudicate",
+    "mos_promote_to_book",
     "mos_start_monitor",
     # Experiment tools (Coder-only at server side)
     "mos_exp_run",
@@ -346,7 +338,6 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     *_REEL_TOOLS,
     # Subagent dispatch
     "Task",
-    *_CODEX_BRIDGE_TOOLS,
     # Workflow plugin invocation (Claude Code built-in). Server-side authz
     # enforces the per-role boundary; subagents do not get Workflow to
     # preserve the anti-recursion principle.
@@ -373,44 +364,10 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Write",
         "Edit",
     ],
-    ("noter", "main"): [
+    ("expert", "main"): _EACN_ROLE_MAIN_TOOLS,
+    ("expert", "subagent"): [
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
-        "mos_noter_wait",
-        "mos_draft_*",
-        "mos_book_ingest",
-        "mos_book_ingest_batch",
-        "mos_book_lint",
-        "mos_book_hot_update",
-        "mos_book_promote_verified",
-        "mos_book_crystallize_session",
-        *_BOOK_READ_TOOLS,
-        *_PAPER_SEARCH_TOOLS,
-        "mos_publish_to_shared",
-        "mos_signboard_read",
-        "mos_reset_context",
-        "mos_compact_context",
-        "Task",
-        "Workflow",
-        "WebSearch",
-        "WebFetch",
-        "Read",
-    ],
-    ("noter", "subagent"): [
-        *_KEEPALIVE_TOOLS,
-        *_ISSUE_REPORT_TOOLS,
-        *_PAPER_SEARCH_TOOLS,
-        "WebSearch",
-        "WebFetch",
-        "Read",
-        "Write",
-        "Edit",
-    ],
-    ("coder", "main"): _EACN_ROLE_MAIN_TOOLS,
-    ("coder", "subagent"): [
-        *_KEEPALIVE_TOOLS,
-        *_ISSUE_REPORT_TOOLS,
-        *_CODEX_BRIDGE_TOOLS,
         *_PAPER_SEARCH_TOOLS,
         "mos_exp_run",
         "mos_exp_status",
@@ -430,37 +387,10 @@ _WHITELIST: dict[tuple[str, str], list[str]] = {
         "Write",
         "Edit",
     ],
-    ("writer", "main"): _EACN_ROLE_MAIN_TOOLS,
-    ("writer", "subagent"): [
-        *_KEEPALIVE_TOOLS,
-        *_ISSUE_REPORT_TOOLS,
-        *_CODEX_BRIDGE_TOOLS,
-        *_PAPER_SEARCH_TOOLS,
-        "WebSearch",
-        "WebFetch",
-        "Bash",
-        "Read",
-        "Write",
-        "Edit",
-    ],
-    ("expert", "main"): _EACN_ROLE_MAIN_TOOLS,
-    ("expert", "subagent"): [
-        *_KEEPALIVE_TOOLS,
-        *_ISSUE_REPORT_TOOLS,
-        *_CODEX_BRIDGE_TOOLS,
-        *_PAPER_SEARCH_TOOLS,
-        "WebSearch",
-        "WebFetch",
-        "Bash",
-        "Read",
-        "Write",
-        "Edit",
-    ],
     ("ethics", "main"): _EACN_ROLE_MAIN_TOOLS,
     ("ethics", "subagent"): [
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
-        *_CODEX_BRIDGE_TOOLS,
         *_PAPER_SEARCH_TOOLS,
         "WebSearch",
         "WebFetch",
@@ -506,7 +436,7 @@ def resolve_whitelist(role: str, agent_type: Literal["main", "subagent"] = "main
     key ``"expert"`` before lookup.
 
     Args:
-        role: Role name, e.g. ``"noter"``, ``"expert-dl-arch"``,
+        role: Role name, e.g. ``"ethics"``, ``"expert-dl-arch"``,
             ``"theory-normalization-expert"``.
         agent_type: ``"main"`` or ``"subagent"``.
 
@@ -564,9 +494,8 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_BOOK_READ_TOOLS,
         *_BOOK_SYNTHESIS_WRITE_TOOLS,  # Gru can materialize syntheses
         *_BOOK_AUDIT_TOOLS,  # Gru is the only role besides Ethics that audits
+        *_DRAFT_AUDIT_TOOLS,  # Gru shares the Draft unmarked-ratio audit signal
         *_BOOK_OPEN_QUESTION_TOOLS,  # Gru can flag pending questions
-        *_SHELF_GRU_TOOLS,
-        *_SHELF_REGISTER_TOOLS,  # Gru-only: cross-project shelf registrar
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_signboard_set",
@@ -589,9 +518,8 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_review_run",
         "mos_submit",
         "mos_evaluate",
-        "mos_adjudicate",
+        "mos_promote_to_book",
         "mos_start_monitor",
-        *_CODEX_BRIDGE_TOOLS,
         *_PAPER_SEARCH_TOOLS,
         *_VISUAL_CHECK_TOOLS,
         *_REEL_TOOLS,  # Gru can read any role's reel
@@ -606,141 +534,6 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
     ("gru", "subagent"): [
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
-        *_PAPER_SEARCH_TOOLS,
-        "WebSearch",
-        "WebFetch",
-        "Bash",
-        "Read",
-        "Write",
-        "Edit",
-    ],
-    ("noter", "main"): [
-        *_KEEPALIVE_TOOLS,
-        *_ISSUE_REPORT_TOOLS,
-        "mos_noter_wait",
-        "mos_draft_*",
-        "mos_book_ingest",
-        "mos_book_lint",
-        "mos_book_ingest_batch",
-        "mos_book_hot_update",
-        "mos_book_promote_verified",
-        "mos_book_crystallize_session",
-        *_BOOK_SYNTHESIS_WRITE_TOOLS,  # Noter materializes role-supplied syntheses
-        *_BOOK_READ_TOOLS,
-        *_BOOK_OPEN_QUESTION_TOOLS,  # Noter flags pending questions
-        *_BOOK_DEAD_END_TOOLS,  # Noter is the sole direct writer for dead-ends
-        *_PAPER_SEARCH_TOOLS,
-        "mos_publish_to_shared",
-        "mos_signboard_read",
-        "mos_reset_context",
-        "mos_compact_context",
-        "Task",
-        "Workflow",
-        "WebSearch",
-        "WebFetch",
-        "Read",
-    ],
-    ("noter", "subagent"): [
-        *_KEEPALIVE_TOOLS,
-        *_ISSUE_REPORT_TOOLS,
-        *_PAPER_SEARCH_TOOLS,
-        "WebSearch",
-        "WebFetch",
-        "Read",
-        "Write",
-        "Edit",
-    ],
-    ("coder", "main"): [
-        *_KEEPALIVE_TOOLS,
-        *_ISSUE_REPORT_TOOLS,
-        "eacn3_*",
-        "mos_await_events",
-        *_DRAFT_RW_TOOLS,
-        *_BOOK_READ_TOOLS,
-        *_BOOK_OPEN_QUESTION_TOOLS,  # any EACN role may flag a pending question
-        "mos_publish_to_shared",
-        "mos_signboard_read",
-        "mos_signboard_set",
-        "mos_reset_context",
-        "mos_compact_context",
-        "Task",
-        "mos_project_checkpoint_workspace",
-        *_CODEX_BRIDGE_TOOLS,
-        "mos_exp_run",
-        "mos_exp_status",
-        "mos_exp_wait",
-        "mos_exp_kill",
-        "mos_exp_list",
-        "mos_exp_put",
-        "mos_exp_get",
-        "mos_exp_tail",
-        "mos_query_gpus",
-        "mos_exp_queue_*",
-        "mos_exp_gpu_pool_*",
-        *_VISUAL_CHECK_TOOLS,
-        *_REEL_TOOLS,  # Coder can read own reel
-        "Workflow",
-        "WebSearch",
-        "WebFetch",
-        "Bash",
-        "Read",
-        "Write",
-        "Edit",
-    ],
-    ("coder", "subagent"): [
-        *_KEEPALIVE_TOOLS,
-        *_ISSUE_REPORT_TOOLS,
-        *_CODEX_BRIDGE_TOOLS,
-        *_PAPER_SEARCH_TOOLS,
-        "mos_exp_run",
-        "mos_exp_status",
-        "mos_exp_wait",
-        "mos_exp_kill",
-        "mos_exp_list",
-        "mos_exp_put",
-        "mos_exp_get",
-        "mos_exp_tail",
-        "mos_query_gpus",
-        "mos_exp_queue_*",
-        "mos_exp_gpu_pool_*",
-        "WebSearch",
-        "WebFetch",
-        "Bash",
-        "Read",
-        "Write",
-        "Edit",
-    ],
-    ("writer", "main"): [
-        *_KEEPALIVE_TOOLS,
-        *_ISSUE_REPORT_TOOLS,
-        "eacn3_*",
-        "mos_await_events",
-        *_DRAFT_RW_TOOLS,
-        *_BOOK_READ_TOOLS,
-        *_BOOK_OPEN_QUESTION_TOOLS,  # any EACN role may flag a pending question
-        "mos_publish_to_shared",
-        "mos_signboard_read",
-        "mos_signboard_set",
-        "mos_reset_context",
-        "mos_compact_context",
-        *_PAPER_SEARCH_TOOLS,
-        "Task",
-        "mos_project_checkpoint_workspace",
-        *_CODEX_BRIDGE_TOOLS,
-        *_VISUAL_CHECK_TOOLS,
-        *_REEL_TOOLS,  # Writer can read own reel
-        "Workflow",
-        "WebSearch",
-        "WebFetch",
-        "Bash",
-        "Read",
-        "Write",
-        "Edit",
-    ],
-    ("writer", "subagent"): [
-        *_KEEPALIVE_TOOLS,
-        *_ISSUE_REPORT_TOOLS,
-        *_CODEX_BRIDGE_TOOLS,
         *_PAPER_SEARCH_TOOLS,
         "WebSearch",
         "WebFetch",
@@ -764,7 +557,18 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_compact_context",
         "Task",
         "mos_project_checkpoint_workspace",
-        *_CODEX_BRIDGE_TOOLS,
+        # Expert is the unified worker — it runs experiments (was Coder's domain).
+        "mos_exp_run",
+        "mos_exp_status",
+        "mos_exp_wait",
+        "mos_exp_kill",
+        "mos_exp_list",
+        "mos_exp_put",
+        "mos_exp_get",
+        "mos_exp_tail",
+        "mos_query_gpus",
+        "mos_exp_queue_*",
+        "mos_exp_gpu_pool_*",
         *_PAPER_SEARCH_TOOLS,
         *_VISUAL_CHECK_TOOLS,
         *_REEL_TOOLS,  # Expert can read own reel
@@ -779,8 +583,18 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
     ("expert", "subagent"): [
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
-        *_CODEX_BRIDGE_TOOLS,
         *_PAPER_SEARCH_TOOLS,
+        "mos_exp_run",
+        "mos_exp_status",
+        "mos_exp_wait",
+        "mos_exp_kill",
+        "mos_exp_list",
+        "mos_exp_put",
+        "mos_exp_get",
+        "mos_exp_tail",
+        "mos_query_gpus",
+        "mos_exp_queue_*",
+        "mos_exp_gpu_pool_*",
         "WebSearch",
         "WebFetch",
         "Bash",
@@ -793,36 +607,42 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_ISSUE_REPORT_TOOLS,
         "eacn3_*",
         "mos_await_events",
-        *_DRAFT_RW_TOOLS,
+        # Ethics is the merged memory curator + auditor + adjudicator: it owns
+        # the full Draft surface (including commit) and the Book curation tools
+        # that Noter used to hold.
+        "mos_draft_*",
         *_BOOK_READ_TOOLS,
-        *_BOOK_AUDIT_TOOLS,  # Ethics is the primary auditor
-        *_BOOK_RATIFY_TOOLS,  # Ethics-only: ratify-promotion is the audit gate
-        *_BOOK_OPEN_QUESTION_TOOLS,  # any EACN role may flag a pending question
+        "mos_book_ingest",
+        "mos_book_ingest_batch",
         "mos_book_lint",
+        "mos_book_hot_update",
+        "mos_book_promote_verified",
+        "mos_book_crystallize_session",
+        *_BOOK_SYNTHESIS_WRITE_TOOLS,  # materializes role-supplied syntheses
+        *_BOOK_AUDIT_TOOLS,  # Ethics is the primary auditor
+        *_DRAFT_AUDIT_TOOLS,  # Ethics audits Draft evidence-tag coverage
+        *_BOOK_RATIFY_TOOLS,  # Ethics-only: ratify-promotion is the audit gate
+        *_BOOK_OPEN_QUESTION_TOOLS,  # flag pending questions
+        *_BOOK_DEAD_END_TOOLS,  # sole direct writer for dead-ends
+        *_PAPER_SEARCH_TOOLS,
         "mos_publish_to_shared",
         "mos_signboard_read",
         "mos_signboard_set",
-        # Ethics is named in role contracts as the primary adjudicator and
-        # `minions/roles/ethics/SYSTEM.md` directs it to call `mos_adjudicate`
-        # to close adjudication_task events. Without this entry the call
-        # was server-side-denied and 4 queued adjudication tasks went
-        # unanswerable — see GitHub Issue #10.
-        "mos_adjudicate",
         "mos_reset_context",
         "mos_compact_context",
         "Task",
-        *_CODEX_BRIDGE_TOOLS,
         *_VISUAL_CHECK_TOOLS,
-        *_REEL_TOOLS,  # Ethics can read own reel
+        *_REEL_TOOLS,  # Ethics can read any role's reel (cross-role audit)
         "Workflow",
         "WebSearch",
         "WebFetch",
         "Read",
+        "Write",
+        "Edit",
     ],
     ("ethics", "subagent"): [
         *_KEEPALIVE_TOOLS,
         *_ISSUE_REPORT_TOOLS,
-        *_CODEX_BRIDGE_TOOLS,
         *_PAPER_SEARCH_TOOLS,
         "WebSearch",
         "WebFetch",
@@ -841,7 +661,7 @@ def resolve_server_authz(role: str, agent_type: Literal["main", "subagent"] = "m
     regardless of the unified CLI whitelist.
 
     Args:
-        role: Role name, e.g. ``"noter"``, ``"expert-dl-arch"``.
+        role: Role name, e.g. ``"ethics"``, ``"expert-dl-arch"``.
         agent_type: ``"main"`` or ``"subagent"``.
 
     Returns:
@@ -873,9 +693,6 @@ class RoleType(enum.Enum):
 
 ROLE_CLASSIFICATION: dict[str, RoleType] = {
     "gru": RoleType.human_side,
-    "noter": RoleType.human_side,
-    "coder": RoleType.eacn_visible,
-    "writer": RoleType.eacn_visible,
     "ethics": RoleType.eacn_visible,
     "expert": RoleType.eacn_visible,
 }
@@ -885,32 +702,18 @@ ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
         "branches/main/",
         "branches/shared/<any>/ (via mos_publish_to_shared)",
     ],
-    "noter": [
-        "branches/noter/ (drafts)",
+    "ethics": [
+        "branches/ethics/ (drafts, investigation notes)",
+        "branches/shared/ethics/ (via mos_publish_to_shared)",
         "branches/shared/notes/ (via mos_publish_to_shared)",
         "branches/shared/handoffs/ (via mos_publish_to_shared)",
-        "branches/shared/book/ (via mos_book_ingest + mos_book_hot_update)",
+        "branches/shared/book/ (Book curation: ingest + hot_update + promote)",
         "branches/shared/draft/draft.json (via mos_draft_commit_shared)",
-    ],
-    "coder": [
-        "branches/coder/",
-        "branches/shared/exp/ (via mos_publish_to_shared)",
-        "branches/shared/handoffs/ (via mos_publish_to_shared)",
-        "branches/shared/governance/signboard.json (via mos_signboard_set)",
-    ],
-    "writer": [
-        "branches/writer/",
-        "branches/shared/handoffs/ (via mos_publish_to_shared)",
-        "branches/shared/governance/signboard.json (via mos_signboard_set)",
-    ],
-    "ethics": [
-        "branches/ethics/",
-        "branches/shared/ethics/ (via mos_publish_to_shared)",
-        "branches/shared/handoffs/ (via mos_publish_to_shared)",
         "branches/shared/governance/signboard.json (via mos_signboard_set)",
     ],
     "expert": [
-        "branches/<expert>/",
+        "branches/<expert>/ (src/experiments/, exp/, paper/, notes/)",
+        "branches/shared/exp/ (via mos_publish_to_shared)",
         "branches/shared/handoffs/ (via mos_publish_to_shared)",
         "branches/shared/governance/signboard.json (via mos_signboard_set)",
     ],
@@ -1294,12 +1097,11 @@ class GruConfig(BaseModel):
         default="claude-sonnet-4-6[1m]",
         description=(
             "Fallback model passed to `claude --fallback-model` for the "
-            "one-shot `--print` spawn sites: `mos_review_run` (paper review) "
-            "and `mos_adjudicate` (answer adjudication). Claude Code 2.1.152 "
-            "documents `--fallback-model` as `--print`-only; long-lived "
-            "interactive Role processes ignore it and rely on the Gru "
-            "watchdog instead. Set to None to disable. Per-call overrides: "
-            "MOS_REVIEW_FALLBACK_MODEL, MOS_ADJUDICATE_FALLBACK_MODEL."
+            "one-shot `--print` spawn site `mos_review_run` (paper review). "
+            "Claude Code 2.1.152 documents `--fallback-model` as `--print`-only; "
+            "long-lived interactive Role processes ignore it and rely on the Gru "
+            "watchdog instead. Set to None to disable. Per-call override: "
+            "MOS_REVIEW_FALLBACK_MODEL."
         ),
     )
     review_timeout_seconds: int = Field(
@@ -1328,39 +1130,6 @@ class GruConfig(BaseModel):
             "workflow completes. Env override: MOS_REVIEW_ULTRACODE=0/1."
         ),
     )
-    agent_host: Literal["claude", "codex"] = Field(
-        default="claude",
-        description="Default agent host for Gru and role wakeups: claude or codex.",
-    )
-    codex_model: str | None = Field(
-        default=None,
-        description="Optional Codex model name. When unset, Codex CLI config/default is used.",
-    )
-    codex_sandbox: Literal["read-only", "workspace-write", "danger-full-access"] = Field(
-        default="danger-full-access",
-        description=(
-            "Codex sandbox mode for role wakeups when bypass is disabled. "
-            "Default is danger-full-access so non-interactive local automation "
-            "does not depend on platform sandbox support."
-        ),
-    )
-    codex_approval_policy: Literal["untrusted", "on-request", "never"] = Field(
-        default="never",
-        description="Codex approval policy for non-interactive role wakeups.",
-    )
-    codex_reasoning_effort: Literal["low", "medium", "high", "xhigh"] = Field(
-        default="xhigh",
-        description="Codex reasoning effort for Gru and role wakeups.",
-    )
-    codex_bypass_approvals_and_sandbox: bool = Field(
-        default=True,
-        description=(
-            "Use Codex --dangerously-bypass-approvals-and-sandbox for role wakeups. "
-            "Enabled by default for unattended MinionsOS role automation; disable only "
-            "when the local Codex sandbox is known to work reliably."
-        ),
-    )
-
     _KNOWN_MODELS: frozenset[str] = frozenset(
         {
             "claude-opus-4-8",
@@ -1374,31 +1143,23 @@ class GruConfig(BaseModel):
     )
 
     def model_registry_valid(self) -> tuple[bool, str]:
-        """Return (ok, detail) for the configured model registry.
+        """Return (ok, detail) for the configured Claude model registry.
 
-        Claude keeps the historical strict registry when explicitly selected.
-        Codex model names are intentionally not hardcoded here; Codex CLI can
-        use its own profile/config defaults when ``codex_model`` is unset.
+        Claude Code is the only agent host. The model name must be in the
+        known-models set.
         """
-        if self.effective_agent_host() == "codex":
-            model = self.codex_model or "<codex CLI default>"
-            return True, f"codex host selected; model={model}; effort={self.codex_reasoning_effort}"
         if self.claude_model in self._KNOWN_MODELS:
             return True, f"{self.claude_model} is a known model"
         known = ", ".join(sorted(self._KNOWN_MODELS))
         return False, f"{self.claude_model!r} not in known models ({known})"
 
-    def effective_agent_host(self) -> Literal["claude", "codex"]:
-        """Return the configured host, allowing a process-local env override."""
-        host = os.environ.get("MINIONS_AGENT_HOST", "").strip().lower() or self.agent_host
-        if host not in {"claude", "codex"}:
-            logger.warning(
-                "Unknown MINIONS_AGENT_HOST=%r; falling back to configured agent_host=%s.",
-                host,
-                self.agent_host,
-            )
-            return self.agent_host
-        return cast(Literal["claude", "codex"], host)
+    def effective_agent_host(self) -> Literal["claude"]:
+        """Return the agent host. Claude Code is the only supported host.
+
+        Retained as a method (rather than inlining ``"claude"`` at call sites)
+        so the doctor / config-dump surfaces keep a stable accessor.
+        """
+        return "claude"
 
     # --- Context-window size thresholds (as fractions of the model context window) ---
     # Rationale: Context Rot / NoLiMa research shows effective context degrades
@@ -1459,15 +1220,6 @@ class GruConfig(BaseModel):
             "hint. Must be < context_pressure_high_tokens. Default 150K."
         ),
     )
-
-    @field_validator("agent_host", mode="before")
-    @classmethod
-    def _valid_agent_host(cls, v: object) -> object:
-        if isinstance(v, str):
-            value = v.strip().lower()
-            if value in {"claude", "codex"}:
-                return value
-        raise ValueError(f"agent_host must be 'claude' or 'codex', got {v!r}")
 
     @field_validator(
         "heartbeat_report_interval",
@@ -1590,16 +1342,16 @@ def load_gru_config(config_dir: Path | None = None) -> GruConfig:
         raise ConfigError(f"Invalid gru.yaml: {exc}") from exc
 
 
-def pin_effective_agent_host(config_dir: Path | None = None) -> Literal["claude", "codex"]:
-    """Resolve the current host once and pin it in the process environment.
+def pin_effective_agent_host(config_dir: Path | None = None) -> Literal["claude"]:
+    """Pin the agent host in the process environment.
 
-    Gru, the monitor sidecar, MCP servers, and role wakeups all inherit process
-    environment. Pinning prevents a long-running process from drifting between
-    Claude and Codex because a config file changed after startup.
+    Claude Code is the only supported host. Gru, the monitor sidecar, MCP
+    servers, and role wakeups all inherit ``MINIONS_AGENT_HOST=claude`` so the
+    sidecar host-marker check (``_common.py``) stays stable.
     """
-    host = load_gru_config(config_dir).effective_agent_host()
-    os.environ["MINIONS_AGENT_HOST"] = host
-    return host
+    del config_dir  # retained for call-site compatibility; host is constant
+    os.environ["MINIONS_AGENT_HOST"] = "claude"
+    return "claude"
 
 
 def load_experiment_targets(config_dir: Path | None = None) -> ExperimentTargetsConfig:

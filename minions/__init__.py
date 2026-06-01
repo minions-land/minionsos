@@ -14,4 +14,3 @@ try:
     __version__ = _pkg_version("minionsos")
 except PackageNotFoundError:  # pragma: no cover - source tree without install metadata
     __version__ = "0.20.0"
-

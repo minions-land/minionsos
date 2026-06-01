@@ -401,10 +401,14 @@ class TestLoadDraftRobustness:
 
 
 class TestNoterMotifContract:
-    """Tests for the soft-enforcement noter motif contract (Stream 2)."""
+    """Tests for the soft-enforcement motif contract (Stream 2).
+
+    Ethics is now the merged memory curator that owns the Draft motif surface,
+    so the soft-enforcement gate fires on author_role == "ethics".
+    """
 
     def test_noter_result_node_requires_motif_kind(self, tmp_path: Path, caplog: pytest.LogCaptureFixture):
-        """noter appending a result node without motif_kind logs warning + tags metadata."""
+        """ethics appending a result node without motif_kind logs warning + tags metadata."""
         port = 9999
         draft_path = draft._draft_path(port)
         draft_path.parent.mkdir(parents=True, exist_ok=True)
@@ -416,11 +420,11 @@ class TestNoterMotifContract:
         import os
         env_backup = os.environ.copy()
         os.environ["MINIONS_PORT"] = str(port)
-        os.environ["MINIONS_ROLE"] = "noter"
+        os.environ["MINIONS_ROLE"] = "ethics"
         try:
             with caplog.at_level(logging.WARNING, logger="minions.tools.draft"):
                 result = draft.mos_draft_append(
-                    nodes=[{"id": "R-1", "type": "result", "text": "some result", "author_role": "noter"}],
+                    nodes=[{"id": "R-1", "type": "result", "text": "some result", "author_role": "ethics"}],
                     edges=[],
                 )
         finally:
@@ -433,7 +437,7 @@ class TestNoterMotifContract:
         assert any("motif_kind" in rec.message for rec in caplog.records)
 
     def test_noter_edge_no_motif_required(self, tmp_path: Path, caplog: pytest.LogCaptureFixture):
-        """noter appending only edges (no new nodes) produces no motif warning."""
+        """ethics appending only edges (no new nodes) produces no motif warning."""
         port = 9999
         draft_path = draft._draft_path(port)
         draft_path.parent.mkdir(parents=True, exist_ok=True)
@@ -451,7 +455,7 @@ class TestNoterMotifContract:
         import os
         env_backup = os.environ.copy()
         os.environ["MINIONS_PORT"] = str(port)
-        os.environ["MINIONS_ROLE"] = "noter"
+        os.environ["MINIONS_ROLE"] = "ethics"
         try:
             with caplog.at_level(logging.WARNING, logger="minions.tools.draft"):
                 draft.mos_draft_append(
@@ -464,14 +468,6 @@ class TestNoterMotifContract:
 
         motif_warnings = [r for r in caplog.records if "motif_kind" in r.message]
         assert motif_warnings == [], f"Unexpected motif warnings: {motif_warnings}"
-
-    def test_noter_annotate_path_preferred(self):
-        """noter SYSTEM.md mentions mos_draft_annotate as the preferred operation."""
-        import pathlib
-        system_md = pathlib.Path(__file__).parent.parent.parent / "minions" / "roles" / "noter" / "SYSTEM.md"
-        text = system_md.read_text(encoding="utf-8")
-        assert "mos_draft_annotate" in text, "noter SYSTEM.md must reference mos_draft_annotate"
-        assert "ANTI-PATTERN" in text, "noter SYSTEM.md must contain ANTI-PATTERN section"
 
     def test_existing_motif_less_nodes_load(self, tmp_path: Path):
         """Backwards compat: draft.json with nodes that have no motif_kind loads cleanly."""

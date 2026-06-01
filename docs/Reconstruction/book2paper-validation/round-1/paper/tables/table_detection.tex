@@ -1,0 +1,22 @@
+% Source: evidence/tables/table7_pascal_voc_detection.md + table8_coco_detection.md (Tables 7,8). Supports C08.
+% EXACT numbers, baseline Faster R-CNN, mAP %. VGG-16 vs ResNet-101 backbone swap.
+\begin{table}[t]
+\centering
+\caption{Object-detection transfer with baseline Faster R-CNN: swapping a VGG-16 backbone
+for \resnet-101 with otherwise identical hyperparameters. PASCAL VOC reports mAP@.5 (VOC07
+test from 07+12 training; VOC12 test from 07++12 training); COCO reports mAP@.5 and
+mAP@[.5,.95] on the validation set. The COCO mAP@[.5,.95] gain of 6.0 points is a 28\%
+relative improvement. Source: Tables~7 and 8.}
+\label{tab:detection}
+\small
+\begin{tabular}{l c c c c}
+\toprule
+ & \multicolumn{2}{c}{PASCAL VOC (mAP@.5)} & \multicolumn{2}{c}{COCO val} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5}
+backbone & VOC07 test & VOC12 test & mAP@.5 & mAP@[.5,.95] \\
+\midrule
+VGG-16        & 73.2 & 70.4 & 41.5 & 21.2 \\
+\resnet-101   & \best{76.4} & \best{73.8} & \best{48.4} & \best{27.2} \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -16,13 +16,13 @@ def _build(tmp_path: Path, **overrides) -> object:
     system.write_text("role system", encoding="utf-8")
     kwargs: dict = {
         "cfg": GruConfig(agent_host="claude"),
-        "role_name": "coder",
+        "role_name": "expert",
         "project_port": 37596,
-        "project_agent_id": "coder",
+        "project_agent_id": "expert",
         "system_path": system,
         "allowed_tools": "Read,Write",
         "workspace": tmp_path,
-        "session_name": "p37596/coder",
+        "session_name": "p37596/expert",
     }
     kwargs.update(overrides)
     return build_role_invocation(**kwargs)
@@ -69,16 +69,16 @@ def test_ultracode_pairs_with_model(tmp_path: Path) -> None:
 
 
 def test_claude_invocation_carries_session_name(tmp_path: Path) -> None:
-    invocation = _build(tmp_path, session_name="p37596/coder")
+    invocation = _build(tmp_path, session_name="p37596/expert")
     assert "--name" in invocation.command
-    assert "p37596/coder" in invocation.command
-    assert invocation.session_name == "p37596/coder"
+    assert "p37596/expert" in invocation.command
+    assert invocation.session_name == "p37596/expert"
 
 
 def test_initial_prompt_drives_forever_loop(tmp_path: Path) -> None:
-    invocation = _build(tmp_path, role_name="writer")
+    invocation = _build(tmp_path, role_name="expert")
     prompt = invocation.initial_prompt
-    assert "writer" in prompt
+    assert "expert" in prompt
     assert "mos_await_events" in prompt
     # Gru priority is non-negotiable.
     assert "Gru" in prompt
@@ -95,11 +95,11 @@ def test_initial_prompt_drives_forever_loop(tmp_path: Path) -> None:
 
 
 def test_forever_loop_prompt_is_role_specific() -> None:
-    coder = build_forever_loop_prompt(role_name="coder")
-    writer = build_forever_loop_prompt(role_name="writer")
-    assert "`coder`" in coder
-    assert "`writer`" in writer
-    assert coder != writer
+    expert = build_forever_loop_prompt(role_name="expert")
+    ethics = build_forever_loop_prompt(role_name="ethics")
+    assert "`expert`" in expert
+    assert "`ethics`" in ethics
+    assert expert != ethics
 
 
 def test_invocation_omits_resume_by_default(tmp_path: Path) -> None:
@@ -114,13 +114,13 @@ def test_invocation_appends_resume_when_requested(tmp_path: Path) -> None:
     system.write_text("role system", encoding="utf-8")
     invocation = build_role_invocation(
         cfg=GruConfig(agent_host="claude"),
-        role_name="coder",
+        role_name="expert",
         project_port=37596,
-        project_agent_id="coder",
+        project_agent_id="expert",
         system_path=system,
         allowed_tools="Read,Write",
         workspace=tmp_path,
-        session_name="p37596/coder",
+        session_name="p37596/expert",
         resume=True,
     )
     # When resume=True, --resume must appear AND its value must be the
@@ -128,12 +128,12 @@ def test_invocation_appends_resume_when_requested(tmp_path: Path) -> None:
     # accepts session titles as a --resume value).
     assert "--resume" in invocation.command
     resume_index = invocation.command.index("--resume")
-    assert invocation.command[resume_index + 1] == "p37596/coder"
+    assert invocation.command[resume_index + 1] == "p37596/expert"
     # And --name is still there with the same value, so the two flags are
     # consistent.
     assert "--name" in invocation.command
     name_index = invocation.command.index("--name")
-    assert invocation.command[name_index + 1] == "p37596/coder"
+    assert invocation.command[name_index + 1] == "p37596/expert"
 
 
 def test_invocation_omits_fallback_model_for_long_lived_role(tmp_path: Path) -> None:
@@ -164,7 +164,7 @@ def _cold_prompt(role: str) -> str:
 
 
 def test_warmup_block_present_for_eacn_roles() -> None:
-    for role in ("coder", "ethics", "writer"):
+    for role in ("expert", "ethics"):
         prompt = _cold_prompt(role)
         assert _WARMUP_HEADER in prompt, f"warmup missing for {role}"
         assert "select:" in prompt
@@ -172,13 +172,14 @@ def test_warmup_block_present_for_eacn_roles() -> None:
         assert "mos_draft_summary" in prompt
 
 
-def test_warmup_block_present_for_noter() -> None:
-    prompt = _cold_prompt("noter")
+def test_warmup_block_for_ethics_includes_curation_tools() -> None:
+    """Ethics is the merged memory curator — its warmup primes the draft-commit
+    and Book curation tools that Noter used to hold."""
+    prompt = _cold_prompt("ethics")
     assert _WARMUP_HEADER in prompt
     assert "select:" in prompt
-    # Noter does not use mos_await_events; it uses mos_noter_wait.
-    assert "mos_noter_wait" in prompt
     assert "mos_draft_commit_shared" in prompt
+    assert "mos_book_ingest" in prompt
 
 
 def test_warmup_block_handles_expert_name_shapes() -> None:
@@ -198,7 +199,7 @@ def test_warmup_block_steers_away_from_keyword_search() -> None:
     # ToolSearch with keyword "MinionsOS tools" and getting nothing back.
     # The warmup MUST tell the role to use select:<id> and lookup.py, not
     # keyword search, for MinionsOS tools.
-    prompt = _cold_prompt("coder")
+    prompt = _cold_prompt("expert")
     assert "MANUAL/scripts/lookup.py" in prompt
     assert "keyword" in prompt.lower()
 
@@ -206,7 +207,7 @@ def test_warmup_block_steers_away_from_keyword_search() -> None:
 def test_warmup_block_appears_before_step_1() -> None:
     # Step 0 must come before "1. Call `mos_draft_summary()`" so the role
     # warms schemas before its very first MCP call.
-    prompt = _cold_prompt("coder")
+    prompt = _cold_prompt("expert")
     step0 = prompt.index(_WARMUP_HEADER)
     step1 = prompt.index("1. Call `mos_draft_summary()`")
     assert step0 < step1
@@ -220,7 +221,7 @@ def test_eacn_prompt_pairs_drain_silently_with_initiate() -> None:
     # yield and deadlock. The forever-loop prompt must teach BOTH halves:
     # drain a no-decision event silently, AND initiate (DM / task) when idle
     # or blocked rather than passively re-polling.
-    for role in ("coder", "ethics", "writer", "expert"):
+    for role in ("ethics", "expert"):
         prompt = _cold_prompt(role)
         flat = " ".join(prompt.split())
         assert "drain-silently vs. initiate" in flat, f"missing paired rule for {role}"
@@ -238,16 +239,16 @@ def test_eacn_prompt_keeps_initiate_distinct_from_keepalive_ack() -> None:
     # The initiate-when-idle rule must NOT bleed into the cache_keepalive turn,
     # which is strictly ack-only. Pin that the quiet-branch block flags the
     # distinction and precedes the keepalive section.
-    prompt = _cold_prompt("coder")
+    prompt = _cold_prompt("expert")
     assert "NOT the cache_keepalive turn" in prompt
     assert prompt.index("drain-silently vs. initiate") < prompt.index("Cache keepalive:")
 
 
-def test_writer_warmup_pins_create_task() -> None:
+def test_expert_warmup_pins_create_task() -> None:
     # Issue #86: eacn3_create_task must be first-class at cold start for every
-    # EACN role. Writer's warmup previously omitted it, forcing a ToolSearch
-    # round-trip before Writer could ever publish a task.
-    prompt = _cold_prompt("writer")
+    # EACN role. The unified Expert worker must be able to publish a task
+    # without a ToolSearch round-trip.
+    prompt = _cold_prompt("expert")
     warmup = prompt[prompt.index(_WARMUP_HEADER) : prompt.index("1. Call `mos_draft_summary()`")]
     assert "eacn3_create_task" in warmup
     assert "eacn3_send_message" in warmup

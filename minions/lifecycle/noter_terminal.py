@@ -215,15 +215,15 @@ def _handle_command(
         )
         return True
     if cmd == "wake":
-        message = rest or "Please produce an on-demand Noter status summary for Gru."
+        message = rest or "Please produce an on-demand memory/status summary for Gru."
         try:
-            target = resolve_agent_id(port, "noter")
+            target = resolve_agent_id(port, "ethics")
             sender = resolve_agent_id(port, "gru")
             eacn_client.send_message(
                 port=port,
                 to_agent_id=target,
                 from_agent_id=sender,
-                content={"type": "noter_status_request", "text": message},
+                content={"type": "memory_status_request", "text": message},
             )
             console.print(f"[green]queued Noter request[/green] {target} on {port}")
         except Exception as exc:

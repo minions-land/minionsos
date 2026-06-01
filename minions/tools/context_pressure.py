@@ -44,7 +44,7 @@ Threshold rationale:
 
 Cooldown:
 
-  ``mos_compact_context`` writes to ``branches/shared/draft/journal.jsonl``
+  ``mos_compact_context`` writes to ``branches/main/draft/journal.jsonl``
   with ``op: "compact"``. We refuse to fire a high-pressure annotation
   if the most recent compact event for this role is less than
   ``cooldown_seconds`` (default 300s) ago. This prevents oscillation
@@ -222,7 +222,7 @@ def _tail_assistant_turns(jsonl: Path, n: int) -> list[int]:
 def _last_compact_at(workspace: Path) -> float | None:
     """Return UNIX timestamp of the most recent compact event for this role.
 
-    Reads ``branches/shared/draft/journal.jsonl`` looking for the last
+    Reads ``branches/main/draft/journal.jsonl`` looking for the last
     line with ``op == "compact"`` and ``role == <our role>``. Returns
     None if no such event found.
 

@@ -68,30 +68,20 @@ class TestRegister:
     def test_register_role_records_entry(self) -> None:
         store = FakeStore()
         with patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])) as reg:
-            out = role_mod.register_role(37596, "coder", init_brief=None, store=store)
-        reg.assert_called_once_with(37596, "coder")
-        assert out["name"] == "coder"
-        assert out["session_name"] == "p37596/coder"
-        assert str(out["workspace_path"]).endswith("/37596/coder")
-        assert out["eacn_agent_id"] == "coder"
-        assert out["tmux_session"] == "mos-37596-coder"
+            out = role_mod.register_role(37596, "ethics", init_brief=None, store=store)
+        reg.assert_called_once_with(37596, "ethics")
+        assert out["name"] == "ethics"
+        assert out["session_name"] == "p37596/ethics"
+        assert str(out["workspace_path"]).endswith("/37596/ethics")
+        assert out["eacn_agent_id"] == "ethics"
+        assert out["tmux_session"] == "mos-37596-ethics"
         assert out["launch_started"] is True
         assert store.upserts[0].state == "active"
         assert store.upserts[0].pid is None
-        assert store.upserts[0].session_name == "p37596/coder"
-        assert store.upserts[0].workspace_branch == "minionsos/project-37596-coder"
-        assert store.upserts[0].eacn_agent_id == "coder"
+        assert store.upserts[0].session_name == "p37596/ethics"
+        assert store.upserts[0].workspace_branch == "minionsos/project-37596-ethics"
+        assert store.upserts[0].eacn_agent_id == "ethics"
         assert store.upserts[0].eacn_agent_token == "tok"
-
-    def test_register_noter_skips_eacn(self) -> None:
-        """Noter is not registered on EACN3 — no AgentCard, no init_brief delivery."""
-        store = FakeStore()
-        with patch.object(role_mod, "register_project_role_agent") as reg:
-            out = role_mod.register_role(37596, "noter", init_brief="observe", store=store)
-        reg.assert_not_called()
-        assert out["name"] == "noter"
-        assert out["launch_started"] is True
-        assert store.upserts[0].eacn_agent_token == ""
 
     def test_register_work_role_with_init_brief_sends_message(self) -> None:
         """v15.6+: cold-start init_brief is delivered as an addressable EACN
@@ -104,7 +94,7 @@ class TestRegister:
             patch("minions.lifecycle.eacn_client.send_message", return_value={}) as send_message,
             patch("minions.lifecycle.eacn_client.create_task", return_value={}) as create_task,
         ):
-            role_mod.register_role(37596, "coder", init_brief="hello world", store=store)
+            role_mod.register_role(37596, "ethics", init_brief="hello world", store=store)
         # No Task created — that's the regression we're locking.
         assert create_task.call_count == 0
         # Exactly one advisory message sent to the role.
@@ -112,25 +102,14 @@ class TestRegister:
         kwargs = send_message.call_args.kwargs
         assert kwargs["port"] == 37596
         assert kwargs["from_agent_id"] == "gru"
-        assert kwargs["to_agent_id"] == "coder"
+        assert kwargs["to_agent_id"] == "ethics"
         content = kwargs["content"]
         assert content["kind"] == "role_init_brief"
-        assert content["role"] == "coder"
+        assert content["role"] == "ethics"
         assert content["brief"] == "hello world"
         assert (
             "advisory" in content["guidance"].lower() or "not a task" in content["guidance"].lower()
         )
-
-    def test_register_noter_with_init_brief_skips_eacn_delivery(self) -> None:
-        """Noter is not on EACN — init_brief is silently skipped."""
-        store = FakeStore()
-        with (
-            patch("minions.lifecycle.eacn_client.create_task", return_value={}) as create_task,
-            patch("minions.lifecycle.eacn_client.send_message", return_value={}) as send_message,
-        ):
-            role_mod.register_role(37596, "noter", init_brief="observe quietly", store=store)
-        assert create_task.call_count == 0
-        assert send_message.call_count == 0
 
     def test_register_duplicate_active_smart_respawns(
         self, monkeypatch: pytest.MonkeyPatch
@@ -141,7 +120,7 @@ class TestRegister:
         skipped."""
         store = FakeStore()
         with patch.object(role_mod, "register_project_role_agent", return_value=("tok", [])) as reg:
-            first = role_mod.register_role(37596, "coder", store=store)
+            first = role_mod.register_role(37596, "ethics", store=store)
         assert first["launch_started"] is True
 
         # Now pretend the session is alive — second register_role should no-op.
@@ -151,7 +130,7 @@ class TestRegister:
         with patch.object(
             role_mod, "register_project_role_agent", return_value=("tok", [])
         ) as reg2:
-            second = role_mod.register_role(37596, "coder", store=store)
+            second = role_mod.register_role(37596, "ethics", store=store)
         assert reg2.call_count == 0  # EACN re-registration is skipped
         assert second["respawn"] is False
         assert second["launch_started"] is False
@@ -225,7 +204,7 @@ class TestRegister:
             ),
             pytest.raises(role_mod.RoleError),
         ):
-            role_mod.register_role(37596, "coder", store=store)
+            role_mod.register_role(37596, "ethics", store=store)
         assert store.upserts == []
 
     # ---- issue #49: register_expert name coercion (regression coverage) ----

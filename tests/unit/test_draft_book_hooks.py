@@ -135,7 +135,7 @@ def test_full_wiki_status_hook_calls_wiki_ingest(
     draft.mos_draft_annotate(node_id="H-001", support_status="verified")
 
     assert len(calls) == 1
-    assert calls[0]["source_role"] == "noter"
+    assert calls[0]["source_role"] == "ethics"
     assert "verified" in str(calls[0]["source_slug"])
     assert calls[0]["port"] == _isolated_project["port"]
     assert calls[0]["title"] == "Status update: H-001 → verified"

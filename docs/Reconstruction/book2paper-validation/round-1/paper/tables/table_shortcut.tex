@@ -1,0 +1,21 @@
+% Source: evidence/tables/derived_from_table3_shortcut_options.md (derived from Table 3). Supports C04.
+% EXACT numbers. Delta-vs-plain-34 carried from the derived subset.
+\begin{table}[t]
+\centering
+\caption{\resnet-34 shortcut-option ablation on ImageNet validation (\%, 10-crop),
+isolated from Table~3 with the plain-34 baseline. All three options beat plain-34 by a
+wide margin; the differences among A, B, and C are small ($\le0.84$ top-1). Source:
+derived subset of Table~3.}
+\label{tab:shortcut}
+\small
+\begin{tabular}{l l c c c}
+\toprule
+model & shortcut option & top-1 err. & top-5 err. & $\Delta$ top-1 vs.\ plain-34 \\
+\midrule
+plain-34   & none                          & 28.54 & 10.02 & --- \\
+\resnet-34 A & identity $+$ zero-pad        & 25.03 & 7.76 & $-3.51$ \\
+\resnet-34 B & projection on dim.\ change   & 24.52 & 7.46 & $-4.02$ \\
+\resnet-34 C & projection on every shortcut & 24.19 & 7.40 & $-4.35$ \\
+\bottomrule
+\end{tabular}
+\end{table}

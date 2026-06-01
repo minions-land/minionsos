@@ -106,7 +106,7 @@ class TestMainKicksOnEveryPath:
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
         monkeypatch.setenv("MINIONS_PROJECT_PORT", "39999")
-        monkeypatch.setenv("MINIONS_ROLE_NAME", "noter")
+        monkeypatch.setenv("MINIONS_ROLE_NAME", "ethics")
         monkeypatch.setattr("sys.stdin.read", lambda: "")
         with patch.object(hook, "_kick_own_pane", return_value=True) as mock_kick:
             hook.main()
@@ -114,7 +114,7 @@ class TestMainKicksOnEveryPath:
 
     def test_malformed_stdin_still_kicks(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("MINIONS_PROJECT_PORT", "39999")
-        monkeypatch.setenv("MINIONS_ROLE_NAME", "noter")
+        monkeypatch.setenv("MINIONS_ROLE_NAME", "ethics")
         monkeypatch.setattr("sys.stdin.read", lambda: "not-valid-json")
         with patch.object(hook, "_kick_own_pane", return_value=True) as mock_kick:
             hook.main()
@@ -140,7 +140,7 @@ class TestMainKicksOnEveryPath:
         monkeypatch.setenv("MINIONS_ROOT", str(repo))
         monkeypatch.delenv("MINIONS_PROJECTS_ROOT", raising=False)
         monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
-        monkeypatch.setenv("MINIONS_ROLE_NAME", "noter")
+        monkeypatch.setenv("MINIONS_ROLE_NAME", "ethics")
 
         stdin_payload = json.dumps(
             {
@@ -155,13 +155,13 @@ class TestMainKicksOnEveryPath:
 
         with patch.object(hook, "_kick_own_pane", return_value=True) as mock_kick:
             hook.main()
-        mock_kick.assert_called_once_with(port, "noter")
+        mock_kick.assert_called_once_with(port, "ethics")
         # Journal entry written.
         journal = draft_dir / "journal.jsonl"
         assert journal.is_file()
         entry = json.loads(journal.read_text(encoding="utf-8").strip().splitlines()[-1])
         assert entry["op"] == "post_compact_extract"
-        assert entry["role"] == "noter"
+        assert entry["role"] == "ethics"
 
 
 # Smoke: kick command shape — use real shlex quoting so we catch a regression

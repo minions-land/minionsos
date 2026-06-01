@@ -17,34 +17,33 @@ def test_mcp_authz_allows_gru_project_tool() -> None:
 
 def test_mcp_authz_denies_role_project_tool() -> None:
     with (
-        patch.dict(os.environ, {"MINIONS_ROLE_NAME": "coder"}, clear=False),
+        patch.dict(os.environ, {"MINIONS_ROLE_NAME": "ethics"}, clear=False),
         pytest.raises(PermissionError),
     ):
         _require_tool_allowed("mos_project_create")
 
 
-def test_mcp_authz_allows_writer_paper_search_tool() -> None:
-    with patch.dict(os.environ, {"MINIONS_ROLE_NAME": "writer"}, clear=False):
+def test_mcp_authz_allows_expert_paper_search_tool() -> None:
+    with patch.dict(os.environ, {"MINIONS_ROLE_NAME": "expert"}, clear=False):
         _require_tool_allowed("mos_search_arxiv")
 
 
-def test_mcp_authz_denies_coder_paper_search_tool() -> None:
-    with (
-        patch.dict(os.environ, {"MINIONS_ROLE_NAME": "coder"}, clear=False),
-        pytest.raises(PermissionError),
-    ):
+def test_mcp_authz_allows_ethics_paper_search_tool() -> None:
+    """Ethics (merged curator+auditor) now holds paper-search for citation
+    authenticity audits."""
+    with patch.dict(os.environ, {"MINIONS_ROLE_NAME": "ethics"}, clear=False):
         _require_tool_allowed("mos_search_arxiv")
 
 
-def test_mcp_authz_allows_coder_experiment_queue_tool() -> None:
-    with patch.dict(os.environ, {"MINIONS_ROLE_NAME": "coder"}, clear=False):
+def test_mcp_authz_allows_expert_experiment_queue_tool() -> None:
+    with patch.dict(os.environ, {"MINIONS_ROLE_NAME": "expert"}, clear=False):
         _require_tool_allowed("mos_exp_queue_submit")
         _require_tool_allowed("mos_exp_gpu_pool_set")
 
 
-def test_mcp_authz_denies_noter_experiment_queue_tool() -> None:
+def test_mcp_authz_denies_ethics_experiment_queue_tool() -> None:
     with (
-        patch.dict(os.environ, {"MINIONS_ROLE_NAME": "noter"}, clear=False),
+        patch.dict(os.environ, {"MINIONS_ROLE_NAME": "ethics"}, clear=False),
         pytest.raises(PermissionError),
     ):
         _require_tool_allowed("mos_exp_queue_submit")
@@ -56,7 +55,7 @@ def test_mcp_authz_allows_empty_role_for_interactive_or_tests() -> None:
 
 
 def test_mcp_authz_visual_tools_allowed_for_eacn_roles() -> None:
-    for role in ("gru", "coder", "writer", "ethics", "expert"):
+    for role in ("gru", "ethics", "expert"):
         with patch.dict(os.environ, {"MINIONS_ROLE_NAME": role}, clear=False):
             _require_tool_allowed("mos_visual_render")
             _require_tool_allowed("mos_visual_inspect")
@@ -74,7 +73,7 @@ def test_mcp_authz_visual_tools_denied_for_noter() -> None:
 def test_mcp_authz_reel_tools_allowed_for_eacn_roles() -> None:
     """Reel read tools are allowed for all EACN-visible roles (server-side
     authz at the role-private boundary is enforced in reel.py itself, not here)."""
-    for role in ("gru", "coder", "writer", "ethics", "expert"):
+    for role in ("gru", "ethics", "expert"):
         with patch.dict(os.environ, {"MINIONS_ROLE_NAME": role}, clear=False):
             _require_tool_allowed("mos_reel_get")
             _require_tool_allowed("mos_reel_window")
@@ -138,7 +137,7 @@ def test_non_expert_role_unchanged() -> None:
     the expert authz bucket."""
     from minions.config import is_expert_role, normalise_role_name
 
-    for role in ["coder", "noter", "writer", "ethics", "gru"]:
+    for role in ["noter", "ethics", "gru"]:
         assert not is_expert_role(role)
         assert normalise_role_name(role) == role
 

@@ -1,9 +1,9 @@
 ---
 slug: code-validity-review
-summary: Deep-trace zoom of the experiments / reproducibility aspects — open when aspect-review must walk code paths to decide whether implementation invalidates a paper claim. Delegate the actual code trace to Codex; keep validity judgment here.
+summary: Deep-trace zoom of the experiments / reproducibility aspects — open when aspect-review must walk code paths to decide whether implementation invalidates a paper claim. Delegate the actual code trace to a Bash-capable Task subagent; keep validity judgment here.
 layer: logical
-tools: codex
-version: 4
+tools: Task
+version: 5
 status: active
 supersedes:
 references: aspect-review, simulate-reviewer-instance
@@ -27,16 +27,16 @@ Decision rule:
 
 Output of `code-validity-review` lands inside the same aspect note (an `experiments` or `reproducibility` aspect-note) — it is a deeper evidence layer, not a separate artifact.
 
-## Codex delegation (default mode)
+## Subagent delegation (default mode)
 
-Code-trace is the canonical Codex use case for review work. **Default to delegating the trace to Codex** rather than reading the submitted code line-by-line yourself:
+Code-trace is the canonical nested-subagent use case for review work. **Default to delegating the trace to a `Bash`-capable `Task` subagent** rather than reading the submitted code line-by-line yourself:
 
-- `codex` with `sandbox="danger-full-access"` — full-access subagent that can read the entire submitted code tree, follow imports, grep for patterns, and return a structured trace. Use this when the validity question touches more than one file.
-- `codex` with `sandbox="read-only"` — read-only analysis when a single file or short snippet suffices.
+- code-trace subagent (`Bash`-capable) — can read the entire submitted code tree, follow imports, grep for patterns, run a script, and return a structured trace. Use this when the validity question touches more than one file.
+- read-only analysis subagent — when a single file or short snippet suffices.
 
-Hand Codex: the paper claim being audited, the validity-risk checklist below, the file paths it may read, and a request for a structured finding (claim → code evidence → risk severity → minimum fix). Codex returns evidence; you decide whether the evidence invalidates the claim and write the aspect-note.
+Hand the subagent: the paper claim being audited, the validity-risk checklist below, the file paths it may read, and a request for a structured finding (claim → code evidence → risk severity → minimum fix). The subagent returns evidence; you decide whether the evidence invalidates the claim and write the aspect-note.
 
-Read the code yourself only when (a) Codex returns ambiguous evidence and a human (you) reading two or three specific lines resolves it, or (b) the trace is so short that delegating is overhead.
+Read the code yourself only when (a) the subagent returns ambiguous evidence and a human (you) reading two or three specific lines resolves it, or (b) the trace is so short that delegating is overhead.
 
 ## When to invoke
 
@@ -47,24 +47,24 @@ If none of those triggers apply, use `aspect-review` with `experiments` or `repr
 
 ## Structure
 
-Every finding is bound to a specific claim, cites a concrete code path / line / config / log / artifact / missing-provenance item, and states the minimum revision or experiment needed to resolve the risk. Style and maintainability are out of scope unless they create a realistic validity risk. The review session is read-only on role branches and writes only under `branches/shared/reviews/round-<n>/`.
+Every finding is bound to a specific claim, cites a concrete code path / line / config / log / artifact / missing-provenance item, and states the minimum revision or experiment needed to resolve the risk. Style and maintainability are out of scope unless they create a realistic validity risk. The review session is read-only on role branches and writes only under `branches/main/reviews/round-<n>/`.
 
 Validity-risk checklist: data leakage, train / test mixups, hardcoded results, benchmark shortcuts, stale baselines, seed contamination, cherry-picking, metric mismatch, unreported filtering.
 
 ## Procedure
 
 1. **Bind code to claims.** Identify the paper claim, experiment report, table, or figure the code supports.
-2. **Delegate the trace to Codex.** Hand the `codex` MCP tool (`sandbox="danger-full-access"`) the claim, the validity-risk checklist, and the submitted code paths. Ask for a structured trace: script → config → data loader → metric → output, with file:line evidence at each step.
-3. **Check validity risks** per the checklist above against Codex's returned evidence.
-4. **Check reproducibility hooks.** Seeds, configs, commit SHAs, dataset versions, command lines recorded well enough for the claim — Codex can sweep these in one pass.
+2. **Delegate the trace to a `Bash`-capable `Task` subagent.** Hand it the claim, the validity-risk checklist, and the submitted code paths. Ask for a structured trace: script → config → data loader → metric → output, with file:line evidence at each step.
+3. **Check validity risks** per the checklist above against the subagent's returned evidence.
+4. **Check reproducibility hooks.** Seeds, configs, commit SHAs, dataset versions, command lines recorded well enough for the claim — the subagent can sweep these in one pass.
 5. **Separate bugs from style.** Ignore style and maintainability unless they create a realistic validity risk.
-6. **Write evidence-backed findings** in the current aspect note with severity, claim affected, evidence pointer (file:line from Codex), and the minimum revision or experiment needed to resolve.
+6. **Write evidence-backed findings** in the current aspect note with severity, claim affected, evidence pointer (file:line from the subagent), and the minimum revision or experiment needed to resolve. Score the relevant rigor dimensions — typically D6 Methodological Rigor (metric–claim alignment, reproducibility) and D1 Evidence Relevance (does the code actually produce the reported result?) — in the aspect note's "Rigor Dimensions (D1–D6)" section.
 
 ## Pitfalls
 
 - Performing general code review instead of scientific validity review.
 - Inferring a bug from unfamiliar style without tracing execution.
 - Reading historical review context during a fresh Pass A review.
-- Suggesting fixes in any role's branch (e.g. `branches/coder/`, `branches/writer/`); the review session is read-only on role branches and writes only under `branches/shared/reviews/`.
-- Skipping Codex and doing the trace by hand when Codex would do it in one shot.
-- Letting Codex *judge* whether a finding invalidates the claim. Codex returns the trace; the validity verdict stays in this skill.
+- Suggesting fixes in any role's branch (e.g. `branches/coder/`, `branches/writer/`); the review session is read-only on role branches and writes only under `branches/main/reviews/`.
+- Skipping the nested subagent and doing the trace by hand when it would do it in one shot.
+- Letting the nested subagent *judge* whether a finding invalidates the claim. It returns the trace; the validity verdict stays in this skill.

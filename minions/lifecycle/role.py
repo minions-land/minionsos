@@ -25,7 +25,6 @@ from minions.config import (
     ROLE_CLASSIFICATION,
     ROLE_WRITE_BOUNDARIES,
     RoleType,
-    load_gru_config,
     parse_duration,
     slugify,
 )
@@ -43,11 +42,12 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-FIXED_ROLES = {"noter", "coder", "writer", "ethics"}
+FIXED_ROLES = {"ethics"}
 
-# Roles bootstrapped automatically at project creation. Writer is on-demand
-# (spawned by Gru when the project enters a paper-writing phase).
-BOOTSTRAP_ROLES = {"noter", "coder", "ethics"}
+# Fixed roles bootstrapped automatically at project creation. The project's
+# general worker (one generalist Expert) is bootstrapped separately via
+# register_expert (it needs a domain), so it is NOT in this set.
+BOOTSTRAP_ROLES = {"ethics"}
 
 
 # ---------------------------------------------------------------------------
@@ -62,18 +62,14 @@ def _now_iso() -> str:
 def _resolve_time_trigger_interval(role_name: str, interval: str | None) -> str | None:
     """Resolve optional periodic wakeups for a role.
 
-    Noter gets a default cadence because periodic Draft flushes are part
-    of its core contract. Report publication is throttled separately by
-    ``noter_report_interval``. Other roles remain event-driven unless
-    explicitly configured. The cadence is recorded on the ``RoleEntry`` for
-    the resident-Role launcher to consume; this module does not schedule
-    wakeups.
+    All roles are event-driven (``mos_await_events``); none gets a default
+    timer cadence. Ethics — the merged memory curator + auditor — does its
+    periodic Draft-flush / Book-maintenance work on the ``idle_check`` ticks
+    that ``mos_await_events`` already emits after ~5 minutes of silence, so it
+    needs no separate timer. A cadence is only set when a caller explicitly
+    passes one; it is recorded on the ``RoleEntry`` for the launcher.
     """
-    if interval is None and role_name == "noter":
-        try:
-            interval = load_gru_config().noter_periodic_interval
-        except Exception:
-            interval = "5m"
+    del role_name  # no role gets a default timer cadence anymore
     if not interval:
         return None
     try:
@@ -108,75 +104,42 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "`mos_draft_summary` / `mos_draft_query`) — Noter flushes "
         "it to the shared branch on its periodic wake.\n"
     ),
-    "noter": (
-        "[Role boundary: observer — Draft curator, NOT on EACN3]\n"
-        "You wake on a periodic timer (`mos_noter_wait`, default 5m) "
-        "to (a) flush the buffered Draft via "
-        "`mos_draft_commit_shared` and (b) consider whether a fresh "
-        "staged report is due (target cadence `noter_report_interval`, "
-        "default 30m). You observe the project by reading `events/*.jsonl` "
-        "and `branches/shared/` — you do NOT have EACN3 tools and are not "
-        "registered on the network.\n"
-        "Write boundaries: your drafts go in your branch `branches/noter/`; "
-        "publish to `branches/shared/notes/<file>.md` via "
-        "`mos_publish_to_shared`. The Draft itself lives at "
-        "`branches/shared/draft/draft.json` and is flushed by "
-        "you.\n"
-        "Do NOT write to any other role's `branches/<role>/` directory. Do "
-        "NOT publish into any shared subdir other than `notes/`, "
-        "`draft/`, `book/`, or `handoffs/`.\n"
-    ),
-    "coder": (
-        "[Role boundary: EACN-visible agent]\n"
-        "Communicate state and task handoffs through EACN3. "
-        "Delegate complex execution to subagents; summarize and write back results.\n"
-        "Write boundaries: your branch `branches/coder/` by default. Publish "
-        "cross-role handoffs to `branches/shared/handoffs/` via "
-        "`mos_publish_to_shared`. Publish completed experiment result bundles to "
-        "`branches/shared/exp/exp-<id>/` via `mos_publish_to_shared`. "
-        "Conditional system-maintenance boundary: "
-        "MinionsOS repository runtime code only when Gru or the author "
-        "explicitly assigns that implementation work through EACN and names the "
-        "scope, allowed paths, and verification target.\n"
-        "Cross-cycle memory: use the Draft (`mos_draft_append` / "
-        "`mos_draft_summary` / `mos_draft_query`).\n"
-    ),
-    "writer": (
-        "[Role boundary: EACN-visible agent]\n"
-        "Do NOT invent claims. Output must be based on available evidence, expert feedback, "
-        "experiment results, and competitor positioning. "
-        "Claims must be supported by evidence, experiment, derivation, citation, "
-        "or explicit speculation markers.\n"
-        "Write boundaries: your branch `branches/writer/` (primary: "
-        "`branches/writer/paper/`). Publish cross-role handoffs (e.g. a "
-        "submission package for review) to `branches/shared/handoffs/` via "
-        "`mos_publish_to_shared`.\n"
-        "Cross-cycle memory: use the Draft (`mos_draft_append` / "
-        "`mos_draft_summary` / `mos_draft_query`).\n"
-    ),
     "ethics": (
-        "[Role boundary: EACN-visible agent — continuous evidence validation]\n"
-        "You continuously check whether agent behavior, communication, theory, code, "
-        "and claims have real evidence support. You MAY inspect internal materials: "
-        "experiment artifacts, evidence/claim maps, appendix plans, known limitations, "
-        "unresolved risks, agent communications, and all claim types.\n"
-        "Write boundaries: your branch `branches/ethics/` for working drafts "
-        "and investigation notes. Publish finalised reports, flags, "
-        "adjudications, and mock-reviews to `branches/shared/ethics/` (flat: "
-        "`report-<slug>.md`, `flag-<slug>.md`, `mock-review-<slug>.md`, "
-        "`adjudication-<task-id>.md`) via `mos_publish_to_shared`. Do NOT "
-        "publish into `branches/shared/reviews/` — that surface is reserved "
-        "for `mos_review_run`.\n"
-        "Cross-cycle memory: use the Draft (`mos_draft_append` / "
-        "`mos_draft_summary` / `mos_draft_query`).\n"
+        "[Role boundary: EACN-visible agent — memory curator + evidence auditor + adjudicator]\n"
+        "You are the merged Ethics role: you (1) curate the team memory — maintain "
+        "the Draft graph (flush/decay/dedup, draw motif edges), ingest/promote/"
+        "crystallize the Book; (2) audit whether agent behaviour, theory, code, and "
+        "claims have real evidence support; (3) adjudicate EACN tasks. You MAY "
+        "inspect internal materials: experiment artifacts, evidence/claim maps, "
+        "agent communications, and all claim types; and you read any role's Reel.\n"
+        "RED LINE: you NEVER produce a substantive research claim — claims come only "
+        "from Expert. You organize, audit, seal, and adjudicate. Edges you draw "
+        "yourself are held to the SAME evidence standard you apply to Expert claims.\n"
+        "Triage: handle audit/adjudication events first (they gate the whole team); "
+        "do memory hygiene (Draft flush, Book maintenance) on idle ticks.\n"
+        "Write boundaries: your branch `branches/ethics/` for working drafts and "
+        "investigation notes. Publish reports/flags/adjudications/mock-reviews to "
+        "`branches/shared/ethics/`; curate the Book under `branches/shared/book/`; "
+        "flush the Draft at `branches/shared/draft/draft.json`. Do NOT publish into "
+        "`branches/shared/reviews/` — reserved for `mos_review_run`.\n"
+        "Cross-cycle memory: the Draft (`mos_draft_*`) is your primary instrument.\n"
     ),
     "expert": (
-        "[Role boundary: EACN-visible agent]\n"
-        "Communicate state and task handoffs through EACN3. "
-        "Preferably read-mostly; write to your own branch only when necessary.\n"
-        "Write boundaries: your branch `branches/<expert>/` (sparingly, scientific "
-        "scratch only). Publish cross-role handoffs to "
-        "`branches/shared/handoffs/` via `mos_publish_to_shared`.\n"
+        "[Role boundary: EACN-visible agent — the project's general worker]\n"
+        "You are the unified worker (the 'Common Agent'): you drive science AND "
+        "carry it out — write/run experiments, debug, write the paper, build "
+        "figures, search literature. Coding, writing, and figure-making are "
+        "baseline capabilities (their skills live in `common/skills/`).\n"
+        "Communicate state and task handoffs through EACN3; delegate heavy "
+        "execution to Workflow/subagents and write back size-bounded results.\n"
+        "Write boundaries: your branch `branches/<expert>/` "
+        "(`src/experiments/`, `exp/exp-<id>/`, `paper/`, `notes/`). Publish "
+        "cross-role handoffs to `branches/shared/handoffs/` via "
+        "`mos_publish_to_shared`; experiment bundles to "
+        "`branches/shared/exp/exp-<id>/`.\n"
+        "Conditional system-maintenance boundary: MinionsOS runtime code only "
+        "when Gru or the author explicitly assigns it through EACN with named "
+        "scope, paths, and verification target.\n"
         "Cross-cycle memory: use the Draft (`mos_draft_append` / "
         "`mos_draft_summary` / `mos_draft_query`).\n"
     ),
@@ -366,18 +329,16 @@ def _do_register(
         ) from exc
     session_name = project_session_name(project_port, role_name)
 
-    # Noter is not registered on EACN3 — it observes via read-only APIs and
-    # wakes on a timer (mos_noter_wait) rather than mos_await_events.
-    if role_name == "noter":
-        agent_token = ""
-    else:
-        try:
-            agent_token, _seeds = register_project_role_agent(project_port, role_name)
-        except BackendError as exc:
-            raise RoleError(
-                f"Role {role_name!r} could not join project-local EACN3 network "
-                f"on port {project_port}: {exc}"
-            ) from exc
+    # Every role registers on the project-local EACN3 network and drives its
+    # loop via mos_await_events (Ethics, the merged memory-curator + auditor,
+    # included — it does periodic memory maintenance on idle ticks).
+    try:
+        agent_token, _seeds = register_project_role_agent(project_port, role_name)
+    except BackendError as exc:
+        raise RoleError(
+            f"Role {role_name!r} could not join project-local EACN3 network "
+            f"on port {project_port}: {exc}"
+        ) from exc
 
     now = _now_iso()
     role_entry = RoleEntry(
@@ -398,54 +359,47 @@ def _do_register(
     )
 
     if init_brief:
-        # Noter is not on EACN — skip init_brief delivery for it.
-        if role_name == "noter":
-            logger.info(
-                "init_brief skipped for noter (not on EACN): port=%d",
-                project_port,
+        # Cold-start delivery is an advisory message, NOT a Task.
+        # A Task would carry a bid/claim contract and require the
+        # cold-started Role to issue eacn3_submit_bid before doing
+        # anything productive — a contract that often deadlocks a
+        # freshly woken Role with no peers yet to negotiate against.
+        # The B-000 bootstrap node already provides project-level
+        # context; this message just hands the Role its role-specific
+        # brief as a normal addressable event that mos_await_events
+        # surfaces without a bid obligation.
+        target_agent_id = resolve_agent_id(project_port, role_name)
+        initiator_id = resolve_agent_id(project_port, "gru")
+        try:
+            eacn_client.send_message(
+                port=project_port,
+                to_agent_id=target_agent_id,
+                from_agent_id=initiator_id,
+                content={
+                    "kind": "role_init_brief",
+                    "role": role_name,
+                    "brief": init_brief,
+                    "guidance": (
+                        "This is an advisory init brief, not a Task. "
+                        "Read B-000 in the Draft for project context, then "
+                        "actively collaborate with your peers. "
+                        "Use eacn3_send_message to exchange ideas with other roles, "
+                        "or eacn3_create_task to propose collaborative work. "
+                        "Wisdom emerges from discussion — you are an autonomous team, "
+                        "not passive workers waiting for assignments."
+                    ),
+                },
             )
-        else:
-            # Cold-start delivery is an advisory message, NOT a Task.
-            # A Task would carry a bid/claim contract and require the
-            # cold-started Role to issue eacn3_submit_bid before doing
-            # anything productive — a contract that often deadlocks a
-            # freshly woken Role with no peers yet to negotiate against.
-            # The v15.4 B-000 bootstrap node already provides project-level
-            # context; this message just hands the Role its role-specific
-            # brief as a normal addressable event that mos_await_events
-            # surfaces without a bid obligation.
-            target_agent_id = resolve_agent_id(project_port, role_name)
-            initiator_id = resolve_agent_id(project_port, "gru")
-            try:
-                eacn_client.send_message(
-                    port=project_port,
-                    to_agent_id=target_agent_id,
-                    from_agent_id=initiator_id,
-                    content={
-                        "kind": "role_init_brief",
-                        "role": role_name,
-                        "brief": init_brief,
-                        "guidance": (
-                            "This is an advisory init brief, not a Task. "
-                            "Read B-000 in the Draft for project context, then "
-                            "actively collaborate with your peers. "
-                            "Use eacn3_send_message to exchange ideas with other roles, "
-                            "or eacn3_create_task to propose collaborative work. "
-                            "Wisdom emerges from discussion — you are an autonomous team, "
-                            "not passive workers waiting for assignments."
-                        ),
-                    },
-                )
-            except BackendError as exc:
-                raise RoleError(
-                    f"Role {role_name!r} joined project-local EACN3 on port {project_port}, "
-                    f"but the init_brief message could not be sent through EACN3: {exc}"
-                ) from exc
-            logger.info(
-                "init_brief message sent via EACN: role=%r port=%d",
-                role_name,
-                project_port,
-            )
+        except BackendError as exc:
+            raise RoleError(
+                f"Role {role_name!r} joined project-local EACN3 on port {project_port}, "
+                f"but the init_brief message could not be sent through EACN3: {exc}"
+            ) from exc
+        logger.info(
+            "init_brief message sent via EACN: role=%r port=%d",
+            role_name,
+            project_port,
+        )
 
     store.upsert_role(project_port, role_entry)
     logger.info("register_role: role=%r port=%d", role_name, project_port)
@@ -516,17 +470,16 @@ def dismiss_role(
         caller or "unspecified",
     )
 
-    # Noter is not registered on EACN3 — skip unregistration.
-    if role_name != "noter":
-        try:
-            eacn_client.unregister_agent(project_port, role.eacn_agent_id or role_name)
-        except Exception as exc:
-            logger.warning(
-                "dismiss_role: EACN unregister failed for role=%r port=%d: %s",
-                role_name,
-                project_port,
-                exc,
-            )
+    # Every role is registered on EACN3 — unregister on dismiss.
+    try:
+        eacn_client.unregister_agent(project_port, role.eacn_agent_id or role_name)
+    except Exception as exc:
+        logger.warning(
+            "dismiss_role: EACN unregister failed for role=%r port=%d: %s",
+            role_name,
+            project_port,
+            exc,
+        )
 
     try:
         from minions.lifecycle.role_launcher import kill_session

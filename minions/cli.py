@@ -389,38 +389,6 @@ def doctor(
     except Exception as exc:
         _check("mcp-config-mounts-core", False, str(exc))
 
-    # Codex project MCP config mounts the same servers for Codex host sessions.
-    try:
-        import tomllib
-
-        codex_cfg_path = MINIONS_ROOT / ".codex" / "config.toml"
-        codex_cfg = tomllib.loads(codex_cfg_path.read_text(encoding="utf-8"))
-        servers = set((codex_cfg.get("mcp_servers") or {}).keys())
-        missing = {"minionsos", "eacn3", "keepalive"} - servers
-        _check(
-            "codex-mcp-config-mounts-core",
-            not missing,
-            f"present: {sorted(servers)}" if not missing else f"missing: {sorted(missing)}",
-        )
-        eacn3 = (codex_cfg.get("mcp_servers") or {}).get("eacn3") or {}
-        eacn_cmd = str(eacn3.get("command") or "")
-        eacn_args = eacn3.get("args") or []
-        eacn_direct = eacn_cmd == "node" and any(
-            "mcp-servers/eacn3/plugin/dist/server.js" in str(arg) for arg in eacn_args
-        )
-        _check(
-            "codex-mcp-eacn3-direct",
-            eacn_direct,
-            (
-                "node mcp-servers/eacn3/plugin/dist/server.js"
-                if eacn_direct
-                else f"cmd={eacn_cmd!r} args={eacn_args}"
-            ),
-        )
-    except Exception as exc:
-        _check("codex-mcp-config-mounts-core", False, str(exc))
-        _check("codex-mcp-eacn3-direct", False, str(exc))
-
     # Port range probe. The allocator can skip an occupied first port, so
     # doctor should only fail when the whole configured range is exhausted.
     from minions.errors import PortError
@@ -446,44 +414,21 @@ def doctor(
         _ok, _detail = _cfg.model_registry_valid()
         _check("model-registry", _ok, _detail)
 
-        if _host == "codex":
-            automation_ok = _cfg.codex_bypass_approvals_and_sandbox or (
-                _cfg.codex_sandbox == "danger-full-access" and _cfg.codex_approval_policy == "never"
+        claude_path = shutil.which("claude")
+        if claude_path:
+            cr = subprocess.run(["claude", "--version"], capture_output=True, text=True)
+            _check("claude-cli", cr.returncode == 0, cr.stdout.strip() or claude_path)
+        else:
+            cr = subprocess.run(
+                ["uv", "run", "--project", str(MINIONS_ROOT), "claude", "--version"],
+                capture_output=True,
+                text=True,
             )
             _check(
-                "codex-automation",
-                automation_ok,
-                (
-                    "bypass approvals+sandbox"
-                    if _cfg.codex_bypass_approvals_and_sandbox
-                    else (
-                        f"sandbox={_cfg.codex_sandbox}, "
-                        f"approval_policy={_cfg.codex_approval_policy}"
-                    )
-                ),
+                "claude-cli",
+                cr.returncode == 0,
+                cr.stdout.strip() if cr.returncode == 0 else "claude not on PATH",
             )
-            codex_path = shutil.which("codex")
-            if codex_path:
-                cr = subprocess.run(["codex", "--version"], capture_output=True, text=True)
-                _check("codex-cli", cr.returncode == 0, cr.stdout.strip() or codex_path)
-            else:
-                _check("codex-cli", False, "codex not on PATH")
-        else:
-            claude_path = shutil.which("claude")
-            if claude_path:
-                cr = subprocess.run(["claude", "--version"], capture_output=True, text=True)
-                _check("claude-cli", cr.returncode == 0, cr.stdout.strip() or claude_path)
-            else:
-                cr = subprocess.run(
-                    ["uv", "run", "--project", str(MINIONS_ROOT), "claude", "--version"],
-                    capture_output=True,
-                    text=True,
-                )
-                _check(
-                    "claude-cli",
-                    cr.returncode == 0,
-                    cr.stdout.strip() if cr.returncode == 0 else "claude not on PATH",
-                )
     except Exception as exc:
         _check("agent-host", False, str(exc))
         _check("model-registry", False, str(exc))
@@ -635,8 +580,8 @@ def _collect_heartbeats(port: int) -> list[dict[str, object]]:
     """Read every active role's heartbeat file under project *port*.
 
     Walks the role registry, locates the per-role workspace, reads the
-    ``.minionsos/heartbeat`` JSON written by ``await_events._touch_heartbeat``
-    / ``noter_wait._touch_heartbeat``, and returns a row per role with the
+    ``.minionsos/heartbeat`` JSON written by ``await_events._touch_heartbeat``,
+    and returns a row per role with the
     age delta in seconds. Roles with no heartbeat file (e.g. just spawned)
     are reported with ``age_sec=None`` so the caller can render them
     differently.
@@ -968,9 +913,6 @@ def config_cmd(
         cfg = load_gru_config()
         data["AGENT_HOST"] = cfg.effective_agent_host()
         data["CLAUDE_MODEL"] = cfg.claude_model
-        data["CODEX_MODEL"] = cfg.codex_model
-        data["CODEX_REASONING_EFFORT"] = cfg.codex_reasoning_effort
-        data["CODEX_BYPASS_APPROVALS_AND_SANDBOX"] = cfg.codex_bypass_approvals_and_sandbox
         data["AUTHOR_REPO"] = cfg.author_repo
         data["PROJECTS_ROOT"] = str(projects_root())
         data["HEALTH_EVENT_EACN_NOTIFICATIONS"] = cfg.health_event_eacn_notifications
@@ -2137,88 +2079,6 @@ def wipe(
         shutil.rmtree(t)
         console.print(f"[red]Removed[/red] {t}")
     console.print(f"[green]Wipe complete for project {port}.[/green]")
-
-
-# ---------------------------------------------------------------------------
-# benchmark subcommands
-# ---------------------------------------------------------------------------
-
-benchmark_app = typer.Typer(help="Run benchmark suites (HLE, MMLU, etc.).")
-app.add_typer(benchmark_app, name="benchmark")
-
-
-@benchmark_app.command(name="run")
-def benchmark_run(
-    jsonl_path: Path = typer.Argument(..., help="JSONL file with one task per line."),  # noqa: B008
-    profile: str = typer.Option("hle-answer", "--profile", "-P", help="Mission profile name."),
-    name_prefix: str | None = typer.Option(
-        None, "--prefix", help="Project name prefix (defaults to JSONL stem)."
-    ),
-    auto_evaluate: bool = typer.Option(
-        True, "--auto-eval/--no-auto-eval", help="Run mos_evaluate after submissions."
-    ),
-    output_dir: Path | None = typer.Option(  # noqa: B008
-        None, "--output", "-o", help="Where to save the run summary JSON."
-    ),
-    json_flag: bool = typer.Option(False, "--json", help="Output as JSON."),
-) -> None:
-    """Run a benchmark from a JSONL task file.
-
-    Each line should be a JSON object with: task_id, question, expected.
-    Optional: metadata.
-
-    Example::
-
-        mos benchmark run hle_easy.jsonl --profile hle-answer
-    """
-    from minions.tools.benchmark import benchmark_run_from_jsonl, benchmark_save_run
-
-    try:
-        run = benchmark_run_from_jsonl(
-            jsonl_path,
-            profile=profile,
-            name_prefix=name_prefix,
-            auto_evaluate=auto_evaluate,
-        )
-    except MinionsError as e:
-        raise _fail(str(e)) from e
-
-    saved_path = benchmark_save_run(run, output_dir=output_dir)
-
-    if json_flag:
-        _json_out(run.model_dump())
-        return
-
-    console.print(f"[green]Benchmark run {run.run_id}[/green] saved to {saved_path}")
-    if run.aggregate:
-        agg = run.aggregate
-        console.print(
-            f"  total={agg.get('total_tasks')} "
-            f"correct={agg.get('correct')} "
-            f"incorrect={agg.get('incorrect')} "
-            f"failed={agg.get('failed')} "
-            f"accuracy={agg.get('accuracy', 0):.2%}"
-        )
-
-
-@benchmark_app.command(name="list-profiles")
-def benchmark_list_profiles() -> None:
-    """List available mission profiles."""
-    from minions.profiles import list_profiles
-
-    profiles = list_profiles()
-    if not profiles:
-        console.print("[yellow]No profiles available.[/yellow]")
-        return
-
-    table = Table(title="Available Mission Profiles", show_lines=True)
-    table.add_column("Name", style="cyan")
-    table.add_column("Path")
-    from minions.profiles import PROFILES_DIR
-
-    for name in profiles:
-        table.add_row(name, str(PROFILES_DIR / f"{name}.yaml"))
-    console.print(table)
 
 
 # ---------------------------------------------------------------------------

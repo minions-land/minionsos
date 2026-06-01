@@ -37,16 +37,15 @@ def mos_spawn_role(args: SpawnRoleArgs) -> dict:
        ``project_{port}/branches/<role>/``.
     3. Starts a detached tmux session ``mos-{port}-{role}`` running
        ``claude`` — EACN roles enter their forever loop on
-       ``mos_await_events``; noter uses ``mos_noter_wait``.
+       ``mos_await_events``.
 
     Idempotent: calling this when the role's tmux session is already
     alive returns the existing session metadata without starting a
     second process.
 
-    ``role`` must be one of ``"noter"``, ``"coder"``,
-    ``"writer"``, ``"ethics"``. For domain experts, use
-    ``mos_spawn_expert`` instead. Writer is on-demand — spawn it when
-    the project enters a paper-writing phase.
+    ``role`` must be the fixed role ``"ethics"``.
+    For the project's general worker, use ``mos_spawn_expert`` (the unified
+    Expert handles code, experiments, writing, and figures).
 
     Returns ``{role, session_name, eacn_agent_id, started, attach_cmd}``.
     """

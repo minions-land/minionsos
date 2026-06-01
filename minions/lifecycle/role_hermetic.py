@@ -176,7 +176,7 @@ def prepare_fake_home(project_port: int, role_name: str) -> Path:
                                         # through env + --settings/--mcp-config
 
     The fake home deliberately ships *no* ``CLAUDE.md`` and no ``skills/``.
-    User-level operator skills (``codex``, ``minionsos-push``, etc.) live in
+    User-level operator skills (``minionsos-push``, ``dev-log``, etc.) live in
     the operator's real ``~/.claude/skills/`` and have triggers that target
     operator workflows, not Role workflows. Excluding them is part of the
     point of Tier 2.

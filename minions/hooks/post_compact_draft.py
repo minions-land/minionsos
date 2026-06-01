@@ -71,7 +71,7 @@ log = logging.getLogger("post_compact_draft")
 # Anything else (Gru, dev-Claude, vanilla shells, Role subagents) skips the
 # hook entirely; they don't own a draft.json journal and don't drive a
 # resumable forever-loop, so a journal write or tmux kick would be wrong.
-_SCIENCE_COMPACT_ROLES = {"noter", "coder", "writer", "ethics", "expert"}
+_SCIENCE_COMPACT_ROLES = {"ethics", "expert"}
 
 
 def _is_role_main() -> bool:

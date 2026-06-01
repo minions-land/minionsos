@@ -1,9 +1,9 @@
 """Project markdown template rendering.
 
 Pure functions extracted from :mod:`minions.lifecycle.project` so the
-2292-line orchestrator can shed the 80 lines of CLAUDE.md / AGENTS.md
-boilerplate. The originals are re-exported from
-:mod:`minions.lifecycle.project` so existing imports keep working.
+orchestrator can shed the CLAUDE.md boilerplate. The originals are
+re-exported from :mod:`minions.lifecycle.project` so existing imports
+keep working.
 """
 
 from __future__ import annotations
@@ -49,21 +49,26 @@ def render_project_claude_md(
     lines.append("- All inter-Role communication goes through EACN3 on this port.")
     lines.append(
         "- Branch checkouts live under `branches/`: `branches/main/` is Gru's "
-        "branch (the primary integration tree); every other role has its own "
-        "branch at `branches/<role>/`; the shared cross-role tree lives at "
-        "`branches/shared/` on its own branch."
+        "branch AND the team's shared surface (the Book); every other role has "
+        "its own private scratch branch at `branches/<role>/`. There is no "
+        "separate shared branch — main IS the shared surface."
     )
     lines.append(
-        "- Cross-role artefacts (Ethics reports, Coder experiment result bundles, "
-        "Noter notes, free-form handoffs) go to `branches/shared/<subdir>/` via "
-        "`mos_publish_to_shared`. Each role may only publish into its allowed "
-        "subdirs (see role boundary text). The Draft (L1) at "
-        "`branches/shared/draft/draft.json` is updated in place by "
-        "`mos_draft_append`/`mos_draft_annotate` and committed by "
-        "Noter on a periodic cron via `mos_draft_commit_shared`."
+        "- Cross-role artefacts (Ethics reports/curation, Expert experiment "
+        "result bundles, free-form handoffs) go to `branches/main/<subdir>/` via "
+        "`mos_publish_to_shared` (serialized by a per-project lock). Each role "
+        "may only publish into its allowed subdirs (see role boundary text). "
+        "The Draft (L1) at `branches/main/draft/draft.json` is the single live "
+        "process graph: updated in place by `mos_draft_append`/"
+        "`mos_draft_annotate` and committed by Ethics via `mos_draft_commit_shared`."
     )
     lines.append(
-        "- The review surface `branches/shared/reviews/round-<n>/` is reserved "
+        "- The Book layout on main (`Book.md`, `logic/`, `src/`, `evidence/`, "
+        "`proposal/`) is filled by Gru promoting Ethics-sealed content via "
+        "`mos_promote_to_book`."
+    )
+    lines.append(
+        "- The review surface `branches/main/reviews/round-<n>/` is reserved "
         "for `mos_review_run`; the publish tool will reject any other caller."
     )
     lines.append(
@@ -71,20 +76,3 @@ def render_project_claude_md(
     )
     lines.append("")
     return "\n".join(lines)
-
-
-def render_project_agents_md(real_name: str) -> str:
-    """Render a Codex-compatible project context shim."""
-    return "\n".join(
-        [
-            f"# {real_name} — Project Agent Context",
-            "",
-            "This project is managed by MinionsOS.",
-            "",
-            "Read `CLAUDE.md` in this directory for the project-scoped narrative, facts,",
-            "working rules, and current brief. In this repository, `CLAUDE.md` is kept",
-            "as the shared project context file for both Claude Code and Codex so the",
-            "two agent hosts see the same operating assumptions.",
-            "",
-        ]
-    )

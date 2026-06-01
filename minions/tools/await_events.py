@@ -553,7 +553,7 @@ def _build_cold_start_hint(
                     "You are a fresh role with no pending work and no "
                     "event history. The team will not move unless someone "
                     "moves first. Read project CLAUDE.md and any "
-                    "branches/shared/handoffs/ files, then proactively: "
+                    "branches/main/handoffs/ files, then proactively: "
                     "(a) eacn3_send_message a relevant peer to propose "
                     "collaboration, or (b) eacn3_create_task to publish "
                     "a piece of work the team needs. Wisdom emerges from "

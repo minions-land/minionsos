@@ -179,18 +179,6 @@ def test_phase2_precompact_emits_pointer_shaped_instructions(tmp_path: Path) -> 
     assert "H-###" in out or "H-001" in out
 
 
-def test_phase2_precompact_uses_noter_wait_for_noter() -> None:
-    env = {
-        "MINIONS_PROJECT_PORT": "88888",
-        "MINIONS_ROLE_NAME": "noter",
-        "MINIONS_PROJECTS_ROOT": "/tmp/fake",
-    }
-    result = _run_hook(PRE_HOOK, json.dumps({"trigger": "manual"}), env=env)
-    assert result.returncode == 0
-    assert "mos_noter_wait" in result.stdout
-    assert result.stdout.count("mos_await_events") == 0
-
-
 # ─── Phase 3: PostCompact extracts and audits ──────────────────────────────
 
 

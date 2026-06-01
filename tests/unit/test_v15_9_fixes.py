@@ -1,7 +1,6 @@
 """Tests for v15.9 fixes:
 - Issue #9: PreCompact hook now emits a "Resume_protocol" tail so the
   post-compact agent has a concrete first tool-call cue.
-- Issue #10: Ethics has mos_adjudicate authz (server-side).
 - Issue #11: shelf.json is bootstrapped at project_create.
 - Issue #12: mos_compact_context filters empty pending_plans.
 """
@@ -16,8 +15,6 @@ from pathlib import Path
 from typing import ClassVar
 from unittest.mock import patch
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
@@ -31,7 +28,7 @@ class TestPreCompactResumeProtocol:
     # processes; without these env vars it correctly passes through to the
     # default summariser, so the body assertions below would never fire.
     _ROLE_ENV: ClassVar[dict[str, str]] = {
-        "MINIONS_ROLE_NAME": "coder",
+        "MINIONS_ROLE_NAME": "expert",
         "MINIONS_AGENT_TYPE": "main",
     }
 
@@ -69,34 +66,6 @@ class TestPreCompactResumeProtocol:
             env=env,
         )
         assert "parks" in result.stdout.lower() or "park" in result.stdout.lower()
-
-
-# ---------------------------------------------------------------------------
-# Issue #10 — Ethics has mos_adjudicate authz
-# ---------------------------------------------------------------------------
-
-
-class TestEthicsAdjudicateAuthz:
-    def test_ethics_can_call_mos_adjudicate(self) -> None:
-        """mos_adjudicate must be allowed for Ethics — its SYSTEM.md
-        directs the role to call it. Pre-v15.9 the server-side authz
-        omitted it and 4 queued adjudication_tasks went unanswerable."""
-        from minions.tools.mcp_server import _require_tool_allowed
-
-        with patch.dict(os.environ, {"MINIONS_ROLE_NAME": "ethics"}, clear=False):
-            _require_tool_allowed("mos_adjudicate")  # must not raise
-
-    def test_non_ethics_roles_unchanged(self) -> None:
-        """The fix is targeted: only Ethics + Gru should get mos_adjudicate.
-        Coder/Writer/Noter must still be denied."""
-        from minions.tools.mcp_server import _require_tool_allowed
-
-        for role in ["coder", "writer", "noter"]:
-            with (
-                patch.dict(os.environ, {"MINIONS_ROLE_NAME": role}, clear=False),
-                pytest.raises(PermissionError),
-            ):
-                _require_tool_allowed("mos_adjudicate")
 
 
 # ---------------------------------------------------------------------------
@@ -190,10 +159,10 @@ class TestCompactContextEmptyPlanFilter:
         # Set up a fake project tree so mos_compact_context's tmux send-keys
         # path is short-circuited, and isolate the draft writes.
         monkeypatch.setenv("MINIONS_PROJECT_PORT", "99001")
-        monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+        monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
         monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path))
         # Bootstrap an empty draft.json so mos_draft_append has a place to write.
-        draft_dir = tmp_path / "project_99001" / "branches" / "shared" / "draft"
+        draft_dir = tmp_path / "project_99001" / "branches" / "main" / "draft"
         draft_dir.mkdir(parents=True, exist_ok=True)
         (draft_dir / "draft.json").write_text(
             json.dumps({"project_port": 99001, "nodes": [], "edges": []}),
@@ -227,9 +196,9 @@ class TestCompactContextEmptyPlanFilter:
         """Edge case: every plan is empty → no Draft writes at all,
         skipped_empty_plans surfaces all of them."""
         monkeypatch.setenv("MINIONS_PROJECT_PORT", "99001")
-        monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+        monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
         monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path))
-        draft_dir = tmp_path / "project_99001" / "branches" / "shared" / "draft"
+        draft_dir = tmp_path / "project_99001" / "branches" / "main" / "draft"
         draft_dir.mkdir(parents=True, exist_ok=True)
         (draft_dir / "draft.json").write_text(
             json.dumps({"project_port": 99001, "nodes": [], "edges": []}),
@@ -254,9 +223,9 @@ class TestCompactContextEmptyPlanFilter:
     def test_normal_plans_still_persist(self, tmp_path: Path, monkeypatch) -> None:
         """Sanity: the filter must NOT regress the happy path."""
         monkeypatch.setenv("MINIONS_PROJECT_PORT", "99001")
-        monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+        monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
         monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path))
-        draft_dir = tmp_path / "project_99001" / "branches" / "shared" / "draft"
+        draft_dir = tmp_path / "project_99001" / "branches" / "main" / "draft"
         draft_dir.mkdir(parents=True, exist_ok=True)
         (draft_dir / "draft.json").write_text(
             json.dumps({"project_port": 99001, "nodes": [], "edges": []}),

@@ -437,7 +437,7 @@ def _migrate_legacy_memory_dirs(port: int) -> None:
 def _normalise_revived_role(role: RoleEntry) -> RoleEntry:
     """Return a schedulable sleeping role, repairing old Noter records."""
     time_trigger = role.time_trigger_interval
-    if role.name == "noter" and not time_trigger:
+    if False:  # noter retired
         time_trigger = _default_noter_time_trigger_interval()
 
     return role.model_copy(
@@ -1083,10 +1083,14 @@ def _append_session_ledger(port: int, payload: dict[str, object]) -> None:
 
 
 def _ensure_workspace_layout(port: int) -> None:
-    """Create the non-worktree workspace containers for *port*."""
+    """Create the non-worktree workspace containers for *port*.
+
+    Does NOT create the main workspace dir — that is the main-branch git
+    worktree, added by ``create_worktree`` (which refuses a pre-existing
+    non-empty target). The shared surface lives on main and is seeded there.
+    """
     project_workspace_root(port).mkdir(parents=True, exist_ok=True)
     project_roles_workspace_dir(port).mkdir(parents=True, exist_ok=True)
-    project_shared_workspace(port).mkdir(parents=True, exist_ok=True)
     project_state_dir(port).mkdir(parents=True, exist_ok=True)
 
 
@@ -1306,12 +1310,11 @@ _PROJECT_GITIGNORE = """\
 *
 !.gitignore
 !CLAUDE.md
-!AGENTS.md
 !meta.json
 !branches/
 !branches/**
 
-# Workflow / Task / codex / Sonnet scratchpad — ephemeral run artefacts
+# Workflow / Task / Sonnet scratchpad — ephemeral run artefacts
 # (run scripts, transcripts, session metadata) written by Role processes
 # under their branch's .claude/. Skill symlinks at branches/*/.claude/skills/
 # remain tracked because workflow_plugins.inject_skills_to_workspace
@@ -1359,11 +1362,6 @@ def _render_project_claude_md(
         topic_doc=topic_doc,
         template_dir=template_dir,
     )
-
-
-def _render_project_agents_md(real_name: str) -> str:
-    """Re-export of :func:`_project_templates.render_project_agents_md`."""
-    return _project_templates.render_project_agents_md(real_name)
 
 
 def _seed_draft_bootstrap(
@@ -1507,6 +1505,56 @@ def _bootstrap_fixed_roles(
     return results
 
 
+def _bootstrap_generalist_expert(
+    port: int,
+    mission_profile: object,
+    real_name: str,
+    store: StateStore,
+) -> tuple[str, str] | None:
+    """Spawn one generalist Expert at project creation if the profile wants it.
+
+    Expert is the project's single general worker (the "Common Agent"): it
+    drives science AND carries the work out (code, experiments, paper,
+    figures). Unlike the fixed roles it needs a *domain*; for the bootstrap
+    worker we derive a neutral generalist domain from the project name so the
+    team has a worker online immediately. Gru spawns additional specialist
+    Experts later as the science demands.
+
+    Returns ``(role_name, "ok"|"<error>")`` or ``None`` if the profile does
+    not list ``expert`` in ``roles_active``.
+    """
+    profile_active = set(getattr(mission_profile, "roles_active", ()))
+    if "expert" not in profile_active:
+        return None
+
+    from minions.lifecycle.role import register_expert
+
+    domain = f"{real_name} generalist"
+    brief = (
+        "You are the project's first, generalist Expert worker. Survey the "
+        "project topic, propose the first concrete research step, and begin "
+        "driving the work (code, experiments, analysis). Gru may spawn "
+        "additional specialist Experts alongside you."
+    )
+    try:
+        res = register_expert(
+            project_port=port,
+            domain=domain,
+            init_brief=brief,
+            store=store,
+        )
+        role_name = str(res.get("name", f"expert-{slugify(domain)}"))
+        logger.info("_bootstrap_generalist_expert: spawned %s for port=%d", role_name, port)
+        return role_name, "ok"
+    except Exception as exc:
+        logger.warning(
+            "_bootstrap_generalist_expert: port=%d spawn failed (non-fatal): %s",
+            port,
+            exc,
+        )
+        return "expert", str(exc)
+
+
 def project_create(
     real_name: str,
     venue: str | None = None,
@@ -1571,13 +1619,14 @@ def project_create(
     _write_project_gitignore(pdir)
 
     # Create per-project bare repo by seeding from the author repo's HEAD,
-    # then add the main worktree (Gru's branch) and the shared cross-role
-    # worktree. Role worktrees are created lazily by ``register_role`` and
-    # branch off the project's main branch.
+    # then add the main worktree (Gru's branch), which also seeds the Book
+    # layout + shared surface directly on main (the standalone -shared branch
+    # was eliminated in v23). Role worktrees are created lazily by
+    # ``register_role`` and branch off the project's main branch.
     try:
         _seed_per_project_repo(port)
         branch = _create_worktree(port, base_branch)
-        _create_shared_worktree(port)
+        _create_shared_worktree(port)  # no-op shim; shared surface is on main
     except ProjectError as exc:
         logger.error("Worktree creation failed: %s", exc)
         raise
@@ -1683,7 +1732,6 @@ def project_create(
 
     # Auto-generate project CLAUDE.md skeleton if not already present.
     claude_md = pdir / "CLAUDE.md"
-    agents_md = pdir / "AGENTS.md"
     workspace_abs = str(project_main_workspace(port).resolve())
     if not claude_md.exists():
         claude_md.write_text(
@@ -1700,9 +1748,6 @@ def project_create(
             encoding="utf-8",
         )
         logger.info("Wrote project CLAUDE.md skeleton: %s", claude_md)
-    if not agents_md.exists():
-        agents_md.write_text(_render_project_agents_md(real_name), encoding="utf-8")
-        logger.info("Wrote project AGENTS.md shim: %s", agents_md)
 
     # Ensure branches/main/experiments/ exists so local experiment target resolves.
     try:
@@ -1729,7 +1774,7 @@ def project_create(
     # Register in projects.json.
     _store.add_project(entry)
 
-    # Pre-spawn the profile-active fixed roles (noter / coder / ethics for
+    # Pre-spawn the profile-active fixed roles (noter / ethics for
     # `scientific-paper`) in parallel. Without this, the live Gru process
     # has to issue a serial sequence of `mos_spawn_role` MCP calls — each
     # ~60-90s of Opus 4.7 deliberation — pushing the team's first useful
@@ -1741,6 +1786,17 @@ def project_create(
         logger.warning(
             "project_create: fixed-role bootstrap raised (non-fatal); "
             "Gru will spawn the team via mos_spawn_role. error=%s",
+            exc,
+        )
+
+    # Spawn one generalist Expert (the project's general worker) so the team
+    # has a worker online immediately. Gru spawns specialist Experts later.
+    try:
+        _bootstrap_generalist_expert(port, mission_profile, real_name, _store)
+    except Exception as exc:  # non-fatal — Gru can spawn an Expert manually
+        logger.warning(
+            "project_create: generalist-Expert bootstrap raised (non-fatal); "
+            "Gru will spawn an Expert via mos_spawn_expert. error=%s",
             exc,
         )
 
