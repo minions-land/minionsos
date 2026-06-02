@@ -145,3 +145,6 @@ docs/Reconstruction/book2paper-validation/**/*.blg
 docs/Reconstruction/book2paper-validation/**/paper.pdf
 docs/Skill_Summary.md
 docs/report/
+
+# Human-facing scratch docs (not part of system)
+docs/
