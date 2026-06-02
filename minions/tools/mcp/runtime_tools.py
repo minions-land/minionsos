@@ -140,7 +140,7 @@ def mos_reset_context(args: MosResetArgs) -> dict:
     """Clear conversation context and continue with fresh state.
 
     Call AFTER persisting all discoveries to the Draft. After reset,
-    call mos_draft_summary() to re-orient, then mos_await_events().
+    call mos_draft_view() to re-orient, then mos_await_events().
     """
     _require_tool_allowed("mos_reset_context")
     return _reset.mos_reset_context(reason=args.reason)

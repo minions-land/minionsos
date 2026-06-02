@@ -53,15 +53,14 @@ Never substitute rereading SYSTEM.md or grepping source for a `lookup.py` call.
 projects/project_{port}/
 ├── branches/
 │   ├── {role}/              ← your workspace ($MINIONS_WORKSPACE)
-│   │   └── .minionsos/heartbeat   ← updated every mos_await_events cycle
-│   └── shared/
+│   │   ├── .minionsos/heartbeat   ← updated every mos_await_events cycle
+│   │   └── reel/{session_id}/     ← L0 Reel (raw subagent transcripts)
+│   └── main/                ← shared surface (was "shared" branch pre-v23)
 │       ├── draft/draft.json ← L1 Draft (process graph, pending_plans)
-│       ├── book/            ← L2 Book (full, noter-curated)
-│       └── shelf/           ← L3 Shelf (cross-project index, Gru only)
+│       └── book/            ← L2 Book (Ethics-curated from Draft)
 └── events/                  ← per-agent EACN event audit stream
 ```
 
-L0 Reel (raw subagent transcripts) lives at `branches/{role}/reel/{session_id}/`.
 Full memory-layer reference: `python3 MANUAL/scripts/lookup.py --domain memory`.
 
 ---
@@ -72,11 +71,10 @@ Signatures and full docs are in MANUAL. These one-liners are reminders only.
 
 **Event loop**
 - `mos_await_events()` — block until EACN delivers events; returns annotated batch
-- `mos_noter_wait()` — timer-based wake, Noter only
 - `mos_get_events(port)` — drain Gru's queue once, non-blocking, Gru only
 
 **Draft (L1)**
-- `mos_draft_summary()` — wake-injection summary; surfaces `pending_plan` nodes first
+- `mos_draft_view(query, by_role, by_status, ...)` — unified read: orientation + filter + search
 - `mos_draft_append(nodes=[...], edges=[...])` — add nodes/edges
 - `mos_draft_commit_shared()` — flush to shared branch (Noter calls this; others call `mos_draft_append` freely)
 

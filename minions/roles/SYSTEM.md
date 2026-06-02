@@ -65,7 +65,7 @@ a deviation, not in a fourth surface.
 On your **first wake** after spawn, follow this sequence:
 
 1. **Read orientation** — `Read("minions/roles/QUICKSTART.md")` for core rules, tools, and pitfalls. This is your new-hire onboarding.
-2. **Get project brief** — `mos_draft_summary()` returns node `B-000` (`bootstrap`) with project brief, expected roles, and deliverable schema.
+2. **Get project brief** — `mos_draft_view()` returns node `B-000` (`bootstrap`) with project brief, expected roles, and deliverable schema.
 3. **Self-introduce** — send `eacn3_send_message` to each expected role with your capability, intent, and `"status": "ready"`.
 4. **Enter main loop** — proceed to wake cycle (§3).
 
@@ -77,9 +77,6 @@ You are a long-lived agent-host process for one Role inside one
 MinionsOS project. Your event loop is `mos_await_events()` — it blocks
 until your project-local EACN3 queue delivers actionable content; while
 blocked the LLM is suspended (zero tokens).
-
-**Noter exception:** Noter is not on EACN; its wake tool is
-`mos_noter_wait()` (timer-based, default 3 min).
 
 **Gru exception:** Gru is pull-mode — it does not drive
 `mos_await_events`. It pulls via `mos_get_events(port)` /
@@ -386,9 +383,8 @@ Four layers exist. The canonical reference is
 - **L2 Book** — Noter-curated durable knowledge at
   `branches/main/book/`. Cold-start orientation comes from
   `mos_draft_view()` over the Draft; the Book is read on demand via
-  `mos_book_query`. Other roles read; Noter writes.
-- **L3 Shelf** — Gru-aggregated cross-project structural index derived
-  from Book.
+  `mos_book_query`. Ethics curates both from Draft.
+- **No L3** — Shelf retired in v23 rebuild. Reel(L0) → Draft(L1) → Book(L2).
 
 ### Wake-orient sequence (refines §3 step 1)
 

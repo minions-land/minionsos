@@ -123,23 +123,25 @@ needed in one MCP call.
 
 The three on-disk memory layers (already persisted, NEVER duplicate):
 
-L1 — Draft  (branches/shared/draft/draft.json)
-     Node IDs: H-### (hypothesis), E-### (experiment), R-### (result),
-       D-### (decision), Q-### (question), DEAD-### (dead_end),
-       I-### (insight), M-### (method), C-### (citation), A-### (assumption).
+L0 — Reel  (branches/<role>/reel/<session_id>/)
+     Raw immutable subagent transcripts. Drill-down only; not wake-injected.
+     - index.jsonl               — JSONL index of captured subagent outputs
+     - transcripts/<task_id>.jsonl — verbatim session transcript per task
 
-L2 — Book  (branches/shared/book/)
-     - book/index.md                 — Noter-maintained catalog
-     - book/sources/<role>-<slug>.md — one page per ingested artifact
-     - book/contradictions/          — auto-detected claim conflicts (Ethics reads)
+L1 — Draft  (branches/main/draft/draft.json)
+     The single team process graph. Node IDs: H-### (hypothesis), E-### (experiment),
+     R-### (result), D-### (decision), Q-### (question), DEAD-### (dead_end),
+     I-### (insight), M-### (method), C-### (citation), A-### (assumption).
 
-L3 — Shelf  (structural index)
-     - branches/shared/shelf/shelf.json — local; node IDs like n42_xxx
-     - ~/.minionsos/shelf.json          — Gru-only cross-project; IDs prefixed p<port>_
+L2 — Book  (branches/main/book/)
+     Main-branch paper-shaped output curated by Ethics from Draft.
+     - book/index.md                 — catalog of all ingested pages
+     - book/sources/<role>-<slug>.md — one page per ingested artifact (carries reel_ref)
+     - book/contradictions/          — auto-detected claim conflicts
 
 ALSO durable (DO NOT inline):
      - EACN events at events/<agent>.jsonl (cite by event_id / timestamp).
-     - Experiment artefacts at branches/shared/exp/exp-<id>/report.md.
+     - Experiment artefacts at branches/main/exp/exp-<id>/report.md.
      - Per-role plan documents at branches/<role>/plans/<role>-<slug>.md.
 
 OUTPUT SHAPE — produce these sections in order, in markdown:
@@ -149,7 +151,7 @@ OUTPUT SHAPE — produce these sections in order, in markdown:
 
 ## Next_action
 - Single line. The exact next concrete step, ideally a tool call.
-  After wakeup the agent will call mos_draft_summary() then {RESUME_TOOL}();
+  After wakeup the agent will call mos_draft_view() then {RESUME_TOOL}();
   if a different first step is required, name it explicitly here.
 
 ## New_or_changed_nodes
@@ -160,7 +162,7 @@ OUTPUT SHAPE — produce these sections in order, in markdown:
 ## Pending_plans
 - {node_id} — {one-line label}  (already persisted with metadata.pending_plan=true)
   Single events the agent dequeued from EACN but did not execute. The
-  post-compact agent will see them via mos_draft_summary() and run them
+  post-compact agent will see them via mos_draft_view() and run them
   before {RESUME_TOOL}().
 
 ## Open_questions
@@ -175,7 +177,7 @@ OUTPUT SHAPE — produce these sections in order, in markdown:
 ## Notes
 - Free-form, ≤3 short bullets. Anything not on disk that the agent must
   remember (current intent, half-formed framing, in-flight reasoning).
-  Do NOT restate things from L1/L2/L3 here.
+  Do NOT restate things from L0/L1/L2 here.
 
 HARD RULES
 - Target ~500 tokens, hard cap 2000 tokens. Tighter is better.
@@ -198,11 +200,11 @@ See GitHub Issue #9 for the failure mode.):
 
 ## Resume_protocol
 After this summary lands, your IMMEDIATE next tool call MUST be:
-  mos_draft_summary()        # re-orient on persisted state
+  mos_draft_view()           # re-orient on persisted state
 followed by:
-  {RESUME_TOOL}()         # resume the wake loop
+  {RESUME_TOOL}()            # resume the wake loop
 Do NOT emit any reasoning, narration, or other tool call before
-mos_draft_summary(). The forever-loop contract requires the very next
+mos_draft_view(). The forever-loop contract requires the very next
 turn to re-enter the wake loop — anything else parks the Role.
 """
 

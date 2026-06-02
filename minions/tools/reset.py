@@ -48,7 +48,7 @@ def mos_reset_context(reason: str = "") -> dict:
     The agent MUST have persisted all valuable state — including any
     pending plans not yet executed — to the Draft before calling
     this. After respawn, conversation context is empty; the new
-    process re-orients via ``mos_draft_summary()`` which surfaces
+    process re-orients via ``mos_draft_view()`` which surfaces
     those pending plans, then enters its event loop.
 
     Args:

@@ -84,7 +84,7 @@ def mos_compact_context(
             ``type`` defaults to ``question``. Plans are written with
             ``metadata.pending_plan = true`` so the post-compact agent
             (same process, just compressed context) can find them via
-            ``mos_draft_summary()``.
+            ``mos_draft_view()``.
 
     Returns:
         Status dict with instructions for the agent.
@@ -109,7 +109,7 @@ def mos_compact_context(
     # that doesn't carry a non-empty `text` body — pre-v15.9 the function
     # silently materialised empty-body stub nodes (Q-001/D-001/...) which
     # the post-compact agent then had to triage and abandon. See GitHub
-    # Issue #12. The post-compact agent finds these via mos_draft_summary,
+    # Issue #12. The post-compact agent finds these via mos_draft_view,
     # so a stub with body="" is strictly worse than no node at all.
     draft_node_ids: list[str] = []
     skipped_empty_plans: list[dict] = []

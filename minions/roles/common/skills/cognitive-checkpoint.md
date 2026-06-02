@@ -44,9 +44,9 @@ After persisting state (steps 1-5 below), choose the exit:
 The PreCompact hook (`minions/hooks/pre_compact_science.py`) tells the compact
 model to produce a *pointer-shaped* summary that cites IDs and paths only:
 
+- **L0 — Reel**: cite `branches/<role>/reel/<session_id>/` paths — never paste transcripts.
 - **L1 — Draft**: cite node IDs (H-001, E-002, R-003, DEAD-004, …) — never paste node text.
 - **L2 — Book**: cite paths (`book/sources/<role>-<slug>.md`) — never paste page bodies.
-- **L3 — Shelf**: cite community labels or node IDs (`n42_xxx`, `p<port>_xxx`) — never paste graph dumps.
 - **EACN events**: cite event IDs / sender@timestamp — never paste message bodies.
 - **Experiment artefacts**: cite `exp/exp-<id>/report.md` — never paste report content.
 
@@ -63,7 +63,7 @@ This skill's job is to make sure the IDs the compact summary will cite
 The checkpoint persists two categories: completed work (discoveries, status changes, dead ends) and deferred work (events received but not executed). The deferred category uses `metadata.pending_plan = true` as the hand-off channel:
 
 - **This process**: receives events, executes the related ones, persists the unrelated ones with `pending_plan = true`, hands off (compact or reset).
-- **Post-handoff agent**: starts in a clean context (compressed-after-compact or cold-after-reset), calls `mos_draft_summary`, sees pending plans, executes them, THEN calls `mos_await_events` for genuinely new work.
+- **Post-handoff agent**: starts in a clean context (compressed-after-compact or cold-after-reset), calls `mos_draft_view`, sees pending plans, executes them, THEN calls `mos_await_events` for genuinely new work.
 
 If you skip the pending_plan persistence step, the unrelated events are lost forever — EACN does not redeliver.
 
@@ -108,7 +108,7 @@ Always add an edge anchoring the pending plan to its parent context (hypothesis,
 
 - **Handing off without persisting unrelated events.** Those events were dequeued from EACN — they will not be redelivered. The post-handoff agent will never know they existed.
 - **Trying to execute unrelated events before handing off.** That defeats the purpose: the whole reason you are handing off is to avoid burning tokens in the wrong context. Persist them and let a clean context do them.
-- **Forgetting `metadata.pending_plan = true`.** Without the flag, the node is buried; `mos_draft_summary` will not surface it; the post-handoff agent will not know to execute it before calling `mos_await_events`.
+- **Forgetting `metadata.pending_plan = true`.** Without the flag, the node is buried; `mos_draft_view` will not surface it; the post-handoff agent will not know to execute it before calling `mos_await_events`.
 - **Vague node text.** Each pending_plan node must be interpretable by an agent who has zero context — they will not have the original event in their history. Include sender, request, and any deadline.
 - **Reaching for reset when compact would do.** Reset costs ~$0.14 in cold-start tokens; compact is free in cache terms. Only escalate to reset when compact alone cannot recover.
 - **Handing off mid-execution.** If a relevant event's work is half-done, finish it or roll back; don't hand off with workspace in an inconsistent state.

@@ -923,7 +923,7 @@ def await_events() -> dict[str, Any]:
                         f"If you have nothing to persist: STOP NOW — do not "
                         f"call any more tools, do not produce text. After the "
                         f"compact summary loads, your first action is "
-                        f"mos_draft_summary() then mos_await_events() to "
+                        f"mos_draft_view() then mos_await_events() to "
                         f"resume in compressed context."
                     ),
                 }
