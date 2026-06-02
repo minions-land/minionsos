@@ -115,13 +115,11 @@ _DRAFT_RW_TOOLS = [
     "mos_draft_annotate",
     "mos_draft_append",
     "mos_draft_path",
-    "mos_draft_query",
-    "mos_draft_summary",
+    "mos_draft_view",
 ]
 
 _BOOK_READ_TOOLS = [
     "mos_book_query",
-    "mos_book_hot_get",
 ]
 
 # Book synthesis-write tool: persists a question→answer synthesis as a
@@ -264,7 +262,6 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     "mos_book_ingest",
     "mos_book_ingest_batch",
     "mos_book_lint",
-    "mos_book_hot_update",
     "mos_book_promote_verified",
     "mos_book_crystallize_session",
     # Book synthesis-write (compounding queries; any role can save its
@@ -615,7 +612,6 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_book_ingest",
         "mos_book_ingest_batch",
         "mos_book_lint",
-        "mos_book_hot_update",
         "mos_book_promote_verified",
         "mos_book_crystallize_session",
         *_BOOK_SYNTHESIS_WRITE_TOOLS,  # materializes role-supplied syntheses
@@ -707,7 +703,7 @@ ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
         "branches/shared/ethics/ (via mos_publish_to_shared)",
         "branches/shared/notes/ (via mos_publish_to_shared)",
         "branches/shared/handoffs/ (via mos_publish_to_shared)",
-        "branches/shared/book/ (Book curation: ingest + hot_update + promote)",
+        "branches/shared/book/ (Book curation: ingest + promote)",
         "branches/shared/draft/draft.json (via mos_draft_commit_shared)",
         "branches/shared/governance/signboard.json (via mos_signboard_set)",
     ],

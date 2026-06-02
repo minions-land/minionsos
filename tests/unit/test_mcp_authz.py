@@ -124,7 +124,7 @@ def test_expert_authz_works_for_all_three_name_shapes(role_name: str) -> None:
         _require_tool_allowed("mos_issue_report")
         # Also event-loop tools — these are the ones that were silently denied.
         _require_tool_allowed("mos_await_events")
-        _require_tool_allowed("mos_draft_summary")
+        _require_tool_allowed("mos_draft_view")
 
     # CLI whitelist must also be non-empty so --allowed-tools can be built.
     whitelist = resolve_whitelist(role_name, "main")

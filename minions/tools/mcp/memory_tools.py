@@ -13,17 +13,23 @@ from minions.tools.mcp._common import _require_tool_allowed
 # ── Draft tools ──────────────────────────────────────────────
 
 
-class DraftQueryArgs(BaseModel):
-    node_type: DraftNodeType | None = Field(default=None, description="Filter by node type.")
-    support_status: DraftSupportStatus | None = Field(
-        default=None, description="Filter by support status."
+class DraftViewArgs(BaseModel):
+    query: str | None = Field(
+        default=None, description="Free-text relevance push (keyword overlap + type weighting)."
     )
-    author_role: str | None = Field(default=None, description="Filter by author role.")
-    text_contains: str | None = Field(default=None, description="Substring search in node text.")
+    by_role: str | None = Field(default=None, description="Filter to nodes this role landed.")
+    by_status: DraftSupportStatus | None = Field(
+        default=None, description="Filter by support status (verified/refuted/unverified/…)."
+    )
+    by_type: DraftNodeType | None = Field(default=None, description="Filter by node type.")
     related_to: str | None = Field(
-        default=None, description="Return subgraph connected to this node ID."
+        default=None, description="Return the 1-hop neighbour subgraph of this node id."
     )
-    limit: int = Field(default=50, description="Max nodes to return.")
+    sort: str = Field(
+        default="time",
+        description="'time' (newest first, default), 'relevance' (with query), or 'confidence'.",
+    )
+    limit: int = Field(default=20, description="Max nodes in the returned slice.")
 
 
 class DraftAppendArgs(BaseModel):
@@ -77,15 +83,23 @@ class DraftUnmarkedAuditArgs(BaseModel):
 
 
 @mcp.tool()
-def mos_draft_query(args: DraftQueryArgs) -> _draft.DraftQueryResult:
-    """Query the Draft. Returns matching nodes and their edges."""
-    _require_tool_allowed("mos_draft_query")
-    return _draft.mos_draft_query(
-        node_type=args.node_type,
-        support_status=args.support_status,
-        author_role=args.author_role,
-        text_contains=args.text_contains,
+def mos_draft_view(args: DraftViewArgs) -> dict:
+    """Unified read over the team Draft graph — the role-facing memory lens.
+
+    One tool, orthogonal dimensions. Returns an orientation header (totals,
+    pending_plans, counts) plus the requested slice of nodes + incident edges.
+    Call with no args at wake to orient (header + newest nodes); pass `query`
+    for relevance; `related_to` for a node's 1-hop neighbourhood; combine
+    by_role/by_status/by_type/sort to focus.
+    """
+    _require_tool_allowed("mos_draft_view")
+    return _draft.mos_draft_view(
+        query=args.query,
+        by_role=args.by_role,
+        by_status=args.by_status,
+        by_type=args.by_type,
         related_to=args.related_to,
+        sort=args.sort,
         limit=args.limit,
     )
 
@@ -121,13 +135,6 @@ def mos_draft_path(args: DraftPathArgs) -> dict:
         target_node_id=args.target_node_id,
         from_node_id=args.from_node_id,
     )
-
-
-@mcp.tool()
-def mos_draft_summary() -> dict:
-    """Return a high-level Draft summary: node counts, active hypotheses, blocked paths."""
-    _require_tool_allowed("mos_draft_summary")
-    return _draft.mos_draft_summary()
 
 
 @mcp.tool()
@@ -323,32 +330,6 @@ async def mos_book_resolve_contradiction(
         verdict=verdict,
         rationale=rationale,
         auditor_role=auditor_role,
-    )
-
-
-@mcp.tool()
-async def mos_book_hot_get() -> dict:
-    """Read Book hot cache; see minions.tools.book.mos_book_hot_get."""
-    _require_tool_allowed("mos_book_hot_get")
-    return _book.mos_book_hot_get()
-
-
-@mcp.tool()
-async def mos_book_hot_update(
-    recent_ingests: list[dict[str, str]] | None = None,
-    active_hypotheses: int = 0,
-    recently_verified: list[str] | None = None,
-    recently_refuted: list[str] | None = None,
-    unresolved_contradictions: int = 0,
-) -> dict:
-    """Generate and publish Book hot cache; see minions.tools.book.mos_book_hot_update."""
-    _require_tool_allowed("mos_book_hot_update")
-    return _book.mos_book_hot_update(
-        recent_ingests=recent_ingests,
-        active_hypotheses=active_hypotheses,
-        recently_verified=recently_verified,
-        recently_refuted=recently_refuted,
-        unresolved_contradictions=unresolved_contradictions,
     )
 
 

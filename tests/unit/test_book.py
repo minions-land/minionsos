@@ -244,26 +244,6 @@ def test_wiki_query_returns_empty_when_no_entries_match(project: dict[str, Any])
     assert result == {"matches": [], "total": 0, "queried": "optimizer"}
 
 
-def test_wiki_hot_get_absent(project: dict[str, Any]) -> None:
-    assert book.mos_book_hot_get(port=project["port"]) == {
-        "content": "",
-        "exists": False,
-        "bytes": 0,
-    }
-
-
-def test_wiki_hot_get_reads_existing_file(project: dict[str, Any]) -> None:
-    hot = project["shared"] / "book" / "hot.md"
-    content = "Current focus: transformer ablation.\n"
-    hot.write_text(content, encoding="utf-8")
-
-    assert book.mos_book_hot_get(port=project["port"]) == {
-        "content": content,
-        "exists": True,
-        "bytes": len(content.encode("utf-8")),
-    }
-
-
 def test_publish_policy_allows_ethics_book() -> None:
     """Ethics is the merged memory curator now — it owns the book/ surface."""
     assert publish._validate_dst("ethics", "book/audit.md") == Path("book/audit.md")

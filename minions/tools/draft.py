@@ -1307,6 +1307,99 @@ def mos_draft_summary() -> dict[str, Any]:
     }
 
 
+def mos_draft_view(
+    query: str | None = None,
+    by_role: str | None = None,
+    by_status: DraftSupportStatus | None = None,
+    by_type: DraftNodeType | None = None,
+    related_to: str | None = None,
+    sort: str = "time",
+    limit: int = 20,
+) -> dict[str, Any]:
+    """The single unified read over the Draft graph for role agents.
+
+    One tool, orthogonal dimensions. It always returns a compact orientation
+    header (totals, pending_plans, counts) so a waking role gets its bearings
+    in one call, plus the requested slice of nodes and their incident edges.
+
+    Dimensions (combine freely; all optional):
+      - query: free-text relevance push (keyword overlap + type weighting).
+      - by_role / by_status / by_type: exact-match filters.
+      - related_to: 1-hop neighbour subgraph of a node id (ignores filters).
+      - sort: "time" (newest landed first — the default a waking role wants),
+        "relevance" (only meaningful with query), or "confidence".
+      - limit: max nodes in the slice.
+
+    This subsumes the older summary / query / relevant / topic_index reads:
+    call with no args for the orientation header + newest nodes (cold-start
+    orient); pass query for relevance; pass related_to for a neighbourhood.
+    """
+    port = _env_port()
+    header = mos_draft_summary()  # orientation: totals, pending_plans, counts, decay
+
+    # Slice selection.
+    if related_to:
+        sub = mos_draft_query(related_to=related_to, limit=limit)
+        nodes = list(sub["nodes"])
+        edges = list(sub["edges"])
+    elif query:
+        rel = mos_draft_relevant(query, max_nodes=limit)
+        nodes = list(rel["relevant_nodes"])
+        edges = list(rel["relevant_edges"])
+    else:
+        sub = mos_draft_query(
+            node_type=by_type,
+            support_status=by_status,
+            author_role=by_role,
+            limit=max(limit * 4, limit),  # over-fetch; re-sort + trim below
+        )
+        nodes = list(sub["nodes"])
+        edges = list(sub["edges"])
+
+    # Apply remaining filters that the chosen slice did not already enforce
+    # (query/related_to paths ignore the exact-match filters, so honour them here).
+    if by_role:
+        nodes = [n for n in nodes if (n.get("author_role") or "") == by_role]
+    if by_status:
+        nodes = [n for n in nodes if n.get("support_status") == by_status]
+    if by_type:
+        nodes = [n for n in nodes if n.get("type") == by_type]
+
+    # Sort. "relevance" keeps mos_draft_relevant's order; time/confidence re-sort.
+    if sort == "time":
+        nodes.sort(key=lambda n: n.get("created_at", ""), reverse=True)
+    elif sort == "confidence":
+        nodes.sort(key=lambda n: float(n.get("confidence", 0.0) or 0.0), reverse=True)
+
+    nodes = nodes[:limit]
+    node_ids = {n["id"] for n in nodes}
+    edges = [e for e in edges if e["from_id"] in node_ids or e["to_id"] in node_ids]
+
+    return {
+        "project_port": port,
+        "root_question": header.get("root_question", ""),
+        "totals": {
+            "nodes": header.get("total_nodes", 0),
+            "edges": header.get("total_edges", 0),
+        },
+        "pending_plans": header.get("pending_plans", []),
+        "pending_plans_total": header.get("pending_plans_total", 0),
+        "nodes_by_type": header.get("nodes_by_type", {}),
+        "nodes_by_status": header.get("nodes_by_status", {}),
+        "filter": {
+            "query": query,
+            "by_role": by_role,
+            "by_status": by_status,
+            "by_type": by_type,
+            "related_to": related_to,
+            "sort": sort,
+        },
+        "nodes": nodes,
+        "edges": edges,
+        "returned": len(nodes),
+    }
+
+
 def mos_draft_commit_shared(message: str | None = None) -> dict[str, Any]:
     """Flush the buffered Draft to a single commit on the shared branch.
 

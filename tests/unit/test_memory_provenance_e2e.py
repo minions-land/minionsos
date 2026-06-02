@@ -9,8 +9,10 @@ These tests verify the *full chains* the earlier code audit flagged as
    auditability guarantee.)
 
 2. Cold-start context reconstruction — after a compact/wake, a role
-   rebuilds working context from book/hot.md + mos_draft_relevant without
-   needing the lost transcript.
+   rebuilds working context from the durable Draft via mos_draft_view:
+   an orientation header (pending_plans + newest nodes) with no args,
+   and a relevance-ranked slice when a task query is supplied — no lost
+   transcript required.
 
 3. Contradiction audit loop — mos_book_ingest detects a conflicting claim
    against an existing page and emits a contradiction page that Ethics can
@@ -167,7 +169,7 @@ def test_reel_ref_travels_from_draft_append_to_book_page(project_env, monkeypatc
 
 
 # ---------------------------------------------------------------------------
-# Test 2 — Cold-start context reconstruction (hot.md + draft_relevant)
+# Test 2 — Cold-start context reconstruction (mos_draft_view)
 # ---------------------------------------------------------------------------
 
 
@@ -175,17 +177,18 @@ def test_cold_start_context_reconstruction(project_env, monkeypatch):
     """After a compact/wake, a role rebuilds context without its lost transcript.
 
     Chain under test:
-      1. During an earlier work cycle, Draft accumulates research nodes and
-         Ethics publishes book/hot.md (the ~500-word rolling cache injected at
-         every wake).
-      2. A role "wakes" with no transcript memory. It reads hot.md
-         (mos_book_hot_get) and pushes the current task text through
-         mos_draft_relevant.
-      3. The reconstructed context surfaces the prior nodes relevant to the
-         task — proving the wake-time context is recoverable from durable
-         memory alone.
+      1. During an earlier work cycle, Draft accumulates research nodes —
+         including a pending_plan the role hadn't executed yet and an
+         unrelated node that shares no keywords with the resumed task.
+      2. A role "wakes" with no transcript memory. With no args,
+         mos_draft_view() returns the orientation header: the pending plan
+         it must resume plus the newest nodes, ordered newest-first.
+      3. Passing the resumed task as a query, mos_draft_view(query=...)
+         surfaces the task-relevant nodes and ranks the unrelated node
+         lower — proving the wake-time context is recoverable, and ranked,
+         from durable memory alone.
     """
-    port, _project_root, _shared = project_env
+    _port, _project_root, _shared = project_env
 
     # --- Earlier cycle: Draft accumulates research state ----------------------
     monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
@@ -197,51 +200,67 @@ def test_cold_start_context_reconstruction(project_env, monkeypatch):
                 "text": "Residual connections enable training of very deep networks",
                 "confidence": 0.8,
                 "support_status": "tentative",
+                "created_at": "2026-01-01T00:00:00+00:00",
             },
             {
                 "type": "decision",
                 "text": "Use ResNet-50 backbone for the depth-scaling experiment",
                 "confidence": 0.9,
                 "support_status": "verified",
+                "created_at": "2026-01-01T00:01:00+00:00",
             },
             {
                 "type": "dead_end",
                 "text": "Plain 34-layer net diverged without residual connections",
                 "confidence": 1.0,
                 "support_status": "verified",
+                "created_at": "2026-01-01T00:02:00+00:00",
             },
             {
                 "type": "hypothesis",
-                "text": "Batch size has little effect on final accuracy here",
+                "text": "The data loader uses webdataset shards from object storage",
                 "confidence": 0.5,
                 "support_status": "unverified",
+                "created_at": "2026-01-01T00:03:00+00:00",
             },
         ]
     )
-
-    # Ethics publishes the rolling hot cache for the cycle.
-    monkeypatch.setenv("MINIONS_ROLE_NAME", "ethics")
-    book.mos_book_hot_update(
-        recent_ingests=[
-            {"title": "Depth-scaling rerun", "role": "expert", "one-line": "ResNet beats plain net"}
-        ],
-        active_hypotheses=2,
-        recently_verified=["Residual connections train deep nets"],
-        unresolved_contradictions=0,
-        port=port,
+    # An explicit pending plan the role had not executed before the wake.
+    draft.mos_draft_append(
+        [
+            {
+                "type": "experiment",
+                "text": "Sweep residual depth from 50 to 152 layers on ResNet",
+                "confidence": 0.7,
+                "support_status": "unverified",
+                "created_at": "2026-05-17T00:00:00+00:00",
+                "metadata": {"pending_plan": True},
+            }
+        ]
     )
 
-    # --- Cold start: role wakes with no transcript, rebuilds from memory ------
-    hot = book.mos_book_hot_get(port=port)
-    assert hot["exists"] is True, "hot.md was not published — wake cache missing"
-    assert "Depth-scaling rerun" in hot["content"], (
-        "hot.md does not carry the recent-activity summary a waking role needs"
+    # --- Cold start, step 1: orientation header with no args ------------------
+    # A waking role calls mos_draft_view() first to get its bearings: the
+    # pending plan it must resume + the newest nodes, no transcript needed.
+    orient = draft.mos_draft_view()
+    assert orient["totals"]["nodes"] == 5
+    assert orient["pending_plans_total"] == 1
+    assert orient["pending_plans"][0]["text"] == (
+        "Sweep residual depth from 50 to 152 layers on ResNet"
     )
+    # Newest-first ordering: the pending plan was appended last, so it heads
+    # the node slice — the role sees its most recent intent at the top.
+    assert orient["nodes"][0]["text"] == (
+        "Sweep residual depth from 50 to 152 layers on ResNet"
+    )
+    # The header carries enough to orient without dumping the whole graph.
+    assert orient["nodes_by_type"].get("hypothesis", 0) == 2
+    assert orient["returned"] == len(orient["nodes"]) <= 5
 
-    # The role pushes its current task through the Draft relevance index.
+    # --- Cold start, step 2: relevance push for the resumed task --------------
     task_text = "continue the residual connection depth scaling experiment on ResNet"
-    relevant = draft.mos_draft_relevant(task_text, max_nodes=5)
-    surfaced = {n["text"] for n in relevant["relevant_nodes"]}
+    relevant = draft.mos_draft_view(query=task_text, limit=5)
+    surfaced = {n["text"] for n in relevant["nodes"]}
 
     # The depth/residual nodes must surface; they are what the role lost.
     assert any("Residual connections" in t for t in surfaced), (
@@ -250,10 +269,10 @@ def test_cold_start_context_reconstruction(project_env, monkeypatch):
     assert any("ResNet-50 backbone" in t for t in surfaced), (
         f"relevance push failed to surface the backbone decision: {surfaced}"
     )
-    # The unrelated batch-size hypothesis should rank below the depth nodes
-    # (it shares no strong keywords with the task) — confirms ranking, not dump.
-    assert relevant["relevant_nodes"][0]["text"] != (
-        "Batch size has little effect on final accuracy here"
+    # The unrelated data-loader node should rank below the depth nodes (it
+    # shares no strong keywords with the task) — confirms ranking, not a dump.
+    assert relevant["nodes"][0]["text"] != (
+        "The data loader uses webdataset shards from object storage"
     ), "irrelevant node ranked first — relevance scoring is not working"
 
 

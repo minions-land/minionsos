@@ -11,18 +11,14 @@ Claude Code is the only Role host.
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from minions.config import GruConfig
 from minions.errors import RoleError
-from minions.paths import MINIONS_ROOT, project_shared_subdir
+from minions.paths import MINIONS_ROOT
 
 logger = logging.getLogger(__name__)
-
-HOT_CACHE_BYTE_LIMIT = 4096
-HOT_CACHE_TRUNCATION_LINE = "(truncated for wake-up injection — see book/hot.md for full)"
 
 # Per-role ToolSearch warmup lists. Cold-start expert / ethics roles
 # repeatedly missed deferred-tool schemas in project_37596 logs (e.g.
@@ -36,8 +32,7 @@ HOT_CACHE_TRUNCATION_LINE = "(truncated for wake-up injection — see book/hot.m
 _TOOL_WARMUP: dict[str, tuple[str, ...]] = {
     "expert": (
         "mos_await_events",
-        "mos_draft_summary",
-        "mos_draft_query",
+        "mos_draft_view",
         "mos_draft_append",
         "mos_draft_annotate",
         "mos_publish_to_shared",
@@ -52,13 +47,11 @@ _TOOL_WARMUP: dict[str, tuple[str, ...]] = {
     ),
     "ethics": (
         "mos_await_events",
-        "mos_draft_summary",
-        "mos_draft_query",
+        "mos_draft_view",
         "mos_draft_append",
         "mos_draft_annotate",
         "mos_draft_commit_shared",
         "mos_book_ingest",
-        "mos_book_hot_update",
         "mos_book_promote_verified",
         "mos_publish_to_shared",
         "mos_compact_context",
@@ -266,23 +259,24 @@ def _build_eacn_role_loop_prompt(
     role_name: str, *, port: int | None = None, role_system_paths: list[Path] | None = None
 ) -> str:
     """Forever-loop prompt for EACN-registered roles."""
-    hot_cache = _hot_cache_block(port)
-    hot_cache_section = f"{hot_cache}\n" if hot_cache else ""
     role_contract = _role_contract_block(role_system_paths)
     warmup = _tool_warmup_block(role_name)
     return (
         f"You are the MinionsOS `{role_name}` role. Your event loop runs forever.\n"
         "\n"
-        f"{hot_cache_section}"
         "Cold start (this is your first cycle on a fresh process):\n"
         f"{warmup}"
-        "1. Call `mos_draft_summary()` first to orient on team state.\n"
-        "2. Inspect `pending_plans` in the summary. These are events your\n"
+        "1. Call `mos_draft_view()` first to orient: it returns the team Draft\n"
+        "   graph's orientation header (totals, counts, your `pending_plans`)\n"
+        "   plus the newest nodes. This single call reconstructs your context —\n"
+        "   what the team knows and what you left unfinished — from durable\n"
+        "   memory, with no transcript needed.\n"
+        "2. Inspect `pending_plans` in that result. These are events your\n"
         "   previous self received but judged unrelated to its context;\n"
         "   it persisted them and reset so YOU could handle them. They\n"
         "   are already dequeued from EACN and will NOT be redelivered.\n"
         "   Drain them now: for each pending_plan node:\n"
-        "     - read its full node via `mos_draft_query(related_to=<id>)`,\n"
+        "     - read its neighbourhood via `mos_draft_view(related_to=<id>)`,\n"
         "     - perform the work (Plan → Dispatch subagent → Verify →\n"
         "       emit any EACN response),\n"
         "     - land the outcome as a real `result`/`decision` node AND\n"
@@ -429,59 +423,3 @@ def _role_contract_block(role_system_paths: list[Path] | None = None) -> str:
         "\n"
         f"{combined}\n"
     )
-
-
-def _hot_cache_block(port: int | None = None) -> str | None:
-    """Return the wake-up hot-cache prompt block for *port*, if available."""
-    resolved_port = _resolve_hot_cache_port(port)
-    if resolved_port is None:
-        return None
-
-    path = project_shared_subdir(resolved_port, "book") / "hot.md"
-    try:
-        if not path.exists() or path.stat().st_size == 0:
-            return None
-        raw = path.read_bytes()
-        full_content = raw.decode("utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        logger.warning("failed to read book hot cache from %s: %s", path, exc)
-        return None
-
-    if not full_content.strip():
-        return None
-
-    truncated = len(raw) > HOT_CACHE_BYTE_LIMIT
-    content = (
-        raw[:HOT_CACHE_BYTE_LIMIT].decode("utf-8", errors="ignore") if truncated else full_content
-    )
-    if truncated:
-        content = f"{content}\n" if not content.endswith("\n") else content
-        content = f"{content}{HOT_CACHE_TRUNCATION_LINE}\n"
-    elif not content.endswith("\n"):
-        content = f"{content}\n"
-
-    return (
-        "## [Hot Cache]\n"
-        "\n"
-        "Brief rolling cache of recent project-wide context, maintained by\n"
-        "Noter. Read silently — do NOT explicitly cite this in EACN messages.\n"
-        "\n"
-        f"{content}"
-    )
-
-
-def _resolve_hot_cache_port(port: int | None) -> int | None:
-    """Resolve the project port used to locate the book hot cache."""
-    if port is not None:
-        return port
-
-    raw = os.environ.get("MINIONS_PROJECT_PORT", "").strip()
-    if not raw:
-        logger.debug("MINIONS_PROJECT_PORT not set; omitting book hot cache")
-        return None
-
-    try:
-        return int(raw)
-    except ValueError:
-        logger.warning("MINIONS_PROJECT_PORT is not a valid int: %r", raw)
-        return None

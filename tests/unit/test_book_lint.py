@@ -252,36 +252,6 @@ def test_wiki_lint_does_not_flag_fresh_unresolved_contradiction(
     assert _findings_for(result, "STALE_CLAIM") == []
 
 
-def test_wiki_lint_writes_and_updates_hot_summary_block(project: dict[str, Any]) -> None:
-    hot = _write_wiki_page(
-        project["book"],
-        "hot.md",
-        "\n".join(
-            [
-                "preface",
-                "",
-                "<!-- lint-summary-start -->",
-                "old lint",
-                "<!-- lint-summary-end -->",
-                "",
-                "tail",
-                "",
-            ]
-        ),
-    )
-
-    book.mos_book_lint()
-
-    content = hot.read_text(encoding="utf-8")
-    assert "<!-- lint-summary-start -->" in content
-    assert "<!-- lint-summary-end -->" in content
-    assert "old lint" not in content
-    assert "lint_count: 0" in content
-    assert "preface" in content
-    assert "tail" in content
-    assert len(content.encode("utf-8")) <= 4096
-
-
 def test_wiki_lint_is_idempotent_for_finding_set(project: dict[str, Any]) -> None:
     _write_source(project["book"], "lonely")
     _write_wiki_page(project["book"], "index.md", "# Wiki Index\n\nSee [[missing]].\n")

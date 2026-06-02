@@ -90,8 +90,8 @@ def test_initial_prompt_drives_forever_loop(tmp_path: Path) -> None:
     # Subagent dispatch path is named.
     assert "Task" in prompt or "subagent" in prompt.lower()
     # Cold start: orient on the DAG before calling mos_await_events.
-    assert "mos_draft_summary" in prompt
-    assert prompt.index("mos_draft_summary") < prompt.rindex("mos_await_events")
+    assert "mos_draft_view" in prompt
+    assert prompt.index("mos_draft_view") < prompt.rindex("mos_await_events")
 
 
 def test_forever_loop_prompt_is_role_specific() -> None:
@@ -169,7 +169,7 @@ def test_warmup_block_present_for_eacn_roles() -> None:
         assert _WARMUP_HEADER in prompt, f"warmup missing for {role}"
         assert "select:" in prompt
         assert "mos_await_events" in prompt
-        assert "mos_draft_summary" in prompt
+        assert "mos_draft_view" in prompt
 
 
 def test_warmup_block_for_ethics_includes_curation_tools() -> None:
@@ -205,11 +205,11 @@ def test_warmup_block_steers_away_from_keyword_search() -> None:
 
 
 def test_warmup_block_appears_before_step_1() -> None:
-    # Step 0 must come before "1. Call `mos_draft_summary()`" so the role
+    # Step 0 must come before "1. Call `mos_draft_view()`" so the role
     # warms schemas before its very first MCP call.
     prompt = _cold_prompt("expert")
     step0 = prompt.index(_WARMUP_HEADER)
-    step1 = prompt.index("1. Call `mos_draft_summary()`")
+    step1 = prompt.index("1. Call `mos_draft_view()`")
     assert step0 < step1
 
 
@@ -249,6 +249,6 @@ def test_expert_warmup_pins_create_task() -> None:
     # EACN role. The unified Expert worker must be able to publish a task
     # without a ToolSearch round-trip.
     prompt = _cold_prompt("expert")
-    warmup = prompt[prompt.index(_WARMUP_HEADER) : prompt.index("1. Call `mos_draft_summary()`")]
+    warmup = prompt[prompt.index(_WARMUP_HEADER) : prompt.index("1. Call `mos_draft_view()`")]
     assert "eacn3_create_task" in warmup
     assert "eacn3_send_message" in warmup

@@ -53,12 +53,6 @@ _TOKEN_RE = re.compile(r"[a-z0-9]+")
 _WIKILINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
 _SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n{2,}")
-_LINT_SUMMARY_START = "<!-- lint-summary-start -->"
-_LINT_SUMMARY_END = "<!-- lint-summary-end -->"
-_LINT_SUMMARY_BLOCK_RE = re.compile(
-    rf"{re.escape(_LINT_SUMMARY_START)}.*?{re.escape(_LINT_SUMMARY_END)}",
-    re.DOTALL,
-)
 _NEGATION_MARKERS = frozenset(
     {
         "cannot",
@@ -167,7 +161,6 @@ _MIN_SHARED_TERM_CHARS = 5
 _NEGATION_LOOKBACK_TOKENS = 4
 _MAX_CONTRADICTIONS = 5
 _MAX_LINT_FINDINGS = 100
-_MAX_HOT_BYTES = 4096
 _STALE_CLAIM_SECONDS = 72 * 60 * 60
 
 
@@ -1367,187 +1360,6 @@ def _short_lint_value(value: object, *, limit: int = 160) -> str:
     return text[: limit - 3].rstrip() + "..."
 
 
-def _render_lint_hot_block(result: dict[str, object]) -> str:
-    # P3 (2026-05-29 audit): hot.md is injected at every role wake, and the
-    # verbose per-finding list dominated it (≈21 of 22 lines were lint noise,
-    # 1:21 signal:lint). The full findings already persist in book/log.md, so
-    # the wake cache keeps only the count line + a pointer; this hands the
-    # reclaimed wake-budget back to actual research signal.
-    lines = [
-        _LINT_SUMMARY_START,
-        "## Book Lint",
-        f"updated: {_now_iso()}",
-        f"lint_count: {result.get('lint_count', 0)}",
-        f"orphan_pages: {result.get('orphan_pages', 0)}",
-        f"dead_links: {result.get('dead_links', 0)}",
-        f"missing_concept_pages: {result.get('missing_concept_pages', 0)}",
-        f"stale_claims: {result.get('stale_claims', 0)}",
-    ]
-    error = result.get("error")
-    if error:
-        lines.append(f"error: {_short_lint_value(error)}")
-
-    findings_raw = result.get("findings", [])
-    findings = findings_raw if isinstance(findings_raw, list) else []
-    finding_count = len(findings)
-    if finding_count:
-        # One-line pointer instead of the full list — drill into book/log.md.
-        warnings = sum(
-            1
-            for f in findings
-            if isinstance(f, dict) and str(cast(dict, f).get("severity", "")).lower() == "warning"
-        )
-        lines.append(
-            f"findings: {finding_count} ({warnings} warning) — see `book/log.md` for detail."
-        )
-    else:
-        lines.append("findings: 0.")
-
-    lines.append(_LINT_SUMMARY_END)
-    return "\n".join(lines).rstrip() + "\n"
-
-
-def _cap_hot_text(text: str, required_block: str) -> str:
-    if len(text.encode("utf-8")) <= _MAX_HOT_BYTES:
-        return text if text.endswith("\n") else text + "\n"
-
-    lines = text.splitlines()
-    while lines:
-        candidate = "\n".join(lines).rstrip() + "\n"
-        if len(candidate.encode("utf-8")) <= _MAX_HOT_BYTES:
-            if _LINT_SUMMARY_START in candidate and _LINT_SUMMARY_END in candidate:
-                return candidate
-            break
-        lines.pop(0)
-    return required_block
-
-
-def _replace_lint_hot_block(existing: str, block: str) -> str:
-    block = block.rstrip() + "\n"
-    if _LINT_SUMMARY_BLOCK_RE.search(existing):
-        updated = _LINT_SUMMARY_BLOCK_RE.sub(block.rstrip(), existing, count=1)
-        updated = updated.rstrip() + "\n"
-    else:
-        prefix = existing.rstrip()
-        updated = f"{prefix}\n\n{block}" if prefix else block
-    return _cap_hot_text(updated, block)
-
-
-def _read_existing_lint_hot_block(port: int) -> str:
-    hot_path = _book_root(port) / "hot.md"
-    existing = hot_path.read_text(encoding="utf-8") if hot_path.exists() else ""
-    match = _LINT_SUMMARY_BLOCK_RE.search(existing)
-    if match:
-        return match.group(0).rstrip() + "\n"
-    return "\n".join(
-        [
-            _LINT_SUMMARY_START,
-            "## Book Lint",
-            "No lint summary available.",
-            _LINT_SUMMARY_END,
-            "",
-        ]
-    )
-
-
-def _hot_ingest_value(ingest: dict[str, str], *keys: str, default: str) -> str:
-    for key in keys:
-        value = _oneline(ingest.get(key, ""))
-        if value:
-            return value
-    return default
-
-
-def _render_hot_update_text(
-    *,
-    recent_ingests: list[dict[str, str]],
-    active_hypotheses: int,
-    recently_verified: list[str],
-    recently_refuted: list[str],
-    unresolved_contradictions: int,
-    lint_block: str,
-) -> str:
-    lines = ["# Book Hot Cache", "", "## Recent activity", ""]
-    if recent_ingests:
-        for ingest in recent_ingests:
-            title = _hot_ingest_value(ingest, "title", "source_slug", "slug", default="Untitled")
-            role = _hot_ingest_value(ingest, "role", "source_role", default="unknown")
-            takeaway = _hot_ingest_value(
-                ingest,
-                "one-line",
-                "one_line",
-                "takeaway",
-                "summary",
-                default="No takeaway recorded.",
-            )
-            lines.append(f"- **{title}** ({role}): {takeaway}")
-    else:
-        lines.append("No ingests recorded this cycle.")
-
-    lines.extend(
-        [
-            "",
-            "## Research state",
-            "",
-            f"Active hypotheses: {max(0, active_hypotheses)}",
-            f"Verified this cycle: {len(recently_verified)}",
-        ]
-    )
-    lines.extend(f"- {_oneline(item)}" for item in recently_verified if _oneline(item))
-    lines.append(f"Refuted this cycle: {len(recently_refuted)}")
-    lines.extend(f"- {_oneline(item)}" for item in recently_refuted if _oneline(item))
-    lines.extend(
-        [
-            "",
-            "## Open contradictions",
-            "",
-            f"{max(0, unresolved_contradictions)} unresolved - Ethics reviewing.",
-            "",
-            lint_block.rstrip(),
-            "",
-        ]
-    )
-    return "\n".join(lines).rstrip() + "\n"
-
-
-def _render_capped_hot_update(
-    *,
-    recent_ingests: list[dict[str, str]],
-    active_hypotheses: int,
-    recently_verified: list[str],
-    recently_refuted: list[str],
-    unresolved_contradictions: int,
-    lint_block: str,
-) -> str:
-    ingests = list(recent_ingests[-5:])
-    text = _render_hot_update_text(
-        recent_ingests=ingests,
-        active_hypotheses=active_hypotheses,
-        recently_verified=recently_verified,
-        recently_refuted=recently_refuted,
-        unresolved_contradictions=unresolved_contradictions,
-        lint_block=lint_block,
-    )
-    while len(text.encode("utf-8")) > _MAX_HOT_BYTES and ingests:
-        ingests.pop(0)
-        text = _render_hot_update_text(
-            recent_ingests=ingests,
-            active_hypotheses=active_hypotheses,
-            recently_verified=recently_verified,
-            recently_refuted=recently_refuted,
-            unresolved_contradictions=unresolved_contradictions,
-            lint_block=lint_block,
-        )
-    if len(text.encode("utf-8")) <= _MAX_HOT_BYTES:
-        return text
-
-    suffix = "\n" + lint_block.rstrip() + "\n"
-    budget = max(0, _MAX_HOT_BYTES - len(suffix.encode("utf-8")) - 4)
-    encoded = text.replace(suffix.lstrip(), "").encode("utf-8")[:budget]
-    prefix = encoded.decode("utf-8", errors="ignore").rstrip()
-    return f"{prefix}\n...\n{lint_block.rstrip()}\n"
-
-
 def _publish_book_lint_outputs(port: int, result: dict[str, object]) -> None:
     book_root = _book_root(port)
     log_path = book_root / "log.md"
@@ -1572,16 +1384,8 @@ def _publish_book_lint_outputs(port: int, result: dict[str, object]) -> None:
         existing_log + json.dumps(log_fields, ensure_ascii=False, sort_keys=True) + "\n",
     )
 
-    hot_path = book_root / "hot.md"
-    existing_hot = hot_path.read_text(encoding="utf-8") if hot_path.exists() else ""
-    hot_stage = _stage_text(
-        port,
-        "book-hot-lint.md",
-        _replace_lint_hot_block(existing_hot, _render_lint_hot_block(result)),
-    )
-
     message = "noter: book lint"
-    _publish_files(port, [(log_stage, "log.md"), (hot_stage, "hot.md")], message)
+    _publish_files(port, [(log_stage, "log.md")], message)
 
 
 def _load_dag_for_match(port: int) -> dict[str, object]:
@@ -3266,56 +3070,10 @@ def mos_book_lint(*, port: int | None = None) -> dict[str, object]:
     return result
 
 
-def mos_book_hot_update(
-    recent_ingests: list[dict[str, str]] | None = None,
-    active_hypotheses: int = 0,
-    recently_verified: list[str] | None = None,
-    recently_refuted: list[str] | None = None,
-    unresolved_contradictions: int = 0,
-    *,
-    port: int | None = None,
-) -> dict[str, object]:
-    """Generate and publish book/hot.md rolling cache.
-
-    Called by Noter on each periodic wake. Composes a ~500-word summary
-    from the provided data and publishes it via mos_publish_to_shared.
-    """
-    resolved_port = _resolve_port(port)
-    lint_block = _read_existing_lint_hot_block(resolved_port)
-    hot_text = _render_capped_hot_update(
-        recent_ingests=recent_ingests or [],
-        active_hypotheses=active_hypotheses,
-        recently_verified=recently_verified or [],
-        recently_refuted=recently_refuted or [],
-        unresolved_contradictions=unresolved_contradictions,
-        lint_block=lint_block,
-    )
-    stage = _stage_text(resolved_port, "book-hot-update.md", hot_text)
-    _publish_file(resolved_port, stage, "hot.md", "noter: book hot update")
-    return {
-        "updated": True,
-        "bytes": len(hot_text.encode("utf-8")),
-        "sections": [
-            "Recent activity",
-            "Research state",
-            "Open contradictions",
-            "Book Lint",
-        ],
-    }
-
-
-def mos_book_hot_get(*, port: int | None = None) -> dict[str, object]:
-    """Return current book/hot.md contents, or empty content if absent."""
-    resolved_port = _resolve_port(port)
-    path = _book_root(resolved_port) / "hot.md"
-    if not path.exists():
-        return {"content": "", "exists": False, "bytes": 0}
-    content = path.read_text(encoding="utf-8")
-    return {
-        "content": content,
-        "exists": True,
-        "bytes": len(content.encode("utf-8")),
-    }
+# Hot-cache tools (mos_book_hot_update / mos_book_hot_get) were removed in the
+# V23-era Memory simplification: the hot.md rolling wake-cache layer was retired.
+# Cold-start orientation now comes directly from `mos_draft_view()` (orientation
+# header + newest nodes), so a hand-maintained ~500-word Book summary is moot.
 
 
 __all__ = [
@@ -3323,8 +3081,6 @@ __all__ = [
     "mos_book_audit_walk",
     "mos_book_crystallize_session",
     "mos_book_dead_end",
-    "mos_book_hot_get",
-    "mos_book_hot_update",
     "mos_book_ingest",
     "mos_book_ingest_batch",
     "mos_book_lint",
