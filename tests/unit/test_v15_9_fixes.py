@@ -48,7 +48,7 @@ class TestPreCompactResumeProtocol:
         )
         assert result.returncode == 0
         assert "## Resume_protocol" in result.stdout
-        assert "mos_draft_summary()" in result.stdout
+        assert "mos_draft_view()" in result.stdout
         assert "mos_await_events()" in result.stdout
 
     def test_resume_protocol_explains_failure_mode(self) -> None:

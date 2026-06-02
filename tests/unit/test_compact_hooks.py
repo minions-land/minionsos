@@ -69,9 +69,9 @@ class TestPreCompact:
         assert result.returncode == 0, result.stderr
         assert "## Working_on" in result.stdout
         assert "## Pending_plans" in result.stdout
+        assert "L0 — Reel" in result.stdout
         assert "L1 — Draft" in result.stdout
         assert "L2 — Book" in result.stdout
-        assert "L3 — Shelf" in result.stdout
 
     def test_existing_instructions_are_prepended(self) -> None:
         payload = json.dumps({"trigger": "manual", "custom_instructions": "PRIOR-MARKER"})
