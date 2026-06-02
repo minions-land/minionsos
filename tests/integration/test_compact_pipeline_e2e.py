@@ -173,9 +173,9 @@ def test_phase2_precompact_emits_pointer_shaped_instructions(tmp_path: Path) -> 
     assert result.returncode == 0, f"stderr: {result.stderr}"
     out = result.stdout
     assert "User said: be terse" in out
+    assert "L0 — Reel" in out
     assert "L1 — Draft" in out
     assert "L2 — Book" in out
-    assert "L3 — Shelf" in out
     assert "Cite IDs and paths" in out or "cite IDs and paths" in out
     assert "## Resume_protocol" in out
     assert "mos_await_events" in out
