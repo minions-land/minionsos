@@ -230,11 +230,11 @@ def _last_compact_at(workspace: Path) -> float | None:
     in case the role-local compact tool wrote there.
     """
     role = os.environ.get("MINIONS_ROLE_NAME", "")
-    # Shared journal: <workspace>/../shared/draft/journal.jsonl
+    # Shared journal: <workspace>/../main/draft/journal.jsonl (v23: main=Book)
     # workspace is branches/<role>/, so parent is branches/, parent.parent is project root
     candidates: list[Path] = []
     if workspace.parent.name == "branches":
-        candidates.append(workspace.parent / "shared" / "draft" / "journal.jsonl")
+        candidates.append(workspace.parent / "main" / "draft" / "journal.jsonl")
     # Role-local fallback (older shape):
     candidates.append(workspace / "draft" / "journal.jsonl")
 

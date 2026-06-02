@@ -308,7 +308,7 @@ def test_phase5_pattern_a_annotates_event_at_high_pressure(tmp_path: Path, monke
     slug = cp._slug_for_workspace(proj["workspace"])
     sd = home / ".claude" / "projects" / slug
     sd.mkdir(parents=True)
-    _write_session_jsonl(sd / "s.jsonl", [120_000] * 10)
+    _write_session_jsonl(sd / "s.jsonl", [220_000] * 10)
     cp.reset_memo()
 
     fake_evt = {
@@ -365,7 +365,7 @@ def test_phase6_pattern_b_preempts_compact_when_idle(tmp_path: Path, monkeypatch
     slug = cp._slug_for_workspace(proj["workspace"])
     sd = home / ".claude" / "projects" / slug
     sd.mkdir(parents=True)
-    _write_session_jsonl(sd / "s.jsonl", [120_000] * 10)
+    _write_session_jsonl(sd / "s.jsonl", [220_000] * 10)
     cp.reset_memo()
 
     from minions.tools import await_events as ae

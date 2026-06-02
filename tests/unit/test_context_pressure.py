@@ -140,8 +140,8 @@ def test_cooldown_demotes_high_to_medium(tmp_path: Path, monkeypatch) -> None:
         [220_000] * 10,
         monkeypatch=monkeypatch,
     )
-    # Write a recent compact entry to the shared journal.
-    shared_journal = ws.parent / "shared" / "draft" / "journal.jsonl"
+    # Write a recent compact entry to the shared journal (v23: main=Book).
+    shared_journal = ws.parent / "main" / "draft" / "journal.jsonl"
     shared_journal.parent.mkdir(parents=True)
     from datetime import UTC, datetime
 
