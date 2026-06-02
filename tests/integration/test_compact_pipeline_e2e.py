@@ -54,7 +54,10 @@ def _setup_project(tmp_path: Path, port: int = 88888) -> dict:
     project_dir = projects_root / f"project_{port}"
     workspace = project_dir / "branches" / "expert-foo"
     workspace.mkdir(parents=True)
-    shared = project_dir / "branches" / "shared"
+    # v23 main=Book: the shared cross-role surface IS the main-branch worktree
+    # (project_shared_subdir → branches/main/). The fixture must mirror that or
+    # journal/draft writes land where the test does not look.
+    shared = project_dir / "branches" / "main"
     (shared / "draft").mkdir(parents=True)
     (shared / "book").mkdir(parents=True)
     (shared / "exp").mkdir(parents=True)

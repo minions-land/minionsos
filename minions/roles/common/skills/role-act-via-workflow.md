@@ -38,7 +38,7 @@ you the same outcome.
 | **Writer** | Section drafting (single agent), figure/table construction (pipeline), end-to-end paper (phase: gather → cite → draft → integrate → compile → QA), reviewer revision (pipeline + adversarial verifier) | `writer/SYSTEM.md` §W6 + the ten-slot paper-work-boundaries table |
 | **Ethics** | Mock-review (single < 50 KB; pipeline otherwise), citation-authenticity sweep (parallel), §Eth7 deep audit (phase + adversarial verifier), adjudication (pipeline + parallel evidence fan-out + adversarial verifier) | `ethics/SYSTEM.md` §Eth7 / §Eth10 / §Eth11; `mock-review` skill |
 | **Expert** | Domain Q&A (pipeline), competitor scan (fan-out + verifier), experiment-result interpretation (phase), falsifiability memo (single + verifier) | `expert/SYSTEM.md` §E4.5 |
-| **Noter** | Multi-artifact ingest (parallel ingest → pipeline lint → promote → hot.md), full-dream graph maintenance (parallel motif-scan / dead-end-connect / communities-and-god-nodes → verifier), crystallization on context-reset events (single agent, verbatim contract), curator trajectory window (single agent invoking Skill(skill-curator)) | `noter/SYSTEM.md` §N3 / §N11 |
+| **Noter** | Multi-artifact ingest (parallel ingest → pipeline lint → promote), full-dream graph maintenance (parallel motif-scan / dead-end-connect / communities-and-god-nodes → verifier), crystallization on context-reset events (single agent, verbatim contract), curator trajectory window (single agent invoking Skill(skill-curator)) | `noter/SYSTEM.md` §N3 / §N11 |
 
 ## Size-bounded return contract
 

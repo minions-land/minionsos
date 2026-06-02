@@ -24,8 +24,8 @@ Design goals (in priority order):
    turn until the next compact.  We push the model to **cite IDs and paths**
    instead of inlining node bodies, evidence text, Book pages, or
    experiment reports.  The agent re-fetches any of those in one MCP call
-   (``mos_draft_summary`` / ``mos_book_hot_get`` /
-   ``mos_draft_query`` / ``mos_shelf_query``) far more cheaply than
+   (``mos_draft_view`` /
+   ``mos_book_query`` / ``mos_shelf_query``) far more cheaply than
    carrying them inline.
 
 2. Cache safety.  This hook does not touch settings, working directory,
@@ -130,7 +130,6 @@ L1 — Draft  (branches/shared/draft/draft.json)
 
 L2 — Book  (branches/shared/book/)
      - book/index.md                 — Noter-maintained catalog
-     - book/hot.md                   — ~500-word rolling cache (auto-injected at wake)
      - book/sources/<role>-<slug>.md — one page per ingested artifact
      - book/contradictions/          — auto-detected claim conflicts (Ethics reads)
 

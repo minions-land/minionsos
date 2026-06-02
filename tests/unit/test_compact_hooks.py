@@ -240,7 +240,7 @@ SAMPLE_SUMMARY = """\
 
 @pytest.fixture()
 def project_dir(tmp_path: Path) -> Path:
-    """Create a projects/project_<port>/branches/shared/draft/ tree mirroring
+    """Create a projects/project_<port>/branches/main/draft/ tree mirroring
     the v15.53+ layout: project trees live under ``MINIONS_ROOT/projects/``.
 
     Tests set ``MINIONS_ROOT=tmp_path/MinionsOS`` so the hook resolves to
@@ -250,21 +250,21 @@ def project_dir(tmp_path: Path) -> Path:
     port = 99001
     fake_minions_root = tmp_path / "MinionsOS"
     fake_minions_root.mkdir()
-    (fake_minions_root / "projects" / f"project_{port}" / "branches" / "shared" / "draft").mkdir(
+    (fake_minions_root / "projects" / f"project_{port}" / "branches" / "main" / "draft").mkdir(
         parents=True
     )
     return tmp_path
 
 
 def _project_draft_dir(project_root: Path, port: int) -> Path:
-    """projects/project_<port>/branches/shared/draft under MinionsOS/."""
+    """projects/project_<port>/branches/main/draft under MinionsOS/."""
     return (
         project_root
         / "MinionsOS"
         / "projects"
         / f"project_{port}"
         / "branches"
-        / "shared"
+        / "main"
         / "draft"
     )
 
@@ -364,7 +364,7 @@ class TestPostCompact:
         )
         assert result.returncode == 0
         # Nothing should have been created under tmp_path.
-        leaked = list(tmp_path.glob("project_*/branches/shared/draft/journal.jsonl"))
+        leaked = list(tmp_path.glob("project_*/branches/main/draft/journal.jsonl"))
         assert leaked == []
 
     def test_malformed_json_does_not_crash(self, project_dir: Path) -> None:

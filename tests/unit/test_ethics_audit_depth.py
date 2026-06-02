@@ -10,8 +10,9 @@ def test_ethics_prompt_mentions_book_query_tool() -> None:
     assert "mos_book_query" in ETHICS_SYSTEM.read_text(encoding="utf-8")
 
 
-def test_ethics_prompt_mentions_hot_get_tool() -> None:
-    assert "mos_book_hot_get" in ETHICS_SYSTEM.read_text(encoding="utf-8")
+def test_ethics_prompt_mentions_draft_view_tool() -> None:
+    # hot.md wake-cache was removed; Ethics orients via the unified Draft view.
+    assert "mos_draft_view" in ETHICS_SYSTEM.read_text(encoding="utf-8")
 
 
 def test_ethics_prompt_mentions_cluster_threshold() -> None:

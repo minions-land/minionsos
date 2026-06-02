@@ -32,7 +32,7 @@ summary, extracts:
 …and appends a single ``post_compact_extract`` audit entry to the same
 project journal that ``mos_compact_context`` writes to:
 
-  project_<port>/branches/shared/draft/journal.jsonl
+  project_<port>/branches/main/draft/journal.jsonl
 
 Why an audit-only entry rather than direct Draft mutation:
 
@@ -109,13 +109,17 @@ DEAD_ENDS_RE = re.compile(r"^##\s+Dead_ends\s*\n([\s\S]*?)(?=\n##\s|\Z)", re.MUL
 
 
 def _draft_dir(port: int) -> Path | None:
-    """Return ``projects/project_<port>/branches/shared/draft`` if locatable.
+    """Return ``projects/project_<port>/branches/main/draft`` if locatable.
 
     Avoids importing ``minions.paths`` so the hook also works in raw
     operator shells where the package isn't on sys.path. Inlines the same
     resolution as ``minions.paths.projects_root()``: prefer
     ``MINIONS_PROJECTS_ROOT``, else ``MINIONS_ROOT/projects``, else fall
     back to the repo root inferred from this file's location.
+
+    The shared cross-role surface is the main-branch worktree
+    (``branches/main/``) since the v23 main=Book rebuild; the standalone
+    ``-shared`` branch was eliminated.
     """
     projects_root_env = os.environ.get("MINIONS_PROJECTS_ROOT")
     if projects_root_env:
@@ -128,7 +132,7 @@ def _draft_dir(port: int) -> Path | None:
             # minions/hooks/post_compact_draft.py -> MinionsOS/
             repo_root = Path(__file__).resolve().parent.parent.parent
         projects_root = repo_root / "projects"
-    candidate = projects_root / f"project_{port}" / "branches" / "shared" / "draft"
+    candidate = projects_root / f"project_{port}" / "branches" / "main" / "draft"
     return candidate if candidate.is_dir() else None
 
 

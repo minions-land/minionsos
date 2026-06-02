@@ -286,8 +286,8 @@ from a Workflow context (see §10 host-side enforcement).
 
 - Small `Read` of a single short artifact (< 50 KB) when content spans
   many turns.
-- Non-destructive EACN3 reads + Draft queries (`mos_draft_summary`,
-  `mos_draft_query`, `mos_book_query`, `mos_book_hot_get`).
+- Non-destructive EACN3 reads + Draft queries (`mos_draft_view`,
+  `mos_book_query`).
 - Short ack DMs via `eacn3_send_message` (< 30 words).
 - One ≤ 5-second evidence probe per Verify stage.
 - Final `eacn3_send_message` / `eacn3_create_task` /
@@ -384,8 +384,9 @@ Four layers exist. The canonical reference is
   `unverified`. Mark dead ends `dead_end`. **Never delete** — mark
   failed paths `refuted` or `blocked`. Add edges.
 - **L2 Book** — Noter-curated durable knowledge at
-  `branches/main/book/`. `book/hot.md` (~500 words) is injected at
-  every wake. Other roles read; Noter writes.
+  `branches/main/book/`. Cold-start orientation comes from
+  `mos_draft_view()` over the Draft; the Book is read on demand via
+  `mos_book_query`. Other roles read; Noter writes.
 - **L3 Shelf** — Gru-aggregated cross-project structural index derived
   from Book.
 

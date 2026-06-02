@@ -526,8 +526,8 @@ def _tmux_paste_prompt(session_name: str, prompt: str) -> None:
 
     Why not ``send-keys -l``: tmux's argv length limit (~32 KB on Linux)
     rejects large prompts with ``command too long``. Role init prompts
-    routinely exceed 32 KB once role SYSTEM.md, all skill files, and
-    book/hot.md are concatenated (78 KB observed for ``ethics``). See
+    routinely exceed 32 KB once role SYSTEM.md and all skill files are
+    concatenated (78 KB observed for ``ethics``). See
     GitHub Issue #22.
 
     The load-buffer + paste-buffer path reads the prompt from a file,

@@ -7,8 +7,8 @@ this file, you already have:
   prompt via `--append-system-prompt` before this process started).
 - **initial_prompt** — cold-start steps, steady-state loop, keepalive protocol,
   compact vs reset rules (the first user message delivered at launch).
-- **book/hot.md** — ~500 words of recent project knowledge (injected at the top
-  of the initial_prompt if a project is active).
+- **mos_draft_view()** — your wake orientation: a no-arg call returns a Draft
+  orientation header (totals, pending_plans, counts) plus a node/edge slice.
 
 This file is **not** a second copy of those rules. Its job is different: give
 you the **project map** — what exists, where it lives, who owns it — so you can
@@ -56,7 +56,6 @@ projects/project_{port}/
 │   │   └── .minionsos/heartbeat   ← updated every mos_await_events cycle
 │   └── shared/
 │       ├── draft/draft.json ← L1 Draft (process graph, pending_plans)
-│       ├── book/hot.md      ← L2 Book hot page (~500 words, injected at wake)
 │       ├── book/            ← L2 Book (full, noter-curated)
 │       └── shelf/           ← L3 Shelf (cross-project index, Gru only)
 └── events/                  ← per-agent EACN event audit stream

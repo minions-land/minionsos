@@ -131,7 +131,7 @@ class TestMainKicksOnEveryPath:
         port = 41010
         repo = tmp_path / "MinionsOS"
         repo.mkdir(parents=True)
-        draft_dir = repo / "projects" / f"project_{port}" / "branches" / "shared" / "draft"
+        draft_dir = repo / "projects" / f"project_{port}" / "branches" / "main" / "draft"
         draft_dir.mkdir(parents=True)
         (draft_dir / "draft.json").write_text(
             json.dumps({"nodes": [{"id": "H-001"}], "edges": []}),
@@ -203,7 +203,7 @@ class TestDraftDirResolution:
     ) -> None:
         port = 41011
         custom_root = tmp_path / "elsewhere"
-        draft_dir = custom_root / f"project_{port}" / "branches" / "shared" / "draft"
+        draft_dir = custom_root / f"project_{port}" / "branches" / "main" / "draft"
         draft_dir.mkdir(parents=True)
 
         monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(custom_root))
@@ -216,7 +216,7 @@ class TestDraftDirResolution:
     ) -> None:
         port = 41012
         repo = tmp_path / "MinionsOS"
-        draft_dir = repo / "projects" / f"project_{port}" / "branches" / "shared" / "draft"
+        draft_dir = repo / "projects" / f"project_{port}" / "branches" / "main" / "draft"
         draft_dir.mkdir(parents=True)
 
         monkeypatch.delenv("MINIONS_PROJECTS_ROOT", raising=False)

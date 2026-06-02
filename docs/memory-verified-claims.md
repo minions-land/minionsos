@@ -30,12 +30,18 @@
 - 代码：`draft.py:804`（append 自动注入 `metadata.reel_ref`）+ `book.py:266`（写入 Book frontmatter）。
 
 ### Claim 2：冷启动上下文重建
-> 角色 compact/wake 后，无需丢失的 transcript，仅凭 Book `hot.md` 滚动缓存 +
-> `mos_draft_relevant` 关键词推送，即可重建与当前任务相关的历史上下文。
+> 角色 compact/wake 后，无需丢失的 transcript，仅凭一次 `mos_draft_view()`
+> 调用（统一读：orientation header + 节点切片）即可重建与当前任务相关的历史
+> 上下文。无需手工维护的 hot.md 中间缓存。
 
 - **验证**：`test_memory_provenance_e2e.py::test_cold_start_context_reconstruction`
-- 测试断言：相关节点（残差连接假设、ResNet backbone 决策）被召回；无关节点（batch size）排名靠后——证明是**排序召回**，不是全量倾倒。
-- 代码：`book.py:3307`（`mos_book_hot_get`）+ `draft.py:1299`（`mos_draft_relevant`，关键词重叠 + 类型加权，**无 embedding，docstring 已诚实标注**）。
+  + `test_draft_view.py::test_view_cold_start_needs_no_hot_md`
+  + `docs/Reconstruction/verify_draft_view.py`（真实多角色 Draft，12/12 通过）。
+- 测试断言：无参 `mos_draft_view()` 返回 totals + pending_plans + 最新节点；
+  带 query 时相关节点（残差连接、ResNet backbone）被召回、无关节点（batch size）
+  排名靠后——**排序召回**，非全量倾倒。
+- 代码：`draft.py:mos_draft_view`（复用 summary/query/relevant 内部实现，关键词重叠
+  + 类型加权，**无 embedding，docstring 已诚实标注**）。hot.md wake-cache 层已移除。
 
 ### Claim 3：矛盾审计闭环
 > Book ingest 的词法检测器识别"否定极性冲突"（一句肯定、一句否定共享论断词），

@@ -45,13 +45,13 @@ The PreCompact hook (`minions/hooks/pre_compact_science.py`) tells the compact
 model to produce a *pointer-shaped* summary that cites IDs and paths only:
 
 - **L1 — Draft**: cite node IDs (H-001, E-002, R-003, DEAD-004, …) — never paste node text.
-- **L2 — Book**: cite paths (`book/sources/<role>-<slug>.md`, `book/hot.md`) — never paste page bodies.
+- **L2 — Book**: cite paths (`book/sources/<role>-<slug>.md`) — never paste page bodies.
 - **L3 — Shelf**: cite community labels or node IDs (`n42_xxx`, `p<port>_xxx`) — never paste graph dumps.
 - **EACN events**: cite event IDs / sender@timestamp — never paste message bodies.
 - **Experiment artefacts**: cite `exp/exp-<id>/report.md` — never paste report content.
 
-The post-compact agent re-fetches detail in one MCP call (`mos_draft_summary` /
-`mos_book_hot_get` / `mos_draft_query` / `mos_shelf_query`). That is
+The post-compact agent re-fetches detail in one MCP call (`mos_book_query` /
+`mos_draft_view`). That is
 strictly cheaper than carrying detail across every subsequent turn until the
 next compact.
 

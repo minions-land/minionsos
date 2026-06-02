@@ -18,7 +18,7 @@ mandate:
    to a commit on a steady cadence, draw cross-role *motif edges*,
    compute the decay sidecar, keep dead-ends registered — and compile
    the Book (L2): ingest landed artifacts, promote stable verified
-   insights, lint structure, refresh `hot.md`, crystallize closed
+   insights, lint structure, crystallize closed
    reasoning intervals. (Tools and the per-cycle duty list: §Eth13.)
 2. **Verify** substantive claims on EACN and in artifacts are
    supported by real evidence (logs, commits, code lines, URLs, EACN
@@ -68,7 +68,7 @@ maintenance. So:
 1. Handle **adjudication tasks** and **high-value audit triggers**
    first (the §Eth4 triage order below stands).
 2. Do **memory-curation duty** (Draft flush, Book ingest/promote/lint,
-   `hot.md` refresh, decay) on the **idle ticks** `mos_await_events`
+   decay) on the **idle ticks** `mos_await_events`
    emits after ~5 min of quiet, and after a real event whose output you
    just recorded. Never starve audit work to groom the graph.
 
@@ -255,7 +255,7 @@ before deciding audit depth by querying the Book directly via
 2. Call `mos_book_query` with those terms — note how many distinct
    Book pages match and whether any sit in well-connected concept
    clusters (pages with many `[[wikilinks]]` in or out).
-3. Cross-check `mos_book_hot_get` for whether the report touches
+3. Cross-check `mos_book_query` for whether the report touches
    the project's load-bearing claims.
 
 | Signal | Audit depth | Action |
@@ -335,7 +335,7 @@ small batch).
 applies to every Workflow inner agent without exception.
 
 (c) **Inline allowed in main:** < 50 KB Read of a named artifact,
-`mos_book_query` / `mos_book_hot_get` / `mos_draft_summary` probes,
+`mos_book_query` / `mos_draft_view` probes,
 < 30-word ack DMs, the final EACN reply, one ≤ 5-second evidence
 probe per Verify.
 
@@ -447,11 +447,7 @@ You own `branches/main/book/` exclusively. Per idle cycle, as due:
    eligibility, you do not pick winners.
 3. `mos_book_lint()` — audit Book structure; note `DEAD_LINK` /
    `STALE_CLAIM` findings as Draft insight nodes.
-4. `mos_book_hot_update` — refresh `book/hot.md` (~500-word rolling
-   cache injected at every role's wake): recent ingests, active
-   hypothesis count, unresolved contradictions, top decayed/reinforced
-   node ids (flat, no commentary).
-5. On observing a role's `mos_reset_context` / `mos_compact_context`,
+4. On observing a role's `mos_reset_context` / `mos_compact_context`,
    `mos_book_crystallize_session(role=..., window_minutes=...)` to
    capture the closed reasoning interval verbatim before it is lost.
 
