@@ -31,7 +31,7 @@ Top-level domain hits (Arm B):
 - `pitfall-deferred-schema`, `eacn3_send_message` (Q2)
 - `pitfall-queue-deadlaunch-fp` (Q3) — single page, 2 364 bytes
 - `mos_publish_to_shared` (Q4) — single page, 2 052 bytes
-- `mos_draft_summary` + `mos_book_hot_get` + `mos_await_events` (Q5)
+- `mos_draft_view` + `mos_await_events` (Q5)
 - `pitfall-adjudicate-misuse` (Q6) — single page, 1 475 bytes
 - `mos_compact_context` + `mos_reset_context` (Q7)
 - `mos_noter_wait` (Q8) — single page, 1 013 bytes

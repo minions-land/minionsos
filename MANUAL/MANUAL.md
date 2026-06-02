@@ -26,11 +26,10 @@ Every page carries `source: <file>:<line>`. If the page isn't enough, read sourc
 ## Cold-start protocol (every wake)
 
 ```
-1. mos_draft_summary           # what was I doing? what did past-me leave?
-2. mos_book_hot_get            # what's the team converged on?
-3. mos_await_events            # what's new on EACN?      (Noter: mos_noter_wait)
+1. mos_draft_view              # what was I doing? what did past-me leave? (no-arg orient)
+2. mos_await_events            # what's new on EACN?      (Noter: mos_noter_wait)
    → for each event: act
-4. when context > 70%: mos_compact_context
+3. when context > 70%: mos_compact_context
    when phase boundary:        mos_reset_context
 ```
 

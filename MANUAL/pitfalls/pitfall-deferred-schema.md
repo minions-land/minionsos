@@ -17,7 +17,7 @@ status: stable
 ●The eacn3 tools are not in the deferred-tools index of THIS session
 ●Error: ... eacn3_send_message — No such tool available
 ```
-Coder spent ~15 min thrashing. Ethics filed an issue. Noter looped on `mos_book_hot_update`.
+Coder spent ~15 min thrashing. Ethics filed an issue. Noter looped on `mos_book_ingest`.
 
 ## Cause
 
@@ -55,7 +55,7 @@ wastes a turn on LLM-side fuzzy matching that may pick the wrong id.
 ## Tools known to be deferred in many sessions (project_37596 evidence)
 
 - `eacn3_send_message`, `eacn3_create_task`, `eacn3_submit_bid`, `eacn3_submit_result`
-- `mos_book_hot_update`
+- `mos_book_ingest`
 - `mos_publish_to_shared` (sometimes)
 
 ## Don't

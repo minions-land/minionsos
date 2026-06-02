@@ -37,7 +37,7 @@ This rule overrides any habit of "use reliable-file-io Tier 1's Python heredoc".
 
 MinionsOS is a local multi-agent operating system for running autonomous research projects. A persistent Gru process supervises many isolated paper-sized projects; each project has its own EACN3 backend, git worktree, artifacts, logs, role drafts, and long-lived Role processes hosted by Claude Code.
 
-**Mission Profiles (v15+).** A project's behaviour is controlled by a *Mission Profile* (`minions/profiles/<name>.yaml`) selected at `mos_project_create` time. Profiles declare which Roles spawn, what the deliverable is, and how it's evaluated. The default `scientific-paper` profile preserves the original Autonomous Scientific Discovery pipeline (Noter + Coder + Ethics + Writer → peer-reviewed paper PDF).
+**Mission Profiles (v15+).** A project's behaviour is controlled by a *Mission Profile* (`minions/profiles/<name>.yaml`) selected at `mos_project_create` time. Profiles declare which Roles spawn, what the deliverable is, and how it's evaluated. The default `scientific-paper` profile preserves the original Autonomous Scientific Discovery pipeline (Gru + Ethics + spawnable Experts → peer-reviewed paper PDF).
 
 `mcp-servers/eacn3/` is a local editable dependency pinned through `pyproject.toml` and `uv.lock`. Treat it as a dependency boundary during normal MinionsOS work: prefer EACN MCP tools and the MinionsOS adapter modules over hand-written HTTP calls or incidental edits inside `mcp-servers/eacn3/`.
 
@@ -161,7 +161,6 @@ projects/project_{port}/
 │       ├── governance/          # signboard.json (phase-transition consensus)
 │       ├── book/                          ← Layer 2: Compiled Knowledge (Book)
 │       │   ├── index.md                    Noter-maintained catalog
-│       │   ├── hot.md                      ~500-word rolling cache, injected at role wake-up
 │       │   ├── log.md                      Append-only ingest/lint journal (JSONL)
 │       │   ├── sources/{role}-{slug}.md    One page per ingested artifact (carries reel_ref)
 │       │   └── contradictions/             Auto-detected claim conflicts (Ethics reads)

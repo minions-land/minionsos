@@ -1,7 +1,7 @@
 {
-  "version": "aa3c5f3",
-  "built_at": "2026-06-01T14:09:59.482165+00:00",
-  "page_count": 154,
+  "version": "8c59b71",
+  "built_at": "2026-06-02T09:06:10.277157+00:00",
+  "page_count": 151,
   "pages": {
     "eacn3_a2a_server": {
       "kind": "tool",
@@ -985,50 +985,6 @@
         "mos_book_resolve_contradiction"
       ]
     },
-    "mos_book_hot_get": {
-      "kind": "tool",
-      "path": "tools/mos_book_hot_get.md",
-      "domain": "memory",
-      "auth": [
-        "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert",
-        "noter"
-      ],
-      "source": "minions/tools/mcp/memory_tools.py:277",
-      "since": "stable",
-      "status": "stable",
-      "summary": "Read the Book hot cache \u2014 rolling ~500-word summary auto-injected at wake.",
-      "keywords": [
-        "book",
-        "hot",
-        "cache",
-        "wake",
-        "summary",
-        "rolling"
-      ],
-      "related": [
-        "mos_book_query",
-        "mos_book_hot_update",
-        "mos_draft_summary"
-      ]
-    },
-    "mos_book_hot_update": {
-      "kind": "tool",
-      "path": "tools/mos_book_hot_update.md",
-      "domain": "memory",
-      "auth": [
-        "*"
-      ],
-      "source": "minions/tools/mcp/memory_tools.py:284",
-      "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
-      "related": []
-    },
     "mos_book_ingest": {
       "kind": "tool",
       "path": "tools/mos_book_ingest.md",
@@ -1140,9 +1096,9 @@
         "durable"
       ],
       "related": [
-        "mos_book_hot_get",
         "mos_book_ingest",
-        "mos_book_save_synthesis"
+        "mos_book_save_synthesis",
+        "mos_draft_view"
       ]
     },
     "mos_book_ratify": {
@@ -1337,9 +1293,8 @@
         "plan"
       ],
       "related": [
-        "mos_draft_summary",
+        "mos_draft_view",
         "mos_draft_annotate",
-        "mos_draft_query",
         "mos_book_promote_verified"
       ]
     },
@@ -1385,49 +1340,33 @@
       "keywords": [],
       "related": []
     },
-    "mos_draft_query": {
+    "mos_draft_view": {
       "kind": "tool",
-      "path": "tools/mos_draft_query.md",
-      "domain": "memory",
-      "auth": [
-        "*"
-      ],
-      "source": "minions/tools/mcp/memory_tools.py:55",
-      "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
-      "related": []
-    },
-    "mos_draft_summary": {
-      "kind": "tool",
-      "path": "tools/mos_draft_summary.md",
+      "path": "tools/mos_draft_view.md",
       "domain": "memory",
       "auth": [
         "gru",
         "coder",
         "ethics",
         "writer",
-        "expert",
-        "noter"
+        "expert"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:98",
+      "source": "minions/tools/mcp/memory_tools.py:55",
       "since": "stable",
       "status": "stable",
-      "summary": "First call after every wake. Surfaces `pending_plan` nodes left by your previous self.",
+      "summary": "Unified read over the team Draft graph: orientation header + filtered node/edge slice. The single role-facing memory lens.",
       "keywords": [
         "draft",
-        "summary",
+        "view",
+        "query",
+        "orient",
         "wake",
-        "pending",
-        "plan",
-        "hypotheses"
+        "graph"
       ],
       "related": [
-        "mos_draft_query",
         "mos_draft_append",
         "mos_draft_annotate",
-        "mos_book_hot_get"
+        "mos_draft_path"
       ]
     },
     "mos_evaluate": {
@@ -1798,7 +1737,7 @@
       "related": [
         "mos_await_events",
         "mos_book_lint",
-        "mos_draft_summary"
+        "mos_draft_view"
       ]
     },
     "mos_project_bridge": {
@@ -2100,7 +2039,7 @@
       "related": [
         "mos_compact_context",
         "mos_draft_append",
-        "mos_draft_summary"
+        "mos_draft_view"
       ]
     },
     "mos_resolve_arxiv_ids": {
@@ -2894,7 +2833,6 @@
         "book",
         "reel",
         "memory",
-        "hot",
         "hypothesis",
         "status",
         "ratify",
@@ -2902,9 +2840,8 @@
         "dead_end"
       ],
       "related": [
-        "mos_draft_summary",
+        "mos_draft_view",
         "mos_book_query",
-        "mos_book_hot_get",
         "mos_reel_get",
         "mos_book_ratify",
         "mos_book_open_question",
@@ -3106,8 +3043,6 @@
       "mos_book_audit_walk",
       "mos_book_crystallize_session",
       "mos_book_dead_end",
-      "mos_book_hot_get",
-      "mos_book_hot_update",
       "mos_book_ingest",
       "mos_book_ingest_batch",
       "mos_book_lint",
@@ -3122,8 +3057,7 @@
       "mos_draft_commit_shared",
       "mos_draft_decay_compute",
       "mos_draft_path",
-      "mos_draft_query",
-      "mos_draft_summary",
+      "mos_draft_view",
       "mos_reel_get",
       "mos_reel_window",
       "pitfall-subagent-boilerplate"
@@ -3275,13 +3209,12 @@
       "eacn3_update_discussions",
       "mos_await_events",
       "mos_book_dead_end",
-      "mos_book_hot_get",
       "mos_book_open_question",
       "mos_book_query",
       "mos_compact_context",
       "mos_dismiss_role",
       "mos_draft_append",
-      "mos_draft_summary",
+      "mos_draft_view",
       "mos_evaluate",
       "mos_issue_report",
       "mos_list_roles",
@@ -3347,12 +3280,11 @@
       "eacn3_update_discussions",
       "mos_await_events",
       "mos_book_dead_end",
-      "mos_book_hot_get",
       "mos_book_open_question",
       "mos_book_query",
       "mos_compact_context",
       "mos_draft_append",
-      "mos_draft_summary",
+      "mos_draft_view",
       "mos_exp_get",
       "mos_exp_gpu_pool_get",
       "mos_exp_gpu_pool_set",
@@ -3409,13 +3341,12 @@
       "eacn3_update_discussions",
       "mos_await_events",
       "mos_book_dead_end",
-      "mos_book_hot_get",
       "mos_book_open_question",
       "mos_book_query",
       "mos_book_ratify",
       "mos_compact_context",
       "mos_draft_append",
-      "mos_draft_summary",
+      "mos_draft_view",
       "mos_issue_report",
       "mos_publish_to_shared",
       "mos_reel_get",
@@ -3456,7 +3387,6 @@
       "eacn3_update_discussions",
       "mos_await_events",
       "mos_book_dead_end",
-      "mos_book_hot_get",
       "mos_book_open_question",
       "mos_book_query",
       "mos_compact_context",
@@ -3465,7 +3395,7 @@
       "mos_download_medrxiv",
       "mos_download_pubmed",
       "mos_draft_append",
-      "mos_draft_summary",
+      "mos_draft_view",
       "mos_issue_report",
       "mos_publish_to_shared",
       "mos_read_arxiv_paper",
@@ -3517,12 +3447,11 @@
       "eacn3_update_discussions",
       "mos_await_events",
       "mos_book_dead_end",
-      "mos_book_hot_get",
       "mos_book_open_question",
       "mos_book_query",
       "mos_compact_context",
       "mos_draft_append",
-      "mos_draft_summary",
+      "mos_draft_view",
       "mos_issue_report",
       "mos_publish_to_shared",
       "mos_reel_get",
@@ -3542,7 +3471,6 @@
       "mos_attach_role",
       "mos_book_audit_walk",
       "mos_book_crystallize_session",
-      "mos_book_hot_update",
       "mos_book_ingest",
       "mos_book_ingest_batch",
       "mos_book_lint",
@@ -3553,7 +3481,6 @@
       "mos_draft_commit_shared",
       "mos_draft_decay_compute",
       "mos_draft_path",
-      "mos_draft_query",
       "mos_get_events",
       "mos_kill_role",
       "mos_reel_window",
@@ -3567,11 +3494,9 @@
       "pitfall-tool-denied"
     ],
     "noter": [
-      "mos_book_hot_get",
       "mos_book_query",
       "mos_compact_context",
       "mos_draft_append",
-      "mos_draft_summary",
       "mos_issue_report",
       "mos_noter_wait",
       "mos_publish_to_shared",
@@ -3886,8 +3811,7 @@
     "wake": [
       "domain-runtime",
       "mos_await_events",
-      "mos_book_hot_get",
-      "mos_draft_summary"
+      "mos_draft_view"
     ],
     "drain": [
       "mos_await_events"
@@ -3905,7 +3829,6 @@
     "book": [
       "domain-memory",
       "mos_book_dead_end",
-      "mos_book_hot_get",
       "mos_book_open_question",
       "mos_book_query",
       "mos_book_ratify"
@@ -3925,21 +3848,6 @@
     "do-not-repeat": [
       "mos_book_dead_end"
     ],
-    "hot": [
-      "domain-memory",
-      "mos_book_hot_get"
-    ],
-    "cache": [
-      "mos_book_hot_get"
-    ],
-    "summary": [
-      "mos_book_hot_get",
-      "mos_compact_context",
-      "mos_draft_summary"
-    ],
-    "rolling": [
-      "mos_book_hot_get"
-    ],
     "open-question": [
       "mos_book_open_question"
     ],
@@ -3956,7 +3864,8 @@
       "mos_book_open_question"
     ],
     "query": [
-      "mos_book_query"
+      "mos_book_query",
+      "mos_draft_view"
     ],
     "search": [
       "domain-papers",
@@ -3998,6 +3907,9 @@
     "token": [
       "mos_compact_context"
     ],
+    "summary": [
+      "mos_compact_context"
+    ],
     "resume": [
       "mos_compact_context"
     ],
@@ -4007,7 +3919,7 @@
     "draft": [
       "domain-memory",
       "mos_draft_append",
-      "mos_draft_summary"
+      "mos_draft_view"
     ],
     "append": [
       "mos_draft_append"
@@ -4026,15 +3938,16 @@
       "mos_draft_append"
     ],
     "plan": [
-      "mos_draft_append",
-      "mos_draft_summary"
+      "mos_draft_append"
     ],
-    "pending": [
-      "mos_draft_summary",
-      "mos_exp_queue_status"
+    "view": [
+      "mos_draft_view"
     ],
-    "hypotheses": [
-      "mos_draft_summary"
+    "orient": [
+      "mos_draft_view"
+    ],
+    "graph": [
+      "mos_draft_view"
     ],
     "queue": [
       "domain-experiments",
@@ -4066,6 +3979,9 @@
       "mos_exp_queue_submit"
     ],
     "running": [
+      "mos_exp_queue_status"
+    ],
+    "pending": [
       "mos_exp_queue_status"
     ],
     "failed": [

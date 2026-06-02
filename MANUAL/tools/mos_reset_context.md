@@ -6,7 +6,7 @@ auth: [gru, coder, ethics, writer, expert, noter]
 source: minions/tools/mcp/runtime_tools.py:158
 since: stable
 keywords: [reset, context, fresh, boot, marker, checkpoint]
-related: [mos_compact_context, mos_draft_append, mos_draft_summary]
+related: [mos_compact_context, mos_draft_append, mos_draft_view]
 status: stable
 ---
 
@@ -32,8 +32,8 @@ mos_draft_append(nodes=[{
 mos_reset_context(reason="P2 mid-progress checkpoint")
 ```
 
-`mos_draft_summary` on the next wake will surface that node as
-`pending_plan_for_me`.
+`mos_draft_view` on the next wake will surface that node in
+`orientation.pending_plans`.
 
 ## When to use
 - Phase boundary (P1 → P2)

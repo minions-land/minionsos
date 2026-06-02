@@ -6,7 +6,7 @@ auth: [gru, coder, ethics, writer, expert, noter]
 source: minions/tools/mcp/memory_tools.py:69
 since: stable
 keywords: [draft, append, node, edge, hypothesis, evidence, plan]
-related: [mos_draft_summary, mos_draft_annotate, mos_draft_query, mos_book_promote_verified]
+related: [mos_draft_view, mos_draft_annotate, mos_book_promote_verified]
 status: stable
 ---
 

@@ -42,4 +42,4 @@ mos_draft_append(nodes=[{
 mos_reset_context(reason="P2 mid-progress checkpoint")
 ```
 
-`mos_draft_summary` on the next wake will surface that node.
+`mos_draft_view` on the next wake will surface that node.

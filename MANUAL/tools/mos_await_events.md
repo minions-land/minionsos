@@ -35,7 +35,7 @@ No params. Project + agent_id come from env.
 ```py
 ev = mos_await_events()
 if ev["idle_check"]:
-    mos_draft_summary(); continue
+    mos_draft_view(); continue
 for e in ev["events"]:
     handle(e)
 ```

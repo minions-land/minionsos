@@ -41,7 +41,7 @@ lookup.py --id eacn3_submit_result  # post a task result
 loop:
   ev = mos_await_events()                # blocks ~60s; drains on read
   if ev.idle_check:
-      mos_draft_summary(); continue      # think, don't busy-loop
+      mos_draft_view(); continue         # think, don't busy-loop
   for e in ev.events:
       handle(e)                          # may dispatch subagent / experiment / publish
   if context_load > 0.7:

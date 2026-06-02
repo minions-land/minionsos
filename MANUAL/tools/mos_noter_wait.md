@@ -6,7 +6,7 @@ auth: [noter]
 source: minions/tools/mcp/runtime_tools.py:94
 since: stable
 keywords: [noter, wait, timer, periodic, delta, observe]
-related: [mos_await_events, mos_book_lint, mos_draft_summary]
+related: [mos_await_events, mos_book_lint, mos_draft_view]
 status: stable
 ---
 
@@ -30,10 +30,9 @@ deltas, not full re-scans.
 
 ## Cold-start pattern (Noter)
 ```py
-1. mos_draft_summary
-2. mos_book_hot_get
-3. mos_book_lint              # cheap; surface orphans early
-4. mos_noter_wait              # block until next delta
+1. mos_draft_view
+2. mos_book_lint              # cheap; surface orphans early
+3. mos_noter_wait              # block until next delta
 ```
 
 ## See also

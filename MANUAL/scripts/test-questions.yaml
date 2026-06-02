@@ -61,10 +61,9 @@
     I just woke up as Coder for the first time today. What are the first 2-3
     tool calls I should make?
   expects:
-    - mos_draft_summary first (surfaces pending_plan_for_me from past-me)
-    - mos_book_hot_get next
+    - mos_draft_view first (no-arg orient; surfaces pending_plans from past-me)
     - mos_await_events to drain new events
-  expected_pages: [mos_draft_summary, mos_await_events, mos_book_hot_get]
+  expected_pages: [mos_draft_view, mos_await_events]
   difficulty: easy
 
 - id: q6-adjudicate-misuse

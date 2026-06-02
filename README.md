@@ -24,10 +24,24 @@ each project owns its own **EACN3** coordination backend; long-lived
 agent-host **Roles** wake up on event arrival, process work, and stay resident
 across many cycles. Claude Code is the only Role host.
 
+**The core contribution is a team Memory mechanism for autonomous scientific
+discovery.** A project's knowledge lives in one structured graph — the
+**Draft** — that every Role reads and writes through a single unified lens
+(`mos_draft_view`) and appends to as work lands (`mos_draft_append`, with
+plan nodes replaced by their results, never left as zombies). One Role,
+**Ethics**, curates that graph (drawing cross-Role edges, computing decay,
+sealing dead-ends) and audits whether every claim on it has real evidence.
+Verified knowledge is compiled into the **Book** — the main-branch, paper-shaped
+organization of the project's output. Reel → Draft → Book carry provenance
+links so any conclusion traces back to the execution frame that produced it.
+EACN3 is the coordination substrate; the Memory graph is what makes a team of
+cold-started agents accumulate, verify, and compound knowledge across cycles.
+
 The runtime topology of each project is selected by a *Mission Profile*
 (`minions/profiles/<name>.yaml`). The default `scientific-paper` profile drives
-the full Autonomous Scientific Discovery pipeline (paper-sized projects with
-Noter + Coder + Ethics + Writer producing peer-reviewed PDFs).
+the full Autonomous Scientific Discovery pipeline: a **Gru** supervisor, an
+**Ethics** memory-curator/auditor, and one or more spawnable **Expert** workers
+(code, experiments, writing, figures, literature) producing peer-reviewed PDFs.
 
 The design goal is simple: one author, one checkout, one Gru, many isolated
 research projects.
@@ -63,13 +77,12 @@ research projects.
   Discovery pipeline. New profiles ship as a single YAML file plus optional
   role-prompt overlays. Drives the `mos_submit` / `mos_evaluate` MCP tools and
   the `mos benchmark run` CLI for 打榜 / leaderboard sweeps.
-- **Long-lived Roles.** Noter, Coder, Writer, Ethics, and Expert run as
+- **Long-lived Roles.** Gru, Ethics, and one or more Experts run as
   resident `claude` processes inside named tmux sessions
   (`mos-{port}-{role}`). EACN-registered roles drive their event loop with
-  `mos_await_events()`; Noter is the exception — it is not registered on EACN
-  and uses the timer-based `mos_noter_wait()` instead. Writer is **on-demand**:
-  not bootstrapped at project creation; Gru spawns it via `mos_spawn_role`
-  when the project enters a paper-writing phase.
+  `mos_await_events()`. Experts are the spawnable general workers (code,
+  experiments, writing, figures, literature); Gru spawns and retires them as
+  the project's needs shift.
 - **Gru as the control plane.** Gru is the human-facing supervisor and the only
   component allowed to create projects, spawn roles, and bridge across
   projects.
@@ -440,27 +453,24 @@ mos_reel_get
 mos_reel_window
 ```
 
-**Draft — L1 process memory (Noter primary, Gru read):**
+**Draft — L1 process memory (Ethics curates; all roles read):**
 
 ```text
 mos_draft_append
-mos_draft_query
-mos_draft_summary
+mos_draft_view                # unified read: orient header + filtered node/edge slice
 mos_draft_annotate
 mos_draft_path
 mos_draft_decay_compute       # half-life-based confidence decay
-mos_draft_commit_shared       # Noter periodic flush
+mos_draft_commit_shared       # Ethics periodic flush
 ```
 
-**Book — L2 compiled knowledge (Noter writes; all roles read via query/hot_get):**
+**Book — L2 compiled knowledge (Ethics ingests; all roles read via mos_book_query):**
 
 ```text
 mos_book_ingest
 mos_book_ingest_batch
 mos_book_lint
 mos_book_query
-mos_book_hot_get
-mos_book_hot_update
 mos_book_save_synthesis
 mos_book_promote_verified
 mos_book_crystallize_session
@@ -571,7 +581,6 @@ projects/project_{port}/
       governance/signboard.json # phase-transition consensus
       book/                     # Layer 2 — compiled knowledge
         index.md                #   Noter-maintained catalog
-        hot.md                  #   ~500-word rolling cache, injected at wake-up
         log.md                  #   append-only ingest/lint journal
         sources/                #   one page per ingested artifact
         contradictions/         #   auto-detected claim conflicts
@@ -691,6 +700,15 @@ proprietary/internal until a license is added.
 **Role** 进程在事件触发时唤醒处理任务，跨多个事件周期保持驻留。Claude Code 是
 唯一的 Role 宿主。
 
+**核心贡献是一套服务于自主科学发现的团队 Memory 机制。** 一个项目的知识沉淀在
+一张结构化图谱——**Draft**——里：每个 Role 通过统一的视图（`mos_draft_view`）读取，
+在工作落盘时追加节点（`mos_draft_append`；计划节点执行后被结果替换，绝不残留为僵尸）。
+一个角色——**Ethics**——负责维护这张图（连跨角色的边、计算衰减、封存 dead-end），
+并审查图上每条 claim 是否有真实证据。被验证的知识编译进 **Book**——即 main 分支上
+论文形态的项目产出。Reel → Draft → Book 之间携带 provenance 链接，任何结论都能
+回溯到产生它的执行帧。EACN3 是协调基座；Memory 图谱才是让一群冷启动智能体跨周期
+积累、验证、复利知识的关键。
+
 目标很直接：一位作者、一份 checkout、一个 Gru，同时管理多个互不串扰的研究项目。
 
 ### 目录
@@ -719,15 +737,14 @@ proprietary/internal until a license is added.
 - **任务剖面（Mission Profile）。** 每个项目由一份 YAML 任务剖面
   (`minions/profiles/<name>.yaml`) 决定其角色阵容、产物 schema、评估策略、
   阶段调度和完成后行为。默认 `scientific-paper` 完整保留 Autonomous
-  Scientific Discovery 流水线（Noter + Coder + Ethics + Writer 同行评议）。
+  Scientific Discovery 流水线（Gru + Ethics + Expert 同行评议产出 PDF）。
   剖面切换通过 `mos_project_create(profile=...)` 或 CLI `--profile` 完成；
   原 ASD 能力作为默认行为完整保留，零破坏性变化。配套的 `mos_submit` /
   `mos_evaluate` MCP 工具与 `mos benchmark run <jsonl>` CLI 用于批量打榜。
-- **常驻 Role。** Noter、Coder、Writer、Ethics 和 Expert 都是常驻 `claude`
+- **常驻 Role。** Gru、Ethics 和一个或多个 Expert 都是常驻 `claude`
   进程，运行在各自命名的 tmux 会话（`mos-{port}-{role}`）中。注册到 EACN
-  的 Role 通过 `mos_await_events()` 驱动事件循环；Noter 是例外，它不注册到
-  EACN，使用基于定时器的 `mos_noter_wait()`。Writer 是 **on-demand** 角色：
-  项目创建时不会自动启动，由 Gru 在进入论文阶段时通过 `mos_spawn_role` 启动。
+  的 Role 通过 `mos_await_events()` 驱动事件循环。Expert 是可生成的通用
+  工作者（代码、实验、写作、画图、文献检索），由 Gru 按项目需求 spawn 和退役。
 - **Gru 作为控制面。** Gru 是唯一人机入口，也是唯一可以创建项目、spawn Role、
   跨项目桥接的组件。
 - **工具与写入边界。** Claude Role 通过 `--allowed-tools` 限制工具面；
@@ -1077,27 +1094,24 @@ mos_reel_get
 mos_reel_window
 ```
 
-**Draft —— L1 进程记忆（Noter 主写、Gru 可读）：**
+**Draft —— L1 进程记忆（Ethics 主写、所有 Role 可读）：**
 
 ```text
 mos_draft_append
-mos_draft_query
-mos_draft_summary
+mos_draft_view                # 统一读取：定向头部 + 过滤后的节点/边切片
 mos_draft_annotate
 mos_draft_path
 mos_draft_decay_compute       # 半衰期 confidence 衰减
-mos_draft_commit_shared       # Noter 周期性 flush
+mos_draft_commit_shared       # Ethics 周期性 flush
 ```
 
-**Book —— L2 编译知识（Noter 写；所有 Role 通过 query/hot_get 读）：**
+**Book —— L2 编译知识（Ethics 写；所有 Role 通过 mos_book_query 读）：**
 
 ```text
 mos_book_ingest
 mos_book_ingest_batch
 mos_book_lint
 mos_book_query
-mos_book_hot_get
-mos_book_hot_update
 mos_book_save_synthesis
 mos_book_promote_verified
 mos_book_crystallize_session
@@ -1208,7 +1222,6 @@ project_{port}/
       governance/signboard.json # 阶段切换共识
       book/                     # Layer 2 — 编译知识
         index.md                #   Noter 维护的目录
-        hot.md                  #   ~500 字滚动缓存，在唤醒时注入
         log.md                  #   ingest/lint append-only 日志
         sources/                #   每个被收录工件一个页面
         contradictions/         #   自动检测的论断冲突
