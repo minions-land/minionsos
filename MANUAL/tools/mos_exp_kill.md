@@ -2,7 +2,7 @@
 id: mos_exp_kill
 kind: tool
 domain: experiments
-auth: [coder]
+auth: [expert]
 source: minions/tools/mcp/experiment_tools.py:54
 since: stub
 keywords: []

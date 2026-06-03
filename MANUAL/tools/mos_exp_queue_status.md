@@ -2,7 +2,7 @@
 id: mos_exp_queue_status
 kind: tool
 domain: experiments
-auth: [coder]
+auth: [expert]
 source: minions/tools/mcp/experiment_tools.py:110
 since: stable
 keywords: [queue, status, running, pending, failed, alive]

@@ -2,7 +2,7 @@
 id: eacn3_get_reputation
 kind: tool
 domain: eacn3
-auth: [gru, coder, ethics, writer, expert]
+auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:1027
 since: stable
 keywords: [get, reputation, task, agent, bid]

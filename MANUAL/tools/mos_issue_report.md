@@ -2,7 +2,7 @@
 id: mos_issue_report
 kind: tool
 domain: debug
-auth: [gru, coder, ethics, writer, expert, noter]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/runtime_tools.py:113
 since: stable
 keywords: [issue, report, bug, p0, p1, p2, escalate, drift]

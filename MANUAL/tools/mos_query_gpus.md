@@ -2,7 +2,7 @@
 id: mos_query_gpus
 kind: tool
 domain: experiments
-auth: [coder]
+auth: [expert]
 source: minions/tools/mcp/experiment_tools.py:89
 since: stub
 keywords: []

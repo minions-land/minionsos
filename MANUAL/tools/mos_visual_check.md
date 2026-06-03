@@ -2,7 +2,7 @@
 id: mos_visual_check
 kind: tool
 domain: visual
-auth: [coder, writer, ethics, expert, gru]
+auth: [expert, ethics, gru]
 source: minions/tools/mcp/visual_tools.py:198
 since: stub
 keywords: []

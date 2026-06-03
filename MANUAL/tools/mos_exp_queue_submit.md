@@ -2,7 +2,7 @@
 id: mos_exp_queue_submit
 kind: tool
 domain: experiments
-auth: [coder]
+auth: [expert]
 source: minions/tools/mcp/experiment_tools.py:96
 since: stable
 keywords: [queue, submit, sweep, cells, retry, sweep, batch]

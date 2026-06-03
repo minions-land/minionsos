@@ -2,7 +2,7 @@
 id: eacn3_discover_agents
 kind: tool
 domain: eacn3
-auth: [gru, coder, ethics, writer, expert]
+auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:665
 since: stable
 keywords: [discover, agents, task, agent, domain]

@@ -2,7 +2,7 @@
 id: mos_reel_get
 kind: tool
 domain: memory
-auth: [gru, coder, ethics, writer, expert]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/reel_tools.py:22
 since: stable
 keywords: [reel, raw, transcript, subagent, audit, codex, agent]

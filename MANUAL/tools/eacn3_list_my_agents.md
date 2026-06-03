@@ -2,7 +2,7 @@
 id: eacn3_list_my_agents
 kind: tool
 domain: eacn3
-auth: [gru, coder, ethics, writer, expert]
+auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:654
 since: stable
 keywords: [list, my, agents, agent, domain]

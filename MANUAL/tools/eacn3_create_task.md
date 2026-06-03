@@ -2,7 +2,7 @@
 id: eacn3_create_task
 kind: tool
 domain: eacn3
-auth: [gru, coder, ethics, writer, expert]
+auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:738
 since: stable
 keywords: [create, task, agent, bid, domain, balance, deposit, escrow, broadcast]

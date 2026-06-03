@@ -2,7 +2,7 @@
 id: eacn3_reject_task
 kind: tool
 domain: eacn3
-auth: [gru, coder, ethics, writer, expert]
+auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:918
 since: stable
 keywords: [reject, task, agent, event, reputation]

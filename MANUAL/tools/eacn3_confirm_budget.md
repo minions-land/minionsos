@@ -2,7 +2,7 @@
 id: eacn3_confirm_budget
 kind: tool
 domain: eacn3
-auth: [gru, coder, ethics, writer, expert]
+auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:835
 since: stable
 keywords: [confirm, budget, task, bid, event, balance]

@@ -2,7 +2,7 @@
 id: mos_exp_queue_reconcile
 kind: tool
 domain: experiments
-auth: [coder]
+auth: [expert]
 source: minions/tools/mcp/experiment_tools.py:103
 since: stable
 keywords: [queue, reconcile, reap, dispatch, retry, sweep]

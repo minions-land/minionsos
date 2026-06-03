@@ -2,7 +2,7 @@
 id: mos_noter_wait
 kind: tool
 domain: runtime
-auth: [noter]
+auth: []
 source: minions/tools/mcp/runtime_tools.py:94
 since: stable
 keywords: [noter, wait, timer, periodic, delta, observe]

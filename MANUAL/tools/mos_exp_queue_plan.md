@@ -2,7 +2,7 @@
 id: mos_exp_queue_plan
 kind: tool
 domain: experiments
-auth: [coder]
+auth: [expert]
 source: minions/tools/mcp/experiment_tools.py:117
 since: stub
 keywords: []

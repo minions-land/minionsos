@@ -2,7 +2,7 @@
 id: mos_exp_gpu_pool_set
 kind: tool
 domain: experiments
-auth: [coder]
+auth: [expert]
 source: minions/tools/mcp/experiment_tools.py:130
 since: stub
 keywords: []

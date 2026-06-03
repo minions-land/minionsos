@@ -2,7 +2,7 @@
 id: mos_publish_to_shared
 kind: tool
 domain: publish
-auth: [gru, coder, ethics, writer, expert, noter]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/publish_tools.py:15
 since: stable
 keywords: [publish, share, handoff, cross, role, commit, lock, shared]

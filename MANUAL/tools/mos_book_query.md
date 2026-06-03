@@ -2,7 +2,7 @@
 id: mos_book_query
 kind: tool
 domain: memory
-auth: [gru, coder, ethics, writer, expert, noter]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/memory_tools.py:194
 since: stable
 keywords: [book, query, search, page, knowledge, durable]

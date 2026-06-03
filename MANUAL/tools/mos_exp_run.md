@@ -2,7 +2,7 @@
 id: mos_exp_run
 kind: tool
 domain: experiments
-auth: [coder]
+auth: [expert]
 source: minions/tools/mcp/experiment_tools.py:33
 since: stable
 keywords: [exp, run, gpu, training, ssh, local, command]

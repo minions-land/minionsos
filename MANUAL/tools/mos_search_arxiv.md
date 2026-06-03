@@ -2,7 +2,7 @@
 id: mos_search_arxiv
 kind: tool
 domain: papers
-auth: [writer]
+auth: [expert]
 source: minions/tools/mcp/paper_tools.py:16
 since: stub
 keywords: []

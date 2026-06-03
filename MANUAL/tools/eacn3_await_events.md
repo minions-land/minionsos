@@ -2,7 +2,7 @@
 id: eacn3_await_events
 kind: tool
 domain: eacn3
-auth: [gru, coder, ethics, writer, expert]
+auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:1081
 since: stable
 keywords: [await, events, agent, event]

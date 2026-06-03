@@ -2,7 +2,7 @@
 id: mos_await_events
 kind: tool
 domain: runtime
-auth: [gru, coder, ethics, writer, expert]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/runtime_tools.py:74
 since: stable
 keywords: [await, events, wake, drain, idle, eacn, loop]

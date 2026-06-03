@@ -2,7 +2,7 @@
 id: eacn3_select_result
 kind: tool
 domain: eacn3
-auth: [gru, coder, ethics, writer, expert]
+auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:803
 since: stable
 keywords: [select, result, task, agent, balance, escrow]

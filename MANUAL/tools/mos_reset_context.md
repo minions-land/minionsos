@@ -2,7 +2,7 @@
 id: mos_reset_context
 kind: tool
 domain: runtime
-auth: [gru, coder, ethics, writer, expert, noter]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/runtime_tools.py:158
 since: stable
 keywords: [reset, context, fresh, boot, marker, checkpoint]

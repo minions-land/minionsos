@@ -2,7 +2,7 @@
 id: mos_exp_list
 kind: tool
 domain: experiments
-auth: [coder]
+auth: [expert]
 source: minions/tools/mcp/experiment_tools.py:61
 since: stub
 keywords: []

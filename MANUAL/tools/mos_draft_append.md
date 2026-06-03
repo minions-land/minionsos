@@ -2,7 +2,7 @@
 id: mos_draft_append
 kind: tool
 domain: memory
-auth: [gru, coder, ethics, writer, expert, noter]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/memory_tools.py:69
 since: stable
 keywords: [draft, append, node, edge, hypothesis, evidence, plan]

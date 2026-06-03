@@ -2,7 +2,7 @@
 id: mos_review_run
 kind: tool
 domain: experiments
-auth: [coder]
+auth: [expert]
 source: minions/tools/mcp/experiment_tools.py:16
 since: stub
 keywords: []

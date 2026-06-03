@@ -7,7 +7,7 @@
 id:        mos_exp_run                        # globally unique slug
 kind:      tool | pitfall | recipe | domain
 domain:    experiments                        # one of: lifecycle eacn3 experiments memory publish papers deliverables visual runtime debug bridge evolution
-auth:      [coder]                            # role names that may call; ['*'] = all EACN roles
+auth:      [expert]                            # role names that may call; ['*'] = all EACN roles
 source:    minions/tools/mcp/experiment_tools.py:33   # file:line of @mcp.tool() decorator
 since:     v15.0                              # earliest known version (best effort)
 keywords:  [exp, run, gpu, training, ssh, local]      # for lookup matching
@@ -52,7 +52,7 @@ Length budget: 30-80 lines. Pages exceeding 80 lines must split.
       "kind": "tool" | "pitfall" | "recipe" | "domain",
       "path": "tools/mos_exp_run.md",
       "domain": "experiments",
-      "auth": ["coder"],
+      "auth": ["expert"],
       "source": "minions/tools/mcp/experiment_tools.py:33",
       "summary": "One-line plain text from page body.",
       "keywords": [...],
@@ -60,7 +60,7 @@ Length budget: 30-80 lines. Pages exceeding 80 lines must split.
     }
   },
   "domains": { "experiments": ["mos_exp_run", ...] },
-  "by_role": { "coder": [...] },
+  "by_role": { "expert": [...] },
   "by_keyword": { "queue": [...] }
 }
 ```

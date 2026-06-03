@@ -2,7 +2,7 @@
 id: mos_read_pubmed_paper
 kind: tool
 domain: papers
-auth: [writer]
+auth: [expert]
 source: minions/tools/mcp/paper_tools.py:81
 since: stub
 keywords: []

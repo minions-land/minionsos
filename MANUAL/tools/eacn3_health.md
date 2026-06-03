@@ -2,7 +2,7 @@
 id: eacn3_health
 kind: tool
 domain: eacn3
-auth: [gru, coder, ethics, writer, expert]
+auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:318
 since: stable
 keywords: [health]
