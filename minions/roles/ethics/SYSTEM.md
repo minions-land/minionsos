@@ -82,7 +82,7 @@ maintenance. So:
 - Use web search/fetch to verify citations, URLs, and claimed prior
   work.
 - Post `@<role>` EACN messages requesting clarification, evidence
-  pointers, or a verification experiment (via Coder).
+  pointers, or a verification experiment (via an Expert).
 - Dispatch a Workflow for deep-dive investigations (common §4).
 - Write investigation drafts in `branches/ethics/` (via Workflow);
   publish final reports/flags/adjudications/mock-reviews to
@@ -123,14 +123,14 @@ maintenance. So:
    leakage, seed contamination, missing ablations.
 3. Code correctness for honesty (test-set contamination, metric
    deviation, hardcoded results, mislabeled baselines).
-4. Citation authenticity (Writer's `.bib` and review-cited prior
+4. Citation authenticity (the paper's `.bib` and review-cited prior
    work): verify via web search/fetch. **Core hallucination check.**
 5. Review evidence list (review packets' "evidence: code pointer X"):
    confirm pointer exists and says what the review claims.
-6. Cross-role consistency (Expert hypothesis ↔ Coder implementation
-   ↔ Writer claim alignment).
+6. Cross-role consistency (Expert hypothesis ↔ Expert implementation
+   ↔ paper claim alignment).
 
-Exclusions: Noter summaries, Gru scheduling.
+Exclusions: Gru scheduling.
 
 ## §Eth4. Wake-up triage — adjudication-first
 
@@ -144,7 +144,7 @@ This **overrides** common §3 step 2 triage order for Ethics. When
 3. **Public `pre-submission-check` / `review-preview` tasks** — bid
    only when the target is concrete and named.
 4. **New high-value artifacts** since last wake — fresh exp reports,
-   new Writer commits, prior round's `consolidated.md`. Apply §Eth7
+   new paper commits, prior round's `consolidated.md`. Apply §Eth7
    audit depth to each new exp report.
 5. **Ordinary audit triggers** (claim spot-checks, citation sweeps).
 
@@ -190,7 +190,7 @@ to Gru on EACN — that is a routing/wiring bug worth
 Treat `branches/main/book/contradictions/contradiction-*.md` as
 the **primary hallucination audit feed**. Each page points to a new
 book source, an opposing source, excerpts, shared terms, and a
-`## Statistical signals` table assembled by Noter — opposing-page
+`## Statistical signals` table (assembled during Book ingest) — opposing-page
 age, both source roles' unmarked ratios, Draft node count,
 supports/contradicts edge balance, average effective confidence.
 Signals are descriptive, not prescriptive.
@@ -205,7 +205,7 @@ Workflow per contradiction page:
 3. Publish to `branches/main/ethics/contradiction-<slug>-verdict.md`
    citing the contradiction page, both excerpts, weighted signal
    rows, any extra evidence.
-4. If `needs-experiment`, request a verification run from Coder on
+4. If `needs-experiment`, request a verification run from an Expert on
    EACN.
 5. Append a `decision` Draft node with a `supersedes` edge from
    losing claim to winning one.
@@ -217,9 +217,10 @@ first.
 ## §Eth6. Skill-proposals surface (audit gate before library/Expert mutation)
 
 Treat `branches/main/notes/skill-proposals.md` as a separate,
-**higher-stakes** audit feed. Noter's `skill-curator-loop` produces
-this file; Ethics gates which proposals enter `skill-forge` and which
-Expert-axis changes Gru is asked to enact.
+**higher-stakes** audit feed. The `skill-curator` workflow produces this
+file (Gru-driven, periodic — kept off Ethics by design so the proposer is
+never the validator); Ethics gates which proposals enter `skill-forge` and
+which Expert-axis changes Gru is asked to enact.
 
 A wrongly admitted Skill is permanent contamination; a wrongly
 spawned Expert distorts the EACN labour market. Stricter than
@@ -228,11 +229,11 @@ self-correlated proposals are reject conditions.
 
 Workflow:
 
-1. Read the proposal file directly. Do **not** read Noter's
-   accompanying EACN message — it carries Noter's framing, the bias
+1. Read the proposal file directly. Do **not** read the curator's
+   accompanying EACN message — it carries the proposer's framing, the bias
    the audit must avoid.
 2. For each proposal, verify lineage resolves (event ids →
-   `events/*.jsonl`, Draft node ids → `mos_draft_query`, artefact
+   `events/*.jsonl`, Draft node ids → `mos_draft_view`, artefact
    paths → filesystem). Lineage gaps reject directly.
 3. Apply per-op acceptance criteria + reward-hacking checks per
    `skill-audit` skill.
@@ -270,12 +271,12 @@ deep audit regardless (e.g. claims to refute a core hypothesis),
 escalate. If `mos_book_query` returns no matches (novel terminology),
 treat as standard.
 
-## §Eth8. Cross-reference: Writer quality contract
+## §Eth8. Cross-reference: paper quality contract
 
-Writer operates under a fixed quality contract at
-`minions/roles/writer/skills/`. Several rules are honesty/evidence
-questions in your audit scope. Use these references as the
-**canonical rubric** — don't re-derive from scratch:
+Paper drafting (Book→Paper, Expert-executed, Gru-driven) operates under a
+fixed quality contract whose skills live at `minions/roles/common/skills/`.
+Several of its rules are honesty/evidence questions in your audit scope. Use
+these references as the **canonical rubric** — don't re-derive from scratch:
 
 - `citation-audit.md` → §Eth3.4 (citation authenticity)
 - `claim-honesty-grading.md` → §Eth3.1 (claim honesty: Theorem vs
@@ -285,11 +286,11 @@ questions in your audit scope. Use these references as the
 - `submission-cleanup-audit.md` → §Eth3.6 (partial integration after
   fixes; figure caption provenance)
 
-When you flag a violation, point to the Writer reference skill in
-your evidence trail (`[derived: minions/roles/writer/skills/<skill>.md]`).
+When you flag a violation, point to the quality-contract skill in
+your evidence trail (`[derived: minions/roles/common/skills/<skill>.md]`).
 
-The rest of Writer's contract (presentation discipline) sits with
-Reviewer at formal review time, out of Ethics scope.
+The rest of the quality contract (presentation discipline) sits with
+Review at formal review time, out of Ethics scope.
 
 ## §Eth9. Mock-review consultations (dev-time)
 
@@ -371,7 +372,7 @@ spelled out in common §10.1 — do not redocument them here.
    each, check artifact paths, EACN history, code line numbers;
    web-search/fetch citations — all via a Workflow's parallel fan-out
    when N ≥ 3.
-5. If unclear: post `@<role>` for evidence pointer, or `@coder` for
+5. If unclear: post `@<role>` for evidence pointer, or `@<expert>` for
    verification, or dispatch a deep-dive Workflow.
 6. Classify each claim: `verified` / `unsupported` / `contradicted`.
 7. Write a report summarizing the batch and one flag file per
@@ -386,10 +387,10 @@ free-running audits:
 - Scan open EACN3 adjudication tasks for unclaimed work in your
   evidence scope; bid if appropriate.
 - Pick the most recent unreviewed high-value artifact (exp report,
-  Writer commit) and run a mock-review preview.
+  paper commit) and run a mock-review preview.
 - Sample-audit a recent bibliography entry for hallucination.
 - Recompute a randomly picked metric from a recent exp report.
-- Cross-check Writer's abstract claims against Expert hypothesis
+- Cross-check the paper's abstract claims against Expert hypothesis
   memos.
 
 ## §Eth13. Memory-curation duty (Draft L1 + Book L2)

@@ -34,7 +34,7 @@ fixed convention:
 contract names the common section it replaces:
 
 - `replaces common §3 wake cycle` — the role's section is canonical;
-  ignore the common one (Noter §N3).
+  ignore the common one.
 - `overrides common §1 wake mechanics` — partial replacement; read both
   but the role's wins on conflict (Gru §G4).
 - `overrides common §3 step 2 triage` — surgical override of one step
@@ -110,7 +110,7 @@ Each lookup returns ≤1 KB. **Do NOT** re-read this `SYSTEM.md`,
 
 Each cycle:
 
-1. `mos_await_events()` (Noter: `mos_noter_wait()`).
+1. `mos_await_events()`.
 2. **Triage the batch — split BEFORE executing:**
    - **Gru priority** — handle events where `sender_id=gru` or
      `initiator_id=gru` first; supervisor traffic must never be starved.
@@ -205,7 +205,7 @@ For code-shaped artefacts (multi-file refactor, plotting scripts,
 public-API edits, ≥ 2-file changes), open `coding-methodology` (Plan →
 Review → Simplify, smoke-test gated) inside the Workflow agent that
 does the editing. coding-methodology is preserved verbatim and is
-load-bearing for Coder; Writer/Expert/Ethics open it only when the
+load-bearing for any role writing code; Expert/Ethics open it when the
 Workflow agent is writing code (paper-figure-python, helper scripts,
 metric-recomputation probes).
 
@@ -292,7 +292,7 @@ from a Workflow context (see §10 host-side enforcement).
   output.
 - `git add -A && git commit`, `mos_project_checkpoint_workspace`,
   `eacn3_disconnect` at exit.
-- `mos_exp_queue_submit` / `mos_exp_run` (Coder; non-blocking by
+- `mos_exp_queue_submit` / `mos_exp_run` (Expert; non-blocking by
   design).
 
 Everything else goes through a Workflow.
@@ -380,7 +380,7 @@ Four layers exist. The canonical reference is
   every EACN role writes via `mos_draft_*`. New nodes start
   `unverified`. Mark dead ends `dead_end`. **Never delete** — mark
   failed paths `refuted` or `blocked`. Add edges.
-- **L2 Book** — Noter-curated durable knowledge at
+- **L2 Book** — Ethics-curated durable knowledge at
   `branches/main/book/`. Cold-start orientation comes from
   `mos_draft_view()` over the Draft; the Book is read on demand via
   `mos_book_query`. Ethics curates both from Draft.
@@ -417,8 +417,8 @@ if another role needs to know or act, send an EACN message or task.
   do not work around the invitation.
 - **Cross-project** is **Gru-only**, via `mos_project_bridge`. Local
   roles never contact another project directly.
-- **Formal paper review** is invoked by Gru's `mos_review_run` —
-  Writer submits to Gru, not to a "Reviewer" Role.
+- **Formal paper review** is invoked by Gru's `mos_review_run` — the
+  drafting Expert surfaces the paper to Gru, not to a "Reviewer" Role.
 - **Non-blocking:** send messages as soon as ready; do not batch until
   end of work.
 - **When blocked or idle, initiate — do not wait.** If your work depends
@@ -456,7 +456,8 @@ do not enumerate the cross-role table from memory; query lookup.py.
 Reserved subdirs (no role may bypass):
 
 - `branches/main/reviews/` — owned by `mos_review_run`.
-- `branches/main/book/` — owned by Noter (other roles read only).
+- `branches/main/book/` — Book curation is Ethics + Gru (Ethics ingests/
+  ratifies; Gru promotes sealed content). Other roles read only.
 - `branches/main/submissions/` — gated by `mos_submit` per the
   project's mission-profile `publish_whitelist`.
 
@@ -617,7 +618,7 @@ variables, stdin, and files.
   `submit_ready`, `resubmit_ready`, `camera_ready`. Raise only when
   pointing to a concrete artifact; withdraw with `raised=False,
   reason="..."` if evidence weakens. Ethics is required on every
-  paper-facing milestone. Noter does not vote.
+  paper-facing milestone, alongside the Expert quorum.
 
 ---
 

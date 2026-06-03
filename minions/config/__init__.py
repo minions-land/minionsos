@@ -109,8 +109,8 @@ _ISSUE_REPORT_TOOLS = [
 
 # Draft (L1) tools every role uses to inspect/extend the buffered graph.
 # They are explicitly listed (not via the ``mos_draft_*`` glob) because
-# ``mos_draft_commit_shared`` is reserved for Noter/Gru — committing the
-# Draft is a curator action, not a per-role one.
+# ``mos_draft_commit_shared`` is reserved for Ethics (the memory curator)
+# and Gru — committing the Draft is a curator action, not a per-role one.
 _DRAFT_RW_TOOLS = [
     "mos_draft_annotate",
     "mos_draft_append",
@@ -123,11 +123,11 @@ _BOOK_READ_TOOLS = [
 ]
 
 # Book synthesis-write tool: persists a question→answer synthesis as a
-# compounding Book page. Whitelisted to Noter and Gru only —
-# Noter materializes role-supplied syntheses verbatim. The synthesis content
-# itself can come from any role's reasoning (delivered via EACN message),
-# but the persist call goes through Noter to honor the Book ownership
-# invariant in publish.py: only Noter publishes to branches/shared/book/.
+# compounding Book page. Whitelisted to Ethics and Gru only —
+# Ethics (the memory curator) materializes role-supplied syntheses verbatim.
+# The synthesis content itself can come from any role's reasoning (delivered
+# via EACN message), but the persist call goes through Ethics to honor the
+# Book ownership invariant in publish.py: only Ethics publishes to book/.
 _BOOK_SYNTHESIS_WRITE_TOOLS = [
     "mos_book_save_synthesis",
 ]

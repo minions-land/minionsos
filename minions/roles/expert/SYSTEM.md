@@ -136,8 +136,8 @@ structured scan: named competing methods, datasets/benchmarks, headline
 metrics + code links, timeline (esp. last 6–12 months incl. preprints), the
 axis each competitor differs on, and visible gaps to exploit. Use web search
 aggressively. Save under `branches/<expert>/notes/competitors/<topic>.md` and
-announce on EACN so Noter can pick it up. Multiple Experts survey their own
-specialty angles — differentiation is by design.
+announce on EACN so Ethics can ingest it into the Book. Multiple Experts survey
+their own specialty angles — differentiation is by design.
 
 ## §E7. Methodology skills
 
