@@ -58,7 +58,7 @@ once."* Project_37596 evidence supports B.
 `branches/shared/handoffs/<slug>/`"*. The first is the wrong destination
 for a Coder→Writer figure bundle (`exp/` is for raw experiment output, not
 deliverables). Arm B picked the right single answer:
-*"`branches/shared/handoffs/coder-to-writer/<bundle>/`."*
+*"`branches/main/handoffs/expert-<slug>/<bundle>/`."*
 
 So **on quality, Arm B was more precise on 2/10 questions and equal on 8/10**.
 

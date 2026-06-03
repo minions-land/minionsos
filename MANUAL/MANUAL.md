@@ -27,7 +27,7 @@ Every page carries `source: <file>:<line>`. If the page isn't enough, read sourc
 
 ```
 1. mos_draft_view              # what was I doing? what did past-me leave? (no-arg orient)
-2. mos_await_events            # what's new on EACN?      (Noter: mos_noter_wait)
+2. mos_await_events            # what's new on EACN?
    → for each event: act
 3. when context > 70%: mos_compact_context
    when phase boundary:        mos_reset_context
