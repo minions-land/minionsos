@@ -1017,25 +1017,6 @@ class GruConfig(BaseModel):
             "disable entirely."
         ),
     )
-    noter_periodic_interval: str = Field(
-        default="3m",
-        description=(
-            "Cadence at which Noter wakes to flush the buffered Exploration "
-            "DAG to a single commit on the shared branch and to take stock "
-            "of the team. Reports are published on a slower internal cadence "
-            "(see noter_report_interval); DAG flushes happen on every "
-            "periodic wake."
-        ),
-    )
-    noter_report_interval: str = Field(
-        default="30m",
-        description=(
-            "Target cadence for Noter staged report publishes. Noter compares "
-            "the time since the last published report against this value on "
-            "each periodic wake (see noter_periodic_interval) and only "
-            "publishes a new report when the interval has elapsed."
-        ),
-    )
     local_eacn_initial_balance: float = Field(
         default=10_000.0,
         description=(
@@ -1209,7 +1190,6 @@ class GruConfig(BaseModel):
 
     @field_validator(
         "heartbeat_report_interval",
-        "noter_report_interval",
         mode="before",
     )
     @classmethod

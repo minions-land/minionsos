@@ -364,24 +364,6 @@ def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
     return roles
 
 
-def _default_noter_time_trigger_interval() -> str | None:
-    """Return Noter's default periodic-wake cadence.
-
-    Noter wakes on this interval to flush the buffered Draft (L1) via
-    ``mos_draft_commit_shared`` and to consider whether a fresh staged
-    report is due (see ``noter_report_interval``). Defaults to ``5m`` so
-    Draft history accumulates with bounded latency without flooding the
-    shared branch with one commit per ``mos_draft_append`` call.
-    """
-    try:
-        from minions.config import load_gru_config, parse_duration
-
-        interval = load_gru_config().noter_periodic_interval
-        return interval if parse_duration(interval) > 0 else None
-    except Exception:
-        return "5m"
-
-
 def _migrate_legacy_memory_dirs(port: int) -> None:
     """Rename legacy memory directories from v11 naming to v12 naming.
 
@@ -435,16 +417,12 @@ def _migrate_legacy_memory_dirs(port: int) -> None:
 
 
 def _normalise_revived_role(role: RoleEntry) -> RoleEntry:
-    """Return a schedulable sleeping role, repairing old Noter records."""
-    time_trigger = role.time_trigger_interval
-    if False:  # noter retired
-        time_trigger = _default_noter_time_trigger_interval()
-
+    """Return a schedulable sleeping role."""
     return role.model_copy(
         update={
             "state": "sleeping",
             "pid": None,
-            "time_trigger_interval": time_trigger,
+            "time_trigger_interval": role.time_trigger_interval,
         }
     )
 

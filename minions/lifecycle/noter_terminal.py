@@ -1,8 +1,11 @@
-"""Read-only project Noter terminal.
+"""Read-only project observatory terminal (`mos noter`).
 
-This is the human-side "Noter out" surface: a cheap Python observer that can
-run in one terminal per project. It does not drain role EACN event queues.
-Formal Noter summaries are still produced by the Noter role through EACN3.
+This is the human-side "notes out" surface: a cheap Python observer that can
+run in one terminal per project. It does not drain role EACN event queues and
+is not a Role process — it only reads project health, phase, tasks, and
+published notes for a human watching the project. (The durable team memory the
+Roles produce lives in the Draft/Book, curated by Ethics; this terminal is just
+a convenience window onto project state.)
 """
 
 from __future__ import annotations

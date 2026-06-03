@@ -28,18 +28,6 @@ author_repo:
 # Defaults to the directory containing MinionsOS.
 projects_root:
 
-# Noter periodic wake cadence. Noter wakes every interval to flush the buffered
-# Draft (L1) to a single commit on the shared branch
-# (mos_draft_commit_shared), and to consider whether a fresh staged report
-# is due. Draft flushes happen on every periodic wake; reports are
-# throttled by noter_report_interval below.
-noter_periodic_interval: 3m
-
-# Target cadence for Noter staged report publishes. Noter only publishes a new
-# report once this much time has elapsed since the last one (checked on each
-# periodic wake). Set to "0" to disable scheduled reports.
-noter_report_interval: 30m
-
 # Minimum local EACN credit balance to keep available for Gru and registered
 # Role agents. Project-local tasks still default to budget=0; this is a safety
 # margin for explicit nonzero-budget experiments.

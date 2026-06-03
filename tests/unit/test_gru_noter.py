@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import patch
 
-from minions.config import GruConfig
 from minions.lifecycle import noter_terminal
 from minions.lifecycle.role import register_role
 from minions.state.store import ProjectEntry, RoleEntry
@@ -30,14 +29,6 @@ class FakeRoleStore:
     def upsert_role(self, port: int, role: RoleEntry) -> None:
         self.roles.append(role)
         self.project = self.project.model_copy(update={"active_roles": [role]})
-
-
-def test_noter_default_periodic_interval_is_3m() -> None:
-    assert GruConfig().noter_periodic_interval == "3m"
-
-
-def test_noter_default_report_interval_is_30m() -> None:
-    assert GruConfig().noter_report_interval == "30m"
 
 
 def test_register_ethics_remains_event_driven() -> None:
