@@ -780,16 +780,14 @@ Gru
   +-- project_37596/
   |     |
   |     +-- EACN3 backend on 127.0.0.1:37596
-  |     |     +-- Coder          -> branches/coder/  + branches/shared/exp/ + mos_exp_*
-  |     |     +-- Writer (on-demand) -> branches/writer/
-  |     |     +-- Ethics         -> branches/ethics/ + branches/shared/ethics/
-  |     |     +-- Expert-*       -> branches/expert-<slug>/ + 领域包
+  |     |     +-- Ethics         -> branches/ethics/ + branches/main/ethics/ + book 维护
+  |     |     +-- Expert (generalist, 自动生成)
+  |     |     |     -> branches/expert-generalist/ + branches/main/exp/ + mos_exp_*
+  |     |     +-- Expert-<domain> (按需生成)
+  |     |           -> branches/expert-<slug>/ + 领域包
   |     |
-  |     +-- Noter（不在 EACN 上；由 mos_noter_wait 定时器驱动）
-  |     |     -> branches/noter/ + branches/shared/notes/, draft/, book/
-  |     |
-  |     +-- branches/                # 每个 Role 一棵 worktree，加一棵 shared
-  |     |     +-- main/, noter/, coder/, writer/, ethics/, expert-*/, shared/
+  |     +-- branches/                # 每个 Role 一棵 worktree，加 main（共享表面）
+  |     |     +-- main/ (Gru + 共享表面), ethics/, expert-*/
   |     +-- parent_repo.git/         # 项目独立的 bare git 仓库
   |     +-- eacn3_data/eacn3.db      # 项目独立的 EACN3 SQLite
   |     +-- events/                  # 每个 agent 的 EACN 事件 JSONL
@@ -903,9 +901,9 @@ restart 只回收真正在运行的进程；没在运行的 Role 会留给看门
 
 本地配置位于 `minions/config/`，默认不进入 git：
 
-- `gru.yaml` 控制 heartbeat、日志级别、模型/上下文配置、Noter 周期与模型、
-  draft 阈值、web search 策略。
-- `experiment_targets.yaml` 定义 Coder 使用的本地或 SSH 执行目标，路径
+- `gru.yaml` 控制 heartbeat、日志级别、模型/上下文配置、draft 阈值、
+  web search 策略。
+- `experiment_targets.yaml` 定义 Expert 使用的本地或 SSH 执行目标，路径
   支持 `{project_workspace}` 模板展开。
 
 查看解析后的路径：
@@ -925,23 +923,14 @@ restart 只回收真正在运行的进程；没在运行的 Role 会留给看门
 
 ```bash
 ./gru                 # 启动交互式 Gru
-./noter <port>        # 启动某个项目的只读 Noter 终端
+./mos noter <port>    # 启动某个项目的只读 observatory 终端
 ./mos status          # 项目仪表盘
 ./mos status --json   # 机器可读状态
 ./mos doctor          # 环境健康检查
 ```
 
-推荐的操作布局是一个 Gru 终端，加上每个活跃项目一个 Noter 终端：
-
-```bash
-./gru
-./noter 37596
-./noter 37601
-```
-
-Noter 终端只报告 backend、role、task 和 notes 状态，不会消费 EACN role 队列。
-在 Noter 终端输入 `wake <message>` 会通过该项目的 EACN bus 排队一次按需
-Noter 摘要请求。
+`mos noter` 命令提供一个项目的只读观察终端，显示 backend、role、task 和
+artifact 状态，不会消耗 EACN role 队列。
 
 项目和 Role 管理：
 
@@ -967,14 +956,13 @@ Noter 摘要请求。
 
 ### Roles
 
+默认的 `scientific-paper` profile 启动 **三种** 角色：
+
 | Role | 职责 | 主要可写范围 |
 |---|---|---|
-| Gru | 全局主管、人机接口、项目生命周期、跨项目桥接 | `branches/main/`、`branches/shared/<any>/` |
-| Noter | 时间线、checkpoint、总结、Draft 维护、Book 维护 | `branches/noter/`、`branches/shared/notes/`、`branches/shared/draft/draft.json`、`branches/shared/book/` |
-| Coder | 代码维护、调试、实验调度、远端执行、结果收集 | `branches/coder/`、`branches/shared/exp/`、`branches/shared/handoffs/`、`branches/shared/governance/` |
-| Writer（on-demand） | 论文撰写、打包、rebuttal、camera-ready | `branches/writer/`、`branches/shared/handoffs/`、`branches/shared/governance/` |
-| Ethics | 对 Coder 代码/实验进行证据审计、检测无依据论断 | `branches/ethics/`、`branches/shared/ethics/`、`branches/shared/handoffs/`、`branches/shared/governance/` |
-| Expert | 结合 `nlp`、`cv`、`theory` 等领域包提供咨询 | `branches/expert-<slug>/`（以读为主）、`branches/shared/handoffs/`、`branches/shared/governance/` |
+| Gru | 全局主管、人机接口、项目生命周期、跨项目桥接、运行 `mos_review_run`、将 Ethics 封存的内容提升到 Book | `branches/main/`、`branches/main/<any>/` |
+| Ethics | 记忆维护（Draft→Book 收录+认证）、证据/声明审计、矛盾裁决。吸收了 Noter 的职责。 | `branches/ethics/`（草稿）、`branches/main/ethics/`、`branches/main/book/`、`branches/main/draft/draft.json`、`branches/main/handoffs/`、`branches/main/governance/` |
+| Expert (×N, 可生成) | 通用科研工作 —— 领域推理、代码+实验（`mos_exp_*`）、论文撰写（Book→Paper）。自动生成一个 generalist；Gru 按需生成领域专家。吸收了 Coder 和 Writer 的职责。 | `branches/expert-<slug>/`、`branches/main/exp/`、`branches/main/handoffs/`、`branches/main/governance/` |
 
 Role 提示词位于 `minions/roles/{role}/SYSTEM.md`。共享 Role contract 位于
 `minions/roles/SYSTEM.md`，会在每个 role-specific 提示词前注入。Role skills
@@ -983,36 +971,27 @@ Role 提示词位于 `minions/roles/{role}/SYSTEM.md`。共享 Role contract 位
 
 论文评审**不是** Role：评审提示资产（system 提示、skill、persona、template）
 位于 `minions/review/`，单轮评审由 Gru 的 `mos_review_run` MCP 工具运行，
-并在 `branches/shared/reviews/round-<n>/` 下写入 `reviewer-instance.md`、
+并在 `branches/main/reviews/round-<n>/` 下写入 `reviewer-instance.md`、
 `fresh.md`、`revision_delta.md`、`consolidated.md` 和
-`summaries/round-<n>.md`。Reviewer 审核 Writer 的论文提交，Ethics 审核
-Coder 的代码与实验——切勿混淆。
-
-**维稳层。** 其中两个 Role 同时承担下文自演化流水线的维稳职责：Noter 的
-`skill-curator-loop` skill 在周期性唤醒时把 Skill / Expert 演化提案写入
-`branches/shared/notes/skill-proposals.md`；Ethics 的 `skill-audit` skill
-是这些提案进入 Library 或 roster 之前唯一的授权闸门。两个 Role 都不参与
-具体业务竞标——这种"非业务"位置正是它们能为被演化对象提供独立判断的
-结构性前提。
+`summaries/round-<n>.md`。Reviewer 审核提交的论文（Book→Paper 输出），
+Ethics 审核 Draft/Book 中的底层证据和声明 —— 切勿混淆。
 
 ### Skill 家族与自演化
 
 除了人工驱动的扩展路径（新增 Role、skill、领域包、MCP 工具），MinionsOS
-还运行一条**4 阶段去相关流水线**，由项目轨迹本身驱动 Skill 库与 Expert
+支持一条**4 阶段去相关流水线**，可以由项目轨迹本身驱动 Skill 库与 Expert
 roster 的演化。四个组件分布在不同的权限层：
 
 | 阶段 | 组件 | 操作者 | 输出 |
 |---|---|---|---|
-| 1. 提案 | `~/.claude/skills/skill-curator/` | Noter（通过 `skill-curator-loop`） | `branches/shared/notes/skill-proposals.md` —— append-only 提案 ledger，覆盖 add/revise/merge/split/drop（Knowledge 轴）和 spawn/dismiss/merge/split（Agent 轴） |
-| 2. 审计 | `minions/roles/ethics/skills/skill-audit.md` | Ethics | `branches/shared/ethics/` 下的 per-pass 裁决文件，并在每条 proposal 下追加 `### audit` 子块 |
+| 1. 提案 | `~/.claude/skills/skill-curator/` | 外部 curator 进程 | `branches/main/notes/skill-proposals.md` —— append-only 提案 ledger，覆盖 add/revise/merge/split/drop（Knowledge 轴）和 spawn/dismiss/merge/split（Agent 轴） |
+| 2. 审计 | `minions/roles/ethics/skills/skill-audit.md` | Ethics | `branches/main/ethics/` 下的 per-pass 裁决文件，并在每条 proposal 下追加 `### audit` 子块 |
 | 3. 验证 + 入库 | `~/.claude/skills/skill-forge/`（编排 `skill-edit`、`skill-evaluator`） | Gru 把通过审计的 Knowledge-轴提案路由到此 | 验证通过的 SKILL.md 入库 |
 | 4. 落地（Agent 轴） | `mos_role_split`、`mos_role_merge`、`mos_role_evolve_evaluate`、`mos_role_evolve_dismiss`、`mos_spawn_role`、`mos_dismiss_role` | Gru | EACN 上 Expert roster 更新 |
 
-去相关性是结构性的，不是流程上的：提案者（Noter，跑在 Sonnet 上、不参与
-业务决策）、审计者（Ethics，读工件而非 prompt）、验证者（skill-forge，
-盲判 A/B 测试）和被演化的消费 Role 之间，参数分布各不相同——这正
-是一条流水线真能压低多智能体错误率所需要的。完整的 Gru intake
-contract 见 `minions/CLAUDE.md` 的 "Skill and Agent population evolution"。
+去相关性是结构性的，不是流程上的：提案者（外部 curator）、审计者（Ethics，
+读工件而非 prompt）、验证者（skill-forge，盲判 A/B 测试）和被演化的消费
+Role 之间，参数分布各不相同——这正是一条流水线真能压低多智能体错误率所需要的。
 
 ### MCP 工具面
 
@@ -1057,8 +1036,7 @@ mos_shelf_shared_concepts
 **Role 事件循环与上下文：**
 
 ```text
-mos_await_events           # 注册到 EACN 的 Role（Coder、Writer、Ethics、Expert）
-mos_noter_wait             # 仅 Noter——基于定时器，不在 EACN 上
+mos_await_events           # 注册到 EACN 的 Role（Ethics、Expert）
 mos_get_events
 mos_unread_summary
 mos_compact_context
@@ -1123,7 +1101,7 @@ mos_signboard_consume
 mos_signboard_reopen
 ```
 
-**Coder 实验执行：**
+**Expert 实验执行：**
 
 ```text
 mos_exp_run
@@ -1149,7 +1127,7 @@ mos_exp_gpu_pool_get
 mos_list_workflow_plugins
 ```
 
-**视觉格式检查（所有 EACN 上的 Role 可用，Noter 除外）：**
+**视觉格式检查（所有 EACN 上的 Role 可用）：**
 
 ```text
 mos_visual_render             # PDF → page_NNN.png（Poppler）
@@ -1157,7 +1135,7 @@ mos_visual_inspect            # 在 PDF / 单图 / 页面目录上跑检测器
 mos_visual_check              # 端到端：渲染 + 检测 + 持久化报告
 ```
 
-**Writer——论文检索与下载：**
+**Expert——论文检索与下载：**
 
 ```text
 mos_search_arxiv
@@ -1184,16 +1162,32 @@ Role main，不属于 MinionsOS MCP server。
 ### 运行时项目结构
 
 ```text
-project_{port}/
+projects/project_{port}/
   CLAUDE.md                     # 项目叙事；Gru/作者写，Roles 读
   AGENTS.md                     # 子代理眼中的项目上下文
   meta.json                     # 机器元数据
   parent_repo.git/              # 项目独立的 bare git 仓库，从作者 HEAD seed
-  branches/                     # 每个 Role 一棵 worktree，加一棵 shared
-    main/                       # Gru — minionsos/project-{port}
-    noter/                      # Noter 草稿
-    coder/, writer/, ethics/, expert-<slug>/
-      reel/                     # Layer 0 — 原始 verbatim 转录（每 Role 私有）
+  branches/                     # 每个 Role 一棵 worktree，加 main（共享表面）
+    main/                       # Gru + 共享表面 — minionsos/project-{port}
+      draft/draft.json            # Ethics 维护的 Draft（L1 进程记忆）
+      notes/                      # 已发布记忆报告
+      ethics/                     # Ethics 已发布报告（flat）
+      exp/exp-<id>/               # Expert 实验结果包
+      reviews/round-<n>/          # mos_review_run 输出（工具独占）
+      submissions/                # mos_submit 交付物
+      handoffs/                   # 跨角色交接
+      governance/signboard.json   # 阶段切换共识
+      book/                       # Layer 2：编译知识（Book）
+        index.md                  #   Ethics 维护的目录
+        log.md                    #   ingest/lint append-only 日志
+        sources/{role}-{slug}.md  #   每个被收录工件一个页面
+        contradictions/           #   自动检测的论断冲突
+    ethics/                     # Ethics 草稿
+      reel/<session_id>/        # Layer 0 — 原始 session 追踪（Reel）
+        index.jsonl             #   捕获的 subagent 输出 JSONL 索引
+        transcripts/            #   Verbatim *.jsonl 每个 task_id
+    expert-<slug>/              # 每个 Expert 一棵（代码、实验、论文撰写）
+      reel/<session_id>/        # Layer 0 — 与 ethics/reel/ 同样结构
         <session_id>/
           index.jsonl
           transcripts/<task_id>.jsonl
