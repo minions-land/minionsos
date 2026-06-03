@@ -223,7 +223,7 @@ def _enforce_caller_identity(claimed_role: str) -> None:
 
     Defends against role-identity spoofing in tools that take a free-form
     ``role`` argument (e.g. ``mos_publish_to_shared``). Without this check
-    a Coder process could call ``mos_publish_to_shared(role="gru", ...)``
+    an Expert process could call ``mos_publish_to_shared(role="gru", ...)``
     and inherit Gru's broader publish policy.
     """
     if os.environ.get("MINIONS_DISABLE_MCP_AUTHZ", "").strip() == "1":
@@ -346,9 +346,8 @@ class ProjectCheckpointArgs(BaseModel):
 class PublishToSharedArgs(BaseModel):
     role: str = Field(
         description=(
-            "Calling role name (gru, noter, ethics, writer, "
-            "coder, expert, or expert-<slug>). Used for the per-role "
-            "subdir policy."
+            "Calling role name (gru, ethics, expert, or expert-<slug>). "
+            "Used for the per-role subdir policy."
         )
     )
     src_path: str = Field(
@@ -359,9 +358,9 @@ class PublishToSharedArgs(BaseModel):
     )
     dst_subpath: str = Field(
         description=(
-            "Destination relative path under branches/shared/, e.g. "
+            "Destination relative path under branches/main/, e.g. "
             "'notes/2026-05-17-discussion.md', 'ethics/report-leakage-claim.md', "
-            "'exp/exp-42/report.md', or 'handoffs/coder-result.json'. The "
+            "'exp/exp-42/report.md', or 'handoffs/expert-result.json'. The "
             "first path component must be one of the role's allowed shared "
             "subdirs (reviews/ is reserved for mos_review_run)."
         )
@@ -380,13 +379,13 @@ class PublishToSharedArgs(BaseModel):
 
 class SpawnRoleArgs(BaseModel):
     project_port: int
-    role: str = Field(description="Role name: noter, coder, writer, or ethics.")
+    role: str = Field(description="Role name: ethics (the one fixed non-Gru role).")
     init_brief: str | None = Field(
         default=None, description="Initial EACN message to the new role."
     )
     time_trigger_interval: str | None = Field(
         default=None,
-        description="Optional periodic wakeup cadence. Noter defaults to gru.yaml.",
+        description="Optional periodic wakeup cadence (timer-based wake).",
     )
 
 

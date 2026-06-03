@@ -69,7 +69,7 @@ class DraftPathArgs(BaseModel):
 class DraftCommitSharedArgs(BaseModel):
     message: str | None = Field(
         default=None,
-        description=("Optional git commit message; defaults to 'noter: draft flush <iso-ts>'."),
+        description=("Optional git commit message; defaults to 'ethics: draft flush <iso-ts>'."),
     )
 
 
@@ -154,9 +154,9 @@ def mos_draft_unmarked_audit(args: DraftUnmarkedAuditArgs) -> dict:
 def mos_draft_commit_shared(args: DraftCommitSharedArgs) -> dict:
     """Flush the buffered Draft to a single commit on the shared branch.
 
-    Owned by Noter (whitelist also grants Gru). Other roles must not call
+    Owned by Ethics (whitelist also grants Gru). Other roles must not call
     this — they update the Draft via ``mos_draft_append`` /
-    ``mos_draft_annotate`` and let Noter's cron flush the accumulated state.
+    ``mos_draft_annotate`` and let Ethics' cron flush the accumulated state.
 
     Returns the publish result dict (port, role, dst_path, commit_sha,
     pushed, push_branch, branch). ``commit_sha`` is None when the on-disk
@@ -172,10 +172,10 @@ def mos_draft_decay_compute() -> dict:
 
     Pure observation. Walks every node, records age and support/contradicts
     edge counts, and writes effective_confidence per node. Does not mutate
-    any node — Noter is forbidden from making claims, so decay is reported,
-    never enforced. ``mos_draft_summary()`` joins this sidecar when
+    any node — the curator is forbidden from making claims, so decay is
+    reported, never enforced. ``mos_draft_view()`` joins this sidecar when
     present so every waking role sees most-decayed and most-reinforced
-    nodes. Whitelisted to Noter only.
+    nodes. Whitelisted to Ethics and Gru.
     """
     _require_tool_allowed("mos_draft_decay_compute")
     return _draft.mos_draft_decay_compute()
@@ -229,7 +229,7 @@ async def mos_book_ingest_batch(sources: list[dict]) -> dict:
     detection only sees pages already on disk. Batch ingest stages all
     sources in memory first, then runs contradiction detection over the
     full set (existing pages + entire incoming batch). Use this when
-    publishing several related artifacts (e.g. a Coder experiment plus its
+    publishing several related artifacts (e.g. an Expert experiment plus its
     Ethics audit at the same time).
 
     Returns:
@@ -353,9 +353,9 @@ async def mos_book_promote_verified(
     `supports` edges, are at least min_age_days old, and aren't already cited
     by any Book page get promoted to verbatim Book source pages.
 
-    Strict verbatim contract — Noter never restates. The page body is the
+    Strict verbatim contract — the curator never restates. The page body is the
     node's exact text plus a citation list of supporting edges. Idempotent.
-    Whitelisted to Noter only.
+    Whitelisted to Ethics and Gru.
     """
     _require_tool_allowed("mos_book_promote_verified")
     return _book.mos_book_promote_verified(
@@ -376,7 +376,7 @@ async def mos_book_crystallize_session(
     Captures the closed reasoning interval before a context-reset boundary
     erases it. Digests the role's recent Draft nodes and EACN messages
     verbatim (no paraphrase) into a single durable page. Whitelisted to
-    Noter only. Ethics audits the result through its normal Book +
+    Ethics and Gru. Ethics audits the result through its normal Book +
     mock-review path.
     """
     _require_tool_allowed("mos_book_crystallize_session")

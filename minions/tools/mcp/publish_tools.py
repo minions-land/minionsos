@@ -24,13 +24,11 @@ def mos_publish_to_shared(args: PublishToSharedArgs) -> _publish.PublishToShared
        role may publish only into its own subdir(s):
 
        - Gru: any subdir
-       - Noter: ``notes/``, ``draft/``, ``book/``, ``handoffs/``
-       - Ethics: ``ethics/``, ``handoffs/``, ``governance/``
-       - Coder: ``exp/``, ``handoffs/``, ``governance/``
-       - Writer / Expert: ``handoffs/``, ``governance/``
+       - Ethics: ``book/``, ``draft/``, ``ethics/``, ``notes/``, ``handoffs/``, ``governance/``
+       - Expert: ``exp/``, ``handoffs/``, ``governance/``
        - ``reviews/`` is reserved for ``mos_review_run`` and rejected here.
 
-    3. Copy ``src_path`` into ``branches/shared/<dst_subpath>``.
+    3. Copy ``src_path`` into ``branches/main/<dst_subpath>``.
     4. ``git add -A`` + ``git commit -m <commit_message>`` on the shared
        branch.
     5. ``git push`` if ``github_push_target`` is configured.

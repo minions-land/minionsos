@@ -130,8 +130,8 @@ def mos_signboard_consume(args: SignboardMilestoneArgs) -> dict:
     """Mark a milestone as consumed — Gru-only bookkeeping after dispatch.
 
     Call exactly once after Gru has dispatched the action a milestone
-    gates (e.g. after spawning Writer for ``writing_ready``, or after
-    invoking ``mos_review_run`` for ``submit_ready``). Idempotent:
+    gates (e.g. after dispatching Book→Paper drafting for ``writing_ready``,
+    or after invoking ``mos_review_run`` for ``submit_ready``). Idempotent:
     re-consuming a consumed milestone is a no-op but is logged.
 
     Once consumed, further ``mos_signboard_set`` calls on the same

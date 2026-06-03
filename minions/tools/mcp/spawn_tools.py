@@ -30,9 +30,8 @@ def mos_spawn_role(args: SpawnRoleArgs) -> dict:
 
     Side effects:
 
-    1. For EACN roles (coder, writer, ethics): registers a project-local
-       EACN3 AgentCard so it can receive messages and bid on tasks.
-       For noter: skips EACN registration (noter observes via read-only sources).
+    1. Registers a project-local EACN3 AgentCard for the role (ethics) so it
+       can receive messages and bid on tasks.
     2. Prepares the role's git branch worktree under
        ``project_{port}/branches/<role>/``.
     3. Starts a detached tmux session ``mos-{port}-{role}`` running

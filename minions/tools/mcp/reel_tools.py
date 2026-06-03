@@ -25,7 +25,7 @@ def mos_reel_get(ref: str) -> dict[str, Any]:
 
     Args:
         ref: Reel reference in the form "<role>/<session_id>/<task_id>".
-             Example: "coder/sess-20260522-123456/a1b2c3d4e5f6"
+             Example: "expert-moe-arch/sess-20260522-123456/a1b2c3d4e5f6"
 
     Returns:
         A dict with keys:
