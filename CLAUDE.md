@@ -29,7 +29,7 @@ For anything larger, especially anything matching CJK / LaTeX math / heredoc-tok
 2. Append the rest with successive `Edit` calls, each ≤50 lines, inserting before the closing token.
 3. Never put the full document into a Bash heredoc. The heredoc body becomes the oversize `Bash.command` string and triggers the same bug.
 
-**Why this matters here:** every Role process (Noter / Writer / Coder / Ethics / Expert / Gru / review) routinely produces long Markdown / LaTeX / CJK content — Draft summaries, paper sections, review packets, project notes. Those are the exact content shapes that hit the bug. Confirmed failure: `Paper Crash` 2026-05-24, three consecutive `InputValidationError: required parameter ... is missing` on a Chinese LaTeX comparison report; output_tokens 47/74/25, cache_read 25K — not max_tokens, not context length, the model just dropped the long structured field.
+**Why this matters here:** every Role process (Gru / Ethics / Expert / review) routinely produces long Markdown / LaTeX / CJK content — Draft summaries, paper sections, review packets, project notes. Those are the exact content shapes that hit the bug. Confirmed failure: `Paper Crash` 2026-05-24, three consecutive `InputValidationError: required parameter ... is missing` on a Chinese LaTeX comparison report; output_tokens 47/74/25, cache_read 25K — not max_tokens, not context length, the model just dropped the long structured field.
 
 This rule overrides any habit of "use reliable-file-io Tier 1's Python heredoc". For Tier-0-trigger content, Tier 1 is unsafe.
 
@@ -101,7 +101,7 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/config/` — example Gru and experiment-target configs copied by `install.sh`.
 - `minions/state/` — runtime Gru state, including `projects.json` and Gru logs; gitignored runtime data.
 - `minions/roles/SYSTEM.md` — common Role contract injected before each role-specific prompt.
-- `minions/roles/{role}/SYSTEM.md` — role prompts for Gru, Noter, Coder, Writer, Ethics, and Expert.
+- `minions/roles/{role}/SYSTEM.md` — role prompts for Gru, Ethics, and Expert (the v23 three-role roster).
 - `minions/roles/{role}/skills/*.md` — optional role skills discovered at wake-up.
 - `minions/review/` — paper-review prompt assets (SYSTEM.md, skills, personas, templates) consumed by the `mos_review_run` MCP tool. Review is **not** a Role and is not registered on EACN.
 - `minions/domains/*.md` — Expert domain packs used as reusable specialty assets.
@@ -123,9 +123,9 @@ Use `uv` for Python environment management. Do not use `pip`, `conda`, `mamba`, 
 - `minions/lifecycle/project_bridge.py` implements the Gru-only cross-project bridge (`mos_project_bridge`).
 - `minions/state/` contains file-backed state management and port allocation.
 - `minions/tools/mcp_server.py` exposes lifecycle operations as FastMCP tools.
-- `minions/tools/experiment_ssh.py` implements Coder's `mos_exp_*` local/SSH execution tools, including queue-facing `exp_queue_*` and `exp_gpu_pool_*`.
+- `minions/tools/experiment_ssh.py` implements the Expert `mos_exp_*` local/SSH execution tools, including queue-facing `exp_queue_*` and `exp_gpu_pool_*`.
 - `minions/tools/experiment_scheduler.py` keeps the SQLite-backed project experiment queue and GPU packing logic.
-- `minions/tools/paper_search.py` implements Writer paper-search helpers exposed through MCP.
+- `minions/tools/paper_search.py` implements paper-search helpers (used by Experts during Book→Paper) exposed through MCP.
 - `minions/tools/whitelist.py` resolves allowed tool surfaces for main roles vs. subagents.
 
 ### Runtime project model
@@ -138,33 +138,28 @@ projects/project_{port}/
 ├── AGENTS.md                    # subagent's view of project context (mirrors CLAUDE.md)
 ├── meta.json                    # machine metadata
 ├── parent_repo.git/             # per-project bare git repo, seeded from author HEAD
-├── branches/                    # git worktrees, one per role plus a shared tree
-│   ├── main/                    # Gru — branch minionsos/project-{port}
-│   ├── coder/                   # branch minionsos/project-{port}-coder
+├── branches/                    # git worktrees, one per role; main IS the shared surface
+│   ├── main/                    # Gru + shared surface (the "Book") — branch minionsos/project-{port}
+│   │   ├── draft/draft.json      Ethics-curated Draft (L1 process memory)
+│   │   ├── notes/                staged memory reports
+│   │   ├── ethics/               Ethics published reports (flat)
+│   │   ├── exp/exp-<id>/         Expert experiment result bundles
+│   │   ├── reviews/round-<n>/    mos_review_run output (tool-owned)
+│   │   ├── submissions/          mos_submit deliverables
+│   │   ├── handoffs/             cross-role handoffs
+│   │   ├── governance/           signboard.json (phase-transition consensus)
+│   │   ├── book/                          ← Layer 2: Compiled Knowledge (Book)
+│   │   │   ├── index.md                    Ethics-maintained catalog
+│   │   │   ├── log.md                      Append-only ingest/lint journal (JSONL)
+│   │   │   ├── sources/{role}-{slug}.md    One page per ingested artifact (carries reel_ref)
+│   │   │   └── contradictions/             Auto-detected claim conflicts (Ethics reads)
+│   │   └── logic/ src/ evidence/ proposal/  Book layout (Gru promotes Ethics-sealed content here)
+│   ├── ethics/                  # Ethics drafts; published reports go to main/ethics/
 │   │   └── reel/<session_id>/   ← Layer 0: raw session traces (Reel)
 │   │       ├── index.jsonl       JSONL index of captured subagent outputs
 │   │       └── transcripts/      Verbatim *.jsonl transcripts per task_id
-│   ├── writer/                  # branch minionsos/project-{port}-writer
-│   │   └── reel/<session_id>/   ← Layer 0: same shape as coder/reel/
-│   ├── ethics/                  # Ethics drafts; published reports go to shared/ethics/
-│   │   └── reel/<session_id>/   ← Layer 0: same shape
-│   ├── noter/                   # Noter drafts; published notes/Draft go to shared/
-│   ├── expert-<slug>/           # one per Expert
-│   │   └── reel/<session_id>/   ← Layer 0: same shape
-│   └── shared/                  # branch minionsos/project-{port}-shared
-│       ├── draft/draft.json # Noter-curated Draft (L1 process memory)
-│       ├── notes/               # Noter staged reports
-│       ├── ethics/              # Ethics published reports (flat)
-│       ├── exp/exp-<id>/        # Coder experiment result bundles
-│       ├── reviews/round-<n>/   # mos_review_run output (tool-owned)
-│       ├── handoffs/            # cross-role handoffs
-│       ├── governance/          # signboard.json (phase-transition consensus)
-│       ├── book/                          ← Layer 2: Compiled Knowledge (Book)
-│       │   ├── index.md                    Noter-maintained catalog
-│       │   ├── log.md                      Append-only ingest/lint journal (JSONL)
-│       │   ├── sources/{role}-{slug}.md    One page per ingested artifact (carries reel_ref)
-│       │   └── contradictions/             Auto-detected claim conflicts (Ethics reads)
-│       └── shelf/shelf.json               ← Layer 3: Gru cross-project structural index
+│   └── expert-<slug>/           # one per Expert (code, experiments, paper drafting)
+│       └── reel/<session_id>/   ← Layer 0: same shape as ethics/reel/
 ├── eacn3_data/eacn3.db          # project-local EACN3 SQLite state (gitignored)
 ├── events/                      # per-agent EACN event JSONL audit stream (gitignored)
 ├── state/                       # runtime control state (gitignored)
@@ -173,7 +168,7 @@ projects/project_{port}/
 └── logs/                        # backend.log and role-{name}.log (gitignored)
 ```
 
-Cross-role writes go through `mos_publish_to_shared(role, src_path, dst_subpath, commit_message)`, which holds `state/shared.lock`, copies the source file into `branches/shared/<dst_subpath>`, and commits on the shared branch. Per-role subdir policy lives in `minions/tools/publish.py` (`_ROLE_ALLOWED_SHARED_SUBDIRS`); the policy table is reproduced in `lookup.py --domain publish`. The Draft file is updated in place by `mos_draft_append`/`mos_draft_annotate` and flushed on a timer by Noter through `mos_draft_commit_shared`. The review surface (`reviews/`) is reserved for `mos_review_run`; `submissions/` is reserved for `mos_submit`; `book/` is Noter-only.
+Cross-role writes go through `mos_publish_to_shared(role, src_path, dst_subpath, commit_message)`, which holds `state/shared.lock`, copies the source file into `branches/main/<dst_subpath>`, and commits on the main branch (the shared surface). Per-role subdir policy lives in `minions/tools/publish.py` (`_ROLE_ALLOWED_SHARED_SUBDIRS`); the policy table is reproduced in `lookup.py --domain publish`. The Draft file is updated in place by `mos_draft_append`/`mos_draft_annotate` and flushed on a timer by Ethics through `mos_draft_commit_shared`. The review surface (`reviews/`) is reserved for `mos_review_run`; `submissions/` is reserved for `mos_submit`; `book/` is Ethics-curated.
 
 (Role-facing publish rules — what each role may write where — live in the role's `SYSTEM.md` plus `lookup.py --domain publish`. This file documents only the implementation: the lock + commit pipeline.)
 
@@ -211,8 +206,8 @@ To add a new profile: drop `minions/profiles/<name>.yaml` matching the `MissionP
 
 - Each Role is a long-lived `claude` process inside its own tmux session named `mos-{port}-{role}`.
 - The wake driver for EACN-registered roles is `mos_await_events()` in `minions/tools/await_events.py` (wraps the project-local 60-second `GET /api/events/{agent_id}` long-poll, drains events on read, runs an idle-check after ~5 minutes of silence). Heartbeat writes between polls feed the Gru sidecar watchdog.
-- **Noter** is not on EACN3 — it uses `mos_noter_wait()` (timer-based, default 3 min) and reads `events/*.jsonl` plus `branches/shared/` for observation. Runs on Sonnet (`gru.yaml: noter_model`).
-- **Writer** is on-demand — not bootstrapped at project creation. Gru spawns via `mos_spawn_role(role="writer")` when the project enters a paper-writing phase.
+- **Ethics** is the one fixed non-Gru role, auto-bootstrapped. It is the memory curator (Draft→Book) and evidence auditor — it absorbed the duties of the retired Noter role.
+- **Expert** is the project's general worker — code, experiments (`mos_exp_*`), domain reasoning, and paper drafting (Book→Paper, Gru-driven). One generalist Expert is auto-spawned; Gru spawns more via `mos_spawn_expert` as work fans out. Experts absorbed the duties of the retired Coder and Writer roles.
 - Only Gru may spawn EACN-visible agents or use `mos_project_*`, `mos_spawn_*`, `mos_project_bridge`. Subagents/local teams inside a Role are EACN-invisible by design — no `eacn3_*` tools, not in `projects.json`.
 - Claude Code is the only Role host (honors CLI `--allowed-tools` for tool gating).
 - MinionsOS MCP server-side authorization in `minions/tools/mcp_server.py` must remain aligned with `minions.config.resolve_whitelist` so the same boundary applies regardless of which surface a tool call comes through.
@@ -221,31 +216,29 @@ Tool/write boundaries (main role write scope; subagents inherit from their paren
 
 | Agent | Project-local EACN access | Experiment tools | Gru/project/spawn tools | Own branch | Shared subdirs (via mos_publish_to_shared) |
 |---|---|---|---|---|---|
-| Gru main | `eacn3_send_message` (out) + read-only inspection (`eacn3_get_events`/`get_messages`/`list_tasks`/`get_task`/`list_agents`/`get_agent`/`health` etc.). Task-creation tools server-side denied — see common contract §7 + Gru §G2. | no | yes | `branches/main/` | any subdir |
-| Noter main | `mos_noter_wait` (timer, no EACN) | no | no | `branches/noter/` (drafts) | `notes/`, `draft/`, `handoffs/`, `book/` |
-| Coder main | `eacn3_*` | yes | no | `branches/coder/` | `exp/`, `handoffs/`, `governance/` |
-| Writer main (on-demand) | `eacn3_*` plus paper-search MCP tools | no | no | `branches/writer/` | `handoffs/`, `governance/` |
-| Expert main | `eacn3_*` | no | no | `branches/<expert>/` (read-mostly) | `handoffs/`, `governance/` |
-| Ethics main | `eacn3_*` | no | no | `branches/ethics/` (drafts) | `ethics/`, `handoffs/`, `governance/` |
-| All roles (read) | - | - | - | - | `book/` (via `mos_book_query`/`hot_get`/`save_synthesis`/`audit_walk`/`resolve_contradiction`) |
+| Gru main | `eacn3_send_message` (out) + read-only inspection (`eacn3_get_events`/`get_messages`/`list_tasks`/`get_task`/`list_agents`/`get_agent`/`health` etc.). Task-creation tools server-side denied — see common contract §7 + Gru §G2. | no | yes | `branches/main/` | any subdir (`*`) |
+| Ethics main | `eacn3_*` | no | no | `branches/ethics/` (drafts) | `book`, `draft`, `ethics`, `notes`, `handoffs`, `governance` |
+| Expert main | `eacn3_*` plus `mos_exp_*` + paper-search MCP tools | yes | no | `branches/<expert>/` | `exp`, `handoffs`, `governance` |
+| All roles (read) | - | - | - | - | `book/` (via `mos_book_query`/`save_synthesis`/`audit_walk`/`resolve_contradiction`) |
 
 **Memory tool authz detail** (tools not captured in column headers above):
 
 | Tool | Allowed callers | Notes |
 |---|---|---|
-| `mos_reel_get` / `mos_reel_window` | self; Ethics (cross-role R); Gru (cross-role R) | Peer roles denied. Noter excluded entirely. |
-| `mos_book_ratify` | Ethics only | Promotes verified Book page; server-side authz gate (Stream 3). |
-| `mos_book_open_question` | All EACN-visible roles | Creates a pending-question node for Noter to resolve. |
-| `mos_book_dead_end` | Noter (direct); other roles propose via handoff → Noter ingests | Prevents direct write pollution of Book's dead-end registry. |
+| `mos_reel_get` / `mos_reel_window` | self; Ethics (cross-role R); Gru (cross-role R) | Peer roles denied. |
+| `mos_book_ratify` | Ethics only | Promotes verified Book page; server-side authz gate. |
+| `mos_book_open_question` | All EACN-visible roles | Creates a pending-question node for Ethics to resolve. |
+| `mos_book_dead_end` | Ethics (direct); other roles propose via handoff → Ethics ingests | Prevents direct write pollution of Book's dead-end registry. |
 | `mos_draft_annotate` | All roles for own nodes; Ethics for any node's `support_status` | Ethics is the sole cross-role annotator of ratification fields. |
+| `mos_draft_commit_shared` | Ethics + Gru | Committing the Draft is a curator action (Ethics is the curator). |
 
-Profile-specific publish detail: `branches/shared/submissions/` access is granted per-role through the active profile's `publish_whitelist[role]` list. The default `publish_whitelist` baseline lives in `minions/tools/publish.py`.
+Profile-specific publish detail: `branches/main/submissions/` access is granted per-role through the active profile's `publish_whitelist[role]` list. The default `publish_whitelist` baseline lives in `minions/tools/publish.py`.
 
-Visual format-check tools (`mos_visual_render`, `mos_visual_inspect`, `mos_visual_check`) are available to every EACN-visible role (Gru, Coder, Writer, Ethics, Expert) and denied to Noter; reports persist under `branches/<role>/visual-reports/` and are referenced cross-role by EACN message rather than via a shared subdir.
+Visual format-check tools (`mos_visual_render`, `mos_visual_inspect`, `mos_visual_check`) are available to every EACN-visible role (Gru, Ethics, Expert); reports persist under `branches/<role>/visual-reports/` and are referenced cross-role by EACN message rather than via a shared subdir.
 
-**Deliverable lifecycle tools.** `mos_submit` and `mos_evaluate` are Gru-only (whitelist + server-side authz). Other Roles must surface a deliverable to Gru by EACN message; Gru then calls `mos_submit` to persist it under `branches/shared/submissions/` and `mos_evaluate` to score it via the profile-defined strategy. The lifecycle separation matches the existing "Gru is the control plane" rule.
+**Deliverable lifecycle tools.** `mos_submit` and `mos_evaluate` are Gru-only (whitelist + server-side authz). Other Roles must surface a deliverable to Gru by EACN message; Gru then calls `mos_submit` to persist it under `branches/main/submissions/` and `mos_evaluate` to score it via the profile-defined strategy. The lifecycle separation matches the existing "Gru is the control plane" rule.
 
-**Reel (L0) layer.** Every EACN-visible role gets `mos_reel_get` / `mos_reel_window` for drill-down access into its own raw session transcripts at `branches/<role>/reel/<session_id>/`. Gru holds cross-role read permission (so it can audit any role's reasoning when bridging projects or evaluating role evolution); non-Gru roles can only read their own reel. Noter is excluded from the reel surface — it observes the project through events/* and the Draft, not through other roles' transcripts. Capture is automatic: the `reel_capture` PostToolUse hook archives every `Agent` / `Task` output into the calling role's reel directory; roles never call reel-write tools directly. Draft / Book frontmatter carries a `reel_ref` pointer that auditors can follow back to the original execution frame.
+**Reel (L0) layer.** Every EACN-visible role gets `mos_reel_get` / `mos_reel_window` for drill-down access into its own raw session transcripts at `branches/<role>/reel/<session_id>/`. Gru holds cross-role read permission (so it can audit any role's reasoning when bridging projects or evaluating role evolution); non-Gru roles can only read their own reel. Capture is automatic: the `reel_capture` PostToolUse hook archives every `Agent` / `Task` output into the calling role's reel directory; roles never call reel-write tools directly. Draft / Book frontmatter carries a `reel_ref` pointer that auditors can follow back to the original execution frame.
 
 ### Evidence-gated Role evolution (SPLIT / MERGE / DISMISS)
 
@@ -275,7 +268,7 @@ Review is run by Gru's `mos_review_run` MCP tool, not by a long-lived Role. Its 
 - `minions/review/SYSTEM.md` — Area-Chair / Editor system prompt for the spawned `claude --print` process.
 - `minions/review/skills/*.md` — `run-review-round`, `simulate-reviewer-instance`, `aspect-review`, `code-validity-review`, `revision-delta`, `finalize-review-packet`.
 - `minions/review/personas/*.md` — short reviewer stances used by aspect subagents.
-- `minions/review/templates/*.md` — required outputs: `aspect-note.md`, `reviewer-instance.md`, `fresh.md`, `revision_delta.md`, `consolidated.md`, `summary.md`, plus the `submission-checklist.md` Writer attaches when submitting.
+- `minions/review/templates/*.md` — required outputs: `aspect-note.md`, `reviewer-instance.md`, `fresh.md`, `revision_delta.md`, `consolidated.md`, `summary.md`, plus the `submission-checklist.md` attached at submission time.
 
 A review round's Pass A must produce 3-5 independent reviewer-instance reports before reading prior review history. History enters only through the previous rolling summary during Pass B / Pass C.
 
@@ -292,10 +285,9 @@ demand instead of carrying the table in their always-loaded context.
 Quick orientation only:
 
 - **L0 Reel** — raw subagent transcripts; drill-down only, not wake-injected.
-- **L1 Draft** — process graph at `branches/shared/draft/draft.json`; every
+- **L1 Draft** — process graph at `branches/main/draft/draft.json`; every
   EACN role writes via `mos_draft_*`.
-- **L2 Book** — Noter-curated durable knowledge at `branches/shared/book/`.
-- **L3 Shelf** — Gru-aggregated cross-project structural index derived from Book.
+- **L2 Book** — Ethics-curated durable knowledge at `branches/main/book/`.
 
 Roles reconstruct context at wake-up from current transcript + Draft summary
 (especially `pending_plan` nodes) + EACN history + shared artefacts. The root
