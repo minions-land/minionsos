@@ -60,7 +60,7 @@ Both invocations resolve through Python's module path, not a filesystem path —
 
 ## Why it does NOT live in `mcp-servers/`
 
-The other two MCPs in this repo (`eacn3`, `codex-subagent`) are independent Node processes. `.mcp.json` launches them with `node <path>/server.js`, so their physical filesystem path *is* the entry point.
+The other MCP in this repo (`eacn3`) is an independent Node process. `.mcp.json` launches it with `node <path>/server.js`, so its physical filesystem path *is* the entry point.
 
 `minionsos` is different: it is a thin FastMCP shell over the rest of the Python package. The submodules under `minions/tools/mcp/` import siblings from `minions/tools/`, plus `minions/lifecycle/`, `minions/state/`, `minions/config`, etc. Pulling the package out into `mcp-servers/minionsos/` would mean either:
 
@@ -98,4 +98,4 @@ Access control is two-layered: `minions/config/__init__.py:resolve_whitelist` pr
 6. Add functional unit coverage for the underlying tool logic under `tests/unit/`.
 7. Update the tool/write boundary table in root `CLAUDE.md` if the tool changes any role's effective surface.
 
-The other two MCPs don't share this workflow — they have their own internal organisation under `mcp-servers/eacn3/` and `mcp-servers/codex-subagent/`.
+The other MCP doesn't share this workflow — it has its own internal organisation under `mcp-servers/eacn3/`.

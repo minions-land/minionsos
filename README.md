@@ -135,16 +135,14 @@ Gru
   +-- project_37596/
   |     |
   |     +-- EACN3 backend on 127.0.0.1:37596
-  |     |     +-- Coder          -> branches/coder/  + branches/shared/exp/ + mos_exp_*
-  |     |     +-- Writer (on-demand) -> branches/writer/
-  |     |     +-- Ethics         -> branches/ethics/ + branches/shared/ethics/
-  |     |     +-- Expert-*       -> branches/expert-<slug>/ + domain pack
+  |     |     +-- Ethics         -> branches/ethics/ + branches/main/ethics/ + book curation
+  |     |     +-- Expert (generalist, auto-spawned)
+  |     |     |     -> branches/expert-generalist/ + branches/main/exp/ + mos_exp_*
+  |     |     +-- Expert-<domain> (spawned on demand)
+  |     |           -> branches/expert-<slug>/ + domain pack
   |     |
-  |     +-- Noter (NOT on EACN; timer-driven via mos_noter_wait)
-  |     |     -> branches/noter/ + branches/shared/notes/, draft/, book/
-  |     |
-  |     +-- branches/                # one git worktree per role plus shared
-  |     |     +-- main/, noter/, coder/, writer/, ethics/, expert-*/, shared/
+  |     +-- branches/                # one git worktree per role plus main (shared surface)
+  |     |     +-- main/ (Gru + shared surface), ethics/, expert-*/
   |     +-- parent_repo.git/         # per-project bare git repo
   |     +-- eacn3_data/eacn3.db      # project-local EACN3 SQLite
   |     +-- events/                  # per-agent EACN event JSONL
@@ -267,8 +265,8 @@ Local configuration lives under `minions/config/` and is intentionally ignored
 by git:
 
 - `gru.yaml` controls heartbeat cadence, logging, model/context settings,
-  Noter cadence and model, draft thresholds, and web-search policy.
-- `experiment_targets.yaml` defines local and SSH execution targets for Coder.
+  draft thresholds, and web-search policy.
+- `experiment_targets.yaml` defines local and SSH execution targets for Expert.
   Paths may use `{project_workspace}` template expansion.
 
 Inspect resolved paths with:
@@ -288,24 +286,14 @@ Launcher:
 
 ```bash
 ./gru                 # launch interactive Gru
-./noter <port>        # launch read-only Noter terminal for one project
+./mos noter <port>    # launch read-only project observatory terminal
 ./mos status          # project dashboard
 ./mos status --json   # machine-readable project status
 ./mos doctor          # environment health checks
 ```
 
-Typical operator layout is one Gru terminal plus one Noter terminal per active
-project:
-
-```bash
-./gru
-./noter 37596
-./noter 37601
-```
-
-The Noter terminal reports backend, role, task, and notes state without
-draining EACN role queues. Type `wake <message>` inside it to queue an
-on-demand Noter summary request through the project's EACN bus.
+The `mos noter` command provides a read-only observatory terminal for one project,
+showing backend, role, task, and artifact state without draining EACN role queues.
 
 Project and role management:
 
@@ -331,15 +319,13 @@ Logs:
 
 ### Roles
 
-The default `scientific-paper` profile bootstraps **three** role kinds. The
-heavy science work (code, experiments, paper drafting) is done by spawnable
-Experts, not by a fixed Coder/Writer roster.
+The default `scientific-paper` profile bootstraps **three** role kinds:
 
 | Role | Responsibility | Primary write scope |
 |---|---|---|
 | Gru | Global supervisor, human interface, project lifecycle, cross-project bridge, runs `mos_review_run`, promotes Ethics-sealed content into the Book | `branches/main/`, `branches/main/<any>/` |
-| Ethics | Memory curator (Draft→Book ingest + ratify), evidence/claim audit, contradiction adjudication | `branches/ethics/`, `branches/main/ethics/`, `branches/main/book/`, `branches/main/draft/draft.json`, `branches/main/handoffs/`, `branches/main/governance/` |
-| Expert (×N, spawnable) | General science work — domain reasoning, code + experiments (`mos_exp_*`), paper drafting (Book→Paper) — with optional domain packs such as `nlp`, `cv`, `theory` | `branches/expert-<slug>/`, `branches/main/exp/`, `branches/main/handoffs/`, `branches/main/governance/` |
+| Ethics | Memory curator (Draft→Book ingest + ratify), evidence/claim audit, contradiction adjudication. Absorbed Noter's duties. | `branches/ethics/` (drafts), `branches/main/ethics/`, `branches/main/book/`, `branches/main/draft/draft.json`, `branches/main/handoffs/`, `branches/main/governance/` |
+| Expert (×N, spawnable) | General science work — domain reasoning, code + experiments (`mos_exp_*`), paper drafting (Book→Paper). One generalist is auto-spawned; Gru spawns domain specialists as needed. Absorbed Coder and Writer duties. | `branches/expert-<slug>/`, `branches/main/exp/`, `branches/main/handoffs/`, `branches/main/governance/` |
 
 Role prompts are stored at `minions/roles/{role}/SYSTEM.md`. The shared Role
 contract at `minions/roles/SYSTEM.md` is injected before each role-specific
@@ -353,15 +339,6 @@ Gru's `mos_review_run` MCP tool which writes `reviewer-instance.md`,
 `summaries/round-<n>.md` under `branches/main/reviews/round-<n>/`. Review
 audits a submitted paper (Book→Paper output); Ethics audits the underlying
 evidence and claims in the Draft/Book — do not conflate the two.
-
-**Stewardship layer.** Two of the Roles also act as the system's stewardship
-layer for the autonomous-evolution pipeline below: Noter's
-`skill-curator-loop` skill emits Skill / Expert evolution proposals to
-`branches/shared/notes/skill-proposals.md` on its periodic wake; Ethics'
-`skill-audit` skill is the only authorised gate before those proposals can
-mutate the Library or roster. Both are non-business Roles by design — they
-do not bid on tasks, which keeps their judgements decorrelated from the
-producers being evolved.
 
 ### Skill family and autonomous evolution
 
@@ -429,8 +406,7 @@ mos_shelf_shared_concepts
 **Role event loop and context:**
 
 ```text
-mos_await_events           # EACN-registered roles (Coder, Writer, Ethics, Expert)
-mos_noter_wait             # Noter only — timer-based, not on EACN
+mos_await_events           # EACN-registered roles (Ethics, Expert)
 mos_get_events
 mos_unread_summary
 mos_compact_context
@@ -495,7 +471,7 @@ mos_signboard_consume
 mos_signboard_reopen
 ```
 
-**Coder — experiment execution:**
+**Expert — experiment execution:**
 
 ```text
 mos_exp_run
@@ -521,7 +497,7 @@ mos_exp_gpu_pool_get
 mos_list_workflow_plugins
 ```
 
-**Visual format check (every EACN-visible Role; denied to Noter):**
+**Visual format check (every EACN-visible Role):**
 
 ```text
 mos_visual_render             # PDF → page_NNN.png via Poppler
@@ -529,7 +505,7 @@ mos_visual_inspect            # detectors on PDF / image / page directory
 mos_visual_check              # end-to-end: render + inspect + persist report
 ```
 
-**Writer — paper search and retrieval:**
+**Expert — paper search and retrieval:**
 
 ```text
 mos_search_arxiv
@@ -561,11 +537,27 @@ projects/project_{port}/
   AGENTS.md                     # subagent's view of project context
   meta.json                     # machine metadata
   parent_repo.git/              # per-project bare git repo, seeded from author HEAD
-  branches/                     # one git worktree per role plus shared
-    main/                       # Gru — branch minionsos/project-{port}
-    noter/                      # Noter drafts
-    coder/, writer/, ethics/, expert-<slug>/
-      reel/                     # Layer 0 — raw verbatim transcripts (per role)
+  branches/                     # one git worktree per role plus main (shared surface)
+    main/                       # Gru + shared surface — branch minionsos/project-{port}
+      draft/draft.json            # Ethics-curated Draft (L1 process memory)
+      notes/                      # staged memory reports
+      ethics/                     # Ethics published reports (flat)
+      exp/exp-<id>/               # Expert experiment result bundles
+      reviews/round-<n>/          # mos_review_run output (tool-owned)
+      submissions/                # mos_submit deliverables
+      handoffs/                   # cross-role handoffs
+      governance/                 # signboard.json (phase-transition consensus)
+      book/                       # Layer 2: Compiled Knowledge (Book)
+        index.md                  #   Ethics-maintained catalog
+        log.md                    #   Append-only ingest/lint journal (JSONL)
+        sources/{role}-{slug}.md  #   One page per ingested artifact (carries reel_ref)
+        contradictions/           #   Auto-detected claim conflicts (Ethics reads)
+    ethics/                     # Ethics drafts
+      reel/<session_id>/        # Layer 0 — raw session traces (Reel)
+        index.jsonl             #   JSONL index of captured subagent outputs
+        transcripts/            #   Verbatim *.jsonl transcripts per task_id
+    expert-<slug>/              # one per Expert (code, experiments, paper drafting)
+      reel/<session_id>/        # Layer 0 — same shape as ethics/reel/
         <session_id>/
           index.jsonl
           transcripts/<task_id>.jsonl
