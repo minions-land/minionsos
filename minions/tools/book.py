@@ -5,8 +5,8 @@ testing, deciding, or handing off right now. The Book is L2: durable
 product memory compiled from shared artefacts after they land.
 
 Phase 2 implements the minimum writable surface under
-``branches/shared/book/``. Noter is the only writer: other roles publish raw
-artefacts to their own shared subdirs, then Noter ingest-compiles them into
+``branches/shared/book/``. Ethics is the only writer: other roles publish raw
+artefacts to their own shared subdirs, then Ethics ingest-compiles them into
 book pages using the shared publish lock and commit machinery.
 
 The full design follows the W1/W2/W3/W4/W5 mnemonic from the dev log:
@@ -122,6 +122,10 @@ _COMMON_SHARED_TERMS = frozenset(
 # negation was enough. Most FPs rode on provenance/scaffolding nouns (role
 # names, GPU/harness words, dates) or on stock idioms ("load-bearing"). These
 # sets gate the shared term to plausible *claim subjects* only.
+# NOTE: this set still includes the retired-role stamps ("coder", "noter",
+# "writer") on purpose — they appear in provenance bylines of existing Book
+# pages on disk, and gating them out is required for backward-compat with that
+# historical data. Do not remove.
 _PROVENANCE_SHARED_TERMS = frozenset(
     {
         "artifact",
@@ -475,7 +479,9 @@ def _is_structural_line(sentence: str) -> bool:
     if s[0] in "#|>":  # markdown heading, table row, residual blockquote
         return True
     # Provenance byline: "**Coder · 2026-05-28 · cuda:1 ..." — a middot or a
-    # leading bold-role stamp marks metadata, not an assertion.
+    # leading bold-role stamp marks metadata, not an assertion. The role list
+    # below intentionally includes retired-role stamps (coder/noter/writer) for
+    # backward-compat with bylines in existing Book pages on disk.
     if "·" in s[:40]:
         return True
     lowered = s.lower()
@@ -611,7 +617,7 @@ def _source_role_unmarked_ratio(book_root: Path, source_role: str) -> float | No
     counts how many carry an [evidence:|speculation|derived:] marker. Returns
     the unmarked ratio in [0, 1], or None when there is too little data.
 
-    This is a *Noter signal*, not an Ethics verdict: it is purely descriptive.
+    This is a *curator signal*, not an Ethics verdict: it is purely descriptive.
     Ethics still does its own statistical audit on the live EACN stream; this
     just gives Ethics a starting point when adjudicating a contradiction.
     """
@@ -663,7 +669,7 @@ def _opposing_page_age_days(book_root: Path, opposing_page: str) -> float | None
 
 
 def _opposing_source_role(opposing_page: str) -> str:
-    """Extract source_role from an opposing page path like book/sources/coder-foo.md."""
+    """Extract source_role from an opposing page path like book/sources/expert-foo.md."""
     name = opposing_page.rsplit("/", 1)[-1]
     stem = name.removesuffix(".md")
     if "-" in stem:
@@ -742,7 +748,7 @@ def _render_signals_block(
     lines = [
         "## Statistical signals",
         "",
-        "*Noter-assembled descriptive signals — no verdict. Ethics adjudicates.*",
+        "*Curator-assembled descriptive signals — no verdict. Ethics adjudicates.*",
         "",
         (
             "| # | opposing_page | new_role | opposing_role | opposing_age_d "
@@ -1384,7 +1390,7 @@ def _publish_book_lint_outputs(port: int, result: dict[str, object]) -> None:
         existing_log + json.dumps(log_fields, ensure_ascii=False, sort_keys=True) + "\n",
     )
 
-    message = "noter: book lint"
+    message = "ethics: book lint"
     _publish_files(port, [(log_stage, "log.md")], message)
 
 
@@ -1583,7 +1589,7 @@ def mos_book_ingest(
         contradiction_count=len(contradictions),
     )
 
-    message = f"noter: ingest {slug}"
+    message = f"ethics: ingest {slug}"
     files: list[tuple[Path, str]] = [(page_stage, f"sources/{slug}.md")]
     if contradiction_stage is not None:
         files.append((contradiction_stage, f"contradictions/{contradiction_slug}.md"))
@@ -1880,7 +1886,7 @@ def mos_book_ingest_batch(
     files.append((log_stage, "log.md"))
 
     summary_slug = slugs_for_message[0] if len(slugs_for_message) == 1 else "batch"
-    message = f"noter: ingest {summary_slug} (batch x{len(staged)})"
+    message = f"ethics: ingest {summary_slug} (batch x{len(staged)})"
     publish_result = _publish_files(resolved_port, files, message)
     for ingest_entry in ingested:
         ingest_entry["publish_results"] = [publish_result]
@@ -1974,15 +1980,15 @@ def mos_book_promote_verified(
     node of type ∈ {insight, method, result} reaches support_status=verified,
     has at least ``min_supporting_edges`` ``supports`` edges, has been stable
     for ``min_age_days`` days, and isn't already cited by any Book page,
-    Noter promotes it by creating a verbatim Book source page.
+    Ethics promotes it by creating a verbatim Book source page.
 
-    Strict verbatim contract — Noter never restates. The page body is the
+    Strict verbatim contract — Ethics never restates. The page body is the
     node's exact ``text``, plus a Draft ID reference and the citation
-    list of supporting edges. This keeps Noter inside its "records only,
+    list of supporting edges. This keeps Ethics inside its "records only,
     makes no new claims" boundary while still moving knowledge from L1
     (process memory) to L2 (product memory).
 
-    Whitelisted to Noter only. Idempotent — re-running won't duplicate
+    Whitelisted to Ethics only. Idempotent — re-running won't duplicate
     pages because the citation check filters out already-promoted nodes.
     """
     resolved_port = _resolve_port(port)
@@ -2054,7 +2060,7 @@ def mos_book_promote_verified(
         evidence_tag = str(node.get("evidence_tag", "") or "")
         supporting: list[dict[str, Any]] = candidate["supporting"]
 
-        # Verbatim summary body — Noter is not paraphrasing. Includes the
+        # Verbatim summary body — Ethics is not paraphrasing. Includes the
         # exact node text, the Draft pointer, and the citation list of
         # supporting edges. This is the L1→L2 promotion contract.
         cite_lines = ["", "## Citations (Draft supports edges)", ""]
@@ -2237,7 +2243,7 @@ def mos_book_crystallize_session(
       - EACN messages the role sent in the window (verbatim, truncated),
       - structured pointers only, no paraphrase.
 
-    Whitelisted to Noter only. Ethics audits the result through its normal
+    Whitelisted to Ethics only. Ethics audits the result through its normal
     Book + mock-review path; the verbatim contract makes that easy
     because the page never invents content beyond what's in the sources.
     """
@@ -2459,7 +2465,7 @@ def mos_book_save_synthesis(
     Notes on form-vs-content boundary:
         This tool writes the answer text verbatim — it does not analyze,
         rephrase, or judge the answer. The caller (a role) is responsible
-        for the synthesis. Noter is purely mechanical here: it owns the
+        for the synthesis. Ethics is purely mechanical here: it owns the
         formal structure (frontmatter, index entry, log line) but never
         the substantive content.
     """
@@ -2514,7 +2520,7 @@ def mos_book_save_synthesis(
         source_count=len(sources),
     )
 
-    message = f"noter: save synthesis {slug}"
+    message = f"ethics: save synthesis {slug}"
     publish_results = [
         _publish_files(
             resolved_port,
@@ -2586,7 +2592,7 @@ def mos_book_ratify(
 
     stage = _stage_text(resolved_port, f"book-ratify-{slug}.md", text)
     log_stage = _log_append(resolved_port, "ratify", slug, ratifier_role=ratifier_role)
-    message = f"noter: ethics ratify {slug}"
+    message = f"ethics: ethics ratify {slug}"
     publish_result = _publish_files(
         resolved_port,
         [
@@ -2667,7 +2673,7 @@ def mos_book_open_question(
     index_stage = _index_append_many(resolved_port, [(slug, title, "open_question")])
     log_stage = _log_append(resolved_port, "open_question", slug, question=question.strip()[:200])
 
-    message = f"noter: open question {slug}"
+    message = f"ethics: open question {slug}"
     publish_result = _publish_files(
         resolved_port,
         [
@@ -2745,7 +2751,7 @@ def mos_book_dead_end(
         claim=claim.strip()[:200],
     )
 
-    message = f"noter: dead end {full_slug}"
+    message = f"ethics: dead end {full_slug}"
     publish_result = _publish_files(
         resolved_port,
         [
@@ -2796,7 +2802,7 @@ def mos_book_audit_walk(
                     "book_path": "book/contradictions/...",
                     "status": "unresolved",
                     "title": "...",
-                    "reel_refs": ["coder/sess-X/task-1", "ethics/sess-Y/task-3"],
+                    "reel_refs": ["expert/sess-X/task-1", "ethics/sess-Y/task-3"],
                     "frontmatter": {...},
                 },
                 ...

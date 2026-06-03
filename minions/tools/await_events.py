@@ -728,7 +728,7 @@ def _idle_probe_before_keepalive(
     invited to a task — but drained the one-shot ``task_broadcast``
     without bidding, or never received it because the best-effort
     broadcast was lost — would then sit idle forever while the task
-    stays ``unclaimed``. This was the live ``expert-moe-arch → coder``
+    stays ``unclaimed``. This was the live ``expert-moe-arch → expert-gpu-perf``
     stall.
 
     By probing here, every keepalive interval (~240s) re-evaluates task

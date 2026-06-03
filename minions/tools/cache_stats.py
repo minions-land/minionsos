@@ -23,7 +23,7 @@ Usage::
     uv run python -m minions.tools.cache_stats --session <path.jsonl>
 
     # Per-Role rollup
-    uv run python -m minions.tools.cache_stats --port 37596 --role coder
+    uv run python -m minions.tools.cache_stats --port 37596 --role expert
 
     # Per-project rollup (all Roles)
     uv run python -m minions.tools.cache_stats --port 37596

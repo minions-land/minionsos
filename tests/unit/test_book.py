@@ -42,7 +42,7 @@ def _mock_publish(
     ) -> dict[str, object]:
         del store
         assert role == "ethics"
-        assert commit_message.startswith("noter: ingest ")
+        assert commit_message.startswith("ethics: ingest ")
         resolved_port = port or book._env_port()
         src = Path(src_path)
         dst = project_shared_workspace(resolved_port) / dst_subpath

@@ -95,7 +95,7 @@ class PublishFilesToSharedResult(DictLikeBaseModel):
     """Result shape for ``mos_publish_files_to_shared`` (multi-file batched publish).
 
     The same lock + commit pipeline as :class:`PublishToSharedResult`, but lands
-    multiple files in one commit so a logical Noter ingest doesn't fragment
+    multiple files in one commit so a logical Ethics ingest doesn't fragment
     into N separate commits (see GitHub Issue #13). ``dst_paths`` is the list
     of relative paths committed; ``commit_sha`` covers the union diff.
     """
@@ -132,7 +132,7 @@ class PublishFilesToSharedResult(DictLikeBaseModel):
 # - "reviews/" is intentionally absent everywhere — that surface is owned
 #   exclusively by ``mos_review_run`` which writes commits directly without
 #   going through this tool.
-# - "book/" is owned exclusively by Noter (Book pattern: one curated page
+# - "book/" is owned exclusively by Ethics (Book pattern: one curated page
 #   per ingested artefact, Ethics-curated); other roles publish raw artefacts
 #   to their own subdir + Ethics ingest-compiles them into book/.
 _DEFAULT_ROLE_ALLOWED_SHARED_SUBDIRS: dict[str, set[str]] = {
@@ -467,7 +467,7 @@ def mos_publish_files_to_shared(
     single ``git commit`` lands the union diff. Optional push runs once at the
     end if configured.
 
-    This avoids the ingest commit amplification (one logical Noter event
+    This avoids the ingest commit amplification (one logical Ethics event
     landing as 3-10 separate commits — see GitHub Issue #13). Use the single
     :func:`mos_publish_to_shared` for one-file publishes.
 

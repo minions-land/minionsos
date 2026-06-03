@@ -1,6 +1,6 @@
-"""Experiment execution MCP tools for the Coder role.
+"""Experiment execution MCP tools for the Expert role.
 
-These tools are loaded for the ``coder`` role.
+These tools are loaded for the ``expert`` role.
 Runtime whitelisting is enforced by MinionsOS; Claude also receives the
 allowlist at spawn time via ``--allowed-tools``, and MCP server-side
 authorization is the real enforcement boundary.
@@ -9,7 +9,7 @@ All execution is **fire-and-poll**: ``exp_run`` launches the command fully
 detached via ``nohup``/``setsid`` and returns immediately with a ``run_id``.
 Use ``exp_status``/``exp_wait``/``exp_list`` to observe progress and
 ``exp_kill`` to terminate. Batch queue tools maintain a project-level
-SQLite-backed pending pool so Coder can submit work and let Python keep
+SQLite-backed pending pool so an Expert can submit work and let Python keep
 GPUs filled without spending agent tokens on scheduling loops.
 
 Tools:

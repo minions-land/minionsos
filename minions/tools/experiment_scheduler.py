@@ -1,6 +1,6 @@
 """Project-level experiment queue and GPU packing scheduler.
 
-The Coder role should not spend context manually deciding which GPU gets
+The Expert should not spend context manually deciding which GPU gets
 the next run. This module keeps a durable project queue in SQLite and performs a
 simple "fluid gravity" reconcile: every pending unit is considered against the
 current fleet, and any allowed GPU with capacity can absorb the next runnable
@@ -894,7 +894,7 @@ class ExperimentScheduler:
         raw = os.environ.get("MINIONS_PROJECT_PORT", "").strip()
         return int(raw) if raw.isdigit() else None
 
-    def _notify_coder(
+    def _notify_requester(
         self,
         run_id: str,
         status: str,
@@ -916,7 +916,7 @@ class ExperimentScheduler:
         """
         port = self._resolve_port()
         if port is None:
-            logger.debug("_notify_coder: no project port, skipping notification for %s", run_id)
+            logger.debug("_notify_requester: no project port, skipping notification for %s", run_id)
             return
         # Resolve the submitting agent from the run → batch → requester chain.
         to_agent = "expert"
@@ -931,7 +931,7 @@ class ExperimentScheduler:
             if row and row[0]:
                 to_agent = str(row[0])
         except Exception as exc:  # advisory — never block on requester lookup
-            logger.debug("_notify_coder: requester lookup failed for %s: %s", run_id, exc)
+            logger.debug("_notify_requester: requester lookup failed for %s: %s", run_id, exc)
         payload: dict[str, Any] = {
             "type": "experiment_complete",
             "run_id": run_id,
@@ -1160,7 +1160,7 @@ class ExperimentScheduler:
                             "anomaly": anomaly_reason,
                         }
                     )
-                    self._notify_coder(
+                    self._notify_requester(
                         run_id=str(row["run_id"]),
                         status="anomaly_killed",
                         exit_code=-99,
@@ -1203,7 +1203,7 @@ class ExperimentScheduler:
                     (now, row["unit_id"]),
                 )
                 completed.append({"unit_id": row["unit_id"], "run_id": row["run_id"]})
-                self._notify_coder(
+                self._notify_requester(
                     run_id=str(row["run_id"]),
                     status="completed",
                     exit_code=0,
@@ -1259,10 +1259,10 @@ class ExperimentScheduler:
                     "reserve_mb": new_reserve,
                 }
             )
-            # Notify coder for terminal failures (not OOM retries)
+            # Notify the requesting Expert for terminal failures (not OOM retries)
             if next_status == "failed":
                 notify_status = "oom" if is_oom else ("killed" if exit_code < 0 else "failed")
-                self._notify_coder(
+                self._notify_requester(
                     run_id=str(row["run_id"]),
                     status=notify_status,
                     exit_code=exit_code,

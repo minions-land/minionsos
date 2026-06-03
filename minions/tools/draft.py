@@ -15,10 +15,10 @@ The Draft and journal live inside the cross-role shared worktree
 (``branches/main/`` on branch ``minionsos/project-{port}-shared``) so
 Draft history is auditable in git. ``mos_draft_append`` and
 ``mos_draft_annotate`` write to the working tree only; commits happen
-on a cron through ``mos_draft_commit_shared``, which is owned by Noter
-and flushes the buffered Draft state via ``mos_publish_to_shared``
-(single commit per cron tick, message
-"noter: draft flush <ts>").
+on a cron through ``mos_draft_commit_shared``, which is owned by Ethics
+(the memory curator) and flushes the buffered Draft state via
+``mos_publish_to_shared`` (single commit per cron tick, message
+"ethics: draft flush <ts>").
 """
 
 from __future__ import annotations
@@ -91,7 +91,7 @@ PROVENANCES: tuple[str, ...] = get_args(DraftProvenance)
 
 # Confidence decay half-lives in days, by node type. effective_confidence is a
 # computed field — it never overwrites the stored confidence and never persists
-# to draft.json. Noter computes a sidecar at decay.json on each periodic
+# to draft.json. Ethics computes a sidecar at decay.json on each periodic
 # wake; this constant is the read-side reference.
 #
 # Picked deliberately: decisions and dead_ends should fade slowly (they
@@ -115,12 +115,12 @@ DECAY_HALF_LIFE_DEFAULT = 60.0
 # Floor — a stale node never decays below 5% of its stored confidence.
 DECAY_FLOOR = 0.05
 
-# Motif kinds for Noter-authored integration claims.
+# Motif kinds for Ethics-authored integration claims.
 # "none" means the node is NOT a motif claim (prefer mos_draft_annotate instead).
 MOTIF_KINDS = ("triangle", "star", "cycle", "close", "none")
 
-# Node types for which Noter must supply motif_kind (soft enforcement).
-_NOTER_MOTIF_REQUIRED_TYPES = frozenset({"result", "decision", "hypothesis", "insight"})
+# Node types for which Ethics must supply motif_kind (soft enforcement).
+_CURATOR_MOTIF_REQUIRED_TYPES = frozenset({"result", "decision", "hypothesis", "insight"})
 
 BOOK_STATUS_HOOK_STATUSES = frozenset({"verified", "refuted", "dead_end"})
 _BOOK_STATUS_EVENT_TARGET: ContextVar[dict[str, Any] | None] = ContextVar(
@@ -250,9 +250,9 @@ def _env_reel_context() -> str | None:
 
 
 def _is_motif_authorized(node: dict[str, Any]) -> bool:
-    """Return True if a noter node is authorized to exist as a first-class claim.
+    """Return True if a curator node is authorized to exist as a first-class claim.
 
-    A noter node is authorized when:
+    A curator node is authorized when:
     - Ethics has ratified it (metadata.ratified_by == "ethics"), OR
     - It is explicitly NOT a motif claim (motif_kind == "none" means prefer annotate,
       but the node is still allowed — soft enforcement only).
@@ -325,7 +325,7 @@ def _validate_confidence(confidence: Any) -> float:
 
 
 def _decay_path(port: int) -> Path:
-    """Sidecar with effective_confidence per node, computed by Noter."""
+    """Sidecar with effective_confidence per node, computed by Ethics."""
     return _draft_dir(port) / "decay.json"
 
 
@@ -498,7 +498,7 @@ def mos_draft_decay_compute() -> dict[str, Any]:
     """Compute decay sidecar at draft/decay.json.
 
     Pure observation: walks every node, records age, support/contradicts edge
-    counts, and effective_confidence. **Does not mutate any node** — Noter is
+    counts, and effective_confidence. **Does not mutate any node** — Ethics is
     forbidden from making claims, so decay is reported, never enforced.
 
     The confidence math uses the full relation vocabulary via
@@ -508,7 +508,7 @@ def mos_draft_decay_compute() -> dict[str, Any]:
     display, plus the summed ``reinforce``/``accelerate`` weights actually fed
     to the decay function.
 
-    Whitelisted to Noter only. Other roles read decay through
+    Whitelisted to Ethics and Gru. Other roles read decay through
     ``mos_draft_summary()`` (which joins the sidecar when present).
     Returns a dict with totals + the path of the written sidecar.
     """
@@ -714,8 +714,8 @@ def mos_draft_query(
 # Claim-bearing node types: only these "should" eventually carry an
 # evidence_tag. Plans / questions / context legitimately have none, so
 # excluding them keeps the unmarked-ratio signal from firing on node types
-# that are not assertions. Reuses the Noter-motif claim set.
-_CLAIM_NODE_TYPES = _NOTER_MOTIF_REQUIRED_TYPES  # {result, decision, hypothesis, insight}
+# that are not assertions. Reuses the curator-motif claim set.
+_CLAIM_NODE_TYPES = _CURATOR_MOTIF_REQUIRED_TYPES  # {result, decision, hypothesis, insight}
 
 
 def _role_unmarked_ratio(
@@ -819,22 +819,24 @@ def mos_draft_append(
             if reel_ctx:
                 node_metadata["reel_ref"] = reel_ctx
 
-        # Motif contract enforcement for Noter nodes (soft — warnings only, no reject).
+        # Motif contract enforcement for curator (Ethics) nodes (soft — warnings only, no reject).
         # Existing nodes without motif_kind are treated as motif_kind="none" for read purposes.
         author_role = node.get("author_role", "") or _env_role()
-        if author_role == "ethics" and ntype in _NOTER_MOTIF_REQUIRED_TYPES:
+        if author_role == "ethics" and ntype in _CURATOR_MOTIF_REQUIRED_TYPES:
             motif_kind = node_metadata.get("motif_kind")
             if not motif_kind:
                 logger.warning(
-                    "noter appending %s node '%s' without motif_kind — "
+                    "ethics appending %s node '%s' without motif_kind — "
                     "prefer mos_draft_annotate to update existing nodes instead",
                     ntype,
                     node.get("id", "<new>"),
                 )
+                # Warning-code key kept byte-stable for the pinned test in
+                # tests/unit/test_draft.py; the human-text log above is updated.
                 node_metadata["warning"] = "noter_node_without_motif_kind"
             elif motif_kind == "none":
                 logger.warning(
-                    "noter appending %s node with motif_kind='none' — "
+                    "ethics appending %s node with motif_kind='none' — "
                     "mos_draft_annotate would be preferred for status updates",
                     ntype,
                 )
@@ -1242,10 +1244,10 @@ def mos_draft_summary() -> dict[str, Any]:
     # Dead ends.
     dead_ends = [n for n in nodes if n.get("type") == "dead_end"]
 
-    # Decay sidecar (computed by Noter via mos_draft_decay_compute).
+    # Decay sidecar (computed by Ethics via mos_draft_decay_compute).
     # Surfaces the most-decayed and most-reinforced nodes so a waking role
     # sees which prior knowledge has weakened or strengthened. Absent until
-    # Noter runs once — degrades cleanly to {} otherwise.
+    # Ethics runs once — degrades cleanly to {} otherwise.
     decay_map = _load_decay(port)
     decay_view: dict[str, Any] = {}
     if decay_map:
@@ -1403,15 +1405,15 @@ def mos_draft_view(
 def mos_draft_commit_shared(message: str | None = None) -> dict[str, Any]:
     """Flush the buffered Draft to a single commit on the shared branch.
 
-    Owned by Noter. The Draft file at
+    Owned by Ethics. The Draft file at
     ``branches/main/draft/draft.json`` is updated freely by every
     role through ``mos_draft_append`` / ``mos_draft_annotate`` (working tree
     only, no commit). This tool performs one auditable commit per call by
     publishing the current Draft state through ``mos_publish_to_shared``.
 
-    Intended use: Noter cron tick (default every 5 minutes — configurable
+    Intended use: Ethics cron tick (default every 5 minutes — configurable
     in ``gru.yaml``). Other roles must not call this themselves; the
-    whitelist binds it to Noter and Gru only.
+    whitelist binds it to Ethics and Gru only.
 
     Returns the publish result dict (``commit_sha``, ``branch``, etc.).
     Raises if the Draft file does not exist or the publish fails.
@@ -1431,7 +1433,7 @@ def mos_draft_commit_shared(message: str | None = None) -> dict[str, Any]:
             "branch": None,
             "skipped": "draft.json does not exist yet",
         }
-    msg = message or f"noter: draft flush {_now_iso()}"
+    msg = message or f"ethics: draft flush {_now_iso()}"
     # mos_publish_to_shared returns a PublishToSharedResult (DictLikeBaseModel)
     # which is read-compatible with dict[str, Any] via __getitem__/get. Cast
     # preserves the existing tool contract while keeping the typed return

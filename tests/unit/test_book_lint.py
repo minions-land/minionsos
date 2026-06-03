@@ -35,7 +35,7 @@ def _mock_publish_file(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object
         rel_dst_under_book: str,
         message: str,
     ) -> dict[str, object]:
-        assert message == "noter: book lint"
+        assert message == "ethics: book lint"
         dst = project_shared_workspace(port) / "book" / rel_dst_under_book
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(abs_src, dst)

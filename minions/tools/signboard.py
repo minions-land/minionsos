@@ -116,9 +116,9 @@ def _env_caller() -> tuple[str, str]:
             "mos_signboard_*: MINIONS_ROLE_NAME not set; "
             "this tool must be called from inside a Role process."
         )
-    # Noter has no EACN agent_id by design — every other role does. For
-    # Gru-side direct uses (where agent_id defaults to "gru") we just
-    # fall back to the role name.
+    # Every registered role has an EACN agent_id. For Gru-side direct uses
+    # (where agent_id defaults to "gru") or any process that did not export
+    # MINIONS_AGENT_ID, we fall back to the role name.
     return (agent_id or role_name, role_name)
 
 

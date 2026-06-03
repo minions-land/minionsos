@@ -1,7 +1,8 @@
 """Review MCP tool: synchronous Area-Chair review run.
 
 Reviewer is no longer a long-lived Role. The review workflow is invoked as a
-single MCP tool call by Gru when Writer submits a manuscript. This module:
+single MCP tool call by Gru when an Expert submits a manuscript (Book→Paper,
+Gru-driven). This module:
 
 1. Parses the accompanying submission checklist and short-circuits with a
    rejection if any Required item is unchecked.
@@ -170,7 +171,7 @@ def _resolve_submission_dir(port: int, submission_path: str) -> Path:
 
     Rejects paths that resolve outside the project's directory — submissions
     must live within ``project_{port}/`` (typically under
-    ``branches/writer/paper/submissions/`` or ``branches/shared/handoffs/``).
+    ``branches/<expert>/paper/submissions/`` or ``branches/shared/handoffs/``).
     """
     p = Path(submission_path)
     if not p.is_absolute():

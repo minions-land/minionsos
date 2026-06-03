@@ -134,13 +134,12 @@ def project_parent_repo_dir(port: int) -> Path:
 def project_workspace_root(port: int) -> Path:
     """Return the branch-dir container for *port*.
 
-    Layout (MinionsOS post-restructure):
+    Layout (MinionsOS v23 three-role):
         project_{port}/branches/
-            main/        # Gru — the main branch checkout
-            coder/       # one checkout per role, one-to-one with a git branch
-            writer/
+            main/            # Gru + the shared surface (the "Book")
+            ethics/          # one checkout per role, one-to-one with a git branch
+            expert-<slug>/   # one per spawned Expert
             ...
-            shared/      # cross-role handoffs (not a branch)
 
     The historical name ``project_workspace_root`` is kept so older callers
     compile; new code should treat the returned directory as "branches".

@@ -6,7 +6,7 @@ Subcommands:
   doctor          — environment check
   upgrade         — pull latest + incremental install
   config          — print paths / open config dir
-  noter           — read-only project Noter terminal
+  noter           — read-only project observatory terminal
   project list|kill|close|revive [PORT]
   role list|dismiss [PORT] [NAME]
   wipe [PORT]     — wipe project data (EACN DB + artifacts)
@@ -1017,7 +1017,7 @@ def noter_cmd(
     task_offset: int = typer.Option(0, "--task-offset", help="Offset into newest-first tasks."),
     task_status: str | None = typer.Option(None, "--task-status", help="Filter tasks by status."),
 ) -> None:
-    """Run a read-only Noter terminal for one project."""
+    """Run a read-only project observatory terminal for one project."""
     from minions.lifecycle.noter_terminal import run_noter_terminal
 
     try:
