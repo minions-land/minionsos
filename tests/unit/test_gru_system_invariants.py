@@ -102,15 +102,16 @@ class TestGruSystemInvariants:
         assert "task/message" in t
         assert "visible collaboration graph" in t
 
-    def test_gru_delegates_system_maintenance_code_to_coder(self) -> None:
+    def test_gru_delegates_system_maintenance_code_to_expert(self) -> None:
         t = _text()
         collapsed = " ".join(t.split())
         assert "Do not patch MinionsOS runtime code yourself" in t
         assert "System-maintenance delegation" in t
-        # The maintenance handoff goes via direct message — Coder posts
-        # its own task, Gru does not.
+        # The maintenance handoff goes via direct message — the Expert posts
+        # its own task, Gru does not. (Coder retired in v23; Experts own
+        # system-maintenance + experiments.)
         assert "eacn3_send_message" in t
-        assert "Coder posts its own EACN task" in collapsed
+        assert "Expert posts its own EACN task" in collapsed
         assert "instead of patching it yourself" in t
 
     def test_forbids_periodic_idle_self_thinking(self) -> None:
