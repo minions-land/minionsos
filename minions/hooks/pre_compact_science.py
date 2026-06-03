@@ -7,9 +7,9 @@ spawned via mos_spawn_expert). For every other surface — dev-Claude
 hacking MinionsOS itself, the Gru supervisor, vanilla claude shells
 that happened to land in this repo, or Role subagents — the hook
 passthroughs ``custom_instructions`` so Claude Code uses its default
-summarization. The Draft / Book / Shelf prompt only makes sense when
+summarization. The Draft / Book prompt only makes sense when
 the post-compact agent is the same Role main process re-entering its
-forever-loop, and the resume contract (mos_draft_summary →
+forever-loop, and the resume contract (mos_draft_view →
 mos_await_events) only makes sense in that exact
 context. See ``_is_role_main()`` below for the gate.
 
@@ -24,8 +24,7 @@ Design goals (in priority order):
    turn until the next compact.  We push the model to **cite IDs and paths**
    instead of inlining node bodies, evidence text, Book pages, or
    experiment reports.  The agent re-fetches any of those in one MCP call
-   (``mos_draft_view`` /
-   ``mos_book_query`` / ``mos_shelf_query``) far more cheaply than
+   (``mos_draft_view`` / ``mos_book_query``) far more cheaply than
    carrying them inline.
 
 2. Cache safety.  This hook does not touch settings, working directory,
@@ -37,7 +36,7 @@ Design goals (in priority order):
 
 3. Recoverability.  ``mos_compact_context`` already persists pending plans
    to the Draft **before** scheduling ``/compact``.  This hook trusts
-   the Draft / Book / Shelf as ground truth and asks the compact
+   the Draft / Book as ground truth and asks the compact
    model to produce a *pointer-shaped* summary, not a reconstructable
    transcript.
 
@@ -76,7 +75,7 @@ def _resume_tool() -> str:
 
 # Roles where the science-compact prompt is the wrong shape:
 #   - Gru is the supervisor, not a science agent. Its compact should keep
-#     standard summarization, not be redirected to Draft / Book / Shelf
+#     standard summarization, not be redirected to Draft / Book
 #     and a forever-loop resume contract.
 #   - Empty MINIONS_ROLE_NAME means this is a non-Role surface entirely
 #     (dev-Claude editing MinionsOS itself, or a vanilla claude session
@@ -222,8 +221,8 @@ def main() -> None:
         # supply the science brief. Never block the compact.
         existing = ""
 
-    # Scope gate: this hook installs the L1/L2/L3-aware compact prompt and
-    # the "first tool call must be mos_draft_summary then resume" contract.
+    # Scope gate: this hook installs the L0/L1/L2-aware compact prompt and
+    # the "first tool call must be mos_draft_view then resume" contract.
     # Both are *only* correct for a science Role main process. For:
     #   - dev-Claude editing MinionsOS itself,
     #   - Gru (the supervisor, not a science agent),

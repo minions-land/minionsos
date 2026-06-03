@@ -2,9 +2,9 @@
 
 The book-to-paper skill (minions/roles/common/skills/book-to-paper.md) maps
 Book-layout directories to paper sections. Its generation step is LLM-driven
-and validated empirically (docs/Reconstruction/book2paper-validation/), so it
-cannot be unit-tested for output quality. But the *coupling* between the skill's
-consumed layout and the layout the worktree actually seeds CAN be pinned:
+and validated empirically, so it cannot be unit-tested for output quality. But
+the *coupling* between the skill's consumed layout and the layout the worktree
+actually seeds CAN be pinned:
 
     skill consumes:  Book.md, logic/, src/, evidence/  (+ proposal/)
     worktree seeds:  SHARED_SUBDIRS in _project_worktree.py
@@ -85,3 +85,31 @@ def test_book_to_paper_skill_names_layer_sources() -> None:
             f"book-to-paper skill's section map no longer references '{layer}' — "
             f"the Book→Paper layer mapping has drifted from the real layout"
         )
+
+
+def test_book_to_paper_skill_pins_comment_provenance_rule() -> None:
+    """The skill must require Book provenance as %-comments, invisible in the PDF.
+
+    User contract: every paper sentence traces to a Book source, but that source
+    index must live in LaTeX `%` comments (stripped by the compiler) — never as
+    visible body text. If a careless edit drops this rule, generated papers would
+    either lose traceability or leak the source index into the rendered PDF.
+    """
+    body = _skill_body()
+    # The rule must name the %-comment mechanism and the [VERIFY] header shape.
+    assert "% [VERIFY]" in body, (
+        "book-to-paper skill no longer specifies the `% [VERIFY]` provenance "
+        "header — Book→Paper provenance comments are unpinned"
+    )
+    # It must state the load-bearing property: comments are stripped from the PDF.
+    body_lower = body.lower()
+    assert "stripped" in body_lower and "pdf" in body_lower, (
+        "book-to-paper skill no longer states that `%` provenance comments are "
+        "stripped from the PDF — the invisible-to-reader guarantee is unpinned"
+    )
+    # Visible provenance must be called out as an anti-pattern.
+    assert "visible provenance" in body_lower, (
+        "book-to-paper skill no longer flags 'visible provenance' as an "
+        "anti-pattern — rendered source indexes could leak into the PDF"
+    )
+

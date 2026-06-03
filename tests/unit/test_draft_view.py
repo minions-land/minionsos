@@ -4,8 +4,6 @@ The role-facing Draft read surface was collapsed to one tool, mos_draft_view,
 and hot.md was removed. This pins that the unified view answers every question
 the old summary / query / relevant / topic_index answered, on a realistic
 multi-role Draft — so cold-start orientation never silently regresses.
-
-A measured, runnable version lives at docs/Reconstruction/verify_draft_view.py.
 """
 
 from __future__ import annotations

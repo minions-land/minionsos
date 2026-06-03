@@ -40,6 +40,47 @@ detail from `logic/solution/` or `src/`. If the Book does not support a
 sentence, you do not write it — you flag the gap. This is what keeps the
 generated paper honest (no over-claim) and is the property validation checks.
 
+### Source provenance lives in `%` comments, never in the rendered PDF
+
+Every `sections/*.tex` file carries its Book provenance as **LaTeX comment
+lines (`%`) at the top of the section and inline next to non-obvious claims**.
+This is a hard requirement of the Book→Paper contract:
+
+- **The provenance is for the author + Ethics audit, not the reader.** It
+  records which Book sources (`problem.md`, claim ids `C01-C03`, `evidence/`
+  table ids, `reel_ref` pointers) each passage was derived from, so any
+  sentence can be traced back to its grounding when the paper is audited or
+  revised.
+- **`%`-commented lines are stripped by the LaTeX compiler** — they never
+  reach `paper.pdf`. A reviewer or a published reader sees only the prose; the
+  source index is invisible to them. This is deliberate: the manuscript must
+  read as a normal paper, the provenance must survive in the `.tex` (and thus
+  in git history), and the two must never mix.
+- **Never render provenance as visible text** — no "(Source: claims.md C01)"
+  in the body, no footnote citing a Book path, no `\todo{}` that typesets. If
+  it traces to the Book rather than to a `\cite`d external reference, it goes
+  in a `%` comment.
+
+Standard shape at the top of each `sections/<name>.tex`:
+
+```latex
+% [VERIFY] <section> -- <Book sources: problem.md O1-O5, Book.md overview, claims C01-C03>
+% <MODALITY/SCOPE GUARD: any honesty constraint carried from the Book, e.g.
+%  "degradation->optimization is argue/unlikely, NOT ruled out (C01 interp, O3)">
+\section{...}
+```
+
+Inline, next to a specific claim whose grounding is not obvious:
+
+```latex
+% claims.md C08 + evidence/tables/table3 (exact top-1 numbers, do not round)
+a 152-layer residual net ... has $3.57\%$ top-5 error ...
+```
+
+The coverage report (step 6) is the *machine-checkable* ledger; these
+`%` comments are the *in-place* ledger a human editor reads while revising the
+`.tex` directly. Both are required — they serve different readers.
+
 ### Honesty sub-rules (round-1 validation hardened these)
 
 These are the specific ways a Book→Paper run drifts into over-claim. Each is a
@@ -139,7 +180,10 @@ each gates the next and the final return is a compiled PDF + a coverage report.
 2. **Seed the LaTeX skeleton.** Use `make-latex-model` to lay down
    `branches/<role>/paper/main.tex` + `sections/*.tex` + `references.bib` +
    `figures/`. One `sections/<name>.tex` per section in the fixed order.
-3. **Draft each section** (apply the mapped writer skill):
+3. **Draft each section** (apply the mapped writer skill). As you write each
+   `sections/<name>.tex`, open it with the `% [VERIFY] ...` provenance header
+   and drop inline `%` source comments next to non-obvious claims (see "Source
+   provenance lives in `%` comments" above — these are stripped from the PDF):
    - *Abstract* — distill `Book.md` abstract + claims_summary; ≤ ~200 words.
    - *Introduction* — `problem.md` arc (observation → gap → insight), state
      the headline contributions = the top claims, forward-reference evidence.
@@ -176,6 +220,12 @@ each gates the next and the final return is a compiled PDF + a coverage report.
   `paper.pdf` from real LaTeX (see `paper-compile`).
 - **Fabricated citations**: every `\cite` must map to a real `related_work.md`
   entry with a DOI/key (Ethics audits this).
+- **Visible provenance**: a Book source index ("Source: claims.md C01",
+  "see evidence/table3") rendered as body text, a footnote, or any typeset
+  element. Provenance is `%`-commented only — it must not reach the PDF.
+- **Missing provenance**: a `sections/*.tex` with no `% [VERIFY]` header, or a
+  non-obvious claim with no inline `%` source comment. Untraceable prose is a
+  defect even when it happens to be correct.
 
 ## Validation protocol (how this skill earns trust — 实践出真理)
 

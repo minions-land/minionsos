@@ -89,13 +89,15 @@ research projects.
 - **Tool and write boundaries.** Claude roles receive `--allowed-tools`;
   MinionsOS additionally enforces project-lifecycle authorization inside its
   MCP server. Each Role owns `branches/<role>/`; cross-role artefacts always
-  travel through `branches/shared/<subdir>/` via `mos_publish_to_shared`.
+  travel through `branches/main/<subdir>/` via `mos_publish_to_shared`.
 - **Layered memory.** Role context is reconstructed from the current
-  invocation, the Reel (L0, raw verbatim transcripts), the Draft
-  (`branches/shared/draft/draft.json`), the compiled-knowledge Book
-  (`branches/shared/book/`), the cross-project Shelf, shared artefacts
-  under `branches/shared/<subdir>/`, EACN history, and project `CLAUDE.md`.
-  See [docs/reel-l0-memory.md](docs/reel-l0-memory.md) for the L0 design.
+  invocation, the Reel (L0, raw verbatim transcripts at
+  `branches/<role>/reel/`), the Draft (L1, the single team process graph at
+  `branches/main/draft/draft.json`), and the compiled-knowledge Book (L2, the
+  main-branch paper-shaped package at `branches/main/book/`), plus shared
+  artefacts under `branches/main/<subdir>/`, EACN history, and project
+  `CLAUDE.md`. See [MANUAL/domains/reel-l0-memory.md](MANUAL/domains/reel-l0-memory.md)
+  for the L0 design.
 - **Skill discovery and domain assets.** Role skills live in
   `minions/roles/{role}/skills/*.md`; Expert domain-pack assets live in
   `minions/domains/*.md`.
@@ -104,8 +106,7 @@ research projects.
   `skill-forge` (orchestrator validates) → Library / Expert roster — evolves
   Skills (add/revise/merge/split/drop) and Experts (spawn/dismiss/merge/split)
   from project trajectory. Backed by `mos_role_split`, `mos_role_merge`,
-  `mos_role_evolve_evaluate`, `mos_role_evolve_dismiss` MCP tools. See
-  `docs/research/role-evolution-experiments.md` for the empirical basis.
+  `mos_role_evolve_evaluate`, `mos_role_evolve_dismiss` MCP tools.
 - **Visual format check.** `mos_visual_render` / `mos_visual_inspect` /
   `mos_visual_check` rasterize a PDF and detect layout defects (column void,
   trailing whitespace, edge overflow, float clustering). Available to every
@@ -176,10 +177,7 @@ minions/
 minions-viz/                # read-only React/Vite dashboard
 mcp-servers/                # standalone MCP servers
   eacn3/                    # local editable EACN3 dependency (Python + Node plugin)
-docs/                       # delivery docs
-  reel-l0-memory.md         #   L0 Reel layer design + tool surface
-  integrations/             #   plug-in guides (claude-code, eacn3)
-  research/                 #   empirical bases for runtime decisions
+MANUAL/                     # on-demand reference for Role agents (lookup.py)
 tests/unit/                 # fast behavior tests
 tests/smoke/                # integration-style smoke checks
 ```
@@ -333,14 +331,15 @@ Logs:
 
 ### Roles
 
+The default `scientific-paper` profile bootstraps **three** role kinds. The
+heavy science work (code, experiments, paper drafting) is done by spawnable
+Experts, not by a fixed Coder/Writer roster.
+
 | Role | Responsibility | Primary write scope |
 |---|---|---|
-| Gru | Global supervisor, human interface, project lifecycle, cross-project bridge | `branches/main/`, `branches/shared/<any>/` |
-| Noter | Timeline, checkpoints, summaries, Draft curation, Book maintenance | `branches/noter/`, `branches/shared/notes/`, `branches/shared/draft/draft.json`, `branches/shared/book/` |
-| Coder | Code maintenance, debugging, experiment dispatch, remote execution, result collection | `branches/coder/`, `branches/shared/exp/`, `branches/shared/handoffs/`, `branches/shared/governance/` |
-| Writer (on-demand) | Paper drafting, packaging, rebuttal, camera-ready work | `branches/writer/`, `branches/shared/handoffs/`, `branches/shared/governance/` |
-| Ethics | Evidence audit, unsupported-claim detection over Coder's code/experiments | `branches/ethics/`, `branches/shared/ethics/`, `branches/shared/handoffs/`, `branches/shared/governance/` |
-| Expert | Domain consultation with optional packs such as `nlp`, `cv`, `theory` | `branches/expert-<slug>/` (read-mostly), `branches/shared/handoffs/`, `branches/shared/governance/` |
+| Gru | Global supervisor, human interface, project lifecycle, cross-project bridge, runs `mos_review_run`, promotes Ethics-sealed content into the Book | `branches/main/`, `branches/main/<any>/` |
+| Ethics | Memory curator (Draft→Book ingest + ratify), evidence/claim audit, contradiction adjudication | `branches/ethics/`, `branches/main/ethics/`, `branches/main/book/`, `branches/main/draft/draft.json`, `branches/main/handoffs/`, `branches/main/governance/` |
+| Expert (×N, spawnable) | General science work — domain reasoning, code + experiments (`mos_exp_*`), paper drafting (Book→Paper) — with optional domain packs such as `nlp`, `cv`, `theory` | `branches/expert-<slug>/`, `branches/main/exp/`, `branches/main/handoffs/`, `branches/main/governance/` |
 
 Role prompts are stored at `minions/roles/{role}/SYSTEM.md`. The shared Role
 contract at `minions/roles/SYSTEM.md` is injected before each role-specific
@@ -351,9 +350,9 @@ Paper review is **not** a Role: review prompt assets (system prompt, skills,
 personas, templates) live under `minions/review/`, and a round is run by
 Gru's `mos_review_run` MCP tool which writes `reviewer-instance.md`,
 `fresh.md`, `revision_delta.md`, `consolidated.md`, and
-`summaries/round-<n>.md` under `branches/shared/reviews/round-<n>/`. Reviewer
-audits Writer's paper submissions; Ethics audits Coder's code and experiments
-— do not conflate the two.
+`summaries/round-<n>.md` under `branches/main/reviews/round-<n>/`. Review
+audits a submitted paper (Book→Paper output); Ethics audits the underlying
+evidence and claims in the Draft/Book — do not conflate the two.
 
 **Stewardship layer.** Two of the Roles also act as the system's stewardship
 layer for the autonomous-evolution pipeline below: Noter's
@@ -383,8 +382,7 @@ Sonnet, never makes business decisions), the auditor (Ethics, reads
 artefacts not prompts), the validator (skill-forge, blind A/B testing),
 and the consumer Roles all draw from different parametric
 distributions, which is the property the pipeline needs to actually reduce
-multi-agent error rates. See `docs/research/role-evolution-experiments.md`
-for the empirical findings that motivated the Agent-axis triggers, and
+multi-agent error rates. See
 `minions/CLAUDE.md` "Skill and Agent population evolution" for the full Gru
 intake contract.
 
@@ -749,13 +747,13 @@ proprietary/internal until a license is added.
   跨项目桥接的组件。
 - **工具与写入边界。** Claude Role 通过 `--allowed-tools` 限制工具面；
   MinionsOS MCP server 在服务端额外执行项目生命周期工具授权。每个 Role 拥有
-  自己的 `branches/<role>/`；跨角色产物始终经由 `branches/shared/<subdir>/`
+  自己的 `branches/<role>/`；跨角色产物始终经由 `branches/main/<subdir>/`
   通过 `mos_publish_to_shared` 流转。
 - **分层记忆。** Role 上下文来自当前事件、Reel（L0，`branches/<role>/reel/`
-  原始 verbatim 转录）、Draft（`branches/shared/draft/draft.json`）、
-  compiled-knowledge Book（`branches/shared/book/`）、跨项目 Shelf、
-  `branches/shared/<subdir>/` 的共享产物、EACN 历史以及项目 `CLAUDE.md`。
-  L0 设计见 [docs/reel-l0-memory.md](docs/reel-l0-memory.md)。
+  原始 verbatim 转录）、Draft（L1，唯一团队过程图，`branches/main/draft/draft.json`）、
+  compiled-knowledge Book（L2，主分支论文形态产物，`branches/main/book/`）、
+  `branches/main/<subdir>/` 的共享产物、EACN 历史以及项目 `CLAUDE.md`。
+  L0 设计见 [MANUAL/domains/reel-l0-memory.md](MANUAL/domains/reel-l0-memory.md)。
 - **Skill 发现和领域资产。** Role 技能放在 `minions/roles/{role}/skills/*.md`；
   Expert 领域包资产放在 `minions/domains/*.md`。
 - **双轴自演化。** 一条 4 阶段去相关流水线 —— `skill-curator`（Noter 提案）
@@ -763,8 +761,7 @@ proprietary/internal until a license is added.
   Expert roster —— 从项目轨迹中演化 Skill（add/revise/merge/split/drop）和
   Expert（spawn/dismiss/merge/split）。背后由 `mos_role_split`、
   `mos_role_merge`、`mos_role_evolve_evaluate`、`mos_role_evolve_dismiss`
-  等 MCP 工具支持。经验依据见
-  `docs/research/role-evolution-experiments.md`。
+  等 MCP 工具支持。
 - **视觉格式检查。** `mos_visual_render` / `mos_visual_inspect` /
   `mos_visual_check` 把 PDF 栅格化并检测版式缺陷（栏内空洞、尾部留白、
   越界、浮动堆积等）。所有 EACN 上的 Role 都可调用，报告留存于
@@ -832,10 +829,7 @@ minions/
 minions-viz/                # 只读 React/Vite 仪表盘
 mcp-servers/                # 独立 MCP server
   eacn3/                    # 本地 editable EACN3 依赖（Python + Node 插件）
-docs/                       # 交付文档
-  reel-l0-memory.md         #   L0 Reel 层设计与工具面
-  integrations/             #   集成指南（claude-code / eacn3）
-  research/                 #   运行时设计决策的经验依据
+MANUAL/                     # Role agent 按需查阅的参考库（lookup.py）
 tests/unit/                 # 快速单元测试
 tests/smoke/                # 集成式 smoke 检查
 ```
@@ -1025,8 +1019,7 @@ roster 的演化。四个组件分布在不同的权限层：
 去相关性是结构性的，不是流程上的：提案者（Noter，跑在 Sonnet 上、不参与
 业务决策）、审计者（Ethics，读工件而非 prompt）、验证者（skill-forge，
 盲判 A/B 测试）和被演化的消费 Role 之间，参数分布各不相同——这正
-是一条流水线真能压低多智能体错误率所需要的。Agent 轴触发条件的实证依据
-位于 `docs/research/role-evolution-experiments.md`，完整的 Gru intake
+是一条流水线真能压低多智能体错误率所需要的。完整的 Gru intake
 contract 见 `minions/CLAUDE.md` 的 "Skill and Agent population evolution"。
 
 ### MCP 工具面
