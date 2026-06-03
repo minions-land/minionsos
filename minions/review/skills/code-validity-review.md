@@ -65,6 +65,6 @@ Validity-risk checklist: data leakage, train / test mixups, hardcoded results, b
 - Performing general code review instead of scientific validity review.
 - Inferring a bug from unfamiliar style without tracing execution.
 - Reading historical review context during a fresh Pass A review.
-- Suggesting fixes in any role's branch (e.g. `branches/coder/`, `branches/writer/`); the review session is read-only on role branches and writes only under `branches/main/reviews/`.
+- Suggesting fixes in any role's branch (e.g. `branches/ethics/`, `branches/<expert>/`); the review session is read-only on role branches and writes only under `branches/main/reviews/`.
 - Skipping the nested subagent and doing the trace by hand when it would do it in one shot.
 - Letting the nested subagent *judge* whether a finding invalidates the claim. It returns the trace; the validity verdict stays in this skill.

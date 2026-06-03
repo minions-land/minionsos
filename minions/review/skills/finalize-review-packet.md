@@ -16,7 +16,7 @@ One self-contained markdown packet the project team can act on: notification, me
 
 ## When to invoke
 
-Called by `run-review-round` after `consolidated.md` is drafted. May also be invoked directly when an existing consolidated packet needs verification before being relayed (e.g. before re-pinging Writer).
+Called by `run-review-round` after `consolidated.md` is drafted. May also be invoked directly when an existing consolidated packet needs verification before being relayed (e.g. before re-pinging the submitting Expert).
 
 You do not publish on EACN. You have no EACN tools. The orchestrator process is launched synchronously by `mos_review_run`; when you exit, Gru reads `consolidated.md`, extracts the `## Decision` line, and posts the result on the project's Local EACN.
 
@@ -26,9 +26,9 @@ You do not publish on EACN. You have no EACN tools. The orchestrator process is 
 
 | Decision | Gru relay action |
 |---|---|
-| `Strong Accept` / `Accept` | Notify Writer; suggest camera-ready cleanup |
-| `Weak Accept` / `Borderline` | Notify Writer with revision asks; route evidence/code/experiment follow-ups to Expert / Coder |
-| `Weak Reject` / `Reject` / `Strong Reject` | Notify Writer with substantive revision requirements |
+| `Strong Accept` / `Accept` | Notify the submitting Expert; suggest camera-ready cleanup |
+| `Weak Accept` / `Borderline` | Notify the submitting Expert with revision asks; route evidence/code/experiment follow-ups to the relevant Expert |
+| `Weak Reject` / `Reject` / `Strong Reject` | Notify the submitting Expert with substantive revision requirements |
 
 ## Procedure
 
