@@ -25,12 +25,12 @@ minions/
 ├── tools/
 │   ├── mcp_server.py        # FastMCP stdio server wrapping lifecycle functions
 │   ├── experiment_ssh.py    # exp_run plus exp_queue_* / exp_gpu_pool_* MCP tools
-│   ├── experiment_scheduler.py # SQLite-backed Coder GPU queue
+│   ├── experiment_scheduler.py # SQLite-backed Expert GPU queue
 │   ├── project_bridge.py    # mos_project_bridge MCP-facing wrapper
 │   └── whitelist.py         # resolve_allowed_tools
 ├── roles/                   # shared contract, role prompts, skills
 │   ├── SYSTEM.md            # common Role contract injected before role-specific prompts
-│   ├── {role}/SYSTEM.md     # gru/noter/coder/writer/ethics/expert
+│   ├── {role}/SYSTEM.md     # gru/ethics/expert (v23 three-role roster)
 │   └── {role}/skills/       # procedural skills discovered at wake-up
 ├── review/                  # paper-review prompt assets used by mos_review_run
 │   ├── SYSTEM.md            # Area-Chair system prompt for the spawned claude --print
@@ -49,9 +49,9 @@ minions/
 
 ## Role lifecycle
 
-Roles are long-lived agent-host processes. EACN-registered roles drive their
-event loop by calling `mos_await_events` on their EACN3 queue; Noter uses
-`mos_noter_wait` (timer-based, not on EACN). Roles are started by
+Roles are long-lived agent-host processes. EACN-registered roles (Ethics,
+Expert) drive their event loop by calling `mos_await_events` on their EACN3
+queue. Roles are started by
 `minions/lifecycle/role_launcher.py` inside their own tmux session.
 
 - `minions/lifecycle/role.py` exposes `register_role` / `register_expert` (registers a project-local EACN AgentCard for EACN roles, prepares the role workspace, and records a named host session; no subprocess launch) and `mos_dismiss_role` / `mos_list_roles`.
@@ -80,7 +80,7 @@ Key design points:
 
 ## How to add a Role skill
 
-Applies to any Role (Writer, Noter, Coder, Ethics, Gru).
+Applies to any Role (Gru, Ethics, Expert).
 
 1. Create `minions/roles/{role}/skills/{slug}.md` where `{slug}` is lowercase hyphen-separated (e.g. `occams-razor.md`, `triage-request.md`, `citation-audit.md`).
 2. Follow the standard structure: H1 title on the first line, a one-line summary on the next non-blank line (used by the discovery mechanism), then `Core move` / `Core question`, `Procedure`, `When to invoke`, `Pitfalls`, `Output habit` (marking derived claims per root `Evidence-first EACN communication`).
@@ -128,15 +128,15 @@ The **Agent-axis** `merge` collapses two Experts whose domains and bid patterns 
    raw trajectory  (Draft, EACN events, shared artefacts)
         │
         ▼
-   skill-curator              ← Noter operates this
+   skill-curator              ← Gru-driven (periodic), kept off Ethics by design
    (~/.claude/skills/skill-curator/)
-        │  branches/shared/notes/skill-proposals.md
+        │  branches/main/notes/skill-proposals.md
         ▼
    skill-audit                ← Ethics operates this
    (minions/roles/ethics/skills/skill-audit.md)
         │  accepted subset  →  notify Gru
         ▼
-   skill-forge (Knowledge) │ mos_spawn_role / mos_dismiss_role / future Agent-axis tools
+   skill-forge (Knowledge) │ mos_spawn_expert / mos_dismiss_role / Agent-axis tools
    (~/.claude/skills/skill-forge/)
         │
         ▼
@@ -146,18 +146,17 @@ The **Agent-axis** `merge` collapses two Experts whose domains and bid patterns 
    feeds back into trajectory for the next curation pass
 ```
 
-The four stages are **structurally decorrelated**: Noter (proposer) is on a different backbone and never makes business decisions; Ethics (auditor) reads the proposal artefact, not Noter's reasoning; skill-forge (validator) runs blind A/B testing; the operating Roles (consumer) only see admitted artefacts. This satisfies the decorrelation principle that makes the multi-agent error rate fall below the single-agent rate (see [research-report.html §XIII-A](../../Skill/research-report.html) for the framework).
+The four stages are **structurally decorrelated**: the curator (proposer) is run as a Gru-driven periodic pass that never makes business decisions and is deliberately not Ethics; Ethics (auditor) reads the proposal artefact, not the proposer's reasoning; skill-forge (validator) runs blind A/B testing; the operating Roles (consumer) only see admitted artefacts. This satisfies the decorrelation principle that makes the multi-agent error rate fall below the single-agent rate.
 
 ### Implementation status
 
 | Component | Status |
 |---|---|
-| Noter `skill-curator-loop` skill | Implemented (`minions/roles/noter/skills/skill-curator-loop.md`) |
-| Global `skill-curator` skill | Implemented (`~/.claude/skills/skill-curator/SKILL.md`) |
+| Global `skill-curator` skill | Implemented (`~/.claude/skills/skill-curator/SKILL.md`); invoked as a Gru-driven periodic pass |
 | Ethics `skill-audit` skill | Implemented (`minions/roles/ethics/skills/skill-audit.md`) |
 | `skill-forge` orchestrator | Implemented (`~/.claude/skills/skill-forge/`) |
 | Knowledge-axis ops (add/revise/merge/split/drop) | Routed through skill-forge — operational |
-| Agent-axis `spawn` / `dismiss` | MCP tools `mos_spawn_role`, `mos_spawn_expert`, `mos_dismiss_role` |
+| Agent-axis `spawn` / `dismiss` | MCP tools `mos_spawn_expert`, `mos_dismiss_role` |
 | Agent-axis `merge` / `split` | MCP tools `mos_role_merge`, `mos_role_split` (plus `mos_role_evolve_evaluate` / `mos_role_evolve_dismiss`); Signboard sign-off still required for `split` |
 
 The Knowledge-axis and Agent-axis evolution surfaces are both fully wired: every op has a backing MCP tool. The remaining discipline lives at the audit gate — `mos_role_split` is consequential enough that Ethics' `skill-audit` skill marks accepted `op: split` proposals as `requires_signboard: true`, and Gru must reach Signboard consensus before invoking the tool.
