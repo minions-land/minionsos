@@ -276,11 +276,10 @@ A review round's Pass A must produce 3-5 independent reviewer-instance reports b
 
 Roles are cold-started each invocation. There are no per-role private memory
 files. Persistent memory spans three layers: Reel(L0) → Draft(L1) → Book(L2).
-Shelf (L3) was retired in v23 rebuild. The reference table for all memory layers — 
-the writers, the file paths, the MCP read tools — lives in **`MANUAL/domains/memory.md`**
-(canonical) and is also discoverable via
-`python3 MANUAL/scripts/lookup.py --domain memory`. Roles fetch that page on
-demand instead of carrying the table in their always-loaded context.
+The reference table for all memory layers — the writers, the file paths, the MCP 
+read tools — lives in **`MANUAL/domains/memory.md`** (canonical) and is also 
+discoverable via `python3 MANUAL/scripts/lookup.py --domain memory`. Roles fetch 
+that page on demand instead of carrying the table in their always-loaded context.
 
 Quick orientation only:
 

@@ -12,8 +12,6 @@ Reel is the lowest layer of MinionsOS's multi-agent memory architecture. It capt
 | **L1 Draft** | Working coordination graph | `branches/shared/draft/draft.json` | All roles | Decay by node type (30d–365d half-life) |
 | **L2 Book** | Compiled durable knowledge | `branches/shared/book/` | All roles read; Noter writes | No decay |
 
-Note: Shelf (L3) was retired in v23 rebuild. Memory is now three-layer: Reel(L0) → Draft(L1) → Book(L2).
-
 L0 is the foundation: every higher layer carries `reel_ref` pointers back to L0, so any auditor can drill down from a high-level claim to the raw execution frame that produced it.
 
 ## Design principles

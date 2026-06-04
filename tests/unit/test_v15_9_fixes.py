@@ -69,11 +69,8 @@ class TestPreCompactResumeProtocol:
 
 
 # ---------------------------------------------------------------------------
-# Issue #11 — Shelf bootstrap at project_create (SUPERSEDED by Memory V2,
-# 2026-05). The shared per-project shelf path was removed; the L3 Shelf
-# is now Gru-aggregated cross-project from Book (V3-pending). We invert the
-# original assertion to guard against a regression that silently re-adds
-# shared/shelf/.
+# Issue #11 — Shelf bootstrap at project_create
+# Guard against regression that would silently re-add shared/shelf/.
 # ---------------------------------------------------------------------------
 
 
@@ -140,8 +137,7 @@ class TestShelfBootstrap:
             create_shared_worktree(port)
             shared = project_shared_workspace(port)
             assert not (shared / "shelf").exists(), (
-                "shared/shelf/ must not be seeded; L3 Shelf is Gru cross-project "
-                "(V3-pending)."
+                "shared/shelf/ must not be seeded"
             )
 
 

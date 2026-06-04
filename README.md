@@ -578,8 +578,7 @@ The persistent cross-cycle memory surfaces are: **Reel** (L0,
 `branches/<role>/reel-index.jsonl` → native Claude session jsonl, auto-captured),
 the **Draft** (L1, `branches/shared/draft/draft.json`, working coordination graph),
 and the **Book** (L2, `branches/shared/book/`, compiled durable knowledge — project-level
-top of Memory). Memory is three-layer: Reel(L0) → Draft(L1) → Book(L2). Shelf (L3)
-was retired in v23 rebuild. Roles reconstruct context at wake-up from
+top of Memory). Roles reconstruct context at wake-up from
 the Book hot cache, Book queries, Draft summary, Reel drill-down (on demand), and
 project `CLAUDE.md`. There is no per-role private memory file.
 
@@ -1199,7 +1198,6 @@ projects/project_{port}/
 **Reel**（L0，`branches/<role>/reel-index.jsonl` → 原生 Claude session jsonl，hook 自动抓取）、
 **Draft**（L1，`branches/shared/draft/draft.json`，工作协调图）、
 **Book**（L2，`branches/shared/book/`，编译后稳定知识，项目级 Memory 顶层）。
-Memory 三层架构：Reel(L0) → Draft(L1) → Book(L2)。Shelf（L3）已在 v23 重建中退役。
 Role 不维护任何 per-role 私有记忆文件；唤醒时依次读取 Book hot cache → Book query → Draft summary → Reel（按需钻入）以及项目 `CLAUDE.md`。
 
 ### MinionsVIZ

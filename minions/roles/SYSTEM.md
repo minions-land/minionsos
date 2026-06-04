@@ -371,7 +371,7 @@ memory file**. Reconstruct state from: current transcript + Draft
 summary (especially `pending_plan` nodes) + EACN history + shared
 artefacts.
 
-Four layers exist. The canonical reference is
+Three layers exist. The canonical reference is
 `lookup.py --domain memory`.
 
 - **L0 Reel** — raw subagent transcripts at `branches/<role>/reel/`;
@@ -384,7 +384,6 @@ Four layers exist. The canonical reference is
   `branches/main/book/`. Cold-start orientation comes from
   `mos_draft_view()` over the Draft; the Book is read on demand via
   `mos_book_query`. Ethics curates both from Draft.
-- **No L3** — Shelf retired in v23 rebuild. Reel(L0) → Draft(L1) → Book(L2).
 
 ### Wake-orient sequence (refines §3 step 1)
 
