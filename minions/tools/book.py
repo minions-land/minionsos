@@ -193,6 +193,16 @@ class BookQueryResult(DictLikeBaseModel):
     queried: str = Field(description="The raw query text the caller passed in.")
 
 
+# ============================================================================
+# SECTION 2: Core Helper Functions (lines ~180-700)
+# ============================================================================
+# - Path resolution (_book_root, _sources_dir, etc.)
+# - Port/environment helpers (_env_port, _resolve_port)
+# - Utility functions (_now_iso, _atomic_write_text, _quoted, _validate_component)
+# - Frontmatter parsing and rendering
+# - File I/O helpers
+# ============================================================================
+
 def _book_root(port: int) -> Path:
     return project_shared_subdir(port, "book")
 
@@ -1502,6 +1512,14 @@ def _emit_contradiction_dag_edges(port: int, contradictions: list[dict[str, obje
     return int(result.get("created_edge_count", 0))
 
 
+# ============================================================================
+# SECTION 3: Public API - Ingest Functions (lines ~1505-1970)
+# ============================================================================
+# - mos_book_ingest: Ingest single source into Book
+# - mos_book_ingest_batch: Batch ingest multiple sources
+# - Related helpers: _render_source_frontmatter, _append_to_log, etc.
+# ============================================================================
+
 def mos_book_ingest(
     src_path: str,
     source_role: str,
@@ -1967,6 +1985,13 @@ def _node_cited_in_book(book_root: Path, node_id: str) -> bool:
     return False
 
 
+# ============================================================================
+# SECTION 4: Public API - Promote Functions (lines ~1970-2280)
+# ============================================================================
+# - mos_book_promote_verified: Promote verified content to Book
+# - mos_book_ratify: Ethics ratification of Book pages
+# ============================================================================
+
 def mos_book_promote_verified(
     *,
     min_age_days: float = 7.0,
@@ -2276,6 +2301,15 @@ def mos_book_crystallize_session(
         "char_count": len(body),
     }
 
+
+# ============================================================================
+# SECTION 5: Public API - Query Functions (lines ~2280-2610)
+# ============================================================================
+# - mos_book_query: BM25-based retrieval over Book pages
+# - mos_book_crystallize_session: Session crystallization
+# - mos_book_save_synthesis: Save synthesis results
+# - Related: _bm25_scores, _tokenize_for_bm25
+# ============================================================================
 
 def mos_book_query(
     text: str,
@@ -2610,6 +2644,13 @@ def mos_book_ratify(
     }
 
 
+# ============================================================================
+# SECTION 6: Public API - Questions & Dead Ends (lines ~2610-2775)
+# ============================================================================
+# - mos_book_open_question: Record open research questions
+# - mos_book_dead_end: Record refuted claims (negative knowledge)
+# ============================================================================
+
 def mos_book_open_question(
     question: str,
     *,
@@ -2768,6 +2809,14 @@ def mos_book_dead_end(
         "publish_result": publish_result,
     }
 
+
+# ============================================================================
+# SECTION 7: Public API - Audit & Contradiction (lines ~2775-3050)
+# ============================================================================
+# - mos_book_audit_walk: Walk Book pages for audit
+# - mos_book_resolve_contradiction: Resolve contradictions
+# - Contradiction detection helpers
+# ============================================================================
 
 def mos_book_audit_walk(
     *,
@@ -3047,6 +3096,13 @@ def _update_frontmatter_field(text: str, field: str, value: str) -> str:
         return text
     return "\n".join(new_lines).rstrip() + "\n"
 
+
+# ============================================================================
+# SECTION 8: Public API - Lint & Validation (lines ~3050-3099)
+# ============================================================================
+# - mos_book_lint: Comprehensive Book integrity checks
+# - Edge scanning and validation helpers
+# ============================================================================
 
 def mos_book_lint(*, port: int | None = None) -> dict[str, object]:
     """Audit ``book/`` for structural health.
