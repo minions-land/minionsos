@@ -45,6 +45,12 @@ from minions.paths import (
     project_workspace_root,
 )
 from minions.tools._returns import DictLikeBaseModel
+from minions.tools.book_utils import (
+    atomic_write_text as _atomic_write_text,
+    now_iso as _now_iso,
+    quoted as _quoted,
+    validate_component as _validate_component,
+)
 from minions.tools.publish import mos_publish_files_to_shared, mos_publish_to_shared
 
 logger = logging.getLogger(__name__)
@@ -212,21 +218,6 @@ def _env_port() -> int:
     if not raw:
         raise BookError("MINIONS_PROJECT_PORT not set")
     return int(raw)
-
-
-def _now_iso() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds")
-
-
-def _atomic_write_text(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    os.replace(tmp, path)
-
-
-def _quoted(value: str) -> str:
-    return json.dumps(value, ensure_ascii=False)
 
 
 def _render_v2_frontmatter(
