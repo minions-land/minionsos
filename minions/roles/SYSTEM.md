@@ -364,7 +364,7 @@ Before either, follow the `cognitive-checkpoint` skill.
 
 ---
 
-## §6. Memory layers (L0–L3) — a single-paragraph orientation
+## §6. Memory layers (L0–L2) — a single-paragraph orientation
 
 Roles are cold-started each invocation. There is **no per-role private
 memory file**. Reconstruct state from: current transcript + Draft

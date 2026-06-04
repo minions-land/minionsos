@@ -2,7 +2,7 @@
 
 ## Concept
 
-Reel is the lowest layer of MinionsOS's multi-agent memory architecture. It captures **verbatim transcripts** of every subagent dispatch, providing the unalterable audit trail that backs every Draft node, Book page, and Shelf entry.
+Reel is the lowest layer of MinionsOS's multi-agent memory architecture. It captures **verbatim transcripts** of every subagent dispatch, providing the unalterable audit trail that backs every Draft node and Book page.
 
 **Memory stack:**
 
@@ -11,8 +11,8 @@ Reel is the lowest layer of MinionsOS's multi-agent memory architecture. It capt
 | **L0 Reel** | Raw verbatim session traces | `branches/<role>/reel/<session_id>/` | Role-private (Gru cross-role) | Indefinite, archive-marked after 30d if unreferenced |
 | **L1 Draft** | Working coordination graph | `branches/shared/draft/draft.json` | All roles | Decay by node type (30d–365d half-life) |
 | **L2 Book** | Compiled durable knowledge | `branches/shared/book/` | All roles read; Noter writes | No decay |
-| **L3 Shelf** | Cross-project structural index | `~/.minionsos/shelf.json` | Gru only | No decay |
-| **L4 Library** (future) | Global federated project archive | EACN3 network | Public (federated) | Forever |
+
+Note: Shelf (L3) was retired in v23 rebuild. Memory is now three-layer: Reel(L0) → Draft(L1) → Book(L2).
 
 L0 is the foundation: every higher layer carries `reel_ref` pointers back to L0, so any auditor can drill down from a high-level claim to the raw execution frame that produced it.
 

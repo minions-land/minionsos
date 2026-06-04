@@ -10,16 +10,15 @@ related: [mos_draft_view, mos_book_query, mos_reel_get, mos_book_ratify, mos_boo
 status: stable
 ---
 
-# Domain: Memory (Draft / Book / Shelf / Reel)
+# Domain: Memory (Draft / Book / Reel)
 
-Four layers, top-down:
+Three layers, top-down:
 
 | Layer | What | Who writes | File |
 |---|---|---|---|
 | **L0 Reel** | flat index → native Claude/Codex session jsonl | hook (auto) | `branches/<role>/reel-index.jsonl` |
 | **L1 Draft** | process graph: hypotheses, plans, evidence, support edges | every EACN role | `branches/shared/draft/draft.json` |
 | **L2 Book** | durable compiled knowledge, citation-shaped | Ethics only | `branches/shared/book/sources/*.md` |
-| **L3 Shelf** | Gru cross-project structural index (V3-pending) | Gru | `~/.minionsos/shelf.json` |
 
 ## Top tools
 
@@ -78,14 +77,12 @@ Who can read and write each memory layer:
 | **Reel-Index (L0)** | RW | — | — | R (cross-role) | R (cross-role) |
 | **Draft (L1)** | RW own nodes | R (all nodes) | RW nodes + edge writes + status annotates | R + status writes (ratify) | R |
 | **Book (L2)** | R | R | — | RW (sole writer) + ratify (`mos_book_ratify`) | R |
-| **Shelf (L3, cross-proj)** | — | — | — | — | RW |
 
 ### Prose clarifications
 
 - **Reel-Index reads beyond self** are restricted to Ethics and Gru. Peer roles (Coder reading Expert reel) are denied. Noter has no reel access at all — it observes the project through `events/*.jsonl` and the Draft/Book surfaces.
 - **Draft** is fully readable team-wide. Any EACN-visible role appends nodes and edges for their own work via `mos_draft_append`. Notable write distinctions: Noter writes `pending_plan` nodes and graph edges as first-class operations; Ethics writes `support_status` fields (ratification/refutation) on any node via `mos_draft_annotate`.
 - **Book** is single-writer: only Ethics ingests pages and saves syntheses. Ethics also gates knowledge promotion via `mos_book_ratify` (Stream 3). All other roles read via `mos_book_query`.
-- **Shelf** is cross-project Gru territory. It is out of scope for single-project memory operations.
 - **Wake-up reading habit (not an authz boundary):** Roles SHOULD prefer Book over Draft at wake-up — Book is the progressive-disclosure distillation of Draft conclusions. But the authz rule is "Book is readable by all"; it is not enforced as a required read order.
 
 ## Full surface

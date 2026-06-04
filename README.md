@@ -395,14 +395,6 @@ mos_kill_role
 mos_list_roles
 ```
 
-**Gru-only — cross-project Shelf (L3, V3-pending):**
-
-```text
-mos_shelf_register        # stub: activates when V3 defines per-project source format
-mos_shelf_query
-mos_shelf_shared_concepts
-```
-
 **Role event loop and context:**
 
 ```text
@@ -574,7 +566,6 @@ projects/project_{port}/
         log.md                  #   append-only ingest/lint journal
         sources/                #   one page per ingested artifact
         contradictions/         #   auto-detected claim conflicts
-      # (no shelf/ dir — L3 Shelf is cross-project only, Gru-maintained)
   eacn3_data/eacn3.db           # per-project EACN3 SQLite database
   events/                       # per-agent EACN event JSONL audit stream
   state/                        # runtime control state (shared.lock, .reset_markers/)
@@ -586,9 +577,9 @@ projects/project_{port}/
 The persistent cross-cycle memory surfaces are: **Reel** (L0,
 `branches/<role>/reel-index.jsonl` → native Claude session jsonl, auto-captured),
 the **Draft** (L1, `branches/shared/draft/draft.json`, working coordination graph),
-the **Book** (L2, `branches/shared/book/`, compiled durable knowledge — project-level
-top of Memory), and the **Shelf** (L3, cross-project only, Gru-maintained, V3-pending).
-Single-project Memory tops out at Book. Roles reconstruct context at wake-up from
+and the **Book** (L2, `branches/shared/book/`, compiled durable knowledge — project-level
+top of Memory). Memory is three-layer: Reel(L0) → Draft(L1) → Book(L2). Shelf (L3)
+was retired in v23 rebuild. Roles reconstruct context at wake-up from
 the Book hot cache, Book queries, Draft summary, Reel drill-down (on demand), and
 project `CLAUDE.md`. There is no per-role private memory file.
 
@@ -1025,14 +1016,6 @@ mos_kill_role
 mos_list_roles
 ```
 
-**仅 Gru 可用——跨项目 Shelf（L3，V3 待实现）：**
-
-```text
-mos_shelf_register        # stub：V3 定义 per-project 源格式后激活
-mos_shelf_query
-mos_shelf_shared_concepts
-```
-
 **Role 事件循环与上下文：**
 
 ```text
@@ -1204,7 +1187,6 @@ projects/project_{port}/
         log.md                  #   ingest/lint append-only 日志
         sources/                #   每个被收录工件一个页面
         contradictions/         #   自动检测的论断冲突
-      # (无 shelf/ 目录——L3 Shelf 仅跨项目，由 Gru 维护)
   eacn3_data/eacn3.db           # 项目独立的 EACN3 SQLite 数据库
   events/                       # 每 agent 的 EACN 事件 JSONL 审计流
   state/                        # 运行时控制状态（shared.lock、.reset_markers/）
@@ -1217,7 +1199,7 @@ projects/project_{port}/
 **Reel**（L0，`branches/<role>/reel-index.jsonl` → 原生 Claude session jsonl，hook 自动抓取）、
 **Draft**（L1，`branches/shared/draft/draft.json`，工作协调图）、
 **Book**（L2，`branches/shared/book/`，编译后稳定知识，项目级 Memory 顶层）。
-**Shelf**（L3）仅限跨项目，由 Gru 维护，V3 待实现；单项目场景下 Memory 到 Book 为止。
+Memory 三层架构：Reel(L0) → Draft(L1) → Book(L2)。Shelf（L3）已在 v23 重建中退役。
 Role 不维护任何 per-role 私有记忆文件；唤醒时依次读取 Book hot cache → Book query → Draft summary → Reel（按需钻入）以及项目 `CLAUDE.md`。
 
 ### MinionsVIZ

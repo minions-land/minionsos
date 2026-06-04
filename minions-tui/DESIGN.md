@@ -87,7 +87,7 @@ sidesteps the resize hell.
 | 3 | **Session cockpit** (core, MVP) | role log tail + capture-pane live screen + REPL state | browse one-by-one → capture-pane live multi-pane → send-keys drive → full takeover |
 | 4 | Role evolution | `governance/role_evolution.jsonl` recommendation stream | evaluate / split / merge / evolve-dismiss (Gru-only) |
 | 5 | Experiment queue | `exp_queue_status` + GPU pool + `exp/` bundles | submit / run / tail / kill / GPU-pool config |
-| 6 | Memory 4 layers | L0 Reel / L1 Draft graph / L2 Book (hot.md + contradictions) / L3 Shelf | read + drill-down (follow `reel_ref` back to the execution frame) |
+| 6 | Memory 3 layers | L0 Reel / L1 Draft graph / L2 Book (hot.md + contradictions) | read + drill-down (follow `reel_ref` back to the execution frame) |
 | 7 | EACN stream | **safe** endpoints: tasks / agents / cluster + `events/*.jsonl` audit | read-mostly; message send optional |
 | 8 | Deliverable lifecycle | `submissions/` + `reviews/` | submit / evaluate / adjudicate / review_run / benchmark |
 | 9 | Health / logs | `health_events.jsonl` + backend/role/gru logs (follow) | doctor / restart / crash triage |
@@ -144,7 +144,7 @@ schema (brittle); `sh_quote` manual shell escaping (pass argv arrays to tmux).
   one-by-one, capture-pane live multi-pane, send-keys drive, upgrade to full
   takeover. One command in, keyboard flow throughout.
 - **Phase 2 → N — wrap the rest in:** experiment queue (queue + GPU), memory
-  four-layer drill-down (Reel/Draft/Book/Shelf), role evolution
+  three-layer drill-down (Reel/Draft/Book), role evolution
   (split/merge/dismiss), EACN stream, deliverable lifecycle
   (submit/evaluate/adjudicate/review/benchmark), health/logs (doctor/restart).
   Each panel = one subsystem; read direct, write via `mos`.

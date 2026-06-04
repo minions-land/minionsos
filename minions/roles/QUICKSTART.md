@@ -126,7 +126,7 @@ hermetic-mode settings.
 |---|---|
 | Wake loop, triage, Plan→Workflow→Verify | SYSTEM.md §3, §4 |
 | Context compact vs reset | SYSTEM.md §5 |
-| Memory layers L0–L3 | SYSTEM.md §6; `lookup.py --domain memory` |
+| Memory layers L0–L2 | SYSTEM.md §6; `lookup.py --domain memory` |
 | Inter-role EACN rules | SYSTEM.md §7 |
 | Write boundaries + publish paths | SYSTEM.md §8; `lookup.py --domain publish` |
 | Evidence-first EACN style | SYSTEM.md §9 |
