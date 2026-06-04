@@ -12,6 +12,7 @@ import pytest
 from minions.errors import ProjectError
 from minions.paths import project_shared_branch_name, project_shared_workspace, project_state_dir
 from minions.tools import book, publish
+from minions.tools import book_ingest  # 添加导入以支持正确的mock
 
 
 @pytest.fixture
@@ -60,7 +61,7 @@ def _mock_publish(
         publish_results.append(result)
         return result
 
-    monkeypatch.setattr(book, "mos_publish_to_shared", fake_publish_to_shared)
+    monkeypatch.setattr(publish, "mos_publish_to_shared", fake_publish_to_shared)
 
     def fake_publish_files(*, role, files, commit_message, port=None, **kwargs):
         for entry in files:
@@ -81,28 +82,8 @@ def _mock_publish(
             "branch": "stub",
         }
 
-    monkeypatch.setattr(book, "mos_publish_files_to_shared", fake_publish_files)
-
-    def fake_publish_files(*, role, files, commit_message, port=None, **kwargs):
-        for entry in files:
-            fake_publish_to_shared(
-                role=role,
-                src_path=entry["src_path"],
-                dst_subpath=entry["dst_subpath"],
-                commit_message=commit_message,
-                port=port,
-            )
-        return {
-            "port": port,
-            "role": role,
-            "dst_paths": [e["dst_subpath"] for e in files],
-            "commit_sha": f"fake-{len(publish_results)}",
-            "pushed": False,
-            "push_branch": None,
-            "branch": "stub",
-        }
-
-    monkeypatch.setattr(book, "mos_publish_files_to_shared", fake_publish_files)
+    # Mock在book_ingest模块中的导入
+    monkeypatch.setattr(book_ingest, "mos_publish_files_to_shared", fake_publish_files)
     return publish_results
 
 

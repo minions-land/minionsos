@@ -12,11 +12,12 @@ from typing import Any
 
 import pytest
 
-from minions.tools import book
+from minions.tools import book, publish
+from minions.tools import book_ingest  # 添加导入以支持正确的mock
 
 
 @pytest.fixture
-def project(tmp_path, monkeypatch):
+def project(tmp_path, monkeypatch, mock_git_operations):
     """Set up a minimal project layout for book tests."""
     port = 19999
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
@@ -34,6 +35,26 @@ def project(tmp_path, monkeypatch):
     (shared / "exp" / "exp-3").mkdir(parents=True)
     (project_dir / "state").mkdir(parents=True)
     (shared / "draft").mkdir(parents=True)
+
+    # Mock path functions in multiple places since they're imported at module level
+    import minions.paths
+    from minions.tools import book_helpers
+
+    def mock_shared_workspace(p):
+        return tmp_path / f"project_{p}" / "branches" / "shared"
+
+    def mock_workspace_root(p):
+        return tmp_path / f"project_{p}" / "branches"
+
+    # Mock in minions.paths
+    monkeypatch.setattr(minions.paths, "project_shared_workspace", mock_shared_workspace)
+    monkeypatch.setattr(minions.paths, "project_workspace_root", mock_workspace_root)
+
+    # Mock in book_helpers (already imported from paths)
+    monkeypatch.setattr(book_helpers, "project_workspace_root", mock_workspace_root)
+
+    # Mock in publish module (already imported from paths)
+    monkeypatch.setattr(publish, "project_shared_workspace", mock_shared_workspace)
 
     monkeypatch.setattr(
         book, "_book_root", lambda p: tmp_path / f"project_{p}" / "branches" / "shared" / "book"
@@ -73,8 +94,11 @@ def project(tmp_path, monkeypatch):
             "commit_sha": "fake",
         }
 
-    monkeypatch.setattr(book, "mos_publish_to_shared", fake_publish)
-    monkeypatch.setattr(book, "mos_publish_files_to_shared", fake_publish_files)
+    monkeypatch.setattr(publish, "mos_publish_to_shared", fake_publish)
+    monkeypatch.setattr(book_ingest, "mos_publish_files_to_shared", fake_publish_files)
+
+    # Mock is_git_work_tree to avoid git checks in publish module
+    monkeypatch.setattr(publish, "is_git_work_tree", lambda p: True)
 
     return {"port": port, "tmp": tmp_path, "shared": shared}
 

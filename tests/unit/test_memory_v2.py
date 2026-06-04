@@ -19,7 +19,8 @@ from pathlib import Path
 
 import pytest
 
-from minions.tools import book, draft
+from minions.tools import book, draft, publish
+from minions.tools import book_ingest  # 添加导入以支持正确的mock
 
 
 @pytest.fixture(autouse=True)
@@ -56,6 +57,9 @@ def _project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     def _shared_workspace(p: int) -> Path:
         return _shared_subdir(p, "")
 
+    def _book_root(p: int) -> Path:
+        return _shared_subdir(p, "book")
+
     monkeypatch.setattr(draft, "project_shared_subdir", _shared_subdir)
     monkeypatch.setattr(draft, "project_shared_draft_json", _shared_draft_json)
     monkeypatch.setattr(book, "project_shared_subdir", _shared_subdir)
@@ -63,6 +67,13 @@ def _project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(book, "project_state_dir", _state_dir)
     monkeypatch.setattr(book, "project_workspace_root", _workspace_root)
     monkeypatch.setattr(book, "project_shared_workspace", _shared_workspace)
+    monkeypatch.setattr(book, "_book_root", _book_root)
+
+    # Mock在book_helpers中的_book_root（被book_promote使用）
+    from minions.tools import book_helpers, book_promote
+    monkeypatch.setattr(book_helpers, "_book_root", _book_root)
+    # 同时mock book_promote中导入的_book_root
+    monkeypatch.setattr(book_promote, "_book_root", _book_root)
 
     # Stub publish: write the staged file directly into the destination tree.
     # dst_subpath is already prefixed with "book/" by book._publish_file,
@@ -81,7 +92,7 @@ def _project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             "push_branch": None,
         }
 
-    monkeypatch.setattr(book, "mos_publish_to_shared", _fake_publish)
+    monkeypatch.setattr(publish, "mos_publish_to_shared", _fake_publish)
 
     def _fake_publish_files(*, role, files, commit_message, port=None, **kwargs):
         for entry in files:
@@ -102,7 +113,10 @@ def _project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             "push_branch": None,
         }
 
-    monkeypatch.setattr(book, "mos_publish_files_to_shared", _fake_publish_files)
+    monkeypatch.setattr(publish, "mos_publish_files_to_shared", _fake_publish_files)
+    monkeypatch.setattr(book_ingest, "mos_publish_files_to_shared", _fake_publish_files)
+
+    monkeypatch.setattr(book_ingest, "mos_publish_files_to_shared", _fake_publish_files)
 
     def _fake_publish_files(*, role, files, commit_message, port=None, **kwargs):
         for entry in files:
@@ -123,7 +137,7 @@ def _project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             "push_branch": None,
         }
 
-    monkeypatch.setattr(book, "mos_publish_files_to_shared", _fake_publish_files)
+    monkeypatch.setattr(book_ingest, "mos_publish_files_to_shared", _fake_publish_files)
     return port, project_root
 
 

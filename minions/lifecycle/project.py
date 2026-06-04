@@ -2799,3 +2799,39 @@ def project_relocate(
         new_str,
     )
     return updated
+
+# ============================================================================
+# 公共API重新导出 (向后兼容)
+# ============================================================================
+# 从子模块导入并重新导出所有公共API函数，保持向后兼容性
+
+from minions.lifecycle.project_create import project_create  # noqa: F401
+from minions.lifecycle.project_lifecycle import (  # noqa: F401
+    project_close,
+    project_dormant,
+    project_kill,
+    project_revive,
+)
+
+# 将其他仍在本文件中的公共函数也列出来
+__all__ = [
+    # 从子模块导入
+    "project_create",
+    "project_close", 
+    "project_dormant",
+    "project_kill",
+    "project_revive",
+    # 本文件中的公共函数
+    "project_checkpoint_workspace",
+    "project_phase_allows_role",
+    "project_phase_online_role_names",
+    "project_phase_snapshot",
+    "project_set_phase",
+    "project_repair_eacn_agents",
+    "project_repair_gru_agent",
+    "project_migrate_bare_slug_experts",
+    "project_reimport",
+    "project_relocate",
+    "project_parent_repo",
+    "respawn_backend",
+]

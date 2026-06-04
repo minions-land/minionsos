@@ -23,104 +23,76 @@ on a cron through ``mos_draft_commit_shared``, which is owned by Ethics
 
 from __future__ import annotations
 
-import heapq
-import json
 import logging
-import math
 import os
-import random
 import tempfile
 from collections import defaultdict, deque
 from contextvars import ContextVar
-from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal, cast, get_args
+from typing import Any, cast
 
-from pydantic import Field, model_serializer
-
+# Import from modularized submodules
+from minions.tools.draft_decay import mos_draft_decay_compute, DECAY_HALF_LIFE_DAYS
+from minions.tools.draft_edges import create_edges
+from minions.tools.draft_helpers import (
+    append_journal,
+    env_port as _env_port,
+    env_role as _env_role,
+    load_decay as _load_decay,
+    load_draft as _load_draft,
+    now_iso as _now_iso,
+    save_draft as _save_draft,
+    validate_confidence as _validate_confidence,
+)
+import minions.tools.draft_helpers as _draft_helpers
+from minions.tools.draft_nodes import (
+    CURATOR_MOTIF_REQUIRED_TYPES,
+    DraftNodeType,
+    DraftProvenance,
+    DraftSupportStatus,
+    MOTIF_KINDS,
+    NODE_TYPES,
+    PROVENANCES,
+    SUPPORT_STATUSES,
+    create_nodes,
+    resolve_pending_plans,
+)
+from minions.tools.draft_query import (
+    DraftQueryResult,
+    mos_draft_communities,
+    mos_draft_god_nodes,
+    mos_draft_path,
+    mos_draft_query,
+    mos_draft_relevant,
+    mos_draft_topic_index,
+)
+from minions.paths import project_shared_subdir
 from minions.errors import DraftError
-from minions.paths import project_shared_draft_json, project_shared_subdir
-from minions.tools._returns import DictLikeBaseModel
+
+# Re-export path functions for test compatibility
+from minions.paths import project_shared_draft_json
+
 
 logger = logging.getLogger(__name__)
+
+# Re-export internal helpers for test compatibility
+from minions.tools.draft_helpers import (
+    decay_path as _decay_path,
+    draft_path as _draft_path,
+    journal_path as _journal_path,
+    load_draft as _load_draft,
+    parse_iso as _parse_iso,
+    save_draft as _save_draft,
+)
+
+
+# Re-export for backward compatibility
+from minions.tools.draft_edges import EDGE_RELATIONS
+from minions.tools.draft_nodes import TYPE_PREFIX
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-
-# Canonical node types. ``mos_draft_append`` still accepts free-form strings
-# in dict inputs for backward compatibility (logs an info-level note when an
-# unknown value is seen), but the Literal narrows the typed surfaces in
-# ``mos_draft_query`` and the Pydantic MCP args.
-DraftNodeType = Literal[
-    "hypothesis",
-    "question",
-    "assumption",
-    "experiment",
-    "result",
-    "citation",
-    "decision",
-    "dead_end",
-    "insight",
-    "method",
-    "bootstrap",
-]
-NODE_TYPES: tuple[str, ...] = get_args(DraftNodeType)
-
-# Canonical support statuses.
-DraftSupportStatus = Literal[
-    "unverified",
-    "tentative",
-    "verified",
-    "refuted",
-    "blocked",
-    "out_of_scope",
-]
-SUPPORT_STATUSES: tuple[str, ...] = get_args(DraftSupportStatus)
-
-# Canonical provenance labels.
-DraftProvenance = Literal[
-    "extracted",
-    "inferred",
-    "speculative",
-]
-PROVENANCES: tuple[str, ...] = get_args(DraftProvenance)
-# extracted: from a cited source/artifact
-# inferred: derived from prior nodes (low-medium confidence)
-# speculative: agent's working hypothesis, not yet evidenced
-
-# Confidence decay half-lives in days, by node type. effective_confidence is a
-# computed field — it never overwrites the stored confidence and never persists
-# to draft.json. Ethics computes a sidecar at decay.json on each periodic
-# wake; this constant is the read-side reference.
-#
-# Picked deliberately: decisions and dead_ends should fade slowly (they
-# represent commitments that other nodes depend on); hypotheses fade fast
-# (an unverified hypothesis untouched for 30d is probably stale). See
-# project_minionsos_internal_structure_first_principles for the rationale.
-DECAY_HALF_LIFE_DAYS: dict[str, float] = {
-    "hypothesis": 30.0,
-    "question": 30.0,
-    "assumption": 60.0,
-    "experiment": 60.0,
-    "result": 90.0,
-    "citation": 365.0,
-    "decision": 180.0,
-    "dead_end": 365.0,
-    "insight": 120.0,
-    "method": 180.0,
-    "bootstrap": 9999.0,  # bootstrap is the project root; effectively never decays
-}
-DECAY_HALF_LIFE_DEFAULT = 60.0
-# Floor — a stale node never decays below 5% of its stored confidence.
-DECAY_FLOOR = 0.05
-
-# Motif kinds for Ethics-authored integration claims.
-# "none" means the node is NOT a motif claim (prefer mos_draft_annotate instead).
-MOTIF_KINDS = ("triangle", "star", "cycle", "close", "none")
-
-# Node types for which Ethics must supply motif_kind (soft enforcement).
-_CURATOR_MOTIF_REQUIRED_TYPES = frozenset({"result", "decision", "hypothesis", "insight"})
 
 BOOK_STATUS_HOOK_STATUSES = frozenset({"verified", "refuted", "dead_end"})
 _BOOK_STATUS_EVENT_TARGET: ContextVar[dict[str, Any] | None] = ContextVar(
@@ -128,444 +100,13 @@ _BOOK_STATUS_EVENT_TARGET: ContextVar[dict[str, Any] | None] = ContextVar(
     default=None,
 )
 
-# Suggested edge relations. Agents may use any string.
-EDGE_RELATIONS = (
-    "refines",
-    "tests",
-    "supports",
-    "contradicts",
-    "depends_on",
-    "derived_from",
-    "supersedes",
-    "cites",
-    "blocks",
-)
-
-TYPE_PREFIX: dict[str, str] = {
-    "hypothesis": "H",
-    "question": "Q",
-    "assumption": "A",
-    "experiment": "E",
-    "result": "R",
-    "citation": "C",
-    "decision": "D",
-    "dead_end": "DEAD",
-    "insight": "I",
-    "method": "M",
-    "bootstrap": "B",
-}
-
-# ---------------------------------------------------------------------------
-# Typed return shapes
-# ---------------------------------------------------------------------------
-
-
-class DraftQueryResult(DictLikeBaseModel):
-    """Result shape for ``mos_draft_query``.
-
-    Surfaces matching nodes plus the edges that connect them. ``total_matched``
-    is the count of matching nodes (after filters, before the ``limit`` slice
-    or token-budget truncation). ``truncated`` is set to ``True`` only when
-    the token budget forced node-list truncation; the field is omitted from
-    the serialized wire payload when not truncated to preserve the original
-    pre-typing dict shape.
-
-    Field population:
-
-    - ``related_to`` mode returns the connected subgraph for the given node id
-      (filters are ignored).
-    - Filter mode applies ``node_type`` / ``support_status`` / ``author_role``
-      / ``text_contains`` and returns the matched nodes plus their incident
-      edges.
-    """
-
-    nodes: list[dict[str, Any]] = Field(description="Matching Draft nodes.")
-    edges: list[dict[str, Any]] = Field(description="Edges incident to matching nodes.")
-    total_matched: int = Field(description="Count of matching nodes after limit slice.")
-    truncated: bool | None = Field(
-        default=None,
-        description="True if token-budget truncation reduced the node count; omitted otherwise.",
-    )
-
-    @model_serializer(mode="wrap")
-    def _serialize(self, handler):  # type: ignore[no-untyped-def]
-        # Preserve the pre-typing wire shape: omit ``truncated`` when None so
-        # callers do not see a new ``truncated: null`` key for non-truncated
-        # results. ``total_matched`` and the lists always serialize.
-        data = handler(self)
-        if data.get("truncated") is None:
-            data.pop("truncated", None)
-        return data
+# Claim-bearing node types
+_CLAIM_NODE_TYPES = CURATOR_MOTIF_REQUIRED_TYPES
 
 
 # ---------------------------------------------------------------------------
-# Internal helpers
+# Book status event emission
 # ---------------------------------------------------------------------------
-
-
-def _draft_dir(port: int) -> Path:
-    return project_shared_subdir(port, "draft")
-
-
-def _draft_path(port: int) -> Path:
-    return project_shared_draft_json(port)
-
-
-def _journal_path(port: int) -> Path:
-    return _draft_dir(port) / "journal.jsonl"
-
-
-def _env_port() -> int:
-    raw = os.environ.get("MINIONS_PROJECT_PORT", "")
-    if not raw:
-        raise DraftError("MINIONS_PROJECT_PORT not set")
-    return int(raw)
-
-
-def _now_iso() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds")
-
-
-def _env_role() -> str:
-    """Return the current role name from env, or empty string."""
-    return os.environ.get("MINIONS_ROLE_NAME", "")
-
-
-def _env_reel_context() -> str | None:
-    """Return the current reel context as '<role>/<session_id>' or None.
-
-    The reel context identifies the role's current session so that Draft
-    nodes can carry a ``reel_ref`` pointer back to the raw transcripts that
-    led to the node's creation. The full reel_ref includes a task_id, but
-    that's set per-tool-call by the PostToolUse hook — at Draft-append time
-    we only know role and session.
-
-    Returns None if either MINIONS_ROLE_NAME or MINIONS_SESSION_ID is unset.
-    """
-    role = os.environ.get("MINIONS_ROLE_NAME", "").strip()
-    session = os.environ.get("MINIONS_SESSION_ID", "").strip()
-    if not role or not session:
-        return None
-    return f"{role}/{session}"
-
-
-def _is_motif_authorized(node: dict[str, Any]) -> bool:
-    """Return True if a curator node is authorized to exist as a first-class claim.
-
-    A curator node is authorized when:
-    - Ethics has ratified it (metadata.ratified_by == "ethics"), OR
-    - It is explicitly NOT a motif claim (motif_kind == "none" means prefer annotate,
-      but the node is still allowed — soft enforcement only).
-
-    This is used by Stream 3's mos_book_ratify gate. Nodes without ratification
-    are still written to Draft; this helper signals whether Book promotion is allowed.
-    """
-    meta = node.get("metadata") or {}
-    if meta.get("ratified_by") == "ethics":
-        return True
-    motif_kind = meta.get("motif_kind", "none")
-    # Any non-"none" motif kind is a legitimate integration claim (pending Ethics ratification)
-    return motif_kind != "none"
-
-
-def _load_draft(port: int) -> dict[str, Any]:
-    path = _draft_path(port)
-    if not path.exists():
-        return {"project_port": port, "root_question": "", "nodes": [], "edges": []}
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        # Corrupt draft.json would otherwise crash every Role op. Surface a
-        # warning and fall back to an empty stub so the Role can keep operating;
-        # the next _save_draft will rewrite the file with valid JSON.
-        logger.warning(
-            "draft.json corrupt for port %s (%s); falling back to empty stub",
-            port,
-            exc,
-        )
-        return {"project_port": port, "root_question": "", "nodes": [], "edges": []}
-
-
-def _save_draft(port: int, draft: dict[str, Any]) -> None:
-    path = _draft_path(port)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(draft, indent=2, ensure_ascii=False), encoding="utf-8")
-    os.replace(tmp, path)
-
-
-def _append_journal(port: int, entry: dict[str, Any]) -> None:
-    path = _journal_path(port)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-
-
-def _next_id(draft: dict[str, Any], node_type: str) -> str:
-    prefix = TYPE_PREFIX.get(node_type, node_type[:3].upper())
-    existing_nums: list[int] = []
-    for node in draft["nodes"]:
-        nid: str = node.get("id", "")
-        if nid.startswith(prefix + "-"):
-            suffix = nid[len(prefix) + 1 :]
-            if suffix.isdigit():
-                existing_nums.append(int(suffix))
-    next_num = max(existing_nums, default=0) + 1
-    return f"{prefix}-{next_num:03d}"
-
-
-def _validate_confidence(confidence: Any) -> float:
-    try:
-        value = float(confidence)
-    except (TypeError, ValueError) as exc:
-        raise DraftError(f"Node confidence must be a number, got {confidence!r}") from exc
-    if not (0.0 <= value <= 1.0):
-        raise DraftError(f"Node confidence must be 0.0-1.0, got {value}")
-    return value
-
-
-def _decay_path(port: int) -> Path:
-    """Sidecar with effective_confidence per node, computed by Ethics."""
-    return _draft_dir(port) / "decay.json"
-
-
-def _parse_iso(ts: str) -> datetime | None:
-    if not ts:
-        return None
-    try:
-        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-
-
-def _support_balance(node_id: str, edges: list[dict]) -> tuple[int, int]:
-    """Count literal supports / contradicts edges incident to node_id.
-
-    Kept for the decay sidecar's human-facing ``supports``/``contradicts``
-    display fields and the pinned-count tests. The *confidence math* uses the
-    broader :func:`_relation_weights` (see P4 below).
-    """
-    supports = 0
-    contradicts = 0
-    for edge in edges:
-        if edge.get("from_id") != node_id and edge.get("to_id") != node_id:
-            continue
-        rel = str(edge.get("relation", ""))
-        if rel == "supports":
-            supports += 1
-        elif rel == "contradicts":
-            contradicts += 1
-    return supports, contradicts
-
-
-# P4 (2026-05-29 audit): a live project's Draft carried 41 distinct edge
-# relations, 61% used exactly once, yet decay only ever read ``supports`` and
-# ``contradicts`` — the other ~40 relations were dead weight invisible to every
-# algorithm. This closed-set map folds the open relation vocabulary onto two
-# decay signals so every meaningful edge participates:
-#   reinforce > 0 : an incident edge that should roll the decay clock back
-#                   (corroboration, verification, completion, ratification).
-#   accelerate > 0: an incident edge that should age the node faster
-#                   (contradiction; or being superseded/absorbed/deprecated).
-# Structural / navigational relations (refines, depends_on, cites, …) map to a
-# small reinforce weight: a connected node is fresher than an orphan, but a
-# bare link is weaker evidence than an explicit "supports". Unknown relations
-# fall through to a tiny reinforce floor (presence of an edge ≠ zero signal).
-_REINFORCE = "reinforce"
-_ACCELERATE = "accelerate"
-RELATION_DECAY_WEIGHT: dict[str, tuple[str, float]] = {
-    # Strong corroboration — full reinforcement (parity with legacy supports=1).
-    "supports": (_REINFORCE, 1.0),
-    "verifies": (_REINFORCE, 1.0),
-    "verified_by": (_REINFORCE, 1.0),
-    "reaffirms": (_REINFORCE, 1.0),
-    "ratifies": (_REINFORCE, 1.0),
-    "corroborates": (_REINFORCE, 1.0),
-    "concurs_with": (_REINFORCE, 0.8),
-    "endorses": (_REINFORCE, 0.8),
-    "strengthens": (_REINFORCE, 0.8),
-    "partially_corroborates": (_REINFORCE, 0.5),
-    "reviews": (_REINFORCE, 0.5),
-    # Lifecycle progress — the node is being acted on / carried forward.
-    "resolves": (_REINFORCE, 0.6),
-    "resolves_open_ask": (_REINFORCE, 0.6),
-    "closes_acceptance": (_REINFORCE, 0.6),
-    "completes": (_REINFORCE, 0.6),
-    "delivers": (_REINFORCE, 0.6),
-    "delivers_phase2_followup_for": (_REINFORCE, 0.6),
-    "elevates": (_REINFORCE, 0.6),
-    "anchors": (_REINFORCE, 0.5),
-    "preserves": (_REINFORCE, 0.5),
-    "polishes": (_REINFORCE, 0.3),
-    # Structural / navigational — mild freshness from being connected.
-    "refines": (_REINFORCE, 0.3),
-    "tests": (_REINFORCE, 0.3),
-    "implements": (_REINFORCE, 0.3),
-    "instantiates": (_REINFORCE, 0.3),
-    "extends": (_REINFORCE, 0.3),
-    "elaborated_by": (_REINFORCE, 0.3),
-    "responds_to": (_REINFORCE, 0.3),
-    "reviews_for": (_REINFORCE, 0.3),
-    "depends_on": (_REINFORCE, 0.2),
-    "derived_from": (_REINFORCE, 0.2),
-    "follows": (_REINFORCE, 0.2),
-    "related_to": (_REINFORCE, 0.2),
-    "references": (_REINFORCE, 0.2),
-    "cites": (_REINFORCE, 0.2),
-    "uses": (_REINFORCE, 0.2),
-    "observes": (_REINFORCE, 0.2),
-    "qualifies": (_REINFORCE, 0.2),
-    # Negative / deprecating — age the node faster (parity with contradicts=1).
-    "contradicts": (_ACCELERATE, 1.0),
-    "supersedes": (_ACCELERATE, 1.0),
-    "supersedes_naming": (_ACCELERATE, 0.6),
-    "supersedes_runtime": (_ACCELERATE, 1.0),
-    "supersedes_action": (_ACCELERATE, 1.0),
-    "absorbs": (_ACCELERATE, 0.8),
-    "deferred_from": (_ACCELERATE, 0.4),
-    "blocks": (_ACCELERATE, 0.4),
-}
-_RELATION_UNKNOWN_REINFORCE = 0.1
-
-
-def _relation_weights(node_id: str, edges: list[dict]) -> tuple[float, float]:
-    """Sum reinforce / accelerate weights over ALL edges incident to node_id.
-
-    A directed relation that deprecates its *target* (``supersedes``,
-    ``absorbs``) accelerates decay only on the ``to_id`` endpoint — the
-    superseding ``from_id`` node is not itself aged by it. Symmetric relations
-    (``supports``, ``contradicts``, ``related_to``, …) apply to both endpoints,
-    preserving the legacy behaviour exactly.
-    """
-    _TARGET_ONLY_ACCELERATORS = {
-        "supersedes",
-        "supersedes_naming",
-        "supersedes_runtime",
-        "supersedes_action",
-        "absorbs",
-        "deferred_from",
-        "blocks",
-    }
-    reinforce = 0.0
-    accelerate = 0.0
-    for edge in edges:
-        is_from = edge.get("from_id") == node_id
-        is_to = edge.get("to_id") == node_id
-        if not is_from and not is_to:
-            continue
-        rel = str(edge.get("relation", ""))
-        mapped = RELATION_DECAY_WEIGHT.get(rel)
-        if mapped is None:
-            reinforce += _RELATION_UNKNOWN_REINFORCE
-            continue
-        kind, weight = mapped
-        if kind == _ACCELERATE:
-            # Directed deprecation ages only the deprecated (to_id) endpoint.
-            if rel in _TARGET_ONLY_ACCELERATORS and not is_to:
-                continue
-            accelerate += weight
-        else:
-            reinforce += weight
-    return reinforce, accelerate
-
-
-def _effective_confidence(
-    stored: float,
-    node_type: str,
-    age_days: float,
-    supports: float,
-    contradicts: float,
-) -> float:
-    """Compute effective_confidence from stored confidence, age, and topology.
-
-    Pure function — no IO, no LLM. ``supports`` is the summed reinforcement
-    weight (each unit resets ~half a half-life of elapsed age); ``contradicts``
-    is the summed acceleration weight (each unit ages the node by ~half a
-    half-life). Ebbinghaus pattern: decay is exponential with half-life by
-    type, reinforcement effectively rolls back the clock. The parameters are
-    floats since P4 — literal ``supports``/``contradicts`` edges still weigh
-    1.0 each, so legacy integer-count behaviour is preserved exactly.
-    """
-    half_life = DECAY_HALF_LIFE_DAYS.get(node_type, DECAY_HALF_LIFE_DEFAULT)
-    reinforced_age = max(0.0, age_days - 0.5 * half_life * supports)
-    accelerated_age = reinforced_age + 0.5 * half_life * contradicts
-    decay_factor = math.pow(0.5, accelerated_age / half_life)
-    raw = float(stored) * decay_factor
-    return max(DECAY_FLOOR * float(stored), raw)
-
-
-def mos_draft_decay_compute() -> dict[str, Any]:
-    """Compute decay sidecar at draft/decay.json.
-
-    Pure observation: walks every node, records age, support/contradicts edge
-    counts, and effective_confidence. **Does not mutate any node** — Ethics is
-    forbidden from making claims, so decay is reported, never enforced.
-
-    The confidence math uses the full relation vocabulary via
-    :func:`_relation_weights` (P4): every meaningful edge reinforces or
-    accelerates, not just literal ``supports``/``contradicts``. The sidecar
-    still reports the literal integer ``supports``/``contradicts`` counts for
-    display, plus the summed ``reinforce``/``accelerate`` weights actually fed
-    to the decay function.
-
-    Whitelisted to Ethics and Gru. Other roles read decay through
-    ``mos_draft_summary()`` (which joins the sidecar when present).
-    Returns a dict with totals + the path of the written sidecar.
-    """
-    port = _env_port()
-    draft = _load_draft(port)
-    nodes = draft["nodes"]
-    edges = draft["edges"]
-    now = datetime.now(UTC)
-    out: dict[str, Any] = {}
-    for node in nodes:
-        node_id = node.get("id", "")
-        if not node_id:
-            continue
-        created = _parse_iso(node.get("created_at", ""))
-        age_days = 0.0 if created is None else max(0.0, (now - created).total_seconds() / 86400.0)
-        supports, contradicts = _support_balance(node_id, edges)
-        reinforce, accelerate = _relation_weights(node_id, edges)
-        eff = _effective_confidence(
-            stored=float(node.get("confidence", 1.0) or 0.0),
-            node_type=str(node.get("type", "")),
-            age_days=age_days,
-            supports=reinforce,
-            contradicts=accelerate,
-        )
-        out[node_id] = {
-            "age_days": round(age_days, 2),
-            "supports": supports,
-            "contradicts": contradicts,
-            "reinforce": round(reinforce, 3),
-            "accelerate": round(accelerate, 3),
-            "stored_confidence": float(node.get("confidence", 1.0) or 0.0),
-            "effective_confidence": round(eff, 3),
-        }
-    path = _decay_path(port)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    payload = {"computed_at": _now_iso(), "nodes": out}
-    tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
-    os.replace(tmp, path)
-    return {
-        "computed_at": payload["computed_at"],
-        "node_count": len(out),
-        "path": str(path),
-    }
-
-
-def _load_decay(port: int) -> dict[str, Any]:
-    path = _decay_path(port)
-    if not path.exists():
-        return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    nodes = payload.get("nodes")
-    return nodes if isinstance(nodes, dict) else {}
-
 
 def _emit_book_status_event(
     port: int,
@@ -644,79 +185,10 @@ def _emit_book_status_event(
                 logger.warning("failed to remove book status temp file %s: %s", temp_path, exc)
 
 
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
-
-
-def mos_draft_query(
-    node_type: DraftNodeType | None = None,
-    support_status: DraftSupportStatus | None = None,
-    author_role: str | None = None,
-    text_contains: str | None = None,
-    related_to: str | None = None,
-    limit: int = 50,
-    max_tokens: int = 2000,
-) -> DraftQueryResult:
-    """Query the Draft. Returns matching nodes and their immediate edges.
-
-    Returns a :class:`DraftQueryResult` (dict-like) carrying ``nodes``,
-    ``edges``, ``total_matched``, and an optional ``truncated`` flag.
-    """
-    port = _env_port()
-    draft = _load_draft(port)
-    nodes: list[dict] = draft["nodes"]
-    edges: list[dict] = draft["edges"]
-
-    # If related_to is specified, return subgraph connected to that node.
-    if related_to:
-        connected_ids = {related_to}
-        for edge in edges:
-            if edge["from_id"] == related_to:
-                connected_ids.add(edge["to_id"])
-            elif edge["to_id"] == related_to:
-                connected_ids.add(edge["from_id"])
-        nodes = [n for n in nodes if n["id"] in connected_ids]
-        edges = [e for e in edges if e["from_id"] in connected_ids or e["to_id"] in connected_ids]
-    else:
-        # Apply filters.
-        if node_type:
-            nodes = [n for n in nodes if n.get("type") == node_type]
-        if support_status:
-            nodes = [n for n in nodes if n.get("support_status") == support_status]
-        if author_role:
-            nodes = [n for n in nodes if n.get("author_role") == author_role]
-        if text_contains:
-            lc = text_contains.lower()
-            nodes = [n for n in nodes if lc in n.get("text", "").lower()]
-
-        # Filter edges to only those connecting matched nodes.
-        matched_ids = {n["id"] for n in nodes}
-        edges = [e for e in edges if e["from_id"] in matched_ids or e["to_id"] in matched_ids]
-
-    nodes = nodes[:limit]
-    # Token budget estimation: ~50 tokens/node, ~30 tokens/edge.
-    est_tokens = len(nodes) * 50 + len(edges) * 30
-    truncated = False
-    if est_tokens > max_tokens:
-        # Reduce nodes to fit budget (edges scale with nodes).
-        max_nodes = max(1, (max_tokens - len(edges) * 30) // 50)
-        nodes = nodes[:max_nodes]
-        truncated = True
-    return DraftQueryResult(
-        nodes=nodes,
-        edges=edges,
-        total_matched=len(nodes),
-        truncated=True if truncated else None,
-    )
-
-
-# Claim-bearing node types: only these "should" eventually carry an
-# evidence_tag. Plans / questions / context legitimately have none, so
-# excluding them keeps the unmarked-ratio signal from firing on node types
-# that are not assertions. Reuses the curator-motif claim set.
-_CLAIM_NODE_TYPES = _CURATOR_MOTIF_REQUIRED_TYPES  # {result, decision, hypothesis, insight}
-
 
 def _role_unmarked_ratio(
     nodes: list[dict[str, Any]], author_role: str, *, min_nodes: int = 3
@@ -741,6 +213,7 @@ def _role_unmarked_ratio(
         return None
     unmarked = sum(1 for n in claims if not str(n.get("evidence_tag") or "").strip())
     return round(unmarked / len(claims), 3)
+
 
 
 def mos_draft_unmarked_audit(threshold: float = 0.2) -> dict[str, Any]:
@@ -776,6 +249,7 @@ def mos_draft_unmarked_audit(threshold: float = 0.2) -> dict[str, Any]:
     }
 
 
+
 def mos_draft_append(
     nodes: list[dict[str, Any]] | None = None,
     edges: list[dict[str, Any]] | None = None,
@@ -795,168 +269,40 @@ def mos_draft_append(
     is ignored (logged), so this can never delete a real landed imprint.
     """
     port = _env_port()
-    draft = _load_draft(port)
     ts = _now_iso()
+    
+    # Create nodes using extracted function
     created_node_ids: list[str] = []
+    if nodes:
+        created_node_ids = create_nodes(port, nodes, ts)
+    
+    # Create edges using extracted function
     created_edge_count = 0
-
-    for node in nodes or []:
-        ntype = node.get("type", "hypothesis")
-        if ntype not in NODE_TYPES:
-            logger.info("Custom node type: %s (not in suggested types)", ntype)
-        provenance = node.get("provenance", "extracted")
-        if provenance not in PROVENANCES:
-            logger.info("Custom provenance: %s (not in suggested provenances)", provenance)
-        confidence = _validate_confidence(node.get("confidence", 1.0))
-        node_id = node.get("id") or _next_id(draft, ntype)
-
-        # Auto-inject reel_ref into metadata if available and not already set.
-        # This links the Draft node to the raw session transcripts that
-        # produced it, enabling drill-down audit via mos_reel_get / window.
-        node_metadata = dict(node.get("metadata", {}))
-        if "reel_ref" not in node_metadata:
-            reel_ctx = _env_reel_context()
-            if reel_ctx:
-                node_metadata["reel_ref"] = reel_ctx
-
-        # Motif contract enforcement for curator (Ethics) nodes (soft — warnings only, no reject).
-        # Existing nodes without motif_kind are treated as motif_kind="none" for read purposes.
-        author_role = node.get("author_role", "") or _env_role()
-        if author_role == "ethics" and ntype in _CURATOR_MOTIF_REQUIRED_TYPES:
-            motif_kind = node_metadata.get("motif_kind")
-            if not motif_kind:
-                logger.warning(
-                    "ethics appending %s node '%s' without motif_kind — "
-                    "prefer mos_draft_annotate to update existing nodes instead",
-                    ntype,
-                    node.get("id", "<new>"),
-                )
-                # Warning-code key kept byte-stable for the pinned test in
-                # tests/unit/test_draft.py; the human-text log above is updated.
-                node_metadata["warning"] = "noter_node_without_motif_kind"
-            elif motif_kind == "none":
-                logger.warning(
-                    "ethics appending %s node with motif_kind='none' — "
-                    "mos_draft_annotate would be preferred for status updates",
-                    ntype,
-                )
-
-        new_node = {
-            "id": node_id,
-            "type": ntype,
-            "text": node.get("text", ""),
-            "support_status": node.get("support_status", "unverified"),
-            "author_role": node.get("author_role", "") or _env_role(),
-            "created_at": node.get("created_at", ts),
-            "evidence_tag": node.get("evidence_tag", ""),
-            "provenance": provenance,
-            "confidence": confidence,
-            "metadata": node_metadata,
-        }
-        draft["nodes"].append(new_node)
-        created_node_ids.append(node_id)
-        _append_journal(
-            port,
-            {
-                "op": "add_node",
-                "node": new_node,
-                "timestamp": ts,
-                "author_role": new_node["author_role"],
-            },
-        )
-
-    # Infer batch author from nodes (fallback for edges without explicit author)
-    batch_author = _env_role()
-    if not batch_author:
-        for node in nodes or []:
-            if node.get("author_role"):
-                batch_author = node["author_role"]
-                break
-
-    for edge in edges or []:
-        relation = edge.get("relation", "related_to")
-        if relation not in EDGE_RELATIONS:
-            logger.info("Custom edge relation: %s (not in suggested relations)", relation)
-        strength = edge.get("strength", 1.0)
-        if not (0.0 <= strength <= 1.0):
-            raise DraftError(f"Edge strength must be 0.0-1.0, got {strength}")
-        new_edge = {
-            "from_id": edge["from_id"],
-            "to_id": edge["to_id"],
-            "relation": relation,
-            "strength": strength,
-            "created_at": edge.get("created_at", ts),
-            "author_role": edge.get("author_role", "") or batch_author,
-        }
-        draft["edges"].append(new_edge)
-        created_edge_count += 1
-        _append_journal(
-            port,
-            {
-                "op": "add_edge",
-                "edge": new_edge,
-                "timestamp": ts,
-                "author_role": new_edge["author_role"],
-            },
-        )
-
-    # Resolve pending plans: a plan node is a temporary placeholder; once the
-    # work lands as a real node above, the plan must disappear (Draft = what
-    # happened, not what was intended). Remove only nodes that are genuinely
-    # pending plans — never a landed imprint. Edges touching a removed plan are
-    # dropped too, so no dangling references survive.
+    if edges:
+        # Infer batch author from nodes (fallback for edges without explicit author)
+        batch_author = _env_role()
+        if not batch_author and nodes:
+            for node in nodes:
+                if node.get("author_role"):
+                    batch_author = node["author_role"]
+                    break
+        created_edge_count = create_edges(port, edges, ts, batch_author)
+    
+    # Resolve pending plans using extracted function
     resolved_plan_ids: list[str] = []
     if resolves_pending:
-        nodes_by_id = {n["id"]: n for n in draft["nodes"]}
-        removable: set[str] = set()
-        for pid in resolves_pending:
-            target = nodes_by_id.get(pid)
-            if target is None:
-                logger.info("resolves_pending: node %s not found; skipping", pid)
-                continue
-            if (target.get("metadata") or {}).get("pending_plan") is not True:
-                logger.warning(
-                    "resolves_pending: node %s is not a pending plan "
-                    "(no metadata.pending_plan); refusing to remove a landed imprint",
-                    pid,
-                )
-                continue
-            removable.add(pid)
-        if removable:
-            draft["nodes"] = [n for n in draft["nodes"] if n["id"] not in removable]
-            draft["edges"] = [
-                e
-                for e in draft["edges"]
-                if e["from_id"] not in removable and e["to_id"] not in removable
-            ]
-            resolved_plan_ids = sorted(removable)
-            for pid in resolved_plan_ids:
-                _append_journal(
-                    port,
-                    {
-                        "op": "resolve_pending",
-                        "node_id": pid,
-                        "replaced_by": created_node_ids,
-                        "timestamp": ts,
-                        "author_role": _env_role(),
-                    },
-                )
-
-    _save_draft(port, draft)
-    # Soft-audit: increment the per-role append counter so mos_await_events
-    # can detect cycles where a role handled real EACN events but wrote no
-    # Draft nodes (Draft-discipline reminder, see minions.tools.draft_audit).
-    # Failure here is logged at debug and swallowed — the audit is
-    # observability, not correctness.
+        resolved_plan_ids = resolve_pending_plans(port, resolves_pending, created_node_ids, ts)
+    
+    # Soft-audit: increment the per-role append counter
     if created_node_ids:
         try:
             from minions.tools import draft_audit as _draft_audit
-
             agent_id = os.environ.get("MINIONS_AGENT_ID", "") or _env_role()
             if agent_id:
                 _draft_audit.record_append(port, agent_id, count=len(created_node_ids))
         except Exception as exc:
             logger.debug("draft_audit.record_append failed: %s", exc)
+    
     return {
         "created_node_ids": created_node_ids,
         "created_edge_count": created_edge_count,
@@ -994,7 +340,7 @@ def mos_draft_annotate(
         old = target.get("support_status", "")
         target["support_status"] = support_status
         changes["support_status"] = {"old": old, "new": support_status}
-        _append_journal(
+        append_journal(
             port,
             {
                 "op": "annotate",
@@ -1012,7 +358,7 @@ def mos_draft_annotate(
         old = target.get("evidence_tag", "")
         target["evidence_tag"] = evidence_tag
         changes["evidence_tag"] = {"old": old, "new": evidence_tag}
-        _append_journal(
+        append_journal(
             port,
             {
                 "op": "annotate",
@@ -1031,7 +377,7 @@ def mos_draft_annotate(
         old = target.get("provenance")
         target["provenance"] = provenance
         changes["provenance"] = {"old": old, "new": provenance}
-        _append_journal(
+        append_journal(
             port,
             {
                 "op": "annotate",
@@ -1049,7 +395,7 @@ def mos_draft_annotate(
         old = target.get("confidence")
         target["confidence"] = new_confidence
         changes["confidence"] = {"old": old, "new": new_confidence}
-        _append_journal(
+        append_journal(
             port,
             {
                 "op": "annotate",
@@ -1066,7 +412,7 @@ def mos_draft_annotate(
         old_meta = dict(target.get("metadata", {}))
         target.setdefault("metadata", {}).update(metadata_update)
         changes["metadata"] = {"added_keys": list(metadata_update.keys())}
-        _append_journal(
+        append_journal(
             port,
             {
                 "op": "annotate",
@@ -1096,82 +442,7 @@ def mos_draft_annotate(
     return {"node_id": node_id, "changes": changes}
 
 
-def mos_draft_path(
-    target_node_id: str,
-    from_node_id: str | None = None,
-) -> dict[str, Any]:
-    """Weighted shortest path (Dijkstra) preferring high-strength edges."""
-    port = _env_port()
-    draft = _load_draft(port)
-    nodes_by_id: dict[str, dict] = {n["id"]: n for n in draft["nodes"]}
-    edges = draft["edges"]
 
-    if target_node_id not in nodes_by_id:
-        raise DraftError(f"Target node not found: {target_node_id}")
-
-    # Build adjacency (undirected). Weight = 1.0 - strength (high strength = low cost).
-    adj: dict[str, list[tuple[float, str, dict]]] = defaultdict(list)
-    for edge in edges:
-        w = 1.0 - edge.get("strength", 1.0)
-        adj[edge["from_id"]].append((w, edge["to_id"], edge))
-        adj[edge["to_id"]].append((w, edge["from_id"], edge))
-
-    # Determine start node.
-    if from_node_id:
-        start = from_node_id
-    else:
-        if not draft["nodes"]:
-            raise DraftError("Draft is empty")
-        start = draft["nodes"][0]["id"]
-
-    if start not in nodes_by_id:
-        raise DraftError(f"Start node not found: {start}")
-
-    if start == target_node_id:
-        return {"path_nodes": [nodes_by_id[start]], "path_edges": []}
-
-    # Dijkstra.
-    dist: dict[str, float] = {start: 0.0}
-    prev: dict[str, tuple[str, dict]] = {}
-    heap: list[tuple[float, str]] = [(0.0, start)]
-
-    while heap:
-        d, current = heapq.heappop(heap)
-        if current == target_node_id:
-            break
-        if d > dist.get(current, float("inf")):
-            continue
-        for w, neighbor, edge in adj[current]:
-            nd = d + w
-            if nd < dist.get(neighbor, float("inf")):
-                dist[neighbor] = nd
-                prev[neighbor] = (current, edge)
-                heapq.heappush(heap, (nd, neighbor))
-
-    if target_node_id not in prev:
-        return {
-            "error": f"No path from {start} to {target_node_id}",
-            "path_nodes": [],
-            "path_edges": [],
-        }
-
-    # Reconstruct path.
-    path_ids: list[str] = []
-    path_edges: list[dict] = []
-    cur = target_node_id
-    while cur != start:
-        path_ids.append(cur)
-        parent, edge = prev[cur]
-        path_edges.append(edge)
-        cur = parent
-    path_ids.append(start)
-    path_ids.reverse()
-    path_edges.reverse()
-
-    return {
-        "path_nodes": [nodes_by_id[nid] for nid in path_ids if nid in nodes_by_id],
-        "path_edges": path_edges,
-    }
 
 
 def mos_draft_summary() -> dict[str, Any]:
@@ -1309,6 +580,8 @@ def mos_draft_summary() -> dict[str, Any]:
     }
 
 
+
+
 def mos_draft_view(
     query: str | None = None,
     by_role: str | None = None,
@@ -1400,6 +673,7 @@ def mos_draft_view(
         "edges": edges,
         "returned": len(nodes),
     }
+
 
 
 def mos_draft_commit_shared(message: str | None = None) -> dict[str, Any]:

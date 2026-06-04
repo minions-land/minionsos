@@ -29,7 +29,8 @@ import pytest
 
 from minions import identity
 from minions.config import resolve_server_authz
-from minions.tools import book, draft
+from minions.tools import book, draft, publish
+from minions.tools import book_ingest  # 添加导入以支持正确的mock
 
 # ---------------------------------------------------------------------------
 # Fixture — full simulated project workspace
@@ -37,7 +38,7 @@ from minions.tools import book, draft
 
 
 @pytest.fixture
-def sim_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def sim_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_git_operations):
     port = 50000
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
     monkeypatch.setenv("MINIONS_IDENTITY_DIR", str(tmp_path / "identity"))
@@ -80,6 +81,9 @@ def sim_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     def _shared_workspace(p):
         return _shared_subdir(p, "")
 
+    def _book_root(p):
+        return _shared_subdir(p, "book")
+
     monkeypatch.setattr(draft, "project_shared_subdir", _shared_subdir)
     monkeypatch.setattr(draft, "project_shared_draft_json", _shared_draft_json)
     monkeypatch.setattr(book, "project_shared_subdir", _shared_subdir)
@@ -87,6 +91,25 @@ def sim_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(book, "project_state_dir", _state_dir)
     monkeypatch.setattr(book, "project_workspace_root", _workspace_root)
     monkeypatch.setattr(book, "project_shared_workspace", _shared_workspace)
+    monkeypatch.setattr(book, "_book_root", _book_root)
+
+    # Mock在book_helpers中的_book_root（被book_promote使用）
+    from minions.tools import book_helpers, book_promote
+    monkeypatch.setattr(book_helpers, "_book_root", _book_root)
+    monkeypatch.setattr(book_promote, "_book_root", _book_root)
+    # Mock book_helpers中已导入的project_workspace_root
+    monkeypatch.setattr(book_helpers, "project_workspace_root", _workspace_root)
+
+    # Mock minions.paths中的路径函数（被book_helpers内部动态导入使用）
+    import minions.paths
+    monkeypatch.setattr(minions.paths, "project_workspace_root", _workspace_root)
+    monkeypatch.setattr(minions.paths, "project_shared_workspace", _shared_workspace)
+
+    # Mock publish模块中已导入的路径函数
+    from minions.tools import publish
+    monkeypatch.setattr(publish, "project_shared_workspace", _shared_workspace)
+    # Mock is_git_work_tree检查
+    monkeypatch.setattr(publish, "is_git_work_tree", lambda path: True)
 
     def _fake_publish(*, role, src_path, dst_subpath, commit_message, port=None, **kwargs):
         dst = _shared_workspace(port or 50000) / dst_subpath
@@ -102,7 +125,7 @@ def sim_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             "push_branch": None,
         }
 
-    monkeypatch.setattr(book, "mos_publish_to_shared", _fake_publish)
+    monkeypatch.setattr(publish, "mos_publish_to_shared", _fake_publish)
 
     def _fake_publish_files(*, role, files, commit_message, port=None, **kwargs):
         for entry in files:
@@ -123,7 +146,7 @@ def sim_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             "push_branch": None,
         }
 
-    monkeypatch.setattr(book, "mos_publish_files_to_shared", _fake_publish_files)
+    monkeypatch.setattr(book_ingest, "mos_publish_files_to_shared", _fake_publish_files)
 
     def _fake_publish_files(*, role, files, commit_message, port=None, **kwargs):
         for entry in files:
@@ -144,7 +167,7 @@ def sim_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             "push_branch": None,
         }
 
-    monkeypatch.setattr(book, "mos_publish_files_to_shared", _fake_publish_files)
+    monkeypatch.setattr(book_ingest, "mos_publish_files_to_shared", _fake_publish_files)
     yield port, project_root
     # Teardown — restore role env. Helpers above use os.environ directly
     # (to mimic mid-test role switches), so monkeypatch can't undo them.

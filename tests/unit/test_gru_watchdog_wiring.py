@@ -95,21 +95,44 @@ def test_run_delegates_to_start_watchdog_threads():
     assert calls == ["watchdogs"]
 
 
+import pytest
+
+
+@pytest.mark.forked
 def test_main_uses_run_not_run_async(monkeypatch):
     """Production main() must drive the complete run() path (all watchdogs),
     not the legacy run_async() that only started experiment-reconcile."""
+    # Force clean import of loop module
+    import sys
+    if 'minions.gru.loop' in sys.modules:
+        del sys.modules['minions.gru.loop']
+    if 'minions.gru' in sys.modules:
+        del sys.modules['minions.gru']
+
     from minions.gru import loop as loop_mod
+    from unittest.mock import Mock
 
     called: dict[str, bool] = {"run": False, "run_async": False}
 
-    def _fake_run(self: GruLoop) -> None:
+    # Create a mock GruLoop that tracks which method was called
+    mock_loop = Mock(spec=GruLoop)
+
+    def _fake_run() -> None:
         called["run"] = True
 
-    async def _fake_run_async(self: GruLoop) -> None:  # pragma: no cover - must not run
+    async def _fake_run_async() -> None:  # pragma: no cover - must not run
         called["run_async"] = True
 
-    monkeypatch.setattr(GruLoop, "run", _fake_run)
-    monkeypatch.setattr(GruLoop, "run_async", _fake_run_async)
+    def _fake_stop() -> None:
+        pass
+
+    mock_loop.run = _fake_run
+    mock_loop.run_async = _fake_run_async
+    mock_loop.stop = _fake_stop
+
+    # Mock GruLoop constructor to return our mock
+    monkeypatch.setattr(loop_mod, "GruLoop", lambda **kwargs: mock_loop)
+
     # main() does `import signal` and registers handlers; neutralize the
     # registration so the test does not mutate real process signal state.
     import signal as _signal

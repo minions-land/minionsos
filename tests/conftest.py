@@ -5,6 +5,9 @@ from pathlib import Path
 
 import pytest
 
+# Import git mock fixture
+from tests.git_mock import mock_git_operations  # noqa: F401
+
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """Reap any ``mos-*`` tmux sessions left behind by tests.

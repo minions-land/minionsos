@@ -11,7 +11,8 @@ from typing import Any
 import pytest
 
 from minions.paths import project_shared_workspace, project_state_dir
-from minions.tools import book
+from minions.tools import book, publish
+from minions.tools import book_ingest  # 添加导入以支持正确的mock
 
 
 @pytest.fixture

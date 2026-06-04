@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from minions.lifecycle import project as proj_mod
+from minions.lifecycle import project_lifecycle
 from minions.state.store import ProjectEntry, RoleEntry, StateStore
 
 
@@ -54,6 +55,18 @@ def test_project_kill_stops_runtime_and_preserves_eacn_data(
     stopped_backends: list[tuple[int, int | None]] = []
     stopped_roles: list[tuple[int, str, int | None]] = []
     monkeypatch.setattr(proj_mod, "project_meta_json", lambda p: pdir / "meta.json")
+    # 同时mock project_metadata和project_lifecycle中的函数
+    from minions.lifecycle import project_metadata
+    monkeypatch.setattr(project_metadata, "project_meta_json", lambda p: pdir / "meta.json")
+
+    # 为了确保backend_pid被正确读取，也mock read_meta_raw
+    def fake_read_meta_raw(p: int) -> dict:
+        path = pdir / "meta.json"
+        import json
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    monkeypatch.setattr(project_lifecycle, "read_meta_raw", fake_read_meta_raw)
+
     monkeypatch.setattr(
         proj_mod,
         "_stop_backend",
@@ -64,6 +77,31 @@ def test_project_kill_stops_runtime_and_preserves_eacn_data(
         "_stop_role_process",
         lambda p, role, pid=None: stopped_roles.append((p, role, pid)) or "terminated",
     )
+    # 同时mock project_lifecycle中导入的函数（实际被project_kill调用的）
+    monkeypatch.setattr(
+        project_lifecycle,
+        "stop_backend",
+        lambda p, pid=None: stopped_backends.append((p, pid)),
+    )
+
+    # Mock pid_alive和kill_project_sessions来让role停止逻辑工作
+    from minions.lifecycle import project_backend
+
+    def fake_pid_alive(pid):
+        # 第一次调用返回True，之后返回False（模拟PID被终止）
+        if not hasattr(fake_pid_alive, 'called'):
+            fake_pid_alive.called = set()
+        if pid in fake_pid_alive.called:
+            return False
+        fake_pid_alive.called.add(pid)
+        # 记录role被停止
+        for role in entry.active_roles:
+            if role.pid == pid:
+                stopped_roles.append((port, role.name, pid))
+                break
+        return False
+
+    monkeypatch.setattr(project_backend, "pid_alive", fake_pid_alive)
 
     result = proj_mod.project_kill(port, store=store)
 
@@ -126,6 +164,8 @@ def test_project_kill_keeps_project_active_when_backend_cannot_stop(
     )
     monkeypatch.setattr(proj_mod, "project_meta_json", lambda p: pdir / "meta.json")
     monkeypatch.setattr(proj_mod, "_stop_backend", lambda port, pid=None: False)
+    # 同时mock project_lifecycle中导入的函数
+    monkeypatch.setattr(project_lifecycle, "stop_backend", lambda port, pid=None: False)
 
     with pytest.raises(proj_mod.ProjectError, match="Could not stop backend"):
         proj_mod.project_kill(port, store=store)

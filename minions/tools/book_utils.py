@@ -18,14 +18,11 @@ def now_iso() -> str:
 
 
 def quoted(s: str) -> str:
-    """Quote a string for YAML frontmatter (only if needed)."""
-    if not s:
-        return '""'
-    if any(c in s for c in ':#[]{}|>"\'\\'):
-        return json.dumps(s, ensure_ascii=False)
-    if s[0] in " -" or s[-1] in " ":
-        return json.dumps(s, ensure_ascii=False)
-    return s
+    """Quote a string for YAML frontmatter using JSON encoding.
+
+    Always quotes to ensure consistent behavior and avoid YAML edge cases.
+    """
+    return json.dumps(s, ensure_ascii=False)
 
 
 def validate_component(label: str, component: str) -> None:

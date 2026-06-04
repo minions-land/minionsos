@@ -16,6 +16,7 @@ from minions.paths import project_shared_subdir
 from minions.tools.book_utils import now_iso as _now_iso
 from minions.tools.book_utils import quoted as _quoted
 from minions.tools.book_utils import validate_component as _validate_component
+from minions.tools.publish import mos_publish_to_shared, mos_publish_files_to_shared
 
 
 def _resolve_port(port: int | None) -> int:
@@ -49,6 +50,9 @@ def mos_book_open_question(
 
     Creates book/open_questions/<slug>.md with status: open_question.
     """
+    from minions.tools.book_helpers import _stage_text
+    from minions.tools.book_index import _index_append_many, _log_append
+
     resolved_port = _resolve_port(port)
     if not question.strip():
         raise BookError("question must be non-empty")
@@ -91,20 +95,22 @@ def mos_book_open_question(
         fm_lines.append("")
 
     page_content = "\n".join(fm_lines)
+    page_stage = _stage_text(resolved_port, f"book-oq-{slug}.md", page_content)
 
-    # Write to book/open_questions/
-    open_questions_dir = _book_root(resolved_port) / "open_questions"
-    open_questions_dir.mkdir(parents=True, exist_ok=True)
-    page_path = open_questions_dir / f"{slug}.md"
-    page_path.write_text(page_content, encoding="utf-8")
+    # Update index and log
+    title = f"OQ: {question.strip()[:80]}"
+    index_stage = _index_append_many(resolved_port, [(slug, title, "open_question")])
+    log_stage = _log_append(resolved_port, "open_question", slug, question=question.strip()[:200])
 
-    # Publish via mos_publish_to_shared
-    from minions.tools.publish import mos_publish_to_shared
+    # Publish all three files together
 
-    publish_result = mos_publish_to_shared(
+    publish_result = mos_publish_files_to_shared(
         role="ethics",
-        src_path=str(page_path),
-        dst_subpath=f"book/open_questions/{slug}.md",
+        files=[
+            {"src_path": str(page_stage), "dst_subpath": f"book/open_questions/{slug}.md"},
+            {"src_path": str(index_stage), "dst_subpath": "book/index.md"},
+            {"src_path": str(log_stage), "dst_subpath": "book/log.md"},
+        ],
         commit_message=f"ethics: open question {slug}",
         port=resolved_port,
     )
@@ -128,6 +134,9 @@ def mos_book_dead_end(
     Creates book/sources/dead-end-<slug>.md with status: refuted.
     REFUTED PAGES MUST NEVER BE DELETED.
     """
+    from minions.tools.book_helpers import _stage_text
+    from minions.tools.book_index import _index_append_many, _log_append
+
     resolved_port = _resolve_port(port)
     if not claim.strip():
         raise BookError("claim must be non-empty")
@@ -164,20 +173,27 @@ def mos_book_dead_end(
     ]
 
     page_content = "\n".join(fm_lines)
+    page_stage = _stage_text(resolved_port, f"book-deadend-{full_slug}.md", page_content)
 
-    # Write to book/sources/
-    sources_dir = _sources_dir(resolved_port)
-    sources_dir.mkdir(parents=True, exist_ok=True)
-    page_path = sources_dir / f"{full_slug}.md"
-    page_path.write_text(page_content, encoding="utf-8")
+    # Update index and log
+    title = f"Dead end: {claim.strip()[:80]}"
+    index_stage = _index_append_many(resolved_port, [(full_slug, title, "source")])
+    log_stage = _log_append(
+        resolved_port,
+        "dead_end",
+        full_slug,
+        claim=claim.strip()[:200],
+    )
 
-    # Publish
-    from minions.tools.publish import mos_publish_to_shared
+    # Publish all three files together
 
-    publish_result = mos_publish_to_shared(
+    publish_result = mos_publish_files_to_shared(
         role="ethics",
-        src_path=str(page_path),
-        dst_subpath=f"book/sources/{full_slug}.md",
+        files=[
+            {"src_path": str(page_stage), "dst_subpath": f"book/sources/{full_slug}.md"},
+            {"src_path": str(index_stage), "dst_subpath": "book/index.md"},
+            {"src_path": str(log_stage), "dst_subpath": "book/log.md"},
+        ],
         commit_message=f"ethics: dead end {full_slug}",
         port=resolved_port,
     )

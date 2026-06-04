@@ -15,16 +15,20 @@ from minions.tools import draft
 def _isolated_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     port = 9999
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
+
+    # Mock in minions.paths since draft_helpers imports from there
+    import minions.paths
     monkeypatch.setattr(
-        draft,
+        minions.paths,
         "project_shared_subdir",
         lambda p, subdir: tmp_path / f"project_{p}" / "branches" / "shared" / subdir,
     )
     monkeypatch.setattr(
-        draft,
+        minions.paths,
         "project_shared_draft_json",
         lambda p: tmp_path / f"project_{p}" / "branches" / "shared" / "draft" / "draft.json",
     )
+
     draft_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "draft"
     draft_dir.mkdir(parents=True)
     return draft_dir

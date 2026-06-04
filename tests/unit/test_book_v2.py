@@ -14,6 +14,8 @@ from minions.tools.book import (
     mos_book_query,
     mos_book_ratify,
 )
+from minions.tools import publish
+from minions.tools import book_special
 
 # ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -30,22 +32,101 @@ def book_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> int:
     (shared / "book" / "log.md").write_text("", encoding="utf-8")
     (shared / "state" / "shared.lock").write_text("", encoding="utf-8")
 
-    # Stub out _publish_files so tests don't need a live git repo.
-    import minions.tools.book as _book_mod
-
-    def _fake_publish(port: int, files: list, message: str) -> dict:  # type: ignore[type-arg]
+    # Mock mos_publish_to_shared for book_special module
+    def _fake_publish_to_shared(*, role, src_path, dst_subpath, commit_message, port=None, **kwargs):
         import shutil
-
-        from minions.tools.book import _book_root
+        from minions.tools.book_helpers import _book_root
 
         book_root = _book_root(port)
-        for stage_path, rel in files:
-            dst = book_root / rel
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(stage_path, dst)
-        return {"commit_sha": "fake-sha", "pushed": False, "port": port}
+        src = Path(src_path)
+        dst = book_root / dst_subpath
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        return {
+            "port": port,
+            "role": role,
+            "dst_path": dst_subpath,
+            "commit_sha": "fake-sha",
+            "pushed": False,
+            "push_branch": None,
+            "branch": "main",
+        }
 
-    monkeypatch.setattr(_book_mod, "_publish_files", _fake_publish)
+    monkeypatch.setattr(book_special, "mos_publish_to_shared", _fake_publish_to_shared)
+
+    # Mock mos_publish_files_to_shared for book_special module (dead_end, open_question)
+    def _fake_publish_files_for_special(*, role, files, commit_message, port=None, **kwargs):
+        import shutil
+
+        dst_paths = []
+        for entry in files:
+            src = Path(entry["src_path"])
+            dst_subpath = entry["dst_subpath"]
+            # dst_subpath is like "book/sources/dead-end-x.md" or "book/index.md"
+            dst = shared / dst_subpath
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            dst_paths.append(dst_subpath)
+
+        return {
+            "port": port,
+            "role": role,
+            "dst_paths": dst_paths,
+            "commit_sha": "fake-sha",
+            "pushed": False,
+            "push_branch": None,
+            "branch": "main",
+        }
+
+    monkeypatch.setattr(book_special, "mos_publish_files_to_shared", _fake_publish_files_for_special)
+
+    # Mock mos_publish_files_to_shared for book_ingest module
+    def _fake_publish_files(*, role, files, commit_message, port=None, **kwargs):
+        import shutil
+
+        dst_paths = []
+        for entry in files:
+            src = Path(entry["src_path"])
+            dst_subpath = entry["dst_subpath"]
+            # dst_subpath is like "book/sources/coder-dummy.md"
+            # We need to put it under shared/
+            dst = shared / dst_subpath
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            dst_paths.append(dst_subpath)
+
+        return {
+            "port": port,
+            "role": role,
+            "dst_paths": dst_paths,
+            "commit_sha": "fake-sha",
+            "pushed": False,
+            "push_branch": None,
+            "branch": "main",
+        }
+
+    from minions.tools import book_ingest
+    monkeypatch.setattr(book_ingest, "mos_publish_files_to_shared", _fake_publish_files)
+
+    # Mock _publish_files in book_promote module for ratify
+    from minions.tools import book_promote
+    def _fake_promote_publish_files(port, files, message):
+        import shutil
+        dst_paths = []
+        for src_path, rel_dst in files:
+            # rel_dst is like "sources/slug.md" or "log.md"
+            dst = shared / "book" / rel_dst
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_path, dst)
+            dst_paths.append(f"book/{rel_dst}")
+        return {
+            "port": port,
+            "dst_paths": dst_paths,
+            "commit_sha": "fake-sha",
+            "pushed": False,
+        }
+    monkeypatch.setattr(book_promote, "_publish_files", _fake_promote_publish_files)
+
     monkeypatch.setenv("MINIONS_PORT", str(port))
     # MINIONS_PROJECTS_ROOT points directly at tmp_path so project_dir(port)
     # resolves to tmp_path/project_{port}.

@@ -13,7 +13,7 @@ from minions.state.store import StateStore
 
 
 @pytest.fixture
-def mock_project_env(tmp_path: Path, monkeypatch):
+def mock_project_env(tmp_path: Path, monkeypatch, mock_git_operations):
     """Mock project environment for bootstrap testing.
 
     Returns ``(projects_root, state_root)``. ``state_root`` holds an isolated

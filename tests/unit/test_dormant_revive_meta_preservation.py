@@ -19,6 +19,7 @@ from typing import Any
 import pytest
 
 from minions.lifecycle import project as proj_mod
+from minions.lifecycle import project_backend, project_paths, project_lifecycle, project_metadata
 from minions.state.store import ProjectEntry, RoleEntry, StateStore
 
 
@@ -38,6 +39,10 @@ def _install_patches(
     monkeypatch.setattr(proj_mod, "project_main_workspace", lambda p: pdir / "workspace")
     monkeypatch.setattr(proj_mod, "project_eacn_db", lambda p: pdir / "eacn3_data" / "eacn3.db")
     monkeypatch.setattr(proj_mod, "project_backend_log", lambda p: pdir / "logs" / "backend.log")
+
+    # Patch project_metadata模块中使用的project_meta_json
+    monkeypatch.setattr(project_metadata, "project_meta_json", lambda p: pdir / "meta.json")
+
     monkeypatch.setattr(
         proj_mod,
         "ensure_role_workspace",
@@ -54,11 +59,28 @@ def _install_patches(
         def terminate(self) -> None:  # pragma: no cover - unused happy-path
             pass
 
-    monkeypatch.setattr(proj_mod, "_start_backend", lambda port: _FakeProc(backend_pid))
-    monkeypatch.setattr(proj_mod, "_wait_for_health", lambda port, timeout=None: None)
-    monkeypatch.setattr(proj_mod, "_stop_backend", lambda port, pid=None: None)
-    monkeypatch.setattr(proj_mod, "_git_tag", lambda port, tag: None)
-    monkeypatch.setattr(proj_mod, "_register_server", lambda port: (server_id, server_token))
+    # Mock在project_backend模块中的函数
+    monkeypatch.setattr(project_backend, "start_backend", lambda port: _FakeProc(backend_pid))
+    monkeypatch.setattr(project_backend, "wait_for_health", lambda port, timeout=None: None)
+    monkeypatch.setattr(project_backend, "stop_backend", lambda port, pid=None: None)
+    monkeypatch.setattr(project_backend, "register_server", lambda port: (server_id, server_token))
+
+    # Mock在project_lifecycle模块中导入的backend函数（实际被调用的）
+    monkeypatch.setattr(project_lifecycle, "start_backend", lambda port: _FakeProc(backend_pid))
+    monkeypatch.setattr(project_lifecycle, "wait_for_health", lambda port, timeout=None: None)
+    monkeypatch.setattr(project_lifecycle, "stop_backend", lambda port, pid=None: None)
+    monkeypatch.setattr(project_lifecycle, "register_server", lambda port: (server_id, server_token))
+    # register_gru_eacn_agent返回(gru_agent_id, gru_agent_token)，agent_id应该保持不变
+    monkeypatch.setattr(project_lifecycle, "register_gru_eacn_agent", lambda port, sid: ("gru", gru_token))
+    # Note: adopt_running_backend不在这里mock，让测试自己根据需要mock
+
+    # Mock在project_paths模块中的函数
+    monkeypatch.setattr(project_paths, "git_tag", lambda port, tag: None)
+
+    # Mock在project_lifecycle模块中导入的git_tag（这是实际被调用的）
+    monkeypatch.setattr(project_lifecycle, "git_tag", lambda port, tag: None)
+
+    # Mock在proj_mod中的函数
     monkeypatch.setattr(proj_mod, "upsert_agent_identity", lambda *args, **kwargs: {})
     monkeypatch.setattr(proj_mod, "identity_map_for_meta", lambda port: {})
 
@@ -89,8 +111,19 @@ def _seed_project(
     """Create an 'active' project entry in a fresh store + on-disk meta.json
     with the full runtime extras set, simulating the state after
     project_create."""
-    pdir = tmp_path / f"project_{port}"
+    # Use MINIONS_PROJECTS_ROOT from conftest
+    import os
+    projects_root = Path(os.environ.get("MINIONS_PROJECTS_ROOT", tmp_path))
+    pdir = projects_root / f"project_{port}"
     (pdir / "logs").mkdir(parents=True, exist_ok=True)
+
+    # Create parent_repo.git directory structure for git operations
+    parent_repo = pdir / "parent_repo.git"
+    parent_repo.mkdir(parents=True, exist_ok=True)
+    (parent_repo / "refs" / "heads").mkdir(parents=True, exist_ok=True)
+    (parent_repo / "objects").mkdir(parents=True, exist_ok=True)
+    (parent_repo / "HEAD").write_text("ref: refs/heads/main\n")
+
     store = StateStore(path=tmp_path / "projects.json")
     entry = ProjectEntry(
         port=port,
@@ -216,6 +249,23 @@ def test_revive_adopts_running_backend_left_by_failed_kill(
         "_adopt_running_backend",
         lambda port: proj_mod._AdoptedBackend(777),
     )
+    # 也需要mock project_lifecycle中导入的函数
+    from minions.errors import BackendError
+    monkeypatch.setattr(
+        project_lifecycle,
+        "start_backend",
+        lambda port: (_ for _ in ()).throw(BackendError("Port occupied")),
+    )
+
+    class _AdoptedProc:
+        def __init__(self, pid):
+            self.pid = pid
+
+    monkeypatch.setattr(
+        project_lifecycle,
+        "adopt_running_backend",
+        lambda port: _AdoptedProc(777),
+    )
 
     proj_mod.project_revive(port, store=store)
 
@@ -226,7 +276,7 @@ def test_revive_adopts_running_backend_left_by_failed_kill(
 
 
 def test_revive_restores_ethics_from_meta_cold(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_git_operations
 ) -> None:
     port = 40113
     store, entry, pdir = _seed_project(tmp_path, port=port)
@@ -409,7 +459,7 @@ def test_project_repair_is_already_when_gru_and_roles_present(
 
 
 def test_project_repair_refreshes_missing_server_registration(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_git_operations
 ) -> None:
     port = 40106
     store, _entry, pdir = _seed_project(tmp_path, port=port)
@@ -426,6 +476,16 @@ def test_project_repair_refreshes_missing_server_registration(
         proj_mod.eacn_client,
         "probe_backend",
         lambda port, timeout=3.0: {"health": True, "agents": []},
+    )
+    monkeypatch.setattr(
+        proj_mod.eacn_client,
+        "register_server",
+        lambda port, **kwargs: ("srv-new", "tok-new"),
+    )
+    monkeypatch.setattr(
+        proj_mod.eacn_client,
+        "register_agent",
+        lambda port, agent_id, **kwargs: ("gru-new", []),
     )
 
     result = proj_mod.project_repair_eacn_agents(port, store=store)
@@ -473,7 +533,7 @@ def test_dormant_kills_role_tmux_sessions(tmp_path: Path, monkeypatch: pytest.Mo
     assert len(killed) == 2
 
 
-def test_revive_relaunches_roles_cold(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_revive_relaunches_roles_cold(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_git_operations) -> None:
     """project_revive must call launch_role_process(..., resume=False) for
     every restored role. Resuming would reset Claude Code's prompt cache and
     replay the prior conversation as fresh uncached input; cold-starting and

@@ -17,14 +17,16 @@ def _isolated_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Set up an isolated project directory for each test."""
     port = 9999
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
+    # Patch the path functions in draft_helpers so all modules see the test paths
+    from minions.tools import draft_helpers
     monkeypatch.setattr(
-        draft,
-        "project_shared_subdir",
+        draft_helpers,
+        "_get_project_shared_subdir",
         lambda p, subdir: tmp_path / f"project_{p}" / "branches" / "shared" / subdir,
     )
     monkeypatch.setattr(
-        draft,
-        "project_shared_draft_json",
+        draft_helpers,
+        "_get_project_shared_draft_json",
         lambda p: tmp_path / f"project_{p}" / "branches" / "shared" / "draft" / "draft.json",
     )
     draft_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "draft"

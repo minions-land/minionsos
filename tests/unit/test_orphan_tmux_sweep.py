@@ -240,15 +240,27 @@ def test_project_kill_sweep_failure_does_not_abort_kill(
 def test_project_revive_sweeps_stale_tmux_before_launch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    mock_git_operations,
 ) -> None:
     """``launch_role_process`` is idempotent on ``has-session``: a stale
     tmux session would silently swallow the relaunch. ``project_revive``
     must sweep ``mos-{port}-*`` BEFORE invoking the launcher.
     """
     port = 40132
-    pdir = tmp_path / f"project_{port}"
-    pdir.mkdir(parents=True)
+
+    # Use MINIONS_PROJECTS_ROOT from conftest's _isolate_projects_root
+    import os
+    projects_root = Path(os.environ["MINIONS_PROJECTS_ROOT"])
+    pdir = projects_root / f"project_{port}"
+    pdir.mkdir(parents=True, exist_ok=True)
     (pdir / "branches" / "shared").mkdir(parents=True, exist_ok=True)
+
+    # Create parent_repo.git directory structure for git operations
+    parent_repo = pdir / "parent_repo.git"
+    parent_repo.mkdir(parents=True, exist_ok=True)
+    (parent_repo / "refs" / "heads").mkdir(parents=True, exist_ok=True)
+    (parent_repo / "objects").mkdir(parents=True, exist_ok=True)
+    (parent_repo / "HEAD").write_text("ref: refs/heads/main\n")
 
     store = StateStore(path=tmp_path / "projects.json")
     role = RoleEntry(name="expert", state="dismissed", pid=None)
@@ -283,6 +295,17 @@ def test_project_revive_sweeps_stale_tmux_before_launch(
 
     # Stub everything that hits the network / disk lifecycle.
     monkeypatch.setattr(proj_mod, "project_meta_json", lambda p: pdir / "meta.json")
+    # 同时mock project_metadata和project_lifecycle中使用的函数
+    from minions.lifecycle import project_metadata, project_lifecycle
+
+    def fake_read_meta_raw(p: int):
+        import json
+        path = pdir / "meta.json"
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    monkeypatch.setattr(project_metadata, "project_meta_json", lambda p: pdir / "meta.json")
+    monkeypatch.setattr(project_lifecycle, "read_meta_raw", fake_read_meta_raw)
+
     monkeypatch.setattr(proj_mod, "_start_backend", lambda p: fake_proc)
     monkeypatch.setattr(proj_mod, "_wait_for_health", lambda p: None)
     monkeypatch.setattr(proj_mod, "_migrate_legacy_memory_dirs", lambda p: None)

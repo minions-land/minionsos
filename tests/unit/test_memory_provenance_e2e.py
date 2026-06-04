@@ -29,7 +29,8 @@ from pathlib import Path
 
 import pytest
 
-from minions.tools import book, draft
+from minions.tools import book, draft, publish
+from minions.tools import book_ingest  # 添加导入以支持正确的mock
 
 
 @pytest.fixture
@@ -63,12 +64,29 @@ def project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     def _shared_workspace(p: int) -> Path:
         return _shared_subdir(p, "")
 
+    def _book_root(p: int) -> Path:
+        return _shared_subdir(p, "book")
+
     for mod in (draft, book):
         monkeypatch.setattr(mod, "project_shared_subdir", _shared_subdir, raising=False)
         monkeypatch.setattr(mod, "project_shared_draft_json", _shared_draft_json, raising=False)
     monkeypatch.setattr(book, "project_state_dir", _state_dir, raising=False)
     monkeypatch.setattr(book, "project_workspace_root", _workspace_root, raising=False)
     monkeypatch.setattr(book, "project_shared_workspace", _shared_workspace, raising=False)
+    monkeypatch.setattr(book, "_book_root", _book_root, raising=False)
+
+    # Mock book_helpers和book_promote中的_book_root
+    from minions.tools import book_helpers, book_promote
+    monkeypatch.setattr(book_helpers, "_book_root", _book_root, raising=False)
+    monkeypatch.setattr(book_promote, "_book_root", _book_root, raising=False)
+    # 同时mock book_helpers中的其他路径函数
+    monkeypatch.setattr(book_helpers, "project_workspace_root", _workspace_root, raising=False)
+    monkeypatch.setattr(book_helpers, "project_shared_workspace", _shared_workspace, raising=False)
+
+    # Mock minions.paths中的路径函数（被book_helpers内部导入使用）
+    import minions.paths
+    monkeypatch.setattr(minions.paths, "project_workspace_root", _workspace_root, raising=False)
+    monkeypatch.setattr(minions.paths, "project_shared_workspace", _shared_workspace, raising=False)
 
     def _fake_publish(*, role, src_path, dst_subpath, commit_message, port=None, **kwargs):
         dst = _shared_workspace(port or 9988) / dst_subpath
@@ -87,8 +105,8 @@ def project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             )
         return {"port": port, "role": role, "commit_sha": "deadbeef"}
 
-    monkeypatch.setattr(book, "mos_publish_to_shared", _fake_publish, raising=False)
-    monkeypatch.setattr(book, "mos_publish_files_to_shared", _fake_publish_files, raising=False)
+    monkeypatch.setattr(publish, "mos_publish_to_shared", _fake_publish, raising=False)
+    monkeypatch.setattr(book_ingest, "mos_publish_files_to_shared", _fake_publish_files, raising=False)
 
     return port, project_root, shared
 
