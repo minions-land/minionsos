@@ -145,7 +145,7 @@ First section.
 """\
 ## Section 2
 
-Content with `code fences`, $math$, "smart quotes", 中文.
+Content with `code fences`, $math$, "smart quotes", and non-ASCII prose.
 """,
 ]
 atomic_write(TARGET, "".join(parts))

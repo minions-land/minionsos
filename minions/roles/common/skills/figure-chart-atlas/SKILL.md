@@ -7,7 +7,7 @@ version: 2
 status: active
 supersedes:
 references: academic-plotting, figure-aesthetic-exemplars, figure-spec
-provenance: FigureDraw2-evidence (borrow synthesized from awesome-writing-prompts "实验绘图推荐" + nature-figure chart-atlas) + FigureDraw4-evidence (Action 11: scatter-fit + sankey skipped academic-plotting and lost typography+vector_fidelity — rcParams preamble now mandatory at atlas level)
+provenance: FigureDraw2-evidence (borrow synthesized from awesome-writing-prompts experimental-plotting recommendation + nature-figure chart-atlas) + FigureDraw4-evidence (Action 11: scatter-fit + sankey skipped academic-plotting and lost typography+vector_fidelity — rcParams preamble now mandatory at atlas level)
 ---
 
 # Skill — Figure Chart Atlas

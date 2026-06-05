@@ -180,7 +180,7 @@ This extracts all text from the PDF. If you see the expected panel letters, axis
 - The content was placed outside the page's mediabox (e.g. negative y, or y > page height).
 - Form XObject BBox was not accounted for (see "Read Form XObject bounding box" above).
 
-### Symptom: Content is clipped (e.g. "g 被裁断了")
+### Symptom: Content is clipped, such as a descender on the letter "g"
 
 **Diagnosis steps:**
 1. Render the PDF to PNG at 150 DPI.
@@ -219,7 +219,7 @@ c.save()
 
 Then merge this mask into the composite before placing the source content.
 
-### Symptom: Spacing is wrong ("再紧凑一点")
+### Symptom: Spacing is wrong and needs to be tighter
 
 **Diagnosis steps:**
 1. Render the PDF to PNG at 150 DPI.

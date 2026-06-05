@@ -1,6 +1,6 @@
 # Scale rescue — when data has > 1 order of magnitude
 
-Provenance: distilled from awesome-writing-prompts "实验绘图推荐" prompt — the "尺度适应性" rule.
+Provenance: distilled from the awesome-writing-prompts experimental-plotting recommendation prompt — the scale-adaptivity rule.
 
 When the data points span more than one order of magnitude (e.g., 0–10 vs 70–80, or 1ms vs 1s), a default linear axis collapses the smaller values into invisibility. The fix depends on which property of the data you want to preserve.
 

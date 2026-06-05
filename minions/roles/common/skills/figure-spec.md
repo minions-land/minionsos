@@ -33,7 +33,7 @@ Four blocks:
 - `edges`: list of `{source, target, style, label}`; `style` ∈ `solid` (data flow), `dashed` (control / feedback), `gray` (secondary).
 - `groups`: optional `{label, node_ids, fill, stroke}` for named regions.
 
-### Archetype B — Sankey / flow (FigureDraw2 borrow #5 — stat-writing-fuhaoda arm; sankey 冠军 18/24)
+### Archetype B — Sankey / flow (FigureDraw2 borrow #5 — stat-writing-fuhaoda arm; Sankey winner 18/24)
 
 Three blocks:
 

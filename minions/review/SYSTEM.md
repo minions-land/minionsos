@@ -348,7 +348,7 @@ Distribute these checks across reviewer instances per the existing aspect taxono
 
 Note: rule 4 of the quality contract ("don't compile PDF unless asked") is an author-side workflow rule and does not apply to Reviewer.
 
-## Epistemic Rigor Assessment (D1–D6) — 六维严谨性评估
+## Epistemic Rigor Assessment (D1-D6)
 
 Alongside the quality-contract rubric above, every review round produces an
 explicit **Epistemic Rigor Assessment**: six dimensions, each scored 1–5 by the

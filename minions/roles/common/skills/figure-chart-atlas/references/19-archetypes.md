@@ -1,6 +1,6 @@
 # 19 Archetypes — full reference
 
-Provenance: distilled from awesome-writing-prompts "实验绘图推荐" prompt (FigureDraw2 reviewer_readiness leader 2.29) + nature-figure chart-atlas + figures4papers 11 demos.
+Provenance: distilled from the awesome-writing-prompts experimental-plotting recommendation prompt (FigureDraw2 reviewer_readiness leader 2.29) + nature-figure chart-atlas + figures4papers 11 demos.
 
 For each archetype: when to use, when NOT, the implementation route, the typical pitfall.
 

@@ -6,7 +6,7 @@ tools: pikepdf, pillow, poppler (pdftocairo, pdftotext)
 version: 1
 status: active
 references: academic-plotting, figure-layout-defaults, figure-aesthetic-exemplars, package-pdf-compile, paper-compile, submission-cleanup-audit
-provenance: human + agent 湿实验/v8/v16 sessions + verified by external Layout regression run
+provenance: human + agent wet-lab/v8/v16 sessions + verified by external Layout regression run
 ---
 
 # Skill — PDF Vector Layout
@@ -25,7 +25,7 @@ Invoke when ANY of these holds:
 1. You have one or more existing PDFs (compiled figure outputs, sub-panels, prior versions) and need content moved, cropped, merged, replaced, or repositioned.
 2. The result must remain a real PDF — opens in Illustrator/Inkscape, text is selectable AND identical to the source's text layer, paths are paths.
 3. The figure should look like it belongs in a Nature/Science/Cell-family paper: clean panel letters, consistent typography, tight margins, correct point sizes, no leftover defaults from `matplotlib`.
-4. You're fighting in-figure annotations: "the letter g is clipped", "hide the original e/f/g/h/i, keep my new f/g/h/i/j", "再紧凑一点", "把这个字母换成 Helvetica 7 pt 加粗".
+4. You're fighting in-figure annotations: "the letter g is clipped", "hide the original e/f/g/h/i, keep my new f/g/h/i/j", "make it tighter", "change this letter to Helvetica 7 pt bold".
 5. A figure already passed [[academic-plotting]] / [[figure-layout-defaults]] but a downstream layout decision (combining two figures, re-doing one row, fitting a new panel into an old composite) needs surgery.
 
 Do NOT invoke for:
@@ -34,7 +34,7 @@ Do NOT invoke for:
 - Pure raster image work.
 - LaTeX-source-level changes — those go in the `.tex` and re-compile via [[paper-compile]].
 
-Phrases that should trigger this skill: "移到页面下方", "拼到一起", "保持矢量 / 可编辑", "替换进去", "微调位置", "再紧凑一点", "g 被裁断了", "svg 和 png 我都要", "模仿 Nature 排版", "字号 / 字体 / 加粗", "改图里的字母位置".
+Phrases that should trigger this skill: "move it to the lower page area", "combine these", "keep it vector/editable", "replace it into the figure", "fine-tune the position", "make it tighter", "the g is clipped", "I need both SVG and PNG", "match Nature-style layout", "font size / font family / bold", "change the panel-letter position".
 
 ## The decision tree (read this before touching code)
 
@@ -77,7 +77,7 @@ content-stream edit produced 1.6 KB; the cropbox-stamp pipeline produced 5.3 KB
   three times — even though pypdf will happily run that pattern, only the *render*
   is clipped; the text layer (and the file size) carries 3× the original content.
   Use the content-stream pipeline in `move_pdf_region.py` / `merge_pdf_pages.py`.
-- Do **not** render the source PDF to PNG and re-embed it. The output will look right but be a flat image; the user will say "这是截图，不是矢量". Both sessions started here and had to backtrack.
+- Do **not** render the source PDF to PNG and re-embed it. The output will look right but be a flat image; users will correctly reject it as a screenshot rather than an editable vector PDF. Both sessions started here and had to backtrack.
 - Do **not** use `pdftoppm` / `pdftocairo` as part of the pipeline. They are **preview-only** tools — render the final PDF to inspect it, never feed their output back in.
 - Do **not** edit empty backup files in place. If `*_base.pdf` or `*_v16_base_raster.pdf` is 0-content or blank, look around the directory for siblings (`figureX_v15.pdf`, `make_figure.py`, an `.svg`) — those are the real source of truth.
 - Do **not** trust that a script "ran" because it exited 0. Check `os.path.getmtime` of the output and re-render the first page. The session lost time to a script that silently produced nothing because of a path mistake.
@@ -103,12 +103,12 @@ content-stream edit produced 1.6 KB; the cropbox-stamp pipeline produced 5.3 KB
 5. **Compose.** Apply translation/clip/mask via the chosen library. Save with a new name.
 
 6. **Verify, don't trust.** Render page 1 with `pdftocairo -png -r 150 out.pdf preview` (or `pdftoppm`) and look at it. Confirm:
-   - Nothing is clipped (the "g 被切了一块" failure mode — leave a 4–6 pt safety margin above the highest data point).
+   - Nothing is clipped, including descenders such as a panel-letter "g"; leave a 4–6 pt safety margin above the highest data point.
    - Text is still selectable (`pdftotext out.pdf -` returns the original strings).
    - Only one set of panel letters is visible.
    - File size is plausible (a vector page is usually 50 KB–2 MB; a 50 MB output means you accidentally embedded a raster).
 
-7. **Deliver what was asked for.** If the user said "svg 和 png 我都要", export both alongside the PDF — `pdftocairo -svg` for SVG, `-png` for PNG. The PDF is the source of truth; the others are derived.
+7. **Deliver what was asked for.** If the user requested both SVG and PNG, export both alongside the PDF — `pdftocairo -svg` for SVG, `-png` for PNG. The PDF is the source of truth; the others are derived.
 
 ## Coordinate microadjustment cheatsheet
 
@@ -117,13 +117,13 @@ These came up across the v16 / wet-source / v8 sessions:
 - **Title-figure gap too loose:** subtract 4–8 pt from the figure row's top y. Re-render to confirm.
 - **Bottom edge clipped (e.g. letter "g"):** increase the destination clip box's height by 4–6 pt, and shift the fragment up by the same amount. When in doubt, set the clip's top y at a conservative `y ≈ 400 pt` rather than the data-tight value — it's cheaper to leave whitespace than to lose data.
 - **Two panels need equal heights but sources differ:** scale the smaller one with `add_transformation(Transformation().scale(s).translate(dx, dy))`. Do not crop the larger one unless the user agreed.
-- **"再紧凑一点":** treat as a 6–10 pt reduction in vertical spacing, then ask for confirmation rather than guessing more.
+- **"Make it tighter":** treat as a 6–10 pt reduction in vertical spacing, then ask for confirmation rather than guessing more.
 - **Form BBox not at origin:** subtract `BBox[1]` from your y-translation. Symptom: the placed content vanishes off-canvas.
 - **Hide source-PDF panel letters that conflict with composite labels:** draw a tight white-fill rectangle (vector) over each letter's bounding region in the final PDF. Do this **inside the composite step**, not as a post-process on a flattened page. Constrain the mask y-range so it does not bleed into the composite's own labels (e.g. mask only `y ≥ 424 pt`).
 
 ## Nature/Science/Cell house-style cheatsheet
 
-The user phrased it as "模仿 nature 子刊去排版". This is concrete — these journals share a fairly tight visual contract. When you're polishing toward that look, check:
+When the user asks for Nature-family layout, treat it as a concrete visual contract: these journals share a tight production style. When you're polishing toward that look, check:
 
 - **Page geometry.** Single column ≈ 88 mm (≈ 250 pt). Double column ≈ 180 mm (≈ 510 pt). Most multi-panel figures are double column, ≤ 240 mm tall.
 - **Panel letters.** Lowercase **bold sans-serif**, typically Helvetica/Arial 8–9 pt. Placed at the top-left of each panel, x-offset ≈ −6 pt and y-offset ≈ +4 pt from the panel's data area (i.e. just outside the axes). Never inside the plot. Keep them on a uniform baseline across the figure.
@@ -203,6 +203,6 @@ When you finish, tell the user three things and nothing more:
 3. Any compromise you made (e.g. "I used 8 pt padding under the title; tell me if you want it tighter").
 
 Do not paste large code blocks in the final answer. The user has said directly:
-> *少写代码，你可以写一点脚本进去，但是排版与多 pdf 矢量融合与微调等在里面做的事情是很宝贵的*
+> Write little code in the final answer; a small script is fine, but the valuable work is the layout judgment, vector PDF merging, and fine positioning.
 
 The judgment — coordinate planning, BBox awareness, vector masking, label arbitration, journal-style typography choices — is the value. The boilerplate isn't.

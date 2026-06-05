@@ -76,7 +76,7 @@ research projects.
   `scientific-paper` profile preserves the original Autonomous Scientific
   Discovery pipeline. New profiles ship as a single YAML file plus optional
   role-prompt overlays. Drives the `mos_submit` / `mos_evaluate` MCP tools and
-  the `mos benchmark run` CLI for 打榜 / leaderboard sweeps.
+  the `mos benchmark run` CLI for leaderboard sweeps.
 - **Long-lived Roles.** Gru, Ethics, and one or more Experts run as
   resident `claude` processes inside named tmux sessions
   (`mos-{port}-{role}`). EACN-registered roles drive their event loop with
@@ -176,6 +176,7 @@ minions-viz/                # read-only React/Vite dashboard
 mcp-servers/                # standalone MCP servers
   eacn3/                    # local editable EACN3 dependency (Python + Node plugin)
 MANUAL/                     # on-demand reference for Role agents (lookup.py)
+MARKDOWN_INDEX.md           # map of Markdown assets and discovery surfaces
 tests/unit/                 # fast behavior tests
 tests/smoke/                # integration-style smoke checks
 ```

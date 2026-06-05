@@ -25,9 +25,9 @@ Each technical subsection opens with this pattern:
 
 1. **Insight** — one sentence: *"The core insight of [method class] is [the conceptual move]."*
    Examples from LLM-Survey:
-   - 线性注意力的核心 insight 是一个优雅的代数观察 — by reordering Q (K^⊤ V) one drops a dimension from the cost.
-   - Hardware-Efficient Attention 的核心 insight 是 — without changing the attention algorithm itself, restructuring memory access yields the speedup.
-   - 混合架构的核心 insight 是 — different layers and different tokens have different attention needs; one architecture fits none.
+   - Linear attention: the core insight is an elegant algebraic observation — by reordering Q (K^⊤ V), one drops a dimension from the cost.
+   - Hardware-efficient attention: the core insight is that, without changing the attention algorithm itself, restructuring memory access yields the speedup.
+   - Hybrid architectures: the core insight is that different layers and different tokens have different attention needs; one architecture fits none.
 2. **Formula + ref** — the equation realising the insight, with `\eqref{}` and a citation. Anchor at the insight, not after three textbook lines.
 3. **Implication** — what this enables (faster, more expressive, more parallel) AND what it costs (lost expressiveness, harder optimisation, special hardware). Both halves required.
 

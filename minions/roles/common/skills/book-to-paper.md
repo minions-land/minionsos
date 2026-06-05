@@ -227,7 +227,7 @@ each gates the next and the final return is a compiled PDF + a coverage report.
   non-obvious claim with no inline `%` source comment. Untraceable prose is a
   defect even when it happens to be correct.
 
-## Validation protocol (how this skill earns trust — 实践出真理)
+## Validation protocol (how this skill earns trust through practice)
 
 This skill is NOT trusted on assertion. Before it is relied on in production it
 must be measured on real **(Book, ground-truth paper)** pairs:
@@ -243,4 +243,3 @@ must be measured on real **(Book, ground-truth paper)** pairs:
    **Iterate until the gap converges**; only then is the skill "landed".
 5. Keep each round's coverage report + comparison as evidence — never report
    "it works" without the measured comparison.
-

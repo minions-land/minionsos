@@ -153,7 +153,7 @@ Export both formats: `fig.savefig(path.pdf)` for LaTeX inclusion, `fig.savefig(p
 
 Each figure ships as: `gen_fig_<name>.py`, `fig_<name>.pdf`, `fig_<name>.png`, plus a one-line provenance docstring citing the source data file.
 
-## Caption checklist (FigureDraw2 borrow #2 — awesome-writing-prompts arm; reviewer_readiness 全场第一)
+## Caption checklist (FigureDraw2 borrow #2 — awesome-writing-prompts arm; top reviewer_readiness result)
 
 Before writing `caption.tex`, every figure caption must answer these four in order:
 
@@ -164,7 +164,7 @@ Before writing `caption.tex`, every figure caption must answer these four in ord
 
 This is a hard pre-export check. Run it before `caption.tex` is committed; reject the caption if any of the four lines is absent. Light enforcement of this rule was the single biggest reviewer_readiness lift in FigureDraw2 (awesome-writing-prompts arm 2.29 vs minionsos 2.13). Fold it back via [[caption-revision]] when the draft is also returned for revision.
 
-## ML-paper idioms (FigureDraw2 borrow #1 — ml-paper-writing arm; 4 fig_type 冠军)
+## ML-paper idioms (FigureDraw2 borrow #1 — ml-paper-writing arm; winner on 4 figure types)
 
 When the target venue is NeurIPS / ICML / ICLR / ACL / CVPR (or the figure type is the standard ML training-curve, ablation-bar, or ROC/PRC double-panel), apply these on top of the rcParams block:
 
@@ -176,7 +176,7 @@ When the target venue is NeurIPS / ICML / ICLR / ACL / CVPR (or the figure type 
 
 In FigureDraw2, ml-paper-writing arm beat minionsos by 5-6 points on `line-errband` (23 vs 17) and `dual-axis-time` (23 vs 18) primarily because it imitated real ICML/NeurIPS plot scripts. The fix is to bring the same exemplars into our gallery, not to grow this skill.
 
-## Network / graph idioms (FigureDraw2 borrow #4 — scientific-writing-kdense arm; network-graph 冠军)
+## Network / graph idioms (FigureDraw2 borrow #4 — scientific-writing-kdense arm; network-graph winner)
 
 When drawing a graph / network figure, default to:
 

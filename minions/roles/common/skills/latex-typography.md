@@ -142,7 +142,7 @@ Where:
 
 Iterate the rendered output 3–5 times to converge on the user's mental model of the table; do not propose alternative styles unless asked.
 
-## Booktabs grouping recipe (FigureDraw2 borrow #3 — composer-lishix arm; latex-table 冠军 21/24)
+## Booktabs grouping recipe (FigureDraw2 borrow #3 — composer-lishix arm; latex-table winner 21/24)
 
 For NeurIPS / ICML / ICLR / Cell / Nature submissions, the modern preference is **booktabs without vertical lines**, with explicit horizontal grouping when methods fall into a baseline / ours partition.
 

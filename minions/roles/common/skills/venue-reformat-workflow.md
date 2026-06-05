@@ -47,7 +47,7 @@ Why: reviewers see the same main text. Appendix additions answer specific concer
 2. **Stop. Send the proposal to the user. Wait for explicit approval.**
 3. Only after approval, execute the additions.
 
-This loop is stricter than ordinary edits because rebuttal-driven changes risk silent main-text drift. The user said this verbatim: *"我希望就是 rebuttal 的新增的内容，都总结道附录里面。而不是改变正文。你先做规划，给我 proposal，我拍板了之后再修改。"*
+This loop is stricter than ordinary edits because rebuttal-driven changes risk silent main-text drift. The user's requirement was: new rebuttal content should be summarized into the appendix, not silently merged into the main text; propose the plan first and wait for approval before editing.
 
 ### 4. Page compression by relocation
 When the main text exceeds the page budget, **move whole subsections to the appendix**, do not delete or summarise.

@@ -21,7 +21,7 @@ not to clean up the surface.
 ## When to invoke
 
 - The source is Chinese, or strongly Chinese-influenced English (mid-sentence
-  Chinese discourse markers like "由此可见", "另一方面", "值得注意的是",
+  Chinese discourse markers such as "therefore", "on the other hand", and "notably",
   AI-trace English vocabulary inserted between Chinese clauses, em-dashes
   used inside an English clause).
 - The author is a non-native English speaker preparing a CNS-family submission

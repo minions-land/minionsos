@@ -262,7 +262,7 @@ A **forge** is where raw material becomes refined tools through iterative cycles
 - **Iteration** — multiple heating cycles
 - **Mastery** — craftsmanship, not automation
 
-The name evokes the full lifecycle (从诞生到成熟的完整生命周期) while staying memorable and action-oriented.
+The name evokes the full lifecycle from birth to maturity while staying memorable and action-oriented.
 
 ---
 

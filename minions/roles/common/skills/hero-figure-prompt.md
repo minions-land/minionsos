@@ -33,14 +33,14 @@ branches/writer/paper/figures/fig_01_hero.prompt.md # the gpt-image-2.0 prompt
 
 The prompt file includes: full prompt text, generator + version, date, the section / claim it supports. This makes the figure regenerable: rename the method, update the prompt, regenerate, re-cite.
 
-User's exact phrasing: *"这个 prompt 需要落盘"* — non-negotiable.
+The user's requirement was that the prompt must be persisted on disk; treat this as non-negotiable.
 
 ### 3. Font discipline on rendered figures
 - Body text in figure: **Times New Roman**.
 - Math in figure: **LaTeX fonts** (Computer Modern via MathJax-style rendering or pre-rendered LaTeX snippets).
 - Reject figures whose math is rendered in sans-serif or whose body text is in a stochastic AI-typical font.
 
-### 4. "AI 味少一些" — minimise AI taste
+### 4. Reduce AI taste
 Hero figures often look stochastically pretty in a way that signals "AI made this". Reduce it:
 - Hand-laid-out feel; explicit panel structure (not a wash of gradients).
 - Restrained palette (3–5 colours, not the full rainbow).
@@ -51,15 +51,15 @@ Hero figures often look stochastically pretty in a way that signals "AI made thi
 ### 5. Nature-style panel structure for multi-panel hero
 When the hero is multi-panel ("Method overview" with sub-panels A / B / C / D):
 - Each panel is **formalised** — labelled (A), (B), (C), (D) in the upper-left.
-- Panel A typically explains the system / method ("协作方式" / collaboration model).
+- Panel A typically explains the system / method, such as the collaboration model.
 - Subsequent panels show data / results / variants.
 - Panel A is held to the same formalisation bar as the data panels — no hand-wave.
-- When redoing, anchor on a reference figure type: the user's pattern is to point at a published figure ("看 Figure XV3 里面的图的类型") rather than freestyle.
+- When redoing, anchor on a reference figure type: the user's pattern is to point at a published figure rather than freestyle.
 
 ## Procedure
 
 1. **Decide hero scope.** Single panel (concept) vs multi-panel (method overview). For multi-panel, identify each panel's function before prompting.
-2. **Draft a "world-class" prompt.** The user's instruction was: *"组织一个世界级超级无敌的能够 Go Viral 的 Prompt"*. Concretely: state the central claim, name each panel and what it shows, specify font discipline (Times + LaTeX), specify palette restraint, name the reference figure style ("Nature method-overview style").
+2. **Draft a world-class prompt.** Make it specific enough to support a publishable, widely shareable figure: state the central claim, name each panel and what it shows, specify font discipline (Times + LaTeX), specify palette restraint, name the reference figure style ("Nature method-overview style").
 3. **Persist the prompt.** Save to `figures/fig_NN_hero.prompt.md` immediately, before generation. The prompt file is committed to git the same time as the rendered figure.
 4. **Generate** with gpt-image-2.0.
 5. **Audit the output.** Font discipline + AI-taste reduction + panel formalisation + reference-figure anchor. If any axis fails, refine the prompt and regenerate.

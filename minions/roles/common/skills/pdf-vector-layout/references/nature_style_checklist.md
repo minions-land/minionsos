@@ -53,7 +53,7 @@ This is the concrete, printable version of the typography and spacing rules that
 
 ### Title-to-figure gap
 - **Default:** 8 pt below a title row before the first panel starts
-- **Tight (user requested "再紧凑一点"):** 4–6 pt
+- **Tight (user requested a more compact layout):** 4–6 pt
 - **Never:** < 3 pt (text will visually collide with the panel)
 
 ### Inter-panel spacing (horizontal)
@@ -128,11 +128,11 @@ These are journal norms. Matplotlib's defaults (1.5 pt axes, 1.5 pt plot lines) 
 
 ## Common failure modes (from the v16 session)
 
-1. **"g 被裁断了"** — The top of the letter "g" or a data point was clipped because the clip box was set too tight. Always leave 4–6 pt above the highest element.
+1. **Clipped descender or data point** — The top of a letter or data point was clipped because the clip box was set too tight. Always leave 4–6 pt above the highest element.
 
 2. **Two sets of panel letters visible** — The source PDF had `e/f/g/h/i`, the composite added `f/g/h/i/j`, and both were visible. Solution: vector white-fill rectangle over the source's letters, constrained to not bleed into the composite's labels.
 
-3. **Title-figure gap too loose** — Default spacing was 12–15 pt; user asked for "再紧凑一点". Solution: reduce to 6–8 pt, re-render, confirm.
+3. **Title-figure gap too loose** — Default spacing was 12–15 pt; user asked for a more compact layout. Solution: reduce to 6–8 pt, re-render, confirm.
 
 4. **Inter-panel spacing inconsistent** — Panels in the same row had different horizontal gaps (8 pt, 12 pt, 15 pt). Solution: measure all gaps, pick one target (e.g. 10 pt), adjust all panels to match.
 
@@ -144,10 +144,10 @@ These are journal norms. Matplotlib's defaults (1.5 pt axes, 1.5 pt plot lines) 
 
 ## Microadjustment workflow
 
-When the user says "再紧凑一点" or "g 被切了一块", follow this loop:
+When the user asks for a tighter layout or reports clipped content, follow this loop:
 
 1. **Identify the gap/clip in question.** Render the current PDF to PNG at 150 DPI, measure the gap in pixels, convert to points (1 pt = 150/72 px at 150 DPI ≈ 2.08 px).
-2. **Decide the adjustment.** "再紧凑一点" → reduce by 4–8 pt. "g 被切了" → increase clip height by 4–6 pt and shift up by the same amount.
+2. **Decide the adjustment.** For a tighter layout, reduce by 4–8 pt. For clipped content, increase clip height by 4–6 pt and shift up by the same amount.
 3. **Edit the coordinate in the script.** Do not guess — compute the new value, write it down, then change the script.
 4. **Regenerate and re-render.** Check the PNG diff. If the change is too small or too large, iterate once more. Do not iterate more than twice without asking the user.
 5. **Confirm with the user.** Show the new PNG, state the adjustment in points (e.g. "I reduced the title-figure gap from 10 pt to 6 pt"), ask if it's right.
@@ -169,6 +169,6 @@ When the user says "再紧凑一点" or "g 被切了一块", follow this loop:
 ## When to stop iterating
 
 The user from the v16 session said:
-> *少写代码，你可以写一点脚本进去，但是排版与多 pdf 矢量融合与微调等在里面做的事情是很宝贵的*
+> Write little code in the final answer; a small script is fine, but the valuable work is the layout judgment, vector PDF merging, and fine positioning.
 
 This means: **the judgment is the value, not the code volume.** After 2–3 rounds of spacing adjustments, if the figure is within 2 pt of the target and nothing is clipped, stop and ask the user if it's acceptable. Do not chase pixel-perfection unless the user explicitly asks for it.
