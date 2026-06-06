@@ -1,4 +1,4 @@
-"""Unit tests for the Python-side Coder experiment queue scheduler."""
+"""Unit tests for the Python-side Expert experiment queue scheduler."""
 
 from __future__ import annotations
 

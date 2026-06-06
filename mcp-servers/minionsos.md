@@ -5,12 +5,12 @@ The `minionsos` MCP server is the largest and most-used MCP in this repo, but it
 ## Where it lives
 
 ```
-minions/tools/mcp_server.py        # 50-line shim — preserves `python -m minions.tools.mcp_server`
+minions/tools/mcp_server.py        # module entry point for `python -m minions.tools.mcp_server`
 minions/tools/mcp/                 # package; each submodule registers its @mcp.tool() decorators on import
 ├── __init__.py                    # owns the FastMCP singleton; imports every submodule for side effects
 ├── _common.py                     # _MINIONS_MCP_TOOL_NAMES, _require_tool_allowed, shared arg models
 ├── experiment_tools.py            # mos_exp_* / exp_queue_* / exp_gpu_pool_*
-├── memory_tools.py                # mos_draft_*, mos_shelf_*, mos_book_*
+├── memory_tools.py                # mos_draft_*, mos_book_*
 ├── paper_tools.py                 # search_arxiv / search_pubmed / read_*_paper / download_*
 ├── project_tools.py               # mos_project_create / close / dormant / revive / kill / list / set_phase
 ├── publish_tools.py               # mos_publish_to_shared
@@ -25,10 +25,9 @@ minions/tools/                     # sibling implementation modules the MCP subm
 ├── experiment_scheduler.py        # SQLite experiment queue
 ├── paper_search.py                # backs paper_tools.py
 ├── await_events.py                # mos_await_events handler
-├── draft.py                  # backs memory_tools.py (draft portion)
+├── draft.py                       # backs memory_tools.py (draft portion)
 ├── book.py                        # backs memory_tools.py (book portion)
-├── shelf.py                       # backs memory_tools.py (shelf portion)
-├── reel.py                        # backs reel_tools.py — L0 raw session traces
+├── reel.py                        # backs reel_tools.py — L0 pointer-index traces
 ├── project_bridge.py              # mos_project_bridge
 ├── reset.py                       # mos_reset_context
 ├── review.py                      # mos_review_run
@@ -36,7 +35,9 @@ minions/tools/                     # sibling implementation modules the MCP subm
 └── whitelist.py                   # tool surface gating helper
 ```
 
-The package was split out of the original 1700-line `mcp_server.py` in v11.1 (commit b5d5fe6). `minions/tools/mcp_server.py` is a thin re-export shim kept for the entry-point path and for legacy `from minions.tools.mcp_server import …` imports in tests.
+`minions/tools/mcp_server.py` is the stable module entry point. The concrete
+tool registrations live in `minions/tools/mcp/`, and the implementation logic
+lives in sibling modules under `minions/tools/`.
 
 ## How it is registered
 
@@ -77,12 +78,12 @@ See `minions/tools/mcp/_common.py:_MINIONS_MCP_TOOL_NAMES` for the authoritative
 - **Project lifecycle**: `mos_project_create`, `mos_project_close`, `mos_project_kill`, `mos_project_dormant`, `mos_project_revive`, `mos_project_list`, `mos_project_set_phase`, `mos_project_checkpoint_workspace`, `mos_project_bridge`.
 - **Role lifecycle**: `mos_spawn_role`, `mos_spawn_expert`, `mos_dismiss_role`, `mos_list_roles`, `mos_kill_role`, `mos_attach_role`.
 - **Cross-role IO**: `mos_publish_to_shared`, `mos_draft_*`, `mos_book_ingest`, `mos_book_ingest_batch`, `mos_book_query`, `mos_book_save_synthesis`, `mos_book_lint`, `mos_book_audit_walk`, `mos_book_resolve_contradiction`, `mos_book_promote_verified`, `mos_book_crystallize_session`.
-- **Event loop**: `mos_await_events`, `mos_noter_wait`, `mos_get_events`, `mos_unread_summary`, `mos_reset_context`, `mos_compact_context`.
+- **Event loop**: `mos_await_events`, `mos_get_events`, `mos_unread_summary`, `mos_reset_context`, `mos_compact_context`.
 - **Review**: `mos_review_run`.
 - **Experiments**: `mos_exp_run`, `mos_exp_status`, `mos_exp_wait`, `mos_exp_kill`, `mos_exp_list`, `mos_exp_put`, `mos_exp_get`, `mos_exp_tail`, `mos_query_gpus`, `mos_exp_queue_*`, `mos_exp_gpu_pool_*`.
 - **Paper search**: `mos_search_arxiv`, `mos_search_pubmed`, `mos_search_biorxiv`, `mos_search_medrxiv`, `mos_search_google_scholar`, `mos_search_semantic`, `mos_search_papers_federated`, `mos_resolve_arxiv_ids`, `mos_read_*_paper`, `mos_download_*`.
-- **Visual format-check**: `mos_visual_render`, `mos_visual_inspect`, `mos_visual_check` — Poppler rasterize + pixel-level defect detection (column void, edge overflow, trailing whitespace, column imbalance, float clustering, short lines). Available to all EACN-visible roles; denied to Noter.
-- **Reel (L0) drill-down**: `mos_reel_get`, `mos_reel_window` — read raw session traces archived under `branches/<role>/reel/<session_id>/` by the `reel_capture` PostToolUse hook. Available to all EACN-visible roles for their own reel; Gru can read cross-role reels. Noter is excluded — it does not consume reel-level data.
+- **Visual format-check**: `mos_visual_render`, `mos_visual_inspect`, `mos_visual_check` — Poppler rasterize + pixel-level defect detection (column void, edge overflow, trailing whitespace, column imbalance, float clustering, short lines). Available to all EACN-visible roles.
+- **Reel (L0) drill-down**: `mos_reel_get`, `mos_reel_window` — read pointer-indexed native Claude session JSONL via `branches/<role>/reel-index.jsonl`. Experts read their own Reel entries; Gru and Ethics can read cross-role entries for audit.
 - **Signboard**: `mos_signboard_read`, `mos_signboard_set`, `mos_signboard_evaluate`, `mos_signboard_consume`, `mos_signboard_reopen`.
 - **Diagnostics**: `mos_issue_report`, `mos_start_monitor`, `mos_list_workflow_plugins`.
 

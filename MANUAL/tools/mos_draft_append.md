@@ -3,7 +3,7 @@ id: mos_draft_append
 kind: tool
 domain: memory
 auth: [gru, expert, ethics]
-source: minions/tools/mcp/memory_tools.py:69
+source: minions/tools/mcp/memory_tools.py:107
 since: stable
 keywords: [draft, append, node, edge, hypothesis, evidence, plan]
 related: [mos_draft_view, mos_draft_annotate, mos_book_promote_verified]
@@ -33,7 +33,7 @@ mos_draft_append(
 
 ## Style rules
 - `text` = one sentence. Long content → `metadata` or Book ingest.
-- `evidence_tag` = `"[evidence: branches/shared/exp/.../result.json]"`.
+- `evidence_tag` = `"[evidence: branches/main/exp/.../result.json]"`.
 - For verified results, set `support_status="verified"`.
 
 ## reel_ref auto-injection
@@ -45,7 +45,7 @@ node gets `metadata.reel_ref` pointing back to your raw transcript.
 mos_draft_append(nodes=[{
   "type": "result",
   "text": "exp-bafd9: c_grok ∝ h FAILS on held-out p=97 (52% MARE)",
-  "evidence_tag": "[evidence: branches/shared/exp/p3-width-falsifier/result.json]",
+  "evidence_tag": "[evidence: branches/main/exp/p3-width-falsifier/result.json]",
   "support_status": "verified",
 }])
 ```

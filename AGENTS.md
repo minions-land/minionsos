@@ -2,9 +2,8 @@
 
 > **Repository naming standard:** the project title is **MinionsOS**. Do not add
 > release suffixes to product names, repository names, headings, or checkout
-> paths in new documentation. The historical local folder may still have a
-> version-suffixed name during this migration, but that name is temporary and
-> must be removed after this revision lands.
+> paths in new documentation. Checkout paths should use the canonical
+> `MinionsOS` name after this revision lands.
 
 ## Project Structure & Module Organization
 
@@ -90,8 +89,7 @@ When editing, preserve user or agent changes that predate your task. If a file
 already contains unrelated edits, either stage only your hunks or move the work
 to a clean worktree and re-apply the minimal patch. Before finishing, run
 `rg -n "MinionsOS[ _-]?V[0-9]+"` to catch accidental product-name regressions;
-ignore only incidental binary hashes or historical external data with a clear
-note.
+ignore only incidental binary hashes or external archival data with a clear note.
 
 ## Security & Configuration Tips
 

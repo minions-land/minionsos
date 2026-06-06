@@ -46,11 +46,11 @@ lookup.py --pitfalls "queue"       # dead-launch FP, retry storm
 | Issues | `project_<port>/issues/issues.jsonl` |
 | Project metadata | `project_<port>/meta.json` |
 | EACN3 SQLite | `project_<port>/eacn3_data/eacn3.db` |
-| Experiment results | `project_<port>/branches/shared/exp/exp-<id>/` |
+| Experiment results | `project_<port>/branches/main/exp/exp-<id>/` |
 
 ## Strip ANSI before grep
 
 Role logs contain ANSI escape sequences that break grep:
 ```bash
-perl -pe "s/\x1b\[[0-9;]*[a-zA-Z]//g; s/\x1b\][^\x07]*\x07//g" role-coder.log | grep -iE "error|fail|denied"
+perl -pe "s/\x1b\[[0-9;]*[a-zA-Z]//g; s/\x1b\][^\x07]*\x07//g" role-expert.log | grep -iE "error|fail|denied"
 ```

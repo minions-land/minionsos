@@ -5,7 +5,7 @@ domain: deliverables
 auth: [gru]
 source: minions/tools/mcp/evaluator_tools.py:25
 since: stable
-keywords: [submit, evaluate, adjudicate, review, deliverable, paper, answer]
+keywords: [submit, evaluate, review, deliverable, paper, answer]
 related: [mos_submit, mos_evaluate, mos_review_run]
 status: stable
 ---
@@ -18,7 +18,7 @@ Other roles surface a deliverable to Gru by EACN message; Gru calls these tools.
 
 | Tool | What | When |
 |---|---|---|
-| `mos_submit` | persist payload under `branches/shared/submissions/` | role hands off final |
+| `mos_submit` | persist payload under `branches/main/submissions/` | role hands off final |
 | `mos_evaluate` | run profile-defined strategy → `{score, verdict}` | after submit |
 | `mos_review_run` | one peer-review round (Pass A/B/C) | scientific-paper profile |
 

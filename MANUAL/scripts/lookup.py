@@ -4,7 +4,7 @@
 Usage:
     lookup.py "queue dispatch retry"        # top 5 hits + first 12 lines each
     lookup.py "<query>" -k 3                # top 3 hits
-    lookup.py "<query>" --role coder        # filter by role
+    lookup.py "<query>" --role expert       # filter by role
     lookup.py --id mos_exp_run              # fetch one page verbatim
     lookup.py --id mos_exp_run --section signature
     lookup.py --domain experiments          # list domain pages
@@ -16,6 +16,7 @@ ergonomics: a query → a small payload that contains exactly the right page
 ids and snippets to act on.
 """
 from __future__ import annotations
+
 import argparse
 import json
 import re
@@ -126,7 +127,10 @@ def cmd_id(idx: dict, page_id: str, section: str | None, full: bool) -> int:
         return 0
     if section:
         # extract a markdown section
-        pat = re.compile(rf"^##\s+{re.escape(section)}\s*$.*?(?=^##\s+|\Z)", re.MULTILINE | re.DOTALL | re.IGNORECASE)
+        pat = re.compile(
+            rf"^##\s+{re.escape(section)}\s*$.*?(?=^##\s+|\Z)",
+            re.MULTILINE | re.DOTALL | re.IGNORECASE,
+        )
         m = pat.search(text)
         if not m:
             print(f"ERR: section {section!r} not found in {page_id}", file=sys.stderr)
@@ -155,7 +159,7 @@ def cmd_decision(idx: dict, query: str) -> int:
     qt = tokenize(query)
     boosts = {
         "publish": ["mos_publish_to_shared"],
-        "wake": ["mos_await_events", "mos_noter_wait"],
+        "wake": ["mos_await_events"],
         "queue": ["mos_exp_queue_status", "mos_exp_queue_submit", "mos_exp_queue_reconcile"],
         "spawn": ["mos_spawn_role", "mos_spawn_expert"],
         "review": ["mos_review_run"],

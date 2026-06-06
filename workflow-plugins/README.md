@@ -117,7 +117,7 @@ The spawned Expert gets:
 
 - Workflow plugin Experts write only to their own branch
 - Cross-role output goes through `mos_publish_to_shared` → `handoffs/` only
-- They do NOT write to `draft/`, `notes/`, `book/`, `shelf/`, or other native surfaces
+- They do NOT write to `draft/`, `notes/`, `book/`, or other native surfaces
 - MinionsOS's own Scientific Discovery workflow is sovereign — workflow plugins
   provide capabilities but never replace or overwrite the native system
 - Dismiss removes the process; no explicit MCP unload needed
@@ -200,7 +200,7 @@ project's shared surfaces still goes through `mos_publish_to_shared`.
 ### Category 5: Multi-agent writing workflows
 
 Systems where multiple agents collaborate on paper writing with role
-separation (PI, reviewer, writer, statistician, etc.).
+separation (PI, reviewer, authoring agent, statistician, etc.).
 
 | System | Integration pattern |
 |--------|-------------------|

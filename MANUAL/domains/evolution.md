@@ -40,5 +40,5 @@ SPLIT: 12 h. MERGE / DISMISS: 6 h. Default `gru.yaml: role_evolution_auto_apply:
 
 ## Audit trail
 
-`branches/shared/governance/role_evolution.jsonl` — every recommendation and
+`branches/main/governance/role_evolution.jsonl` — every recommendation and
 every apply event writes one line.

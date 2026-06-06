@@ -1,4 +1,4 @@
-"""Tests for role registration defaults and the Noter terminal snapshot."""
+"""Tests for role registration defaults and the observatory terminal snapshot."""
 
 from __future__ import annotations
 

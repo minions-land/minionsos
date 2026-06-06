@@ -2,8 +2,8 @@
 
 MinionsOS uses a three-tier stability classification for all public surfaces.
 Breaking changes to **stable** surfaces require a minor-version bump and a
-one-release deprecation alias. **Experimental** surfaces may change in any
-patch. **Internal** surfaces carry no compatibility guarantee.
+release-note migration entry. **Experimental** surfaces may change in any
+patch. **Internal** surfaces carry no support guarantee.
 
 ---
 
@@ -11,10 +11,9 @@ patch. **Internal** surfaces carry no compatibility guarantee.
 
 | Tier | Definition |
 |---|---|
-| **stable** | Semver-bound. Removals and incompatible changes require deprecation alias for ≥ 1 minor release before removal. |
+| **stable** | Semver-bound. Removals and incompatible changes require a minor-version bump and release-note migration entry. |
 | **experimental** | Under active development. Interface may change in any patch release without prior notice. |
-| **internal** | Implementation detail. No compatibility guarantee across any release. |
-| **deprecated** | Scheduled for removal. Deprecation alias present; removal no earlier than next minor. |
+| **internal** | Implementation detail. No support guarantee across any release. |
 
 ---
 
@@ -42,19 +41,6 @@ patch. **Internal** surfaces carry no compatibility guarantee.
 
 ---
 
-## Deprecation policy
-
-1. **Announce.** A surface is marked `deprecated` in the table above and
-   in the relevant docstring/prompt, and a `DeprecationWarning` (Python)
-   or warning log line (MCP / CLI) is emitted on use.
-2. **Alias.** The deprecated surface continues to function as an alias
-   to its replacement for at least **one full minor release**.
-3. **Remove.** Removal happens no earlier than the next minor bump after
-   the alias was introduced. The CHANGELOG `### Removed` entry names the
-   removed surface and links to the replacement.
-4. **No silent breakage.** Stable surfaces never change semantics
-   without going through the announce → alias → remove cycle.
-
 ## Breaking-change rules
 
 A change is **breaking** if it can cause an existing caller's previously
@@ -64,10 +50,10 @@ Examples:
 - Removing or renaming an `mos_*` MCP tool or any of its parameters.
 - Changing the type or required-ness of an `mos_*` parameter.
 - Removing or renaming a `MinionsError` subclass.
-- Removing a `Role` (e.g. `Coder`, `Writer`) without a migration path.
+- Removing a current `Role` or changing its launch contract without a migration path.
 - Removing or renaming a §-numbered section in `minions/roles/SYSTEM.md`.
 - Changing the exit-code contract of a `mos` CLI subcommand.
-- Changing the schema of `state/projects.json` without a forward-compatible
+- Changing the schema of `state/projects.json` without a forward-readable
   reader.
 
 Non-breaking (allowed in any release):
@@ -103,4 +89,3 @@ fallback in `minions/__init__.py`), then `uv sync`.
 - Internal Pydantic model field names (only the MCP-serialized JSON is
   the contract).
 - Log line wording. Treat logs as human-readable, not machine-parseable.
-

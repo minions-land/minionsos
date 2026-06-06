@@ -52,8 +52,6 @@ def _seed_minimal_repo(repo: Path) -> None:
     """Seed CLAUDE.md, .mcp.json, README so structural checks have a baseline."""
     (repo / "CLAUDE.md").write_text(
         "| Gru main | a | b | c | d | e | f |\n"
-        "| Coder main | a | b | c | d | e | f |\n"
-        "| Writer main | a | b | c | d | e | f |\n"
         "| Ethics main | a | b | c | d | e | f |\n"
         "| Expert main | a | b | c | d | e | f |\n",
         encoding="utf-8",
@@ -93,9 +91,9 @@ def test_generate_role_skill_requires_existing_role(fake_repo: Path) -> None:
 
 
 def test_generate_role_skill_writes_frontmatter_and_summary(fake_repo: Path) -> None:
-    _seed_role(fake_repo, "coder")
+    _seed_role(fake_repo, "expert")
     result = generators.generate_role_skill(
-        "coder", "evidence-audit", summary="Audit evidence chain"
+        "expert", "evidence-audit", summary="Audit evidence chain"
     )
     body = result.paths_written[0].read_text(encoding="utf-8")
     assert body.startswith("---\nslug: evidence-audit\n")
@@ -182,7 +180,7 @@ def test_audit_flags_orphan_mcp_tool(fake_repo: Path, monkeypatch: pytest.Monkey
     monkeypatch.setattr(
         contracts,
         "whitelist_table",
-        lambda: {("coder", "main"): ["Read"]},
+        lambda: {("expert", "main"): ["Read"]},
     )
     issues = audit_module.check_mcp_tools_whitelisted()
     assert any("mos_orphan_tool" in i.message for i in issues)
@@ -226,7 +224,7 @@ def test_audit_wildcard_match_passes(fake_repo: Path, monkeypatch: pytest.Monkey
     monkeypatch.setattr(
         contracts,
         "whitelist_table",
-        lambda: {("noter", "main"): ["mos_draft_*"]},
+        lambda: {("ethics", "main"): ["mos_draft_*"]},
     )
     issues = audit_module.check_mcp_tools_whitelisted()
     assert issues == []
@@ -245,7 +243,7 @@ def test_check_whitelist_entries_resolve_flags_dead_entry(
     monkeypatch.setattr(
         contracts,
         "whitelist_table",
-        lambda: {("coder", "main"): ["mos_real_tool", "mos_quantum_teleport"]},
+        lambda: {("expert", "main"): ["mos_real_tool", "mos_quantum_teleport"]},
     )
     issues = audit_module.check_whitelist_entries_resolve()
     assert any("mos_quantum_teleport" in i.message for i in issues)
@@ -260,7 +258,7 @@ def test_check_whitelist_entries_resolve_accepts_wildcard(
     monkeypatch.setattr(
         contracts,
         "whitelist_table",
-        lambda: {("noter", "main"): ["mos_draft_*"]},
+        lambda: {("ethics", "main"): ["mos_draft_*"]},
     )
     assert audit_module.check_whitelist_entries_resolve() == []
 
@@ -271,14 +269,14 @@ def test_check_publish_policy_matches_boundaries_flags_extra_subdir(
     monkeypatch.setattr(
         contracts,
         "role_publish_policy",
-        lambda: {"noter": {"notes", "exploration", "handoffs", "exp"}},
+        lambda: {"ethics": {"notes", "exploration", "handoffs", "exp"}},
     )
     monkeypatch.setattr(
         contracts,
         "role_write_boundaries",
         lambda: {
-            "noter": [
-                "branches/noter/",
+            "ethics": [
+                "branches/ethics/",
                 "branches/shared/notes/",
                 "branches/shared/draft/",
                 "branches/shared/handoffs/",
@@ -316,8 +314,8 @@ def test_check_subagent_not_broader_when_aligned(
         contracts,
         "whitelist_table",
         lambda: {
-            ("coder", "main"): ["Bash", "Read", "Write"],
-            ("coder", "subagent"): ["Read", "Write"],
+            ("expert", "main"): ["Bash", "Read", "Write"],
+            ("expert", "subagent"): ["Read", "Write"],
         },
     )
     monkeypatch.setattr(contracts, "list_registered_mcp_tools", lambda: [])

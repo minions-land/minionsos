@@ -2,7 +2,7 @@
 id: pitfall-queue-deadlaunch-fp
 kind: pitfall
 domain: experiments
-auth: [coder]
+auth: [expert]
 source: minions/tools/experiment_scheduler.py:1
 since: v15.10
 keywords: [queue, deadlaunch, oom, exit, false, positive, retry, project_workspace]
@@ -12,7 +12,7 @@ status: stable
 
 # pitfall: queue cells flagged `failed` despite valid `metrics.csv`
 
-**Symptom (project_37596 / role-coder, ISS-37596-10 / ISS-37596-14):**
+**Symptom:**
 ```
 status=oom exit_code=-9
 bash: ... /MinionsOS/{project_workspace}/experiments/logs/exp-...: No such file or directory
@@ -49,10 +49,10 @@ Instead:
 2. For each cell whose run-dir contains a complete `metrics.csv`:
    ```python
    # bulk-publish the actually-completed runs
-   mos_publish_to_shared(role="coder",
-     src_path=f"/abs/branches/coder/runs/{cell_id}/result.json",
-     dst_subpath=f"exp/{cell_id}/result.json",
-     commit_message=f"coder: salvage FP-flagged-but-completed cell {cell_id}")
+  mos_publish_to_shared(role="expert-math",
+    src_path=f"/abs/branches/expert-math/runs/{cell_id}/result.json",
+    dst_subpath=f"handoffs/{cell_id}/result.json",
+    commit_message=f"expert-math: salvage FP-flagged-but-completed cell {cell_id}")
    ```
 3. File `mos_issue_report` (severity=P1, component=queue, link to evidence).
 4. Stop reconciling until the underlying scheduler bug is patched.

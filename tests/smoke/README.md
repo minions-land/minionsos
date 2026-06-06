@@ -146,7 +146,7 @@ project_revive(
 ```
 
 Expected: feedback archived under
-`project_<N>/branches/shared/handoffs/external-feedback/<ts>.md`.
+`project_<N>/branches/main/handoffs/external-feedback/<ts>.md`.
 EACN broadcast sent to all roles.
 
 ### Step 13 — Close project

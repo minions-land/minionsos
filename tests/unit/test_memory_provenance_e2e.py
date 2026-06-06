@@ -29,8 +29,7 @@ from pathlib import Path
 
 import pytest
 
-from minions.tools import book, draft, publish
-from minions.tools import book_ingest  # 添加导入以支持正确的mock
+from minions.tools import book, book_ingest, draft, publish
 
 
 @pytest.fixture
@@ -75,16 +74,18 @@ def project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(book, "project_shared_workspace", _shared_workspace, raising=False)
     monkeypatch.setattr(book, "_book_root", _book_root, raising=False)
 
-    # Mock book_helpers和book_promote中的_book_root
+    # Patch the helper modules that book promotion uses internally.
     from minions.tools import book_helpers, book_promote
+
     monkeypatch.setattr(book_helpers, "_book_root", _book_root, raising=False)
     monkeypatch.setattr(book_promote, "_book_root", _book_root, raising=False)
-    # 同时mock book_helpers中的其他路径函数
+    # Patch other path helpers used inside book_helpers.
     monkeypatch.setattr(book_helpers, "project_workspace_root", _workspace_root, raising=False)
     monkeypatch.setattr(book_helpers, "project_shared_workspace", _shared_workspace, raising=False)
 
-    # Mock minions.paths中的路径函数（被book_helpers内部导入使用）
+    # Patch path functions imported inside book_helpers.
     import minions.paths
+
     monkeypatch.setattr(minions.paths, "project_workspace_root", _workspace_root, raising=False)
     monkeypatch.setattr(minions.paths, "project_shared_workspace", _shared_workspace, raising=False)
 
@@ -106,7 +107,12 @@ def project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         return {"port": port, "role": role, "commit_sha": "deadbeef"}
 
     monkeypatch.setattr(publish, "mos_publish_to_shared", _fake_publish, raising=False)
-    monkeypatch.setattr(book_ingest, "mos_publish_files_to_shared", _fake_publish_files, raising=False)
+    monkeypatch.setattr(
+        book_ingest,
+        "mos_publish_files_to_shared",
+        _fake_publish_files,
+        raising=False,
+    )
 
     return port, project_root, shared
 
@@ -313,7 +319,7 @@ def test_contradiction_audit_loop(project_env, monkeypatch):
 
     Chain under test:
       1. Ethics ingests an Expert claim ("cache improves latency").
-      2. Ethics later ingests a Coder claim that negates it ("cache does NOT
+      2. Ethics later ingests an Expert claim that negates it ("cache does NOT
          improve latency").
       3. mos_book_ingest's lexical detector flags the negation-polarity conflict
          and writes book/contradictions/contradiction-<slug>.md.

@@ -3,7 +3,7 @@ id: mos_compact_context
 kind: tool
 domain: runtime
 auth: [gru, expert, ethics]
-source: minions/tools/mcp/runtime_tools.py:186
+source: minions/tools/mcp/runtime_tools.py:166
 since: stable
 keywords: [compact, context, token, summary, resume, harness]
 related: [mos_reset_context, mos_await_events]

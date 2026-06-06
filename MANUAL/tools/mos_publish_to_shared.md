@@ -19,7 +19,7 @@ status: stable
 mos_publish_to_shared(
   role: str,            # MUST match your env role
   src_path: str,        # MUST be absolute, inside YOUR branch
-  dst_subpath: str,     # path UNDER branches/shared/, no leading "branches/shared/"
+  dst_subpath: str,     # path UNDER branches/main/, no leading "branches/main/"
   commit_message: str,
 ) -> { dst_path, shared_commit_sha, files_changed }
 ```
@@ -28,9 +28,6 @@ mos_publish_to_shared(
 | Role | Allowed |
 |---|---|
 | `gru` | `*` |
-| `noter` | `notes`, `draft`, `handoffs`, `book` |
-| `coder` | `exp`, `handoffs`, `governance` |
-| `writer` | `handoffs`, `governance` |
 | `expert*` | `handoffs`, `governance` |
 | `ethics` | `ethics`, `handoffs`, `governance` |
 
@@ -39,21 +36,21 @@ Reserved (rejected for everyone except their owner tool):
 - `submissions/` → `mos_submit` only
 - `draft/draft.json` → `mos_draft_commit_shared` only
 
-## Real example (project_37596)
+## Example
 ```py
 mos_publish_to_shared(
-  role="coder",
-  src_path="/abs/branches/coder/exp/p3-width-falsifier/result.json",
-  dst_subpath="exp/p3-width-falsifier/result.json",
-  commit_message="coder: p3-width-falsifier — c_grok ∝ h FAILS at 52% MARE",
+  role="expert-math",
+  src_path="/abs/branches/expert-math/result.json",
+  dst_subpath="handoffs/p3-width-falsifier/result.json",
+  commit_message="expert-math: publish p3 width falsifier result",
 )
 ```
 
 ## Pitfalls
 - `src_path` MUST be absolute. Relative paths break flock-protected copy.
-- `dst_subpath` does NOT include `branches/shared/`.
+- `dst_subpath` does NOT include `branches/main/`.
 - Parallel publishes serialise on the flock — batch when possible.
 - Cross-role READ: let watchdog's git pull surface it. Do NOT read another role's
   `branches/<other-role>/` directly.
-- Never `cp` / `mv` between branches — corrupts git state, causes merge conflicts
-  on next pull (project_37596 hit this; ~1 h of conflict noise).
+- Never `cp` / `mv` between branches — corrupts git state and causes merge conflicts
+  on the next pull.

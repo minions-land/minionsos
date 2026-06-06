@@ -3,7 +3,7 @@ id: mos_draft_view
 kind: tool
 domain: memory
 auth: [gru, expert, ethics]
-source: minions/tools/mcp/memory_tools.py:55
+source: minions/tools/mcp/memory_tools.py:85
 since: stable
 keywords: [draft, view, query, orient, wake, graph]
 related: [mos_draft_append, mos_draft_annotate, mos_draft_path]
@@ -37,7 +37,7 @@ mos_draft_view(
 ```
 
 ## Behaviour
-Reads `branches/shared/draft/draft.json`. The `orientation` header is always
+Reads `branches/main/draft/draft.json`. The `orientation` header is always
 returned; the `nodes`/`edges` slice reflects whatever filters you passed. This
 one tool replaces the former `mos_draft_summary` (orientation) and
 `mos_draft_query` (filtered read) — both folded into a single lens.

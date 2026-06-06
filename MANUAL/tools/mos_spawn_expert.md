@@ -3,7 +3,7 @@ id: mos_spawn_expert
 kind: tool
 domain: lifecycle
 auth: [gru]
-source: minions/tools/mcp/spawn_tools.py:62
+source: minions/tools/mcp/spawn_tools.py:60
 since: stable
 keywords: [spawn, expert, role, slug, domain, agent]
 related: [mos_spawn_role, mos_dismiss_role, pitfall-empty-authz]

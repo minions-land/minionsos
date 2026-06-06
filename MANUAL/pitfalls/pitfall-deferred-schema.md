@@ -12,12 +12,12 @@ status: stable
 
 # pitfall: tool reports "No such tool available" but it's whitelisted
 
-**Symptom (project_37596 / role-coder + role-ethics + role-noter logs):**
+**Symptom:**
 ```
 ●The eacn3 tools are not in the deferred-tools index of THIS session
 ●Error: ... eacn3_send_message — No such tool available
 ```
-Coder spent ~15 min thrashing. Ethics filed an issue. Noter looped on `mos_book_ingest`.
+An Expert spent ~15 min thrashing on a deferred schema. Ethics filed an issue and audited the resulting Book ingest.
 
 ## Cause
 

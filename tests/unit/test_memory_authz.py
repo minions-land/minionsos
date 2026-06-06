@@ -18,11 +18,10 @@ behaviour and should pass on main.
 
 Permission matrix being tested:
 
-  Layer         | Self | Other Role | Noter | Ethics         | Gru
-  Reel-Index    | RW   | —          | —     | R (cross-role) | R
-  Draft         | RW   | R          | RW    | R + status W   | R
-  Book          | R    | R          | W     | R + ratify     | R
-  Shelf         | —    | —          | —     | —              | RW
+  Layer         | Self | Other Role | Ethics         | Gru
+  Reel-Index    | RW   | —          | R (cross-role) | R
+  Draft         | RW   | R          | R + status W   | R
+  Book          | R    | R          | R + ratify     | R
 """
 
 import importlib
@@ -64,38 +63,38 @@ def _import_draft():
 class TestReelAuthz:
     """
     Reel-Index (L0): self RW; Ethics + Gru cross-read; all others denied;
-    Noter excluded entirely.
+    no observatory process has Reel access.
     """
 
     def test_reel_self_read(self, monkeypatch):
-        """Coder reading its own reel index should succeed."""
-        monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+        """Expert reading its own reel index should succeed."""
+        monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
         reel = _import_reel()
         check = getattr(reel, "check_reel_read_authz", None)
         if check is None:
             pytest.skip("check_reel_read_authz not yet implemented (Stream 1)")
         # Reading own role — should not raise
-        check(caller_role="coder", target_role="coder")
+        check(caller_role="expert", target_role="expert")
 
     def test_reel_cross_read_denied_for_peer(self, monkeypatch):
-        """Coder reading Expert reel should be denied (PermissionError)."""
-        monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+        """Peer Expert reading another Expert reel should be denied."""
+        monkeypatch.setenv("MINIONS_ROLE_NAME", "expert-a")
         reel = _import_reel()
         check = getattr(reel, "check_reel_read_authz", None)
         if check is None:
             pytest.xfail("check_reel_read_authz not yet implemented (Stream 1 pending)")
         with pytest.raises(PermissionError):
-            check(caller_role="coder", target_role="expert-ml")
+            check(caller_role="expert-a", target_role="expert-ml")
 
     def test_reel_cross_read_allowed_for_ethics(self, monkeypatch):
-        """Ethics reading Coder reel cross-role should succeed."""
+        """Ethics reading an Expert reel cross-role should succeed."""
         monkeypatch.setenv("MINIONS_ROLE_NAME", "ethics")
         reel = _import_reel()
         check = getattr(reel, "check_reel_read_authz", None)
         if check is None:
             pytest.xfail("check_reel_read_authz not yet implemented (Stream 1 pending)")
         # Ethics cross-read — should not raise
-        check(caller_role="ethics", target_role="coder")
+        check(caller_role="ethics", target_role="expert")
 
     def test_reel_cross_read_allowed_for_gru(self, monkeypatch):
         """Gru reading any role's reel should succeed."""
@@ -104,18 +103,18 @@ class TestReelAuthz:
         check = getattr(reel, "check_reel_read_authz", None)
         if check is None:
             pytest.skip("check_reel_read_authz not yet implemented (Stream 1)")
-        for target in ("coder", "ethics", "noter", "writer", "expert-phys"):
+        for target in ("expert", "ethics", "expert-phys"):
             check(caller_role="gru", target_role=target)
 
-    def test_reel_noter_excluded(self, monkeypatch):
-        """Noter has no reel access at all — even self-read should be denied."""
-        monkeypatch.setenv("MINIONS_ROLE_NAME", "noter")
+    def test_reel_observatory_excluded(self, monkeypatch):
+        """Observatory process has no reel access at all."""
+        monkeypatch.setenv("MINIONS_ROLE_NAME", "observatory")
         reel = _import_reel()
         check = getattr(reel, "check_reel_read_authz", None)
         if check is None:
             pytest.xfail("check_reel_read_authz not yet implemented (Stream 1 pending)")
         with pytest.raises(PermissionError):
-            check(caller_role="noter", target_role="noter")
+            check(caller_role="observatory", target_role="observatory")
 
 
 # ---------------------------------------------------------------------------
@@ -124,13 +123,13 @@ class TestReelAuthz:
 
 class TestBookAuthz:
     """
-    Book (L2): Note-only writes; Ethics ratifies; all others read-only.
+    Book (L2): Ethics ratifies; all others read-only.
     """
 
     def test_book_ratify_only_ethics(self, monkeypatch):
         """
         Only Ethics may call mos_book_ratify.
-        Coder calling it should raise BookError (or PermissionError).
+        Expert calling it should raise BookError (or PermissionError).
         Ethics calling it should succeed (or return without authz error).
         """
         book = _import_book()
@@ -138,11 +137,11 @@ class TestBookAuthz:
         if check is None:
             pytest.xfail("check_book_ratify_authz not yet implemented (Stream 3 pending)")
 
-        # Coder should be denied
-        monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+        # Expert should be denied
+        monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
         BookError = getattr(book, "BookError", PermissionError)
         with pytest.raises((BookError, PermissionError)):
-            check(caller_role="coder")
+            check(caller_role="expert")
 
         # Ethics should pass
         monkeypatch.setenv("MINIONS_ROLE_NAME", "ethics")
@@ -160,14 +159,14 @@ class TestDraftAuthz:
     """
 
     def test_draft_annotate_self(self, monkeypatch):
-        """Coder annotating its own hypothesis node should succeed."""
-        monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+        """Expert annotating its own hypothesis node should succeed."""
+        monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
         draft = _import_draft()
         check = getattr(draft, "check_draft_annotate_authz", None)
         if check is None:
             pytest.skip("check_draft_annotate_authz not yet implemented")
         # annotating own node (no field restriction)
-        check(caller_role="coder", node_owner="coder", field=None)
+        check(caller_role="expert", node_owner="expert", field=None)
 
     def test_draft_annotate_status_by_ethics(self, monkeypatch):
         """
@@ -179,18 +178,18 @@ class TestDraftAuthz:
         check = getattr(draft, "check_draft_annotate_authz", None)
         if check is None:
             pytest.skip("check_draft_annotate_authz not yet implemented")
-        # Ethics cross-annotating Coder's node's status field
-        check(caller_role="ethics", node_owner="coder", field="support_status")
+        # Ethics cross-annotating an Expert node's status field
+        check(caller_role="ethics", node_owner="expert", field="support_status")
 
     def test_draft_annotate_status_by_non_ethics_denied(self, monkeypatch):
         """
         Non-Ethics role annotating another role's node's support_status
         should be denied.
         """
-        monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+        monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
         draft = _import_draft()
         check = getattr(draft, "check_draft_annotate_authz", None)
         if check is None:
             pytest.skip("check_draft_annotate_authz not yet implemented")
         with pytest.raises(PermissionError):
-            check(caller_role="coder", node_owner="writer", field="support_status")
+            check(caller_role="expert", node_owner="expert-peer", field="support_status")

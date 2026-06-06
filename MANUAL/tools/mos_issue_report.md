@@ -3,7 +3,7 @@ id: mos_issue_report
 kind: tool
 domain: debug
 auth: [gru, expert, ethics]
-source: minions/tools/mcp/runtime_tools.py:113
+source: minions/tools/mcp/runtime_tools.py:93
 since: stable
 keywords: [issue, report, bug, p0, p1, p2, escalate, drift]
 related: [pitfall-tool-denied, pitfall-empty-authz, pitfall-deferred-schema]

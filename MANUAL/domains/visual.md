@@ -2,7 +2,7 @@
 id: domain-visual
 kind: domain
 domain: visual
-auth: [coder, writer, ethics, expert, gru]
+auth: [ethics, expert, gru]
 source: minions/tools/mcp/visual_tools.py:122
 since: stable
 keywords: [visual, render, latex, html, inspect, image, figure]
@@ -13,7 +13,7 @@ status: stable
 # Domain: Visual render
 
 Render LaTeX / HTML / Markdown → image, then optionally inspect with a vision
-model. Available to every EACN role except Noter.
+model. Available to every EACN role.
 
 ## Top tools
 

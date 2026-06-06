@@ -3,10 +3,10 @@ id: mos_await_events
 kind: tool
 domain: runtime
 auth: [gru, expert, ethics]
-source: minions/tools/mcp/runtime_tools.py:74
+source: minions/tools/mcp/runtime_tools.py:73
 since: stable
 keywords: [await, events, wake, drain, idle, eacn, loop]
-related: [mos_noter_wait, mos_unread_summary, mos_get_events, eacn3_await_events]
+related: [mos_unread_summary, mos_get_events, eacn3_await_events]
 status: stable
 ---
 
@@ -45,6 +45,3 @@ for e in ev["events"]:
   bypasses suggested-tool annotations and the idle check.
 - Don't busy-loop after `idle_check=true`. Compact or reset instead.
 - Don't call `mos_get_events` to "double-check" — already drained.
-
-## Noter exception
-Noter is **not** on EACN. Use `mos_noter_wait` (3-min timer).

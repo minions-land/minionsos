@@ -180,21 +180,21 @@ A *Mission Profile* is a project-level YAML manifest under `minions/profiles/<na
 
 - `roles_active`: which Roles spawn at `mos_project_create` time (e.g. scientific-paper bootstraps `gru/ethics` and auto-spawns one generalist `expert`).
 - `role_prompt_overlay`: per-role markdown overlay paths appended to the role's `SYSTEM.md` so a profile can reshape Role focus without forking prompts.
-- `deliverable_schema`: required output paths under `branches/shared/`, plus a per-role `publish_whitelist` overriding the default scientific-paper baseline. The default whitelist (in `minions/tools/publish.py`) is the fallback when no profile is set.
+- `deliverable_schema`: required output paths under `branches/main/`, plus a per-role `publish_whitelist` overriding the default scientific-paper baseline. The default whitelist (in `minions/tools/publish.py`) is the fallback when no profile is set.
 - `evaluation`: strategy + reference path. The single strategy is `scientific_peer_review`, which dispatches through `mos_evaluate` and delegates to `mos_review_run`.
 - `phase_schema`: `scientific_three_stage` (exploration → experiment → writing → review) or `minimal` (no phase progression).
 - `on_done`: `none` (default), `dormant`, or `shutdown_project` once the deliverable is submitted+evaluated.
 
 The two MCP entry points that close the deliverable lifecycle:
 
-- `mos_submit(port, payload, kind)` — Role asks Gru to persist a deliverable (kinds: `paper` / `patch` / `report`) under `branches/shared/submissions/` and commit on the shared branch.
+- `mos_submit(port, payload, kind)` — Role asks Gru to persist a deliverable (kinds: `paper` / `patch` / `report`) under `branches/main/submissions/` and commit on the main shared surface.
 - `mos_evaluate(port)` — Gru runs the project's profile-defined evaluation strategy (`scientific_peer_review`, which delegates to `mos_review_run`) and returns `{score, verdict, details}`.
 
 Available profiles ship in `minions/profiles/`:
 
 | Profile | Use case | Roles | Evaluation | Deliverable |
 |---|---|---|---|---|
-| `scientific-paper` (default) | Full Autonomous Scientific Discovery — peer-reviewed paper | gru, ethics, expert (one generalist auto-spawned) | `scientific_peer_review` (mos_review_run) | `branches/shared/notes/`, `exp/`, `ethics/`, `reviews/` |
+| `scientific-paper` (default) | Full Autonomous Scientific Discovery — peer-reviewed paper | gru, ethics, expert (one generalist auto-spawned) | `scientific_peer_review` (mos_review_run) | `branches/main/notes/`, `exp/`, `ethics/`, `reviews/` |
 
 To add a new profile: drop `minions/profiles/<name>.yaml` matching the `MissionProfile` schema in `minions/profiles/__init__.py`, optionally add a role-prompt overlay, and (if needed) extend `mos_evaluate` with a new strategy in `minions/tools/evaluator.py`.
 
@@ -206,8 +206,8 @@ To add a new profile: drop `minions/profiles/<name>.yaml` matching the `MissionP
 
 - Each Role is a long-lived `claude` process inside its own tmux session named `mos-{port}-{role}`.
 - The wake driver for EACN-registered roles is `mos_await_events()` in `minions/tools/await_events.py` (wraps the project-local 60-second `GET /api/events/{agent_id}` long-poll, drains events on read, runs an idle-check after ~5 minutes of silence). Heartbeat writes between polls feed the Gru sidecar watchdog.
-- **Ethics** is the one fixed non-Gru role, auto-bootstrapped. It is the memory curator (Draft→Book) and evidence auditor — it absorbed the duties of the retired Noter role.
-- **Expert** is the project's general worker — code, experiments (`mos_exp_*`), domain reasoning, and paper drafting (Book→Paper, Gru-driven). One generalist Expert is auto-spawned; Gru spawns more via `mos_spawn_expert` as work fans out. Experts absorbed the duties of the retired Coder and Writer roles.
+- **Ethics** is the one fixed non-Gru role, auto-bootstrapped. It is the memory curator (Draft→Book) and evidence auditor.
+- **Expert** is the project's general worker — code, experiments (`mos_exp_*`), domain reasoning, and paper drafting (Book→Paper, Gru-driven). One generalist Expert is auto-spawned; Gru spawns more via `mos_spawn_expert` as work fans out.
 - Only Gru may spawn EACN-visible agents or use `mos_project_*`, `mos_spawn_*`, `mos_project_bridge`. Subagents/local teams inside a Role are EACN-invisible by design — no `eacn3_*` tools, not in `projects.json`.
 - Claude Code is the only Role host (honors CLI `--allowed-tools` for tool gating).
 - MinionsOS MCP server-side authorization in `minions/tools/mcp_server.py` must remain aligned with `minions.config.resolve_whitelist` so the same boundary applies regardless of which surface a tool call comes through.
@@ -244,7 +244,7 @@ Visual format-check tools (`mos_visual_render`, `mos_visual_inspect`, `mos_visua
 
 Roles are not fixed in number for the lifetime of a project. Gru can grow, fuse, or retire Roles based on artifact-grounded evidence. The mechanism lives in `minions/lifecycle/role_evolution.py` and is exposed through four Gru-only MCP tools:
 
-- `mos_role_evolve_evaluate` — read-only; reads recent artifacts under `branches/shared/` (Ethics reports, review packets, experiment failures) and per-role activity stats; returns `SplitDecision` per active role plus `MergeDecision` (convergence-only) and `DismissDecision` (starvation-only) candidates.
+- `mos_role_evolve_evaluate` — read-only; reads recent artifacts under `branches/main/` (Ethics reports, review packets, experiment failures) and per-role activity stats; returns `SplitDecision` per active role plus `MergeDecision` (convergence-only) and `DismissDecision` (starvation-only) candidates.
 - `mos_role_split` — realises a SPLIT decision: spawns each specialist via `register_expert`, then dismisses the source role. Requires non-empty `evidence_refs`. On partial spawn failure the source role is **kept alive** to preserve coverage.
 - `mos_role_merge` — realises a MERGE decision: spawns the unified role, dismisses the sources. Used **only for behavioural convergence** between two active Roles. Source roles do **not** need to share a SPLIT lineage; convergence merge applies to independently-spawned Experts whose artifact overlap exceeds `merge_convergence_threshold`.
 - `mos_role_evolve_dismiss` — realises a DISMISS decision: retires a Role with no recent work. Distinct from the generic `mos_dismiss_role` because it requires non-empty `evidence_refs` and writes to the role-evolution audit log. **No replacement is implied.** If new work appears later that no active Role can cover, a separate spawn trigger handles it.
@@ -253,11 +253,11 @@ Triggers are evidence-gated, not diversity-gated:
 
 - **SPLIT**: ≥ `split_min_failures` (default 5) attributable failures in the recent window, partitioned into ≥ `split_min_subdomains` (default 2) labeled clusters each ≥ `split_min_per_subdomain` (default 3) large.
 - **MERGE-by-convergence**: any pair of active roles whose `convergence_score` (Jaccard of artifact basenames + directory-prefix overlap) ≥ `merge_convergence_threshold` (default 0.75).
-- **DISMISS-by-starvation**: a role active ≥ `dismiss_starve_min_age_hours` (default 6h) with ≤ `dismiss_starve_max_tasks` (default 1) tasks in the recent window. Starvation goes to DISMISS, **not** MERGE — a Role with no work should be retired, not fused into another Role's scope.
+- **DISMISS-by-starvation**: a role active ≥ `dismiss_starve_min_age_hours` (default 6h) with ≤ `dismiss_starve_max_tasks` (default 1) tasks in the recent window. Starvation goes to DISMISS, **not** MERGE — a Role with no work should be dismissed, not fused into another Role's scope.
 
 A protective cooldown after any SPLIT/MERGE/DISMISS prevents oscillation: a role just evolved cannot be re-evaluated for `cooldown_after_split_hours` (12h), `cooldown_after_merge_hours` (6h), or `cooldown_after_dismiss_hours` (6h).
 
-Every recommendation and apply event writes one line to `branches/shared/governance/role_evolution.jsonl`. The Gru loop runs `mos_role_evolve_evaluate` on a `role_evolution_interval_seconds` cadence (default 15 min) and **logs recommendations only** unless `role_evolution_auto_apply: true` is set in `gru.yaml`. Default is recommend-only — operators inspect the JSONL log and apply manually until the recommendation stream has been validated on real workloads.
+Every recommendation and apply event writes one line to `branches/main/governance/role_evolution.jsonl`. The Gru loop runs `mos_role_evolve_evaluate` on a `role_evolution_interval_seconds` cadence (default 15 min) and **logs recommendations only** unless `role_evolution_auto_apply: true` is set in `gru.yaml`. Default is recommend-only — operators inspect the JSONL log and apply manually until the recommendation stream has been validated on real workloads.
 
 ### Role skills and review workflow
 
@@ -331,7 +331,7 @@ Relevant files:
 | Role crash or behavior | `projects/project_{port}/logs/role-{name}.log` |
 | Project metadata | `projects/project_{port}/meta.json` |
 | EACN3 state | `projects/project_{port}/eacn3_data/eacn3.db` |
-| Experiment failure | `projects/project_{port}/branches/shared/exp/exp-{id}/report.md` |
+| Experiment failure | `projects/project_{port}/branches/main/exp/exp-{id}/report.md` |
 | Viz process | `./viz status` and `./viz logs` |
 
 ## Extension points

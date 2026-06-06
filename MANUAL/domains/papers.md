@@ -2,7 +2,7 @@
 id: domain-papers
 kind: domain
 domain: papers
-auth: [writer]
+auth: [expert]
 source: minions/tools/mcp/paper_tools.py:1
 since: stable
 keywords: [paper, search, arxiv, pubmed, biorxiv, scholar, semantic, citation]
@@ -12,7 +12,7 @@ status: stable
 
 # Domain: Paper search
 
-Writer-primary. Other roles search on demand.
+Expert-primary. Other roles search on demand.
 
 ## Top tools
 

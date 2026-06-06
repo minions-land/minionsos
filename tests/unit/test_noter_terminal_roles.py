@@ -1,4 +1,4 @@
-"""Unit tests for Noter terminal role filtering."""
+"""Unit tests for observatory terminal role filtering."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from minions.state.store import ProjectEntry, RoleEntry
 
 
 def test_render_roles_hides_dismissed() -> None:
-    """Dismissed roles should not appear in the Noter terminal role table."""
+    """Dismissed roles should not appear in the observatory terminal role table."""
     project = ProjectEntry(
         port=37596,
         real_name="test-project",

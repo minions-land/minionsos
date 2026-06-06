@@ -22,8 +22,8 @@ must be in the prompt.
 A subagent prompt is broken if any of these is implicit:
 
 1. **Role boundary** — which Role you are dispatching from, what
-   write scope is allowed (e.g. "you are dispatched from Coder; you may
-   only write under `branches/coder/`").
+   write scope is allowed (e.g. "you are dispatched from Expert; you may
+   only write under `branches/expert-<slug>/`").
 2. **Tool / path scope** — exact tools the subagent may call, exact
    paths it may read or write. EACN tools are NEVER available to a
    subagent (they are EACN-invisible).

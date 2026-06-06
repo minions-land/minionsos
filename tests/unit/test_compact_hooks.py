@@ -49,7 +49,7 @@ def _run(
 # ---------------------------------------------------------------------------
 
 
-# Helper: env that satisfies the Role-main gate (Coder is the canonical EACN role).
+# Helper: env that satisfies the Role-main gate.
 _ROLE_ENV = {"MINIONS_ROLE_NAME": "expert", "MINIONS_AGENT_TYPE": "main"}
 
 
@@ -107,7 +107,6 @@ class TestPreCompact:
         )
         assert result.returncode == 0
         assert "mos_await_events()" in result.stdout
-        assert "mos_noter_wait()" not in result.stdout
 
     def test_expert_role_gets_science_prompt(self) -> None:
         """Expert roles spawn with names like 'expert-rl-theory'; the gate
@@ -127,7 +126,7 @@ class TestPreCompactGate:
     Role main processes. dev-Claude editing MinionsOS itself, the Gru
     supervisor, vanilla claude shells, and Role subagents must all see
     passthrough so Claude Code uses default summarisation instead of being
-    handed a Draft/Book/Shelf-shaped prompt that doesn't apply to them.
+    handed a Draft/Book prompt that doesn't apply to them.
     """
 
     def test_dev_claude_passthrough_empty(self) -> None:
@@ -157,7 +156,7 @@ class TestPreCompactGate:
 
     def test_gru_passthrough(self) -> None:
         """Gru is the supervisor, not a science agent — passthrough.
-        The Draft/Book/Shelf prompt and the mos_await_events resume contract
+        The Draft/Book prompt and the mos_await_events resume contract
         are wrong shapes for Gru's loop."""
         result = _run(
             PRE_HOOK,
@@ -222,19 +221,19 @@ SAMPLE_SUMMARY = """\
 - R-003 — sweep result (tentative)
 
 ## Pending_plans
-- Q-007 — Writer asked for plot
+- Q-007 — Expert asked for plot
 
 ## Open_questions
 - Q-008 — does HF tokenizer match SentencePiece?
 
 ## Blocked_on
-- waiting on coder@2026-05-19T12:00Z to land PR
+- waiting on expert@2026-05-19T12:00Z to land PR
 
 ## Dead_ends
 - DEAD-004 — abandoned: distillation underperformed
 
 ## Notes
-- mid-flight: writer wants Figure 3 redone before submission
+- mid-flight: Expert wants Figure 3 redone before submission
 """
 
 

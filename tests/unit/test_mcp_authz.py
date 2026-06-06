@@ -79,10 +79,10 @@ def test_mcp_authz_reel_tools_allowed_for_eacn_roles() -> None:
             _require_tool_allowed("mos_reel_window")
 
 
-def test_mcp_authz_reel_tools_denied_for_noter() -> None:
-    """Noter does not capture reels — it observes via events/* and Draft."""
+def test_mcp_authz_reel_tools_denied_for_observatory() -> None:
+    """Observatory processes do not capture reels."""
     with (
-        patch.dict(os.environ, {"MINIONS_ROLE_NAME": "noter"}, clear=False),
+        patch.dict(os.environ, {"MINIONS_ROLE_NAME": "observatory"}, clear=False),
         pytest.raises(PermissionError),
     ):
         _require_tool_allowed("mos_reel_get")

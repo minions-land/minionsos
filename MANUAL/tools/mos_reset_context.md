@@ -3,7 +3,7 @@ id: mos_reset_context
 kind: tool
 domain: runtime
 auth: [gru, expert, ethics]
-source: minions/tools/mcp/runtime_tools.py:158
+source: minions/tools/mcp/runtime_tools.py:138
 since: stable
 keywords: [reset, context, fresh, boot, marker, checkpoint]
 related: [mos_compact_context, mos_draft_append, mos_draft_view]
@@ -27,7 +27,7 @@ the role on next tick with a clean session.
 mos_draft_append(nodes=[{
   "type": "pending_plan",
   "text": "Resume P2 baselines — 3 of 7 done, drain queue then publish.",
-  "metadata": {"for_role": "coder"},
+  "metadata": {"for_role": "expert"},
 }])
 mos_reset_context(reason="P2 mid-progress checkpoint")
 ```

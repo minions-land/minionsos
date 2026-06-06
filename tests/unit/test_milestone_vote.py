@@ -73,7 +73,7 @@ def test_detect_stagnation_fresh_draft_is_not_stalled(project_dirs) -> None:
     fresh = (now - timedelta(seconds=30)).isoformat()
     _write_draft(
         project_dirs["draft"],
-        [{"id": "n1", "author_role": "coder", "created_at": fresh}],
+        [{"id": "n1", "author_role": "expert", "created_at": fresh}],
     )
     sig = milestone_vote.detect_stagnation(port, window_seconds=1200)
     assert sig.stalled is False
@@ -84,7 +84,7 @@ def test_detect_stagnation_old_draft_only_is_stalled(project_dirs) -> None:
     old = (datetime.now(tz=UTC) - timedelta(hours=2)).isoformat()
     _write_draft(
         project_dirs["draft"],
-        [{"id": "n1", "author_role": "coder", "created_at": old}],
+        [{"id": "n1", "author_role": "expert", "created_at": old}],
     )
     sig = milestone_vote.detect_stagnation(port, window_seconds=1200)
     assert sig.stalled is True
@@ -207,9 +207,9 @@ def test_open_vote_sends_one_message_per_eligible(
         port,
         "experiments_ready",
         signal=sig,
-        eligible=["ethics", "coder", "expert-a"],
+        eligible=["ethics", "expert", "expert-a"],
     )
-    assert sorted(out["addressed"]) == ["coder", "ethics", "expert-a"]
+    assert sorted(out["addressed"]) == ["ethics", "expert", "expert-a"]
     assert out["failed"] == []
     assert len(sent) == 3
     # Every message has the right type + the milestone we asked about.
@@ -242,10 +242,10 @@ def test_open_vote_records_partial_failure(
         True, None, None, None, 1200, "silent"
     )
     out = milestone_vote.open_vote(
-        port, "experiments_ready", signal=sig, eligible=["ethics", "coder", "expert-a"]
+        port, "experiments_ready", signal=sig, eligible=["ethics", "expert", "expert-a"]
     )
     assert "expert-a" in out["failed"]
-    assert sorted(out["addressed"]) == ["coder", "ethics"]
+    assert sorted(out["addressed"]) == ["ethics", "expert"]
 
 
 # ---------------------------------------------------------------------------
@@ -289,7 +289,7 @@ def test_handle_no_vote_with_blocker_broadcasts_task(
         port,
         from_role="ethics",
         raise_sign=False,
-        blocker="No experiment results have hit branches/shared/exp/ in 2 hours.",
+        blocker="No experiment results have hit branches/main/exp/ in 2 hours.",
         milestone="experiments_ready",
     )
     assert out["action"] == "broadcast_blocker_task"
@@ -300,7 +300,7 @@ def test_handle_no_vote_with_blocker_broadcasts_task(
     assert task["level"] == "project"
     assert "experiments_ready" in task["description"]
     assert "ethics" in task["description"]
-    assert "branches/shared/exp/" in task["description"]
+    assert "branches/main/exp/" in task["description"]
 
     # Persisted state records the blocker task id.
     state = milestone_vote._load_state(port)
@@ -310,7 +310,7 @@ def test_handle_no_vote_with_blocker_broadcasts_task(
 def test_handle_no_vote_empty_blocker_is_ignored(project_dirs) -> None:
     out = milestone_vote.handle_vote_reply(
         int(project_dirs["port"]),
-        from_role="coder",
+        from_role="expert",
         raise_sign=False,
         blocker="   ",
     )
@@ -327,7 +327,7 @@ def test_tick_for_project_skips_when_not_stalled(project_dirs) -> None:
     fresh = (datetime.now(tz=UTC) - timedelta(seconds=30)).isoformat()
     _write_draft(
         project_dirs["draft"],
-        [{"id": "n1", "author_role": "coder", "created_at": fresh}],
+        [{"id": "n1", "author_role": "expert", "created_at": fresh}],
     )
     out = milestone_vote.tick_for_project(
         port,

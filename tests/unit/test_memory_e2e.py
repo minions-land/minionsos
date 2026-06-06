@@ -16,8 +16,7 @@ from pathlib import Path
 import pytest
 
 from minions import identity
-from minions.tools import book, draft, publish
-from minions.tools import book_ingest  # 添加导入以支持正确的mock
+from minions.tools import book, book_ingest, draft, publish
 
 
 @pytest.fixture
@@ -30,7 +29,7 @@ def project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
     project_root = tmp_path / f"project_{port}"
     branches = project_root / "branches"
-    shared = branches / "shared"
+    shared = branches / "main"
     workspace = branches / "ethics"
     state = project_root / "state"
     events = project_root / "events"
@@ -38,7 +37,7 @@ def project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         path.mkdir(parents=True, exist_ok=True)
 
     def _shared_subdir(p: int, subdir: str) -> Path:
-        target = tmp_path / f"project_{p}" / "branches" / "shared" / subdir
+        target = tmp_path / f"project_{p}" / "branches" / "main" / subdir
         target.mkdir(parents=True, exist_ok=True)
         return target
 
@@ -68,8 +67,9 @@ def project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(book, "project_shared_workspace", _shared_workspace)
     monkeypatch.setattr(book, "_book_root", _book_root)
 
-    # Mock在book_helpers中的_book_root（被book_promote使用）
+    # Patch the helper modules that book promotion uses internally.
     from minions.tools import book_helpers, book_promote
+
     monkeypatch.setattr(book_helpers, "_book_root", _book_root)
     monkeypatch.setattr(book_promote, "_book_root", _book_root)
 
@@ -156,7 +156,7 @@ def test_full_memory_pipeline_e2e(project_env, tmp_path: Path, monkeypatch):
     assert identity.parse_uid(chapter_uid)["content_type"] == "chapter"
     assert identity.parse_uid(dead_end_uid)["slug"] == "failed-x"
 
-    # Step 3: Coder agent writes Draft nodes (research process)
+    # Step 3: Expert agent writes Draft nodes (research process)
     old_iso = (datetime.now(UTC) - timedelta(days=10)).isoformat(timespec="seconds")
     draft_data = {
         "project_port": port,
@@ -187,7 +187,7 @@ def test_full_memory_pipeline_e2e(project_env, tmp_path: Path, monkeypatch):
                 "text": "Naive sparsity patterns hurt accuracy below 0.5 sparsity",
                 "confidence": 1.0,
                 "support_status": "verified",
-                "author_role": "coder",
+                "author_role": "expert-exp",
                 "created_at": old_iso,
             },
             {
@@ -196,7 +196,7 @@ def test_full_memory_pipeline_e2e(project_env, tmp_path: Path, monkeypatch):
                 "text": "Linear attention experiment matched dense at 4x speedup",
                 "confidence": 0.95,
                 "support_status": "verified",
-                "author_role": "coder",
+                "author_role": "expert-exp",
                 "created_at": old_iso,
             },
         ],
@@ -209,7 +209,7 @@ def test_full_memory_pipeline_e2e(project_env, tmp_path: Path, monkeypatch):
     draft_path.parent.mkdir(parents=True, exist_ok=True)
     draft_path.write_text(json.dumps(draft_data), encoding="utf-8")
 
-    # Step 4: Noter computes decay sidecar
+    # Step 4: Ethics computes decay sidecar
     decay_result = draft.mos_draft_decay_compute()
     assert decay_result["node_count"] == 4
     assert Path(decay_result["path"]).exists()
@@ -221,7 +221,7 @@ def test_full_memory_pipeline_e2e(project_env, tmp_path: Path, monkeypatch):
     assert "decay" in summary
     assert summary["decay"]["node_count"] == 4
 
-    # Step 6: Noter promotes verified knowledge to durable Book pages
+    # Step 6: Ethics promotes verified knowledge to durable Book pages
     promote_result = book.mos_book_promote_verified(port=port)
     assert promote_result["promoted_count"] >= 1, (
         f"Expected at least 1 promotion, got {promote_result['promoted_count']}"
@@ -244,15 +244,15 @@ def test_full_memory_pipeline_e2e(project_env, tmp_path: Path, monkeypatch):
     second = book.mos_book_promote_verified(port=port)
     assert second["promoted_count"] == 0
 
-    # Step 8: Crystallize Coder's session window into a verbatim Book page
+    # Step 8: Crystallize an Expert session window into a verbatim Book page
     crystallize_result = book.mos_book_crystallize_session(
-        role="coder",
+        role="expert-exp",
         window_minutes=43200,
         port=port,  # 30 days window catches all
     )
     assert "DEAD-001" in crystallize_result["cited_node_ids"]
     assert "R-001" in crystallize_result["cited_node_ids"]
-    # Expert nodes should NOT appear (different role)
+    # Nodes from a different Expert should not appear.
     assert "I-001" not in crystallize_result["cited_node_ids"]
 
 
@@ -271,7 +271,7 @@ def test_book_dead_end_promotion(project_env):
                 "text": "Tried sparse attention with random patterns - accuracy dropped 15%",
                 "confidence": 1.0,
                 "support_status": "verified",
-                "author_role": "coder",
+                "author_role": "expert-ml",
                 "created_at": old_iso,
             },
         ],

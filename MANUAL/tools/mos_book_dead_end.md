@@ -3,7 +3,7 @@ id: mos_book_dead_end
 kind: tool
 domain: memory
 auth: [gru, expert, ethics]
-source: minions/tools/mcp/memory_tools.py:394
+source: minions/tools/mcp/memory_tools.py:427
 since: stable
 keywords: [book, dead-end, refuted, negative-knowledge, refutation, do-not-repeat]
 related: [mos_book_ingest, mos_book_open_question, mos_book_resolve_contradiction]
@@ -44,7 +44,7 @@ is written under `book/sources/` with `status: refuted`; downstream tooling
   use `mos_book_open_question` for those.
 
 ## What it writes
-- A new page at `branches/shared/book/sources/dead-end-<slug>.md` with
+- A new page at `branches/main/book/sources/dead-end-<slug>.md` with
   V2 frontmatter (`page_kind: source`, `status: refuted`, title prefixed
   `Dead end:`).
 - Body has two sections: `## Claim` and `## Refutation evidence`.

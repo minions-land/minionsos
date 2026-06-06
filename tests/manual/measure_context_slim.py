@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Context-tax slim validation harness.
 
-Spawns minimal claude --print invocations with the Coder Role's actual
+Spawns minimal claude --print invocations with an Expert Role's actual
 configuration (allowed_tools, MCP config, system prompt, env), measures
 input_tokens, and compares ENABLE_TOOL_SEARCH=false vs auto:30.
 
@@ -29,7 +29,7 @@ from minions.lifecycle.role_launcher import _role_env  # noqa: E402
 from minions.paths import common_role_system_md  # noqa: E402
 from minions.state.store import RoleEntry  # noqa: E402
 
-ROLE_NAME = "coder"
+ROLE_NAME = "expert"
 PROJECT_PORT = 99999  # ephemeral; no real backend
 
 
@@ -39,14 +39,12 @@ def fresh_prompt() -> str:
 
 
 def build_invocation(tool_search_value: str) -> tuple[list[str], dict[str, str]]:
-    """Return the (argv, env) we'd actually launch for a Coder role,
-    overriding ENABLE_TOOL_SEARCH for the measurement.
-    """
+    """Return the launch argv/env while overriding ENABLE_TOOL_SEARCH."""
     cfg = GruConfig()
-    allowed = whitelist_csv("coder", "main")
+    allowed = whitelist_csv(ROLE_NAME, "main")
 
     # Build a workspace path under /tmp so the agent has a cwd
-    workspace = Path("/tmp/measure-coder")
+    workspace = Path("/tmp/measure-expert")
     workspace.mkdir(exist_ok=True)
 
     invocation = build_role_invocation(
@@ -65,7 +63,7 @@ def build_invocation(tool_search_value: str) -> tuple[list[str], dict[str, str]]
     fake_entry = RoleEntry(
         name=ROLE_NAME,
         state="active",
-        eacn_agent_id="coder",
+        eacn_agent_id=ROLE_NAME,
         workspace_branch="main",
         github_push_target=None,
     )
@@ -83,7 +81,7 @@ def build_invocation(tool_search_value: str) -> tuple[list[str], dict[str, str]]
 def measure(label: str, tool_search_value: str) -> dict:
     print(f"\n=== Measuring: {label} (ENABLE_TOOL_SEARCH={tool_search_value}) ===", flush=True)
     cmd, env = build_invocation(tool_search_value)
-    cmd = list(cmd) + ["--print", "--output-format", "json", fresh_prompt()]
+    cmd = [*cmd, "--print", "--output-format", "json", fresh_prompt()]
     print(f"argv head: {' '.join(cmd[:3])} ... ({len(cmd)} args total)", flush=True)
     try:
         result = subprocess.run(
@@ -92,7 +90,11 @@ def measure(label: str, tool_search_value: str) -> dict:
     except subprocess.TimeoutExpired:
         return {"label": label, "error": "timeout 300s"}
     if result.returncode != 0:
-        print(f"FAILED rc={result.returncode}\nSTDOUT: {result.stdout[:500]}\nSTDERR: {result.stderr[:500]}")
+        print(
+            f"FAILED rc={result.returncode}\n"
+            f"STDOUT: {result.stdout[:500]}\n"
+            f"STDERR: {result.stderr[:500]}"
+        )
         return {"label": label, "error": result.stderr[:500] or result.stdout[:500]}
     try:
         payload = json.loads(result.stdout)

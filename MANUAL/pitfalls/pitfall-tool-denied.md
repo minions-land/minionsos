@@ -31,7 +31,7 @@ Whitelist tables live in `minions/config/__init__.py:_SERVER_AUTHZ`.
 ```python
 # at the role process:
 import minions.config as c
-print(sorted(c.resolve_whitelist("coder", "main")))
+print(sorted(c.resolve_whitelist("expert", "main")))
 ```
 
 If the tool genuinely isn't in your whitelist:

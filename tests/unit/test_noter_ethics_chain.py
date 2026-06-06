@@ -1,20 +1,18 @@
-"""End-to-end simulation of the Noter+Ethics collaboration chain.
+"""End-to-end simulation of the Ethics contradiction-review chain.
 
-This proves the architectural claims I made about how Noter and Ethics work
-together in the new Draft/Book naming. It runs the COMPLETE chain:
+This verifies the current Draft/Book contradiction flow:
 
-  1. Coder publishes an artifact to shared/coder/
-  2. Noter (wake cycle) ingests it as a Book chapter, detects a lexical
+  1. Expert publishes an artifact under branches/main/expert/.
+  2. Ethics (wake cycle) ingests it as a Book chapter, detects a lexical
      contradiction with an existing Book chapter, generates a contradiction
-     page WITH the Statistical Signals table.
+     page with the Statistical Signals table.
   3. Ethics reads the contradiction page, issues a verdict, publishes it,
      and writes a `decision` node + `supersedes` edge into the Draft.
-  4. Noter (next wake) recomputes decay; supersedes-affected nodes show
+  4. Ethics (next wake) recomputes decay; supersedes-affected nodes show
      accelerated decay. Verdict gets promoted to a Book chapter.
   5. The hot.md cache reflects the resolution.
 
-Every claim about what Noter/Ethics can do is verified here against the
-actual code paths. If any of this fails, the architecture is broken.
+Every claim is verified against the actual code paths.
 """
 
 from __future__ import annotations
@@ -29,8 +27,7 @@ import pytest
 
 from minions import identity
 from minions.config import resolve_server_authz
-from minions.tools import book, draft, publish
-from minions.tools import book_ingest  # 添加导入以支持正确的mock
+from minions.tools import book, book_ingest, draft, publish
 
 # ---------------------------------------------------------------------------
 # Fixture — full simulated project workspace
@@ -53,9 +50,8 @@ def sim_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_git_operat
 
     project_root = tmp_path / f"project_{port}"
     for sub in (
-        "branches/shared",
-        "branches/coder",
-        "branches/noter",
+        "branches/main",
+        "branches/expert",
         "branches/ethics",
         "state",
         "events",
@@ -63,7 +59,7 @@ def sim_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_git_operat
         (project_root / sub).mkdir(parents=True, exist_ok=True)
 
     def _shared_subdir(p, subdir):
-        target = project_root / "branches" / "shared" / subdir
+        target = project_root / "branches" / "main" / subdir
         target.mkdir(parents=True, exist_ok=True)
         return target
 
@@ -93,22 +89,23 @@ def sim_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_git_operat
     monkeypatch.setattr(book, "project_shared_workspace", _shared_workspace)
     monkeypatch.setattr(book, "_book_root", _book_root)
 
-    # Mock在book_helpers中的_book_root（被book_promote使用）
+    # Patch the helper modules that book promotion uses internally.
     from minions.tools import book_helpers, book_promote
+
     monkeypatch.setattr(book_helpers, "_book_root", _book_root)
     monkeypatch.setattr(book_promote, "_book_root", _book_root)
-    # Mock book_helpers中已导入的project_workspace_root
+    # Patch the workspace helper imported inside book_helpers.
     monkeypatch.setattr(book_helpers, "project_workspace_root", _workspace_root)
 
-    # Mock minions.paths中的路径函数（被book_helpers内部动态导入使用）
+    # Patch path functions used by dynamic imports inside book_helpers.
     import minions.paths
+
     monkeypatch.setattr(minions.paths, "project_workspace_root", _workspace_root)
     monkeypatch.setattr(minions.paths, "project_shared_workspace", _shared_workspace)
 
-    # Mock publish模块中已导入的路径函数
-    from minions.tools import publish
+    # Patch path functions imported by the publish module.
     monkeypatch.setattr(publish, "project_shared_workspace", _shared_workspace)
-    # Mock is_git_work_tree检查
+    # Patch the git worktree check for this simulated project.
     monkeypatch.setattr(publish, "is_git_work_tree", lambda path: True)
 
     def _fake_publish(*, role, src_path, dst_subpath, commit_message, port=None, **kwargs):
@@ -182,17 +179,17 @@ def sim_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_git_operat
 # ---------------------------------------------------------------------------
 
 
-def _coder_publishes_artifact(project_root: Path, slug: str, body: str) -> Path:
-    """Coder writes a research artifact under shared/coder/."""
-    coder_shared = project_root / "branches" / "shared" / "coder"
-    coder_shared.mkdir(parents=True, exist_ok=True)
-    artifact = coder_shared / f"{slug}.md"
+def _expert_publishes_artifact(project_root: Path, slug: str, body: str) -> Path:
+    """Expert writes a research artifact under branches/main/expert/."""
+    expert_shared = project_root / "branches" / "main" / "expert"
+    expert_shared.mkdir(parents=True, exist_ok=True)
+    artifact = expert_shared / f"{slug}.md"
     artifact.write_text(body, encoding="utf-8")
     return artifact
 
 
-def _noter_ingests(port: int, artifact_path: Path, role: str, slug: str) -> dict:
-    """Ethics (merged curator) step of wake cycle: ingest a fresh shared/ artifact."""
+def _ethics_ingests(port: int, artifact_path: Path, role: str, slug: str) -> dict:
+    """Ethics step of wake cycle: ingest a fresh main-branch artifact."""
     os.environ["MINIONS_ROLE_NAME"] = "ethics"
     return book.mos_book_ingest(
         src_path=str(artifact_path),
@@ -204,7 +201,7 @@ def _noter_ingests(port: int, artifact_path: Path, role: str, slug: str) -> dict
 
 
 def _ethics_reads_contradiction(port: int, contradiction_slug: str) -> str:
-    """Ethics opens a contradiction page generated by Noter's ingest."""
+    """Ethics opens a contradiction page generated by ingest."""
     page = book._book_root(port) / "contradictions" / f"{contradiction_slug}.md"
     return page.read_text(encoding="utf-8")
 
@@ -217,7 +214,7 @@ def _ethics_publishes_verdict(
     losing_node_id: str,
     winning_node_id: str,
 ) -> Path:
-    """Ethics step 3 of contradiction surface: publish verdict to shared/ethics/."""
+    """Ethics step 3 of contradiction surface: publish verdict to branches/main/ethics/."""
     os.environ["MINIONS_ROLE_NAME"] = "ethics"
     ethics_dir = project_root / "branches" / "ethics"
     ethics_dir.mkdir(parents=True, exist_ok=True)
@@ -230,7 +227,7 @@ def _ethics_publishes_verdict(
         "[evidence: contradictions/{contradiction_slug}.md]\n",
         encoding="utf-8",
     )
-    # Publish to shared/ethics/ via the real publish path
+    # Publish to branches/main/ethics/ via the real publish path.
     book.mos_publish_to_shared(
         role="ethics",
         src_path=str(verdict_path),
@@ -314,8 +311,8 @@ def _seed_initial_draft(port: int, ages_days: dict[str, int]):
 # ---------------------------------------------------------------------------
 
 
-def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
-    """Run the COMPLETE Noter→Ethics chain I described, verify every step."""
+def test_ethics_contradiction_full_chain(sim_project, tmp_path: Path):
+    """Run the complete Ethics contradiction chain and verify every step."""
     port, project_root = sim_project
 
     # ─── Phase 0: Seed prior research as Draft nodes ───────────────────────
@@ -324,27 +321,27 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
     assert initial_summary["total_nodes"] == 2
 
     # ─── Phase 1: Existing Book chapter (older claim) ──────────────────────
-    old_artifact = _coder_publishes_artifact(
+    old_artifact = _expert_publishes_artifact(
         project_root,
         "old-finding",
         "We claim attention IS NOT helpful for sequences longer than 4096 "
         "in the standard transformer regime.\n",
     )
-    ingest_old = _noter_ingests(port, old_artifact, "coder", "old-finding")
+    ingest_old = _ethics_ingests(port, old_artifact, "expert", "old-finding")
     assert ingest_old["contradiction_count"] == 0  # no prior pages to clash with
 
     # ─── Phase 2: New artifact contradicts the old one ─────────────────────
-    new_artifact = _coder_publishes_artifact(
+    new_artifact = _expert_publishes_artifact(
         project_root,
         "new-finding",
         "We claim attention IS helpful for sequences longer than 4096 "
         "in the standard transformer regime.\n",
     )
-    ingest_new = _noter_ingests(port, new_artifact, "coder", "new-finding")
+    ingest_new = _ethics_ingests(port, new_artifact, "expert", "new-finding")
 
-    # ⭐ ASSERTION 1: Noter automatically detected the contradiction
+    # ⭐ ASSERTION 1: Ethics automatically detected the contradiction
     assert ingest_new["contradiction_count"] >= 1, (
-        "Noter should detect lexical contradiction between old and new claims"
+        "Ethics should detect lexical contradiction between old and new claims"
     )
     contradiction_slug = ingest_new["contradiction_path"].split("/")[-1].replace(".md", "")
 
@@ -353,7 +350,7 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
 
     # ⭐ ASSERTION 2: The page contains the Statistical Signals table
     assert "## Statistical signals" in page_text, (
-        "Contradiction page must include Noter-assembled signals table"
+        "Contradiction page must include Ethics-assembled signals table"
     )
     assert "opposing_age_d" in page_text
     assert "opposing_unmarked" in page_text
@@ -370,9 +367,9 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
         "both-correct-different-scope",
     )
     for v in forbidden_verdicts:
-        assert v not in page_text, f"Noter must not pre-decide verdicts; found {v!r} in page"
+        assert v not in page_text, f"Ethics must not pre-decide verdicts; found {v!r} in page"
 
-    # ─── Phase 4: Ethics issues verdict and publishes to shared/ethics/ ────
+    # ─── Phase 4: Ethics issues verdict and publishes to branches/main/ethics/ ────
     verdict_path = _ethics_publishes_verdict(
         port,
         project_root,
@@ -383,12 +380,12 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
     )
     assert verdict_path.exists()
 
-    # ⭐ ASSERTION 4: Verdict landed on shared branch (via mos_publish_to_shared)
+    # ⭐ ASSERTION 4: Verdict landed on the shared surface (via mos_publish_to_shared)
     published_verdict = (
-        project_root / "branches" / "shared" / "ethics" / f"verdict-{contradiction_slug}.md"
+        project_root / "branches" / "main" / "ethics" / f"verdict-{contradiction_slug}.md"
     )
     assert published_verdict.exists(), (
-        "Ethics verdict must be visible cross-role under shared/ethics/"
+        "Ethics verdict must be visible cross-role under branches/main/ethics/"
     )
 
     # ─── Phase 5: Ethics writes supersedes edge to Draft ───────────────────
@@ -454,26 +451,22 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
             )
 
     # ─── Phase 8: Verify boundary invariants ──────────────────────────────
-    # ⭐ ASSERTION 8a: Noter cannot publish to shared/ethics/ directly
+    # ⭐ ASSERTION 8a: publish boundaries remain server-enforced.
     # mos_publish_to_shared is allowed but server enforces role identity
-    # (noter's allowed shared subdirs are notes/draft/handoffs/book)
-    # — this is enforced in publish.py's _ROLE_ALLOWED_SHARED_SUBDIRS
+    # and allowed destination roots.
 
-    # ⭐ ASSERTION 8b: Ethics CAN promote/crystallize Books — it is now the
-    # merged memory curator + auditor (the old Noter curation surface folded in).
+    # ⭐ ASSERTION 8b: Ethics CAN promote/crystallize Books.
     ethics_authz = resolve_server_authz("ethics", "main")
     promote_for_ethics = any(fnmatchcase("mos_book_promote_verified", p) for p in ethics_authz)
     assert promote_for_ethics, (
-        "Ethics (merged curator) must be able to promote verified Drafts to Books"
+        "Ethics must be able to promote verified Drafts to Books"
     )
     crystallize_for_ethics = any(
         fnmatchcase("mos_book_crystallize_session", p) for p in ethics_authz
     )
     assert crystallize_for_ethics
 
-    # ⭐ ASSERTION 8c: Noter cannot read other roles' private Drafts ...
-    # actually Noter reads ALL Drafts because it curates the shared one.
-    # The forbidden one is Ethics reading another role's private reasoning.
+    # ⭐ ASSERTION 8c: Ethics may not read another role's private reasoning.
     # In current arch: Drafts are project-shared (single draft.json), so
     # the boundary is "Ethics may not query draft with author_role filter
     # to peek into another role's private thinking" — this is a behavioral
@@ -486,9 +479,9 @@ def test_noter_ethics_full_collaboration_chain(sim_project, tmp_path: Path):
 
 def test_ethics_promotes_dead_end_for_other_projects_to_avoid(sim_project):
     """A failed experiment from this project becomes a Book chapter so
-    other projects (and the federated Library) can avoid the same dead end.
+    other projects (and the federated Book) can avoid the same dead end.
 
-    Ethics is the merged memory curator now, so it owns this promotion.
+    Ethics owns this promotion.
     This is the ARA "preserve rejected alternatives" principle in action.
     """
     port, _ = sim_project
@@ -504,7 +497,7 @@ def test_ethics_promotes_dead_end_for_other_projects_to_avoid(sim_project):
                 "text": "Naive sparsity below 0.3 ratio breaks gradient flow "
                 "and accuracy collapses by 22%",
                 "support_status": "verified",
-                "author_role": "coder",
+                "author_role": "expert",
                 "confidence": 1.0,
                 "created_at": old_iso,
             },

@@ -13,9 +13,11 @@ These tests use a stub `register_role` so they are tmux/EACN3-free.
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import patch
 
 from minions.lifecycle import project as project_mod
+from minions.state.store import StateStore
 
 
 def _profile(roles_active: list[str]) -> SimpleNamespace:
@@ -27,7 +29,6 @@ class TestBootstrapFixedRoles:
     def test_scientific_paper_spawns_ethics(self) -> None:
         """Default profile pre-spawns the fixed role (ethics only).
 
-        After the P3.5 Noter→Ethics merge, BOOTSTRAP_ROLES is ``{"ethics"}``.
         The generalist Expert is spawned separately via
         _bootstrap_generalist_expert (register_expert), so it must NOT
         appear in the fixed-role bootstrap wave even though the profile
@@ -43,7 +44,7 @@ class TestBootstrapFixedRoles:
             results = project_mod._bootstrap_fixed_roles(
                 port=37000,
                 mission_profile=_profile(["gru", "ethics", "expert"]),
-                store=object(),
+                store=cast(StateStore, object()),
             )
 
         # The single fixed role spawned exactly once. Expert is not a fixed
@@ -71,7 +72,7 @@ class TestBootstrapFixedRoles:
             project_mod._bootstrap_fixed_roles(
                 port=37002,
                 mission_profile=_profile(["gru", "ethics", "expert"]),
-                store=object(),
+                store=cast(StateStore, object()),
             )
 
         assert "expert" not in calls
@@ -93,7 +94,7 @@ class TestBootstrapFixedRoles:
             results = project_mod._bootstrap_fixed_roles(
                 port=37003,
                 mission_profile=_profile(["gru", "ethics", "expert"]),
-                store=object(),
+                store=cast(StateStore, object()),
             )
 
         result_map = dict(results)
@@ -111,7 +112,7 @@ class TestBootstrapFixedRoles:
             results = project_mod._bootstrap_fixed_roles(
                 port=37004,
                 mission_profile=_profile(["gru", "expert"]),
-                store=object(),
+                store=cast(StateStore, object()),
             )
 
         assert calls == []
@@ -120,8 +121,8 @@ class TestBootstrapFixedRoles:
     def test_runs_on_thread_pool(self) -> None:
         """The fixed-role spawn runs through the thread-pool path.
 
-        After the Noter→Ethics merge BOOTSTRAP_ROLES has a single member,
-        so there is no longer a 2-wide concurrent wave to observe. We still
+        BOOTSTRAP_ROLES has a single member, so there is no wider concurrent
+        wave to observe. We still
         verify the spawn is dispatched (not silently skipped) and completes
         quickly, guarding against an accidental serial-lock regression if
         the bootstrap set grows again.
@@ -148,7 +149,7 @@ class TestBootstrapFixedRoles:
             results = project_mod._bootstrap_fixed_roles(
                 port=37005,
                 mission_profile=_profile(["gru", "ethics", "expert"]),
-                store=object(),
+                store=cast(StateStore, object()),
             )
             elapsed = time.monotonic() - t0
 
@@ -171,9 +172,8 @@ class TestBootstrapRolesConstant:
         from minions.lifecycle.role import BOOTSTRAP_ROLES
 
         # Sanity on the constant's shape; if these change deliberately,
-        # update this test. After the P3.5 Noter→Ethics merge the only
-        # fixed bootstrap role is Ethics (merged curator + auditor).
-        assert BOOTSTRAP_ROLES == {"ethics"}
+        # update this test. The only fixed bootstrap role is Ethics.
+        assert {"ethics"} == BOOTSTRAP_ROLES
 
         # Confirm the bootstrap function actually references it (rather
         # than e.g. hard-coding a list).

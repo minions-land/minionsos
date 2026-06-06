@@ -10,6 +10,7 @@ Usage:
     python3 MANUAL/scripts/gen_tool_stubs.py --dry-run   # report only
 """
 from __future__ import annotations
+
 import argparse
 import re
 import sys
@@ -41,11 +42,11 @@ DOMAIN_BY_FILE = {
 DEFAULT_AUTH = {
     "lifecycle": ["gru"],
     "memory": ["*"],
-    "experiments": ["coder"],
+    "experiments": ["expert"],
     "publish": ["*"],
-    "papers": ["writer"],
+    "papers": ["expert"],
     "deliverables": ["gru"],
-    "visual": ["coder", "writer", "ethics", "expert", "gru"],
+    "visual": ["ethics", "expert", "gru"],
     "runtime": ["*"],
     "evolution": ["gru"],
 }

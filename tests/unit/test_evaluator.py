@@ -31,7 +31,7 @@ def mock_paper_project(tmp_path: Path, monkeypatch):
             "strategy": "scientific_peer_review",
         },
         "profile_deliverable_schema": {
-            "required": ["branches/shared/submissions/paper.pdf"],
+            "required": ["branches/main/submissions/paper.pdf"],
             "publish_whitelist": {
                 "gru": ["*"],
                 "expert": ["handoffs", "submissions"],
@@ -41,8 +41,8 @@ def mock_paper_project(tmp_path: Path, monkeypatch):
     meta_path = project_root / "meta.json"
     meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
-    # Create branches/shared/submissions/
-    shared_dir = project_root / "branches" / "shared"
+    # Create branches/main/submissions/
+    shared_dir = project_root / "branches" / "main"
     submissions_dir = shared_dir / "submissions"
     submissions_dir.mkdir(parents=True)
 

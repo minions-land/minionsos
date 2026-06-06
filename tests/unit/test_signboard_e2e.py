@@ -84,11 +84,11 @@ def test_e2e_submit_ready_full_flow(
 
     voters = [
         ("expert-bio", "exp/exp-042/report.md#L120-160"),
-        ("expert-chem", "branches/shared/notes/2026-05-19-chem-review.md"),
-        ("expert-stat", "branches/shared/notes/stat-recheck.md"),
-        ("ethics", "branches/shared/ethics/round-3-audit.md"),
-        ("coder", "exp/exp-042/report.md (final pass, 95% CI)"),
-        ("writer", "branches/writer/draft.tex@a3f7c91"),
+        ("expert-chem", "branches/main/notes/2026-05-19-chem-review.md"),
+        ("expert-stat", "branches/main/notes/stat-recheck.md"),
+        ("ethics", "branches/main/ethics/round-3-audit.md"),
+        ("expert-ml", "exp/exp-042/report.md (final pass, 95% CI)"),
+        ("expert-writing", "branches/expert-writing/draft.tex@a3f7c91"),
     ]
 
     print(f"\n=== submit_ready field test (port={port}) ===")

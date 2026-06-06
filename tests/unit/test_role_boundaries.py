@@ -102,7 +102,7 @@ class TestEthicsWhitelist:
 
     def test_ethics_has_write_tools_but_not_bash(self) -> None:
         """Ethics (merged curator+auditor) has Write/Edit for its subagent workflow
-        but not Bash — execution stays with Coder/Expert."""
+        but not Bash — execution stays with Expert/Gru subagents."""
         from minions.config import resolve_server_authz
 
         authz = resolve_server_authz("ethics", "main")

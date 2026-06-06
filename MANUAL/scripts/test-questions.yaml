@@ -45,12 +45,12 @@
 
 - id: q4-publish-cross-role
   question: |
-    As Coder I want to give Writer a bundle of figures + a summary. Where do
-    I put them and what tool do I use?
+    As an Expert I want to give Gru and Ethics a bundle of figures + a summary.
+    Where do I put them and what tool do I use?
   expects:
     - mos_publish_to_shared is the only legal cross-role write
-    - Coder may write to handoffs/, exp/, governance/
-    - dst_subpath does NOT include "branches/shared/" prefix
+    - Experts may write to handoffs/ and governance/
+    - dst_subpath does NOT include "branches/main/" prefix
     - src_path MUST be absolute
     - never cp/mv into branches/<other-role>/ directly
   expected_pages: [mos_publish_to_shared, domain-publish]
@@ -58,7 +58,7 @@
 
 - id: q5-cold-start
   question: |
-    I just woke up as Coder for the first time today. What are the first 2-3
+    I just woke up as an Expert for the first time today. What are the first 2-3
     tool calls I should make?
   expects:
     - mos_draft_view first (no-arg orient; surfaces pending_plans from past-me)
@@ -66,16 +66,15 @@
   expected_pages: [mos_draft_view, mos_await_events]
   difficulty: easy
 
-- id: q6-adjudicate-misuse
+- id: q6-contradiction-resolution
   question: |
-    Gru asked Ethics to "adjudicate" 4 pending tasks. Ethics called mos_adjudicate
-    and got "submissions/answer.json doesn't exist". What went wrong?
+    Ethics found two Book pages that disagree about the same claim. What
+    should it use to record and resolve the contradiction?
   expects:
-    - mos_adjudicate is for FINAL answer audit, not mid-run task closure
-    - it requires submissions/answer.json which only mos_submit creates
-    - default scientific-paper profile has adjudication.depth=none
-    - alternatives mid-run: mos_book_resolve_contradiction, mos_signboard_evaluate, eacn3_select_result + eacn3_close_task
-  expected_pages: [pitfall-adjudicate-misuse, mos_adjudicate]
+    - use mos_book_resolve_contradiction for contradiction pages
+    - cite evidence refs and affected Book pages
+    - use mos_book_ratify only after evidence supports the resolution
+  expected_pages: [mos_book_resolve_contradiction, mos_book_ratify]
   difficulty: medium
 
 - id: q7-reset-vs-compact
@@ -88,15 +87,14 @@
   expected_pages: [mos_compact_context, mos_reset_context]
   difficulty: easy
 
-- id: q8-noter-vs-eacn
+- id: q8-eacn-wake
   question: |
-    Why does Noter use a different wake mechanism than the other roles?
+    How does an EACN-registered Role wait for work without busy-looping?
   expects:
-    - Noter is NOT registered on EACN
-    - uses mos_noter_wait (3-min timer) instead of mos_await_events
-    - observes the project by polling events/*.jsonl and branches/shared/
-    - since v15.10 since_iso fix, gets only deltas not full re-scan
-  expected_pages: [mos_noter_wait, domain-runtime]
+    - uses mos_await_events
+    - long-polls and drains unread events on read
+    - idle_check triggers thinking or Draft orientation rather than a tight loop
+  expected_pages: [mos_await_events, domain-runtime]
   difficulty: medium
 
 - id: q9-subagent-verdicts

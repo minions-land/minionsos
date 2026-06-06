@@ -75,7 +75,7 @@ EACN3/plugin/node_modules/
 **/.claude/*.local.md
 .claude/worktrees/
 
-# EACN3 legacy patterns (from original .gitignore)
+# EACN3 runtime and local data
 eacn/network/config.toml
 eacn3.db
 eacn3.db-shm

@@ -92,10 +92,9 @@ class TestRoleEnvCacheVars:
         eager-loaded, the long tail deferred.
 
         Background:
-        - 2026-05-19: ENABLE_TOOL_SEARCH=false was forced because the
-          dispatch-eval e2e showed a fresh Coder thrashing 6+ min on
-          deferred eacn3_* tools — the forever-loop prompt didn't teach
-          the ToolSearch dance.
+        - 2026-05-19: ENABLE_TOOL_SEARCH=false was forced because a fresh
+          Expert could stall on deferred eacn3_* tools without explicit
+          ToolSearch guidance in the forever-loop prompt.
         - 2026-05-25: MANUAL/ shipped (155 atomic pages + lookup.py CLI
           + pitfall-deferred-schema page). MANUAL.md is now always-loaded
           L0 and explicitly tells the agent how to load deferred schemas.

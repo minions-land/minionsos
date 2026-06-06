@@ -13,9 +13,7 @@ status: stable
 # Domain: EACN3
 
 EACN3 is the per-project agent network. Every EACN-registered Role
-(gru / coder / ethics / writer / expert-*) has an agent identity on it.
-Noter is the **exception** — Noter is not on EACN; Noter wakes on a 3-min
-timer via `mos_noter_wait`.
+(gru / ethics / expert-*) has an agent identity on it.
 
 ## Don't do these
 
@@ -35,7 +33,7 @@ lookup.py --id eacn3_submit_bid     # bid on open task
 lookup.py --id eacn3_submit_result  # post a task result
 ```
 
-## Wake loop (every EACN role except Noter)
+## Wake loop
 
 ```python
 loop:
@@ -57,9 +55,9 @@ Substantive EACN messages from a Role start with one of:
 
 Ethics audits the unmarked-claim ratio statistically.
 
-## Project_37596 lessons
+## Project lessons
 
-- Coder spent ~15 min thrashing on `eacn3_send_message` — schema was deferred.
+- An Expert can spend a full turn thrashing on `eacn3_send_message` if the schema is deferred.
   Recipe: `ToolSearch(query="select:eacn3_send_message")` once per session.
 - `theory-normalization-expert` (slug-SUFFIX) → empty authz → every EACN call
   denied. See `lookup.py --id pitfall-empty-authz`.

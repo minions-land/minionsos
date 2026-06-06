@@ -28,9 +28,9 @@ class TestModeQuote:
             content="Some message",
             mode="quote",
             from_port=37596,
-            source_note="from Coder on project-37596",
+            source_note="from Expert on project-37596",
         )
-        assert "from Coder on project-37596" in result
+        assert "from Expert on project-37596" in result
 
 
 class TestModeParaphrase:
@@ -48,9 +48,9 @@ class TestModeParaphrase:
             content="Some message",
             mode="paraphrase",
             from_port=37596,
-            source_note="Coder",
+            source_note="Expert",
         )
-        assert "Coder" in result
+        assert "Expert" in result
 
 
 class TestModeAuto:

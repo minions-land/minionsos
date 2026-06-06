@@ -1,7 +1,7 @@
 """Tests for v15.9 fixes:
 - Issue #9: PreCompact hook now emits a "Resume_protocol" tail so the
   post-compact agent has a concrete first tool-call cue.
-- Issue #11: shelf.json is bootstrapped at project_create.
+- Issue #11: project_create does not seed a stray shelf directory.
 - Issue #12: mos_compact_context filters empty pending_plans.
 """
 
@@ -69,16 +69,14 @@ class TestPreCompactResumeProtocol:
 
 
 # ---------------------------------------------------------------------------
-# Issue #11 — Shelf bootstrap at project_create
-# Guard against regression that would silently re-add shared/shelf/.
+# Issue #11 — no shelf bootstrap at project_create
+# Guard against regression that would silently add branches/main/shelf/.
 # ---------------------------------------------------------------------------
 
 
 class TestShelfBootstrap:
     def test_create_shared_worktree_does_not_seed_shelf(self, tmp_path: Path) -> None:
-        """create_shared_worktree must NOT write branches/shared/shelf/ after
-        the Memory V2 downgrade.
-        """
+        """create_shared_worktree must NOT write branches/main/shelf/."""
         from minions.lifecycle._project_worktree import create_shared_worktree
 
         # Build a minimal git-init'd parent_repo so the worktree add

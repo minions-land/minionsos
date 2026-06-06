@@ -1,7 +1,7 @@
 """Tests for v15.10 — GitHub Issues #13 + #14.
 
 - Issue #13: book ingest/lint commit amplification.
-- Issue #14: Noter steady-state turn unbounded reads.
+- Issue #14: steady-state turn unbounded reads.
 """
 
 from __future__ import annotations
@@ -111,20 +111,20 @@ def test_book_ingest_yields_single_commit(shared_project: dict[str, object]) -> 
 
     handoffs = shared / "handoffs"
     handoffs.mkdir(parents=True, exist_ok=True)
-    src = handoffs / "coder-tokenizer.md"
+    src = handoffs / "expert-tokenizer.md"
     src.write_text("# tokenizer note\nThe BPE merger keeps frequent pairs.\n", encoding="utf-8")
 
     before = _shared_log_count(shared)
     mos_book_ingest(
-        src_path="handoffs/coder-tokenizer.md",
-        source_role="coder",
+        src_path="handoffs/expert-tokenizer.md",
+        source_role="expert",
         source_slug="tokenizer",
         title="BPE tokenizer",
         port=port,
     )
     after = _shared_log_count(shared)
     assert after - before == 1, f"expected exactly 1 ingest commit, got {after - before}"
-    assert (shared / "book/sources/coder-tokenizer.md").exists()
+    assert (shared / "book/sources/expert-tokenizer.md").exists()
     assert (shared / "book/index.md").exists()
     assert (shared / "book/log.md").exists()
 

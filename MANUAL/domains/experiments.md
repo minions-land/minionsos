@@ -2,7 +2,7 @@
 id: domain-experiments
 kind: domain
 domain: experiments
-auth: [coder]
+auth: [expert]
 source: minions/tools/mcp/experiment_tools.py:1
 since: stable
 keywords: [exp, experiment, queue, gpu, training, sweep, dispatch]
@@ -12,8 +12,8 @@ status: stable
 
 # Domain: Experiments
 
-Coder owns this surface. Other roles request via EACN message — they don't
-run experiments themselves.
+Experts own this surface. Gru and Ethics coordinate through EACN messages
+rather than running experiments themselves.
 
 ## The two questions before any sweep
 
@@ -35,7 +35,7 @@ lookup.py --id mos_exp_gpu_pool_set    # reserve GPUs
 
 ## Discipline
 
-- Always pass `log_path` as an **absolute path** under `branches/coder/`.
+- Always pass `log_path` as an **absolute path** under the calling Expert's branch.
 - `gpu_ids=[1]` is your 5-second probe-friendly default.
 - For 30k-step grokking runs, `timeout_s ≥ 3600`.
 - `mos_query_gpus(execution="local")` — `auto` is rejected.

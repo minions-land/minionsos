@@ -83,8 +83,8 @@ def test_ethics_main_whitelist() -> None:
     assert not any(
         t.startswith("mos_project_") and t != "mos_project_checkpoint_workspace" for t in authz
     )
-    # Ethics (merged curator+auditor) has Write/Edit for its subagent workflow,
-    # but Bash (execution) stays with Coder/Expert.
+    # Ethics has Write/Edit for its subagent workflow, but Bash execution
+    # stays with Expert/Gru subagents.
     assert "Write" in authz
     assert "Edit" in authz
     assert "Bash" not in authz
@@ -115,7 +115,7 @@ def test_ethics_subagent_whitelist() -> None:
     assert not any(t.startswith("eacn3") for t in tools)
     assert not any(t.startswith("mos_project_") for t in tools)
     assert not any(t.startswith("mos_spawn_") for t in tools)
-    # Bash is reserved for Coder/Gru subagents per the role boundary table.
+    # Bash is reserved for Expert/Gru subagents per the role boundary table.
     assert "Bash" not in tools
 
 

@@ -26,9 +26,6 @@ lookup.py --id mos_publish_to_shared
 | Role | Allowed `dst_subpath` top-level |
 |---|---|
 | `gru` | `*` |
-| `noter` | `notes`, `draft`, `handoffs`, `book` |
-| `coder` | `exp`, `handoffs`, `governance` |
-| `writer` | `handoffs`, `governance` |
 | `expert*` | `handoffs`, `governance` |
 | `ethics` | `ethics`, `handoffs`, `governance` |
 
@@ -40,7 +37,7 @@ lookup.py --id mos_publish_to_shared
 ## Rules
 
 - `src_path` MUST be absolute.
-- `dst_subpath` does NOT include the `branches/shared/` prefix.
+- `dst_subpath` does NOT include the `branches/main/` prefix.
 - Multiple parallel publishes serialise on `state/shared.lock` — batch when possible.
 - Cross-role READ is just the watchdog's git pull. Don't try to read another
   role's branch directly.

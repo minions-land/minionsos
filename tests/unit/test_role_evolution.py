@@ -27,7 +27,7 @@ def _ev(role: str, source: str, text: str, hours_ago: float = 1.0) -> RE.Failure
         when=when,
         source=source,  # type: ignore[arg-type]
         text=text,
-        artifact_path=f"branches/shared/{source}/auto.md",
+        artifact_path=f"branches/main/{source}/auto.md",
     )
 
 
@@ -74,11 +74,11 @@ def test_load_tunables_overrides_from_gru_yaml_section():
 
 def test_cluster_failures_buckets_by_keyword():
     events = [
-        _ev("coder", "experiment", "convergence diverges in this run"),
-        _ev("coder", "experiment", "loss spike at step 100"),
-        _ev("coder", "ethics", "p-value reporting was misleading"),
-        _ev("coder", "ethics", "hypothesis stated post-hoc"),
-        _ev("coder", "experiment", "no relevant keywords here"),
+        _ev("expert-core", "experiment", "convergence diverges in this run"),
+        _ev("expert-core", "experiment", "loss spike at step 100"),
+        _ev("expert-core", "ethics", "p-value reporting was misleading"),
+        _ev("expert-core", "ethics", "hypothesis stated post-hoc"),
+        _ev("expert-core", "experiment", "no relevant keywords here"),
     ]
     clusters = {c.label: c.n for c in RE.cluster_failures(events)}
     assert clusters["optimization"] == 2
@@ -88,12 +88,12 @@ def test_cluster_failures_buckets_by_keyword():
 
 def test_cluster_failures_misc_is_not_load_bearing():
     """misc bucket can be huge but does not satisfy the SPLIT trigger."""
-    events = [_ev("coder", "experiment", "totally unrelated noise") for _ in range(20)]
+    events = [_ev("expert-core", "experiment", "totally unrelated noise") for _ in range(20)]
     clusters = RE.cluster_failures(events)
     misc = next(c for c in clusters if c.label == "misc")
     assert misc.n == 20
     # but evaluate_split should still say KEEP
-    role = RoleEntry(name="coder", state="active")
+    role = RoleEntry(name="expert-core", state="active")
     decision = RE.evaluate_split(role, events)
     assert decision.decision == "KEEP"
 
@@ -111,19 +111,19 @@ def test_convergence_score_high_when_overlap():
     a = _stats(
         "alg",
         3,
-        artifacts=["/p/branches/shared/notes/x.md", "/p/branches/shared/notes/y.md"],
+        artifacts=["/p/branches/main/notes/x.md", "/p/branches/main/notes/y.md"],
     )
     b = _stats(
         "geo",
         3,
-        artifacts=["/p/branches/shared/notes/x.md", "/p/branches/shared/notes/y.md"],
+        artifacts=["/p/branches/main/notes/x.md", "/p/branches/main/notes/y.md"],
     )
     assert RE.convergence_score(a, b) > 0.95
 
 
 def test_convergence_score_low_when_disjoint():
-    a = _stats("alg", 3, artifacts=["/p/branches/shared/exp/r1.md"])
-    b = _stats("geo", 3, artifacts=["/p/branches/shared/notes/n1.md"])
+    a = _stats("alg", 3, artifacts=["/p/branches/main/exp/r1.md"])
+    b = _stats("geo", 3, artifacts=["/p/branches/main/notes/n1.md"])
     assert RE.convergence_score(a, b) < 0.5
 
 
@@ -133,10 +133,10 @@ def test_convergence_score_low_when_disjoint():
 
 
 def test_split_keeps_when_too_few_failures():
-    role = RoleEntry(name="coder", state="active")
+    role = RoleEntry(name="expert-core", state="active")
     events = [
-        _ev("coder", "experiment", "convergence drift"),
-        _ev("coder", "experiment", "p-value off"),
+        _ev("expert-core", "experiment", "convergence drift"),
+        _ev("expert-core", "experiment", "p-value off"),
     ]
     d = RE.evaluate_split(role, events)
     assert d.decision == "KEEP"
@@ -144,8 +144,8 @@ def test_split_keeps_when_too_few_failures():
 
 
 def test_split_keeps_when_only_one_subdomain():
-    role = RoleEntry(name="coder", state="active")
-    events = [_ev("coder", "experiment", "loss diverged convergence") for _ in range(8)]
+    role = RoleEntry(name="expert-core", state="active")
+    events = [_ev("expert-core", "experiment", "loss diverged convergence") for _ in range(8)]
     d = RE.evaluate_split(role, events)
     assert d.decision == "KEEP"
     # All in optimization sub-domain → can't split
@@ -153,23 +153,23 @@ def test_split_keeps_when_only_one_subdomain():
 
 
 def test_split_fires_when_evidence_partitioned():
-    role = RoleEntry(name="coder", state="active")
-    events = [_ev("coder", "experiment", "convergence drift") for _ in range(3)] + [
-        _ev("coder", "ethics", "p-value misreport") for _ in range(3)
+    role = RoleEntry(name="expert-core", state="active")
+    events = [_ev("expert-core", "experiment", "convergence drift") for _ in range(3)] + [
+        _ev("expert-core", "ethics", "p-value misreport") for _ in range(3)
     ]
     d = RE.evaluate_split(role, events)
     assert d.decision == "SPLIT"
     names = {s["name"] for s in d.proposed_specialists}
-    assert names == {"coder-optimization", "coder-statistics"}
+    assert names == {"expert-core-optimization", "expert-core-statistics"}
 
 
 def test_split_only_counts_failures_for_the_target_role():
-    role = RoleEntry(name="coder", state="active")
-    events = [_ev("coder", "experiment", "convergence x") for _ in range(3)] + [
-        _ev("writer", "ethics", "p-value y") for _ in range(3)
+    role = RoleEntry(name="expert-core", state="active")
+    events = [_ev("expert-core", "experiment", "convergence x") for _ in range(3)] + [
+        _ev("expert-peer", "ethics", "p-value y") for _ in range(3)
     ]
     d = RE.evaluate_split(role, events)
-    # Only 3 attributable to coder, all in optimization → KEEP
+    # Only 3 attributable to expert-core, all in optimization → KEEP
     assert d.decision == "KEEP"
 
 
@@ -233,9 +233,9 @@ def test_merge_convergence_fires_on_independent_roles():
         active_roles=[],
     )
     shared_paths = [
-        "/p/branches/shared/notes/topic-a.md",
-        "/p/branches/shared/notes/topic-b.md",
-        "/p/branches/shared/notes/topic-c.md",
+        "/p/branches/main/notes/topic-a.md",
+        "/p/branches/main/notes/topic-b.md",
+        "/p/branches/main/notes/topic-c.md",
     ]
     stats = {
         "expert-cs-theory": _stats("cs-theory", n_tasks=5, age_hours=24, artifacts=shared_paths),
@@ -259,10 +259,10 @@ def test_apply_split_requires_evidence_refs(tmp_path, monkeypatch):
     with pytest.raises(ValueError):
         RE.apply_split(
             project_port=39999,
-            source_role="coder",
+            source_role="expert-core",
             into_specs=[
-                {"name": "coder-a", "charter": "x", "pitfalls": "y"},
-                {"name": "coder-b", "charter": "x", "pitfalls": "y"},
+                {"name": "expert-core-a", "charter": "x", "pitfalls": "y"},
+                {"name": "expert-core-b", "charter": "x", "pitfalls": "y"},
             ],
             evidence_refs=[],
             reason="no evidence",
@@ -275,9 +275,9 @@ def test_apply_split_requires_at_least_two_specs(tmp_path, monkeypatch):
     with pytest.raises(ValueError):
         RE.apply_split(
             project_port=39999,
-            source_role="coder",
+            source_role="expert-core",
             into_specs=[{"name": "x", "charter": "y", "pitfalls": "z"}],
-            evidence_refs=["branches/shared/ethics/auto.md"],
+            evidence_refs=["branches/main/ethics/auto.md"],
             reason="t",
             dry_run=True,
         )
@@ -287,24 +287,24 @@ def test_apply_split_dry_run_writes_audit_and_does_not_spawn(tmp_path, monkeypat
     monkeypatch.setattr(RE, "_shared_dir", lambda port: tmp_path)
     res = RE.apply_split(
         project_port=39999,
-        source_role="coder",
+        source_role="expert-core",
         into_specs=[
-            {"name": "coder-a", "charter": "alpha", "pitfalls": "p"},
-            {"name": "coder-b", "charter": "beta", "pitfalls": "p"},
+            {"name": "expert-core-a", "charter": "alpha", "pitfalls": "p"},
+            {"name": "expert-core-b", "charter": "beta", "pitfalls": "p"},
         ],
-        evidence_refs=["branches/shared/ethics/r1.md"],
+        evidence_refs=["branches/main/ethics/r1.md"],
         reason="test",
         dry_run=True,
     )
     assert res.kind == "split"
-    assert res.roles_in == ["coder"]
-    assert sorted(res.roles_out) == ["coder-a", "coder-b"]
+    assert res.roles_in == ["expert-core"]
+    assert sorted(res.roles_out) == ["expert-core-a", "expert-core-b"]
     assert any("dry_run" in n for n in res.notes)
     log = tmp_path / "governance" / "role_evolution.jsonl"
     assert log.exists()
     rec = json.loads(log.read_text().splitlines()[0])
     assert rec["kind"] == "split"
-    assert rec["evidence_refs"] == ["branches/shared/ethics/r1.md"]
+    assert rec["evidence_refs"] == ["branches/main/ethics/r1.md"]
 
 
 def test_apply_merge_dry_run_writes_audit(tmp_path, monkeypatch):
@@ -400,18 +400,18 @@ def test_apply_split_invokes_spawn_then_dismiss(tmp_path, monkeypatch):
     ):
         res = RE.apply_split(
             project_port=39999,
-            source_role="coder",
+            source_role="expert-core",
             into_specs=[
-                {"name": "coder-a", "charter": "alpha", "pitfalls": "p"},
-                {"name": "coder-b", "charter": "beta", "pitfalls": "p"},
+                {"name": "expert-core-a", "charter": "alpha", "pitfalls": "p"},
+                {"name": "expert-core-b", "charter": "beta", "pitfalls": "p"},
             ],
-            evidence_refs=["branches/shared/ethics/x.md"],
+            evidence_refs=["branches/main/ethics/x.md"],
             reason="test live",
             dry_run=False,
         )
-    assert sorted(res.roles_out) == ["coder-a", "coder-b"]
-    assert {c["name"] for c in spawn_calls} == {"coder-a", "coder-b"}
-    assert dismiss_calls == ["coder"]
+    assert sorted(res.roles_out) == ["expert-core-a", "expert-core-b"]
+    assert {c["name"] for c in spawn_calls} == {"expert-core-a", "expert-core-b"}
+    assert dismiss_calls == ["expert-core"]
 
 
 def test_apply_split_keeps_source_alive_on_partial_spawn_failure(tmp_path, monkeypatch):
@@ -419,8 +419,8 @@ def test_apply_split_keeps_source_alive_on_partial_spawn_failure(tmp_path, monke
     monkeypatch.setattr(RE, "_shared_dir", lambda port: tmp_path)
 
     def fake_register_expert(**kwargs):
-        if kwargs["name"] == "coder-a":
-            return {"name": "coder-a"}
+        if kwargs["name"] == "expert-core-a":
+            return {"name": "expert-core-a"}
         raise RuntimeError("eacn down")
 
     dismissed: list[str] = []
@@ -435,16 +435,16 @@ def test_apply_split_keeps_source_alive_on_partial_spawn_failure(tmp_path, monke
     ):
         res = RE.apply_split(
             project_port=39999,
-            source_role="coder",
+            source_role="expert-core",
             into_specs=[
-                {"name": "coder-a", "charter": "x", "pitfalls": "p"},
-                {"name": "coder-b", "charter": "y", "pitfalls": "p"},
+                {"name": "expert-core-a", "charter": "x", "pitfalls": "p"},
+                {"name": "expert-core-b", "charter": "y", "pitfalls": "p"},
             ],
-            evidence_refs=["branches/shared/ethics/x.md"],
+            evidence_refs=["branches/main/ethics/x.md"],
             reason="t",
             dry_run=False,
         )
-    # Only one specialist came up, so source coder must stay alive.
+    # Only one specialist came up, so source expert-core must stay alive.
     assert dismissed == []
-    assert res.roles_out == ["coder-a"]
+    assert res.roles_out == ["expert-core-a"]
     assert any("kept source role alive" in n for n in res.notes)

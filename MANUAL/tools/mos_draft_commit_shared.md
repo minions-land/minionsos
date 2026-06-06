@@ -3,7 +3,7 @@ id: mos_draft_commit_shared
 kind: tool
 domain: memory
 auth: [*]
-source: minions/tools/mcp/memory_tools.py:105
+source: minions/tools/mcp/memory_tools.py:153
 since: stub
 keywords: []
 related: []
@@ -13,4 +13,4 @@ status: stub
 # mos_draft_commit_shared
 
 No curated MANUAL page yet. The MCP description is in your Role system prompt.
-Source: minions/tools/mcp/memory_tools.py:105
+Source: minions/tools/mcp/memory_tools.py:153

@@ -39,11 +39,11 @@ Every page carries `source: <file>:<line>`. If the page isn't enough, read sourc
 |---|---|
 | `eacn3` | EACN messaging, tasks, bids, agent registration. **Project_37596 thrash zone.** |
 | `lifecycle` | (Gru) projects, roles, spawn, dismiss, phase, signboard |
-| `experiments` | (Coder) `mos_exp_*`, queue, GPU pool |
+| `experiments` | (Expert) `mos_exp_*`, queue, GPU pool |
 | `memory` | Reel (L0), Draft (L1), Book (L2) |
 | `publish` | Cross-role writes via `mos_publish_to_shared` (THE only legal path) |
-| `papers` | (Writer) arXiv / PubMed / bioRxiv / Scholar / Semantic |
-| `deliverables` | (Gru) `mos_submit`, `mos_evaluate`, `mos_adjudicate`, `mos_review_run` |
+| `papers` | (Expert) arXiv / PubMed / bioRxiv / Scholar / Semantic |
+| `deliverables` | (Gru) `mos_submit`, `mos_evaluate`, `mos_review_run` |
 | `visual` | LaTeX/HTML/MD render + vision-model inspect |
 | `runtime` | wake loop, compact, reset, attach |
 | `debug` | `mos_issue_report` + log triage |
@@ -76,7 +76,6 @@ Highest-impact (from project_37596):
 - `pitfall-empty-authz` — slug-SUFFIX expert names get empty whitelist (P0)
 - `pitfall-queue-deadlaunch-fp` — `{project_workspace}` not expanded → false-OOM, retry storm
 - `pitfall-opus-empty-input` — long CJK / LaTeX heredoc → empty `tool_use.input`
-- `pitfall-adjudicate-misuse` — `mos_adjudicate` is for final answers, not mid-run closure
 
 ## Maintenance (when MinionsOS changes)
 

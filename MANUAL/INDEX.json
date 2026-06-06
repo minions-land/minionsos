@@ -1,7 +1,7 @@
 {
-  "version": "8c59b71",
-  "built_at": "2026-06-02T09:06:10.277157+00:00",
-  "page_count": 151,
+  "version": "e6f63d7",
+  "built_at": "2026-06-06T14:54:39.294005+00:00",
+  "page_count": 153,
   "pages": {
     "eacn3_a2a_server": {
       "kind": "tool",
@@ -28,10 +28,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:1081",
       "since": "stable",
@@ -69,10 +67,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:811",
       "since": "stable",
@@ -109,10 +105,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:835",
       "since": "stable",
@@ -151,10 +145,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:931",
       "since": "stable",
@@ -179,10 +171,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:738",
       "since": "stable",
@@ -207,10 +197,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:1053",
       "since": "stable",
@@ -249,10 +237,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:665",
       "since": "stable",
@@ -273,10 +259,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:597",
       "since": "stable",
@@ -297,10 +281,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:1043",
       "since": "stable",
@@ -322,10 +304,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:1067",
       "since": "stable",
@@ -350,10 +330,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:1027",
       "since": "stable",
@@ -374,10 +352,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:696",
       "since": "stable",
@@ -397,10 +373,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:795",
       "since": "stable",
@@ -419,10 +393,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:704",
       "since": "stable",
@@ -443,10 +415,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:318",
       "since": "stable",
@@ -500,10 +470,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:675",
       "since": "stable",
@@ -523,10 +491,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:654",
       "since": "stable",
@@ -547,10 +513,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:712",
       "since": "stable",
@@ -573,10 +537,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:723",
       "since": "stable",
@@ -618,10 +580,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:918",
       "since": "stable",
@@ -683,10 +643,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:803",
       "since": "stable",
@@ -708,10 +666,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:954",
       "since": "stable",
@@ -732,10 +688,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:451",
       "since": "stable",
@@ -755,10 +709,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:888",
       "since": "stable",
@@ -778,10 +730,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:905",
       "since": "stable",
@@ -841,10 +791,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:819",
       "since": "stable",
@@ -863,10 +811,8 @@
       "domain": "eacn3",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:827",
       "since": "stable",
@@ -890,7 +836,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/runtime_tools.py:227",
+      "source": "minions/tools/mcp/runtime_tools.py:207",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -903,12 +849,10 @@
       "domain": "runtime",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
-      "source": "minions/tools/mcp/runtime_tools.py:74",
+      "source": "minions/tools/mcp/runtime_tools.py:73",
       "since": "stable",
       "status": "stable",
       "summary": "Default wake driver for every EACN-registered Role. Long-polls, drains on read, idle-checks at ~5 min.",
@@ -922,7 +866,6 @@
         "loop"
       ],
       "related": [
-        "mos_noter_wait",
         "mos_unread_summary",
         "mos_get_events",
         "eacn3_await_events"
@@ -935,7 +878,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:235",
+      "source": "minions/tools/mcp/memory_tools.py:294",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -949,7 +892,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:335",
+      "source": "minions/tools/mcp/memory_tools.py:368",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -962,12 +905,10 @@
       "domain": "memory",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:394",
+      "source": "minions/tools/mcp/memory_tools.py:427",
       "since": "stable",
       "status": "stable",
       "summary": "Record a refuted claim as a permanent dead-end Book page so other projects do not re-run the same failed experiment.",
@@ -992,7 +933,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:139",
+      "source": "minions/tools/mcp/memory_tools.py:187",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1006,7 +947,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:172",
+      "source": "minions/tools/mcp/memory_tools.py:220",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1020,7 +961,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:303",
+      "source": "minions/tools/mcp/memory_tools.py:336",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1033,12 +974,10 @@
       "domain": "memory",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:377",
+      "source": "minions/tools/mcp/memory_tools.py:410",
       "since": "stable",
       "status": "stable",
       "summary": "Record an open research question as a durable Book page at `book/open_questions/<slug>.md`.",
@@ -1064,7 +1003,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:310",
+      "source": "minions/tools/mcp/memory_tools.py:343",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1077,16 +1016,13 @@
       "domain": "memory",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
         "expert",
-        "noter"
+        "ethics"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:194",
+      "source": "minions/tools/mcp/memory_tools.py:242",
       "since": "stable",
       "status": "stable",
-      "summary": "Search durable Book pages by topic. Pages live at `branches/shared/book/sources/`.",
+      "summary": "Search durable Book pages by topic. Pages live at `branches/main/book/sources/`.",
       "keywords": [
         "book",
         "query",
@@ -1108,7 +1044,7 @@
       "auth": [
         "ethics"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:360",
+      "source": "minions/tools/mcp/memory_tools.py:393",
       "since": "stable",
       "status": "stable",
       "summary": "Ethics ratifies a promoted Book source page by appending a signed review and setting `ratified_by: ethics`.",
@@ -1133,7 +1069,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:252",
+      "source": "minions/tools/mcp/memory_tools.py:311",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1147,7 +1083,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:210",
+      "source": "minions/tools/mcp/memory_tools.py:269",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1160,13 +1096,10 @@
       "domain": "runtime",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
         "expert",
-        "noter"
+        "ethics"
       ],
-      "source": "minions/tools/mcp/runtime_tools.py:186",
+      "source": "minions/tools/mcp/runtime_tools.py:166",
       "since": "stable",
       "status": "stable",
       "summary": "Ask the harness to compact and resume.",
@@ -1190,7 +1123,7 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/spawn_tools.py:103",
+      "source": "minions/tools/mcp/spawn_tools.py:101",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1202,7 +1135,7 @@
       "path": "tools/mos_download_arxiv.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:102",
       "since": "stub",
@@ -1216,7 +1149,7 @@
       "path": "tools/mos_download_biorxiv.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:116",
       "since": "stub",
@@ -1230,7 +1163,7 @@
       "path": "tools/mos_download_medrxiv.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:123",
       "since": "stub",
@@ -1244,7 +1177,7 @@
       "path": "tools/mos_download_pubmed.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:109",
       "since": "stub",
@@ -1260,7 +1193,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:76",
+      "source": "minions/tools/mcp/memory_tools.py:118",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1273,13 +1206,10 @@
       "domain": "memory",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
         "expert",
-        "noter"
+        "ethics"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:69",
+      "source": "minions/tools/mcp/memory_tools.py:107",
       "since": "stable",
       "status": "stable",
       "summary": "Add nodes / edges to the Draft. IDs auto-generated. `reel_ref` auto-injected from session env.",
@@ -1305,7 +1235,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:105",
+      "source": "minions/tools/mcp/memory_tools.py:153",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1319,7 +1249,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:121",
+      "source": "minions/tools/mcp/memory_tools.py:169",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1333,12 +1263,38 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:88",
+      "source": "minions/tools/mcp/memory_tools.py:130",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
+    },
+    "mos_draft_unmarked_audit": {
+      "kind": "tool",
+      "path": "tools/mos_draft_unmarked_audit.md",
+      "domain": "memory",
+      "auth": [
+        "gru",
+        "ethics"
+      ],
+      "source": "minions/tools/mcp/memory_tools.py:140",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Compute each role's unmarked-claim ratio over Draft nodes.",
+      "keywords": [
+        "draft",
+        "audit",
+        "evidence",
+        "unmarked",
+        "claims",
+        "ethics"
+      ],
+      "related": [
+        "mos_draft_view",
+        "mos_draft_annotate",
+        "mos_book_audit_walk"
+      ]
     },
     "mos_draft_view": {
       "kind": "tool",
@@ -1346,12 +1302,10 @@
       "domain": "memory",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:55",
+      "source": "minions/tools/mcp/memory_tools.py:85",
       "since": "stable",
       "status": "stable",
       "summary": "Unified read over the team Draft graph: orientation header + filtered node/edge slice. The single role-facing memory lens.",
@@ -1376,7 +1330,7 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/evaluator_tools.py:40",
+      "source": "minions/tools/mcp/evaluator_tools.py:37",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1388,7 +1342,7 @@
       "path": "tools/mos_exp_get.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:75",
       "since": "stub",
@@ -1402,7 +1356,7 @@
       "path": "tools/mos_exp_gpu_pool_get.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:137",
       "since": "stub",
@@ -1416,7 +1370,7 @@
       "path": "tools/mos_exp_gpu_pool_set.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:130",
       "since": "stub",
@@ -1430,7 +1384,7 @@
       "path": "tools/mos_exp_kill.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:54",
       "since": "stub",
@@ -1444,7 +1398,7 @@
       "path": "tools/mos_exp_list.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:61",
       "since": "stub",
@@ -1458,7 +1412,7 @@
       "path": "tools/mos_exp_put.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:68",
       "since": "stub",
@@ -1472,7 +1426,7 @@
       "path": "tools/mos_exp_queue_plan.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:117",
       "since": "stub",
@@ -1486,7 +1440,7 @@
       "path": "tools/mos_exp_queue_reconcile.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:103",
       "since": "stable",
@@ -1511,7 +1465,7 @@
       "path": "tools/mos_exp_queue_status.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:110",
       "since": "stable",
@@ -1536,7 +1490,7 @@
       "path": "tools/mos_exp_queue_submit.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:96",
       "since": "stable",
@@ -1563,7 +1517,7 @@
       "path": "tools/mos_exp_run.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:33",
       "since": "stable",
@@ -1590,7 +1544,7 @@
       "path": "tools/mos_exp_status.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:40",
       "since": "stub",
@@ -1604,7 +1558,7 @@
       "path": "tools/mos_exp_tail.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:82",
       "since": "stub",
@@ -1618,7 +1572,7 @@
       "path": "tools/mos_exp_wait.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:47",
       "since": "stub",
@@ -1634,7 +1588,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/runtime_tools.py:336",
+      "source": "minions/tools/mcp/runtime_tools.py:316",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1647,13 +1601,10 @@
       "domain": "debug",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
         "expert",
-        "noter"
+        "ethics"
       ],
-      "source": "minions/tools/mcp/runtime_tools.py:113",
+      "source": "minions/tools/mcp/runtime_tools.py:93",
       "since": "stable",
       "status": "stable",
       "summary": "Universal \u2014 every role can call this, even with empty authz. File P0/P1/P2/P3 issues.",
@@ -1680,7 +1631,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/runtime_tools.py:253",
+      "source": "minions/tools/mcp/runtime_tools.py:233",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1694,7 +1645,7 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/spawn_tools.py:131",
+      "source": "minions/tools/mcp/spawn_tools.py:130",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1708,37 +1659,12 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/spawn_tools.py:88",
+      "source": "minions/tools/mcp/spawn_tools.py:86",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [],
       "related": []
-    },
-    "mos_noter_wait": {
-      "kind": "tool",
-      "path": "tools/mos_noter_wait.md",
-      "domain": "runtime",
-      "auth": [
-        "noter"
-      ],
-      "source": "minions/tools/mcp/runtime_tools.py:94",
-      "since": "stable",
-      "status": "stable",
-      "summary": "Noter's wake driver. Timer-based (3 min default). Returns deltas only.",
-      "keywords": [
-        "noter",
-        "wait",
-        "timer",
-        "periodic",
-        "delta",
-        "observe"
-      ],
-      "related": [
-        "mos_await_events",
-        "mos_book_lint",
-        "mos_draft_view"
-      ]
     },
     "mos_project_bridge": {
       "kind": "tool",
@@ -1866,17 +1792,39 @@
       "keywords": [],
       "related": []
     },
+    "mos_promote_to_book": {
+      "kind": "tool",
+      "path": "tools/mos_promote_to_book.md",
+      "domain": "deliverables",
+      "auth": [
+        "gru"
+      ],
+      "source": "minions/tools/mcp/evaluator_tools.py:51",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Gru promotes an Ethics-sealed artifact into the main-branch Book layout.",
+      "keywords": [
+        "book",
+        "promote",
+        "gru",
+        "ethics",
+        "sealed",
+        "main"
+      ],
+      "related": [
+        "mos_submit",
+        "mos_book_ratify",
+        "mos_book_promote_verified"
+      ]
+    },
     "mos_publish_to_shared": {
       "kind": "tool",
       "path": "tools/mos_publish_to_shared.md",
       "domain": "publish",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
         "expert",
-        "noter"
+        "ethics"
       ],
       "source": "minions/tools/mcp/publish_tools.py:15",
       "since": "stable",
@@ -1904,7 +1852,7 @@
       "path": "tools/mos_query_gpus.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:89",
       "since": "stub",
@@ -1918,7 +1866,7 @@
       "path": "tools/mos_read_arxiv_paper.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:74",
       "since": "stub",
@@ -1932,7 +1880,7 @@
       "path": "tools/mos_read_biorxiv_paper.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:88",
       "since": "stub",
@@ -1946,7 +1894,7 @@
       "path": "tools/mos_read_medrxiv_paper.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:95",
       "since": "stub",
@@ -1960,7 +1908,7 @@
       "path": "tools/mos_read_pubmed_paper.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:81",
       "since": "stub",
@@ -1975,15 +1923,13 @@
       "domain": "memory",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
-        "expert"
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/reel_tools.py:22",
       "since": "stable",
       "status": "stable",
-      "summary": "Drill into the raw transcript of a specific subagent / Codex call.",
+      "summary": "Drill from a Reel ref into the native Claude JSONL session frame.",
       "keywords": [
         "reel",
         "raw",
@@ -2018,13 +1964,10 @@
       "domain": "runtime",
       "auth": [
         "gru",
-        "coder",
-        "ethics",
-        "writer",
         "expert",
-        "noter"
+        "ethics"
       ],
-      "source": "minions/tools/mcp/runtime_tools.py:158",
+      "source": "minions/tools/mcp/runtime_tools.py:138",
       "since": "stable",
       "status": "stable",
       "summary": "Drop a marker so next wake is a fresh boot. Persist your plan to Draft FIRST.",
@@ -2047,7 +1990,7 @@
       "path": "tools/mos_resolve_arxiv_ids.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:67",
       "since": "stub",
@@ -2061,7 +2004,7 @@
       "path": "tools/mos_review_run.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:16",
       "since": "stub",
@@ -2131,7 +2074,7 @@
       "path": "tools/mos_search_arxiv.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:16",
       "since": "stub",
@@ -2145,7 +2088,7 @@
       "path": "tools/mos_search_biorxiv.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:30",
       "since": "stub",
@@ -2159,7 +2102,7 @@
       "path": "tools/mos_search_google_scholar.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:44",
       "since": "stub",
@@ -2173,7 +2116,7 @@
       "path": "tools/mos_search_medrxiv.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:37",
       "since": "stub",
@@ -2187,7 +2130,7 @@
       "path": "tools/mos_search_papers_federated.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:58",
       "since": "stub",
@@ -2201,7 +2144,7 @@
       "path": "tools/mos_search_pubmed.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:23",
       "since": "stub",
@@ -2215,7 +2158,7 @@
       "path": "tools/mos_search_semantic.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:51",
       "since": "stub",
@@ -2231,7 +2174,7 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/signboard_tools.py:127",
+      "source": "minions/tools/mcp/signboard_tools.py:128",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -2245,7 +2188,7 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/signboard_tools.py:105",
+      "source": "minions/tools/mcp/signboard_tools.py:106",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -2259,7 +2202,7 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/signboard_tools.py:94",
+      "source": "minions/tools/mcp/signboard_tools.py:95",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -2273,7 +2216,7 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/signboard_tools.py:149",
+      "source": "minions/tools/mcp/signboard_tools.py:150",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -2287,7 +2230,7 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/signboard_tools.py:58",
+      "source": "minions/tools/mcp/signboard_tools.py:59",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -2301,7 +2244,7 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/spawn_tools.py:62",
+      "source": "minions/tools/mcp/spawn_tools.py:60",
       "since": "stable",
       "status": "stable",
       "summary": "Spawn a domain Expert role. **`name` is the SLUG only \u2014 never `<slug>-expert`.**",
@@ -2340,7 +2283,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/runtime_tools.py:33",
+      "source": "minions/tools/mcp/runtime_tools.py:32",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -2354,7 +2297,7 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/evaluator_tools.py:25",
+      "source": "minions/tools/mcp/evaluator_tools.py:23",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -2368,7 +2311,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/runtime_tools.py:352",
+      "source": "minions/tools/mcp/runtime_tools.py:332",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -2380,10 +2323,8 @@
       "path": "tools/mos_visual_check.md",
       "domain": "visual",
       "auth": [
-        "coder",
-        "writer",
-        "ethics",
         "expert",
+        "ethics",
         "gru"
       ],
       "source": "minions/tools/mcp/visual_tools.py:198",
@@ -2398,10 +2339,8 @@
       "path": "tools/mos_visual_inspect.md",
       "domain": "visual",
       "auth": [
-        "coder",
-        "writer",
-        "ethics",
         "expert",
+        "ethics",
         "gru"
       ],
       "source": "minions/tools/mcp/visual_tools.py:147",
@@ -2416,10 +2355,8 @@
       "path": "tools/mos_visual_render.md",
       "domain": "visual",
       "auth": [
-        "coder",
-        "writer",
-        "ethics",
         "expert",
+        "ethics",
         "gru"
       ],
       "source": "minions/tools/mcp/visual_tools.py:122",
@@ -2439,7 +2376,7 @@
       "source": "minions/tools/mcp/_common.py:1",
       "since": "stable",
       "status": "stable",
-      "summary": "**Symptom (project_37596 / role-coder + role-ethics + role-noter logs):**",
+      "summary": "**Symptom:**",
       "keywords": [
         "tool",
         "not",
@@ -2541,7 +2478,7 @@
       "source": "minions/tools/experiment_ssh.py:1",
       "since": "stable",
       "status": "stable",
-      "summary": "**Symptom (project_37596 / role-coder + role-expert-mathematician):**",
+      "summary": "**Symptom:**",
       "keywords": [
         "venv",
         "pandas",
@@ -2562,12 +2499,12 @@
       "path": "pitfalls/pitfall-queue-deadlaunch-fp.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/experiment_scheduler.py:1",
       "since": "v15.10",
       "status": "stable",
-      "summary": "**Symptom (project_37596 / role-coder, ISS-37596-10 / ISS-37596-14):**",
+      "summary": "**Symptom:**",
       "keywords": [
         "queue",
         "deadlaunch",
@@ -2698,7 +2635,6 @@
       "keywords": [
         "submit",
         "evaluate",
-        "adjudicate",
         "review",
         "deliverable",
         "paper",
@@ -2768,12 +2704,12 @@
       "path": "domains/experiments.md",
       "domain": "experiments",
       "auth": [
-        "coder"
+        "expert"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:1",
       "since": "stable",
       "status": "stable",
-      "summary": "Coder owns this surface. Other roles request via EACN message \u2014 they don't",
+      "summary": "Experts own this surface. Gru and Ethics coordinate through EACN messages",
       "keywords": [
         "exp",
         "experiment",
@@ -2827,7 +2763,7 @@
       "source": "minions/tools/mcp/memory_tools.py:1",
       "since": "stable",
       "status": "stable",
-      "summary": "Four layers, top-down:",
+      "summary": "Three layers, top-down:",
       "keywords": [
         "draft",
         "book",
@@ -2853,12 +2789,12 @@
       "path": "domains/papers.md",
       "domain": "papers",
       "auth": [
-        "writer"
+        "expert"
       ],
       "source": "minions/tools/mcp/paper_tools.py:1",
       "since": "stable",
       "status": "stable",
-      "summary": "Writer-primary. Other roles search on demand.",
+      "summary": "Expert-primary. Other roles search on demand.",
       "keywords": [
         "paper",
         "search",
@@ -2896,6 +2832,32 @@
         "mos_publish_to_shared"
       ]
     },
+    "domain-reel-l0-memory": {
+      "kind": "domain",
+      "path": "domains/reel-l0-memory.md",
+      "domain": "memory",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/tools/reel.py:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "Reel is MinionsOS's lowest memory layer. It does not copy transcript files into",
+      "keywords": [
+        "reel",
+        "memory",
+        "provenance",
+        "claude_jsonl",
+        "draft",
+        "book"
+      ],
+      "related": [
+        "mos_reel_get",
+        "mos_reel_window",
+        "mos_draft_append",
+        "mos_book_ingest"
+      ]
+    },
     "domain-runtime": {
       "kind": "domain",
       "path": "domains/runtime.md",
@@ -2918,7 +2880,6 @@
       ],
       "related": [
         "mos_await_events",
-        "mos_noter_wait",
         "mos_compact_context",
         "mos_reset_context"
       ]
@@ -2957,8 +2918,6 @@
       "path": "domains/visual.md",
       "domain": "visual",
       "auth": [
-        "coder",
-        "writer",
         "ethics",
         "expert",
         "gru"
@@ -3033,13 +2992,13 @@
       "mos_compact_context",
       "mos_get_events",
       "mos_kill_role",
-      "mos_noter_wait",
       "mos_reset_context",
       "mos_start_monitor",
       "mos_unread_summary"
     ],
     "memory": [
       "domain-memory",
+      "domain-reel-l0-memory",
       "mos_book_audit_walk",
       "mos_book_crystallize_session",
       "mos_book_dead_end",
@@ -3057,6 +3016,7 @@
       "mos_draft_commit_shared",
       "mos_draft_decay_compute",
       "mos_draft_path",
+      "mos_draft_unmarked_audit",
       "mos_draft_view",
       "mos_reel_get",
       "mos_reel_window",
@@ -3106,6 +3066,7 @@
     "deliverables": [
       "domain-deliverables",
       "mos_evaluate",
+      "mos_promote_to_book",
       "mos_submit"
     ],
     "experiments": [
@@ -3214,6 +3175,7 @@
       "mos_compact_context",
       "mos_dismiss_role",
       "mos_draft_append",
+      "mos_draft_unmarked_audit",
       "mos_draft_view",
       "mos_evaluate",
       "mos_issue_report",
@@ -3228,6 +3190,7 @@
       "mos_project_list",
       "mos_project_revive",
       "mos_project_set_phase",
+      "mos_promote_to_book",
       "mos_publish_to_shared",
       "mos_reel_get",
       "mos_reset_context",
@@ -3248,8 +3211,9 @@
       "mos_visual_render",
       "pitfall-empty-authz"
     ],
-    "coder": [
+    "expert": [
       "domain-experiments",
+      "domain-papers",
       "domain-visual",
       "eacn3_await_events",
       "eacn3_close_task",
@@ -3283,6 +3247,10 @@
       "mos_book_open_question",
       "mos_book_query",
       "mos_compact_context",
+      "mos_download_arxiv",
+      "mos_download_biorxiv",
+      "mos_download_medrxiv",
+      "mos_download_pubmed",
       "mos_draft_append",
       "mos_draft_view",
       "mos_exp_get",
@@ -3302,9 +3270,21 @@
       "mos_issue_report",
       "mos_publish_to_shared",
       "mos_query_gpus",
+      "mos_read_arxiv_paper",
+      "mos_read_biorxiv_paper",
+      "mos_read_medrxiv_paper",
+      "mos_read_pubmed_paper",
       "mos_reel_get",
       "mos_reset_context",
+      "mos_resolve_arxiv_ids",
       "mos_review_run",
+      "mos_search_arxiv",
+      "mos_search_biorxiv",
+      "mos_search_google_scholar",
+      "mos_search_medrxiv",
+      "mos_search_papers_federated",
+      "mos_search_pubmed",
+      "mos_search_semantic",
       "mos_visual_check",
       "mos_visual_inspect",
       "mos_visual_render",
@@ -3346,111 +3326,7 @@
       "mos_book_ratify",
       "mos_compact_context",
       "mos_draft_append",
-      "mos_draft_view",
-      "mos_issue_report",
-      "mos_publish_to_shared",
-      "mos_reel_get",
-      "mos_reset_context",
-      "mos_visual_check",
-      "mos_visual_inspect",
-      "mos_visual_render"
-    ],
-    "writer": [
-      "domain-papers",
-      "domain-visual",
-      "eacn3_await_events",
-      "eacn3_close_task",
-      "eacn3_confirm_budget",
-      "eacn3_create_subtask",
-      "eacn3_create_task",
-      "eacn3_deposit",
-      "eacn3_discover_agents",
-      "eacn3_get_agent",
-      "eacn3_get_balance",
-      "eacn3_get_events",
-      "eacn3_get_reputation",
-      "eacn3_get_task",
-      "eacn3_get_task_results",
-      "eacn3_get_task_status",
-      "eacn3_health",
-      "eacn3_list_agents",
-      "eacn3_list_my_agents",
-      "eacn3_list_open_tasks",
-      "eacn3_list_tasks",
-      "eacn3_reject_task",
-      "eacn3_select_result",
-      "eacn3_send_message",
-      "eacn3_server_info",
-      "eacn3_submit_bid",
-      "eacn3_submit_result",
-      "eacn3_update_deadline",
-      "eacn3_update_discussions",
-      "mos_await_events",
-      "mos_book_dead_end",
-      "mos_book_open_question",
-      "mos_book_query",
-      "mos_compact_context",
-      "mos_download_arxiv",
-      "mos_download_biorxiv",
-      "mos_download_medrxiv",
-      "mos_download_pubmed",
-      "mos_draft_append",
-      "mos_draft_view",
-      "mos_issue_report",
-      "mos_publish_to_shared",
-      "mos_read_arxiv_paper",
-      "mos_read_biorxiv_paper",
-      "mos_read_medrxiv_paper",
-      "mos_read_pubmed_paper",
-      "mos_reel_get",
-      "mos_reset_context",
-      "mos_resolve_arxiv_ids",
-      "mos_search_arxiv",
-      "mos_search_biorxiv",
-      "mos_search_google_scholar",
-      "mos_search_medrxiv",
-      "mos_search_papers_federated",
-      "mos_search_pubmed",
-      "mos_search_semantic",
-      "mos_visual_check",
-      "mos_visual_inspect",
-      "mos_visual_render"
-    ],
-    "expert": [
-      "domain-visual",
-      "eacn3_await_events",
-      "eacn3_close_task",
-      "eacn3_confirm_budget",
-      "eacn3_create_subtask",
-      "eacn3_create_task",
-      "eacn3_deposit",
-      "eacn3_discover_agents",
-      "eacn3_get_agent",
-      "eacn3_get_balance",
-      "eacn3_get_events",
-      "eacn3_get_reputation",
-      "eacn3_get_task",
-      "eacn3_get_task_results",
-      "eacn3_get_task_status",
-      "eacn3_health",
-      "eacn3_list_agents",
-      "eacn3_list_my_agents",
-      "eacn3_list_open_tasks",
-      "eacn3_list_tasks",
-      "eacn3_reject_task",
-      "eacn3_select_result",
-      "eacn3_send_message",
-      "eacn3_server_info",
-      "eacn3_submit_bid",
-      "eacn3_submit_result",
-      "eacn3_update_deadline",
-      "eacn3_update_discussions",
-      "mos_await_events",
-      "mos_book_dead_end",
-      "mos_book_open_question",
-      "mos_book_query",
-      "mos_compact_context",
-      "mos_draft_append",
+      "mos_draft_unmarked_audit",
       "mos_draft_view",
       "mos_issue_report",
       "mos_publish_to_shared",
@@ -3465,6 +3341,7 @@
       "domain-eacn3",
       "domain-memory",
       "domain-publish",
+      "domain-reel-l0-memory",
       "domain-runtime",
       "domain-subagent-handoff",
       "eacn3_heartbeat",
@@ -3492,15 +3369,6 @@
       "pitfall-project-venv",
       "pitfall-subagent-boilerplate",
       "pitfall-tool-denied"
-    ],
-    "noter": [
-      "mos_book_query",
-      "mos_compact_context",
-      "mos_draft_append",
-      "mos_issue_report",
-      "mos_noter_wait",
-      "mos_publish_to_shared",
-      "mos_reset_context"
     ]
   },
   "by_keyword": {
@@ -3828,10 +3696,12 @@
     ],
     "book": [
       "domain-memory",
+      "domain-reel-l0-memory",
       "mos_book_dead_end",
       "mos_book_open_question",
       "mos_book_query",
-      "mos_book_ratify"
+      "mos_book_ratify",
+      "mos_promote_to_book"
     ],
     "dead-end": [
       "mos_book_dead_end"
@@ -3885,13 +3755,16 @@
       "mos_book_ratify"
     ],
     "ethics": [
-      "mos_book_ratify"
+      "mos_book_ratify",
+      "mos_draft_unmarked_audit",
+      "mos_promote_to_book"
     ],
     "verify": [
       "mos_book_ratify"
     ],
     "promote": [
-      "mos_book_ratify"
+      "mos_book_ratify",
+      "mos_promote_to_book"
     ],
     "ratification": [
       "mos_book_ratify"
@@ -3918,7 +3791,9 @@
     ],
     "draft": [
       "domain-memory",
+      "domain-reel-l0-memory",
       "mos_draft_append",
+      "mos_draft_unmarked_audit",
       "mos_draft_view"
     ],
     "append": [
@@ -3935,10 +3810,21 @@
       "mos_draft_append"
     ],
     "evidence": [
-      "mos_draft_append"
+      "mos_draft_append",
+      "mos_draft_unmarked_audit"
     ],
     "plan": [
       "mos_draft_append"
+    ],
+    "audit": [
+      "mos_draft_unmarked_audit",
+      "mos_reel_get"
+    ],
+    "unmarked": [
+      "mos_draft_unmarked_audit"
+    ],
+    "claims": [
+      "mos_draft_unmarked_audit"
     ],
     "view": [
       "mos_draft_view"
@@ -4045,23 +3931,16 @@
       "domain-debug",
       "mos_issue_report"
     ],
-    "noter": [
-      "mos_noter_wait"
+    "gru": [
+      "domain-bridge",
+      "domain-lifecycle",
+      "mos_promote_to_book"
     ],
-    "wait": [
-      "mos_noter_wait"
+    "sealed": [
+      "mos_promote_to_book"
     ],
-    "timer": [
-      "mos_noter_wait"
-    ],
-    "periodic": [
-      "mos_noter_wait"
-    ],
-    "delta": [
-      "mos_noter_wait"
-    ],
-    "observe": [
-      "mos_noter_wait"
+    "main": [
+      "mos_promote_to_book"
     ],
     "publish": [
       "domain-publish",
@@ -4099,6 +3978,7 @@
     ],
     "reel": [
       "domain-memory",
+      "domain-reel-l0-memory",
       "mos_reel_get"
     ],
     "raw": [
@@ -4111,9 +3991,6 @@
       "domain-subagent-handoff",
       "mos_reel_get",
       "pitfall-subagent-boilerplate"
-    ],
-    "audit": [
-      "mos_reel_get"
     ],
     "codex": [
       "domain-subagent-handoff",
@@ -4306,10 +4183,6 @@
     "cross-project": [
       "domain-bridge"
     ],
-    "gru": [
-      "domain-bridge",
-      "domain-lifecycle"
-    ],
     "federation": [
       "domain-bridge"
     ],
@@ -4323,9 +4196,6 @@
       "domain-debug"
     ],
     "evaluate": [
-      "domain-deliverables"
-    ],
-    "adjudicate": [
       "domain-deliverables"
     ],
     "deliverable": [
@@ -4376,7 +4246,8 @@
       "domain-lifecycle"
     ],
     "memory": [
-      "domain-memory"
+      "domain-memory",
+      "domain-reel-l0-memory"
     ],
     "open_question": [
       "domain-memory"
@@ -4404,6 +4275,12 @@
     ],
     "cross-role": [
       "domain-publish"
+    ],
+    "provenance": [
+      "domain-reel-l0-memory"
+    ],
+    "claude_jsonl": [
+      "domain-reel-l0-memory"
     ],
     "attach": [
       "domain-runtime"

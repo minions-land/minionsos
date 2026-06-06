@@ -55,7 +55,7 @@ All public exception classes exported from `minions/errors.py`.
 
 **Parent**: `RoleError`  
 **Raised when**: `register_role` / `register_expert` is called for a slug that is already registered and active in the project.  
-**Example**: Gru calls `mos_spawn_role(role="coder")` while a Coder process is already running on the same project port.
+**Example**: Gru calls `mos_spawn_expert` for a slug that is already running on the same project port.
 
 ---
 
@@ -85,26 +85,26 @@ All public exception classes exported from `minions/errors.py`.
 
 ## CircuitBreakError
 
-**Parent**: `ExperimentError`  
-**Raised when**: Three consecutive failures of the same script hash trip the experiment circuit breaker; further runs of that script are blocked until Coder explicitly resets the breaker.  
+**Parent**: `ExperimentError`
+**Raised when**: Three consecutive failures of the same script hash trip the experiment circuit breaker; further runs of that script are blocked until an Expert explicitly resets the breaker.
 **Example**: A training script exits non-zero three times in a row; the fourth call raises `CircuitBreakError` immediately without launching.
 
 ---
 
 ## PermissionError
 
-**Parent**: `MinionsError`  
-**Raised when**: A Role attempts to call a tool outside its authorized boundary — caught by server-side authorization in `minions/tools/mcp_server.py` or by `resolve_allowed_tools`.  
-**Example**: A Coder subagent attempts to call `mos_project_create`; Ethics attempts to call `mos_exp_run`.  
+**Parent**: `MinionsError`
+**Raised when**: A Role attempts to call a tool outside its authorized boundary — caught by server-side authorization in `minions/tools/mcp_server.py` or by `resolve_allowed_tools`.
+**Example**: An Expert subagent attempts to call `mos_project_create`; Ethics attempts to call `mos_exp_run`.
 **Note**: This class shadows the Python built-in `PermissionError` within the `minions` package namespace. Import as `from minions.errors import PermissionError` and qualify carefully when mixing with `builtins.PermissionError`.
 
 ---
 
 ## ReelError
 
-**Parent**: `MinionsError`  
-**Raised when**: A Reel (L0 raw transcripts) operation cannot complete — malformed `<role>/<session>/<id>` ref, missing `MINIONS_PROJECT_PORT`, ref not found in the role's `reel-index.jsonl`, or unreadable `claude_jsonl` transcript file.  
-**Example**: `mos_reel_get("writer/sess-7/missing")` looks up an entry not present in the writer reel index.  
+**Parent**: `MinionsError`
+**Raised when**: A Reel (L0 pointer-index) operation cannot complete — malformed `<role>/<session>/<id>` ref, missing `MINIONS_PROJECT_PORT`, ref not found in the role's `reel-index.jsonl`, or unreadable `claude_jsonl` transcript file.
+**Example**: `mos_reel_get("expert/sess-7/missing")` looks up an entry not present in the Expert reel index.
 **Note**: Cross-role authorization failures still raise `PermissionError`, not `ReelError`.
 
 ---
@@ -121,8 +121,7 @@ All public exception classes exported from `minions/errors.py`.
 
 **Parent**: `MinionsError`  
 **Raised when**: A Book (L2 durable product memory) operation cannot complete — page-kind violation, missing required fields (claim / question / evidence_review), source path outside the project workspace, ratify call from a non-Ethics role, or contradiction page lookup miss.  
-**Example**: `mos_book_ratify(slug="X", ...)` invoked with `ratifier_role="coder"`; `mos_book_dead_end(claim="", evidence="...")`.  
-**Note**: This class is also re-exported from `minions.tools.book` for backward compatibility with existing `pytest.raises(BookError)` call sites.
+**Example**: `mos_book_ratify(slug="X", ...)` invoked with `ratifier_role="expert"`; `mos_book_dead_end(claim="", evidence="...")`.
 
 ---
 
@@ -148,4 +147,3 @@ Exception
 ```
 
 *Source of truth: `minions/errors.py`. Keep this reference in sync when adding new exception classes.*
-

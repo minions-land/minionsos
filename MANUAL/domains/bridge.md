@@ -25,5 +25,5 @@ lookup.py --id mos_project_bridge
 
 - Roles never bridge directly. A role wanting cross-project data DMs Gru.
 - Bridges are read-only. No writes across project boundaries.
-- Each call appends to `branches/shared/governance/bridges.jsonl` (audit).
+- Each call appends to `branches/main/governance/bridges.jsonl` (audit).
 - Bridges expire — re-bridge if acting on a digest > 1 h old.

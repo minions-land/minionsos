@@ -19,30 +19,30 @@ def test_upsert_identity_writes_map_and_plugin_state(tmp_path: Path, monkeypatch
 
     entry = eacn_identity.upsert_agent_identity(
         port,
-        role_name="coder",
-        agent_id="agent-coder",
+        role_name="expert",
+        agent_id="agent-expert",
         kind="role",
         server_id="srv-local",
         agent_token="tok",
         domains=["minionsos", "coding"],
         tier="general",
-        description="Coder role",
-        name="coder",
+        description="Expert role",
+        name="expert",
     )
 
-    assert entry["agent_id"] == "agent-coder"
-    assert eacn_identity.resolve_agent_id(port, "coder") == "agent-coder"
-    assert eacn_identity.resolve_role_name(port, "agent-coder") == "coder"
+    assert entry["agent_id"] == "agent-expert"
+    assert eacn_identity.resolve_agent_id(port, "expert") == "agent-expert"
+    assert eacn_identity.resolve_role_name(port, "agent-expert") == "expert"
 
     agent_map = json.loads((pdir / "eacn3_data" / "agent_map.json").read_text())
-    assert agent_map["agents"]["coder"]["agent_id"] == "agent-coder"
+    assert agent_map["agents"]["expert"]["agent_id"] == "agent-expert"
 
-    state_dir = pdir / "eacn3_data" / "plugin-agent-coder"
+    state_dir = pdir / "eacn3_data" / "plugin-agent-expert"
     server = json.loads((state_dir / "server.json").read_text())
     assert server["network_endpoint"] == f"http://127.0.0.1:{port}"
-    agent = json.loads((state_dir / "agents" / "agent-coder.json").read_text())
-    assert agent["agent"]["agent_id"] == "agent-coder"
+    agent = json.loads((state_dir / "agents" / "agent-expert.json").read_text())
+    assert agent["agent"]["agent_id"] == "agent-expert"
     assert agent["agent"]["server_id"] == "srv-local"
 
     meta_payload = json.loads(meta.read_text())
-    assert meta_payload["eacn_agent_map"]["coder"]["agent_id"] == "agent-coder"
+    assert meta_payload["eacn_agent_map"]["expert"]["agent_id"] == "agent-expert"

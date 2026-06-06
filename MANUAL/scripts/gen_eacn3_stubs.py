@@ -5,6 +5,7 @@ Reads the api.registerTool({ name: ..., description: ... }) blocks and creates
 MANUAL/tools/<name>.md if missing. Existing pages are preserved.
 """
 from __future__ import annotations
+
 import re
 import sys
 from pathlib import Path
@@ -107,7 +108,7 @@ def main() -> int:
                 if page.exists():
                     skipped += 1
                 else:
-                    auth_list = DEFAULT_AUTH_BY_NAME.get(name, ["gru", "coder", "ethics", "writer", "expert"])
+                    auth_list = DEFAULT_AUTH_BY_NAME.get(name, ["gru", "ethics", "expert"])
                     auth = ", ".join(auth_list)
                     one_line = (desc.split(".")[0] if desc else "TODO").strip()[:160]
                     keywords = ", ".join(derive_keywords(name, desc))

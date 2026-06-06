@@ -37,6 +37,8 @@ def _markdown_files() -> list[Path]:
         rel_parts = rel.parts
         if any(part in SKIP_DIRS for part in rel_parts):
             continue
+        if not path.is_file():
+            continue
         out.append(path)
     return sorted(out)
 

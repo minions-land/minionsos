@@ -97,18 +97,21 @@ def test_host_dotclaude_blocked(tmp_path: Path) -> None:
 
 
 def test_cross_role_branch_blocked(tmp_path: Path) -> None:
-    """Coder writing into Writer's branch .claude/ must block."""
-    coder_branch = tmp_path / "branches" / "coder"
-    writer_branch = tmp_path / "branches" / "writer"
-    coder_branch.mkdir(parents=True)
-    writer_branch.mkdir(parents=True)
+    """Expert writing into another Expert branch .claude/ must block."""
+    expert_branch = tmp_path / "branches" / "expert-a"
+    peer_branch = tmp_path / "branches" / "expert-b"
+    expert_branch.mkdir(parents=True)
+    peer_branch.mkdir(parents=True)
     payload = {
         "tool_name": "Write",
         "tool_input": {
-            "file_path": str(writer_branch / ".claude" / "scratchpad" / "leak"),
+            "file_path": str(peer_branch / ".claude" / "scratchpad" / "leak"),
         },
     }
-    result = _run(payload, {"MINIONS_ROLE_BRANCH": str(coder_branch), "MINIONS_ROLE_NAME": "coder"})
+    result = _run(
+        payload,
+        {"MINIONS_ROLE_BRANCH": str(expert_branch), "MINIONS_ROLE_NAME": "expert-a"},
+    )
     assert result.returncode == 2
 
 

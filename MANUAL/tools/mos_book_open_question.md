@@ -3,7 +3,7 @@ id: mos_book_open_question
 kind: tool
 domain: memory
 auth: [gru, expert, ethics]
-source: minions/tools/mcp/memory_tools.py:377
+source: minions/tools/mcp/memory_tools.py:410
 since: stable
 keywords: [book, open-question, gap, unresolved, research, question]
 related: [mos_book_ingest, mos_book_query, mos_book_dead_end, mos_book_ratify]
@@ -36,11 +36,10 @@ mos_book_open_question(
 - Do NOT use for definitively refuted claims — use `mos_book_dead_end` instead.
 
 ## Authz
-All EACN-visible roles may call this. Noter is excluded (uses timer-based
-workflow; contributes open questions via EACN message → shared handoffs).
+All EACN-visible roles may call this.
 
 ## Page location
-Pages land at `branches/shared/book/open_questions/<slug>.md` with
+Pages land at `branches/main/book/open_questions/<slug>.md` with
 `status: open_question`. They are indexed and returned by `mos_book_query`.
 Update `status` to `resolved` (via `mos_book_ingest` or direct edit) when
 the question is answered.

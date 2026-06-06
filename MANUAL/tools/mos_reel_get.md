@@ -12,31 +12,32 @@ status: stable
 
 # mos_reel_get
 
-**One line:** Drill into the raw transcript of a specific subagent / Codex call.
+**One line:** Drill from a Reel ref into the native Claude JSONL session frame.
 
 ## Signature
 ```py
 mos_reel_get(ref: str) -> {
-  transcript_path: str,
-  task_id: str,
-  invoked_at: str,
-  tool_name: str,             # "Agent" | "Task" | "mcp__codex-subagent__codex"
-  prompt: str,
-  output: str,                # full verbatim output
-  events: [ ... ],            # sub-tool calls inside the subagent
+  ref: str,
+  role: str,
+  session_id: str,
+  tool_use_id: str,
+  kind: str,
+  ts: str,
+  claude_jsonl: str,
+  draft_node_refs: [str],
+  lines: [ ... ],
 }
 ```
 
-`ref` shape: `"<role>/<session_id>/<task_id>"`. Copy it from
+`ref` shape: `"<role>/<session_id>/<tool_use_id>"`. Copy it from
 `metadata.reel_ref` on any Draft node or Book page.
 
 ## Permission boundary
 - Each role can read its own reel.
-- Gru can read any role's reel (cross-role audit).
-- Noter cannot read reel at all.
+- Gru and Ethics can read cross-role reel entries for audit.
 
 ## Use case
-project_37596 / Ethics dispatched a subagent to verdict 18 contradictions.
+Ethics dispatched a subagent to verdict 18 contradictions.
 The output stamped boilerplate "needs-experiment" verdicts. Ethics ran
 `mos_reel_get(ref=...)` to confirm the subagent only read 2 of 18 inputs
 before deciding. Verdicts rejected, redone inline.

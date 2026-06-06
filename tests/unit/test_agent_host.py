@@ -174,7 +174,7 @@ def test_warmup_block_present_for_eacn_roles() -> None:
 
 def test_warmup_block_for_ethics_includes_curation_tools() -> None:
     """Ethics is the merged memory curator — its warmup primes the draft-commit
-    and Book curation tools that Noter used to hold."""
+    and Book curation tools."""
     prompt = _cold_prompt("ethics")
     assert _WARMUP_HEADER in prompt
     assert "select:" in prompt

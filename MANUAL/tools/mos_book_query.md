@@ -3,7 +3,7 @@ id: mos_book_query
 kind: tool
 domain: memory
 auth: [gru, expert, ethics]
-source: minions/tools/mcp/memory_tools.py:194
+source: minions/tools/mcp/memory_tools.py:242
 since: stable
 keywords: [book, query, search, page, knowledge, durable]
 related: [mos_book_ingest, mos_book_save_synthesis, mos_draft_view]
@@ -12,7 +12,7 @@ status: stable
 
 # mos_book_query
 
-**One line:** Search durable Book pages by topic. Pages live at `branches/shared/book/sources/`.
+**One line:** Search durable Book pages by topic. Pages live at `branches/main/book/sources/`.
 
 ## Signature
 ```py
@@ -26,7 +26,7 @@ mos_book_query(
 ## When to call
 - BEFORE `mos_book_ingest` — if a page already covers your topic, link via
   `mos_book_save_synthesis` instead of duplicating.
-- During Writer narrative work — Book is the citation-shaped knowledge.
+- During Expert narrative work — Book is the citation-shaped knowledge.
 - During Ethics audits to validate claim provenance.
 
 ## See also

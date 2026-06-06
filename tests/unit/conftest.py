@@ -69,11 +69,16 @@ def _forbid_real_subprocess_leaks(monkeypatch: pytest.MonkeyPatch) -> None:
     real_popen = subprocess.Popen
     real_run = subprocess.run
 
-    def guarded_popen(argv, *args, **kwargs):  # type: ignore[no-untyped-def]
-        reason = _is_banned_subprocess(argv)
-        if reason:
-            raise HermeticityViolation(f"{reason}: argv={argv!r}")
-        return real_popen(argv, *args, **kwargs)
+    class GuardedPopen:
+        @classmethod
+        def __class_getitem__(cls, item: Any) -> Any:
+            return cls
+
+        def __new__(cls, argv, *args, **kwargs):  # type: ignore[no-untyped-def]
+            reason = _is_banned_subprocess(argv)
+            if reason:
+                raise HermeticityViolation(f"{reason}: argv={argv!r}")
+            return real_popen(argv, *args, **kwargs)
 
     def guarded_run(argv, *args, **kwargs):  # type: ignore[no-untyped-def]
         reason = _is_banned_subprocess(argv)
@@ -81,7 +86,7 @@ def _forbid_real_subprocess_leaks(monkeypatch: pytest.MonkeyPatch) -> None:
             raise HermeticityViolation(f"{reason}: argv={argv!r}")
         return real_run(argv, *args, **kwargs)
 
-    monkeypatch.setattr(subprocess, "Popen", guarded_popen)
+    monkeypatch.setattr(subprocess, "Popen", GuardedPopen)
     monkeypatch.setattr(subprocess, "run", guarded_run)
 
 

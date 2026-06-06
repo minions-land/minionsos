@@ -108,8 +108,7 @@ class TestGruSystemInvariants:
         assert "Do not patch MinionsOS runtime code yourself" in t
         assert "System-maintenance delegation" in t
         # The maintenance handoff goes via direct message — the Expert posts
-        # its own task, Gru does not. (Coder retired in v23; Experts own
-        # system-maintenance + experiments.)
+        # its own task, Gru does not.
         assert "eacn3_send_message" in t
         assert "Expert posts its own EACN task" in collapsed
         assert "instead of patching it yourself" in t

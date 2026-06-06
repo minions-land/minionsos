@@ -12,7 +12,7 @@ status: stable
 
 # pitfall: `ModuleNotFoundError: No module named 'pandas' / 'torch' / 'mcp_minionsos'`
 
-**Symptom (project_37596 / role-coder + role-expert-mathematician):**
+**Symptom:**
 ```
 ModuleNotFoundError: No module named 'pandas'
 ModuleNotFoundError: No module named 'torch'
@@ -33,7 +33,7 @@ For ad-hoc analysis:
 mos_exp_run(
   command="cd /path/to/project && source .venv/bin/activate && python -c '...'",
   execution="local",
-  log_path="/abs/branches/coder/exp/probe.log",
+  log_path="/abs/branches/expert-math/exp/probe.log",
 )
 ```
 

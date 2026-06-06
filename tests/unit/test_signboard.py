@@ -239,9 +239,9 @@ def test_quorum_blocked_without_ethics(
     from minions.tools import signboard as sb
 
     _stub_experts(monkeypatch, ["expert-bio", "expert-chem", "expert-stat"])
-    # Coder + all experts raise, but Ethics is missing.
+    # Experts raise, but Ethics is missing.
     for role, evidence in [
-        ("coder", "exp/exp-1/report.md"),
+        ("expert-ml", "exp/exp-1/report.md"),
         ("expert-bio", "notes/bio.md"),
         ("expert-chem", "notes/chem.md"),
         ("expert-stat", "notes/stat.md"),

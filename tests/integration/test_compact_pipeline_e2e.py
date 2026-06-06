@@ -18,6 +18,7 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 PRE_HOOK = REPO_ROOT / "minions" / "hooks" / "pre_compact_science.py"
@@ -129,8 +130,8 @@ def test_phase1_compact_context_persists_pending_plans_and_schedules(
         {
             "type": "question",
             "text": (
-                "Writer requests Coder refactor data-loader for arbitrary "
-                "tokenizers. Originating event from writer@2026-05-27T00:30Z."
+                "Expert requests data-loader refactor for arbitrary "
+                "tokenizers. Originating event from expert@2026-05-27T00:30Z."
             ),
         },
         {"type": "experiment", "text": "Sweep learning rate {1e-4, 5e-4, 1e-3} for 12B variant."},
@@ -199,13 +200,13 @@ def test_phase3_postcompact_extracts_and_audits_summary(tmp_path: Path) -> None:
 - DEAD-001 — abandoned approach (abandoned)
 
 ## Pending_plans
-- Q-001 — Writer's data-loader refactor (already persisted with metadata.pending_plan=true)
+- Q-001 — Expert data-loader refactor (already persisted with metadata.pending_plan=true)
 
 ## Open_questions
 - Q-002 — does H-001 hold under FP8?
 
 ## Notes
-- Routing through n42_kernels community on Shelf.
+- Routing through n42_kernels community in Book.
 
 ## Resume_protocol
 mos_draft_summary() → mos_await_events()
@@ -275,7 +276,7 @@ def test_phase4_post_compact_role_sees_pending_plans(tmp_path: Path, monkeypatch
     mos_compact_context(
         reason="setup",
         pending_plans=[
-            {"type": "question", "text": "Writer's data-loader refactor request — pending."},
+            {"type": "question", "text": "Expert data-loader refactor request — pending."},
         ],
     )
 
@@ -327,7 +328,7 @@ def test_phase5_pattern_a_annotates_event_at_high_pressure(tmp_path: Path, monke
     import types as _types
 
     fake_log = _types.ModuleType("minions.tools.events_log")
-    fake_log.append_events = lambda *a, **k: None
+    cast(Any, fake_log).append_events = lambda *a, **k: None
     monkeypatch.setitem(_sys.modules, "minions.tools.events_log", fake_log)
     fake_audit = _types.ModuleType("minions.tools.draft_audit")
 
@@ -335,7 +336,7 @@ def test_phase5_pattern_a_annotates_event_at_high_pressure(tmp_path: Path, monke
         reminder_due = False
         prev_delivery_was_real = False
 
-    fake_audit.take_snapshot_and_reset = lambda *a, **k: _Snap()
+    cast(Any, fake_audit).take_snapshot_and_reset = lambda *a, **k: _Snap()
     monkeypatch.setitem(_sys.modules, "minions.tools.draft_audit", fake_audit)
 
     result = ae.await_events()
@@ -447,7 +448,7 @@ def test_phase7_end_to_end_pipeline(tmp_path: Path, monkeypatch) -> None:
         {
             "type": "question",
             "text": (
-                "Writer asked Coder to refactor data-loader (event writer@2026-05-27T00:30Z)."
+                "Expert asked for data-loader refactor (event expert@2026-05-27T00:30Z)."
             ),
         },
     ]
@@ -475,7 +476,7 @@ def test_phase7_end_to_end_pipeline(tmp_path: Path, monkeypatch) -> None:
 - mos_draft_summary() then mos_await_events()
 
 ## Pending_plans
-- {pending_id} — Writer data-loader refactor (already persisted)
+- {pending_id} — Expert data-loader refactor (already persisted)
 
 ## Resume_protocol
 mos_draft_summary() → mos_await_events()

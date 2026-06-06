@@ -21,7 +21,7 @@ upstream content.
 | `CLAUDE.md` | Claude-facing runtime and collaboration instructions. |
 | `CHANGELOG.md` | Versioned project change history. |
 | `ERRORS.md` | Error taxonomy and troubleshooting reference. |
-| `STABILITY.md` | Stability and compatibility notes. |
+| `STABILITY.md` | Stability and support-level notes. |
 | `MODULE_PATH_INDEX.md` | Runtime module map after the modularization pass. |
 | `MARKDOWN_INDEX.md` | This Markdown asset map and language policy. |
 

@@ -53,13 +53,12 @@ addopts = "-n 4"
 testpaths = ["tests"]
 
 [tool.ty.src]
-# Exclude Writer/Expert skill reference scripts: these are templates shipped with
+# Exclude Expert skill reference scripts: these are templates shipped with
 # the figure-chart-atlas / pdf-vector-layout / figure-aesthetic-exemplars skills,
 # executed by an Expert worker in its own (matplotlib / pikepdf / numpy / PIL)
 # environment. They are not part of the MinionsOS runtime Python package, so their
 # optional-dep imports are unresolvable from the dev environment. Excluding them
-# from ty avoids spurious "unresolved-import" diagnostics. The skills now live
-# under the shared common/skills/ library (merged from the retired writer role).
+# from ty avoids spurious "unresolved-import" diagnostics.
 exclude = [
     "minions/roles/common/skills/figure-chart-atlas/references",
     "minions/roles/common/skills/pdf-vector-layout/scripts",

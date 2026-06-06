@@ -29,7 +29,7 @@ mos_exp_run(
 ```
 
 ## Discipline
-- `log_path` MUST be absolute under `branches/coder/`. See pitfall-queue-deadlaunch-fp.
+- `log_path` MUST be absolute under the calling Expert's branch. See pitfall-queue-deadlaunch-fp.
 - `gpu_ids=[1]` is your safe 5-second probe default.
 - `timeout_s ≥ 3600` for 30k-step grokking runs.
 - For project venv (pandas, torch): `command="cd /proj && source .venv/bin/activate && python ..."`.

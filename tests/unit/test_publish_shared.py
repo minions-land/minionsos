@@ -209,7 +209,7 @@ def test_publish_does_not_absorb_unrelated_dirty_paths(
 
     This guards the buffered-Draft / committed-publish split: if publish
     swept up everything dirty, every role's publish would absorb the Draft
-    buffer and Noter's flush would have nothing to commit.
+    buffer and the explicit Draft flush would have nothing to commit.
     """
     workspace = shared_project["shared_workspace"]  # type: ignore[index]
     # Simulate a dirty Draft buffer in the shared worktree.
@@ -373,9 +373,11 @@ class TestSharedLockTimeout:
             fcntl.flock(holder_fd, fcntl.LOCK_EX)
 
             t0 = time.monotonic()
-            with pytest.raises(ProjectError, match=r"shared\.lock contended"):
-                with publish._shared_lock(port):
-                    pass
+            with (
+                pytest.raises(ProjectError, match=r"shared\.lock contended"),
+                publish._shared_lock(port),
+            ):
+                pass
             elapsed = time.monotonic() - t0
             # Must have respected the budget — not blocked forever, and not
             # returned instantly (we did wait for the timeout).

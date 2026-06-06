@@ -1,34 +1,24 @@
 # MinionsOS Module Path Index
 
 **Generated:** 2026-06-04
-**Last updated:** 2026-06-04, after the modularization pass
+**Last updated:** 2026-06-04
 **Purpose:** Document the main runtime module locations, dependency boundaries,
-and high-traffic callers after the large-file split.
+and high-traffic callers.
 
 This file is an implementation map, not the public product overview. For the
 repository-wide Markdown asset map, see `MARKDOWN_INDEX.md`.
 
 ## Executive Summary
 
-The major runtime files were split into focused modules while preserving
-backward-compatible public imports.
-
-| Surface | Before | Current facade | Reduction |
-|---|---:|---:|---:|
-| `book.py` | 3146 lines | 1277 lines | 59.4% |
-| `draft.py` | 1769 lines | 1041 lines | 41.2% |
-| `experiment_scheduler.py` | 1601 lines | 838 lines | 47.7% |
-| `project.py` | 2801 lines | 555 lines | 80.2% |
-
-The pass created 30 focused modules with 5606 extracted lines. The facades
-remain the preferred import targets for public callers.
+Runtime code is organised around current public entry modules and focused
+support modules. Public callers should use the entry modules listed below;
+supporting modules are implementation boundaries.
 
 ## Book L2 Memory Modules
 
 ### Facade
 
-- `minions/tools/book.py` - backward-compatible public facade that re-exports
-  the Book API.
+- `minions/tools/book.py` - public Book API entry point.
 
 ### Supporting modules
 
@@ -48,7 +38,7 @@ remain the preferred import targets for public callers.
 
 ### Public API
 
-Import from `minions.tools.book` for backward compatibility:
+Import from `minions.tools.book`:
 
 ```python
 from minions.tools.book import (
@@ -72,7 +62,7 @@ from minions.tools.book import (
 - `minions/tools/draft.py` calls `mos_book_ingest`.
 - `minions/tools/mcp/memory_tools.py` wraps the memory tools for MCP.
 - Unit and integration tests cover Book, Draft/Reel integration, memory
-  provenance, contradiction handling, and Noter/Ethics chains.
+  provenance, contradiction handling, and Ethics audit chains.
 
 ## Draft L1 Memory Modules
 
