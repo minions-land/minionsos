@@ -39,8 +39,7 @@ mos_draft_view(
 ## Behaviour
 Reads `branches/main/draft/draft.json`. The `orientation` header is always
 returned; the `nodes`/`edges` slice reflects whatever filters you passed. This
-one tool replaces the former `mos_draft_summary` (orientation) and
-`mos_draft_query` (filtered read) — both folded into a single lens.
+single lens provides both orientation and filtered Draft reads.
 
 ## Cold-start orient
 A no-arg call is the cold-start orientation — call it first on every wake:

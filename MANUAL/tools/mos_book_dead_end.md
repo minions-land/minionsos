@@ -36,9 +36,9 @@ is written under `book/sources/` with `status: refuted`; downstream tooling
 
 ## When to call
 - After running an experiment that definitively refutes a hypothesis you
-  previously held (or the literature held).
+  are tracking (or a claim in the literature).
 - After a literature review surfaces refutation evidence for a claim that
-  was previously ingested as `verified` — pair this with
+  is ingested as `verified` — pair this with
   `mos_book_resolve_contradiction` to mark the conflict.
 - Do NOT use for claims that are merely "unsupported" or "unconfirmed" —
   use `mos_book_open_question` for those.

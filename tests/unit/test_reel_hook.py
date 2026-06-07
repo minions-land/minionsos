@@ -15,14 +15,14 @@ def mock_project_setup(monkeypatch, tmp_path):
     """Set up a mock project for hook testing."""
     port = 54321
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
-    monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+    monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
     monkeypatch.setenv("MINIONS_SESSION_ID", "sess-test-001")
 
     # Create project structure
     project_dir = tmp_path / f"project_{port}"
     project_dir.mkdir()
 
-    branches_dir = project_dir / "branches" / "coder"
+    branches_dir = project_dir / "branches" / "expert"
     branches_dir.mkdir(parents=True)
 
     # Mock project_role_workspace
@@ -72,7 +72,7 @@ def test_hook_captures_subagent_transcript(mock_project_setup, monkeypatch):
         env={
             **dict(__import__("os").environ),
             "MINIONS_PROJECT_PORT": str(port),
-            "MINIONS_ROLE_NAME": "coder",
+            "MINIONS_ROLE_NAME": "expert",
             "MINIONS_SESSION_ID": "sess-test-001",
         },
     )

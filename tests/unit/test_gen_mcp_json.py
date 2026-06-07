@@ -93,7 +93,7 @@ def test_generated_mcp_json_eacn3_present_for_role_cwd(tmp_path: Path) -> None:
     data = json.loads((fake_root / ".mcp.json").read_text(encoding="utf-8"))
 
     # Simulate a role-cwd: the absolute path must still resolve to the file.
-    role_cwd = fake_root / "branches" / "coder"
+    role_cwd = fake_root / "branches" / "expert"
     role_cwd.mkdir(parents=True)
     eacn3_arg = Path(data["mcpServers"]["eacn3"]["args"][0])
     assert eacn3_arg.is_absolute()

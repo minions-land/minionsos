@@ -12,10 +12,10 @@ def draft_setup(monkeypatch, tmp_path):
     """Set up a project for Draft+Reel integration testing."""
     port = 67890
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
-    monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+    monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
 
     # Create draft directory
-    draft_dir = tmp_path / f"project_{port}" / "branches" / "shared" / "draft"
+    draft_dir = tmp_path / f"project_{port}" / "branches" / "main" / "draft"
     draft_dir.mkdir(parents=True)
 
     # Mock the draft path resolver
@@ -23,7 +23,7 @@ def draft_setup(monkeypatch, tmp_path):
         return draft_dir / "draft.json"
 
     def mock_subdir(port_arg, subdir):
-        return tmp_path / f"project_{port_arg}" / "branches" / "shared" / subdir
+        return tmp_path / f"project_{port_arg}" / "branches" / "main" / subdir
 
     import minions.tools.draft
 
@@ -56,7 +56,7 @@ def test_draft_append_auto_injects_reel_ref(draft_setup, monkeypatch):
     node = query_result["nodes"][0]
 
     assert "reel_ref" in node["metadata"]
-    assert node["metadata"]["reel_ref"] == "coder/sess-20260522-150000"
+    assert node["metadata"]["reel_ref"] == "expert/sess-20260522-150000"
 
 
 def test_draft_append_preserves_explicit_reel_ref(draft_setup, monkeypatch):
@@ -69,7 +69,7 @@ def test_draft_append_preserves_explicit_reel_ref(draft_setup, monkeypatch):
             {
                 "type": "hypothesis",
                 "text": "test hypothesis",
-                "metadata": {"reel_ref": "writer/sess-other/task-123", "topic": "ai"},
+                "metadata": {"reel_ref": "ethics/sess-other/task-123", "topic": "ai"},
             }
         ],
     )
@@ -79,7 +79,7 @@ def test_draft_append_preserves_explicit_reel_ref(draft_setup, monkeypatch):
     node = query_result["nodes"][0]
 
     # Explicit reel_ref should be preserved
-    assert node["metadata"]["reel_ref"] == "writer/sess-other/task-123"
+    assert node["metadata"]["reel_ref"] == "ethics/sess-other/task-123"
     assert node["metadata"]["topic"] == "ai"
 
 
@@ -119,7 +119,7 @@ def test_draft_append_multiple_nodes_get_same_reel_ref(draft_setup, monkeypatch)
     for node_id in result["created_node_ids"]:
         query_result = mos_draft_query(related_to=node_id)
         node = query_result["nodes"][0]
-        assert node["metadata"]["reel_ref"] == "coder/sess-batch-test"
+        assert node["metadata"]["reel_ref"] == "expert/sess-batch-test"
 
 
 def test_book_ingest_embeds_reel_ref_from_env(monkeypatch, tmp_path):
@@ -129,15 +129,15 @@ def test_book_ingest_embeds_reel_ref_from_env(monkeypatch, tmp_path):
     # Direct test of the frontmatter renderer with reel_ref
     fm = _render_source_frontmatter(
         title="Test Source",
-        slug="coder-test",
+        slug="expert-test",
         source_file="exp/test.md",
-        source_role="coder",
+        source_role="expert",
         date_ingested="2026-05-22T15:00:00+00:00",
-        reel_ref="coder/sess-20260522-150000",
+        reel_ref="expert/sess-20260522-150000",
     )
 
     assert "reel_ref:" in fm
-    assert '"coder/sess-20260522-150000"' in fm
+    assert '"expert/sess-20260522-150000"' in fm
 
 
 def test_book_ingest_no_reel_ref_when_not_provided(monkeypatch, tmp_path):
@@ -146,9 +146,9 @@ def test_book_ingest_no_reel_ref_when_not_provided(monkeypatch, tmp_path):
 
     fm = _render_source_frontmatter(
         title="Test Source",
-        slug="coder-test",
+        slug="expert-test",
         source_file="exp/test.md",
-        source_role="coder",
+        source_role="expert",
         date_ingested="2026-05-22T15:00:00+00:00",
     )
 

@@ -24,40 +24,40 @@ def _write_skill(roles_dir: Path, role: str, slug: str, text: str) -> None:
 
 
 def test_empty_when_no_dir(fake_roles: Path) -> None:
-    assert skills_mod.list_skills("noter") == []
+    assert skills_mod.list_skills("ethics") == []
 
 
 def test_standard_h1_plus_summary(fake_roles: Path) -> None:
     _write_skill(
         fake_roles,
-        "coder",
+        "expert",
         "execution-guide",
         "# Skill - Execution Guide\n\nA disciplined procedure for running experiments.\n"
         "\n## Core move\n...",
     )
-    result = skills_mod.list_skills("coder")
+    result = skills_mod.list_skills("expert")
     assert result == [("execution-guide", "A disciplined procedure for running experiments.")]
 
 
 def test_no_h1_uses_first_line(fake_roles: Path) -> None:
-    _write_skill(fake_roles, "writer", "x", "Just a summary line without title.\n\nbody")
-    assert skills_mod.list_skills("writer") == [("x", "Just a summary line without title.")]
+    _write_skill(fake_roles, "expert", "x", "Just a summary line without title.\n\nbody")
+    assert skills_mod.list_skills("expert") == [("x", "Just a summary line without title.")]
 
 
 def test_h1_only_falls_back_to_title(fake_roles: Path) -> None:
-    _write_skill(fake_roles, "writer", "x", "# My Title\n\n## Next heading only\n")
-    assert skills_mod.list_skills("writer") == [("x", "My Title")]
+    _write_skill(fake_roles, "expert", "x", "# My Title\n\n## Next heading only\n")
+    assert skills_mod.list_skills("expert") == [("x", "My Title")]
 
 
 def test_truncates_long_summary(fake_roles: Path) -> None:
     long = "x" * 400
-    _write_skill(fake_roles, "writer", "x", f"# T\n\n{long}\n")
-    [(slug, summary)] = skills_mod.list_skills("writer")
+    _write_skill(fake_roles, "expert", "x", f"# T\n\n{long}\n")
+    [(slug, summary)] = skills_mod.list_skills("expert")
     assert slug == "x"
     assert len(summary) <= 200
 
 
-def test_expert_aliases_resolve_to_expert_dir(fake_roles: Path) -> None:
+def test_expert_slugs_resolve_to_expert_dir(fake_roles: Path) -> None:
     _write_skill(fake_roles, "expert", "first-principles", "# First\n\nReason from primitives.\n")
     assert skills_mod.list_skills("expert-dl-arch") == [
         ("first-principles", "Reason from primitives.")
@@ -66,9 +66,9 @@ def test_expert_aliases_resolve_to_expert_dir(fake_roles: Path) -> None:
 
 def test_common_skills_are_listed_before_role_skills(fake_roles: Path) -> None:
     _write_skill(fake_roles, "common", "eacn-network", "# EACN\n\nUse the network.\n")
-    _write_skill(fake_roles, "writer", "paper-compile", "# Compile\n\nBuild the paper.\n")
+    _write_skill(fake_roles, "expert", "paper-compile", "# Compile\n\nBuild the paper.\n")
 
-    assert skills_mod.list_skills("writer") == [
+    assert skills_mod.list_skills("expert") == [
         ("eacn-network", "Use the network."),
         ("paper-compile", "Build the paper."),
     ]
@@ -76,78 +76,78 @@ def test_common_skills_are_listed_before_role_skills(fake_roles: Path) -> None:
 
 def test_common_skill_slug_wins_over_role_duplicate(fake_roles: Path) -> None:
     _write_skill(fake_roles, "common", "shared", "# Shared\n\nCommon version.\n")
-    _write_skill(fake_roles, "writer", "shared", "# Shared\n\nWriter version.\n")
+    _write_skill(fake_roles, "expert", "shared", "# Shared\n\nExpert version.\n")
 
-    assert skills_mod.list_skills("writer") == [("shared", "Common version.")]
+    assert skills_mod.list_skills("expert") == [("shared", "Common version.")]
 
 
 def test_sorted_and_skips_non_markdown(fake_roles: Path) -> None:
-    _write_skill(fake_roles, "writer", "b-two", "# B\n\nSecond.\n")
-    _write_skill(fake_roles, "writer", "a-one", "# A\n\nFirst.\n")
-    (fake_roles / "writer" / "skills" / "note.txt").write_text("ignored", encoding="utf-8")
-    result = skills_mod.list_skills("writer")
+    _write_skill(fake_roles, "expert", "b-two", "# B\n\nSecond.\n")
+    _write_skill(fake_roles, "expert", "a-one", "# A\n\nFirst.\n")
+    (fake_roles / "expert" / "skills" / "note.txt").write_text("ignored", encoding="utf-8")
+    result = skills_mod.list_skills("expert")
     assert [s for s, _ in result] == ["a-one", "b-two"]
 
 
 def test_empty_file_returns_empty_summary(fake_roles: Path) -> None:
-    _write_skill(fake_roles, "writer", "x", "")
-    assert skills_mod.list_skills("writer") == [("x", "")]
+    _write_skill(fake_roles, "expert", "x", "")
+    assert skills_mod.list_skills("expert") == [("x", "")]
 
 
 def test_frontmatter_summary_overrides_body(fake_roles: Path) -> None:
     _write_skill(
         fake_roles,
-        "writer",
+        "expert",
         "x",
         "---\nslug: x\nsummary: Frontmatter wins.\n---\n\n# Title\n\nBody summary.\n",
     )
-    assert skills_mod.list_skills("writer") == [("x", "Frontmatter wins.")]
+    assert skills_mod.list_skills("expert") == [("x", "Frontmatter wins.")]
 
 
 def test_frontmatter_without_summary_falls_back_to_body(fake_roles: Path) -> None:
     _write_skill(
         fake_roles,
-        "writer",
+        "expert",
         "x",
         "---\nslug: x\nlayer: scheduling\n---\n\n# Title\n\nBody summary.\n",
     )
-    assert skills_mod.list_skills("writer") == [("x", "Body summary.")]
+    assert skills_mod.list_skills("expert") == [("x", "Body summary.")]
 
 
 def test_deprecated_status_hides_skill(fake_roles: Path) -> None:
     _write_skill(
         fake_roles,
-        "writer",
+        "expert",
         "old",
         "---\nslug: old\nsummary: Old.\nstatus: deprecated\n---\n\n# Old\n",
     )
-    _write_skill(fake_roles, "writer", "new", "# New\n\nReplacement skill.\n")
-    assert skills_mod.list_skills("writer") == [("new", "Replacement skill.")]
+    _write_skill(fake_roles, "expert", "new", "# New\n\nReplacement skill.\n")
+    assert skills_mod.list_skills("expert") == [("new", "Replacement skill.")]
 
 
 def test_merged_status_hides_skill(fake_roles: Path) -> None:
     _write_skill(
         fake_roles,
-        "writer",
+        "expert",
         "x",
         "---\nslug: x\nsummary: Hidden.\nstatus: merged\n---\n",
     )
-    assert skills_mod.list_skills("writer") == []
+    assert skills_mod.list_skills("expert") == []
 
 
 def test_active_status_is_listed(fake_roles: Path) -> None:
     _write_skill(
         fake_roles,
-        "writer",
+        "expert",
         "x",
         "---\nslug: x\nsummary: Visible.\nstatus: active\n---\n",
     )
-    assert skills_mod.list_skills("writer") == [("x", "Visible.")]
+    assert skills_mod.list_skills("expert") == [("x", "Visible.")]
 
 
 def test_malformed_frontmatter_falls_back_to_body(fake_roles: Path) -> None:
-    _write_skill(fake_roles, "writer", "x", "---\nno-closing-fence\n# Title\n\nBody.\n")
-    [(slug, summary)] = skills_mod.list_skills("writer")
+    _write_skill(fake_roles, "expert", "x", "---\nno-closing-fence\n# Title\n\nBody.\n")
+    [(slug, summary)] = skills_mod.list_skills("expert")
     assert slug == "x"
     assert summary != ""
 
@@ -161,10 +161,10 @@ def test_subdirectory_skills_are_not_discovered(fake_roles: Path) -> None:
     new skill). Loading them at every wake-up would balloon the init
     message and import role-irrelevant content.
     """
-    _write_skill(fake_roles, "writer", "top-level", "# Top\n\nVisible.\n")
+    _write_skill(fake_roles, "expert", "top-level", "# Top\n\nVisible.\n")
 
     # Bundle subdirectory under the role's skills/ directory.
-    bundle = fake_roles / "writer" / "skills" / "bundle"
+    bundle = fake_roles / "expert" / "skills" / "bundle"
     bundle.mkdir(parents=True)
     (bundle / "buried.md").write_text("# Buried\n\nShould not surface.\n", encoding="utf-8")
     (bundle / "deep" / "nested.md").parent.mkdir(parents=True, exist_ok=True)
@@ -179,7 +179,7 @@ def test_subdirectory_skills_are_not_discovered(fake_roles: Path) -> None:
         "# Procedure\n\nShould not surface.\n", encoding="utf-8"
     )
 
-    slugs = [slug for slug, _ in skills_mod.list_skills("writer")]
+    slugs = [slug for slug, _ in skills_mod.list_skills("expert")]
     assert slugs == ["top-level"]
     assert "buried" not in slugs
     assert "nested" not in slugs

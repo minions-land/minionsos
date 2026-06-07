@@ -25,12 +25,20 @@ def project_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     for d in (shared, draft, state, proot / "events"):
         d.mkdir(parents=True, exist_ok=True)
     # Init the shared dir as a git repo so `git log -1 --format=%cI` works.
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=str(shared), check=True)
     subprocess.run(
-        ["git", "init", "-q", "-b", "main"], cwd=str(shared), check=True
-    )
-    subprocess.run(
-        ["git", "-c", "user.email=test@x", "-c", "user.name=test", "commit",
-         "--allow-empty", "-m", "init", "-q"],
+        [
+            "git",
+            "-c",
+            "user.email=test@x",
+            "-c",
+            "user.name=test",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "init",
+            "-q",
+        ],
         cwd=str(shared),
         check=True,
     )
@@ -38,8 +46,7 @@ def project_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     # by default. Tests that need a fresh commit will overwrite it.
     long_ago = "2024-01-01T00:00:00+00:00"
     subprocess.run(
-        ["git", "commit", "--amend", "--allow-empty", "--date", long_ago,
-         "-m", "init", "-q"],
+        ["git", "commit", "--amend", "--allow-empty", "--date", long_ago, "-m", "init", "-q"],
         cwd=str(shared),
         env={**__import__("os").environ, "GIT_COMMITTER_DATE": long_ago},
         check=True,
@@ -120,21 +127,26 @@ def test_pick_candidate_milestone_paper_phases() -> None:
 
 
 def test_pick_candidate_milestone_unknown_profile_returns_none() -> None:
-    assert milestone_vote.pick_candidate_milestone(
-        profile_name="hle-answer", current_phase="experiment"
-    ) is None
+    assert (
+        milestone_vote.pick_candidate_milestone(
+            profile_name="hle-answer", current_phase="experiment"
+        )
+        is None
+    )
 
 
 def test_pick_candidate_milestone_no_phase_returns_none() -> None:
-    assert milestone_vote.pick_candidate_milestone(
-        profile_name="scientific-paper", current_phase=None
-    ) is None
+    assert (
+        milestone_vote.pick_candidate_milestone(profile_name="scientific-paper", current_phase=None)
+        is None
+    )
 
 
 def test_pick_candidate_milestone_default_profile_is_scientific_paper() -> None:
-    assert milestone_vote.pick_candidate_milestone(
-        profile_name=None, current_phase="experiment"
-    ) == "experiments_ready"
+    assert (
+        milestone_vote.pick_candidate_milestone(profile_name=None, current_phase="experiment")
+        == "experiments_ready"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -225,9 +237,7 @@ def test_open_vote_sends_one_message_per_eligible(
     assert state.last_attempt_iso is not None
 
 
-def test_open_vote_records_partial_failure(
-    project_dirs, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_open_vote_records_partial_failure(project_dirs, monkeypatch: pytest.MonkeyPatch) -> None:
     port = int(project_dirs["port"])
     failures = {"expert-a"}
 
@@ -238,9 +248,7 @@ def test_open_vote_records_partial_failure(
 
     monkeypatch.setattr(eacn_client, "send_message", fake_send)
 
-    sig = milestone_vote.StagnationSignal(
-        True, None, None, None, 1200, "silent"
-    )
+    sig = milestone_vote.StagnationSignal(True, None, None, None, 1200, "silent")
     out = milestone_vote.open_vote(
         port, "experiments_ready", signal=sig, eligible=["ethics", "expert", "expert-a"]
     )
@@ -269,8 +277,7 @@ def test_handle_no_vote_with_blocker_broadcasts_task(
     port = int(project_dirs["port"])
     created: list[dict] = []
 
-    def fake_create_task(*, port, description, domains, initiator_id, budget,
-                        level=None, **kwargs):
+    def fake_create_task(*, port, description, domains, initiator_id, budget, level=None, **kwargs):
         created.append(
             {
                 "port": port,
@@ -339,9 +346,7 @@ def test_tick_for_project_skips_when_not_stalled(project_dirs) -> None:
     assert out["acted"] is False
 
 
-def test_tick_for_project_skips_in_cooldown(
-    project_dirs, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_tick_for_project_skips_in_cooldown(project_dirs, monkeypatch: pytest.MonkeyPatch) -> None:
     port = int(project_dirs["port"])
     _write_draft(project_dirs["draft"], [])
     # Plant a recent attempt.
@@ -363,9 +368,7 @@ def test_tick_for_project_skips_in_cooldown(
     assert "cooldown" in out["reason"]
 
 
-def test_tick_for_project_acts_on_stall(
-    project_dirs, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_tick_for_project_acts_on_stall(project_dirs, monkeypatch: pytest.MonkeyPatch) -> None:
     port = int(project_dirs["port"])
     _write_draft(project_dirs["draft"], [])
     sent: list[dict] = []
@@ -377,8 +380,9 @@ def test_tick_for_project_acts_on_stall(
     monkeypatch.setattr(eacn_client, "send_message", fake_send_message)
     # Fake the eligible-signers helper so we don't need a live EACN backend.
     monkeypatch.setattr(
-        milestone_vote, "eligible_signers",
-        lambda port, milestone: ["ethics", "coder", "expert-a"],
+        milestone_vote,
+        "eligible_signers",
+        lambda port, milestone: ["ethics", "expert-a", "expert-b"],
     )
 
     out = milestone_vote.tick_for_project(
@@ -390,7 +394,7 @@ def test_tick_for_project_acts_on_stall(
     )
     assert out["acted"] is True
     assert out["milestone"] == "experiments_ready"
-    assert sorted(out["addressed"]) == ["coder", "ethics", "expert-a"]
+    assert sorted(out["addressed"]) == ["ethics", "expert-a", "expert-b"]
     assert len(sent) == 3
 
 

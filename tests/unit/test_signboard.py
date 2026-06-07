@@ -119,7 +119,7 @@ def test_set_raise_requires_evidence(
 ) -> None:
     from minions.tools import signboard as sb
 
-    _set_caller(monkeypatch, "coder")
+    _set_caller(monkeypatch, "expert")
     with pytest.raises(ProjectError, match="evidence is required"):
         sb.mos_signboard_set(milestone="experiments_ready", raised=True)
 
@@ -129,7 +129,7 @@ def test_set_lower_requires_reason(
 ) -> None:
     from minions.tools import signboard as sb
 
-    _set_caller(monkeypatch, "coder")
+    _set_caller(monkeypatch, "expert")
     with pytest.raises(ProjectError, match="reason is required"):
         sb.mos_signboard_set(milestone="experiments_ready", raised=False)
 
@@ -139,7 +139,7 @@ def test_set_rejects_unknown_milestone(
 ) -> None:
     from minions.tools import signboard as sb
 
-    _set_caller(monkeypatch, "coder")
+    _set_caller(monkeypatch, "expert")
     with pytest.raises(ProjectError, match="Unknown milestone"):
         sb.mos_signboard_set(milestone="lunch_ready", raised=True, evidence="x")
 
@@ -147,17 +147,17 @@ def test_set_rejects_unknown_milestone(
 def test_set_caller_identity_from_env_only(
     project: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A coder process cannot raise on behalf of ethics — identity is env-only."""
+    """A role process records only the identity exported in its environment."""
     from minions.tools import signboard as sb
 
-    _set_caller(monkeypatch, "coder", agent_id="coder")
+    _set_caller(monkeypatch, "expert-bio", agent_id="expert-bio")
     res = sb.mos_signboard_set(
         milestone="experiments_ready",
         raised=True,
         evidence="exp/exp-1/report.md",
     )
-    assert res["agent_id"] == "coder"
-    assert res["role_name"] == "coder"
+    assert res["agent_id"] == "expert-bio"
+    assert res["role_name"] == "expert-bio"
 
 
 def test_set_consumed_milestone_is_noop(
@@ -253,7 +253,7 @@ def test_quorum_blocked_without_ethics(
     assert "ethics" in q["missing_fixed"]
 
 
-def test_quorum_passes_with_2_of_3_experts_plus_ethics_and_coder(
+def test_quorum_passes_with_2_of_3_experts_plus_ethics(
     project: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from minions.tools import signboard as sb
@@ -261,7 +261,6 @@ def test_quorum_passes_with_2_of_3_experts_plus_ethics_and_coder(
     _stub_experts(monkeypatch, ["expert-bio", "expert-chem", "expert-stat"])
     for role, evidence in [
         ("ethics", "ethics/round-1.md"),
-        ("coder", "exp/exp-1/report.md"),
         ("expert-bio", "notes/bio.md"),
         ("expert-chem", "notes/chem.md"),
     ]:
@@ -279,11 +278,9 @@ def test_submit_ready_requires_all_experts(
     from minions.tools import signboard as sb
 
     _stub_experts(monkeypatch, ["expert-bio", "expert-chem"])
-    # 1 of 2 experts + all fixed roles → still short on experts.
+    # 1 of 2 experts + Ethics → still short on experts.
     for role, evidence in [
         ("ethics", "ethics/sub.md"),
-        ("coder", "exp/exp-1/report.md"),
-        ("writer", "writer/draft.tex"),
         ("expert-bio", "notes/bio.md"),
     ]:
         _set_caller(monkeypatch, role)
@@ -308,8 +305,6 @@ def test_quorum_blocked_after_consume(
     _stub_experts(monkeypatch, ["expert-bio"])
     for role, evidence in [
         ("ethics", "e.md"),
-        ("coder", "c.md"),
-        ("writer", "w.md"),
         ("expert-bio", "b.md"),
     ]:
         _set_caller(monkeypatch, role)
@@ -321,7 +316,7 @@ def test_quorum_blocked_after_consume(
     # After reopen the raised set is empty so quorum is False until re-raise.
     q = sb.evaluate_quorum(project["port"], "submit_ready")
     assert q["met"] is False
-    assert q["missing_fixed"]  # ethics/coder/writer dropped
+    assert q["missing_fixed"] == ["ethics"]
 
 
 # ---------------------------------------------------------------------------
@@ -360,7 +355,7 @@ def test_only_gru_can_evaluate_consume_reopen() -> None:
     ):
         assert tool in gru_authz
 
-    for role in ("coder", "writer", "ethics", "expert", "noter"):
+    for role in ("ethics", "expert", "expert-bio", "noter"):
         authz = set(resolve_server_authz(role, "main"))
         for tool in (
             "mos_signboard_evaluate",
@@ -380,8 +375,6 @@ def test_full_milestone_flow_evaluate_consume_reopen(
     _stub_experts(monkeypatch, ["expert-bio"])
     for role, evidence in [
         ("ethics", "e.md"),
-        ("coder", "c.md"),
-        ("writer", "w.md"),
         ("expert-bio", "b.md"),
     ]:
         _set_caller(monkeypatch, role)
@@ -397,8 +390,6 @@ def test_full_milestone_flow_evaluate_consume_reopen(
     sb.reopen_milestone(port, "submit_ready")
     for role, evidence in [
         ("ethics", "e2.md"),
-        ("coder", "c2.md"),
-        ("writer", "w2.md"),
         ("expert-bio", "b2.md"),
     ]:
         _set_caller(monkeypatch, role)

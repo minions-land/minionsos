@@ -15,8 +15,11 @@ from minions.paths import (
     project_shared_workspace,
     project_state_dir,
 )
-from minions.tools import book, publish
-from minions.tools import book_ingest  # 添加导入以支持正确的mock
+from minions.tools import (
+    book,
+    book_ingest,  # 添加导入以支持正确的mock
+    publish,
+)
 
 POSITIVE_SENTENCE = (
     "The transformer cache can improve latency because repeated retrieval keeps "
@@ -34,7 +37,7 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path))
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
     shared = project_shared_workspace(port)
-    (shared / "coder").mkdir(parents=True)
+    (shared / "expert-ml").mkdir(parents=True)
     (shared / "expert").mkdir(parents=True)
     (shared / "book" / "sources").mkdir(parents=True)
     project_state_dir(port).mkdir(parents=True)
@@ -131,9 +134,9 @@ def test_no_existing_pages_creates_no_contradiction_page(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_publish(monkeypatch)
-    artifact = _write_artifact(project["shared"], "coder", "cache.md", NEGATIVE_SENTENCE)
+    artifact = _write_artifact(project["shared"], "expert-ml", "cache.md", NEGATIVE_SENTENCE)
 
-    result = book.mos_book_ingest(str(artifact), "coder", "cache", port=project["port"])
+    result = book.mos_book_ingest(str(artifact), "expert-ml", "cache", port=project["port"])
 
     assert result["contradiction_count"] == 0
     assert result["contradiction_path"] is None
@@ -146,19 +149,21 @@ def test_opposed_claims_create_contradiction_page_with_frontmatter(
 ) -> None:
     _mock_publish(monkeypatch)
     _write_existing_source(project["shared"], "expert-cache", POSITIVE_SENTENCE)
-    artifact = _write_artifact(project["shared"], "coder", "cache.md", NEGATIVE_SENTENCE)
+    artifact = _write_artifact(project["shared"], "expert-ml", "cache.md", NEGATIVE_SENTENCE)
 
-    result = book.mos_book_ingest(str(artifact), "coder", "cache", port=project["port"])
+    result = book.mos_book_ingest(str(artifact), "expert-ml", "cache", port=project["port"])
 
-    contradiction = project["shared"] / "book" / "contradictions" / "contradiction-coder-cache.md"
+    contradiction = (
+        project["shared"] / "book" / "contradictions" / "contradiction-expert-ml-cache.md"
+    )
     assert contradiction.exists()
     text = contradiction.read_text(encoding="utf-8")
     assert result["contradiction_count"] == 1
-    assert result["contradiction_path"] == "book/contradictions/contradiction-coder-cache.md"
+    assert result["contradiction_path"] == "book/contradictions/contradiction-expert-ml-cache.md"
     assert "type: contradiction" in text
-    assert 'slug: "contradiction-coder-cache"' in text
-    assert 'new_source: "coder-cache"' in text
-    assert 'new_source_role: "coder"' in text
+    assert 'slug: "contradiction-expert-ml-cache"' in text
+    assert 'new_source: "expert-ml-cache"' in text
+    assert 'new_source_role: "expert-ml"' in text
     assert "opposing_count: 1" in text
     assert 'date_detected: "' in text
     assert "page_kind: contradiction" in text
@@ -174,9 +179,9 @@ def test_non_opposed_pages_create_no_contradiction(
 ) -> None:
     _mock_publish(monkeypatch)
     _write_existing_source(project["shared"], "expert-cache", POSITIVE_SENTENCE)
-    artifact = _write_artifact(project["shared"], "coder", "cache.md", POSITIVE_SENTENCE)
+    artifact = _write_artifact(project["shared"], "expert-ml", "cache.md", POSITIVE_SENTENCE)
 
-    result = book.mos_book_ingest(str(artifact), "coder", "cache", port=project["port"])
+    result = book.mos_book_ingest(str(artifact), "expert-ml", "cache", port=project["port"])
 
     assert result["contradiction_count"] == 0
     assert not (project["shared"] / "book" / "contradictions").exists()
@@ -188,9 +193,11 @@ def test_short_sentences_are_ignored(
 ) -> None:
     _mock_publish(monkeypatch)
     _write_existing_source(project["shared"], "expert-cache", "Cache improves.")
-    artifact = _write_artifact(project["shared"], "coder", "cache.md", "Cache does not improve.")
+    artifact = _write_artifact(
+        project["shared"], "expert-ml", "cache.md", "Cache does not improve."
+    )
 
-    result = book.mos_book_ingest(str(artifact), "coder", "cache", port=project["port"])
+    result = book.mos_book_ingest(str(artifact), "expert-ml", "cache", port=project["port"])
 
     assert result["contradiction_count"] == 0
     assert not (project["shared"] / "book" / "contradictions").exists()
@@ -202,15 +209,15 @@ def test_reingest_is_idempotent_for_contradiction_index_entries(
 ) -> None:
     _mock_publish(monkeypatch)
     _write_existing_source(project["shared"], "expert-cache", POSITIVE_SENTENCE)
-    artifact = _write_artifact(project["shared"], "coder", "cache.md", NEGATIVE_SENTENCE)
+    artifact = _write_artifact(project["shared"], "expert-ml", "cache.md", NEGATIVE_SENTENCE)
 
-    book.mos_book_ingest(str(artifact), "coder", "cache", port=project["port"])
-    result = book.mos_book_ingest(str(artifact), "coder", "cache", port=project["port"])
+    book.mos_book_ingest(str(artifact), "expert-ml", "cache", port=project["port"])
+    result = book.mos_book_ingest(str(artifact), "expert-ml", "cache", port=project["port"])
 
     index = (project["shared"] / "book" / "index.md").read_text(encoding="utf-8")
     assert result["contradiction_count"] == 1
-    assert index.count("slug: coder-cache") == 1
-    assert index.count("slug: contradiction-coder-cache") == 1
+    assert index.count("slug: expert-ml-cache") == 1
+    assert index.count("slug: contradiction-expert-ml-cache") == 1
 
 
 def test_dag_edge_emitted_when_both_endpoints_exist(
@@ -219,7 +226,7 @@ def test_dag_edge_emitted_when_both_endpoints_exist(
 ) -> None:
     _mock_publish(monkeypatch)
     _write_existing_source(project["shared"], "expert-cache", POSITIVE_SENTENCE)
-    artifact = _write_artifact(project["shared"], "coder", "cache.md", NEGATIVE_SENTENCE)
+    artifact = _write_artifact(project["shared"], "expert-ml", "cache.md", NEGATIVE_SENTENCE)
     dag_path = project_shared_draft_json(project["port"])
     dag_path.parent.mkdir(parents=True, exist_ok=True)
     dag_path.write_text(
@@ -237,7 +244,7 @@ def test_dag_edge_emitted_when_both_endpoints_exist(
         encoding="utf-8",
     )
 
-    result = book.mos_book_ingest(str(artifact), "coder", "cache", port=project["port"])
+    result = book.mos_book_ingest(str(artifact), "expert-ml", "cache", port=project["port"])
 
     dag = json.loads(dag_path.read_text(encoding="utf-8"))
     assert result["dag_edges_created"] == 1
@@ -259,7 +266,7 @@ def test_dag_edge_skipped_gracefully_when_no_match(
 ) -> None:
     _mock_publish(monkeypatch)
     _write_existing_source(project["shared"], "expert-cache", POSITIVE_SENTENCE)
-    artifact = _write_artifact(project["shared"], "coder", "cache.md", NEGATIVE_SENTENCE)
+    artifact = _write_artifact(project["shared"], "expert-ml", "cache.md", NEGATIVE_SENTENCE)
     dag_path = project_shared_draft_json(project["port"])
     dag_path.parent.mkdir(parents=True, exist_ok=True)
     dag_path.write_text(
@@ -274,7 +281,7 @@ def test_dag_edge_skipped_gracefully_when_no_match(
         encoding="utf-8",
     )
 
-    result = book.mos_book_ingest(str(artifact), "coder", "cache", port=project["port"])
+    result = book.mos_book_ingest(str(artifact), "expert-ml", "cache", port=project["port"])
 
     dag = json.loads(dag_path.read_text(encoding="utf-8"))
     assert result["dag_edges_created"] == 0
@@ -284,23 +291,22 @@ def test_dag_edge_skipped_gracefully_when_no_match(
 def test_contradiction_index_entry_uses_contradictions_path(project: dict[str, Any]) -> None:
     stage = book._index_append(
         project["port"],
-        "contradiction-coder-cache",
-        "Contradiction: coder-cache",
+        "contradiction-expert-ml-cache",
+        "Contradiction: expert-ml-cache",
         "contradiction",
     )
 
     text = stage.read_text(encoding="utf-8")
-    assert "slug: contradiction-coder-cache" in text
+    assert "slug: contradiction-expert-ml-cache" in text
     assert "page_kind: contradiction" in text
-    assert "book_path: book/contradictions/contradiction-coder-cache.md" in text
+    assert "book_path: book/contradictions/contradiction-expert-ml-cache.md" in text
 
 
 def test_ethics_system_mentions_book_contradiction_workflow() -> None:
     text = Path("minions/roles/ethics/SYSTEM.md").read_text(encoding="utf-8")
 
-    # Section title carries the §Eth5 anchor since the 2026-05 dedup
-    # pass; the invariant is the H2 line containing the canonical
-    # phrase, not the exact prefix.
+    # The invariant is the H2 line containing the canonical phrase,
+    # not the exact prefix.
     assert "## §Eth5." in text
     assert "Contradiction surface (Book Layer 2 — phase 5+)" in text
     assert "primary hallucination audit feed" in text

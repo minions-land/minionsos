@@ -50,7 +50,7 @@ canonical GitHub repository.
 ## Commit & Pull Request Guidelines
 
 Commit subjects use a short version prefix in the form `v<N>:` or `v<N.N>:`
-(for example `v7: retire Reviewer-as-Role` or `v7.5: think-then-act skill v3→v4`).
+(for example `v7: align Ethics review docs` or `v7.5: tighten Draft memory tests`).
 Keep commits scoped, imperative, reviewable, and version-tagged. The subject
 should fit on one line and summarize the change in plain language; use the
 optional bullet body to enumerate the concrete edits.
@@ -74,7 +74,7 @@ Submission protocol:
 
 Pull requests should include a short summary, linked issue or motivation,
 commands run, and screenshots or GIFs for `minions-viz` UI changes. Call out
-configuration, migration, repository rename, or runtime-state impacts
+configuration, repository rename, or runtime-state impacts
 explicitly.
 
 ## Local Modification Workflow

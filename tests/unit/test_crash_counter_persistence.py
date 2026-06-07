@@ -32,14 +32,14 @@ def test_role_crashes_survive_restart(tmp_path: Path):
     path = tmp_path / "crash_counter.json"
 
     c1 = CrashCounter(path=path)
-    c1.record_role_crash(37596, "coder")
-    c1.record_role_crash(37596, "coder")
+    c1.record_role_crash(37596, "expert")
+    c1.record_role_crash(37596, "expert")
 
     c2 = CrashCounter(path=path)
-    c2.record_role_crash(37596, "coder")
-    assert c2.role_threshold_exceeded(37596, "coder") is True
+    c2.record_role_crash(37596, "expert")
+    assert c2.role_threshold_exceeded(37596, "expert") is True
     # A different role on the same port is unaffected.
-    assert c2.role_threshold_exceeded(37596, "writer") is False
+    assert c2.role_threshold_exceeded(37596, "ethics") is False
 
 
 def test_reset_clears_persisted_state(tmp_path: Path):
@@ -78,7 +78,7 @@ def test_missing_file_is_clean_start(tmp_path: Path):
     """No persistence file means an empty counter, not a crash."""
     c = CrashCounter(path=tmp_path / "does_not_exist.json")
     assert c.backend_threshold_exceeded(1) is False
-    assert c.role_threshold_exceeded(1, "coder") is False
+    assert c.role_threshold_exceeded(1, "expert") is False
 
 
 def test_corrupt_file_does_not_raise(tmp_path: Path):

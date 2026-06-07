@@ -80,8 +80,7 @@ class TestBoundaryContext:
 
     def test_expert_boundary_allows_own_branch(self) -> None:
         ctx = _boundary_context("expert", 37596)
-        # Expert's write boundary in MinionsOS is its role branch, not the legacy
-        # "workspace/" path.
+        # Expert's write boundary in MinionsOS is its role branch.
         assert "branches/<expert>/" in ctx
 
     def test_expert_boundary_allows_assigned_system_maintenance(self) -> None:

@@ -175,13 +175,13 @@ def test_load_session_extracts_cwd_and_session_id(tmp_path: Path) -> None:
     p = tmp_path / "s.jsonl"
     _make_role_session(
         p,
-        cwd="/tmp/repo/project_37596/branches/coder",
+        cwd="/tmp/repo/project_37596/branches/expert",
         session_id="aaa-111",
         turns=[{"timestamp": "2026-05-18T00:00:01Z", "read": 100, "create": 10}],
     )
     sess = _load_session(p)
     assert sess is not None
-    assert sess.cwd == "/tmp/repo/project_37596/branches/coder"
+    assert sess.cwd == "/tmp/repo/project_37596/branches/expert"
     assert sess.session_id == "aaa-111"
     assert len(sess.turns) == 1
 
@@ -189,17 +189,17 @@ def test_load_session_extracts_cwd_and_session_id(tmp_path: Path) -> None:
 def test_role_cwd_construction(tmp_path: Path) -> None:
     """_role_cwd builds the expected projects/project_{port}/branches/{role}/ path
     when given a non-MINIONS_ROOT override (e.g. a test tmp_path)."""
-    cwd = _role_cwd(37596, "coder", tmp_path)
-    assert cwd == tmp_path / "projects" / "project_37596" / "branches" / "coder"
+    cwd = _role_cwd(37596, "expert", tmp_path)
+    assert cwd == tmp_path / "projects" / "project_37596" / "branches" / "expert"
 
 
 def test_discover_sessions_filters_by_cwd(tmp_path: Path) -> None:
     """Only sessions whose first cwd matches target are returned."""
     claude_root = tmp_path / "claude" / "projects"
-    target_role = tmp_path / "project_37596" / "branches" / "writer"
+    target_role = tmp_path / "project_37596" / "branches" / "expert"
 
     # Two sessions for the target role
-    role_slug = claude_root / "Users-mjm-fake-writer"
+    role_slug = claude_root / "Users-mjm-fake-expert"
     role_slug.mkdir(parents=True)
     _make_role_session(
         role_slug / "s1.jsonl",
@@ -224,7 +224,7 @@ def test_discover_sessions_filters_by_cwd(tmp_path: Path) -> None:
     other_slug.mkdir(parents=True)
     _make_role_session(
         other_slug / "x.jsonl",
-        cwd=str((tmp_path / "project_37596" / "branches" / "coder").resolve()),
+        cwd=str((tmp_path / "project_37596" / "branches" / "ethics").resolve()),
         session_id="sess-x",
         turns=[{"timestamp": "2026-05-18T02:00:00Z", "read": 100, "create": 10}],
     )
@@ -240,7 +240,7 @@ def test_discover_sessions_filters_by_cwd(tmp_path: Path) -> None:
 def test_cold_starts_count(tmp_path: Path) -> None:
     """Each session whose first turn has cache_read=0 is one cold start."""
     claude_root = tmp_path / "claude" / "projects"
-    target = tmp_path / "project_37596" / "branches" / "writer"
+    target = tmp_path / "project_37596" / "branches" / "expert"
     slug = claude_root / "fake-slug"
     slug.mkdir(parents=True)
     _make_role_session(
@@ -267,10 +267,10 @@ def test_cold_starts_count(tmp_path: Path) -> None:
 
 
 def test_format_role_report_no_sessions(tmp_path: Path) -> None:
-    target = tmp_path / "project_37596" / "branches" / "noter"
-    report = _format_role_report(37596, "noter", target, sessions=[])
+    target = tmp_path / "project_37596" / "branches" / "expert"
+    report = _format_role_report(37596, "expert", target, sessions=[])
     assert "No session jsonl files found" in report
-    assert "noter" in report
+    assert "expert" in report
 
 
 def test_format_role_report_with_data(tmp_path: Path) -> None:

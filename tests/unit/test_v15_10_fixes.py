@@ -75,7 +75,7 @@ def test_publish_files_to_shared_one_commit(shared_project: dict[str, object]) -
     src_dir = Path(shared_project["notes_dir"]) / "_stage"  # not used; we stage outside
     stage = Path(shared) / "_stage_outside"
     stage.mkdir(parents=True, exist_ok=True)
-    src_dir = stage  # alias
+    src_dir = stage
     a = src_dir / "a.md"
     b = src_dir / "b.md"
     c = src_dir / "c.md"
@@ -137,11 +137,11 @@ def test_book_lint_yields_single_commit(shared_project: dict[str, object]) -> No
 
     handoffs = shared / "handoffs"
     handoffs.mkdir(parents=True, exist_ok=True)
-    src = handoffs / "coder-x.md"
+    src = handoffs / "expert-x.md"
     src.write_text("# x\nclaim.\n", encoding="utf-8")
     mos_book_ingest(
-        src_path="handoffs/coder-x.md",
-        source_role="coder",
+        src_path="handoffs/expert-x.md",
+        source_role="expert",
         source_slug="x",
         port=port,
     )
@@ -162,14 +162,14 @@ def test_book_ingest_batch_single_commit_for_all_sources(
     handoffs = shared / "handoffs"
     handoffs.mkdir(parents=True, exist_ok=True)
     for slug in ("alpha", "beta", "gamma"):
-        (handoffs / f"coder-{slug}.md").write_text(f"# {slug}\nbody.\n", encoding="utf-8")
+        (handoffs / f"expert-{slug}.md").write_text(f"# {slug}\nbody.\n", encoding="utf-8")
 
     before = _shared_log_count(shared)
     mos_book_ingest_batch(
         sources=[
             {
-                "src_path": f"handoffs/coder-{slug}.md",
-                "source_role": "coder",
+                "src_path": f"handoffs/expert-{slug}.md",
+                "source_role": "expert",
                 "source_slug": slug,
             }
             for slug in ("alpha", "beta", "gamma")

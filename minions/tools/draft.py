@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import logging
 import os
+import random
 import tempfile
 from collections import defaultdict, deque
 from contextvars import ContextVar
@@ -108,6 +109,7 @@ _CLAIM_NODE_TYPES = CURATOR_MOTIF_REQUIRED_TYPES
 # Book status event emission
 # ---------------------------------------------------------------------------
 
+
 def _emit_book_status_event(
     port: int,
     node_id: str,
@@ -185,10 +187,10 @@ def _emit_book_status_event(
                 logger.warning("failed to remove book status temp file %s: %s", temp_path, exc)
 
 
-
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def _role_unmarked_ratio(
     nodes: list[dict[str, Any]], author_role: str, *, min_nodes: int = 3
@@ -213,7 +215,6 @@ def _role_unmarked_ratio(
         return None
     unmarked = sum(1 for n in claims if not str(n.get("evidence_tag") or "").strip())
     return round(unmarked / len(claims), 3)
-
 
 
 def mos_draft_unmarked_audit(threshold: float = 0.2) -> dict[str, Any]:
@@ -249,7 +250,6 @@ def mos_draft_unmarked_audit(threshold: float = 0.2) -> dict[str, Any]:
     }
 
 
-
 def mos_draft_append(
     nodes: list[dict[str, Any]] | None = None,
     edges: list[dict[str, Any]] | None = None,
@@ -270,12 +270,12 @@ def mos_draft_append(
     """
     port = _env_port()
     ts = _now_iso()
-    
+
     # Create nodes using extracted function
     created_node_ids: list[str] = []
     if nodes:
         created_node_ids = create_nodes(port, nodes, ts)
-    
+
     # Create edges using extracted function
     created_edge_count = 0
     if edges:
@@ -287,22 +287,23 @@ def mos_draft_append(
                     batch_author = node["author_role"]
                     break
         created_edge_count = create_edges(port, edges, ts, batch_author)
-    
+
     # Resolve pending plans using extracted function
     resolved_plan_ids: list[str] = []
     if resolves_pending:
         resolved_plan_ids = resolve_pending_plans(port, resolves_pending, created_node_ids, ts)
-    
+
     # Soft-audit: increment the per-role append counter
     if created_node_ids:
         try:
             from minions.tools import draft_audit as _draft_audit
+
             agent_id = os.environ.get("MINIONS_AGENT_ID", "") or _env_role()
             if agent_id:
                 _draft_audit.record_append(port, agent_id, count=len(created_node_ids))
         except Exception as exc:
             logger.debug("draft_audit.record_append failed: %s", exc)
-    
+
     return {
         "created_node_ids": created_node_ids,
         "created_edge_count": created_edge_count,
@@ -442,9 +443,6 @@ def mos_draft_annotate(
     return {"node_id": node_id, "changes": changes}
 
 
-
-
-
 def mos_draft_summary() -> dict[str, Any]:
     """High-level Draft summary for role wakeup injection. Kept under 800 tokens.
 
@@ -580,8 +578,6 @@ def mos_draft_summary() -> dict[str, Any]:
     }
 
 
-
-
 def mos_draft_view(
     query: str | None = None,
     by_role: str | None = None,
@@ -673,7 +669,6 @@ def mos_draft_view(
         "edges": edges,
         "returned": len(nodes),
     }
-
 
 
 def mos_draft_commit_shared(message: str | None = None) -> dict[str, Any]:

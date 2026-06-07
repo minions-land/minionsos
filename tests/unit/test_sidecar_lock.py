@@ -42,14 +42,14 @@ def test_allocate_session_id_is_uuid_string():
 def test_lock_session_title_writes_locked_row(fake_claude_home: Path):
     """Writes a locked row when the sidecar dir exists."""
     sid = "test-session-aaaa-bbbb-cccc-dddddddddddd"
-    ok = lock_session_title(sid, "mos-12345-coder")
+    ok = lock_session_title(sid, "mos-12345-expert")
     assert ok is True
 
     path = fake_claude_home / "title-registry.json"
     assert path.exists()
     data = json.loads(path.read_text(encoding="utf-8"))
     entry = data[sid]
-    assert entry["title"] == "mos-12345-coder"
+    assert entry["title"] == "mos-12345-expert"
     assert entry["locked"] is True
     assert entry["pending_auto_name"] is False
     assert entry["source"] == "minionsos"
@@ -80,26 +80,26 @@ def test_lock_session_title_merges_existing_entries(fake_claude_home: Path):
     )
 
     sid = "fresh-mos-sid"
-    assert lock_session_title(sid, "mos-9999-noter") is True
+    assert lock_session_title(sid, "mos-9999-ethics") is True
 
     data = json.loads(path.read_text(encoding="utf-8"))
     assert "preexisting-sid" in data
     assert data["preexisting-sid"]["title"] == "user-session"
-    assert data[sid]["title"] == "mos-9999-noter"
+    assert data[sid]["title"] == "mos-9999-ethics"
     assert data[sid]["locked"] is True
 
 
 def test_lock_session_title_overwrites_stale_entry(fake_claude_home: Path):
     """A re-spawn under the same sid should refresh the entry, not duplicate."""
     sid = "respawned-sid"
-    assert lock_session_title(sid, "mos-1-coder") is True
+    assert lock_session_title(sid, "mos-1-expert") is True
     first = json.loads((fake_claude_home / "title-registry.json").read_text())[sid]
 
     # Re-lock with a new title.
-    assert lock_session_title(sid, "mos-2-coder") is True
+    assert lock_session_title(sid, "mos-2-expert") is True
     second = json.loads((fake_claude_home / "title-registry.json").read_text())[sid]
 
-    assert second["title"] == "mos-2-coder"
+    assert second["title"] == "mos-2-expert"
     assert second["locked"] is True
     assert second["updated_at"] >= first["updated_at"]
 

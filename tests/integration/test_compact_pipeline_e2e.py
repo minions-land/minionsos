@@ -315,7 +315,7 @@ def test_phase5_pattern_a_annotates_event_at_high_pressure(tmp_path: Path, monke
     fake_evt = {
         "event_id": "e1",
         "type": "direct_message",
-        "payload": {"from": "writer", "content": "Need refactor"},
+        "payload": {"from": "expert-peer", "content": "Need refactor"},
     }
     from minions.tools import await_events as ae
 
@@ -447,9 +447,7 @@ def test_phase7_end_to_end_pipeline(tmp_path: Path, monkeypatch) -> None:
     pending = [
         {
             "type": "question",
-            "text": (
-                "Expert asked for data-loader refactor (event expert@2026-05-27T00:30Z)."
-            ),
+            "text": ("Expert asked for data-loader refactor (event expert@2026-05-27T00:30Z)."),
         },
     ]
     result = mos_compact_context(reason="batch had unrelated events", pending_plans=pending)

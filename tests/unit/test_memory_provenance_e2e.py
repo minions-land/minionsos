@@ -274,9 +274,7 @@ def test_cold_start_context_reconstruction(project_env, monkeypatch):
     )
     # Newest-first ordering: the pending plan was appended last, so it heads
     # the node slice — the role sees its most recent intent at the top.
-    assert orient["nodes"][0]["text"] == (
-        "Sweep residual depth from 50 to 152 layers on ResNet"
-    )
+    assert orient["nodes"][0]["text"] == ("Sweep residual depth from 50 to 152 layers on ResNet")
     # The header carries enough to orient without dumping the whole graph.
     assert orient["nodes_by_type"].get("hypothesis", 0) == 2
     assert orient["returned"] == len(orient["nodes"]) <= 5
@@ -348,7 +346,7 @@ def test_contradiction_audit_loop(project_env, monkeypatch):
     art_neg.write_text(f"# Cache negative\n\n{_NEGATIVE_SENTENCE}\n", encoding="utf-8")
     res_neg = book.mos_book_ingest(
         src_path=str(art_neg),
-        source_role="coder",
+        source_role="expert",
         source_slug="cache-negative",
         title="Cache does not improve latency",
         port=port,

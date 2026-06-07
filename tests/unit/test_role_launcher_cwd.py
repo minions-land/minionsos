@@ -23,13 +23,13 @@ from minions.lifecycle.agent_host import build_role_invocation
 def _kwargs(workspace: Path, system: Path, **overrides) -> dict:
     base: dict = {
         "cfg": GruConfig(agent_host="claude"),
-        "role_name": "coder",
+        "role_name": "expert",
         "project_port": 37596,
-        "project_agent_id": "coder",
+        "project_agent_id": "expert",
         "system_path": system,
         "allowed_tools": "Read,Write",
         "workspace": workspace,
-        "session_name": "p37596/coder",
+        "session_name": "p37596/expert",
     }
     base.update(overrides)
     return base
@@ -41,7 +41,7 @@ def test_missing_workspace_raises_role_error(tmp_path: Path) -> None:
     system = tmp_path / "SYSTEM.md"
     system.write_text("role system", encoding="utf-8")
 
-    missing = tmp_path / "branches" / "coder"  # not created
+    missing = tmp_path / "branches" / "expert"  # not created
     assert not missing.exists()
 
     with pytest.raises(RoleError) as exc_info:
@@ -57,7 +57,7 @@ def test_existing_workspace_returns_invocation(tmp_path: Path) -> None:
     system = tmp_path / "SYSTEM.md"
     system.write_text("role system", encoding="utf-8")
 
-    workspace = tmp_path / "branches" / "coder"
+    workspace = tmp_path / "branches" / "expert"
     workspace.mkdir(parents=True)
 
     invocation = build_role_invocation(**_kwargs(workspace, system))
@@ -71,10 +71,10 @@ def test_missing_hermetic_cwd_raises_role_error(tmp_path: Path) -> None:
     system = tmp_path / "SYSTEM.md"
     system.write_text("role system", encoding="utf-8")
 
-    workspace = tmp_path / "branches" / "coder"
+    workspace = tmp_path / "branches" / "expert"
     workspace.mkdir(parents=True)
 
-    missing_hermetic = tmp_path / "hermetic" / "p37596" / "coder"  # not created
+    missing_hermetic = tmp_path / "hermetic" / "p37596" / "expert"  # not created
     assert not missing_hermetic.exists()
 
     with pytest.raises(RoleError):

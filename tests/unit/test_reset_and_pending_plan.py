@@ -5,7 +5,7 @@ Covers:
 - reset attempts tmux kill-session (mocked)
 - mos_draft_summary surfaces pending_plan nodes at the top
 - summary pending_plans is sorted newest-first
-- pending_plan flag survives DAG round-trip (append → load → summary)
+- pending_plan flag survives Draft round-trip (append → load → summary)
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ def project_port(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> int:
     port = 39999
     monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(tmp_path))
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
-    monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+    monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
     proj = tmp_path / f"project_{port}"
     (proj / "branches" / "main" / "draft").mkdir(parents=True)
     return port
@@ -37,14 +37,12 @@ def test_reset_writes_journal_entry(project_port: int, tmp_path: Path) -> None:
         result = reset.mos_reset_context(reason="task switch")
 
     assert result["status"] == "reset_acknowledged"
-    journal = (
-        tmp_path / f"project_{project_port}" / "branches" / "main" / "draft" / "journal.jsonl"
-    )
+    journal = tmp_path / f"project_{project_port}" / "branches" / "main" / "draft" / "journal.jsonl"
     assert journal.exists()
     rows = [json.loads(line) for line in journal.read_text().splitlines() if line.strip()]
     reset_rows = [r for r in rows if r.get("op") == "reset"]
     assert len(reset_rows) == 1
-    assert reset_rows[0]["role"] == "coder"
+    assert reset_rows[0]["role"] == "expert"
     assert reset_rows[0]["reason"] == "task switch"
 
 
@@ -54,7 +52,7 @@ def test_reset_writes_marker_file(project_port: int, tmp_path: Path) -> None:
         mock_run.return_value.returncode = 0
         reset.mos_reset_context(reason="batch complete")
 
-    marker = tmp_path / f"project_{project_port}" / "state" / ".reset_markers" / "coder"
+    marker = tmp_path / f"project_{project_port}" / "state" / ".reset_markers" / "expert"
     assert marker.exists()
     payload = json.loads(marker.read_text())
     assert payload["reason"] == "batch complete"
@@ -71,7 +69,7 @@ def test_reset_invokes_tmux_kill_session(project_port: int) -> None:
     assert argv[0] == "tmux"
     assert argv[1] == "kill-session"
     assert "-t" in argv
-    assert f"mos-{project_port}-coder" in argv
+    assert f"mos-{project_port}-expert" in argv
 
 
 def test_reset_returns_failure_when_kill_blows_up(project_port: int) -> None:
@@ -175,7 +173,7 @@ def test_pending_plan_flag_survives_dag_round_trip(project_port: int, tmp_path: 
             {
                 "type": "question",
                 "text": "Is FlashAttn-3 stable on H200?",
-                "metadata": {"pending_plan": True, "owner": "coder"},
+                "metadata": {"pending_plan": True, "owner": "expert"},
             }
         ]
     )
@@ -183,4 +181,4 @@ def test_pending_plan_flag_survives_dag_round_trip(project_port: int, tmp_path: 
     raw = json.loads(dag_path.read_text())
     node = raw["nodes"][0]
     assert node["metadata"]["pending_plan"] is True
-    assert node["metadata"]["owner"] == "coder"
+    assert node["metadata"]["owner"] == "expert"

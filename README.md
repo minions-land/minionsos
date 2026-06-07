@@ -710,7 +710,7 @@ proprietary/internal until a license is added.
 - **分层记忆。** Role 上下文来自当前事件、Reel（L0，
   `branches/<role>/reel-index.jsonl` 指向原生 Claude session JSONL）、Draft（L1，唯一团队过程图，`branches/main/draft/draft.json`）、
   compiled-knowledge Book（L2，主分支论文形态产物，`branches/main/book/`）、
-  `branches/main/<subdir>/` 的共享产物、EACN 历史以及项目 `CLAUDE.md`。
+  `branches/main/<subdir>/` 的共享产物、EACN 事件记录以及项目 `CLAUDE.md`。
   L0 设计见 [MANUAL/domains/reel-l0-memory.md](MANUAL/domains/reel-l0-memory.md)。
 - **Skill 发现和领域资产。** Role 技能放在 `minions/roles/{role}/skills/*.md`；
   Expert 领域包资产放在 `minions/domains/*.md`。

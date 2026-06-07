@@ -1,7 +1,6 @@
 """Pin invariants for the review MCP tool and its prompt assets.
 
-Reviewer is no longer a long-lived Role; review is run by the
-``mos_review_run`` MCP tool. This module pins:
+Review rounds are run by the ``mos_review_run`` MCP tool. This module pins:
 
 1. The checklist gate parser correctly accepts ✓/X-checked Required items
    and rejects empty / ✗-marked items.

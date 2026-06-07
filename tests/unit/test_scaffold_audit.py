@@ -351,7 +351,7 @@ def test_check_wildcard_baseline_drift(fake_repo: Path, monkeypatch: pytest.Monk
 def test_enforce_caller_identity_rejects_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
     from minions.tools import mcp_server
 
-    monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+    monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
     monkeypatch.delenv("MINIONS_DISABLE_MCP_AUTHZ", raising=False)
     with pytest.raises(PermissionError, match="role identity mismatch"):
         mcp_server._enforce_caller_identity("gru")
@@ -360,9 +360,9 @@ def test_enforce_caller_identity_rejects_mismatch(monkeypatch: pytest.MonkeyPatc
 def test_enforce_caller_identity_accepts_match(monkeypatch: pytest.MonkeyPatch) -> None:
     from minions.tools import mcp_server
 
-    monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+    monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
     monkeypatch.delenv("MINIONS_DISABLE_MCP_AUTHZ", raising=False)
-    mcp_server._enforce_caller_identity("coder")
+    mcp_server._enforce_caller_identity("expert")
 
 
 def test_enforce_caller_identity_normalises_expert(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -446,7 +446,7 @@ def test_dispatch_posture_warns_above_threshold(
     from minions.scaffold.audit import check_dispatch_posture
 
     # Create a "live" branches/<role>/ directory that the audit sees as real
-    role_cwd = tmp_path / "project_38000" / "branches" / "coder"
+    role_cwd = tmp_path / "project_38000" / "branches" / "expert"
     role_cwd.mkdir(parents=True)
 
     claude_root = tmp_path / "claude" / "projects"
@@ -471,7 +471,7 @@ def test_dispatch_posture_silent_below_threshold(tmp_path: Path) -> None:
     """heavy_self under the threshold must produce no issue."""
     from minions.scaffold.audit import check_dispatch_posture
 
-    role_cwd = tmp_path / "project_38000" / "branches" / "coder"
+    role_cwd = tmp_path / "project_38000" / "branches" / "expert"
     role_cwd.mkdir(parents=True)
     claude_root = tmp_path / "claude" / "projects"
     # 5% Bash + 95% Task → well under threshold
@@ -490,7 +490,7 @@ def test_dispatch_posture_excludes_archived_projects(tmp_path: Path) -> None:
     from minions.scaffold.audit import check_dispatch_posture
 
     # Note: do NOT create role_cwd → it does not exist
-    nonexistent_cwd = str(tmp_path / "project_99999" / "branches" / "coder")
+    nonexistent_cwd = str(tmp_path / "project_99999" / "branches" / "expert")
     claude_root = tmp_path / "claude" / "projects"
     _build_role_jsonl(
         claude_root / "slug",
@@ -507,7 +507,7 @@ def test_dispatch_posture_threshold_overridable(
     """MINIONS_AUDIT_DISPATCH_HEAVY_SELF_THRESHOLD env var raises the bar."""
     from minions.scaffold.audit import check_dispatch_posture
 
-    role_cwd = tmp_path / "project_38000" / "branches" / "coder"
+    role_cwd = tmp_path / "project_38000" / "branches" / "expert"
     role_cwd.mkdir(parents=True)
     claude_root = tmp_path / "claude" / "projects"
     _build_role_jsonl(
@@ -529,7 +529,7 @@ def test_dispatch_posture_silent_when_sample_too_small(tmp_path: Path) -> None:
     """Below MIN_TURNS, heavy_self ratio is statistically meaningless → no warn."""
     from minions.scaffold.audit import check_dispatch_posture
 
-    role_cwd = tmp_path / "project_38000" / "branches" / "coder"
+    role_cwd = tmp_path / "project_38000" / "branches" / "expert"
     role_cwd.mkdir(parents=True)
     claude_root = tmp_path / "claude" / "projects"
     # Fewer than _DISPATCH_POSTURE_MIN_TURNS (=20), all heavy

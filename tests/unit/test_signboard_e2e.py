@@ -205,7 +205,7 @@ def test_concurrent_writers_under_flock(project: dict[str, Any]) -> None:
     the final JSON — no torn writes, no lost updates.
     """
     port = project["port"]
-    voters = ["expert-a", "expert-b", "expert-c", "ethics", "coder"]
+    voters = ["expert-a", "expert-b", "expert-c", "expert-d", "ethics"]
 
     ctx = mp.get_context("spawn")
     with ctx.Pool(processes=len(voters)) as pool:

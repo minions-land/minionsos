@@ -32,7 +32,7 @@ def issue_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
     archive_root = tmp_path / "host-archive"
     monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(projects_root))
     monkeypatch.setenv("MINIONS_PROJECT_PORT", "9001")
-    monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+    monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
     monkeypatch.setenv("MINIONS_PROJECT_PHASE", "execute")
     # Redirect the host-level archive away from the user's real home dir.
     monkeypatch.setattr(
@@ -59,7 +59,7 @@ def _make_args(**overrides: object) -> IssueReportArgs:
         "steps_to_reproduce": ["call mos_draft_append with edges=[{...}]"],
         "expected": "edge appended",
         "actual": "ValidationError raised",
-        "evidence": ["project_9001/logs/role-coder.log:142"],
+        "evidence": ["project_9001/logs/role-expert.log:142"],
         "impact": "blocks recording experiment outcomes",
         "workaround": "manually patch dag.json",
     }
@@ -71,7 +71,7 @@ def test_report_appends_record(issue_env: dict) -> None:
     record = report_issue(_make_args())
     assert record["id"] == "ISS-9001-1"
     assert record["reporter"] == {
-        "role": "coder",
+        "role": "expert",
         "project_port": 9001,
         "phase": "execute",
     }

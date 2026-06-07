@@ -53,32 +53,32 @@ def test_no_role_env_passes_through(tmp_path: Path) -> None:
 
 
 def test_legal_scratchpad_write_allowed(tmp_path: Path) -> None:
-    branch = tmp_path / "branches" / "coder"
+    branch = tmp_path / "branches" / "expert"
     branch.mkdir(parents=True)
     legal = branch / ".claude" / "scratchpad" / "session-1" / "foo.txt"
     payload = {"tool_name": "Write", "tool_input": {"file_path": str(legal)}}
-    result = _run(payload, {"MINIONS_ROLE_BRANCH": str(branch), "MINIONS_ROLE_NAME": "coder"})
+    result = _run(payload, {"MINIONS_ROLE_BRANCH": str(branch), "MINIONS_ROLE_NAME": "expert"})
     assert result.returncode == 0
 
 
 def test_non_dotclaude_path_passes_through(tmp_path: Path) -> None:
-    branch = tmp_path / "branches" / "coder"
+    branch = tmp_path / "branches" / "expert"
     branch.mkdir(parents=True)
     notes = branch / "notes" / "foo.md"
     payload = {"tool_name": "Write", "tool_input": {"file_path": str(notes)}}
-    result = _run(payload, {"MINIONS_ROLE_BRANCH": str(branch), "MINIONS_ROLE_NAME": "coder"})
+    result = _run(payload, {"MINIONS_ROLE_BRANCH": str(branch), "MINIONS_ROLE_NAME": "expert"})
     assert result.returncode == 0
 
 
 def test_repo_dotclaude_blocked(tmp_path: Path) -> None:
     """Writing into the dev-shared MinionsOS .claude/ must block."""
-    branch = tmp_path / "branches" / "coder"
+    branch = tmp_path / "branches" / "expert"
     branch.mkdir(parents=True)
     payload = {
         "tool_name": "Write",
         "tool_input": {"file_path": "/Users/mjm/MinionsOS/.claude/scratchpad/foo"},
     }
-    result = _run(payload, {"MINIONS_ROLE_BRANCH": str(branch), "MINIONS_ROLE_NAME": "coder"})
+    result = _run(payload, {"MINIONS_ROLE_BRANCH": str(branch), "MINIONS_ROLE_NAME": "expert"})
     assert result.returncode == 2
     stderr = result.stderr.decode()
     assert "scratchpad_isolation_guard" in stderr
@@ -86,13 +86,13 @@ def test_repo_dotclaude_blocked(tmp_path: Path) -> None:
 
 def test_host_dotclaude_blocked(tmp_path: Path) -> None:
     """Writing into ~/.claude/ must block — cross-session contamination."""
-    branch = tmp_path / "branches" / "coder"
+    branch = tmp_path / "branches" / "expert"
     branch.mkdir(parents=True)
     payload = {
         "tool_name": "Write",
         "tool_input": {"file_path": str(Path.home() / ".claude" / "settings.json")},
     }
-    result = _run(payload, {"MINIONS_ROLE_BRANCH": str(branch), "MINIONS_ROLE_NAME": "coder"})
+    result = _run(payload, {"MINIONS_ROLE_BRANCH": str(branch), "MINIONS_ROLE_NAME": "expert"})
     assert result.returncode == 2
 
 
@@ -116,20 +116,20 @@ def test_cross_role_branch_blocked(tmp_path: Path) -> None:
 
 
 def test_bash_redirect_to_dotclaude_blocked(tmp_path: Path) -> None:
-    branch = tmp_path / "branches" / "coder"
+    branch = tmp_path / "branches" / "expert"
     branch.mkdir(parents=True)
     payload = {
         "tool_name": "Bash",
         "tool_input": {"command": "echo hello > /Users/mjm/MinionsOS/.claude/foo"},
     }
-    result = _run(payload, {"MINIONS_ROLE_BRANCH": str(branch), "MINIONS_ROLE_NAME": "coder"})
+    result = _run(payload, {"MINIONS_ROLE_BRANCH": str(branch), "MINIONS_ROLE_NAME": "expert"})
     assert result.returncode == 2
 
 
 def test_hermetic_legal_scratchpad_allowed(tmp_path: Path) -> None:
     """Under hermetic mode, the hermetic stub's scratchpad is also legal."""
-    branch = tmp_path / "branches" / "coder"
-    hermetic = tmp_path / "hermetic" / "p37596" / "coder"
+    branch = tmp_path / "branches" / "expert"
+    hermetic = tmp_path / "hermetic" / "p37596" / "expert"
     branch.mkdir(parents=True)
     hermetic.mkdir(parents=True)
     legal = hermetic / ".claude" / "scratchpad" / "session-1" / "foo.txt"
@@ -139,7 +139,7 @@ def test_hermetic_legal_scratchpad_allowed(tmp_path: Path) -> None:
         {
             "MINIONS_ROLE_BRANCH": str(branch),
             "MINIONS_ROLE_HERMETIC_DIR": str(hermetic),
-            "MINIONS_ROLE_NAME": "coder",
+            "MINIONS_ROLE_NAME": "expert",
         },
     )
     assert result.returncode == 0

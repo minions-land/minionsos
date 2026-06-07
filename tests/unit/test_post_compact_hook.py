@@ -27,7 +27,7 @@ class TestKickOwnPane:
 
     def test_kick_skipped_when_session_missing(self) -> None:
         with patch.object(subprocess, "run", side_effect=_fake_tmux_has_session_dead):
-            assert hook._kick_own_pane(39999, "coder") is False
+            assert hook._kick_own_pane(39999, "expert") is False
 
     def test_kick_skipped_when_role_unknown(self) -> None:
         assert hook._kick_own_pane(39999, "unknown") is False
@@ -45,7 +45,7 @@ class TestKickOwnPane:
             patch.object(subprocess, "run", side_effect=_fake_tmux_has_session_alive),
             patch.object(subprocess, "Popen", _StubPopen),
         ):
-            assert hook._kick_own_pane(39999, "coder") is True
+            assert hook._kick_own_pane(39999, "expert") is True
 
         assert len(popen_calls) == 1
         argv = popen_calls[0]["args"]
@@ -56,7 +56,7 @@ class TestKickOwnPane:
         kick_cmd = argv[3]
         # The kick must address the right session, use -l for literal paste,
         # and include both the prompt and the Enter press.
-        assert "mos-39999-coder" in kick_cmd
+        assert "mos-39999-expert" in kick_cmd
         assert "-l" in kick_cmd
         # The injected kick is now a Claude Code /goal slash command so the
         # stopping rule persists across turns; see GH #64 + parked_prompt.py.
@@ -73,7 +73,7 @@ class TestKickOwnPane:
             patch.object(subprocess, "run", side_effect=_fake_tmux_has_session_alive),
             patch.object(subprocess, "Popen", side_effect=OSError("nohup not found")),
         ):
-            assert hook._kick_own_pane(39999, "coder") is False
+            assert hook._kick_own_pane(39999, "expert") is False
 
 
 class TestTryKickFromEnv:
@@ -82,7 +82,7 @@ class TestTryKickFromEnv:
 
     def test_skips_without_port(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("MINIONS_PROJECT_PORT", raising=False)
-        monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+        monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
         assert hook._try_kick_from_env() is False
 
     def test_skips_without_role(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -92,10 +92,10 @@ class TestTryKickFromEnv:
 
     def test_invokes_kick_when_env_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("MINIONS_PROJECT_PORT", "39999")
-        monkeypatch.setenv("MINIONS_ROLE_NAME", "coder")
+        monkeypatch.setenv("MINIONS_ROLE_NAME", "expert")
         with patch.object(hook, "_kick_own_pane", return_value=True) as mock_kick:
             assert hook._try_kick_from_env() is True
-        mock_kick.assert_called_once_with(39999, "coder")
+        mock_kick.assert_called_once_with(39999, "expert")
 
 
 class TestMainKicksOnEveryPath:
@@ -145,8 +145,7 @@ class TestMainKicksOnEveryPath:
         stdin_payload = json.dumps(
             {
                 "compact_summary": (
-                    "## Working_on\n- driving H-001\n\n"
-                    "## Next_action\n- mos_draft_summary()\n"
+                    "## Working_on\n- driving H-001\n\n## Next_action\n- mos_draft_summary()\n"
                 ),
                 "trigger": "manual",
             }
@@ -180,11 +179,11 @@ def test_kick_command_quotes_session_name_safely() -> None:
         patch.object(subprocess, "run", side_effect=_fake_tmux_has_session_alive),
         patch.object(subprocess, "Popen", _Stub),
     ):
-        assert hook._kick_own_pane(39999, "coder") is True
+        assert hook._kick_own_pane(39999, "expert") is True
 
     cmd = popen_calls[0][3]
     # No bare unquoted shell metachars in the session ref.
-    assert "mos-39999-coder" in cmd
+    assert "mos-39999-expert" in cmd
     # Both send-keys calls present.
     assert cmd.count("send-keys") == 2
 

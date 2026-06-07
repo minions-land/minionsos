@@ -29,22 +29,22 @@ def _run(stdin: str = "{}", env: dict[str, str] | None = None) -> subprocess.Com
 def test_heartbeat_written_when_role_env_present(tmp_path: Path) -> None:
     """The happy path: role env + workspace → heartbeat file appears with
     a fresh ISO timestamp + the role identity."""
-    workspace = tmp_path / "branches" / "coder"
+    workspace = tmp_path / "branches" / "expert"
     workspace.mkdir(parents=True)
 
     result = _run(
         env={
-            "MINIONS_ROLE_NAME": "coder",
+            "MINIONS_ROLE_NAME": "expert",
             "MINIONS_WORKSPACE": str(workspace),
-            "MINIONS_AGENT_ID": "coder",
+            "MINIONS_AGENT_ID": "expert",
         }
     )
     assert result.returncode == 0
     hb = workspace / ".minionsos" / "heartbeat"
     assert hb.is_file()
     payload = json.loads(hb.read_text(encoding="utf-8"))
-    assert payload["role"] == "coder"
-    assert payload["agent_id"] == "coder"
+    assert payload["role"] == "expert"
+    assert payload["agent_id"] == "expert"
     assert payload["source"] == "pretool_hook"
     assert "T" in payload["alive_at"]  # ISO-8601 with time component
 
@@ -64,7 +64,7 @@ def test_heartbeat_no_op_when_workspace_missing(tmp_path: Path) -> None:
     bogus = tmp_path / "does-not-exist"
     result = _run(
         env={
-            "MINIONS_ROLE_NAME": "coder",
+            "MINIONS_ROLE_NAME": "expert",
             "MINIONS_WORKSPACE": str(bogus),
         }
     )
@@ -76,12 +76,12 @@ def test_heartbeat_overwrites_each_call(tmp_path: Path) -> None:
     """Every tool call should overwrite (not append) the heartbeat file
     so the file size stays bounded and the latest timestamp is always
     on top."""
-    workspace = tmp_path / "branches" / "noter"
+    workspace = tmp_path / "branches" / "ethics"
     workspace.mkdir(parents=True)
     env = {
-        "MINIONS_ROLE_NAME": "noter",
+        "MINIONS_ROLE_NAME": "ethics",
         "MINIONS_WORKSPACE": str(workspace),
-        "MINIONS_AGENT_ID": "noter",
+        "MINIONS_AGENT_ID": "ethics",
     }
     _run(env=env)
     first = json.loads((workspace / ".minionsos" / "heartbeat").read_text(encoding="utf-8"))

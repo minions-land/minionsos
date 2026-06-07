@@ -12,8 +12,11 @@ from typing import Any
 
 import pytest
 
-from minions.tools import book, publish
-from minions.tools import book_ingest  # 添加导入以支持正确的mock
+from minions.tools import (
+    book,
+    book_ingest,  # 添加导入以支持正确的mock
+    publish,
+)
 
 
 @pytest.fixture
@@ -21,12 +24,12 @@ def project(tmp_path, monkeypatch, mock_git_operations):
     """Set up a minimal project layout for book tests."""
     port = 19999
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
-    monkeypatch.setenv("MINIONS_ROLE_NAME", "noter")
+    monkeypatch.setenv("MINIONS_ROLE_NAME", "ethics")
     monkeypatch.setenv("MINIONS_SESSION_ID", "sess-test-001")
     monkeypatch.setenv("MINIONS_DISABLE_MCP_AUTHZ", "1")
 
     project_dir = tmp_path / f"project_{port}"
-    shared = project_dir / "branches" / "shared"
+    shared = project_dir / "branches" / "main"
     (shared / "book" / "sources").mkdir(parents=True)
     (shared / "book" / "contradictions").mkdir(parents=True)
     (shared / "book" / "queries").mkdir(parents=True)
@@ -41,7 +44,7 @@ def project(tmp_path, monkeypatch, mock_git_operations):
     from minions.tools import book_helpers
 
     def mock_shared_workspace(p):
-        return tmp_path / f"project_{p}" / "branches" / "shared"
+        return tmp_path / f"project_{p}" / "branches" / "main"
 
     def mock_workspace_root(p):
         return tmp_path / f"project_{p}" / "branches"
@@ -62,7 +65,7 @@ def project(tmp_path, monkeypatch, mock_git_operations):
     monkeypatch.setattr(
         book,
         "project_shared_workspace",
-        lambda p: tmp_path / f"project_{p}" / "branches" / "shared",
+        lambda p: tmp_path / f"project_{p}" / "branches" / "main",
     )
     monkeypatch.setattr(
         book,
@@ -75,7 +78,7 @@ def project(tmp_path, monkeypatch, mock_git_operations):
         from pathlib import Path
 
         src = Path(src_path)
-        dst = tmp_path / f"project_{port}" / "branches" / "shared" / dst_subpath
+        dst = tmp_path / f"project_{port}" / "branches" / "main" / dst_subpath
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
         return {"role": role, "dst_subpath": dst_subpath, "commit": "fake"}
@@ -85,7 +88,7 @@ def project(tmp_path, monkeypatch, mock_git_operations):
 
         for entry in files:
             src = Path(entry["src_path"])
-            dst = tmp_path / f"project_{port}" / "branches" / "shared" / entry["dst_subpath"]
+            dst = tmp_path / f"project_{port}" / "branches" / "main" / entry["dst_subpath"]
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
         return {
@@ -115,15 +118,15 @@ def test_slice_a_claim_level_reel_ref_injected_by_default(project: dict[str, Any
 
     book.mos_book_ingest(
         src_path="exp/exp-1/report.md",
-        source_role="coder",
+        source_role="expert",
         source_slug="exp-1",
         port=project["port"],
         summary="The model achieves 85% accuracy.\nLoss converges by step 1000.\n",
     )
 
-    page_text = (project["shared"] / "book" / "sources" / "coder-exp-1.md").read_text()
-    assert "^[noter/sess-test-001]" in page_text
-    assert page_text.count("^[noter/sess-test-001]") == 2  # two claim lines
+    page_text = (project["shared"] / "book" / "sources" / "expert-exp-1.md").read_text()
+    assert "^[ethics/sess-test-001]" in page_text
+    assert page_text.count("^[ethics/sess-test-001]") == 2  # two claim lines
 
 
 def test_slice_a_claim_refs_override_page_default(project: dict[str, Any]) -> None:
@@ -133,17 +136,17 @@ def test_slice_a_claim_refs_override_page_default(project: dict[str, Any]) -> No
 
     book.mos_book_ingest(
         src_path="exp/exp-1/report.md",
-        source_role="coder",
+        source_role="expert",
         source_slug="exp-1",
         port=project["port"],
         summary="The model achieves 85% accuracy.\nLoss converges by step 1000.\n",
-        reel_ref="coder/sess-A/task-default",
-        claim_refs={"The model achieves": "coder/sess-A/task-accuracy-eval"},
+        reel_ref="expert/sess-A/task-default",
+        claim_refs={"The model achieves": "expert/sess-A/task-accuracy-eval"},
     )
 
-    page_text = (project["shared"] / "book" / "sources" / "coder-exp-1.md").read_text()
-    assert "^[coder/sess-A/task-accuracy-eval]" in page_text
-    assert "^[coder/sess-A/task-default]" in page_text  # default for the second line
+    page_text = (project["shared"] / "book" / "sources" / "expert-exp-1.md").read_text()
+    assert "^[expert/sess-A/task-accuracy-eval]" in page_text
+    assert "^[expert/sess-A/task-default]" in page_text  # default for the second line
 
 
 def test_slice_a_already_present_ref_not_overwritten(project: dict[str, Any]) -> None:
@@ -153,17 +156,17 @@ def test_slice_a_already_present_ref_not_overwritten(project: dict[str, Any]) ->
 
     book.mos_book_ingest(
         src_path="exp/exp-1/report.md",
-        source_role="coder",
+        source_role="expert",
         source_slug="exp-1",
         port=project["port"],
         summary="The model achieves 85% accuracy. ^[manual/explicit/ref]\nLoss converges.\n",
-        reel_ref="coder/sess-A/task-default",
+        reel_ref="expert/sess-A/task-default",
     )
 
-    page_text = (project["shared"] / "book" / "sources" / "coder-exp-1.md").read_text()
+    page_text = (project["shared"] / "book" / "sources" / "expert-exp-1.md").read_text()
     assert "^[manual/explicit/ref]" in page_text
     # The default should not be appended to the line that already has a ref
-    assert "85% accuracy. ^[manual/explicit/ref] ^[coder" not in page_text
+    assert "85% accuracy. ^[manual/explicit/ref] ^[expert" not in page_text
 
 
 # ── Slice B: batch ingest with order-independent contradiction detection ──
@@ -183,7 +186,7 @@ def test_slice_b_batch_ingest_finds_in_batch_contradictions(
         sources=[
             {
                 "src_path": "exp/exp-1/report.md",
-                "source_role": "coder",
+                "source_role": "expert",
                 "source_slug": "exp-1",
                 "summary": (
                     "The transformer model is highly effective for sequence classification.\n"
@@ -220,7 +223,7 @@ def test_slice_b_batch_ingest_returns_per_source_results(
         sources=[
             {
                 "src_path": f"exp/exp-{i}/report.md",
-                "source_role": "coder",
+                "source_role": "expert",
                 "source_slug": f"exp-{i}",
                 "summary": f"Result {i}: independent finding number {i}.\n",
             }
@@ -244,7 +247,7 @@ def test_slice_c_save_synthesis_writes_query_page(project: dict[str, Any]) -> No
     result = book.mos_book_save_synthesis(
         question="What is the model's accuracy?",
         answer="Based on experiments exp-1 and exp-2, the model achieves 85% on the test set.",
-        sources=["book/sources/coder-exp-1.md", "book/sources/coder-exp-2.md"],
+        sources=["book/sources/expert-exp-1.md", "book/sources/expert-exp-2.md"],
         port=project["port"],
     )
 
@@ -263,7 +266,7 @@ def test_slice_c_save_synthesis_compounds_with_subsequent_query(
     book.mos_book_save_synthesis(
         question="What is the convergence behavior?",
         answer="The loss converges by step 1000 across all experiments.",
-        sources=["book/sources/coder-exp-1.md"],
+        sources=["book/sources/expert-exp-1.md"],
         port=project["port"],
         slug="convergence-behavior",
     )
@@ -302,11 +305,11 @@ def test_slice_d_audit_walk_finds_unresolved_contradictions(
 
     book.mos_book_ingest(
         src_path="exp/exp-1/report.md",
-        source_role="coder",
+        source_role="expert",
         source_slug="exp-1",
         port=project["port"],
         summary="The transformer model is highly accurate on the held-out test data set.\n",
-        reel_ref="coder/sess-X/task-acc",
+        reel_ref="expert/sess-X/task-acc",
     )
     book.mos_book_ingest(
         src_path="exp/exp-2/report.md",
@@ -335,7 +338,7 @@ def test_slice_e_resolve_contradiction_flips_status(
 
     book.mos_book_ingest(
         src_path="exp/exp-1/report.md",
-        source_role="coder",
+        source_role="expert",
         source_slug="exp-1",
         port=project["port"],
         summary="The benchmark clearly shows the system is much faster than the baseline.\n",
@@ -390,7 +393,7 @@ def test_slice_e_resolve_supports_alternate_verdicts(
 
     book.mos_book_ingest(
         src_path="exp/exp-1/report.md",
-        source_role="coder",
+        source_role="expert",
         source_slug="exp-1",
         port=project["port"],
         summary="The system is fully autonomous and operates without any oversight.\n",
@@ -426,11 +429,11 @@ def test_slice_d_walk_filter_returns_only_matching_status(
 
     book.mos_book_ingest(
         src_path="exp/exp-1/report.md",
-        source_role="coder",
+        source_role="expert",
         source_slug="exp-1",
         port=project["port"],
         summary="A solo source with no contradiction.\n",
-        reel_ref="coder/sess-X/task-1",
+        reel_ref="expert/sess-X/task-1",
     )
 
     # Filter unresolved → no contradictions exist, queue empty

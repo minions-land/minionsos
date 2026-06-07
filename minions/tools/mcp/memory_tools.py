@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from minions.tools import book as _book
+from minions.tools import book as _book, book_query as _book_query
 from minions.tools import draft as _draft
 from minions.tools.draft import DraftNodeType, DraftSupportStatus
 from minions.tools.mcp import mcp
@@ -245,7 +245,7 @@ async def mos_book_query(
     max_pages: int = 5,
     include_status: bool = True,
     include_contradictions: bool = False,
-) -> _book.BookQueryResult:
+) -> _book_query.BookQueryResult:
     """Query Book pages (title + filename + body) with progressive disclosure.
 
     Scoring is body-aware (title/filename token overlap + BM25 over the page

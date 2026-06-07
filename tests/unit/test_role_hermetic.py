@@ -5,10 +5,10 @@ Covers:
 - prepare_hermetic_cwd seeds CLAUDE.md and is idempotent
 - cleanup_hermetic_cwd removes per-role and per-project trees
 - hermetic_add_dirs filters non-existent paths and dedupes via resolve()
-- ENV switches default OFF (legacy command shape preserved)
+- ENV switches default OFF (default command shape preserved)
 - Tier 2 auth pre-flight refuses when no env auth is present
 - build_role_invocation surfaces hermetic_cwd + add_dirs into argv only
-  when hermetic mode is enabled (legacy mode emits no --add-dir)
+  when hermetic mode is enabled (default mode emits no --add-dir)
 
 These are pure-Python tests; they do NOT spawn ``claude``.
 """
@@ -57,8 +57,8 @@ def test_hermetic_cwd_path_is_stable_for_cache_reuse(hermetic_base):
     The cwd shows up in Claude Code's dynamic system prompt; a non-stable
     path would invalidate the prompt cache on every Role respawn.
     """
-    a = role_hermetic.hermetic_cwd_path(37596, "coder")
-    b = role_hermetic.hermetic_cwd_path(37596, "coder")
+    a = role_hermetic.hermetic_cwd_path(37596, "expert")
+    b = role_hermetic.hermetic_cwd_path(37596, "expert")
     assert a == b
     assert "session" not in str(a)
     # No timestamp leakage
@@ -67,12 +67,12 @@ def test_hermetic_cwd_path_is_stable_for_cache_reuse(hermetic_base):
 
 def test_hermetic_cwd_path_is_outside_minionsos(hermetic_base):
     """Path must not sit under MinionsOS/ — that would defeat the walk-stop."""
-    p = role_hermetic.hermetic_cwd_path(37596, "coder")
+    p = role_hermetic.hermetic_cwd_path(37596, "expert")
     assert "MinionsOS" not in str(p)
 
 
 def test_prepare_hermetic_cwd_seeds_claude_md(hermetic_base):
-    cwd = role_hermetic.prepare_hermetic_cwd(37596, "coder")
+    cwd = role_hermetic.prepare_hermetic_cwd(37596, "expert")
     assert cwd.is_dir()
     claude_md = cwd / "CLAUDE.md"
     assert claude_md.exists()
@@ -82,9 +82,9 @@ def test_prepare_hermetic_cwd_seeds_claude_md(hermetic_base):
 
 
 def test_prepare_hermetic_cwd_is_idempotent(hermetic_base):
-    a = role_hermetic.prepare_hermetic_cwd(37596, "coder")
+    a = role_hermetic.prepare_hermetic_cwd(37596, "expert")
     mtime_before = (a / "CLAUDE.md").stat().st_mtime_ns
-    b = role_hermetic.prepare_hermetic_cwd(37596, "coder")
+    b = role_hermetic.prepare_hermetic_cwd(37596, "expert")
     mtime_after = (b / "CLAUDE.md").stat().st_mtime_ns
     assert a == b
     # Idempotent: file is not rewritten on the second call (operator edits
@@ -93,23 +93,23 @@ def test_prepare_hermetic_cwd_is_idempotent(hermetic_base):
 
 
 def test_prepare_hermetic_cwd_preserves_operator_edit(hermetic_base):
-    cwd = role_hermetic.prepare_hermetic_cwd(37596, "coder")
+    cwd = role_hermetic.prepare_hermetic_cwd(37596, "expert")
     (cwd / "CLAUDE.md").write_text("# operator override\n", encoding="utf-8")
-    role_hermetic.prepare_hermetic_cwd(37596, "coder")
+    role_hermetic.prepare_hermetic_cwd(37596, "expert")
     assert (cwd / "CLAUDE.md").read_text(encoding="utf-8") == "# operator override\n"
 
 
 def test_cleanup_hermetic_cwd_removes_role_dir(hermetic_base):
-    cwd = role_hermetic.prepare_hermetic_cwd(37596, "coder")
+    cwd = role_hermetic.prepare_hermetic_cwd(37596, "expert")
     assert cwd.exists()
-    removed = role_hermetic.cleanup_hermetic_cwd(37596, "coder")
+    removed = role_hermetic.cleanup_hermetic_cwd(37596, "expert")
     assert removed == [cwd]
     assert not cwd.exists()
 
 
 def test_cleanup_hermetic_cwd_removes_whole_project(hermetic_base):
-    role_hermetic.prepare_hermetic_cwd(37596, "coder")
-    role_hermetic.prepare_hermetic_cwd(37596, "writer")
+    role_hermetic.prepare_hermetic_cwd(37596, "expert")
+    role_hermetic.prepare_hermetic_cwd(37596, "ethics")
     project_base = hermetic_base / "project_37596"
     assert project_base.exists()
     removed = role_hermetic.cleanup_hermetic_cwd(37596)
@@ -202,7 +202,7 @@ def test_tier2_auth_accepts_auth_token(monkeypatch):
 
 
 def test_prepare_fake_home_has_empty_claude_dir(hermetic_base):
-    home = role_hermetic.prepare_fake_home(37596, "coder")
+    home = role_hermetic.prepare_fake_home(37596, "expert")
     assert home.is_dir()
     claude_dir = home / ".claude"
     assert claude_dir.is_dir()
@@ -217,20 +217,20 @@ def test_prepare_fake_home_has_empty_claude_dir(hermetic_base):
 # ---------------------------------------------------------------------------
 
 
-def test_build_role_invocation_legacy_mode_emits_no_add_dir(tmp_path):
-    """Legacy mode (no hermetic_cwd, no add_dirs) must keep argv shape stable."""
+def test_build_role_invocation_default_mode_emits_no_add_dir(tmp_path):
+    """Default mode (no hermetic_cwd, no add_dirs) must keep argv shape stable."""
     workspace = tmp_path / "ws"
     workspace.mkdir()
     cfg = _stub_config(tmp_path)
     invocation = build_role_invocation(
         cfg=cfg,
-        role_name="coder",
+        role_name="expert",
         project_port=37596,
-        project_agent_id="coder@37596",
+        project_agent_id="expert@37596",
         system_path=None,
         allowed_tools="Read,Edit",
         workspace=workspace,
-        session_name="mos-37596-coder",
+        session_name="mos-37596-expert",
     )
     assert "--add-dir" not in invocation.command
     assert invocation.cwd == workspace
@@ -246,13 +246,13 @@ def test_build_role_invocation_hermetic_emits_add_dirs(tmp_path):
     cfg = _stub_config(tmp_path)
     invocation = build_role_invocation(
         cfg=cfg,
-        role_name="coder",
+        role_name="expert",
         project_port=37596,
-        project_agent_id="coder@37596",
+        project_agent_id="expert@37596",
         system_path=None,
         allowed_tools="Read,Edit",
         workspace=workspace,
-        session_name="mos-37596-coder",
+        session_name="mos-37596-expert",
         hermetic_cwd=cwd,
         add_dirs=[workspace, shared],
     )
@@ -270,10 +270,10 @@ def test_build_role_invocation_hermetic_emits_add_dirs(tmp_path):
 def test_build_role_invocation_hermetic_hard_fails_when_cwd_missing(tmp_path):
     """If hermetic_cwd path doesn't exist on disk, raise RoleError.
 
-    The silent-fallback-to-MINIONS_ROOT path was retired in v17 because it
-    leaked Workflow scratchpads into the dev workspace .claude/. The
-    launcher must surface the misconfiguration loudly via RoleError before
-    spawning any tmux session. See common SYSTEM.md §10.1.
+    The launcher must reject silent fallback to MINIONS_ROOT so workflow
+    scratchpads cannot leak into the dev workspace .claude/. It must surface
+    the misconfiguration via RoleError before spawning any tmux session.
+    See common SYSTEM.md §10.1.
     """
     from minions.errors import RoleError
 
@@ -285,19 +285,17 @@ def test_build_role_invocation_hermetic_hard_fails_when_cwd_missing(tmp_path):
     with pytest.raises(RoleError) as exc_info:
         build_role_invocation(
             cfg=cfg,
-            role_name="coder",
+            role_name="expert",
             project_port=37596,
-            project_agent_id="coder@37596",
+            project_agent_id="expert@37596",
             system_path=None,
             allowed_tools="Read,Edit",
             workspace=workspace,
-            session_name="mos-37596-coder",
+            session_name="mos-37596-expert",
             hermetic_cwd=cwd,
         )
     assert "effective cwd does not exist" in str(exc_info.value)
-    assert "MINIONS_ROOT" in str(exc_info.value), (
-        "error must explain why fallback was rejected"
-    )
+    assert "MINIONS_ROOT" in str(exc_info.value), "error must explain why fallback was rejected"
 
 
 # ---------------------------------------------------------------------------

@@ -35,7 +35,11 @@ from minions.tools.book_index import (
     _log_append,
     _log_append_many,
 )
-from minions.tools.book_utils import now_iso as _now_iso, quoted as _quoted, validate_component as _validate_component
+from minions.tools.book_utils import (
+    now_iso as _now_iso,
+    quoted as _quoted,
+    validate_component as _validate_component,
+)
 from minions.tools.publish import mos_publish_files_to_shared
 
 logger = logging.getLogger(__name__)
@@ -80,8 +84,9 @@ def _emit_contradiction_dag_edges(port: int, contradictions: list[dict[str, obje
         return 0
 
     path = project_shared_draft_json(port)
+    draft: dict[str, object]
     if not path.exists():
-        draft: dict[str, object] = {"nodes": [], "edges": []}
+        draft = {"nodes": [], "edges": []}
     else:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
@@ -94,7 +99,7 @@ def _emit_contradiction_dag_edges(port: int, contradictions: list[dict[str, obje
         if not isinstance(data, dict):
             draft = {"nodes": [], "edges": []}
         else:
-            draft = data
+            draft = cast(dict[str, object], data)
 
     raw_edges = draft.get("edges", [])
     if not isinstance(raw_edges, list):
@@ -201,6 +206,7 @@ def _render_signals_block(
         total = 0
         marked = 0
         import re
+
         marker_re = re.compile(r"\[(evidence|speculation|derived)[:\]]")
         for page in role_pages:
             try:
@@ -208,6 +214,7 @@ def _render_signals_block(
             except OSError:
                 continue
             from minions.tools.book_helpers import _strip_frontmatter
+
             for line in _strip_frontmatter(text).splitlines():
                 stripped = line.strip()
                 if not stripped or stripped.startswith("#") or stripped.startswith("-"):

@@ -30,8 +30,8 @@ def test_project_kill_stops_runtime_and_preserves_eacn_data(
         created="2026-04-28T00:00:00+00:00",
         current_branch=f"minionsos/project-{port}",
         active_roles=[
-            RoleEntry(name="coder", state="active", pid=222, spawned_at="x"),
-            RoleEntry(name="writer", state="sleeping", pid=None),
+            RoleEntry(name="expert", state="active", pid=222, spawned_at="x"),
+            RoleEntry(name="ethics", state="sleeping", pid=None),
         ],
     )
     store.add_project(entry)
@@ -55,14 +55,16 @@ def test_project_kill_stops_runtime_and_preserves_eacn_data(
     stopped_backends: list[tuple[int, int | None]] = []
     stopped_roles: list[tuple[int, str, int | None]] = []
     monkeypatch.setattr(proj_mod, "project_meta_json", lambda p: pdir / "meta.json")
-    # 同时mock project_metadata和project_lifecycle中的函数
+    # Also mock the helper imported by project_metadata.
     from minions.lifecycle import project_metadata
+
     monkeypatch.setattr(project_metadata, "project_meta_json", lambda p: pdir / "meta.json")
 
-    # 为了确保backend_pid被正确读取，也mock read_meta_raw
+    # Mock read_meta_raw so backend_pid is read from the test meta file.
     def fake_read_meta_raw(p: int) -> dict:
         path = pdir / "meta.json"
         import json
+
         return json.loads(path.read_text(encoding="utf-8"))
 
     monkeypatch.setattr(project_lifecycle, "read_meta_raw", fake_read_meta_raw)
@@ -77,19 +79,19 @@ def test_project_kill_stops_runtime_and_preserves_eacn_data(
         "_stop_role_process",
         lambda p, role, pid=None: stopped_roles.append((p, role, pid)) or "terminated",
     )
-    # 同时mock project_lifecycle中导入的函数（实际被project_kill调用的）
+    # Also mock the function imported by project_lifecycle.
     monkeypatch.setattr(
         project_lifecycle,
         "stop_backend",
         lambda p, pid=None: stopped_backends.append((p, pid)),
     )
 
-    # Mock pid_alive和kill_project_sessions来让role停止逻辑工作
+    # Mock pid_alive so role stop logic observes the test PID.
     from minions.lifecycle import project_backend
 
     def fake_pid_alive(pid):
-        # 第一次调用返回True，之后返回False（模拟PID被终止）
-        if not hasattr(fake_pid_alive, 'called'):
+        # First call records the PID; subsequent calls simulate termination.
+        if not hasattr(fake_pid_alive, "called"):
             fake_pid_alive.called = set()
         if pid in fake_pid_alive.called:
             return False
@@ -107,7 +109,7 @@ def test_project_kill_stops_runtime_and_preserves_eacn_data(
 
     assert result["status"] == "dormant"
     assert stopped_backends == [(port, 111)]
-    assert stopped_roles == [(port, "coder", 222)]
+    assert stopped_roles == [(port, "expert", 222)]
     assert eacn_db.read_text(encoding="utf-8") == "keep"
     assert not store.is_port_retired(port)
 
@@ -155,7 +157,7 @@ def test_project_kill_keeps_project_active_when_backend_cannot_stop(
         status="active",
         created="2026-04-28T00:00:00+00:00",
         current_branch=f"minionsos/project-{port}",
-        active_roles=[RoleEntry(name="noter", state="sleeping")],
+        active_roles=[RoleEntry(name="ethics", state="sleeping")],
     )
     store.add_project(entry)
     (pdir / "meta.json").write_text(

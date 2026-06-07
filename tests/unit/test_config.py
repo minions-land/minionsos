@@ -148,18 +148,15 @@ class TestWhitelistResolver:
         assert "mos_search_google_scholar" in tools
 
     def test_expert_has_paper_search_mcp_tools(self) -> None:
-        """paper-search-mcp tools were promoted to a research-role capability
-        on 2026-05-19, so expert (the science role) gets the same surface as
-        writer for literature lookup, citation verification, and cross-source
-        evidence gathering."""
+        """Expert has literature lookup, citation verification, and
+        cross-source evidence gathering tools."""
         tools = resolve_allowed_tools("expert")
         assert "mos_search_arxiv" in tools
         assert "mos_resolve_arxiv_ids" in tools
         assert "mos_download_arxiv" in tools
 
     def test_gru_has_paper_search_mcp_tools(self) -> None:
-        """Gru orchestrates review and citation-audit; paper-search tools
-        were promoted to its surface on 2026-05-19 to support those flows."""
+        """Gru has paper-search tools for review and citation-audit flows."""
         tools = resolve_allowed_tools("gru")
         assert "mos_search_arxiv" in tools
         assert "mos_search_papers_federated" in tools

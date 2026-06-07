@@ -261,7 +261,7 @@ class TestQueueStatusAutoReconcile:
         sched = fake_scheduler()
         sched.submit(
             [QueueUnit(cmd="echo a", gpus_needed=1, min_free_mb=1000)],
-            requester="coder",
+            requester="expert",
             reconcile=False,
         )
         # Force a stale timestamp directly via the meta table.
@@ -319,7 +319,7 @@ class TestQueueStatusAutoReconcile:
         sched = fake_scheduler()
         sched.submit(
             [QueueUnit(cmd="echo a", gpus_needed=1, min_free_mb=1000)],
-            requester="coder",
+            requester="expert",
         )
         # The submit reconciled and launched once.
         assert launch_count["n"] == 1

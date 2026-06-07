@@ -41,10 +41,10 @@ def test_spawn_tmux_does_not_pipe_claude_through_tee(tmp_path: Path) -> None:
         result.stderr = b""
         return result
 
-    log_path = tmp_path / "logs" / "role-coder.log"
+    log_path = tmp_path / "logs" / "role-expert.log"
     with patch.object(role_launcher.subprocess, "run", side_effect=fake_run):
         role_launcher._spawn_tmux(
-            session_name="mos-12345-coder",
+            session_name="mos-12345-expert",
             cwd=tmp_path,
             env={"FOO": "bar"},
             argv=["uv", "run", "claude", "--name", "test"],
@@ -82,10 +82,10 @@ def test_spawn_tmux_uses_pipe_pane_for_logging(tmp_path: Path) -> None:
         result.stderr = b""
         return result
 
-    log_path = tmp_path / "logs" / "role-coder.log"
+    log_path = tmp_path / "logs" / "role-expert.log"
     with patch.object(role_launcher.subprocess, "run", side_effect=fake_run):
         role_launcher._spawn_tmux(
-            session_name="mos-12345-coder",
+            session_name="mos-12345-expert",
             cwd=tmp_path,
             env={},
             argv=["claude"],
@@ -98,7 +98,7 @@ def test_spawn_tmux_uses_pipe_pane_for_logging(tmp_path: Path) -> None:
         f"expected exactly one tmux pipe-pane call, got {len(pipe_pane_calls)}"
     )
     pp = pipe_pane_calls[0]
-    assert "-t" in pp and "mos-12345-coder" in pp, "pipe-pane must target the new session"
+    assert "-t" in pp and "mos-12345-expert" in pp, "pipe-pane must target the new session"
     # The shell command piped into pipe-pane should append to log_path
     shell_cmd = pp[-1]
     assert "sed" in shell_cmd  # ANSI stripping via sed (issue #7)
@@ -135,7 +135,7 @@ def test_send_initial_prompt_sends_two_enters(tmp_path: Path) -> None:
         patch("time.sleep"),
         patch.object(role_launcher, "_wait_for_repl_ready", return_value=True),
     ):
-        role_launcher._tmux_send_initial_prompt("mos-12345-coder", "hello world")
+        role_launcher._tmux_send_initial_prompt("mos-12345-expert", "hello world")
 
     enter_calls = [c for c in captured if c[:2] == ["tmux", "send-keys"] and c[-1] == "Enter"]
     assert len(enter_calls) == 2, (
@@ -167,11 +167,11 @@ def test_wait_for_repl_ready_returns_immediately_when_marker_present() -> None:
     from minions.lifecycle import role_launcher
 
     def fake_capture(_session: str) -> str:
-        return "Welcome to Claude Code!\n\n❯ "
+        return "Welcome to Claude Code!\n\n❯ "  # noqa: RUF001
 
     with patch.object(role_launcher, "_capture_pane", side_effect=fake_capture):
         result = role_launcher._wait_for_repl_ready(
-            "mos-12345-coder", timeout=1.0, poll_interval=0.01
+            "mos-12345-expert", timeout=1.0, poll_interval=0.01
         )
     assert result is True
 
@@ -211,7 +211,7 @@ def test_send_keys_runs_after_wait_for_repl_ready() -> None:
         patch("time.sleep"),
         patch.object(role_launcher, "_wait_for_repl_ready", side_effect=fake_wait),
     ):
-        role_launcher._tmux_send_initial_prompt("mos-12345-coder", "hello world")
+        role_launcher._tmux_send_initial_prompt("mos-12345-expert", "hello world")
 
     assert call_order, "neither wait nor send-keys was invoked"
     assert call_order[0] == "wait", (
@@ -224,10 +224,10 @@ def test_spawn_tmux_returns_before_prompt_delivery_completes(tmp_path: Path) -> 
     """`_spawn_tmux` must not block on `_tmux_send_initial_prompt`.
 
     The full prompt delivery sequence (poll-until-REPL-ready up to 30 s
-    + paste + commit + retry up to 3 attempts × 5 s activity check)
+    + paste + commit + retry up to 3 attempts x 5 s activity check)
     can cost ~47 s of wall-clock per role. With Gru spawning ~7 roles
-    at project bootstrap, that's ~5 min of pure synchronization. C
-    moves delivery to a daemon thread so the launcher returns as soon
+    at project bootstrap, that's ~5 min of pure synchronization. The launcher
+    moves delivery to a daemon thread so it returns as soon
     as the tmux session is alive and the prompt is *queued*.
 
     This test simulates a slow REPL-ready (5 s wait) and asserts the
@@ -252,7 +252,7 @@ def test_spawn_tmux_returns_before_prompt_delivery_completes(tmp_path: Path) -> 
         time.sleep(0.5)  # simulate slow REPL warmup
         delivery_done.set()
 
-    log_path = tmp_path / "logs" / "role-coder.log"
+    log_path = tmp_path / "logs" / "role-expert.log"
     with (
         patch.object(role_launcher.subprocess, "run", side_effect=fake_run),
         patch.object(role_launcher, "_tmux_send_initial_prompt", side_effect=slow_send),
@@ -266,7 +266,7 @@ def test_spawn_tmux_returns_before_prompt_delivery_completes(tmp_path: Path) -> 
 
         t0 = time.monotonic()
         role_launcher._spawn_tmux(
-            session_name="mos-12345-coder",
+            session_name="mos-12345-expert",
             cwd=tmp_path,
             env={},
             argv=["claude"],
@@ -306,7 +306,7 @@ def test_spawn_tmux_blocks_on_delivery_when_sync_env_set(tmp_path: Path) -> None
     def slow_send(_session_name, _prompt):
         time.sleep(0.3)
 
-    log_path = tmp_path / "logs" / "role-coder.log"
+    log_path = tmp_path / "logs" / "role-expert.log"
     with (
         patch.object(role_launcher.subprocess, "run", side_effect=fake_run),
         patch.object(role_launcher, "_tmux_send_initial_prompt", side_effect=slow_send),
@@ -314,7 +314,7 @@ def test_spawn_tmux_blocks_on_delivery_when_sync_env_set(tmp_path: Path) -> None
     ):
         t0 = time.monotonic()
         role_launcher._spawn_tmux(
-            session_name="mos-12345-coder",
+            session_name="mos-12345-expert",
             cwd=tmp_path,
             env={},
             argv=["claude"],
@@ -325,6 +325,5 @@ def test_spawn_tmux_blocks_on_delivery_when_sync_env_set(tmp_path: Path) -> None
 
     # In sync mode the caller waits for delivery (~0.3 s).
     assert elapsed >= 0.25, (
-        f"sync mode should block on delivery; elapsed={elapsed:.3f}s "
-        "(expected ≥0.25s)"
+        f"sync mode should block on delivery; elapsed={elapsed:.3f}s (expected ≥0.25s)"
     )

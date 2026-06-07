@@ -37,14 +37,14 @@ def test_register_project_role_agent_uses_role_name_as_agent_id(monkeypatch) -> 
 
     token, seeds = agent_registry.register_project_role_agent(
         37596,
-        "noter",
+        "expert",
         server_id="srv-local",
     )
 
     assert token == "role-token"
     assert seeds == []
     assert calls[0]["port"] == 37596
-    assert calls[0]["agent_id"] == "noter"
+    assert calls[0]["agent_id"] == "expert"
     assert calls[0]["server_id"] == "srv-local"
     assert "project-local" in calls[0]["domains"]
 
@@ -115,8 +115,7 @@ def test_post_message_rejects_unknown_target_agent(monkeypatch) -> None:
 
 
 def test_post_message_does_not_mirror_to_observer(monkeypatch) -> None:
-    """Direct messages go straight to the recipient — no audit fan-out.
-    """
+    """Direct messages go straight to the recipient — no audit fan-out."""
     gets: list[str] = []
     posts: list[dict] = []
 

@@ -1,15 +1,6 @@
-"""Regression tests for the orphan ``mos-{port}-*`` tmux-session sweep.
+"""Tests for the orphan ``mos-{port}-*`` tmux-session sweep.
 
-Background — observed on 2026-05-26 against project 37596:
-
-- ``project_revive`` re-launched 7 role tmux sessions; ``project_kill``
-  later iterated ``meta["active_roles"]`` and called ``_stop_role_process``
-  only when ``role.pid is not None``. The role records had been left at
-  ``state="dismissed", pid=None`` by an earlier ``project_dormant``,
-  so the kill loop skipped every role and 9 ``mos-37596-*`` tmux
-  sessions remained alive on the host with stuck Claude TUIs.
-
-These tests pin down two contracts:
+These tests pin down three contracts:
 
 1. ``role_launcher.kill_project_sessions(port)`` matches sessions by
    ``mos-{port}-*`` prefix only, and reports the names it killed.
@@ -44,10 +35,10 @@ def test_list_project_sessions_filters_by_port_prefix(
 
     listed_stdout = "\n".join(
         [
-            "mos-37596-coder",
-            "mos-37596-noter",
+            "mos-37596-expert",
+            "mos-37596-ethics",
             "mos-37596-expert-mathematician",
-            "mos-12345-coder",  # different port — must be skipped
+            "mos-12345-expert",  # different port — must be skipped
             "unrelated-session",
         ]
     )
@@ -63,8 +54,8 @@ def test_list_project_sessions_filters_by_port_prefix(
 
     names = role_launcher.list_project_sessions(37596)
     assert names == [
-        "mos-37596-coder",
-        "mos-37596-noter",
+        "mos-37596-expert",
+        "mos-37596-ethics",
         "mos-37596-expert-mathematician",
     ]
 
@@ -81,7 +72,7 @@ def test_kill_project_sessions_kills_all_matching(
 ) -> None:
     monkeypatch.setattr(role_launcher, "_have_tmux", lambda: True)
 
-    listed_stdout = "mos-37596-coder\nmos-37596-noter\nmos-99999-other\n"
+    listed_stdout = "mos-37596-expert\nmos-37596-ethics\nmos-99999-other\n"
     killed: list[list[str]] = []
 
     def fake_run(argv, **_kwargs):
@@ -100,10 +91,10 @@ def test_kill_project_sessions_kills_all_matching(
     monkeypatch.setattr(role_launcher.subprocess, "run", fake_run)
 
     swept = role_launcher.kill_project_sessions(37596)
-    assert swept == ["mos-37596-coder", "mos-37596-noter"]
+    assert swept == ["mos-37596-expert", "mos-37596-ethics"]
     assert killed == [
-        ["tmux", "kill-session", "-t", "mos-37596-coder"],
-        ["tmux", "kill-session", "-t", "mos-37596-noter"],
+        ["tmux", "kill-session", "-t", "mos-37596-expert"],
+        ["tmux", "kill-session", "-t", "mos-37596-ethics"],
     ]
 
 
@@ -131,7 +122,7 @@ def test_project_kill_sweeps_orphan_tmux_sessions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The exact failure mode observed on project 37596.
+    """Dismissed role records do not block tmux session cleanup.
 
     All recorded roles are ``state="dismissed", pid=None`` (so the
     pid-based stop loop is a no-op), but ``mos-{port}-*`` tmux sessions
@@ -148,10 +139,10 @@ def test_project_kill_sweeps_orphan_tmux_sessions(
         status="active",
         created="2026-05-26T00:00:00+00:00",
         current_branch=f"minionsos/project-{port}",
-        # Roles are all dismissed with pid=None — the bug-shaped state.
+        # Roles are all dismissed with pid=None, so the pid stop loop is empty.
         active_roles=[
-            RoleEntry(name="coder", state="dismissed", pid=None),
-            RoleEntry(name="noter", state="dismissed", pid=None),
+            RoleEntry(name="expert", state="dismissed", pid=None),
+            RoleEntry(name="ethics", state="dismissed", pid=None),
         ],
     )
     store.add_project(entry)
@@ -164,7 +155,7 @@ def test_project_kill_sweeps_orphan_tmux_sessions(
 
     def fake_kill_project_sessions(p: int) -> list[str]:
         sweep_calls.append(p)
-        return [f"mos-{p}-coder", f"mos-{p}-noter", f"mos-{p}-stale-extra"]
+        return [f"mos-{p}-expert", f"mos-{p}-ethics", f"mos-{p}-stale-extra"]
 
     monkeypatch.setattr(proj_mod, "project_meta_json", lambda p: pdir / "meta.json")
     monkeypatch.setattr(proj_mod, "_stop_backend", lambda p, pid=None: True)
@@ -181,8 +172,8 @@ def test_project_kill_sweeps_orphan_tmux_sessions(
 
     # Result reports the swept session names.
     assert result["swept_tmux_sessions"] == [
-        f"mos-{port}-coder",
-        f"mos-{port}-noter",
+        f"mos-{port}-expert",
+        f"mos-{port}-ethics",
         f"mos-{port}-stale-extra",
     ]
 
@@ -250,6 +241,7 @@ def test_project_revive_sweeps_stale_tmux_before_launch(
 
     # Use MINIONS_PROJECTS_ROOT from conftest's _isolate_projects_root
     import os
+
     projects_root = Path(os.environ["MINIONS_PROJECTS_ROOT"])
     pdir = projects_root / f"project_{port}"
     pdir.mkdir(parents=True, exist_ok=True)
@@ -295,11 +287,12 @@ def test_project_revive_sweeps_stale_tmux_before_launch(
 
     # Stub everything that hits the network / disk lifecycle.
     monkeypatch.setattr(proj_mod, "project_meta_json", lambda p: pdir / "meta.json")
-    # 同时mock project_metadata和project_lifecycle中使用的函数
-    from minions.lifecycle import project_metadata, project_lifecycle
+    # Patch helpers used through project_metadata and project_lifecycle.
+    from minions.lifecycle import project_lifecycle, project_metadata
 
     def fake_read_meta_raw(p: int):
         import json
+
         path = pdir / "meta.json"
         return json.loads(path.read_text(encoding="utf-8"))
 

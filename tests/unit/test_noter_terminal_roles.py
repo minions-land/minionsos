@@ -19,9 +19,9 @@ def test_render_roles_hides_dismissed() -> None:
         created="2026-05-26T00:00:00Z",
         active_roles=[
             RoleEntry(name="noter", state="active"),
-            RoleEntry(name="coder", state="active"),
-            RoleEntry(name="moe-arch", state="dismissed"),
-            RoleEntry(name="triton-kernel", state="dismissed"),
+            RoleEntry(name="expert-general", state="active"),
+            RoleEntry(name="expert-retired-moe", state="dismissed"),
+            RoleEntry(name="expert-retired-triton", state="dismissed"),
             RoleEntry(name="expert-moe-arch", state="active"),
             RoleEntry(name="expert-triton-kernel", state="active"),
         ],
@@ -44,13 +44,13 @@ def test_render_roles_hides_dismissed() -> None:
 
     # Active roles should appear
     assert "noter" in output
-    assert "coder" in output
+    assert "expert-general" in output
     assert "expert-moe-arch" in output
     assert "expert-triton-kernel" in output
 
     # Dismissed roles should NOT appear in the table
-    assert "moe-arch" not in output or "dismissed" not in output.split("moe-arch")[0]
-    assert "triton-kernel" not in output or "dismissed" not in output.split("triton-kernel")[0]
+    assert "expert-retired-moe" not in output
+    assert "expert-retired-triton" not in output
 
     # Footer should mention 2 dismissed roles
     assert "2 dismissed roles hidden" in output
@@ -65,7 +65,7 @@ def test_render_roles_no_footer_when_all_active() -> None:
         created="2026-05-26T00:00:00Z",
         active_roles=[
             RoleEntry(name="noter", state="active"),
-            RoleEntry(name="coder", state="sleeping"),
+            RoleEntry(name="expert-general", state="sleeping"),
         ],
     )
     snapshot = NoterSnapshot(
@@ -85,5 +85,5 @@ def test_render_roles_no_footer_when_all_active() -> None:
     output = buf.getvalue()
 
     assert "noter" in output
-    assert "coder" in output
+    assert "expert-general" in output
     assert "dismissed" not in output

@@ -168,7 +168,7 @@ def test_checkpoint_tool_wrapper_delegates_to_lifecycle(monkeypatch: pytest.Monk
     monkeypatch.setattr(project_tools, "_project_checkpoint_workspace", lambda *a, **kw: out)
 
     result = project_tools.mos_project_checkpoint_workspace(
-        ProjectCheckpointArgs(port=37596, role_name="coder", message="hi")
+        ProjectCheckpointArgs(port=37596, role_name="expert", message="hi")
     )
 
     assert result is out

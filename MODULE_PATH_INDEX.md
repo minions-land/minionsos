@@ -120,9 +120,9 @@ from minions.tools.experiment_scheduler import (
 
 ## Project Lifecycle Modules
 
-### Facade
+### Lifecycle Entry Point
 
-- `minions/lifecycle/project.py` - backward-compatible lifecycle facade.
+- `minions/lifecycle/project.py` - lifecycle entry point used by project commands.
 
 ### Supporting modules
 

@@ -255,7 +255,6 @@ class BookQueryResult(DictLikeBaseModel):
 # ============================================================================
 
 
-
 # _render_v2_frontmatter, _render_source_frontmatter, _contradiction_slug,
 # _resolve_port, _resolve_source_path, _stage_path, _stage_text, _read_first_lines
 # now imported from book_helpers
@@ -276,6 +275,7 @@ def _validate_component(label: str, value: str) -> None:
 
 _CLAIM_REF_RE = re.compile(r"\^\[([^\]]+)\]")
 # _strip_frontmatter, _oneline already imported from book_helpers
+
 
 def _is_structural_line(sentence: str) -> bool:
     """True for non-claim lines: headings, tables, provenance bylines, dates.
@@ -550,6 +550,7 @@ def _render_contradiction_page(
 
 
 # _parse_index_entries, _scan_book_edges already imported from book_helpers
+
 
 def _render_relations_block(edges: list[dict[str, str]]) -> str:
     """Render the ``## Relations`` section appended to ``index.md``."""
@@ -963,7 +964,7 @@ def _book_lint_result(findings: list[dict[str, object]]) -> dict[str, object]:
 
 
 def _short_lint_value(value: object, *, limit: int = 160) -> str:
-    text = _oneline(value)
+    text = _oneline(str(value))
     if len(text) <= limit:
         return text
     return text[: limit - 3].rstrip() + "..."
@@ -1189,7 +1190,6 @@ def _bm25_scores(
             scores[slug] = score
     return scores
 
-
     """True if any book page already cites this Draft node id."""
     sources = book_root / "sources"
     if not sources.exists():
@@ -1212,6 +1212,7 @@ def _bm25_scores(
 # - mos_book_promote_verified: Promote verified content to Book
 # - mos_book_ratify: Ethics ratification of Book pages
 # ============================================================================
+
 
 def _update_frontmatter_field(text: str, field: str, value: str) -> str:
     """Set/replace a frontmatter ``field: value`` line. Adds the field if absent.

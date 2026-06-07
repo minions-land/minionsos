@@ -8,7 +8,7 @@ What it covers:
 
 * ``./viz register`` writes / updates ``~/.minionsos/grus.json``.
 * ``./viz ensure`` starts a singleton, writes ``viz.pid`` / ``viz.port`` / ``viz.url``.
-* HTTP endpoints ``/api/mos/grus`` and legacy ``/api/snapshot`` respond.
+* HTTP endpoints ``/api/mos/grus`` and ``/api/snapshot`` respond.
 * WS protocol handshake (``snapshot`` message) is sent on connect.
 * ``./viz status`` reports ``running`` and ``./viz stop`` tears down cleanly.
 
@@ -122,7 +122,7 @@ def test_ensure_starts_singleton_and_endpoints_work(viz_running) -> None:
         "current Gru not surfaced by /api/mos/grus"
     )
 
-    # Legacy snapshot endpoint still responds
+    # Snapshot endpoint used by the WebSocket handshake.
     assert _probe(port, "/api/snapshot") in (200, 204)
 
     # Static asset served

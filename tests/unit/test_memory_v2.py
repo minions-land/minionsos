@@ -19,8 +19,12 @@ from pathlib import Path
 
 import pytest
 
-from minions.tools import book, draft, publish
-from minions.tools import book_ingest  # 添加导入以支持正确的mock
+from minions.tools import (
+    book,
+    book_ingest,  # 添加导入以支持正确的mock
+    draft,
+    publish,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -69,10 +73,11 @@ def _project_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(book, "project_shared_workspace", _shared_workspace)
     monkeypatch.setattr(book, "_book_root", _book_root)
 
-    # Mock在book_helpers中的_book_root（被book_promote使用）
+    # Mock _book_root in book_helpers for book_promote.
     from minions.tools import book_helpers, book_promote
+
     monkeypatch.setattr(book_helpers, "_book_root", _book_root)
-    # 同时mock book_promote中导入的_book_root
+    # Also mock the _book_root imported by book_promote.
     monkeypatch.setattr(book_promote, "_book_root", _book_root)
 
     # Stub publish: write the staged file directly into the destination tree.
@@ -366,26 +371,26 @@ class TestSessionCrystallization:
                     "id": "H-001",
                     "type": "hypothesis",
                     "text": "RECENT THOUGHT verbatim",
-                    "author_role": "coder",
+                    "author_role": "expert",
                     "created_at": recent_iso,
                 },
                 {
                     "id": "H-002",
                     "type": "hypothesis",
                     "text": "OUT OF WINDOW",
-                    "author_role": "coder",
+                    "author_role": "expert",
                     "created_at": old_iso,
                 },
                 {
                     "id": "H-003",
                     "type": "hypothesis",
                     "text": "OTHER ROLE",
-                    "author_role": "writer",
+                    "author_role": "ethics",
                     "created_at": recent_iso,
                 },
             ],
         )
-        result = book.mos_book_crystallize_session(role="coder", window_minutes=60, port=port)
+        result = book.mos_book_crystallize_session(role="expert", window_minutes=60, port=port)
         assert "H-001" in result["cited_node_ids"]
         assert "H-002" not in result["cited_node_ids"]
         assert "H-003" not in result["cited_node_ids"]
@@ -429,14 +434,14 @@ class TestContradictionSignals:
                     "opposing": "attention is NOT helpful for long sequences in this regime.",
                 },
                 "shared_terms": ["attention", "sequences", "regime"],
-                "new_source": "coder-bar",
-                "new_source_role": "coder",
+                "new_source": "expert-bar",
+                "new_source_role": "expert",
             }
         ]
         page = book._render_contradiction_page(
-            "coder-bar",
+            "expert-bar",
             contradictions,
-            "coder",
+            "expert",
             datetime.now(UTC).isoformat(timespec="seconds"),
             port=port,
         )

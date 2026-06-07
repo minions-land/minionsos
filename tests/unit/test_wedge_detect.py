@@ -15,7 +15,7 @@ from minions.lifecycle.wedge_detect import (
 
 
 def test_missing_log_returns_zero_signal(tmp_path: Path) -> None:
-    missing = tmp_path / "role-coder.log"
+    missing = tmp_path / "role-expert.log"
     sig = inspect_log_tail(missing)
     assert sig.empty_marker_count == 0
     assert sig.ack_line_count == 0
@@ -25,7 +25,7 @@ def test_missing_log_returns_zero_signal(tmp_path: Path) -> None:
 
 
 def test_clean_log_is_not_wedged(tmp_path: Path) -> None:
-    log = tmp_path / "role-coder.log"
+    log = tmp_path / "role-expert.log"
     log.write_text(
         "  Called minionsos (ctrl+o to expand)\n● Reading 1 file…\n● Done. Writing summary.\n"
     )
@@ -49,7 +49,7 @@ def test_pure_keepalive_ack_loop_is_not_wedged(tmp_path: Path) -> None:
 
 
 def test_wedge_signature_is_detected(tmp_path: Path) -> None:
-    log = tmp_path / "role-coder.log"
+    log = tmp_path / "role-expert.log"
     log.write_text(
         "  Called minionsos (ctrl+o to expand)\n\n"
         "● ack\n\n"
@@ -115,8 +115,8 @@ def _write_session_turns(path: Path, turns: list[dict]) -> None:
     """
     with path.open("w", encoding="utf-8") as fh:
         # A few non-assistant control records — the inspector should ignore them.
-        fh.write(json.dumps({"type": "custom-title", "customTitle": "p99/coder"}) + "\n")
-        fh.write(json.dumps({"type": "agent-name", "agentName": "p99/coder"}) + "\n")
+        fh.write(json.dumps({"type": "custom-title", "customTitle": "p99/expert"}) + "\n")
+        fh.write(json.dumps({"type": "agent-name", "agentName": "p99/expert"}) + "\n")
         for t in turns:
             content_parts: list[dict] = []
             if t.get("text") is not None:
@@ -225,8 +225,8 @@ def test_inspect_session_tail_handles_malformed_lines(tmp_path: Path) -> None:
 def test_find_session_jsonl_picks_newest(tmp_path: Path) -> None:
     """When multiple session files exist for the same cwd, pick the most
     recently modified — that's the live session."""
-    cwd = Path("/Users/x/MinionsOS/branches/coder")
-    slug = "-Users-x-MinionsOS-branches-coder"
+    cwd = Path("/Users/x/MinionsOS/branches/expert")
+    slug = "-Users-x-MinionsOS-branches-expert"
     proj_root = tmp_path / "claude" / "projects"
     slug_dir = proj_root / slug
     slug_dir.mkdir(parents=True)
@@ -251,8 +251,8 @@ def test_find_session_jsonl_returns_none_when_dir_missing(tmp_path: Path) -> Non
 def test_inspect_role_prefers_session_jsonl(tmp_path: Path) -> None:
     """When both signals are available, ``inspect_role`` must use the
     session JSONL (exact) and ignore the noisy pty log."""
-    cwd = Path("/Users/x/MinionsOS/branches/coder")
-    slug = "-Users-x-MinionsOS-branches-coder"
+    cwd = Path("/Users/x/MinionsOS/branches/expert")
+    slug = "-Users-x-MinionsOS-branches-expert"
     proj_root = tmp_path / "claude" / "projects"
     slug_dir = proj_root / slug
     slug_dir.mkdir(parents=True)
@@ -261,7 +261,7 @@ def test_inspect_role_prefers_session_jsonl(tmp_path: Path) -> None:
         sess,
         [{"text": "ack", "tool_use": True}] * 8 + [{"text": "", "tool_use": False}] * 4,
     )
-    log = tmp_path / "role-coder.log"
+    log = tmp_path / "role-expert.log"
     log.write_text("noise\nmore noise\n")  # pty log shows nothing
     sig = inspect_role(cwd=cwd, log_path=log, projects_root=proj_root)
     assert sig.log_path == sess
@@ -272,10 +272,10 @@ def test_inspect_role_prefers_session_jsonl(tmp_path: Path) -> None:
 def test_inspect_role_falls_back_to_log_when_no_session(tmp_path: Path) -> None:
     """Cold-started role: no session JSONL yet. Watchdog must still get
     a signal from the pty log."""
-    cwd = Path("/Users/x/MinionsOS/branches/coder")
+    cwd = Path("/Users/x/MinionsOS/branches/expert")
     proj_root = tmp_path / "claude" / "projects"
     proj_root.mkdir(parents=True)
-    log = tmp_path / "role-coder.log"
+    log = tmp_path / "role-expert.log"
     log.write_text("● [upstream returned no content]\n" * 4 + "● ack\n" * 4)
     sig = inspect_role(cwd=cwd, log_path=log, projects_root=proj_root)
     assert sig.log_path == log
@@ -327,7 +327,7 @@ def test_mcp_dead_in_session_marks_wedged(tmp_path: Path) -> None:
 def test_mcp_dead_in_pty_log_marks_wedged(tmp_path: Path) -> None:
     """Defense-in-depth: when there is no session JSONL, the pty-log
     fallback must also catch the marker."""
-    log = tmp_path / "role-coder.log"
+    log = tmp_path / "role-expert.log"
     log.write_text(
         "  ⎿ {result of tool}\n"
         "● Now calling mos_await_events…\n"

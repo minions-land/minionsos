@@ -19,6 +19,7 @@ def _isolated_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MINIONS_PROJECT_PORT", str(port))
     # Patch the path functions in draft_helpers so all modules see the test paths
     from minions.tools import draft_helpers
+
     monkeypatch.setattr(
         draft_helpers,
         "_get_project_shared_subdir",
@@ -34,10 +35,10 @@ def _isolated_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     return draft_dir
 
 
-def _write_legacy_draft(draft_dir: Path, nodes: list[dict[str, object]]) -> None:
+def _write_minimal_draft(draft_dir: Path, nodes: list[dict[str, object]]) -> None:
     payload = {
         "project_port": 9999,
-        "root_question": "legacy graph",
+        "root_question": "minimal graph",
         "nodes": nodes,
         "edges": [],
     }
@@ -180,16 +181,16 @@ class TestMosDraftQuery:
         assert "E-001" in ids
         assert "R-001" not in ids
 
-    def test_legacy_dag_without_provenance_confidence_still_works(self, _isolated_project: Path):
-        _write_legacy_draft(
+    def test_minimal_dag_without_provenance_confidence_still_works(self, _isolated_project: Path):
+        _write_minimal_draft(
             _isolated_project,
             [
                 {
                     "id": "H-001",
                     "type": "hypothesis",
-                    "text": "Legacy hypothesis",
+                    "text": "Minimal hypothesis",
                     "support_status": "unverified",
-                    "author_role": "expert-legacy",
+                    "author_role": "expert",
                     "created_at": "2026-05-01T00:00:00+00:00",
                     "evidence_tag": "",
                     "metadata": {},
@@ -198,16 +199,16 @@ class TestMosDraftQuery:
         )
 
         draft.mos_draft_append(
-            nodes=[{"type": "result", "text": "New result", "author_role": "coder"}],
+            nodes=[{"type": "result", "text": "New result", "author_role": "expert"}],
             edges=[{"from_id": "H-001", "to_id": "R-001", "relation": "supports"}],
         )
         draft.mos_draft_annotate(node_id="H-001", support_status="tentative")
         summary = draft.mos_draft_summary()
         query = draft.mos_draft_query(related_to="H-001")
 
-        legacy_node = next(node for node in query["nodes"] if node["id"] == "H-001")
-        assert "provenance" not in legacy_node
-        assert "confidence" not in legacy_node
+        minimal_node = next(node for node in query["nodes"] if node["id"] == "H-001")
+        assert "provenance" not in minimal_node
+        assert "confidence" not in minimal_node
         assert summary["nodes_by_provenance"]["unknown"] == 1
         assert summary["nodes_by_provenance"]["extracted"] == 1
         assert len(query["nodes"]) == 2
@@ -289,15 +290,15 @@ class TestMosDraftSummary:
         assert result["active_hypotheses"][0]["id"] == "H-001"
 
     def test_summary_counts_provenance_by_role(self, _isolated_project: Path):
-        _write_legacy_draft(
+        _write_minimal_draft(
             _isolated_project,
             [
                 {
                     "id": "H-001",
                     "type": "hypothesis",
-                    "text": "Legacy hypothesis",
+                    "text": "Minimal hypothesis",
                     "support_status": "unverified",
-                    "author_role": "expert-old",
+                    "author_role": "expert",
                     "created_at": "2026-05-01T00:00:00+00:00",
                     "evidence_tag": "",
                     "metadata": {},
@@ -309,7 +310,7 @@ class TestMosDraftSummary:
                 {
                     "type": "experiment",
                     "text": "Extracted artifact",
-                    "author_role": "coder",
+                    "author_role": "ethics",
                 },
                 {
                     "type": "insight",
@@ -335,8 +336,8 @@ class TestMosDraftSummary:
             "speculative": 1,
             "inferred": 1,
         }
-        assert result["nodes_by_provenance_role"]["expert-old"]["unknown"] == 1
-        assert result["nodes_by_provenance_role"]["coder"]["extracted"] == 1
+        assert result["nodes_by_provenance_role"]["expert"]["unknown"] == 1
+        assert result["nodes_by_provenance_role"]["ethics"]["extracted"] == 1
         assert result["nodes_by_provenance_role"]["expert-foo"] == {
             "speculative": 1,
             "inferred": 1,
@@ -402,14 +403,16 @@ class TestLoadDraftRobustness:
         assert result["nodes"][0]["id"] == "H-1"
 
 
-class TestNoterMotifContract:
+class TestEthicsMotifContract:
     """Tests for the soft-enforcement motif contract (Stream 2).
 
     Ethics is now the merged memory curator that owns the Draft motif surface,
     so the soft-enforcement gate fires on author_role == "ethics".
     """
 
-    def test_noter_result_node_requires_motif_kind(self, tmp_path: Path, caplog: pytest.LogCaptureFixture):
+    def test_ethics_result_node_requires_motif_kind(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ):
         """ethics appending a result node without motif_kind logs warning + tags metadata."""
         port = 9999
         draft_path = draft._draft_path(port)
@@ -420,13 +423,21 @@ class TestNoterMotifContract:
         )
 
         import os
+
         env_backup = os.environ.copy()
         os.environ["MINIONS_PORT"] = str(port)
         os.environ["MINIONS_ROLE"] = "ethics"
         try:
             with caplog.at_level(logging.WARNING, logger="minions.tools.draft"):
-                result = draft.mos_draft_append(
-                    nodes=[{"id": "R-1", "type": "result", "text": "some result", "author_role": "ethics"}],
+                draft.mos_draft_append(
+                    nodes=[
+                        {
+                            "id": "R-1",
+                            "type": "result",
+                            "text": "some result",
+                            "author_role": "ethics",
+                        }
+                    ],
                     edges=[],
                 )
         finally:
@@ -444,17 +455,22 @@ class TestNoterMotifContract:
         draft_path = draft._draft_path(port)
         draft_path.parent.mkdir(parents=True, exist_ok=True)
         draft_path.write_text(
-            json.dumps({
-                "project_port": port, "root_question": "", "edges": [],
-                "nodes": [
-                    {"id": "H-1", "type": "hypothesis", "text": "h", "author_role": "coder"},
-                    {"id": "R-1", "type": "result", "text": "r", "author_role": "coder"},
-                ],
-            }),
+            json.dumps(
+                {
+                    "project_port": port,
+                    "root_question": "",
+                    "edges": [],
+                    "nodes": [
+                        {"id": "H-1", "type": "hypothesis", "text": "h", "author_role": "expert"},
+                        {"id": "R-1", "type": "result", "text": "r", "author_role": "expert"},
+                    ],
+                }
+            ),
             encoding="utf-8",
         )
 
         import os
+
         env_backup = os.environ.copy()
         os.environ["MINIONS_PORT"] = str(port)
         os.environ["MINIONS_ROLE"] = "ethics"
@@ -480,8 +496,8 @@ class TestNoterMotifContract:
             "project_port": port,
             "root_question": "Q",
             "nodes": [
-                {"id": "H-1", "type": "hypothesis", "text": "h", "author_role": "coder"},
-                {"id": "R-1", "type": "result", "text": "r", "author_role": "coder"},
+                {"id": "H-1", "type": "hypothesis", "text": "h", "author_role": "expert"},
+                {"id": "R-1", "type": "result", "text": "r", "author_role": "expert"},
             ],
             "edges": [],
         }

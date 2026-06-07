@@ -5,7 +5,7 @@
    via ``eacn3_send_message``. Tasks are a Role-to-Role contract; Gru is
    not on that contract — ``eacn3_create_task`` / ``eacn3_submit_*`` /
    ``eacn3_close_task`` / ``eacn3_team_*`` are server-side denied. The
-   legacy MOS Agent Pool send/create wrappers stay out.
+   unsupported MOS Agent Pool send/create wrappers stay out.
 
 If these disappear, the dead-letter class of bugs we fixed can quietly
 return (role -> Gru messages start being invisible again, or Gru starts

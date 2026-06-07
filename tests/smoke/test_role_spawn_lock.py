@@ -104,11 +104,11 @@ def test_launch_role_process_locks_registry(fake_claude_home: Path, tmp_path: Pa
     monkeypatch.setattr(role_launcher, "_role_env", lambda **kw: {"FAKE": "1"})
 
     role_entry = RoleEntry(
-        name="coder",
+        name="expert",
         state="active",
-        eacn_agent_id="agent-coder-test",
+        eacn_agent_id="agent-expert-test",
         workspace_path=str(workspace),
-        session_name="mos-9991-coder",
+        session_name="mos-9991-expert",
     )
 
     prefix = "mos-9991-"
@@ -117,7 +117,7 @@ def test_launch_role_process_locks_registry(fake_claude_home: Path, tmp_path: Pa
 
         # The launcher should have started a session.
         assert result["started"] is True
-        assert result["session_name"] == "mos-9991-coder"
+        assert result["session_name"] == "mos-9991-expert"
 
         # The argv should include --session-id with a valid UUID.
         argv = captured.get("argv") or []
@@ -133,7 +133,7 @@ def test_launch_role_process_locks_registry(fake_claude_home: Path, tmp_path: Pa
         assert sid in data, f"session_id {sid} missing from registry"
         entry = data[sid]
         assert entry["locked"] is True
-        assert entry["title"] == "mos-9991-coder"
+        assert entry["title"] == "mos-9991-expert"
         assert entry["source"] == "minionsos"
     finally:
         # Hard cleanup: even though _spawn_tmux is stubbed, _kill_tmux_sessions

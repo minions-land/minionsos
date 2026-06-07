@@ -2,7 +2,7 @@
 
 MinionsOS uses a three-tier stability classification for all public surfaces.
 Breaking changes to **stable** surfaces require a minor-version bump and a
-release-note migration entry. **Experimental** surfaces may change in any
+release-note operator action entry. **Experimental** surfaces may change in any
 patch. **Internal** surfaces carry no support guarantee.
 
 ---
@@ -11,7 +11,7 @@ patch. **Internal** surfaces carry no support guarantee.
 
 | Tier | Definition |
 |---|---|
-| **stable** | Semver-bound. Removals and incompatible changes require a minor-version bump and release-note migration entry. |
+| **stable** | Semver-bound. Removals and breaking changes require a minor-version bump and release-note operator action entry. |
 | **experimental** | Under active development. Interface may change in any patch release without prior notice. |
 | **internal** | Implementation detail. No support guarantee across any release. |
 
@@ -24,7 +24,7 @@ patch. **Internal** surfaces carry no support guarantee.
 | `mos_*` MCP tools (FastMCP stdio) | stable | Used by all Role processes; all tool names, parameter names, and return shapes are semver-bound. |
 | `mos` CLI commands (`mos project`, `mos role`, `mos logs`, `mos doctor`, `mos viz`) | stable | Exit codes and stdout JSON schema (`--json`) are semver-bound. |
 | `eacn3_*` MCP tools | stable | Network protocol surface; MinionsOS treats EACN3 as an external pinned dep. Changes tracked in `mcp-servers/eacn3/`. |
-| Role SYSTEM.md prompt contracts | stable (versioned) | §-numbered sections are the versioned unit. Backward-incompatible section changes increment the contract version noted in `minions/roles/SYSTEM.md`. |
+| Role SYSTEM.md prompt contracts | stable (versioned) | §-numbered sections are the versioned unit. Contract-breaking section changes increment the contract version noted in `minions/roles/SYSTEM.md`. |
 | `minions/errors.py` exception hierarchy | stable | Public exception names and parent relationships are semver-bound; `MinionsError` is the root. |
 | `minions/profiles/*.yaml` schema | stable | `MissionProfile` fields used in existing profiles. New optional fields may be added in any patch. |
 | `mcp-servers/eacn3/` package | external (pinned) | Treated as an upstream dep pinned in `pyproject.toml` + `uv.lock`. MinionsOS does not own its stability. |
@@ -43,14 +43,14 @@ patch. **Internal** surfaces carry no support guarantee.
 
 ## Breaking-change rules
 
-A change is **breaking** if it can cause an existing caller's previously
-working invocation to fail or to silently produce a different result.
+A change is **breaking** if it can cause a valid caller invocation to fail or
+to silently produce a different result.
 Examples:
 
 - Removing or renaming an `mos_*` MCP tool or any of its parameters.
 - Changing the type or required-ness of an `mos_*` parameter.
 - Removing or renaming a `MinionsError` subclass.
-- Removing a current `Role` or changing its launch contract without a migration path.
+- Removing a current `Role` or changing its launch contract without an operator action plan.
 - Removing or renaming a §-numbered section in `minions/roles/SYSTEM.md`.
 - Changing the exit-code contract of a `mos` CLI subcommand.
 - Changing the schema of `state/projects.json` without a forward-readable

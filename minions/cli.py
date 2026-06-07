@@ -883,13 +883,13 @@ def _bool_caster(value: str) -> bool:
     raise ValueError(f"expected a boolean (true/false/1/0), got {value!r}")
 
 
-_CONFIG_SETTABLE: dict[str, Callable[[str], object]] = {
-    "context_pressure_high_tokens": int,
-    "context_pressure_medium_tokens": int,
-    "cache_keepalive_seconds": int,
-    "model_context_window_tokens": int,
-    "review_timeout_seconds": int,
-    "review_ultracode": _bool_caster,
+_CONFIG_SETTABLE: dict[str, tuple[Callable[[str], object], str]] = {
+    "context_pressure_high_tokens": (int, "int"),
+    "context_pressure_medium_tokens": (int, "int"),
+    "cache_keepalive_seconds": (int, "int"),
+    "model_context_window_tokens": (int, "int"),
+    "review_timeout_seconds": (int, "int"),
+    "review_ultracode": (_bool_caster, "bool"),
 }
 
 
@@ -952,11 +952,11 @@ def config_set_cmd(
     if key not in _CONFIG_SETTABLE:
         allowed = ", ".join(sorted(_CONFIG_SETTABLE))
         raise _fail(f"'{key}' is not a settable config key. Allowed: {allowed}")
-    caster = _CONFIG_SETTABLE[key]
+    caster, caster_name = _CONFIG_SETTABLE[key]
     try:
         typed_value: object = caster(value)
     except (TypeError, ValueError) as exc:
-        raise _fail(f"value {value!r} is not a valid {caster.__name__} for {key}: {exc}") from exc
+        raise _fail(f"value {value!r} is not a valid {caster_name} for {key}: {exc}") from exc
 
     # Cross-field invariant: medium must stay strictly below high so the
     # medium band does not vanish/invert (mirrors context_pressure._load_thresholds).

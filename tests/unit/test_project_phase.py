@@ -32,8 +32,8 @@ def _make_store(tmp_path: Path) -> StateStore:
             created="2026-05-01T00:00:00Z",
             current_branch="minionsos/project-37596",
             active_roles=[
-                RoleEntry(name="coder", state="active", eacn_agent_id="coder-agent"),
-                RoleEntry(name="noter", state="active", eacn_agent_id="noter-agent"),
+                RoleEntry(name="expert", state="active", eacn_agent_id="expert-agent"),
+                RoleEntry(name="ethics", state="active", eacn_agent_id="ethics-agent"),
             ],
         )
     )
@@ -46,14 +46,14 @@ def test_project_set_phase_updates_registry_and_meta(tmp_path: Path) -> None:
     updated = project_set_phase(
         37596,
         "execution",
-        allowed_roles=["coder"],
+        allowed_roles=["expert"],
         reason="shift to implementation",
         store=store,
     )
 
     assert updated.current_phase == "execution"
     assert updated.phase_version == 1
-    assert updated.phase_allowed_roles == ["coder"]
-    assert project_phase_allows_role(updated, "coder") is True
-    assert project_phase_allows_role(updated, "noter") is False
-    assert project_phase_snapshot(updated)["phase_online_roles"] == ["coder"]
+    assert updated.phase_allowed_roles == ["expert"]
+    assert project_phase_allows_role(updated, "expert") is True
+    assert project_phase_allows_role(updated, "ethics") is False
+    assert project_phase_snapshot(updated)["phase_online_roles"] == ["expert"]

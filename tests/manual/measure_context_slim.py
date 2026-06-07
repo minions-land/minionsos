@@ -12,6 +12,7 @@ A full multi-turn cache-hit-rate measurement requires a live Role spawn.
 Usage:
     uv run python tests/manual/measure_context_slim.py
 """
+
 from __future__ import annotations
 
 import json
@@ -35,6 +36,7 @@ PROJECT_PORT = 99999  # ephemeral; no real backend
 
 def fresh_prompt() -> str:
     import random
+
     return f"Reply 'ok{random.randint(100000, 999999)}'."
 
 
@@ -51,7 +53,7 @@ def build_invocation(tool_search_value: str) -> tuple[list[str], dict[str, str]]
         cfg=cfg,
         role_name=ROLE_NAME,
         project_port=PROJECT_PORT,
-        project_agent_id="coder",
+        project_agent_id=ROLE_NAME,
         system_path=common_role_system_md(),
         allowed_tools=allowed,
         workspace=workspace,
@@ -85,7 +87,11 @@ def measure(label: str, tool_search_value: str) -> dict:
     print(f"argv head: {' '.join(cmd[:3])} ... ({len(cmd)} args total)", flush=True)
     try:
         result = subprocess.run(
-            cmd, env=env, capture_output=True, text=True, timeout=300,
+            cmd,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=300,
         )
     except subprocess.TimeoutExpired:
         return {"label": label, "error": "timeout 300s"}
@@ -124,12 +130,12 @@ def main() -> int:
     if all("error" not in r for r in results):
         b = results[0]
         a = results[1]
-        b_total = (b["input_tokens"]
-                   + b["cache_creation_input_tokens"]
-                   + b["cache_read_input_tokens"])
-        a_total = (a["input_tokens"]
-                   + a["cache_creation_input_tokens"]
-                   + a["cache_read_input_tokens"])
+        b_total = (
+            b["input_tokens"] + b["cache_creation_input_tokens"] + b["cache_read_input_tokens"]
+        )
+        a_total = (
+            a["input_tokens"] + a["cache_creation_input_tokens"] + a["cache_read_input_tokens"]
+        )
         delta = a_total - b_total
         pct = (delta / b_total * 100) if b_total else 0
         print(f"BASELINE total input tokens (false):   {b_total:>8}")

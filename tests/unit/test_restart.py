@@ -68,32 +68,32 @@ def patched_launcher(monkeypatch):
 
 class TestRestartRole:
     def test_cold_restart_uses_resume_false(self, patched_launcher):
-        entry = _project(40000, [RoleEntry(name="coder", state="active")])
+        entry = _project(40000, [RoleEntry(name="expert", state="active")])
         store = _FakeStore(entry)
-        result = restart_mod.restart_role(40000, "coder", store=store)
-        assert result["role"] == "coder"
+        result = restart_mod.restart_role(40000, "expert", store=store)
+        assert result["role"] == "expert"
         assert result["killed"] is True
         assert result["started"] is True
         # The launch must be a cold start (resume=False) so the new process
         # rebuilds context from the Draft rather than replaying cached history.
-        assert patched_launcher["launched"] == [(40000, "coder", False)]
+        assert patched_launcher["launched"] == [(40000, "expert", False)]
 
     def test_unknown_project_raises(self, patched_launcher):
         store = _FakeStore(None)
         with pytest.raises(RoleError):
-            restart_mod.restart_role(99999, "coder", store=store)
+            restart_mod.restart_role(99999, "expert", store=store)
 
     def test_unknown_role_raises(self, patched_launcher):
-        entry = _project(40000, [RoleEntry(name="coder", state="active")])
+        entry = _project(40000, [RoleEntry(name="expert", state="active")])
         store = _FakeStore(entry)
         with pytest.raises(RoleError):
             restart_mod.restart_role(40000, "ethics", store=store)
 
     def test_dismissed_role_refused(self, patched_launcher):
-        entry = _project(40000, [RoleEntry(name="coder", state="dismissed")])
+        entry = _project(40000, [RoleEntry(name="expert", state="dismissed")])
         store = _FakeStore(entry)
         with pytest.raises(RoleError):
-            restart_mod.restart_role(40000, "coder", store=store)
+            restart_mod.restart_role(40000, "expert", store=store)
         # No launch attempted for a dismissed role.
         assert patched_launcher["launched"] == []
 
@@ -103,29 +103,29 @@ class TestRestartProjectRoles:
         entry = _project(
             40000,
             [
-                RoleEntry(name="coder", state="active"),
+                RoleEntry(name="expert", state="active"),
                 RoleEntry(name="ethics", state="active"),
-                RoleEntry(name="writer", state="dismissed"),
+                RoleEntry(name="expert-peer", state="dismissed"),
             ],
         )
         store = _FakeStore(entry)
         result = restart_mod.restart_project_roles(40000, store=store)
         restarted_names = {r["role"] for r in result["restarted"]}
-        assert restarted_names == {"coder", "ethics"}
-        assert result["skipped"] == ["writer (dismissed)"]
+        assert restarted_names == {"expert", "ethics"}
+        assert result["skipped"] == ["expert-peer (dismissed)"]
         assert result["failed"] == []
 
     def test_named_subset(self, patched_launcher):
         entry = _project(
             40000,
             [
-                RoleEntry(name="coder", state="active"),
+                RoleEntry(name="expert", state="active"),
                 RoleEntry(name="ethics", state="active"),
             ],
         )
         store = _FakeStore(entry)
-        result = restart_mod.restart_project_roles(40000, roles=["coder"], store=store)
-        assert {r["role"] for r in result["restarted"]} == {"coder"}
+        result = restart_mod.restart_project_roles(40000, roles=["expert"], store=store)
+        assert {r["role"] for r in result["restarted"]} == {"expert"}
 
     def test_only_live_roles_recycled(self, patched_launcher):
         """A stale `active` entry with no tmux session must NOT be launched.
@@ -136,25 +136,25 @@ class TestRestartProjectRoles:
         entry = _project(
             40000,
             [
-                RoleEntry(name="coder", state="active"),
+                RoleEntry(name="expert", state="active"),
                 RoleEntry(name="ethics", state="active"),
             ],
         )
         store = _FakeStore(entry)
-        # ethics is NOT running; coder is.
+        # ethics is NOT running; expert is.
         patched_launcher["alive"][(40000, "ethics")] = False
         result = restart_mod.restart_project_roles(40000, store=store)  # only_if_alive default True
-        assert {r["role"] for r in result["restarted"]} == {"coder"}
+        assert {r["role"] for r in result["restarted"]} == {"expert"}
         assert any("ethics" in s for s in result["skipped"])
         # ethics must never have been launched.
         launched_names = {name for (_p, name, _r) in patched_launcher["launched"]}
-        assert launched_names == {"coder"}
+        assert launched_names == {"expert"}
 
     def test_one_failure_does_not_abort_rest(self, patched_launcher, monkeypatch):
         entry = _project(
             40000,
             [
-                RoleEntry(name="coder", state="active"),
+                RoleEntry(name="expert", state="active"),
                 RoleEntry(name="ethics", state="active"),
             ],
         )
@@ -162,14 +162,14 @@ class TestRestartProjectRoles:
         import minions.lifecycle.role_launcher as rl
 
         def _flaky_launch(role_entry, port, *, resume=False):
-            if role_entry.name == "coder":
+            if role_entry.name == "expert":
                 raise RuntimeError("boom")
             return {"session_name": f"mos-{port}-{role_entry.name}", "started": True}
 
         monkeypatch.setattr(rl, "launch_role_process", _flaky_launch)
         result = restart_mod.restart_project_roles(40000, store=store)
         assert {r["role"] for r in result["restarted"]} == {"ethics"}
-        assert [f["role"] for f in result["failed"]] == ["coder"]
+        assert [f["role"] for f in result["failed"]] == ["expert"]
 
 
 class TestGruMonitorStatus:

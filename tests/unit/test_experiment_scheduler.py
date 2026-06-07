@@ -531,7 +531,7 @@ def test_status_records_last_reconcile_at(tmp_path: Path) -> None:
     assert pre["last_reconcile_at"] is None  # never reconciled
     sched.submit(
         [QueueUnit(cmd="echo a", gpus_needed=1, min_free_mb=1000)],
-        requester="coder",
+        requester="expert",
     )
     post = sched.status()
     assert post["last_reconcile_at"] is not None
@@ -550,7 +550,7 @@ def test_gpu_idle_warning_fires_when_pending_no_capacity_with_idle_gpus(
     # for one pending unit so the warning has something to grip on.
     sched.submit(
         [QueueUnit(cmd="echo a", gpus_needed=1, min_free_mb=99_999_999)],
-        requester="coder",
+        requester="expert",
         reconcile=False,
     )
     # The submit reconciles by default; with min_free_mb impossibly high,
@@ -580,7 +580,7 @@ def test_gpu_idle_warning_silent_when_gpus_busy(tmp_path: Path) -> None:
     sched = _scheduler(tmp_path, backend)
     sched.submit(
         [QueueUnit(cmd="echo a", gpus_needed=1, min_free_mb=10_000)],
-        requester="coder",
+        requester="expert",
     )
     pre = sched.status()
     pending = [u for u in pre["units"] if u["status"] == "pending"]

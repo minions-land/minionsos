@@ -1,13 +1,8 @@
-"""Regression tests: project_dormant / project_revive must not drop extra
-runtime fields (backend_pid, eacn3_server_id, eacn3_server_token,
-gru_agent_id, gru_agent_token, topic_doc, template_dir) from meta.json.
+"""Tests for preserving project runtime metadata across dormant / revive.
 
-See bug: _write_meta previously used ProjectEntry.model_dump_json() which,
-although the model has ``extra="allow"``, was never populated with runtime
-extras — those lived only in the on-disk meta.json. The dormant path
-overwrote the file with the store entry (losing extras), and the revive
-path depended on reading the now-missing fields, so project_repair_gru_agent
-raised ProjectError after any dormant→revive cycle.
+project_dormant and project_revive must keep runtime fields (backend_pid,
+eacn3_server_id, eacn3_server_token, gru_agent_id, gru_agent_token,
+topic_doc, template_dir) that live in meta.json outside the store entry.
 """
 
 from __future__ import annotations
@@ -19,7 +14,7 @@ from typing import Any
 import pytest
 
 from minions.lifecycle import project as proj_mod
-from minions.lifecycle import project_backend, project_paths, project_lifecycle, project_metadata
+from minions.lifecycle import project_backend, project_lifecycle, project_metadata, project_paths
 from minions.state.store import ProjectEntry, RoleEntry, StateStore
 
 
@@ -40,7 +35,7 @@ def _install_patches(
     monkeypatch.setattr(proj_mod, "project_eacn_db", lambda p: pdir / "eacn3_data" / "eacn3.db")
     monkeypatch.setattr(proj_mod, "project_backend_log", lambda p: pdir / "logs" / "backend.log")
 
-    # Patch project_metadata模块中使用的project_meta_json
+    # Patch project_metadata's project_meta_json helper.
     monkeypatch.setattr(project_metadata, "project_meta_json", lambda p: pdir / "meta.json")
 
     monkeypatch.setattr(
@@ -59,28 +54,37 @@ def _install_patches(
         def terminate(self) -> None:  # pragma: no cover - unused happy-path
             pass
 
-    # Mock在project_backend模块中的函数
+    # Patch helpers used through project_backend.
     monkeypatch.setattr(project_backend, "start_backend", lambda port: _FakeProc(backend_pid))
     monkeypatch.setattr(project_backend, "wait_for_health", lambda port, timeout=None: None)
     monkeypatch.setattr(project_backend, "stop_backend", lambda port, pid=None: None)
     monkeypatch.setattr(project_backend, "register_server", lambda port: (server_id, server_token))
 
-    # Mock在project_lifecycle模块中导入的backend函数（实际被调用的）
+    # Patch backend helpers imported by project_lifecycle.
     monkeypatch.setattr(project_lifecycle, "start_backend", lambda port: _FakeProc(backend_pid))
     monkeypatch.setattr(project_lifecycle, "wait_for_health", lambda port, timeout=None: None)
     monkeypatch.setattr(project_lifecycle, "stop_backend", lambda port, pid=None: None)
-    monkeypatch.setattr(project_lifecycle, "register_server", lambda port: (server_id, server_token))
-    # register_gru_eacn_agent返回(gru_agent_id, gru_agent_token)，agent_id应该保持不变
-    monkeypatch.setattr(project_lifecycle, "register_gru_eacn_agent", lambda port, sid: ("gru", gru_token))
-    # Note: adopt_running_backend不在这里mock，让测试自己根据需要mock
+    monkeypatch.setattr(
+        project_lifecycle,
+        "register_server",
+        lambda port: (server_id, server_token),
+    )
+    # register_gru_eacn_agent returns (gru_agent_id, gru_agent_token);
+    # keep the agent_id stable.
+    monkeypatch.setattr(
+        project_lifecycle,
+        "register_gru_eacn_agent",
+        lambda port, sid: ("gru", gru_token),
+    )
+    # Tests that need adopt_running_backend patch it explicitly.
 
-    # Mock在project_paths模块中的函数
+    # Patch project_paths helpers.
     monkeypatch.setattr(project_paths, "git_tag", lambda port, tag: None)
 
-    # Mock在project_lifecycle模块中导入的git_tag（这是实际被调用的）
+    # Patch git_tag imported by project_lifecycle.
     monkeypatch.setattr(project_lifecycle, "git_tag", lambda port, tag: None)
 
-    # Mock在proj_mod中的函数
+    # Patch proj_mod helpers.
     monkeypatch.setattr(proj_mod, "upsert_agent_identity", lambda *args, **kwargs: {})
     monkeypatch.setattr(proj_mod, "identity_map_for_meta", lambda port: {})
 
@@ -113,6 +117,7 @@ def _seed_project(
     project_create."""
     # Use MINIONS_PROJECTS_ROOT from conftest
     import os
+
     projects_root = Path(os.environ.get("MINIONS_PROJECTS_ROOT", tmp_path))
     pdir = projects_root / f"project_{port}"
     (pdir / "logs").mkdir(parents=True, exist_ok=True)
@@ -251,6 +256,7 @@ def test_revive_adopts_running_backend_left_by_failed_kill(
     )
     # 也需要mock project_lifecycle中导入的函数
     from minions.errors import BackendError
+
     monkeypatch.setattr(
         project_lifecycle,
         "start_backend",
@@ -382,10 +388,10 @@ def test_project_repair_registers_missing_role_agents_and_clears_stale_pids(
     port = 40104
     store, _entry, pdir = _seed_project(tmp_path, port=port)
     role = RoleEntry(
-        name="coder",
+        name="expert",
         state="active",
         pid=99999,
-        eacn_agent_id="coder",
+        eacn_agent_id="expert",
         eacn_agent_token="old-token",
     )
     store.update_project(port, active_roles=[role])
@@ -408,7 +414,7 @@ def test_project_repair_registers_missing_role_agents_and_clears_stale_pids(
 
     def _register_role(port: int, role_name: str, *, server_id: str | None = None):
         registered.append((port, role_name, server_id or ""))
-        return "coder-new-token", []
+        return "expert-new-token", []
 
     from minions.lifecycle import agent_registry
 
@@ -418,12 +424,12 @@ def test_project_repair_registers_missing_role_agents_and_clears_stale_pids(
 
     assert result["status"] == "repaired"
     assert result["gru_status"] == "already"
-    assert result["role_agents_registered"] == ["coder"]
-    assert result["stale_pids_cleared"] == ["coder"]
-    assert registered == [(port, "coder", "srv-abc")]
+    assert result["role_agents_registered"] == ["expert"]
+    assert result["stale_pids_cleared"] == ["expert"]
+    assert registered == [(port, "expert", "srv-abc")]
     repaired_role = store.get_project(port).active_roles[0]  # type: ignore[union-attr]
     assert repaired_role.pid is None
-    assert repaired_role.eacn_agent_token == "coder-new-token"
+    assert repaired_role.eacn_agent_token == "expert-new-token"
 
 
 def test_project_repair_is_already_when_gru_and_roles_present(
@@ -431,7 +437,7 @@ def test_project_repair_is_already_when_gru_and_roles_present(
 ) -> None:
     port = 40105
     store, _entry, pdir = _seed_project(tmp_path, port=port)
-    role = RoleEntry(name="coder", state="active", eacn_agent_id="coder")
+    role = RoleEntry(name="expert", state="active", eacn_agent_id="expert")
     store.update_project(port, active_roles=[role])
     _install_patches(
         monkeypatch,
@@ -446,7 +452,7 @@ def test_project_repair_is_already_when_gru_and_roles_present(
         "probe_backend",
         lambda port, timeout=3.0: {
             "health": True,
-            "agents": [{"agent_id": "gru"}, {"agent_id": "coder"}],
+            "agents": [{"agent_id": "gru"}, {"agent_id": "expert"}],
         },
     )
 
@@ -455,7 +461,7 @@ def test_project_repair_is_already_when_gru_and_roles_present(
     assert result["status"] == "already"
     assert result["gru_status"] == "already"
     assert result["role_agents_registered"] == []
-    assert result["role_agents_already"] == ["coder"]
+    assert result["role_agents_already"] == ["expert"]
 
 
 def test_project_repair_refreshes_missing_server_registration(
@@ -504,9 +510,9 @@ def test_dormant_kills_role_tmux_sessions(tmp_path: Path, monkeypatch: pytest.Mo
     a dead server."""
     port = 40114
     store, _entry, pdir = _seed_project(tmp_path, port=port)
-    coder = RoleEntry(name="coder", state="active", eacn_agent_id="coder")
-    writer = RoleEntry(name="writer", state="active", eacn_agent_id="writer")
-    store.update_project(port, active_roles=[coder, writer])
+    expert = RoleEntry(name="expert", state="active", eacn_agent_id="expert")
+    ethics = RoleEntry(name="ethics", state="active", eacn_agent_id="ethics")
+    store.update_project(port, active_roles=[expert, ethics])
     _install_patches(
         monkeypatch,
         pdir,
@@ -528,16 +534,20 @@ def test_dormant_kills_role_tmux_sessions(tmp_path: Path, monkeypatch: pytest.Mo
 
     proj_mod.project_dormant(port, store=store)
 
-    assert (port, "coder") in killed
-    assert (port, "writer") in killed
+    assert (port, "expert") in killed
+    assert (port, "ethics") in killed
     assert len(killed) == 2
 
 
-def test_revive_relaunches_roles_cold(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_git_operations) -> None:
+def test_revive_relaunches_roles_cold(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_git_operations,
+) -> None:
     """project_revive must call launch_role_process(..., resume=False) for
     every restored role. Resuming would reset Claude Code's prompt cache and
     replay the prior conversation as fresh uncached input; cold-starting and
-    rebuilding context from the Exploration DAG is strictly cheaper."""
+    rebuilding context from Draft is strictly cheaper."""
     port = 40115
     store, entry, pdir = _seed_project(tmp_path, port=port)
     role = RoleEntry(name="expert", state="dismissed", eacn_agent_id="expert")

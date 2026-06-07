@@ -3,15 +3,15 @@
 Pins the fix for the run()/run_async() drift: the production sidecar
 (bin/gru -> python -m minions.gru.loop -> main() -> loop.run()) must start the
 FULL set of enabled watchdog threads, not just experiment-reconcile + _tick.
-Previously run_async() (the old main() entrypoint) silently dropped 6 of 7
-watchdogs. Both entrypoints now delegate to _start_watchdog_threads(), so they
-cannot diverge again.
+Both entrypoints delegate to _start_watchdog_threads(), so they cannot diverge.
 """
 
 from __future__ import annotations
 
 import threading
 from unittest.mock import patch
+
+import pytest
 
 from minions.gru.loop import GruLoop
 
@@ -95,22 +95,21 @@ def test_run_delegates_to_start_watchdog_threads():
     assert calls == ["watchdogs"]
 
 
-import pytest
-
-
 @pytest.mark.forked
 def test_main_uses_run_not_run_async(monkeypatch):
     """Production main() must drive the complete run() path (all watchdogs),
-    not the legacy run_async() that only started experiment-reconcile."""
+    not the partial run_async() path."""
     # Force clean import of loop module
     import sys
-    if 'minions.gru.loop' in sys.modules:
-        del sys.modules['minions.gru.loop']
-    if 'minions.gru' in sys.modules:
-        del sys.modules['minions.gru']
+
+    if "minions.gru.loop" in sys.modules:
+        del sys.modules["minions.gru.loop"]
+    if "minions.gru" in sys.modules:
+        del sys.modules["minions.gru"]
+
+    from unittest.mock import Mock
 
     from minions.gru import loop as loop_mod
-    from unittest.mock import Mock
 
     called: dict[str, bool] = {"run": False, "run_async": False}
 

@@ -83,13 +83,12 @@ Default roles are not auto-spawned by `project_create`. Inside a Gru
 session, spawn the standard set:
 
 ```python
-mos_spawn_role(port=<PORT>, role_name="noter")
-mos_spawn_role(port=<PORT>, role_name="coder")
+mos_spawn_role(port=<PORT>, role_name="ethics")
 mos_spawn_expert(port=<PORT>, expert_slug="dl-arch")
 ```
 
-Expected: `./mos role list <PORT>` lists `noter`, `coder`, `expert-dl-arch`
-as `active`. `project_<N>/logs/role-noter.log` etc. exist. Each role runs
+Expected: `./mos role list <PORT>` lists `ethics`, `expert-dl-arch`
+as `active`. `project_<N>/logs/role-ethics.log` etc. exist. Each role runs
 in its own tmux session named `mos-<PORT>-<role>`.
 
 ### Step 8 — Bridge a message between projects (requires two projects)

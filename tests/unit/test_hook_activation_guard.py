@@ -57,9 +57,9 @@ class TestRoleEnvExposesMinionsRoot:
         from minions.lifecycle.role_launcher import _role_env
         from minions.state.store import RoleEntry
 
-        role = RoleEntry(name="writer", state="active", workspace_branch="feature/x")
+        role = RoleEntry(name="expert", state="active", workspace_branch="feature/x")
         with (
-            patch("minions.lifecycle.role_launcher.resolve_agent_id", return_value="writer"),
+            patch("minions.lifecycle.role_launcher.resolve_agent_id", return_value="expert"),
             patch("minions.lifecycle.role_launcher.plugin_state_dir") as plugin_dir,
             patch(
                 "minions.lifecycle.role_launcher.project_workspace_root",
@@ -73,7 +73,7 @@ class TestRoleEnvExposesMinionsRoot:
             plugin_dir.return_value = tmp_path / "plugin"
             (tmp_path / "plugin").mkdir(parents=True, exist_ok=True)
             return _role_env(
-                role_name="writer",
+                role_name="expert",
                 project_port=37596,
                 role_entry=role,
                 workspace=tmp_path,

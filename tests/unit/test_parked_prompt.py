@@ -36,9 +36,7 @@ def _fake_capture_pane(stdout: str):
     """Build a subprocess.CompletedProcess mock returning *stdout*."""
 
     def _run(*args, **kwargs):
-        return subprocess.CompletedProcess(
-            args=args, returncode=0, stdout=stdout, stderr=""
-        )
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
 
     return _run
 
@@ -55,7 +53,7 @@ class TestDetectParkedPane:
 
     def test_healthy_pane_is_not_parked(self) -> None:
         with patch.object(subprocess, "run", side_effect=_fake_capture_pane(_HEALTHY_PANE_SAMPLE)):
-            sig = parked_prompt.detect_parked_pane("mos-37596-coder")
+            sig = parked_prompt.detect_parked_pane("mos-37596-expert")
         assert sig.parked is False
 
     def test_tmux_failure_returns_not_parked(self) -> None:

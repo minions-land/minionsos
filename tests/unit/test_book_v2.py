@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from minions.tools import book_special
 from minions.tools.book import (
     BookError,
     mos_book_dead_end,
@@ -14,8 +15,6 @@ from minions.tools.book import (
     mos_book_query,
     mos_book_ratify,
 )
-from minions.tools import publish
-from minions.tools import book_special
 
 # ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -25,16 +24,24 @@ def book_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> int:
     """Set up a minimal project layout and return its port."""
     port = 19991
     shared = tmp_path / f"project_{port}" / "branches" / "main"
-    for subdir in ("book/sources", "book/contradictions", "book/queries",
-                   "book/open_questions", "state"):
+    for subdir in (
+        "book/sources",
+        "book/contradictions",
+        "book/queries",
+        "book/open_questions",
+        "state",
+    ):
         (shared / subdir).mkdir(parents=True, exist_ok=True)
     (shared / "book" / "index.md").write_text("", encoding="utf-8")
     (shared / "book" / "log.md").write_text("", encoding="utf-8")
     (shared / "state" / "shared.lock").write_text("", encoding="utf-8")
 
     # Mock mos_publish_to_shared for book_special module
-    def _fake_publish_to_shared(*, role, src_path, dst_subpath, commit_message, port=None, **kwargs):
+    def _fake_publish_to_shared(
+        *, role, src_path, dst_subpath, commit_message, port=None, **kwargs
+    ):
         import shutil
+
         from minions.tools.book_helpers import _book_root
 
         book_root = _book_root(port)
@@ -78,7 +85,9 @@ def book_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> int:
             "branch": "main",
         }
 
-    monkeypatch.setattr(book_special, "mos_publish_files_to_shared", _fake_publish_files_for_special)
+    monkeypatch.setattr(
+        book_special, "mos_publish_files_to_shared", _fake_publish_files_for_special
+    )
 
     # Mock mos_publish_files_to_shared for book_ingest module
     def _fake_publish_files(*, role, files, commit_message, port=None, **kwargs):
@@ -88,7 +97,7 @@ def book_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> int:
         for entry in files:
             src = Path(entry["src_path"])
             dst_subpath = entry["dst_subpath"]
-            # dst_subpath is like "book/sources/coder-dummy.md"
+            # dst_subpath is like "book/sources/expert-dummy.md"
             # We need to put it under shared/
             dst = shared / dst_subpath
             dst.parent.mkdir(parents=True, exist_ok=True)
@@ -106,12 +115,15 @@ def book_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> int:
         }
 
     from minions.tools import book_ingest
+
     monkeypatch.setattr(book_ingest, "mos_publish_files_to_shared", _fake_publish_files)
 
     # Mock _publish_files in book_promote module for ratify
     from minions.tools import book_promote
+
     def _fake_promote_publish_files(port, files, message):
         import shutil
+
         dst_paths = []
         for src_path, rel_dst in files:
             # rel_dst is like "sources/slug.md" or "log.md"
@@ -125,6 +137,7 @@ def book_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> int:
             "commit_sha": "fake-sha",
             "pushed": False,
         }
+
     monkeypatch.setattr(book_promote, "_publish_files", _fake_promote_publish_files)
 
     monkeypatch.setenv("MINIONS_PORT", str(port))
@@ -148,7 +161,7 @@ def test_dead_end_creates_page_with_refuted_status(book_project: int, tmp_path: 
     page_path = tmp_path / f"project_{book_project}" / "branches" / "main" / result["book_path"]
     assert page_path.exists()
     content = page_path.read_text(encoding="utf-8")
-    assert "status: \"refuted\"" in content or "status: refuted" in content
+    assert 'status: "refuted"' in content or "status: refuted" in content
     assert "MUST NEVER BE DELETED" in content or "refuted" in content
 
 
@@ -185,13 +198,13 @@ def test_ratify_requires_ethics_role(book_project: int, tmp_path: Path) -> None:
     src.write_text("# Dummy\n\nSome content.", encoding="utf-8")
     ingest_result = mos_book_ingest(
         src_path=str(src),
-        source_role="coder",
+        source_role="expert",
         source_slug="dummy-ratify-test",
         port=book_project,
     )
     slug = ingest_result["slug"]
     with pytest.raises(BookError, match="Ethics-only"):
-        mos_book_ratify(slug, "Some evidence review.", ratifier_role="coder", port=book_project)
+        mos_book_ratify(slug, "Some evidence review.", ratifier_role="expert", port=book_project)
 
 
 def test_ratify_updates_frontmatter(book_project: int, tmp_path: Path) -> None:
@@ -201,7 +214,7 @@ def test_ratify_updates_frontmatter(book_project: int, tmp_path: Path) -> None:
     src.write_text("# Finding\n\nCritical result.", encoding="utf-8")
     ingest_result = mos_book_ingest(
         src_path=str(src),
-        source_role="coder",
+        source_role="expert",
         source_slug="ratify-me",
         port=book_project,
     )
@@ -213,11 +226,9 @@ def test_ratify_updates_frontmatter(book_project: int, tmp_path: Path) -> None:
         port=book_project,
     )
     assert result["slug"] == slug
-    page_path = (
-        tmp_path / f"project_{book_project}" / "branches" / "main" / result["book_path"]
-    )
+    page_path = tmp_path / f"project_{book_project}" / "branches" / "main" / result["book_path"]
     content = page_path.read_text(encoding="utf-8")
-    assert "ratified_by: \"ethics\"" in content or "ratified_by: ethics" in content
+    assert 'ratified_by: "ethics"' in content or "ratified_by: ethics" in content
     assert "## Ratification" in content
     assert "three independent replications" in content
 
@@ -258,7 +269,7 @@ def test_query_returns_paper_role_and_motif_kind(book_project: int, tmp_path: Pa
     src.write_text("# Simple\n\nA finding.", encoding="utf-8")
     mos_book_ingest(
         src_path=str(src),
-        source_role="writer",
+        source_role="expert",
         source_slug="simple-finding",
         port=book_project,
     )
