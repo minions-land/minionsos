@@ -4,6 +4,7 @@
 Reads the api.registerTool({ name: ..., description: ... }) blocks and creates
 MANUAL/tools/<name>.md if missing. Existing pages are preserved.
 """
+
 from __future__ import annotations
 
 import re
@@ -67,8 +68,21 @@ the Gru watchdog. See `domains/eacn3.md` for the wake-loop pattern.
 def derive_keywords(name: str, desc: str) -> list[str]:
     base = name.removeprefix("eacn3_").split("_")
     extras = []
-    for kw in ["task", "agent", "message", "bid", "event", "domain", "reputation",
-              "balance", "deposit", "escrow", "subtask", "broadcast", "directed"]:
+    for kw in [
+        "task",
+        "agent",
+        "message",
+        "bid",
+        "event",
+        "domain",
+        "reputation",
+        "balance",
+        "deposit",
+        "escrow",
+        "subtask",
+        "broadcast",
+        "directed",
+    ]:
         if kw in desc.lower():
             extras.append(kw)
     return list(dict.fromkeys(base + extras))[:10]
@@ -112,14 +126,17 @@ def main() -> int:
                     auth = ", ".join(auth_list)
                     one_line = (desc.split(".")[0] if desc else "TODO").strip()[:160]
                     keywords = ", ".join(derive_keywords(name, desc))
-                    page.write_text(STUB.format(
-                        name=name,
-                        auth=auth,
-                        line=name_line,
-                        keywords=keywords,
-                        one_line=one_line,
-                        description=desc,
-                    ), encoding="utf-8")
+                    page.write_text(
+                        STUB.format(
+                            name=name,
+                            auth=auth,
+                            line=name_line,
+                            keywords=keywords,
+                            one_line=one_line,
+                            description=desc,
+                        ),
+                        encoding="utf-8",
+                    )
                     written += 1
                     print(f"OK  wrote MANUAL/tools/{name}.md  (src:{name_line})")
             i = j + 1

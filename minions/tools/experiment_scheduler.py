@@ -834,4 +834,3 @@ class ExperimentScheduler:
                     metrics_summary=log_tail[-500:] if log_tail else None,
                 )
         return completed, failed
-

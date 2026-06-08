@@ -8,6 +8,7 @@ testing without real git operations.
 import subprocess
 from pathlib import Path
 from unittest.mock import Mock
+
 import pytest
 
 
@@ -24,7 +25,6 @@ def mock_git_operations(monkeypatch):
     # Track state
     branches = set()
     worktrees = {}
-    commits = {}
 
     def mock_git_run(cmd, *args, **kwargs):
         """Mock git commands"""
@@ -94,7 +94,7 @@ def mock_git_operations(monkeypatch):
                     returncode=0,
                     stdout=f"Preparing worktree (new branch '{branch}')\n",
                     stderr="",
-                    check_returncode=lambda: None
+                    check_returncode=lambda: None,
                 )
             except (ValueError, IndexError):
                 pass
@@ -109,7 +109,7 @@ def mock_git_operations(monkeypatch):
                 branch = cmd[cmd.index("-D") + 1]
                 branches.discard(branch)
                 return Mock(returncode=0, stdout="", stderr="")
-            except:
+            except (ValueError, IndexError):
                 pass
 
         # git add
@@ -119,9 +119,7 @@ def mock_git_operations(monkeypatch):
         # git commit
         if git_cmd == "commit":
             return Mock(
-                returncode=0,
-                stdout="[main abc1234] commit message\n 1 file changed\n",
-                stderr=""
+                returncode=0, stdout="[main abc1234] commit message\n 1 file changed\n", stderr=""
             )
 
         # git config (read/write)
@@ -136,9 +134,7 @@ def mock_git_operations(monkeypatch):
             if "HEAD" in cmd:
                 # Return a fake SHA
                 return Mock(
-                    returncode=0,
-                    stdout="abc123def456789012345678901234567890abcd\n",
-                    stderr=""
+                    returncode=0, stdout="abc123def456789012345678901234567890abcd\n", stderr=""
                 )
             # Other rev-parse commands pass through
             return original_run(cmd, *args, **kwargs)
@@ -147,11 +143,8 @@ def mock_git_operations(monkeypatch):
         if git_cmd == "archive":
             # Return empty tar stream
             import io
-            return Mock(
-                returncode=0,
-                stdout=io.BytesIO(b""),
-                stderr=""
-            )
+
+            return Mock(returncode=0, stdout=io.BytesIO(b""), stderr="")
 
         # git push
         if git_cmd == "push":
@@ -170,24 +163,24 @@ def mock_git_operations(monkeypatch):
     original_popen = subprocess.Popen
 
     def mock_git_popen(cmd, *args, **kwargs):
-        if isinstance(cmd, list) and len(cmd) >= 2 and cmd[0] == "git":
-            if cmd[1] == "archive":
-                # Create a real pipe for stdout
-                import os
-                r, w = os.pipe()
-                # Write empty tar to the pipe and close write end
-                os.write(w, b"")
-                os.close(w)
+        if isinstance(cmd, list) and len(cmd) >= 2 and cmd[0] == "git" and cmd[1] == "archive":
+            # Create a real pipe for stdout
+            import os
 
-                mock_proc = Mock()
-                mock_proc.stdout = os.fdopen(r, 'rb')
-                mock_proc.stderr = Mock()
-                mock_proc.stderr.read = lambda: b""
-                mock_proc.returncode = 0
-                mock_proc.wait = lambda: 0
-                mock_proc.communicate = lambda: (b"", b"")
-                mock_proc.poll = lambda: 0
-                return mock_proc
+            r, w = os.pipe()
+            # Write empty tar to the pipe and close write end
+            os.write(w, b"")
+            os.close(w)
+
+            mock_proc = Mock()
+            mock_proc.stdout = os.fdopen(r, "rb")
+            mock_proc.stderr = Mock()
+            mock_proc.stderr.read = lambda: b""
+            mock_proc.returncode = 0
+            mock_proc.wait = lambda: 0
+            mock_proc.communicate = lambda: (b"", b"")
+            mock_proc.poll = lambda: 0
+            return mock_proc
         return original_popen(cmd, *args, **kwargs)
 
     monkeypatch.setattr(subprocess, "Popen", mock_git_popen)

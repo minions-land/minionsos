@@ -92,7 +92,6 @@ def simulate_compact_strategy(turns: list[dict]) -> dict:
     sim_cr = [t["cr"] for t in turns]  # start from original
     compact_events = []
     cooldown_until = -1
-    last_compact_at = -1
 
     # Estimate per-turn growth rate from original trajectory: avg delta
     # between consecutive turns = a proxy for "how fast history grows."
@@ -114,7 +113,6 @@ def simulate_compact_strategy(turns: list[dict]) -> dict:
             # Trigger compact at turn i. From turn i+1 onward, the
             # simulated cr resets to FLOOR and grows at growth_per_turn.
             compact_events.append({"turn_idx": i, "avg_cr_at_trigger": avg})
-            last_compact_at = i
             cooldown_until = i + COOLDOWN_TURNS
 
             for j in range(i + 1, n):
@@ -130,7 +128,9 @@ def simulate_compact_strategy(turns: list[dict]) -> dict:
     compact_overhead_cc = len(compact_events) * COMPACT_PREFIX_REBUILD
     compact_overhead_out = len(compact_events) * COMPACT_OUTPUT_TOKENS
 
-    cost_orig = orig_cr * P_CR + sum(t["cc"] for t in turns) * P_CC + sum(t["out"] for t in turns) * P_OUT
+    cost_orig = (
+        orig_cr * P_CR + sum(t["cc"] for t in turns) * P_CC + sum(t["out"] for t in turns) * P_OUT
+    )
     cost_sim = (
         sim_cr_total * P_CR
         + (sum(t["cc"] for t in turns) + compact_overhead_cc) * P_CC
@@ -177,9 +177,7 @@ def main(argv: list[str]) -> int:
         if result["compact_events"]:
             firsts = result["compact_events"][:3]
             for ev in firsts:
-                print(
-                    f"     → at turn {ev['turn_idx']}, avg_cr was {ev['avg_cr_at_trigger']:,}"
-                )
+                print(f"     → at turn {ev['turn_idx']}, avg_cr was {ev['avg_cr_at_trigger']:,}")
         print(f"   original cr total : {result['orig_cr_total']:>12,} tok")
         print(f"   simulated cr total: {result['sim_cr_total']:>12,} tok")
         print(f"   cr saved          : {result['cr_saved']:>12,} tok")
@@ -200,8 +198,10 @@ def main(argv: list[str]) -> int:
     print(f"  total compacts: {grand_compacts}")
     print(f"  original cost : ${grand_orig:.2f}")
     print(f"  simulated cost: ${grand_sim:.2f}")
-    print(f"  savings       : ${grand_orig - grand_sim:.2f}  "
-          f"({(grand_orig - grand_sim) / grand_orig * 100:.1f}%)")
+    print(
+        f"  savings       : ${grand_orig - grand_sim:.2f}  "
+        f"({(grand_orig - grand_sim) / grand_orig * 100:.1f}%)"
+    )
     return 0
 
 

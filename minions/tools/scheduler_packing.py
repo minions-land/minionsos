@@ -143,9 +143,7 @@ def placement_summary(
             bucket[state] = bucket.get(state, 0) + 1
 
     blocked_reasons: dict[str, int] = {}
-    pending_rows = conn.execute(
-        "SELECT last_error FROM units WHERE status='pending'"
-    ).fetchall()
+    pending_rows = conn.execute("SELECT last_error FROM units WHERE status='pending'").fetchall()
     for row in pending_rows:
         err = str(row["last_error"] or "")
         tag = err.split(":", 1)[0].strip() if err else "uninspected"

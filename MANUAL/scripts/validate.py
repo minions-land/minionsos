@@ -8,6 +8,7 @@ Runs three checks:
 
 Exit code 0 = clean. Non-zero = drift; report goes to stdout. Suitable for CI.
 """
+
 from __future__ import annotations
 
 import re
@@ -47,7 +48,7 @@ def collect_tool_decorators() -> dict[str, str]:
                 m = DEFLINE_RE.match(lines[j]) if j < len(lines) else None
                 if m:
                     name = m.group(1)
-                    found[name] = f"minions/tools/mcp/{py.name}:{i+1}"
+                    found[name] = f"minions/tools/mcp/{py.name}:{i + 1}"
                     i = j + 1
                     continue
             i += 1
@@ -172,8 +173,10 @@ def main() -> int:
     if not errors and not warnings:
         print(f"OK — {len(decorators)} tools, {len(pages)} pages, no drift")
         return 0
-    print(f"---\n{len(errors)} errors, {len(warnings)} warnings, "
-          f"{len(decorators)} tools, {len(pages)} pages")
+    print(
+        f"---\n{len(errors)} errors, {len(warnings)} warnings, "
+        f"{len(decorators)} tools, {len(pages)} pages"
+    )
     return 1 if errors else 0
 
 

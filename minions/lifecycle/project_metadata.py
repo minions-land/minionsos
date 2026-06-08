@@ -11,7 +11,6 @@ import json
 import logging
 import os
 from datetime import UTC, datetime
-from pathlib import Path
 
 from minions.config import is_expert_role
 from minions.errors import ProjectError

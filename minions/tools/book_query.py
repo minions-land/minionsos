@@ -14,7 +14,6 @@ from typing import Any
 
 from pydantic import Field
 
-from minions.errors import BookError
 from minions.tools._returns import DictLikeBaseModel
 
 logger = logging.getLogger(__name__)

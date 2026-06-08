@@ -50,9 +50,6 @@ def _fake_bin(tmp_path: Path, *, claude: bool = False) -> Path:
     return bindir
 
 
-
-
-
 def test_gru_launcher_claude_branch_still_uses_claude_flags(tmp_path: Path) -> None:
     bindir = _fake_bin(tmp_path, claude=True)
     env = {

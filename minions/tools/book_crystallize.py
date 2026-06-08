@@ -13,19 +13,19 @@ import os
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
 
 from minions.config import slugify
 from minions.errors import BookError
 from minions.paths import project_shared_subdir, project_workspace_root
 from minions.tools.book_helpers import (
-    _book_root,
     _inject_claim_refs,
     _resolve_port,
     _stage_text,
 )
 from minions.tools.book_index import _index_append_many, _log_append
-from minions.tools.book_utils import now_iso as _now_iso, quoted as _quoted, validate_component as _validate_component
+from minions.tools.book_utils import now_iso as _now_iso
+from minions.tools.book_utils import quoted as _quoted
+from minions.tools.book_utils import validate_component as _validate_component
 
 logger = logging.getLogger(__name__)
 

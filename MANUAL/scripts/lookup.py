@@ -15,6 +15,7 @@ The output budget is ≤ 1 KB unless --full / -v is passed. Mirrors ToolSearch
 ergonomics: a query → a small payload that contains exactly the right page
 ids and snippets to act on.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -75,12 +76,12 @@ def page_excerpt(page: dict, lines: int = 12) -> str:
 
 
 def fmt_hit(idx: int, page_id: str, page: dict, with_excerpt: bool = True) -> str:
-    head = f"[{idx}] {page_id}  ({page['kind']}, {page.get('domain','')}) — {page['path']}"
+    head = f"[{idx}] {page_id}  ({page['kind']}, {page.get('domain', '')}) — {page['path']}"
     if page.get("source"):
         head += f"  src={page['source']}"
     if not with_excerpt:
         return head
-    return f"{head}\n  summary: {page.get('summary','')[:200]}\n"
+    return f"{head}\n  summary: {page.get('summary', '')[:200]}\n"
 
 
 def cmd_query(idx: dict, query: str, k: int, role: str | None, kind: str | None) -> int:
@@ -99,8 +100,10 @@ def cmd_query(idx: dict, query: str, k: int, role: str | None, kind: str | None)
     if not scored:
         print("(no matches)")
         return 0
-    out_lines = [f"# lookup: {query!r}  →  {min(k, len(scored))}/{len(scored)} hits  "
-                 f"(index v{idx['version']}, {idx['page_count']} pages)"]
+    out_lines = [
+        f"# lookup: {query!r}  →  {min(k, len(scored))}/{len(scored)} hits  "
+        f"(index v{idx['version']}, {idx['page_count']} pages)"
+    ]
     for i, (_score, pid, page) in enumerate(scored[:k], start=1):
         out_lines.append(fmt_hit(i, pid, page))
     out_lines.append("")
@@ -150,7 +153,7 @@ def cmd_domain(idx: dict, domain: str) -> int:
     for pid in pages:
         p = idx["pages"][pid]
         auth = ",".join(p.get("auth", [])) or "*"
-        print(f"  {pid:40s}  [{p['kind']:7s}] {auth:20s}  {p.get('summary','')[:100]}")
+        print(f"  {pid:40s}  [{p['kind']:7s}] {auth:20s}  {p.get('summary', '')[:100]}")
     return 0
 
 

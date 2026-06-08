@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from minions.errors import BookError
-from minions.paths import project_shared_draft_json, project_shared_subdir
+from minions.paths import project_shared_draft_json
 from minions.tools.book_contradiction import (
     _detect_contradictions,
     _detect_contradictions_with_overlay,
@@ -37,7 +37,11 @@ from minions.tools.book_index import (
 )
 from minions.tools.book_utils import (
     now_iso as _now_iso,
+)
+from minions.tools.book_utils import (
     quoted as _quoted,
+)
+from minions.tools.book_utils import (
     validate_component as _validate_component,
 )
 from minions.tools.publish import mos_publish_files_to_shared
@@ -193,7 +197,6 @@ def _render_signals_block(
     book_root: Path,
 ) -> str:
     """Build the Statistical signals section of a contradiction page."""
-    from collections import Counter
     from datetime import UTC, datetime
 
     def _source_role_unmarked_ratio(book_root_p: Path, source_role: str) -> float | None:

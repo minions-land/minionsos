@@ -8,6 +8,7 @@ production config). Variants:
 
 Reports per-variant total input tokens; computes delta.
 """
+
 from __future__ import annotations
 
 import json
@@ -23,27 +24,30 @@ def run_harness() -> dict:
     """Return AFTER_auto_30 record."""
     proc = subprocess.run(
         ["python3", str(HARNESS)],
-        cwd=str(REPO), capture_output=True, text=True, timeout=120,
+        cwd=str(REPO),
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
     out = proc.stdout
     # Parse: find the AFTER block
     lines = out.split("\n")
     after_start = None
-    for i, l in enumerate(lines):
-        if "AFTER_auto_30" in l and l.strip().startswith('"label"'):
+    for i, line in enumerate(lines):
+        if "AFTER_auto_30" in line and line.strip().startswith('"label"'):
             after_start = i
             break
     if after_start is None:
         # try alt: parse the JSON block after the AFTER header
-        for i, l in enumerate(lines):
-            if "Measuring: AFTER" in l:
+        for i, line in enumerate(lines):
+            if "Measuring: AFTER" in line:
                 # next "{" line starts JSON
                 for j in range(i, min(i + 30, len(lines))):
                     if lines[j].strip() == "{":
                         end = j
                         while end < len(lines) and lines[end].strip() != "}":
                             end += 1
-                        blob = "\n".join(lines[j:end+1])
+                        blob = "\n".join(lines[j : end + 1])
                         return json.loads(blob)
         print("PARSE FAIL\n", out[:2000])
         return {}
@@ -55,9 +59,17 @@ def variant_run(label: str) -> dict:
     rec = run_harness()
     if not rec:
         return {}
-    total = rec.get("input_tokens", 0) + rec.get("cache_creation_input_tokens", 0) + rec.get("cache_read_input_tokens", 0)
+    total = (
+        rec.get("input_tokens", 0)
+        + rec.get("cache_creation_input_tokens", 0)
+        + rec.get("cache_read_input_tokens", 0)
+    )
     rec["total"] = total
-    print(f"  input_tokens={rec.get('input_tokens')}, cc={rec.get('cache_creation_input_tokens')}, cr={rec.get('cache_read_input_tokens')}, TOTAL={total}")
+    print(
+        f"  input_tokens={rec.get('input_tokens')}, "
+        f"cc={rec.get('cache_creation_input_tokens')}, "
+        f"cr={rec.get('cache_read_input_tokens')}, TOTAL={total}"
+    )
     return rec
 
 
@@ -84,13 +96,14 @@ def main():
         print(f"SLIM     total: {slim['total']:>8}")
         print(f"DELTA: {delta:+d} ({pct:+.1f}%)")
         print("\nSYSTEM.md content alone:")
-        slim_md = (REPO/'minions/roles/SYSTEM.md').read_text()
+        slim_md = (REPO / "minions/roles/SYSTEM.md").read_text()
         # original is currently restored
         orig_md_chars = 26750  # measured earlier
         slim_md_chars = len(slim_md)
-        print(f"  ORIGINAL: ~{orig_md_chars} chars (~{orig_md_chars//4} tokens)")
-        print(f"  SLIM    : ~{slim_md_chars} chars (~{slim_md_chars//4} tokens)")
-        print(f"  Direct char savings: {orig_md_chars - slim_md_chars} chars (~{(orig_md_chars - slim_md_chars)//4} tokens)")
+        print(f"  ORIGINAL: ~{orig_md_chars} chars (~{orig_md_chars // 4} tokens)")
+        print(f"  SLIM    : ~{slim_md_chars} chars (~{slim_md_chars // 4} tokens)")
+        char_savings = orig_md_chars - slim_md_chars
+        print(f"  Direct char savings: {char_savings} chars (~{char_savings // 4} tokens)")
 
 
 if __name__ == "__main__":

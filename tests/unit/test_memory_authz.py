@@ -32,6 +32,7 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _import_reel():
     """Import minions.tools.reel, skip if not importable."""
     try:
@@ -59,6 +60,7 @@ def _import_draft():
 # ---------------------------------------------------------------------------
 # Reel authz tests
 # ---------------------------------------------------------------------------
+
 
 class TestReelAuthz:
     """
@@ -121,6 +123,7 @@ class TestReelAuthz:
 # Book authz tests
 # ---------------------------------------------------------------------------
 
+
 class TestBookAuthz:
     """
     Book (L2): Ethics ratifies; all others read-only.
@@ -151,6 +154,7 @@ class TestBookAuthz:
 # ---------------------------------------------------------------------------
 # Draft authz tests
 # ---------------------------------------------------------------------------
+
 
 class TestDraftAuthz:
     """

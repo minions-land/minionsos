@@ -134,9 +134,7 @@ class TestShelfBootstrap:
 
             create_shared_worktree(port)
             shared = project_shared_workspace(port)
-            assert not (shared / "shelf").exists(), (
-                "shared/shelf/ must not be seeded"
-            )
+            assert not (shared / "shelf").exists(), "shared/shelf/ must not be seeded"
 
 
 # ---------------------------------------------------------------------------

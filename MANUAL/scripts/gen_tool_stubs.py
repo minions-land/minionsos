@@ -9,6 +9,7 @@ Usage:
     python3 MANUAL/scripts/gen_tool_stubs.py             # write missing stubs
     python3 MANUAL/scripts/gen_tool_stubs.py --dry-run   # report only
 """
+
 from __future__ import annotations
 
 import argparse
@@ -69,7 +70,7 @@ def find_tools(mcp_dir: Path):
                 m = DEFLINE_RE.match(lines[j]) if j < len(lines) else None
                 if m:
                     name = m.group(1)
-                    src = f"minions/tools/mcp/{py.name}:{i+1}"
+                    src = f"minions/tools/mcp/{py.name}:{i + 1}"
                     yield name, src, domain
                     i = j + 1
                     continue
@@ -126,8 +127,10 @@ def main() -> int:
             path.write_text(content, encoding="utf-8")
             print(f"OK  wrote {path.relative_to(ROOT)}")
         written += 1
-    print(f"---\n{written} stubs {'planned' if args.dry_run else 'written'}, "
-          f"{skipped_existing} pages already exist")
+    print(
+        f"---\n{written} stubs {'planned' if args.dry_run else 'written'}, "
+        f"{skipped_existing} pages already exist"
+    )
     return 0
 
 

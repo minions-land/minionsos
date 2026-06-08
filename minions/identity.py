@@ -7,7 +7,7 @@ and never changes. It provides:
 1. A 256-bit secret seed (``seed.key``) — kept private, never shared.
 2. A public fingerprint derived from the seed (``fingerprint.pub``) — the
    owner component of every Universal ID this installation produces.
-3. UID generation for Draft nodes, Book chapters, and other knowledge units.
+3. UID generation for Draft nodes, Book pages, and other knowledge units.
 
 The fingerprint is the first 16 hex characters (8 bytes) of
 BLAKE2b(seed, digest_size=20). This gives 64 bits of collision resistance

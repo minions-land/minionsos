@@ -32,64 +32,66 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, cast
 
+from minions.errors import DraftError
+from minions.paths import project_shared_draft_json, project_shared_subdir
+
 # Import from modularized submodules
-from minions.tools.draft_decay import mos_draft_decay_compute, DECAY_HALF_LIFE_DAYS
-from minions.tools.draft_edges import create_edges
+from minions.tools.draft_decay import DECAY_HALF_LIFE_DAYS, mos_draft_decay_compute
+from minions.tools.draft_edges import EDGE_RELATIONS, create_edges
 from minions.tools.draft_helpers import (
     append_journal,
+)
+from minions.tools.draft_helpers import (
+    decay_path as _decay_path,
+)
+from minions.tools.draft_helpers import (
+    draft_path as _draft_path,
+)
+from minions.tools.draft_helpers import (
     env_port as _env_port,
+)
+from minions.tools.draft_helpers import (
     env_role as _env_role,
+)
+from minions.tools.draft_helpers import (
+    journal_path as _journal_path,
+)
+from minions.tools.draft_helpers import (
     load_decay as _load_decay,
+)
+from minions.tools.draft_helpers import (
     load_draft as _load_draft,
+)
+from minions.tools.draft_helpers import (
     now_iso as _now_iso,
+)
+from minions.tools.draft_helpers import (
+    parse_iso as _parse_iso,
+)
+from minions.tools.draft_helpers import (
     save_draft as _save_draft,
+)
+from minions.tools.draft_helpers import (
     validate_confidence as _validate_confidence,
 )
-import minions.tools.draft_helpers as _draft_helpers
 from minions.tools.draft_nodes import (
     CURATOR_MOTIF_REQUIRED_TYPES,
+    PROVENANCES,
+    SUPPORT_STATUSES,
+    TYPE_PREFIX,
     DraftNodeType,
     DraftProvenance,
     DraftSupportStatus,
-    MOTIF_KINDS,
-    NODE_TYPES,
-    PROVENANCES,
-    SUPPORT_STATUSES,
     create_nodes,
     resolve_pending_plans,
 )
 from minions.tools.draft_query import (
     DraftQueryResult,
-    mos_draft_communities,
-    mos_draft_god_nodes,
     mos_draft_path,
     mos_draft_query,
-    mos_draft_relevant,
-    mos_draft_topic_index,
 )
-from minions.paths import project_shared_subdir
-from minions.errors import DraftError
-
-# Re-export path functions for test compatibility
-from minions.paths import project_shared_draft_json
-
 
 logger = logging.getLogger(__name__)
-
-# Re-export internal helpers for test compatibility
-from minions.tools.draft_helpers import (
-    decay_path as _decay_path,
-    draft_path as _draft_path,
-    journal_path as _journal_path,
-    load_draft as _load_draft,
-    parse_iso as _parse_iso,
-    save_draft as _save_draft,
-)
-
-
-# Re-export for public callers
-from minions.tools.draft_edges import EDGE_RELATIONS
-from minions.tools.draft_nodes import TYPE_PREFIX
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -1036,3 +1038,37 @@ def mos_draft_god_nodes(top_n: int = 5) -> dict[str, Any]:
         )
 
     return {"god_nodes": god_nodes}
+
+
+__all__ = [  # noqa: RUF022 - module surface groups tested helpers and tool APIs
+    "DECAY_HALF_LIFE_DAYS",
+    "DraftError",
+    "DraftNodeType",
+    "DraftProvenance",
+    "DraftQueryResult",
+    "DraftSupportStatus",
+    "EDGE_RELATIONS",
+    "TYPE_PREFIX",
+    "_decay_path",
+    "_draft_path",
+    "_journal_path",
+    "_load_decay",
+    "_load_draft",
+    "_parse_iso",
+    "_save_draft",
+    "mos_draft_annotate",
+    "mos_draft_append",
+    "mos_draft_commit_shared",
+    "mos_draft_communities",
+    "mos_draft_decay_compute",
+    "mos_draft_god_nodes",
+    "mos_draft_path",
+    "mos_draft_query",
+    "mos_draft_relevant",
+    "mos_draft_summary",
+    "mos_draft_topic_index",
+    "mos_draft_unmarked_audit",
+    "mos_draft_view",
+    "project_shared_draft_json",
+    "project_shared_subdir",
+]

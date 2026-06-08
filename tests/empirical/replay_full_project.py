@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from replay_issue_38 import load_turns, simulate_compact_strategy  # noqa: E402
+from replay_issue_38 import load_turns, simulate_compact_strategy
 
 
 def main(argv: list[str]) -> int:
@@ -28,8 +28,10 @@ def main(argv: list[str]) -> int:
     grand_orig = grand_sim = 0.0
     grand_compacts = 0
     grand_turns = 0
-    print(f"{'role':<28} {'sessions':>8} {'turns':>6} {'compacts':>8} "
-          f"{'orig $':>8} {'sim $':>8} {'saved %':>8}")
+    print(
+        f"{'role':<28} {'sessions':>8} {'turns':>6} {'compacts':>8} "
+        f"{'orig $':>8} {'sim $':>8} {'saved %':>8}"
+    )
     print("-" * 80)
     for role_dir in roles:
         files = sorted(role_dir.glob("*.jsonl"))
@@ -50,8 +52,10 @@ def main(argv: list[str]) -> int:
         if role_orig <= 0:
             continue
         pct = (role_orig - role_sim) / role_orig * 100
-        print(f"{role_dir.name:<28} {len(files):>8} {role_turns:>6} {role_compacts:>8} "
-              f"{role_orig:>7.2f} {role_sim:>7.2f} {pct:>7.1f}")
+        print(
+            f"{role_dir.name:<28} {len(files):>8} {role_turns:>6} {role_compacts:>8} "
+            f"{role_orig:>7.2f} {role_sim:>7.2f} {pct:>7.1f}"
+        )
         grand_orig += role_orig
         grand_sim += role_sim
         grand_compacts += role_compacts
@@ -59,8 +63,10 @@ def main(argv: list[str]) -> int:
 
     print("-" * 80)
     pct = (grand_orig - grand_sim) / grand_orig * 100
-    print(f"{'TOTAL':<28} {'':>8} {grand_turns:>6} {grand_compacts:>8} "
-          f"{grand_orig:>7.2f} {grand_sim:>7.2f} {pct:>7.1f}")
+    print(
+        f"{'TOTAL':<28} {'':>8} {grand_turns:>6} {grand_compacts:>8} "
+        f"{grand_orig:>7.2f} {grand_sim:>7.2f} {pct:>7.1f}"
+    )
     print()
     print(f"Project saved: ${grand_orig - grand_sim:.2f}  ({pct:.1f}%)")
     print(f"Compact events fired: {grand_compacts}")

@@ -6,15 +6,14 @@ process, so the test is skipped when node/npm are unavailable or when the
 
 What it covers:
 
-* ``./viz register`` writes / updates ``~/.minionsos/grus.json``.
+* ``./viz register`` writes / updates isolated ``~/.minionsos/grus.json``.
 * ``./viz ensure`` starts a singleton, writes ``viz.pid`` / ``viz.port`` / ``viz.url``.
 * HTTP endpoints ``/api/mos/grus`` and ``/api/snapshot`` respond.
 * WS protocol handshake (``snapshot`` message) is sent on connect.
 * ``./viz status`` reports ``running`` and ``./viz stop`` tears down cleanly.
 
-The test uses a throwaway ``$HOME`` via ``MINIONS_VIZ_HOME`` if the launcher
-supports it, otherwise it serialises against the real user state using a
-module-level lock file so parallel pytest workers do not collide.
+Each test runs the launcher with a throwaway ``$HOME`` so parallel pytest
+workers do not share singleton state.
 """
 
 from __future__ import annotations
@@ -43,6 +42,15 @@ pytestmark = pytest.mark.skipif(
     not (_have("node") and _have("npm") and DIST_INDEX.exists()),
     reason="node/npm/minions-viz build missing",
 )
+
+
+@pytest.fixture(autouse=True)
+def isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Keep launcher singleton files out of the operator's real home."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    return home
 
 
 def _probe(port: int, path: str = "/api/mos/grus", timeout: float = 1.0) -> int | None:

@@ -324,9 +324,7 @@ class TestHappyPath:
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=[full_round_script(decision="Accept")])
         install_spawner(spawner)
-        review_run(
-            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
-        )
+        review_run(ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1"))
         from minions.tools.review import _review_timeout_seconds
 
         assert len(spawner.timeouts) == 1
@@ -342,9 +340,7 @@ class TestHappyPath:
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=[full_round_script(decision="Accept")])
         install_spawner(spawner)
-        review_run(
-            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
-        )
+        review_run(ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1"))
         assert spawner.timeouts[0] == 4242
 
 
@@ -779,9 +775,7 @@ class TestPromptShape:
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=[full_round_script()])
         install_spawner(spawner)
-        review_run(
-            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
-        )
+        review_run(ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1"))
         _, prompt = spawner.calls[0]
         low = prompt.lower()
         # Reviewer band.
@@ -799,9 +793,7 @@ class TestPromptShape:
         _write_checklist(sub)
         spawner = FakeSpawner(scripts=[full_round_script()])
         install_spawner(spawner)
-        review_run(
-            ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1")
-        )
+        review_run(ReviewRunArgs(port=port, submission_path="../main/handoffs/submissions/round-1"))
         _, prompt = spawner.calls[0]
         assert "consolidated.md" in prompt
         assert "fresh.md" in prompt

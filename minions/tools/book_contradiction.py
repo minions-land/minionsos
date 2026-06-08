@@ -19,28 +19,89 @@ _MIN_SHARED_TERM_CHARS = 4
 _NEGATION_LOOKBACK_TOKENS = 5
 _MAX_CONTRADICTIONS = 20
 
-_NEGATION_MARKERS = frozenset({
-    "cannot", "fail", "failed", "fails", "false", "never", "no", "none",
-    "not", "refute", "refuted", "refutes", "unsupported", "without",
-})
+_NEGATION_MARKERS = frozenset(
+    {
+        "cannot",
+        "fail",
+        "failed",
+        "fails",
+        "false",
+        "never",
+        "no",
+        "none",
+        "not",
+        "refute",
+        "refuted",
+        "refutes",
+        "unsupported",
+        "without",
+    }
+)
 
-_COMMON_SHARED_TERMS = frozenset({
-    "about", "across", "after", "again", "among", "around", "because",
-    "before", "behind", "being", "below", "between", "beyond", "could",
-    "during", "first", "frontmatter", "index", "instead", "might",
-    "should", "since", "still", "their", "there", "these", "those",
-    "through", "under", "until", "where", "which", "while", "would",
-})
+_COMMON_SHARED_TERMS = frozenset(
+    {
+        "about",
+        "across",
+        "after",
+        "again",
+        "among",
+        "around",
+        "because",
+        "before",
+        "behind",
+        "being",
+        "below",
+        "between",
+        "beyond",
+        "could",
+        "during",
+        "first",
+        "frontmatter",
+        "index",
+        "instead",
+        "might",
+        "should",
+        "since",
+        "still",
+        "their",
+        "there",
+        "these",
+        "those",
+        "through",
+        "under",
+        "until",
+        "where",
+        "which",
+        "while",
+        "would",
+    }
+)
 
-_PROVENANCE_SHARED_TERMS = frozenset({
-    "book", "draft", "evidence", "experiment", "finding", "node",
-    "page", "result", "source", "study",
-})
+_PROVENANCE_SHARED_TERMS = frozenset(
+    {
+        "book",
+        "draft",
+        "evidence",
+        "experiment",
+        "finding",
+        "node",
+        "page",
+        "result",
+        "source",
+        "study",
+    }
+)
 
-_CONTRADICTION_IDIOMS = frozenset({
-    "question remains", "remains unclear", "remains open",
-    "future work", "further investigation", "more research",
-})
+_CONTRADICTION_IDIOMS = frozenset(
+    {
+        "question remains",
+        "remains unclear",
+        "remains open",
+        "future work",
+        "further investigation",
+        "more research",
+    }
+)
 
 
 def _strip_frontmatter(text: str) -> str:
@@ -88,6 +149,7 @@ def _tokens_for_sentence(sentence: str) -> list[str]:
 
 def _shared_claim_terms(left_tokens: list[str], right_tokens: list[str]) -> list[str]:
     """Find substantive terms shared between two token lists."""
+
     def _is_subject(token: str) -> bool:
         return (
             len(token) >= _MIN_SHARED_TERM_CHARS

@@ -12,17 +12,20 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from minions.errors import DraftError
 import minions.paths
+from minions.errors import DraftError
+
 
 # Access path functions through module reference for test monkeypatch compatibility
 def _get_project_shared_subdir(port: int, subdir: str):
     """Indirection for test monkeypatching."""
     return minions.paths.project_shared_subdir(port, subdir)
 
+
 def _get_project_shared_draft_json(port: int):
     """Indirection for test monkeypatch compatibility."""
     return minions.paths.project_shared_draft_json(port)
+
 
 logger = logging.getLogger(__name__)
 

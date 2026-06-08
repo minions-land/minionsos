@@ -21,7 +21,6 @@ from minions.lifecycle.git_utils import (
 from minions.paths import (
     MINIONS_ROOT,
     configured_author_repo,
-    project_branch_name,
     project_parent_repo_dir,
     project_state_dir,
     project_workspace_root,

@@ -11,7 +11,6 @@ from typing import Any
 from minions.errors import DraftError
 from minions.tools.draft_helpers import (
     append_journal,
-    env_role,
     load_draft,
     save_draft,
 )

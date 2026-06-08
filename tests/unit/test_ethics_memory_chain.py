@@ -3,16 +3,16 @@
 This verifies the current Draft/Book contradiction flow:
 
   1. Expert publishes an artifact under branches/main/expert/.
-  2. Ethics (wake cycle) ingests it as a Book chapter, detects a lexical
-     contradiction with an existing Book chapter, generates a contradiction
+  2. Ethics (wake cycle) ingests it as a Book page, detects a lexical
+     contradiction with an existing Book page, generates a contradiction
      page with the Statistical Signals table.
   3. Ethics reads the contradiction page, issues a verdict, publishes it,
      and writes a `decision` node + `supersedes` edge into the Draft.
   4. Ethics (next wake) recomputes decay; supersedes-affected nodes show
-     accelerated decay. Verdict gets promoted to a Book chapter.
-  5. The hot.md cache reflects the resolution.
+     accelerated decay.
 
-Every claim is verified against the actual code paths.
+The file also verifies that Ethics promotes reviewed dead-end evidence into
+durable Book pages for later project reuse.
 """
 
 from __future__ import annotations
@@ -320,7 +320,7 @@ def test_ethics_contradiction_full_chain(sim_project, tmp_path: Path):
     initial_summary = draft.mos_draft_summary()
     assert initial_summary["total_nodes"] == 2
 
-    # ─── Phase 1: Existing Book chapter (older claim) ──────────────────────
+    # ─── Phase 1: Existing Book page (older claim) ─────────────────────────
     old_artifact = _expert_publishes_artifact(
         project_root,
         "old-finding",
@@ -455,12 +455,10 @@ def test_ethics_contradiction_full_chain(sim_project, tmp_path: Path):
     # mos_publish_to_shared is allowed but server enforces role identity
     # and allowed destination roots.
 
-    # ⭐ ASSERTION 8b: Ethics CAN promote/crystallize Books.
+    # ⭐ ASSERTION 8b: Ethics CAN run Book memory tools.
     ethics_authz = resolve_server_authz("ethics", "main")
     promote_for_ethics = any(fnmatchcase("mos_book_promote_verified", p) for p in ethics_authz)
-    assert promote_for_ethics, (
-        "Ethics must be able to promote verified Drafts to Books"
-    )
+    assert promote_for_ethics, "Ethics must be able to promote verified Drafts to Book pages"
     crystallize_for_ethics = any(
         fnmatchcase("mos_book_crystallize_session", p) for p in ethics_authz
     )
@@ -478,11 +476,11 @@ def test_ethics_contradiction_full_chain(sim_project, tmp_path: Path):
 
 
 def test_ethics_promotes_dead_end_for_other_projects_to_avoid(sim_project):
-    """A failed experiment from this project becomes a Book chapter so
-    other projects (and the federated Book) can avoid the same dead end.
+    """A failed experiment from this project becomes a Book page so
+    other projects can avoid the same dead end.
 
     Ethics owns this promotion.
-    This is the ARA "preserve rejected alternatives" principle in action.
+    The Book page keeps reviewed dead-end evidence available to later projects.
     """
     port, _ = sim_project
 
@@ -514,7 +512,7 @@ def test_ethics_promotes_dead_end_for_other_projects_to_avoid(sim_project):
     os.environ["MINIONS_ROLE_NAME"] = "ethics"
     result = book.mos_book_promote_verified(port=port)
 
-    # ⭐ Dead-end was promoted (ARA principle realised)
+    # ⭐ Dead-end evidence was promoted into the Book.
     assert result["promoted_count"] == 1
     promoted = result["promoted"][0]
     assert promoted["type"] == "dead_end"

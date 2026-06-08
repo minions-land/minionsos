@@ -61,9 +61,7 @@ def test_dry_run_returns_plan_without_mutating_meta(
     ]
     meta_path = _seed_meta(monkeypatch, tmp_path, seed)
 
-    out = proj_mod.project_migrate_bare_slug_experts(
-        8123, dry_run=True, store=store
-    )
+    out = proj_mod.project_migrate_bare_slug_experts(8123, dry_run=True, store=store)
 
     assert out["port"] == 8123
     assert out["dry_run"] is True
@@ -86,9 +84,7 @@ def test_non_dry_run_removes_bare_slug_records(
     ]
     meta_path = _seed_meta(monkeypatch, tmp_path, seed)
 
-    out = proj_mod.project_migrate_bare_slug_experts(
-        8123, dry_run=False, store=store
-    )
+    out = proj_mod.project_migrate_bare_slug_experts(8123, dry_run=False, store=store)
 
     assert out["dry_run"] is False
     assert sorted(out["removed"]) == ["foo-bar", "random-thing"]
@@ -105,19 +101,14 @@ def test_fixed_and_expert_roles_survive_untouched(
     from minions.lifecycle.role import FIXED_ROLES
 
     store = _make_store(tmp_path)
-    seed = (
-        [{"name": r} for r in FIXED_ROLES]
-        + [
-            {"name": "expert-foo"},
-            {"name": "foo-expert"},
-            {"name": "expert"},
-        ]
-    )
+    seed = [{"name": r} for r in FIXED_ROLES] + [
+        {"name": "expert-foo"},
+        {"name": "foo-expert"},
+        {"name": "expert"},
+    ]
     meta_path = _seed_meta(monkeypatch, tmp_path, seed)
 
-    out = proj_mod.project_migrate_bare_slug_experts(
-        8123, dry_run=False, store=store
-    )
+    out = proj_mod.project_migrate_bare_slug_experts(8123, dry_run=False, store=store)
 
     assert out["removed"] == []
     assert out["kept"] == len(seed)
@@ -126,12 +117,8 @@ def test_fixed_and_expert_roles_survive_untouched(
     assert on_disk["active_roles"] == seed
 
 
-def test_unknown_port_raises_project_error(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_unknown_port_raises_project_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     store = _make_store(tmp_path)  # only port=8123
 
     with pytest.raises(ProjectError):
-        proj_mod.project_migrate_bare_slug_experts(
-            9999, dry_run=True, store=store
-        )
+        proj_mod.project_migrate_bare_slug_experts(9999, dry_run=True, store=store)

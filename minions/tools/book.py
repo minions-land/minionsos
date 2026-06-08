@@ -22,20 +22,18 @@ and published through ``mos_publish_to_shared(role="ethics", ...)``.
 
 from __future__ import annotations
 
-import contextlib
 import json
 import logging
 import math
 import os
 import re
 from collections import Counter
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
 from pydantic import Field
 
-from minions.config import slugify
 from minions.errors import BookError
 from minions.paths import (
     project_shared_draft_json,
@@ -45,33 +43,22 @@ from minions.paths import (
     project_workspace_root,
 )
 from minions.tools._returns import DictLikeBaseModel
-from minions.tools.book_utils import (
-    atomic_write_text as _atomic_write_text,
-    now_iso as _now_iso,
-    quoted as _quoted,
-    validate_component as _validate_component,
-)
-from minions.tools.publish import mos_publish_files_to_shared, mos_publish_to_shared
 
 # Import public API functions from modularized files
-from minions.tools.book_audit import mos_book_audit_walk, mos_book_resolve_contradiction  # noqa: F401
-from minions.tools.book_contradiction import (
-    _detect_contradictions,
-    _detect_contradictions_with_overlay,
+from minions.tools.book_audit import (
+    mos_book_audit_walk,
+    mos_book_resolve_contradiction,
 )
-from minions.tools.book_crystallize import (  # noqa: F401
+from minions.tools.book_crystallize import (
     mos_book_crystallize_session,
     mos_book_save_synthesis,
 )
-from minions.tools.book_ingest import mos_book_ingest, mos_book_ingest_batch  # noqa: F401
-from minions.tools.book_promote import mos_book_promote_verified, mos_book_ratify  # noqa: F401
 from minions.tools.book_helpers import (
     _book_root,
     _contradiction_slug,
     _env_port,
     _inject_claim_refs,
     _oneline,
-    _parse_frontmatter,
     _parse_index_entries,
     _read_first_lines,
     _render_source_frontmatter,
@@ -82,19 +69,19 @@ from minions.tools.book_helpers import (
     _stage_path,
     _stage_text,
     _strip_frontmatter,
-    _token_list,
-    _tokens,
-    _update_frontmatter_field,
 )
-from minions.tools.book_index import (
-    _index_append,
-    _index_append_many,
-    _log_append,
-    _log_append_many,
+from minions.tools.book_ingest import mos_book_ingest, mos_book_ingest_batch
+from minions.tools.book_lint import mos_book_lint
+from minions.tools.book_promote import mos_book_promote_verified, mos_book_ratify
+from minions.tools.book_query import mos_book_query
+from minions.tools.book_special import mos_book_dead_end, mos_book_open_question
+from minions.tools.book_utils import (
+    now_iso as _now_iso,
 )
-from minions.tools.book_lint import mos_book_lint  # noqa: F401
-from minions.tools.book_query import BookQueryResult, mos_book_query  # noqa: F401
-from minions.tools.book_special import mos_book_dead_end, mos_book_open_question  # noqa: F401
+from minions.tools.book_utils import (
+    quoted as _quoted,
+)
+from minions.tools.publish import mos_publish_files_to_shared, mos_publish_to_shared
 
 logger = logging.getLogger(__name__)
 
@@ -1184,21 +1171,6 @@ def _bm25_scores(
             scores[slug] = score
     return scores
 
-    """True if any book page already cites this Draft node id."""
-    sources = book_root / "sources"
-    if not sources.exists():
-        return False
-    needle = f"draft_node_id: {node_id}"
-    needle_alt = f"[{node_id}]"
-    for page in sources.glob("*.md"):
-        try:
-            text = page.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        if needle in text or needle_alt in text:
-            return True
-    return False
-
 
 # ============================================================================
 # SECTION 4: Public API - Promote Functions (lines ~1970-2280)
@@ -1254,8 +1226,24 @@ def _update_frontmatter_field(text: str, field: str, value: str) -> str:
 # crystallize, and audit tools.
 
 
-__all__ = [
+__all__ = [  # noqa: RUF022 - module surface groups tested helpers and tool APIs
     "BookError",
+    "_book_root",
+    "_contradiction_slug",
+    "_env_port",
+    "_inject_claim_refs",
+    "_oneline",
+    "_read_first_lines",
+    "_render_source_frontmatter",
+    "_render_v2_frontmatter",
+    "_resolve_port",
+    "_resolve_source_path",
+    "_stage_path",
+    "project_shared_draft_json",
+    "project_shared_subdir",
+    "project_shared_workspace",
+    "project_state_dir",
+    "project_workspace_root",
     "mos_book_audit_walk",
     "mos_book_crystallize_session",
     "mos_book_dead_end",

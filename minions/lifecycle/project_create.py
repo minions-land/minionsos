@@ -10,7 +10,6 @@ import json
 import logging
 import os
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from minions.config import load_gru_config, slugify
@@ -23,10 +22,8 @@ from minions.lifecycle.project_backend import (
     start_backend,
     wait_for_health,
 )
-from minions.lifecycle.project_metadata import write_meta
 from minions.lifecycle.project_paths import (
     ensure_workspace_layout,
-    git_tag,
     seed_per_project_repo,
     write_project_gitignore,
 )

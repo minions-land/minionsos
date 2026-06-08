@@ -202,8 +202,7 @@ def test_gru_eacn_observe_and_direct_message_allowed(tool_name: str) -> None:
 
     patterns = resolve_server_authz("gru", "main")
     assert any(fnmatchcase(tool_name, p) for p in patterns), (
-        f"Gru should be allowed to call {tool_name!r}; "
-        "patterns were: " + ", ".join(patterns)
+        f"Gru should be allowed to call {tool_name!r}; patterns were: " + ", ".join(patterns)
     )
 
 
@@ -224,8 +223,7 @@ def test_gru_eacn_task_post_forbidden(tool_name: str) -> None:
 
     patterns = resolve_server_authz("gru", "main")
     assert not any(fnmatchcase(tool_name, p) for p in patterns), (
-        f"Gru must NOT be allowed to call {tool_name!r}; "
-        "patterns were: " + ", ".join(patterns)
+        f"Gru must NOT be allowed to call {tool_name!r}; patterns were: " + ", ".join(patterns)
     )
 
 

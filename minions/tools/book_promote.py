@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
-import os
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +23,8 @@ from minions.tools.book_helpers import (
 from minions.tools.book_index import _log_append
 from minions.tools.book_utils import (
     now_iso as _now_iso,
-    quoted as _quoted,
+)
+from minions.tools.book_utils import (
     validate_component as _validate_component,
 )
 

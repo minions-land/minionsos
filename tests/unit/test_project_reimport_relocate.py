@@ -77,7 +77,7 @@ def test_reimport_missing_meta(projects_root: Path, tmp_path: Path) -> None:
     port = 39102
     (projects_root / f"project_{port}").mkdir()
     store = StateStore(root=tmp_path / "state")
-    with pytest.raises(ProjectError, match="meta.json missing"):
+    with pytest.raises(ProjectError, match=r"meta\.json missing"):
         project_reimport(port, store=store)
 
 

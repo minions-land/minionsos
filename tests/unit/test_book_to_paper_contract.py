@@ -112,4 +112,3 @@ def test_book_to_paper_skill_pins_comment_provenance_rule() -> None:
         "book-to-paper skill no longer flags 'visible provenance' as an "
         "anti-pattern — rendered source indexes could leak into the PDF"
     )
-

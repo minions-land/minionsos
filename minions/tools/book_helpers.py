@@ -33,16 +33,48 @@ _SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n{2,}")
 _CLAIM_REF_RE = re.compile(r"\^\[([^\]]+)\]")
 
-_NEGATION_MARKERS = frozenset({
-    "cannot", "fail", "failed", "fails", "false", "never", "no", "none",
-    "not", "refute", "refuted", "refutes", "unsupported", "without",
-})
+_NEGATION_MARKERS = frozenset(
+    {
+        "cannot",
+        "fail",
+        "failed",
+        "fails",
+        "false",
+        "never",
+        "no",
+        "none",
+        "not",
+        "refute",
+        "refuted",
+        "refutes",
+        "unsupported",
+        "without",
+    }
+)
 
-_COMMON_SHARED_TERMS = frozenset({
-    "about", "across", "after", "again", "among", "around", "because",
-    "before", "behind", "being", "below", "between", "beyond", "could",
-    "during", "first", "frontmatter", "index", "instead",
-})
+_COMMON_SHARED_TERMS = frozenset(
+    {
+        "about",
+        "across",
+        "after",
+        "again",
+        "among",
+        "around",
+        "because",
+        "before",
+        "behind",
+        "being",
+        "below",
+        "between",
+        "beyond",
+        "could",
+        "during",
+        "first",
+        "frontmatter",
+        "index",
+        "instead",
+    }
+)
 
 
 def _book_root(port: int) -> Path:
@@ -379,12 +411,14 @@ def _scan_book_edges(book_root: Path) -> list[dict[str, str]]:
             continue
         if status and status.lower() in {"resolved", "refuted-resolved"}:
             continue
-        edges.append({
-            "from": new_source,
-            "to": opposing_slug,
-            "relation": "contradicts",
-            "evidence": f"book/contradictions/{page.name}",
-        })
+        edges.append(
+            {
+                "from": new_source,
+                "to": opposing_slug,
+                "relation": "contradicts",
+                "evidence": f"book/contradictions/{page.name}",
+            }
+        )
     edges.sort(key=lambda e: (e["from"], e["to"], e["relation"]))
     return edges
 

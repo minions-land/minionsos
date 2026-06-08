@@ -10,10 +10,8 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any
 
 from minions.errors import BookError
-from minions.paths import project_shared_subdir
 from minions.tools.book_helpers import (
     _book_root,
     _parse_frontmatter,
@@ -22,7 +20,7 @@ from minions.tools.book_helpers import (
     _update_frontmatter_field,
 )
 from minions.tools.book_index import _log_append
-from minions.tools.book_utils import now_iso as _now_iso, quoted as _quoted
+from minions.tools.book_utils import now_iso as _now_iso
 
 logger = logging.getLogger(__name__)
 

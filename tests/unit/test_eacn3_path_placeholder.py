@@ -109,7 +109,7 @@ def test_post_message_raw_encodes_project_paths_in_outgoing_body():
 
     captured = {}
 
-    def fake_post(url, json, timeout):  # noqa: A002 - matches httpx kw
+    def fake_post(url, json, timeout):
         captured["url"] = url
         captured["json"] = json
         return _FakeResp({"ok": True})
@@ -152,7 +152,7 @@ def test_poll_events_hydrates_placeholder_on_read():
         "count": 1,
     }
 
-    def fake_get(url, params, timeout):  # noqa: A002
+    def fake_get(url, params, timeout):
         return _FakeResp(server_response)
 
     with patch.object(eacn_client.httpx, "get", side_effect=fake_get):
@@ -202,7 +202,7 @@ def test_mos_await_events_hydrates_placeholder_on_read(_await_events_env):
         "count": 1,
     }
 
-    def fake_get(url, params=None, timeout=None):  # noqa: A002
+    def fake_get(url, params=None, timeout=None):
         return _FakeResp(server_response)
 
     with patch("minions.tools.await_events.httpx.get", side_effect=fake_get):

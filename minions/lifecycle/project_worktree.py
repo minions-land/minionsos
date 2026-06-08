@@ -21,8 +21,6 @@ from minions.paths import (
     project_main_workspace,
     project_parent_repo_dir,
     project_role_workspace,
-    project_session_name,
-    project_shared_workspace,
 )
 
 logger = logging.getLogger(__name__)
@@ -73,9 +71,7 @@ def create_worktree(port: int, base_branch: str) -> str:
     if workspace.exists():
         if is_git_work_tree(workspace):
             return branch
-        raise ProjectError(
-            f"Main workspace already exists but is not a git worktree: {workspace}"
-        )
+        raise ProjectError(f"Main workspace already exists but is not a git worktree: {workspace}")
 
     workspace.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -95,9 +91,7 @@ def create_worktree(port: int, base_branch: str) -> str:
         text=True,
     )
     if result.returncode != 0:
-        raise ProjectError(
-            f"git worktree add failed for port {port}: {result.stderr.strip()}"
-        )
+        raise ProjectError(f"git worktree add failed for port {port}: {result.stderr.strip()}")
     return branch
 
 
@@ -170,15 +164,11 @@ def create_role_worktree(
     if workspace.exists():
         if is_git_work_tree(workspace):
             return branch, workspace
-        raise ProjectError(
-            f"Role workspace already exists but is not a git worktree: {workspace}"
-        )
+        raise ProjectError(f"Role workspace already exists but is not a git worktree: {workspace}")
 
     workspace.parent.mkdir(parents=True, exist_ok=True)
     parent_repo = project_parent_repo_dir(port)
-    resolved_base = (
-        base_branch if base_branch not in {None, ""} else project_branch_name(port)
-    )
+    resolved_base = base_branch if base_branch not in {None, ""} else project_branch_name(port)
     if resolved_base != "HEAD" and not git_ref_exists(parent_repo, resolved_base):
         logger.debug(
             "Role base branch %s missing in %s; falling back to HEAD.",

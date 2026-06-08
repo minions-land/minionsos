@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Build MANUAL/INDEX.json from atomic pages under tools/, pitfalls/, recipes/, domains/."""
+
 from __future__ import annotations
+
 import json
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,7 +23,7 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
     m = FRONTMATTER_RE.match(text)
     if not m:
         return {}, text
-    fm_text, body = m.group(1), text[m.end():]
+    fm_text, body = m.group(1), text[m.end() :]
     fm: dict = {}
     cur_key = None
     for line in fm_text.splitlines():
@@ -81,7 +83,8 @@ def main() -> int:
             text = p.read_text(encoding="utf-8")
             fm, body = parse_frontmatter(text)
             if "id" not in fm:
-                print(f"WARN: {p.relative_to(MANUAL_ROOT)} has no `id:` — skipping", file=sys.stderr)
+                rel = p.relative_to(MANUAL_ROOT)
+                print(f"WARN: {rel} has no `id:` — skipping", file=sys.stderr)
                 continue
             pid = fm["id"]
             page = {
@@ -105,7 +108,7 @@ def main() -> int:
 
     out = {
         "version": get_repo_sha(),
-        "built_at": datetime.now(timezone.utc).isoformat(),
+        "built_at": datetime.now(UTC).isoformat(),
         "page_count": len(pages),
         "pages": pages,
         "domains": {k: sorted(v) for k, v in domains.items()},
@@ -114,8 +117,10 @@ def main() -> int:
     }
     out_path = MANUAL_ROOT / "INDEX.json"
     out_path.write_text(json.dumps(out, indent=2, sort_keys=False), encoding="utf-8")
-    print(f"OK wrote {out_path.relative_to(PROJECT_ROOT)} — {len(pages)} pages, "
-          f"{len(domains)} domains, {len(by_role)} roles, {len(by_keyword)} keywords")
+    print(
+        f"OK wrote {out_path.relative_to(PROJECT_ROOT)} — {len(pages)} pages, "
+        f"{len(domains)} domains, {len(by_role)} roles, {len(by_keyword)} keywords"
+    )
     return 0
 
 

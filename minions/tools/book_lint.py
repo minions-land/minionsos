@@ -58,7 +58,7 @@ def _wikilinks_by_page(pages: list[Path]) -> dict[Path, list[str]]:
     for page in pages:
         text = _read_lint_text(page)
         # Simple regex for [[slug]] style wikilinks
-        matches = re.findall(r'\[\[([^\]]+)\]\]', text)
+        matches = re.findall(r"\[\[([^\]]+)\]\]", text)
         links_by_page[page] = [_normalise_wikilink_slug(m) for m in matches]
     return links_by_page
 
@@ -71,9 +71,7 @@ def _book_lint_target_exists(book_root: Path, slug: str) -> bool:
         return True
     # Check contradictions
     contradiction = book_root / "contradictions" / f"contradiction-{slug}.md"
-    if contradiction.exists():
-        return True
-    return False
+    return contradiction.exists()
 
 
 def _add_lint_finding(

@@ -18,6 +18,7 @@ def _isolated_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
     # Mock in minions.paths since draft_helpers imports from there
     import minions.paths
+
     monkeypatch.setattr(
         minions.paths,
         "project_shared_subdir",

@@ -258,13 +258,7 @@ def project_dir(tmp_path: Path) -> Path:
 def _project_draft_dir(project_root: Path, port: int) -> Path:
     """projects/project_<port>/branches/main/draft under MinionsOS/."""
     return (
-        project_root
-        / "MinionsOS"
-        / "projects"
-        / f"project_{port}"
-        / "branches"
-        / "main"
-        / "draft"
+        project_root / "MinionsOS" / "projects" / f"project_{port}" / "branches" / "main" / "draft"
     )
 
 

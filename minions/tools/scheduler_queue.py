@@ -192,9 +192,7 @@ def note_no_capacity(conn: sqlite3.Connection, unit: sqlite3.Row, reason: str) -
 
 def refresh_batches(conn: sqlite3.Connection) -> None:
     """Update batch status based on constituent unit states."""
-    batch_ids = [
-        row["batch_id"] for row in conn.execute("SELECT batch_id FROM batches").fetchall()
-    ]
+    batch_ids = [row["batch_id"] for row in conn.execute("SELECT batch_id FROM batches").fetchall()]
     now = _now_iso()
     for batch_id in batch_ids:
         rows = conn.execute(
@@ -212,4 +210,3 @@ def refresh_batches(conn: sqlite3.Connection) -> None:
             "UPDATE batches SET status=?, updated_at=? WHERE batch_id=?",
             (status, now, batch_id),
         )
-

@@ -9,8 +9,6 @@ import json
 import logging
 import os
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
 
 from minions.config import is_expert_role
 from minions.errors import BackendError, ProjectError
@@ -31,7 +29,6 @@ from minions.lifecycle.project_metadata import (
 from minions.lifecycle.project_paths import git_tag, migrate_legacy_memory_dirs
 from minions.lifecycle.project_worktree import remove_all_worktrees
 from minions.paths import (
-    project_main_workspace,
     project_meta_json,
     project_session_name,
     project_shared_subdir,
@@ -466,7 +463,7 @@ def project_revive(
         relaunched: list[RoleEntry] = []
         for role in revived_roles:
             try:
-                status = _launch_role(role, port, resume=False)
+                _launch_role(role, port, resume=False)
                 logger.info("project_revive: relaunched role=%s port=%d", role.name, port)
                 relaunched.append(role.model_copy(update={"state": "sleeping"}))
             except Exception as exc:

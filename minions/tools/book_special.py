@@ -16,7 +16,14 @@ from minions.paths import project_shared_subdir
 from minions.tools.book_utils import now_iso as _now_iso
 from minions.tools.book_utils import quoted as _quoted
 from minions.tools.book_utils import validate_component as _validate_component
-from minions.tools.publish import mos_publish_to_shared, mos_publish_files_to_shared
+from minions.tools.publish import mos_publish_files_to_shared, mos_publish_to_shared
+
+__all__ = [
+    "mos_book_dead_end",
+    "mos_book_open_question",
+    "mos_publish_files_to_shared",
+    "mos_publish_to_shared",
+]
 
 
 def _resolve_port(port: int | None) -> int:
@@ -86,10 +93,12 @@ def mos_book_open_question(
     ]
 
     if related_pages:
-        fm_lines.extend([
-            "## Related Pages",
-            "",
-        ])
+        fm_lines.extend(
+            [
+                "## Related Pages",
+                "",
+            ]
+        )
         for page in related_pages:
             fm_lines.append(f"- [[{page}]]")
         fm_lines.append("")
