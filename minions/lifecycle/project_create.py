@@ -10,6 +10,7 @@ import json
 import logging
 import os
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from minions.config import load_gru_config, slugify
@@ -45,6 +46,25 @@ logger = logging.getLogger(__name__)
 
 def _now_iso() -> str:
     return datetime.now(tz=UTC).isoformat()
+
+
+def _prepare_project_tree(port: int, base_branch: str) -> tuple[str, Path]:
+    """Create the project directory, bare repo, and main worktree for *port*."""
+    pdir = project_dir(port)
+    pdir.mkdir(parents=True, exist_ok=True)
+    ensure_workspace_layout(port)
+    project_logs_dir(port).mkdir(parents=True, exist_ok=True)
+    (pdir / "eacn3_data").mkdir(parents=True, exist_ok=True)
+    write_project_gitignore(pdir)
+
+    try:
+        seed_per_project_repo(port)
+        branch = create_worktree(port, base_branch)
+        create_shared_worktree(port)  # no-op shim; shared surface is on main
+    except ProjectError as exc:
+        logger.error("Worktree creation failed: %s", exc)
+        raise
+    return branch, pdir
 
 
 def seed_draft_bootstrap(
@@ -286,28 +306,12 @@ def project_create(
         github_push_target = None
         github_push_branch_prefix = None
 
-    # Create directory structure.
-    pdir = project_dir(port)
-    pdir.mkdir(parents=True, exist_ok=True)
-    ensure_workspace_layout(port)
-    project_logs_dir(port).mkdir(parents=True, exist_ok=True)
-    (pdir / "eacn3_data").mkdir(parents=True, exist_ok=True)
-
-    # Workspace hygiene: write a .gitignore to prevent unstructured files.
-    write_project_gitignore(pdir)
-
     # Create per-project bare repo by seeding from the author repo's HEAD,
     # then add the main worktree (Gru's branch), which also seeds the Book
     # layout + shared surface directly on main (the standalone -shared branch
     # was eliminated in v23). Role worktrees are created lazily by
     # register_role and branch off the project's main branch.
-    try:
-        seed_per_project_repo(port)
-        branch = create_worktree(port, base_branch)
-        create_shared_worktree(port)  # no-op shim; shared surface is on main
-    except ProjectError as exc:
-        logger.error("Worktree creation failed: %s", exc)
-        raise
+    branch, pdir = _prepare_project_tree(port, base_branch)
 
     # Start backend with port-conflict retry.
     max_retries = 3
@@ -326,9 +330,7 @@ def project_create(
                     exc,
                 )
                 port = _store.find_next_port()
-                pdir = project_dir(port)
-                pdir.mkdir(parents=True, exist_ok=True)
-                project_logs_dir(port).mkdir(parents=True, exist_ok=True)
+                branch, pdir = _prepare_project_tree(port, base_branch)
             else:
                 raise
 

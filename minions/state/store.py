@@ -30,7 +30,7 @@ from typing import Any, Literal, TypedDict, TypeVar
 from pydantic import BaseModel, Field
 
 from minions.errors import PortError, StateError
-from minions.paths import PROJECTS_JSON
+from minions.paths import PROJECTS_JSON, projects_root
 from minions.state.port_allocator import PORT_MAX, PORT_MIN, PortAllocator
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,22 @@ logger = logging.getLogger(__name__)
 _GLOBAL_THREAD_LOCK = threading.Lock()
 
 T = TypeVar("T")
+
+
+def _disk_occupied_project_ports() -> set[int]:
+    """Return ports with an existing ``project_<port>/`` tree on disk."""
+    root = projects_root()
+    if not root.is_dir():
+        return set()
+
+    occupied: set[int] = set()
+    for child in root.iterdir():
+        if not child.is_dir() or not child.name.startswith("project_"):
+            continue
+        suffix = child.name.removeprefix("project_")
+        if suffix.isdecimal():
+            occupied.add(int(suffix))
+    return occupied
 
 
 class RoleEntry(BaseModel):
@@ -304,11 +320,18 @@ class StateStore:
         return removed
 
     def find_next_port(self) -> int:
-        """Find the next free port via bind-probe, skipping retired/in-use ports."""
+        """Find the next create-safe port.
+
+        A port is create-safe only when it is absent from the registry,
+        not retired, TCP-free, and has no on-disk ``project_<port>/`` tree.
+        The disk check keeps project_create from overwriting an orphaned or
+        partially created project directory.
+        """
         data = self._read_data()
         used_ports: set[int] = {p.port for p in data.projects if p.status != "closed"}
         retired: set[int] = set(data.retired_ports)
-        excluded = used_ports | retired
+        disk_occupied = _disk_occupied_project_ports()
+        excluded = used_ports | retired | disk_occupied
         try:
             port = self._allocator.allocate(excluded)
         except PortError:

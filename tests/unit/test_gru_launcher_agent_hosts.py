@@ -30,6 +30,11 @@ if [[ "${1:-}" == "run" ]]; then
     sleep 60
     exit 0
   fi
+  if [[ "${1:-}" == "claude" ]]; then
+    shift
+    echo "FAKE_GRU_CLAUDE_ARGV: $*" >&2
+    exit 0
+  fi
   exec "$@"
 fi
 exec "$@"

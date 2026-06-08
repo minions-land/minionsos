@@ -112,6 +112,20 @@ class TestRetirePort:
         assert store2.is_port_retired(37596)
 
 
+class TestFindNextPort:
+    def test_skips_existing_project_tree_on_disk(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        projects_root = tmp_path / "projects"
+        (projects_root / "project_37596" / "parent_repo.git").mkdir(parents=True)
+        monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(projects_root))
+
+        store = StateStore(root=tmp_path / "state")
+        monkeypatch.setattr(store._allocator, "_is_free", lambda port: True)
+
+        assert store.find_next_port() == 37597
+
+
 class TestRemoveProject:
     def test_remove_existing_returns_true_and_drops_row(self, store: StateStore) -> None:
         store.add_project(_project(37596))
