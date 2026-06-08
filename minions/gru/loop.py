@@ -521,7 +521,7 @@ class GruLoop:
     def _evaluate_role_evolution(self) -> None:
         """Periodic evidence-gated role-evolution evaluation.
 
-        Reads recent artifacts under each project's branches/shared/, runs
+        Reads recent artifacts under each project's branches/main/, runs
         ``role_evolution.evaluate``, and writes one audit-log line per
         evaluation. When ``role_evolution_auto_apply`` is enabled, also
         invokes the corresponding apply_split / apply_merge / apply_dismiss

@@ -35,7 +35,7 @@ Pointer types and how to resolve:
 
 Classifications: `verified`, `wrong_context` (resolves but does not support the claim), `broken` (does not resolve). Severity scales with claim stakes — one broken pointer in a chat message is a soft nudge; one under a camera-ready claim is a hard flag.
 
-Outputs are drafted in `branches/ethics/report-evidence-sweep-<ts>.md` (per-Role counts + highest-severity broken list) and published to `branches/shared/ethics/report-evidence-sweep-<ts>.md`; each hard flag is drafted as `branches/ethics/flag-<slug>.md` and published to `branches/shared/ethics/flag-<slug>.md`.
+Outputs are drafted in `branches/ethics/report-evidence-sweep-<ts>.md` (per-Role counts + highest-severity broken list) and published to `branches/main/ethics/report-evidence-sweep-<ts>.md`; each hard flag is drafted as `branches/ethics/flag-<slug>.md` and published to `branches/main/ethics/flag-<slug>.md`.
 
 ## Procedure
 

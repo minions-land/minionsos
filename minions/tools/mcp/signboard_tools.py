@@ -72,7 +72,7 @@ def mos_signboard_set(args: SignboardSetArgs) -> dict:
 
     Side effects:
 
-    1. Atomic update of ``branches/shared/governance/signboard.json``
+    1. Atomic update of ``branches/main/governance/signboard.json``
        under the per-project ``state/shared.lock``.
     2. Best-effort EACN direct message to Gru (``type:
        signboard_change``) so Gru reconsiders quorum on the same wake.

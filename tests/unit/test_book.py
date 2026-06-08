@@ -238,7 +238,7 @@ def test_publish_policy_allows_ethics_book() -> None:
 
 def test_publish_policy_rejects_expert_book() -> None:
     """Non-curator roles (Expert) may not publish into book/."""
-    with pytest.raises(ProjectError, match="may not publish under branches/shared"):
+    with pytest.raises(ProjectError, match="may not publish under branches/main"):
         publish._validate_dst("expert", "book/sources/source.md")
 
 

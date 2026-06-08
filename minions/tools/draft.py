@@ -12,13 +12,13 @@ Storage:
     project_{port}/branches/main/draft/journal.jsonl   — append-only mutation log.
 
 The Draft and journal live inside the cross-role shared worktree
-(``branches/main/`` on branch ``minionsos/project-{port}-shared``) so
-Draft history is auditable in git. ``mos_draft_append`` and
-``mos_draft_annotate`` write to the working tree only; commits happen
-on a cron through ``mos_draft_commit_shared``, which is owned by Ethics
-(the memory curator) and flushes the buffered Draft state via
-``mos_publish_to_shared`` (single commit per cron tick, message
-"ethics: draft flush <ts>").
+(``branches/main/`` on branch ``minionsos/project-{port}``) so Draft
+history is auditable in git. ``mos_draft_append`` and
+``mos_draft_annotate`` write to the working tree only; commits happen on a
+cron through ``mos_draft_commit_shared``, which is owned by Ethics (the
+memory curator) and flushes the buffered Draft state via
+``mos_publish_to_shared`` (single commit per cron tick, message "ethics:
+draft flush <ts>").
 """
 
 from __future__ import annotations
@@ -674,7 +674,7 @@ def mos_draft_view(
 
 
 def mos_draft_commit_shared(message: str | None = None) -> dict[str, Any]:
-    """Flush the buffered Draft to a single commit on the shared branch.
+    """Flush the buffered Draft to a single commit on the project main branch.
 
     Owned by Ethics. The Draft file at
     ``branches/main/draft/draft.json`` is updated freely by every

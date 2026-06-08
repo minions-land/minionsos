@@ -48,7 +48,7 @@ is written under `book/sources/` with `status: refuted`; downstream tooling
   V2 frontmatter (`page_kind: source`, `status: refuted`, title prefixed
   `Dead end:`).
 - Body has two sections: `## Claim` and `## Refutation evidence`.
-- Index entry + log entry on the shared branch.
+- Index entry + log entry on the project main branch.
 
 ## Pitfalls
 - Both `claim` and `refutation_evidence` must be non-empty.

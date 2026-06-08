@@ -98,12 +98,17 @@ def create_worktree(port: int, base_branch: str) -> str:
     return branch
 
 
-def create_shared_worktree(port: int) -> str:
-    """Seed the shared surface on the main branch (no separate -shared branch).
+def _worktree_add_cmd(parent_repo: Path, branch: str, workspace: Path, base: str) -> list[str]:
+    if git_ref_exists(parent_repo, branch):
+        return ["git", "worktree", "add", str(workspace), branch]
+    return ["git", "worktree", "add", "-b", branch, str(workspace), base]
 
-    v23 eliminated the standalone -shared branch; the shared surface now
-    lives directly under branches/main/ (the Book). This function seeds
-    the subdirectory structure + README on the main worktree.
+
+def create_shared_worktree(port: int) -> str:
+    """Seed the shared surface on the project main branch.
+
+    The shared surface lives under ``branches/main/`` (the Book). This
+    function seeds the subdirectory structure + README on the main worktree.
 
     Returns the main branch name.
     """
@@ -158,7 +163,8 @@ def create_role_worktree(
     function treats it like any other role so the main worktree is
     guaranteed to exist before Gru is registered. Any other role gets
     its own branch minionsos/project-{port}-{role} rooted at the project
-    main branch.
+    main branch. If that role branch already exists, check it out instead
+    of trying to recreate it.
 
     Returns (branch_name, workspace_path).
     """
@@ -179,15 +185,7 @@ def create_role_worktree(
             parent_repo,
         )
         resolved_base = "HEAD"
-    cmd = [
-        "git",
-        "worktree",
-        "add",
-        "-b",
-        branch,
-        str(workspace),
-        resolved_base,
-    ]
+    cmd = _worktree_add_cmd(parent_repo, branch, workspace, resolved_base)
     logger.info("Creating role worktree: %s", " ".join(cmd))
     result = subprocess.run(
         cmd,

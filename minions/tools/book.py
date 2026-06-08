@@ -5,7 +5,7 @@ testing, deciding, or handing off right now. The Book is L2: durable
 product memory compiled from shared artefacts after they land.
 
 Phase 2 implements the minimum writable surface under
-``branches/shared/book/``. Ethics owns Book writes: other roles publish raw
+``branches/main/book/``. Ethics owns Book writes: other roles publish raw
 artefacts to their own shared subdirs, then Ethics ingest-compiles them into
 book pages using the shared publish lock and commit machinery.
 
@@ -16,7 +16,7 @@ W1's file surface plus simple read tools only. Phase 5 adds W2 lexical
 contradiction callouts. There are no LLM calls in the Book layer.
 
 Book pages live beside the raw L1 artefacts in the shared worktree so
-git history remains auditable. Writes are staged outside ``branches/shared``
+git history remains auditable. Writes are staged outside ``branches/main``
 and published through ``mos_publish_to_shared(role="ethics", ...)``.
 """
 
@@ -725,7 +725,7 @@ def _publish_files(
 
     Each entry is ``(abs_src, rel_dst_under_book)``. Routes through
     :func:`mos_publish_files_to_shared` so all writes land as one commit on
-    the shared branch (see GitHub Issue #13).
+    the project main branch.
     """
     payload: list[dict[str, str]] = []
     for abs_src, rel_dst_under_book in files:

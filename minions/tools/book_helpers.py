@@ -120,7 +120,7 @@ def _resolve_source_path(port: int, src_path: str) -> tuple[Path, str]:
     try:
         src.relative_to(shared_root)
     except ValueError as exc:
-        raise BookError(f"src_path must be under branches/shared/: {src}") from exc
+        raise BookError(f"src_path must be under branches/main/: {src}") from exc
 
     try:
         source_file = src.relative_to(workspace_root).as_posix()

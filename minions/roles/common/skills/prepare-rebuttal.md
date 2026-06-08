@@ -30,7 +30,7 @@ Issue clusters (method / experiments / clarity / related work / claims scope), e
 | `scope adjustment` | Concede and tighten the claim |
 | `disagreement` | Rebut with citation / derivation |
 
-Outputs under `branches/<expert>/paper/rebuttal/`, one file per response block. Each evidence cite marked `[derived: branches/shared/exp/exp-<id>/report.md]` or `[derived: section <N>]`.
+Outputs under `branches/<expert>/paper/rebuttal/`, one file per response block. Each evidence cite marked `[derived: branches/main/exp/exp-<id>/report.md]` or `[derived: section <N>]`.
 
 ## Action-label FSM (for explicit per-comment classification)
 

@@ -12,7 +12,7 @@ others, and the loop never breaks.
 This module adds the missing **active trigger**:
 
 1. ``detect_stagnation`` reads the project's recent activity (Draft
-   ``created_at``, shared-branch ``git log``, experiment-queue
+   ``created_at``, main-branch shared-surface ``git log``, experiment-queue
    ``runs``) and decides whether the project has been quiet for at
    least ``stagnation_window_seconds``.
 2. ``pick_candidate_milestone`` maps the current project ``phase`` (and
@@ -183,7 +183,7 @@ def _last_draft_created_at(port: int) -> datetime | None:
 
 
 def _last_shared_commit_at(port: int) -> datetime | None:
-    """Return the timestamp of the most recent commit on ``branches/shared``."""
+    """Return the timestamp of the most recent commit on ``branches/main``."""
     import subprocess
 
     workdir = project_shared_workspace(port)

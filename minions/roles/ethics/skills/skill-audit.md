@@ -20,7 +20,7 @@ proposal ledger and skill-forge admission.
 ## Position in the Skill family
 
 ```
-branches/shared/notes/skill-proposals.md
+branches/main/notes/skill-proposals.md
                 │
                 ▼
         this skill (skill-audit)
@@ -37,7 +37,7 @@ skill-forge does not run on a proposal until Ethics has accepted that proposal.
 
 ## When to invoke
 
-- When `branches/shared/notes/skill-proposals.md` changes and contains pending
+- When `branches/main/notes/skill-proposals.md` changes and contains pending
   proposals.
 - On user request: "audit skill proposals", "review the skill curation",
   "process skill-proposals.md".
@@ -50,7 +50,7 @@ Skip when the proposal file is identical to a previously audited version
 ## Procedure
 
 1. **Read the proposal file independently.** Open
-   `branches/shared/notes/skill-proposals.md` directly. Do not rely on any
+   `branches/main/notes/skill-proposals.md` directly. Do not rely on any
    accompanying EACN message body for context; the proposal must stand on its
    own.
 
@@ -96,17 +96,17 @@ Skip when the proposal file is identical to a previously audited version
    root** (`project_{port}/`).
 
    Write a per-pass summary file to
-   `branches/shared/ethics/skill-audit-YYYY-MM-DD.md` and publish via
+   `branches/main/ethics/skill-audit-YYYY-MM-DD.md` and publish via
    `mos_publish_to_shared`. **Also append an inline
    `### audit (by ethics on YYYY-MM-DD)` sub-block under each proposal** in
-   `branches/shared/notes/skill-proposals.md` so the proposals file remains a
+   `branches/main/notes/skill-proposals.md` so the proposals file remains a
    self-contained ledger.
 
    ```markdown
    ### audit (by ethics on YYYY-MM-DD)
    - verdict: accepted | rejected | held
    - reason: <one-line>
-   - audit_path: branches/shared/ethics/skill-audit-YYYY-MM-DD.md
+   - audit_path: branches/main/ethics/skill-audit-YYYY-MM-DD.md
    ```
 
    The summary file schema:

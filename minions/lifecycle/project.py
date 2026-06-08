@@ -377,8 +377,8 @@ def _migrate_legacy_memory_dirs(port: int) -> None:
     """Ensure current shared memory directories exist under their canonical names.
 
     Canonical layout:
-        branches/shared/draft/
-        branches/shared/book/
+        branches/main/draft/
+        branches/main/book/
 
     Runs git mv inside the shared worktree when a recognized source directory
     is present. Idempotent: skips if the source dir doesn't exist or the target
@@ -1172,6 +1172,8 @@ def _create_role_worktree(
     function treats it like any other role so the main worktree is guaranteed
     to exist before Gru is registered. Any other role gets its own branch
     ``minionsos/project-{port}-{role}`` rooted at the project main branch.
+    If that role branch already exists, check it out instead of trying to
+    recreate it.
     """
     branch = project_branch_name(port, role_name)
     workspace = project_role_workspace(port, role_name)
@@ -1190,15 +1192,10 @@ def _create_role_worktree(
             parent_repo,
         )
         resolved_base = "HEAD"
-    cmd = [
-        "git",
-        "worktree",
-        "add",
-        "-b",
-        branch,
-        str(workspace),
-        resolved_base,
-    ]
+    if _git_ref_exists(parent_repo, branch):
+        cmd = ["git", "worktree", "add", str(workspace), branch]
+    else:
+        cmd = ["git", "worktree", "add", "-b", branch, str(workspace), resolved_base]
     logger.info("Creating role worktree: %s", " ".join(cmd))
     result = subprocess.run(
         cmd,
@@ -1368,7 +1365,7 @@ def _seed_draft_bootstrap(
     - The L1 memory root (all subsequent nodes derive from this context)
     - A durable record of the project's initial state
 
-    Written to ``branches/shared/draft/draft.json`` immediately after
+    Written to ``branches/main/draft/draft.json`` immediately after
     shared worktree creation, before any Role spawns.
     """
     from minions.paths import project_shared_draft_json
@@ -1607,9 +1604,9 @@ def project_create(
 
     # Create per-project bare repo by seeding from the author repo's HEAD,
     # then add the main worktree (Gru's branch), which also seeds the Book
-    # layout + shared surface directly on main (the standalone -shared branch
-    # was eliminated in v23). Role worktrees are created lazily by
-    # ``register_role`` and branch off the project's main branch.
+    # layout + shared surface on the project main branch. Role worktrees are
+    # created lazily by ``register_role`` and branch off the project's main
+    # branch.
     try:
         _seed_per_project_repo(port)
         branch = _create_worktree(port, base_branch)
@@ -2143,7 +2140,7 @@ def project_revive(
       read-back is cheaper and matches the dormant→revive semantics
       ("the project restarts; agents reconstruct from durable state").
     - If *external_feedback* is provided, archives it to
-      ``branches/shared/handoffs/external-feedback/<ts>.md``.
+      ``branches/main/handoffs/external-feedback/<ts>.md``.
     - Updates ``meta.json`` and ``projects.json``.
     """
     _store = store or StateStore()

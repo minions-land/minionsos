@@ -82,7 +82,7 @@ Your tool access is governed by the runtime whitelist; see the common role contr
 
 - `branches/{slug}/`: full read/write — this is your branch worktree.
 - Other roles' branches: **read-only** for reference; request edits through EACN.
-- Publish cross-role handoffs to `branches/shared/handoffs/` via `mos_publish_to_shared`.
+- Publish cross-role handoffs to `branches/main/handoffs/` via `mos_publish_to_shared`.
 
 ## Collaboration rules
 

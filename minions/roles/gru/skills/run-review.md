@@ -30,7 +30,7 @@ One call to `mos_review_run`. The tool gate-checks the checklist; if it rejects,
 ## Procedure
 
 1. **Verify the submission package.** The EACN message must name a submission directory containing at minimum the manuscript PDF and `submission-checklist.md`. If either is missing, reply on EACN asking for a complete package; do not invoke the tool.
-2. **Locate the prior rolling summary if any.** If this is round ≥ 2, check `branches/shared/reviews/summaries/round-<n-1>.md`. Pass its path as `prior_summary_path` so Pass B / Pass C can run.
+2. **Locate the prior rolling summary if any.** If this is round ≥ 2, check `branches/main/reviews/summaries/round-<n-1>.md`. Pass its path as `prior_summary_path` so Pass B / Pass C can run.
 3. **Call `mos_review_run`** with `port`, `submission_path`, and optional `prior_summary_path`. The tool blocks until the round finishes.
 4. **Handle the response shape:**
    - `status == "rejected"`: relay `missing_required` to the submitting Role with a brief EACN message; do not paraphrase or soften. The author needs to know exactly which items are missing.

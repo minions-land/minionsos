@@ -8,7 +8,7 @@ Gru-only by design. Three primitives, each with a separate apply tool:
   - mos_role_evolve_dismiss: dismiss one role with no recent work.
 
 The split/merge/dismiss tools require non-empty evidence_refs (paths
-under branches/shared/...). This bakes the evidence-gating contract
+under branches/main/...). This bakes the evidence-gating contract
 into the API surface so callers cannot trigger restructuring on
 diversity heuristics alone.
 """
@@ -107,7 +107,7 @@ def mos_role_split(args: RoleSplitArgs) -> dict:
     failure (some specialists fail to spawn), the source role is kept
     alive to preserve coverage.
 
-    Writes one line to ``branches/shared/governance/role_evolution.jsonl``.
+    Writes one line to ``branches/main/governance/role_evolution.jsonl``.
     """
     _require_tool_allowed("mos_role_split")
     res = RE.apply_split(
@@ -136,7 +136,7 @@ def mos_role_merge(args: RoleMergeArgs) -> dict:
     instead — merging a starved Role into another Role's scope is the
     wrong primitive.
 
-    Writes one line to ``branches/shared/governance/role_evolution.jsonl``.
+    Writes one line to ``branches/main/governance/role_evolution.jsonl``.
     """
     _require_tool_allowed("mos_role_merge")
     res = RE.apply_merge(

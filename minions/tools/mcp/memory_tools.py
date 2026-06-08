@@ -153,7 +153,7 @@ def mos_draft_unmarked_audit(args: DraftUnmarkedAuditArgs) -> dict:
 
 @mcp.tool()
 def mos_draft_commit_shared(args: DraftCommitSharedArgs) -> dict:
-    """Flush the buffered Draft to a single commit on the shared branch.
+    """Flush the buffered Draft to a single commit on the project main branch.
 
     Owned by Ethics (whitelist also grants Gru). Other roles must not call
     this — they update the Draft via ``mos_draft_append`` /

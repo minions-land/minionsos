@@ -68,7 +68,7 @@ def mock_paper_project(tmp_path: Path, monkeypatch):
         return state_dir / "shared.lock"
 
     def mock_project_shared_branch_name(p: int) -> str:
-        return f"minionsos/project-{p}-shared"
+        return f"minionsos/project-{p}"
 
     import minions.paths
     import minions.tools.evaluator

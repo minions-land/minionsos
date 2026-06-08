@@ -76,7 +76,7 @@ Signatures and full docs are in MANUAL. These one-liners are reminders only.
 **Draft (L1)**
 - `mos_draft_view(query, by_role, by_status, ...)` — unified read: orientation + filter + search
 - `mos_draft_append(nodes=[...], edges=[...])` — add nodes/edges
-- `mos_draft_commit_shared()` — flush to shared branch (Ethics, as curator, calls this; others call `mos_draft_append` freely)
+- `mos_draft_commit_shared()` — flush to the project main branch (Ethics, as curator, calls this; others call `mos_draft_append` freely)
 
 **EACN**
 - `eacn3_send_message(to, content)` — DM or broadcast

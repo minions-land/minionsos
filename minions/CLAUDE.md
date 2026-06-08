@@ -170,8 +170,8 @@ Ethics' audit pass ends with one EACN message to Gru. Gru is then the routing au
 ```json
 {
   "type": "skill-audit-complete",
-  "audit_path": "branches/shared/ethics/skill-audit-YYYY-MM-DD.md",
-  "proposals_path": "branches/shared/notes/skill-proposals.md",
+  "audit_path": "branches/main/ethics/skill-audit-YYYY-MM-DD.md",
+  "proposals_path": "branches/main/notes/skill-proposals.md",
   "accepted": [
     {"proposal_id": "proposal-20260523-0001", "op": "add", "axis": "knowledge"},
     {"proposal_id": "proposal-20260523-0002", "op": "spawn", "axis": "agent"}
@@ -189,13 +189,13 @@ Ethics' audit pass ends with one EACN message to Gru. Gru is then the routing au
 | knowledge | `revise` | `Skill(skill-forge)` with `mode=improve`, target_skill_path from proposal | Runs Stage 2 + 3 minimum |
 | knowledge | `merge` | `Skill(skill-forge)` with `mode=create` against the union, plus `drop` of source_a + source_b after admission | Two-phase: admit new, then drop sources only if new passes |
 | knowledge | `split` | Two `Skill(skill-forge)` create runs (one per decision class), then `drop` of source after both admit | Three-phase; if either child fails Stage 3, no drop |
-| knowledge | `drop` | Direct removal from library + commit on shared branch | No skill-forge run needed; audit already verified `unique_coverage_check` |
+| knowledge | `drop` | Direct removal from library + commit on the project main branch | No skill-forge run needed; audit already verified `unique_coverage_check` |
 | agent | `spawn` | `mos_spawn_role` or `mos_spawn_expert` with proposed_domain_pack + proposed_tool_whitelist from proposal | Native MCP tool |
 | agent | `dismiss` | `mos_dismiss_role` against target_expert_id | Native MCP tool (also `mos_role_evolve_dismiss` for evidence-gated dismiss with Draft + EACN inputs) |
 | agent | `merge` | `mos_role_merge` against `expert_a` + `expert_b` with `union_domain_pack` | Native MCP tool; bid-overlap-gated. `mos_role_evolve_evaluate` produces the supporting evidence summary first |
 | agent | `split` | `mos_role_split` against `target_expert_id` with `domain_partition` | Native MCP tool; **the proposal's `requires_signboard: true` is enforced here — Gru must reach Signboard consensus before calling the tool** |
 
-**Post-enactment.** After Gru completes enactment for a proposal, it appends an `### enactment (by gru on YYYY-MM-DD)` sub-block to that proposal in `branches/shared/notes/skill-proposals.md`, closing the lifecycle (see [[skill-curator]] §5 lifecycle annotations). The proposal's `status` flips to `enacted`. If enactment fails (e.g. skill-forge Stage 3 rejects), `status` becomes `superseded` and Gru explains in the enactment block.
+**Post-enactment.** After Gru completes enactment for a proposal, it appends an `### enactment (by gru on YYYY-MM-DD)` sub-block to that proposal in `branches/main/notes/skill-proposals.md`, closing the lifecycle (see [[skill-curator]] §5 lifecycle annotations). The proposal's `status` flips to `enacted`. If enactment fails (e.g. skill-forge Stage 3 rejects), `status` becomes `superseded` and Gru explains in the enactment block.
 
 ## Running tests
 

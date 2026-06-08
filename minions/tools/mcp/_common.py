@@ -488,7 +488,7 @@ class RoleSplitArgs(BaseModel):
     )
     evidence_refs: list[str] = Field(
         description=(
-            "Required. Paths under branches/shared/ (or full URLs) pointing at "
+            "Required. Paths under branches/main/ (or full URLs) pointing at "
             "the failure artifacts that justify this split. An empty list will "
             "be rejected."
         ),

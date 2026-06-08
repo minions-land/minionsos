@@ -28,7 +28,7 @@ Prepare a code bundle that reproduces the paper's claimed results.
 
 2. **Include dependency lockfile.** `requirements.txt`, `uv.lock`, `environment.yml`, or equivalent. Pin versions exactly.
 
-3. **Pointer to experiment artifacts.** For each reported number (table, figure), include a pointer: `[derived: branches/shared/exp/exp-<id>/report.md]`. The reader must be able to trace any claim to its source data.
+3. **Pointer to experiment artifacts.** For each reported number (table, figure), include a pointer: `[derived: branches/main/exp/exp-<id>/report.md]`. The reader must be able to trace any claim to its source data.
 
 4. **Scrub paths and secrets.** No absolute paths, no API keys, no institutional hostnames. Replace with placeholders and document them in the README.
 

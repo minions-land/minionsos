@@ -158,7 +158,7 @@ class FailureEvent:
     when: datetime
     source: Literal["ethics", "review", "experiment", "selfreport"]
     text: str
-    artifact_path: str  # path under branches/shared/...
+    artifact_path: str  # path under branches/main/...
 
     @property
     def age_hours(self) -> float:
@@ -711,7 +711,7 @@ def evaluate(project_port: int, store=None, tunables=_DEFAULT_TUNABLES):
 
 
 def append_audit(project_port, kind, roles_in, roles_out, reason, extra=None):
-    """Append a single line to branches/shared/governance/role_evolution.jsonl."""
+    """Append a single line to branches/main/governance/role_evolution.jsonl."""
     gov_dir = _shared_dir(project_port) / "governance"
     gov_dir.mkdir(parents=True, exist_ok=True)
     log = gov_dir / "role_evolution.jsonl"

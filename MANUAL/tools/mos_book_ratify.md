@@ -36,7 +36,7 @@ mos_book_ratify(
 1. Opens the existing `book/sources/<slug>.md` page (must already exist — typically promoted via `mos_book_promote_verified`).
 2. Updates YAML frontmatter: sets `ratified_by: ethics` and `ratified_at: <iso>`.
 3. Appends a `## Ratification` section containing the `evidence_review` text.
-4. Commits updated page + log entry on the shared branch via `mos_publish_to_shared`.
+4. Commits updated page + log entry on the project main branch via `mos_publish_to_shared`.
 
 ## When to call
 - After Ethics finishes a cross-role audit that vindicates a claim in the Book.

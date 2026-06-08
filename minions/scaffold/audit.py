@@ -314,8 +314,8 @@ def check_whitelist_entries_resolve() -> list[Issue]:
 
 
 def _shared_subdirs_in_boundary_text(text: str) -> set[str]:
-    """Extract ``branches/shared/<sub>/`` roots mentioned in free-form text."""
-    return set(re.findall(r"branches/shared/([a-z][a-z0-9_-]*)/", text))
+    """Extract ``branches/main/<sub>/`` roots mentioned in free-form text."""
+    return set(re.findall(r"branches/main/([a-z][a-z0-9_-]*)/", text))
 
 
 def check_publish_policy_matches_boundaries() -> list[Issue]:
@@ -342,7 +342,7 @@ def check_publish_policy_matches_boundaries() -> list[Issue]:
                 Issue(
                     "warning",
                     "publish",
-                    f"role {role!r} can publish to branches/shared/{sub}/ "
+                    f"role {role!r} can publish to branches/main/{sub}/ "
                     "but ROLE_WRITE_BOUNDARIES does not list it.",
                 )
             )
@@ -352,7 +352,7 @@ def check_publish_policy_matches_boundaries() -> list[Issue]:
                     "warning",
                     "publish",
                     f"role {role!r} ROLE_WRITE_BOUNDARIES mentions "
-                    f"branches/shared/{sub}/ but the publish policy rejects it.",
+                    f"branches/main/{sub}/ but the publish policy rejects it.",
                 )
             )
     return issues

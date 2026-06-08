@@ -25,15 +25,15 @@ roles_active:
 role_prompt_overlay: {}
 
 deliverable_schema:
-  # Paths under branches/shared/ where the final deliverable artefacts live.
+  # Paths under branches/main/ where the final deliverable artefacts live.
   # Required artefacts that mos_evaluate will verify exist before scoring.
   required:
-    - branches/shared/exp/    # Expert experiment bundles
+    - branches/main/exp/    # Expert experiment bundles
   # Optional artefacts that are part of a complete deliverable but not required.
   optional:
-    - branches/shared/ethics/
-    - branches/shared/reviews/
-  # Per-role publish whitelist. Lists the subdirs under branches/shared/
+    - branches/main/ethics/
+    - branches/main/reviews/
+  # Per-role publish whitelist. Lists the subdirs under branches/main/
   # each role may publish into via mos_publish_to_shared.
   # "*" means any subdir (Gru only).
   publish_whitelist:

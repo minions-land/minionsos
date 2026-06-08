@@ -689,22 +689,22 @@ ROLE_CLASSIFICATION: dict[str, RoleType] = {
 ROLE_WRITE_BOUNDARIES: dict[str, list[str]] = {
     "gru": [
         "branches/main/",
-        "branches/shared/<any>/ (via mos_publish_to_shared)",
+        "branches/main/<any>/ (via mos_publish_to_shared)",
     ],
     "ethics": [
         "branches/ethics/ (drafts, investigation notes)",
-        "branches/shared/ethics/ (via mos_publish_to_shared)",
-        "branches/shared/notes/ (via mos_publish_to_shared)",
-        "branches/shared/handoffs/ (via mos_publish_to_shared)",
-        "branches/shared/book/ (Book curation: ingest + promote)",
-        "branches/shared/draft/draft.json (via mos_draft_commit_shared)",
-        "branches/shared/governance/signboard.json (via mos_signboard_set)",
+        "branches/main/ethics/ (via mos_publish_to_shared)",
+        "branches/main/notes/ (via mos_publish_to_shared)",
+        "branches/main/handoffs/ (via mos_publish_to_shared)",
+        "branches/main/book/ (Book curation: ingest + promote)",
+        "branches/main/draft/draft.json (via mos_draft_commit_shared)",
+        "branches/main/governance/signboard.json (via mos_signboard_set)",
     ],
     "expert": [
         "branches/<expert>/ (src/experiments/, exp/, paper/, notes/)",
-        "branches/shared/exp/ (via mos_publish_to_shared)",
-        "branches/shared/handoffs/ (via mos_publish_to_shared)",
-        "branches/shared/governance/signboard.json (via mos_signboard_set)",
+        "branches/main/exp/ (via mos_publish_to_shared)",
+        "branches/main/handoffs/ (via mos_publish_to_shared)",
+        "branches/main/governance/signboard.json (via mos_signboard_set)",
     ],
 }
 
@@ -802,7 +802,7 @@ class GruConfig(BaseModel):
         description=(
             "How often Gru evaluates whether any role should split or merge. "
             "Recommendations are always logged to "
-            "branches/shared/governance/role_evolution.jsonl; whether they are "
+            "branches/main/governance/role_evolution.jsonl; whether they are "
             "auto-applied is gated on role_evolution_auto_apply. Default 15 min."
         ),
     )
@@ -864,7 +864,7 @@ class GruConfig(BaseModel):
         description=(
             "When True, Gru runs a periodic digest cron that snapshots each "
             "active project's per-role event flow + Draft growth, persists "
-            "the report under branches/shared/governance/gru-digest/, and "
+            "the report under branches/main/governance/gru-digest/, and "
             "emits a `draft_lag` health event when a role received real "
             "events in the window but produced zero Draft nodes (the "
             "Draft-discipline observation that motivated v15.16). Cheap — "
@@ -895,7 +895,7 @@ class GruConfig(BaseModel):
         default=True,
         description=(
             "Enable Gru's stall-breaker: when a project is silent on every "
-            "productive axis (no Draft growth, no shared-branch commits, no "
+            "productive axis (no Draft growth, no main-branch shared-surface commits, no "
             "experiment runs) for stagnation_vote_window_seconds, Gru "
             "broadcasts a milestone-vote request to every eligible signer. "
             "See minions/gru/milestone_vote.py."
@@ -904,7 +904,7 @@ class GruConfig(BaseModel):
     stagnation_vote_window_seconds: int = Field(
         default=1200,
         description=(
-            "How long the project must be silent on Draft, shared-branch "
+            "How long the project must be silent on Draft, main-branch shared-surface "
             "commits, and experiment runs before the stall breaker fires. "
             "Default 1200 s (20 min) — long enough that a deep run or "
             "review pass can finish without interruption, short enough to "
@@ -1126,7 +1126,7 @@ class GruConfig(BaseModel):
     # lets thresholds auto-scale with the underlying model.
     #
     # NOTE: These are unrelated to the L1 Draft on disk
-    # (``branches/shared/draft/draft.json``). The ``context_*_pct``
+    # (``branches/main/draft/draft.json``). The ``context_*_pct``
     # names refer to the in-process transcript / context window of the
     # agent-host model.
     model_context_window_tokens: int = Field(

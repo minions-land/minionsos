@@ -1,9 +1,9 @@
 """Cross-role publishing onto the project's shared surface (the main branch).
 
 Provides ``mos_publish_to_shared``, the sanctioned way for a Role to land a
-file on the project's shared surface — which, since the v23 rebuild, is the
-**main branch** (``project_{port}/branches/main/``). The standalone
-``-shared`` branch was eliminated; main IS the shared surface (the Book).
+file on the project's shared surface, which is the **main branch**
+(``project_{port}/branches/main/``). The main branch is the shared surface
+(the Book).
 The tool:
 
 1. Acquires a per-project ``flock`` on ``state/shared.lock`` so concurrent
@@ -67,7 +67,7 @@ logger = logging.getLogger(__name__)
 class PublishToSharedResult(DictLikeBaseModel):
     """Result shape for ``mos_publish_to_shared``.
 
-    Returned after a single-file publish on the shared branch. ``commit_sha``
+    Returned after a single-file publish on the project main branch. ``commit_sha``
     is ``None`` when the publish was a no-op (``src`` already matched the
     on-disk destination — no diff). ``pushed`` is ``True`` only when a
     GitHub push target is configured for the project AND the commit landed.
@@ -75,10 +75,10 @@ class PublishToSharedResult(DictLikeBaseModel):
 
     port: int = Field(description="Project port the publish was scoped to.")
     role: str = Field(description="Calling role (gru/ethics/expert/...).")
-    dst_path: str = Field(description="Relative path under branches/shared/ that was written.")
+    dst_path: str = Field(description="Relative path under branches/main/ that was written.")
     commit_sha: str | None = Field(
         default=None,
-        description="SHA of the shared-branch commit, or None on a no-op publish.",
+        description="SHA of the main-branch commit, or None on a no-op publish.",
     )
     pushed: bool = Field(
         default=False,
@@ -88,7 +88,7 @@ class PublishToSharedResult(DictLikeBaseModel):
         default=None,
         description="Remote branch name written by the push, or None when not pushed.",
     )
-    branch: str = Field(description="Shared-branch name (minionsos/project-{port}-shared).")
+    branch: str = Field(description="Project main branch name (minionsos/project-{port}).")
 
 
 class PublishFilesToSharedResult(DictLikeBaseModel):
@@ -103,7 +103,7 @@ class PublishFilesToSharedResult(DictLikeBaseModel):
     port: int = Field(description="Project port the publish was scoped to.")
     role: str = Field(description="Calling role (gru/ethics/expert/...).")
     dst_paths: list[str] = Field(
-        description="Relative paths under branches/shared/ written in this commit."
+        description="Relative paths under branches/main/ written in this commit."
     )
     commit_sha: str | None = Field(
         default=None,
@@ -117,7 +117,7 @@ class PublishFilesToSharedResult(DictLikeBaseModel):
         default=None,
         description="Remote branch name written by the push, or None when not pushed.",
     )
-    branch: str = Field(description="Shared-branch name (minionsos/project-{port}-shared).")
+    branch: str = Field(description="Project main branch name (minionsos/project-{port}).")
 
 
 # ---------------------------------------------------------------------------
@@ -219,20 +219,19 @@ def _validate_dst(role_name: str, dst_subpath: str, port: int | None = None) -> 
     """
     if not dst_subpath or dst_subpath.startswith("/"):
         raise ProjectError(
-            f"dst_subpath must be a relative path under branches/shared/, got: {dst_subpath!r}"
+            f"dst_subpath must be a relative path under branches/main/, got: {dst_subpath!r}"
         )
     candidate = Path(dst_subpath)
     if candidate.is_absolute() or any(part == ".." for part in candidate.parts):
         raise ProjectError(
-            f"dst_subpath may not escape branches/shared/ "
-            f"(no .. or absolute paths): {dst_subpath!r}"
+            f"dst_subpath may not escape branches/main/ (no .. or absolute paths): {dst_subpath!r}"
         )
     if not candidate.parts:
         raise ProjectError("dst_subpath cannot be empty")
     root = candidate.parts[0]
     if root in _RESERVED_SUBDIR_ROOTS:
         raise ProjectError(
-            f"branches/shared/{root}/ is reserved for mos_review_run; "
+            f"branches/main/{root}/ is reserved for mos_review_run; "
             "publish through that surface instead."
         )
     if port is None:
@@ -244,7 +243,7 @@ def _validate_dst(role_name: str, dst_subpath: str, port: int | None = None) -> 
         raise ProjectError(f"Role {role_name!r} has no shared-publish policy registered.")
     if "*" not in allowed and root not in allowed:
         raise ProjectError(
-            f"Role {role_name!r} may not publish under branches/shared/{root}/. "
+            f"Role {role_name!r} may not publish under branches/main/{root}/. "
             f"Allowed roots: {sorted(allowed)}."
         )
     return candidate
@@ -346,16 +345,16 @@ def mos_publish_to_shared(
     port: int | None = None,
     store: StateStore | None = None,
 ) -> PublishToSharedResult:
-    """Atomically publish *src_path* into ``branches/shared/<dst_subpath>``.
+    """Atomically publish *src_path* into ``branches/main/<dst_subpath>``.
 
     The tool serialises concurrent writers via a per-project flock,
     enforces per-role subdir policy, and commits each publish on the
-    shared branch (``minionsos/project-{port}-shared``) with
-    *commit_message*. Returns a :class:`PublishToSharedResult` with
-    ``port``, ``role``, ``dst_path``, ``commit_sha``, ``pushed``,
-    ``push_branch``, and ``branch``. The result is dict-like so callers
-    using ``result["dst_path"]`` or ``result.get("commit_sha")`` keep
-    working unchanged.
+    project main branch (``minionsos/project-{port}``) with *commit_message*.
+    Returns a :class:`PublishToSharedResult` with ``port``, ``role``,
+    ``dst_path``, ``commit_sha``, ``pushed``, ``push_branch``, and
+    ``branch``. The result is dict-like so callers using
+    ``result["dst_path"]`` or ``result.get("commit_sha")`` keep working
+    unchanged.
 
     A ``commit_sha`` of ``None`` means the publish was a no-op (the file
     on disk already matched and no diff was produced).
@@ -459,7 +458,7 @@ def mos_publish_files_to_shared(
     port: int | None = None,
     store: StateStore | None = None,
 ) -> PublishFilesToSharedResult:
-    """Atomically publish *multiple* files into ``branches/shared/`` in one commit.
+    """Atomically publish *multiple* files into ``branches/main/`` in one commit.
 
     Each entry in ``files`` is ``{"src_path": str, "dst_subpath": str}``. All
     destinations are validated against *role*'s shared-publish policy, the

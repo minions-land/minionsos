@@ -160,9 +160,8 @@ def project_roles_workspace_dir(port: int) -> Path:
 def project_shared_workspace(port: int) -> Path:
     """Return the project's shared surface — now the **main branch** worktree.
 
-    The standalone ``minionsos/project-{port}-shared`` branch was eliminated
-    in the v23 rebuild: the team's shared surface IS the main branch (the
-    Book). Everything cross-role lives under ``branches/main/``:
+    The team's shared surface is the main branch (the Book). Everything
+    cross-role lives under ``branches/main/``:
 
     - ``draft/draft.json``      L1 — the single live process graph (every
                                 role appends; Ethics curates)
@@ -210,8 +209,7 @@ def project_signboard_json(port: int) -> Path:
 def project_shared_branch_name(port: int) -> str:
     """Return the branch the shared surface lives on — the project main branch.
 
-    The standalone ``-shared`` branch was eliminated; shared content lives on
-    ``minionsos/project-{port}`` (the main branch).
+    Shared content lives on ``minionsos/project-{port}`` (the main branch).
     """
     return project_branch_name(port)
 
@@ -337,7 +335,7 @@ def project_draft_dir(port: int) -> Path:
     """Return the L1 Draft directory for *port*.
 
     Lives under ``branches/main/draft/`` so Draft state is
-    captured in git on the shared branch. Use
+    captured in git on the project main branch. Use
     :func:`project_shared_draft_json` for the canonical
     ``draft.json`` path directly.
     """

@@ -49,10 +49,9 @@ SHARED_SUBDIRS = (
 SHARED_README = """\
 # Project main branch — the team's shared surface (the "Book")
 
-This is the main branch checkout (`minionsos/project-{port}`). In the v23
-rebuild the standalone `-shared` branch was eliminated: the team's shared
-surface IS the main branch. Gru owns it; Ethics seals content and Gru
-promotes it into the Book layout.
+This is the main branch checkout (`minionsos/project-{port}`). The team's
+shared surface is the main branch. Gru owns it; Ethics seals content and
+Gru promotes it into the Book layout.
 
 ## Live process surface (written directly)
 
@@ -114,7 +113,6 @@ def create_worktree(port: int, base_branch: str) -> str:
         raise ProjectError(f"git worktree add failed for port {port}: {result.stderr.strip()}")
 
     # Seed the shared-surface + Book layout directly on the main branch.
-    # The standalone -shared branch is gone; main IS the shared surface.
     for subdir in SHARED_SUBDIRS:
         sub = workspace / subdir
         sub.mkdir(parents=True, exist_ok=True)
@@ -127,11 +125,10 @@ def create_worktree(port: int, base_branch: str) -> str:
 
 
 def create_shared_worktree(port: int) -> str:
-    """No-op shim: the standalone shared worktree was eliminated in v23.
+    """Return the branch for the shared surface.
 
-    The team's shared surface is now the main branch (seeded by
-    :func:`create_worktree`). Retained so existing call sites keep working;
-    returns the main branch name.
+    The team's shared surface is the main branch seeded by
+    :func:`create_worktree`; this wrapper returns that branch name.
     """
     return project_branch_name(port)
 

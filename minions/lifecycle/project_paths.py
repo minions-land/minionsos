@@ -328,8 +328,8 @@ def migrate_legacy_memory_dirs(port: int) -> None:
     """Ensure current shared memory directories exist under their canonical names.
 
     Canonical layout:
-        branches/shared/draft/
-        branches/shared/book/
+        branches/main/draft/
+        branches/main/book/
 
     Runs git mv inside the shared worktree when a recognized source directory
     is present. Idempotent: skips if the source dir doesn't exist or the target

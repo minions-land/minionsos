@@ -107,6 +107,39 @@ def test_active_create_worktree_checks_out_seeded_branch(
     assert branch == f"minionsos/project-{port}"
 
 
+def test_role_worktree_checks_out_existing_role_branch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Role revive should not recreate a role branch left in the bare repo."""
+    from minions.lifecycle.project_worktree import create_role_worktree
+
+    author = _make_author_repo(tmp_path)
+    projects_root = tmp_path / "projects-root"
+    projects_root.mkdir()
+    monkeypatch.setenv("MINIONS_AUTHOR_REPO", str(author))
+    monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(projects_root))
+
+    port = 41006
+    role_name = "expert-revive"
+    project_dir(port).mkdir(parents=True, exist_ok=True)
+    project_workspace_root(port).mkdir(parents=True, exist_ok=True)
+    project_state_dir(port).mkdir(parents=True, exist_ok=True)
+
+    project_mod._seed_per_project_repo(port)
+    project_mod._create_worktree(port, "HEAD")
+
+    role_branch, role_workspace = create_role_worktree(port, role_name)
+    assert role_branch == f"minionsos/project-{port}-{role_name}"
+    _git(["worktree", "remove", "--force", str(role_workspace)], project_parent_repo_dir(port))
+    assert not role_workspace.exists()
+    assert role_branch in _git(["branch", "--list", role_branch], project_parent_repo_dir(port))
+
+    restored_branch, restored_workspace = create_role_worktree(port, role_name)
+    assert restored_branch == role_branch
+    assert restored_workspace == role_workspace
+    assert _git(["branch", "--show-current"], restored_workspace).strip() == role_branch
+
+
 def test_seed_imports_author_head_contents(seeded_project: dict[str, object]) -> None:
     port = int(seeded_project["port"])  # type: ignore[arg-type]
     main = project_main_workspace(port)
@@ -210,10 +243,8 @@ def test_remove_all_worktrees_cleans_branches_dir(
 
     bare = project_parent_repo_dir(port)
     branches = _git(["branch", "--list"], bare)
-    assert f"minionsos/project-{port}" in branches
-    # The standalone ``-shared`` branch was eliminated in the v23 rebuild —
-    # the shared surface lives on the main branch now.
-    assert f"minionsos/project-{port}-shared" not in branches
+    branch_names = {line.strip().lstrip("* ").strip() for line in branches.splitlines()}
+    assert branch_names == {f"minionsos/project-{port}"}
 
 
 def test_remove_all_worktrees_is_safe_when_already_clean(

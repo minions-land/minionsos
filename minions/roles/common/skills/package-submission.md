@@ -72,4 +72,4 @@ Do not mark the package ready while any checklist item fails.
 - Forgetting to strip author info on anonymous submissions.
 - Code snapshot that reproduces "something close" rather than the claimed numbers.
 
-Every reproducibility claim is marked `[derived: branches/shared/exp/exp-<id>/report.md]`.
+Every reproducibility claim is marked `[derived: branches/main/exp/exp-<id>/report.md]`.

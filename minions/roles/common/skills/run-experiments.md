@@ -32,7 +32,7 @@ scheduler. Report-synthesis goes through Workflow.
    bundle, `pipeline` shape for multi-experiment cross-analysis). Pass
    metrics, failure log, target schema as inputs; receive a size-bounded
    `{report_path, summary, next_actions[]}` per `role-act-via-workflow`.
-7. **Store** result bundle in `branches/<expert>/exp/exp-<id>/`, then publish to `branches/shared/exp/exp-<id>/` via `mos_publish_to_shared`.
+7. **Store** result bundle in `branches/<expert>/exp/exp-<id>/`, then publish to `branches/main/exp/exp-<id>/` via `mos_publish_to_shared`.
 8. **Report findings** via EACN to the requesting role.
 
 ## Fire-and-poll rules

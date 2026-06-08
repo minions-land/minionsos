@@ -124,7 +124,7 @@ class ReviewRunArgs(BaseModel):
         default=None,
         description=(
             "Optional path to the previous round's rolling summary "
-            "(``branches/shared/reviews/summaries/round-<n-1>.md``). Required for Pass B / Pass C."
+            "(``branches/main/reviews/summaries/round-<n-1>.md``). Required for Pass B / Pass C."
         ),
     )
 
@@ -170,7 +170,7 @@ def _resolve_submission_dir(port: int, submission_path: str) -> Path:
 
     Rejects paths that resolve outside the project's directory — submissions
     must live within ``project_{port}/`` (typically under
-    ``branches/<expert>/paper/submissions/`` or ``branches/shared/handoffs/``).
+    ``branches/<expert>/paper/submissions/`` or ``branches/main/handoffs/``).
     """
     p = Path(submission_path)
     if not p.is_absolute():
@@ -735,13 +735,13 @@ def review_run(args: ReviewRunArgs) -> dict[str, object]:
 
 
 def _commit_review_round_to_shared(*, port: int, round_num: int, decision: str) -> str | None:
-    """Commit the round's outputs on the shared branch.
+    """Commit the round's outputs on the project main branch.
 
-    ``mos_review_run`` owns ``branches/shared/reviews/`` directly rather
-    than going through ``mos_publish_to_shared``, since it produced the
-    files in-place under that tree. We still acquire the per-project
-    flock so concurrent ``mos_publish_to_shared`` calls from any role
-    serialise cleanly with this commit.
+    ``mos_review_run`` owns ``branches/main/reviews/`` directly rather than
+    going through ``mos_publish_to_shared``, since it produced the files
+    in-place under that tree. We still acquire the per-project flock so
+    concurrent ``mos_publish_to_shared`` calls from any role serialise cleanly
+    with this commit.
     """
     from minions.tools.publish import _shared_lock  # local import to avoid cycle
 

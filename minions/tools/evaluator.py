@@ -63,7 +63,7 @@ class SubmitResult(DictLikeBaseModel):
     path: str = Field(description="Absolute path to the persisted submission file.")
     commit_sha: str | None = Field(
         default=None,
-        description="SHA of the shared-branch commit, or None if no diff was produced.",
+        description="SHA of the main-branch commit, or None if no diff was produced.",
     )
 
 
@@ -97,7 +97,7 @@ def mos_submit(args: SubmitArgs) -> SubmitResult:
     """Persist the paper deliverable under branches/main/submissions/.
 
     The calling Role asks Gru to call this tool. Gru reads the compiled PDF
-    referenced by ``payload.pdf_path`` and commits it on the shared branch.
+    referenced by ``payload.pdf_path`` and commits it on the project main branch.
 
     Returns a :class:`SubmitResult` with ``port``, ``kind``, ``path``, and
     ``commit_sha``. The result is dict-like so callers using ``result["port"]``

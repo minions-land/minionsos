@@ -277,9 +277,9 @@ def test_check_publish_policy_matches_boundaries_flags_extra_subdir(
         lambda: {
             "ethics": [
                 "branches/ethics/",
-                "branches/shared/notes/",
-                "branches/shared/draft/",
-                "branches/shared/handoffs/",
+                "branches/main/notes/",
+                "branches/main/draft/",
+                "branches/main/handoffs/",
             ]
         },
     )

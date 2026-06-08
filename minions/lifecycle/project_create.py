@@ -82,7 +82,7 @@ def seed_draft_bootstrap(
     - The L1 memory root (all subsequent nodes derive from this context)
     - A durable record of the project's initial state
 
-    Written to branches/shared/draft/draft.json immediately after
+    Written to branches/main/draft/draft.json immediately after
     shared worktree creation, before any Role spawns.
     """
     draft_path = project_shared_draft_json(port)
@@ -308,9 +308,8 @@ def project_create(
 
     # Create per-project bare repo by seeding from the author repo's HEAD,
     # then add the main worktree (Gru's branch), which also seeds the Book
-    # layout + shared surface directly on main (the standalone -shared branch
-    # was eliminated in v23). Role worktrees are created lazily by
-    # register_role and branch off the project's main branch.
+    # layout + shared surface on the project main branch. Role worktrees are
+    # created lazily by register_role and branch off the project's main branch.
     branch, pdir = _prepare_project_tree(port, base_branch)
 
     # Start backend with port-conflict retry.

@@ -8,7 +8,7 @@ For each active project, summarizes:
 - Aggregate: queue depth, per-role staleness, anomalies.
 
 Persists the digest as a markdown file under
-``branches/shared/governance/gru-digest/<iso>.md`` (so historical digests
+``branches/main/governance/gru-digest/<iso>.md`` (so historical digests
 are git-tracked alongside other governance artifacts) and emits health
 events for genuine anomalies (e.g. a role received ≥3 events in the
 window but produced zero Draft nodes — the symptom this whole pipeline
@@ -216,7 +216,7 @@ def publish_digest(
     *,
     notify_anomalies: bool = True,
 ) -> dict[str, Any]:
-    """Persist *digest* to ``branches/shared/governance/gru-digest/`` and
+    """Persist *digest* to ``branches/main/governance/gru-digest/`` and
     optionally emit health events for any anomalies.
 
     Returns a small status dict: ``{"path": str, "anomalies": int}``.

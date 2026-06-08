@@ -118,8 +118,7 @@ def _draft_dir(port: int) -> Path | None:
     back to the repo root inferred from this file's location.
 
     The shared cross-role surface is the main-branch worktree
-    (``branches/main/``) since the v23 main=Book rebuild; the standalone
-    ``-shared`` branch was eliminated.
+    (``branches/main/``).
     """
     projects_root_env = os.environ.get("MINIONS_PROJECTS_ROOT")
     if projects_root_env:

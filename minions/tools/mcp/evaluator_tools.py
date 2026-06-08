@@ -22,11 +22,11 @@ from minions.tools.promote import mos_promote_to_book as _mos_promote_to_book
 
 @mcp.tool()
 def mos_submit(args: SubmitArgs) -> SubmitResult:
-    """Persist the paper deliverable under branches/shared/submissions/.
+    """Persist the paper deliverable under branches/main/submissions/.
 
     The authoring Role composes the payload (with ``pdf_path``) and asks Gru
     to call this tool. Gru reads the compiled PDF and commits it on the
-    shared branch.
+    project main branch.
 
     Returns ``{port, kind, path, commit_sha}``.
     """

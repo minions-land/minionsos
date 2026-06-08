@@ -23,7 +23,7 @@ Every durable shared file should be findable by its Draft node. The Draft is the
 ## Structure
 
 ```
-branches/shared/
+branches/main/
   logic/                    ← claims and reasoning (What & Why)
     claims.md               ← claim IDs, one per line, with Draft node refs
     hypotheses/             ← one file per active hypothesis (H-xxx.md)

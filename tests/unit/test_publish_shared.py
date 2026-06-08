@@ -317,8 +317,7 @@ def test_create_shared_worktree_idempotent(shared_project: dict[str, object]) ->
 
 
 def test_create_worktree_seeds_subdirs(shared_project: dict[str, object]) -> None:
-    # v23 rebuild: the standalone -shared worktree is gone. ``_create_worktree``
-    # (the main worktree) now seeds the Book layout + shared-surface subdirs
+    # ``_create_worktree`` seeds the Book layout + shared-surface subdirs
     # directly on ``branches/main/``. The fixture already ran it.
     workspace = shared_project["shared_workspace"]
     seeded = sorted(p.name for p in workspace.iterdir() if p.is_dir())  # type: ignore[union-attr]

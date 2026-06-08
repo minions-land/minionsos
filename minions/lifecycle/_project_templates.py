@@ -50,8 +50,8 @@ def render_project_claude_md(
     lines.append(
         "- Branch checkouts live under `branches/`: `branches/main/` is Gru's "
         "branch AND the team's shared surface (the Book); every other role has "
-        "its own private scratch branch at `branches/<role>/`. There is no "
-        "separate shared branch — main IS the shared surface."
+        "its own private scratch branch at `branches/<role>/`. Team memory "
+        "and the Book live on `branches/main/`."
     )
     lines.append(
         "- Cross-role artefacts (Ethics reports/curation, Expert experiment "

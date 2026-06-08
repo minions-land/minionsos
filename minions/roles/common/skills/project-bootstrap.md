@@ -47,7 +47,7 @@ exist under `branches/`, and the branching convention is operational.
 3. Verify `branches/<expert>/` worktree is checked out and clean.
 4. State the branching model in `project_{port}/CLAUDE.md`:
    - MinionsOS default: each role has its own branch, cross-role artifacts
-     travel through `branches/shared/` via `mos_publish_to_shared`.
+     travel through `branches/main/` via `mos_publish_to_shared`.
    - Solo project (outside MinionsOS): commit to `main`, tag releases.
 
 **Why this gate exists:** AI-generated code iterates fast. Without git,
@@ -63,8 +63,8 @@ every future AI session shares the same context.
 |---|---|---|
 | `CLAUDE.md` | `project_{port}/CLAUDE.md` | Stack, commands, module responsibilities, coding conventions |
 | `AGENTS.md` | `project_{port}/AGENTS.md` | Mirror for Workflow sub-agent sessions |
-| Architecture doc | `branches/shared/docs/architecture.md` | Module list + dependency direction + one diagram |
-| Roadmap | `branches/shared/docs/roadmap.md` | Numbered phases, each with deliverable + acceptance |
+| Architecture doc | `branches/main/docs/architecture.md` | Module list + dependency direction + one diagram |
+| Roadmap | `branches/main/docs/roadmap.md` | Numbered phases, each with deliverable + acceptance |
 
 **Procedure:**
 
@@ -76,7 +76,7 @@ every future AI session shares the same context.
    data flow for the primary use case.
 3. Generate `docs/roadmap.md` with: phased plan, each phase has a
    deliverable and a "done when" criterion.
-4. Publish docs to `branches/shared/docs/` via `mos_publish_to_shared`.
+4. Publish docs to `branches/main/docs/` via `mos_publish_to_shared`.
 5. Commit enriched `CLAUDE.md` on `branches/main/`.
 
 **Why this gate exists:** without explicit boundaries, AI fills every gap
@@ -142,7 +142,7 @@ prevents "architecture drift" where the docs describe a system that no
 longer exists.
 
 **Decision log.** Add a `## Decision Log` section to `project_{port}/CLAUDE.md`
-(or a separate `branches/shared/docs/decisions.md`). Each entry is one line:
+(or a separate `branches/main/docs/decisions.md`). Each entry is one line:
 
 ```
 - YYYY-MM-DD: <what was decided> — <why> — <alternatives rejected>
@@ -223,7 +223,7 @@ The three gates are fixed, but the specific artifacts are stack-dependent:
   public APIs.
 - **Monorepo:** Gate 3 creates `packages/` or `apps/` with explicit
   dependency declarations between packages.
-- **MinionsOS project:** Gate 2 docs go to `branches/shared/docs/`.
+- **MinionsOS project:** Gate 2 docs go to `branches/main/docs/`.
   Gate 3 structure lives on `branches/<expert>/`. Cross-role handoffs
   use `mos_publish_to_shared`. Architecture decisions are recorded in
   the Draft via `mos_draft_append` in addition to the decision log.

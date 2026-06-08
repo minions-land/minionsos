@@ -58,7 +58,7 @@ def _publish_files(
 
     Each entry is ``(abs_src, rel_dst_under_book)``. Routes through
     :func:`mos_publish_files_to_shared` so all writes land as one commit on
-    the shared branch (see GitHub Issue #13).
+    the project main branch.
     """
     payload: list[dict[str, str]] = []
     for abs_src, rel_dst_under_book in files:
@@ -430,7 +430,7 @@ def mos_book_ingest(
 ) -> dict[str, object]:
     """Ingest a published shared/<role>/ artifact into the Book.
 
-    Reads ``src_path`` under ``branches/shared/``, stages a source page,
+    Reads ``src_path`` under ``branches/main/``, stages a source page,
     idempotently merges ``book/index.md``, appends ``book/log.md``, and
     publishes the three files through ``mos_publish_to_shared`` as Ethics.
 
