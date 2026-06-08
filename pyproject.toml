@@ -51,6 +51,9 @@ dev = [
 # with ``pytest -n auto``; ``pytest -n 0`` disables xdist for debugging.
 addopts = "-n 4"
 testpaths = ["tests"]
+markers = [
+    "forked: run the test in an isolated process when pytest-forked is available",
+]
 
 [tool.ty.src]
 # Exclude Expert skill reference scripts: these are templates shipped with

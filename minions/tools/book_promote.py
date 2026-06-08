@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -78,6 +79,15 @@ def _node_cited_in_book(book_root: Path, node_id: str) -> bool:
         if needle in text or needle_alt in text:
             return True
     return False
+
+
+def check_book_ratify_authz(caller_role: str | None = None) -> None:
+    """Raise BookError unless *caller_role* is Ethics."""
+    role = (
+        caller_role if caller_role is not None else os.environ.get("MINIONS_ROLE_NAME", "")
+    ).strip()
+    if role != "ethics":
+        raise BookError(f"mos_book_ratify is Ethics-only; got ratifier_role={role!r}")
 
 
 def mos_book_promote_verified(
@@ -260,8 +270,7 @@ def mos_book_ratify(
         ``{"slug", "book_path", "publish_result"}``.
     """
     resolved_port = _resolve_port(port)
-    if ratifier_role != "ethics":
-        raise BookError(f"mos_book_ratify is Ethics-only; got ratifier_role={ratifier_role!r}")
+    check_book_ratify_authz(ratifier_role)
     if not slug.strip():
         raise BookError("slug must be non-empty")
     if not evidence_review.strip():

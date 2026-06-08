@@ -75,9 +75,21 @@ def _validate_ref_component(value: str, label: str) -> str:
 
 def _check_reel_read_permission(target_role: str) -> None:
     """Raise PermissionError if the current role cannot read *target_role*'s reel."""
-    current_role = os.environ.get("MINIONS_ROLE_NAME", "").strip()
+    check_reel_read_authz(target_role=target_role)
+
+
+def check_reel_read_authz(caller_role: str | None = None, target_role: str = "") -> None:
+    """Raise PermissionError if *caller_role* cannot read *target_role*'s reel."""
+    current_role = (
+        caller_role if caller_role is not None else os.environ.get("MINIONS_ROLE_NAME", "")
+    ).strip()
+    target_role = target_role.strip()
     if not current_role:
         raise PermissionError("MINIONS_ROLE_NAME not set; cannot determine caller identity")
+    if not target_role:
+        raise PermissionError("target_role not set; cannot determine reel owner")
+    if current_role == "observatory":
+        raise PermissionError("Role 'observatory' cannot read reel indexes")
     if current_role in _CROSS_READ_ROLES:
         return
     if current_role != target_role:

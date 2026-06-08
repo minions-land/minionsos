@@ -72,7 +72,11 @@ from minions.tools.book_helpers import (
 )
 from minions.tools.book_ingest import mos_book_ingest, mos_book_ingest_batch
 from minions.tools.book_lint import mos_book_lint
-from minions.tools.book_promote import mos_book_promote_verified, mos_book_ratify
+from minions.tools.book_promote import (
+    check_book_ratify_authz,
+    mos_book_promote_verified,
+    mos_book_ratify,
+)
 from minions.tools.book_query import mos_book_query
 from minions.tools.book_special import mos_book_dead_end, mos_book_open_question
 from minions.tools.book_utils import (
@@ -1239,6 +1243,7 @@ __all__ = [  # noqa: RUF022 - module surface groups tested helpers and tool APIs
     "_resolve_port",
     "_resolve_source_path",
     "_stage_path",
+    "check_book_ratify_authz",
     "project_shared_draft_json",
     "project_shared_subdir",
     "project_shared_workspace",

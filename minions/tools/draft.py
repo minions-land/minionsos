@@ -194,6 +194,27 @@ def _emit_book_status_event(
 # ---------------------------------------------------------------------------
 
 
+def check_draft_annotate_authz(
+    caller_role: str | None = None,
+    node_owner: str | None = None,
+    field: str | None = None,
+) -> None:
+    """Raise PermissionError if *caller_role* cannot annotate a Draft node."""
+    caller = (caller_role if caller_role is not None else _env_role()).strip()
+    owner = (node_owner or "").strip()
+    field_name = (field or "field").strip() or "field"
+
+    if not caller:
+        return
+    if caller == "ethics":
+        return
+    if owner and caller == owner:
+        return
+    if not owner:
+        return
+    raise PermissionError(f"Role '{caller}' cannot annotate Draft {field_name} for role '{owner}'")
+
+
 def _role_unmarked_ratio(
     nodes: list[dict[str, Any]], author_role: str, *, min_nodes: int = 3
 ) -> float | None:
@@ -335,6 +356,24 @@ def mos_draft_annotate(
         raise DraftError(f"Node not found: {node_id}")
 
     annotator = _env_role() or target.get("author_role", "")
+    node_owner = str(target.get("author_role", ""))
+    requested_fields = [
+        field
+        for field, should_update in (
+            ("support_status", support_status is not None),
+            ("evidence_tag", evidence_tag is not None),
+            ("provenance", provenance is not None),
+            ("confidence", confidence is not None),
+            ("metadata", bool(metadata_update)),
+        )
+        if should_update
+    ]
+    for field in requested_fields:
+        check_draft_annotate_authz(
+            caller_role=annotator,
+            node_owner=node_owner,
+            field=field,
+        )
     changes: dict[str, Any] = {}
 
     if support_status is not None:
@@ -1056,6 +1095,7 @@ __all__ = [  # noqa: RUF022 - module surface groups tested helpers and tool APIs
     "_load_draft",
     "_parse_iso",
     "_save_draft",
+    "check_draft_annotate_authz",
     "mos_draft_annotate",
     "mos_draft_append",
     "mos_draft_commit_shared",
