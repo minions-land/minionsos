@@ -182,11 +182,8 @@ app.get("/api/mos/project/:port/draft", (req, res) => {
   const p = resolveGruAndPort(req, res); if (!p) return;
   const g = getGru(p.gruId);
   if (!g) return res.status(404).json({ error: "unknown gru" });
-  // The canonical L1 Draft path is branches/shared/draft/draft.json
-  // (Noter publishes there via mos_draft_commit_shared). The legacy
-  // <project>/draft/ path is a pre-shared-branch artefact that's no
-  // longer maintained — read both with shared/ first, fall back for
-  // ancient projects that still have the old layout.
+  // Draft snapshots are read from branches/shared first, with project-root draft
+  // files treated as a secondary project-local layout candidate.
   const projectDir = projectDirFor(g.rootPath, p.port);
   const draftCandidates = [
     path.join(projectDir, "branches", "shared", "draft", "draft.json"),

@@ -100,9 +100,10 @@ pub fn roster(snap: &Snapshot) -> String {
 }
 
 /// Read the focused project's persistent memory layers into a compact block.
-/// Pulls the Book hot-cache (the ~500-word rolling summary Noter maintains),
-/// the Book index (catalog of compiled knowledge), and a Draft summary. All
-/// optional; a project with no memory yet yields an empty string.
+/// Pulls the Book hot-cache (the rolling summary derived from the
+/// Ethics-curated Book), the Book index (catalog of compiled knowledge), and a
+/// Draft summary. All optional; a project with no memory yet yields an empty
+/// string.
 pub fn project_memory(ctx: &GruContext, port: u16) -> String {
     let shared = ctx.project_dir(port).join("branches").join("shared");
     let mut blocks: Vec<String> = Vec::new();
@@ -258,5 +259,4 @@ mod tests {
         assert_eq!(trim_one_line("abcdef", 4), "abc…");
     }
 }
-
 

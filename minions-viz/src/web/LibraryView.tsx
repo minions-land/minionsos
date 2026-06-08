@@ -137,7 +137,7 @@ export function LibraryView() {
             <div className="message">
               {searchQuery || activeKind !== "all"
                 ? "No matching entries"
-                : "Book is empty — Noter has not ingested any sources yet"}
+                : "Book is empty - no Ethics-curated sources have been added yet"}
             </div>
           </div>
         ) : (
