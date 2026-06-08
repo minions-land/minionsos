@@ -72,7 +72,7 @@ The "Essential 10" items must be in every animal-study Methods section, even in 
 9. Experimental procedures (timing, where, who).
 10. Results (descriptive + inferential statistics).
 
-## How to use this in a Writer workflow
+## How to use this in an Expert workflow
 
 1. **Identify study type → pick guideline.** Save the chosen checklist as `notes/<guideline>_checklist.md`.
 2. **For every item, set status: PASS / TODO / N/A.** Initially all are TODO.

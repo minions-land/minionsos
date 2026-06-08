@@ -61,7 +61,7 @@ Open the relevant sub-skill when starting a section. The full file count is smal
 - Treating IMRAD as flexible. CNS reviewers actually do reject papers that put methods between intro and results.
 - Skipping the graphical abstract. "We'll add it later" → it's at submission deadline, half-rendered, and the paper looks unfinished.
 - Picking a reporting guideline by guesswork. If you're not sure whether STROBE vs CONSORT applies, ask the user — the wrong checklist makes the manuscript fail external audit.
-- Bullet lists in the body. Common bug from MinionsOS Writer when running fast — every bullet must become a sentence. The kdense arm spent 446 lines on this rule for a reason.
+- Bullet lists in the body. Common bug from MinionsOS Expert when running fast — every bullet must become a sentence. The kdense arm spent 446 lines on this rule for a reason.
 - Forgetting Author Contributions / Data Availability / Code Availability statements. These are auto-rejection items at most CNS sub-journals.
 - Using ML-tier formatting (numbered citations, narrow margins, double-column) on a Nature submission. Different houses, different shapes.
 

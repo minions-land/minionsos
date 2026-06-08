@@ -1,6 +1,6 @@
 ---
 slug: make-latex-model
-summary: Scaffold a clean LaTeX paper project under branches/writer/paper/ matching the target venue's style — minimal, compilable skeleton ready for prose.
+summary: Scaffold a clean LaTeX paper project under branches/<expert>/paper/ matching the target venue's style — minimal, compilable skeleton ready for prose.
 layer: logical
 tools:
 version: 2
@@ -21,7 +21,7 @@ Minimal, compilable skeleton with the correct venue style, section layout matchi
 
 ## Structure
 
-Directory layout under `branches/writer/paper/`:
+Directory layout under `branches/<expert>/paper/`:
 
 ```
 main.tex     sections/     figures/     tables/     references/     notes/     build/
@@ -32,7 +32,7 @@ main.tex     sections/     figures/     tables/     references/     notes/     b
 ## Procedure
 
 1. **Identify the venue.** ICLR / NeurIPS / ICML / CVPR / ACL / AAAI / IEEE journal / IEEE conf. Fetch the official style file from the venue page; do not reuse an old copy without checking the year.
-2. **Create the layout** under `branches/writer/paper/` with the structure above.
+2. **Create the layout** under `branches/<expert>/paper/` with the structure above.
 3. **Seed sections** matching venue norms: abstract, introduction, related work, method, experiments, conclusion, (ethics / reproducibility / limitations where required). Each starts with `% [VERIFY]` list.
 4. **Wire citations.** Pick the citation command matching venue (`natbib` for ML / NLP / CV; numeric `\cite{}` for IEEE). Create `references/references.bib`.
 5. **Add preamble hygiene.** `\usepackage{cleveref}` + `\crefname` for custom theorem envs; `hyperref` loaded last; `microtype`; `booktabs` for tables. The style file's own conventions (font, margins) are not overridden.

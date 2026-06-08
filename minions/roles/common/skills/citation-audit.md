@@ -22,14 +22,17 @@ Three-layer check on every bib entry: the work **exists** (with rank-1 sanity ch
 
 Run after the draft is stable and numeric claims have been audited; before final compile for submission. Running too early wastes lookups on placeholder text.
 
-This is the **Writer-side full pre-submission sweep**. Ethics independently runs sampled audits via `ethics/citation-authenticity-audit` over both the `.bib` and Reviewer-cited prior work and pings via EACN — that is oversight, not a substitute for this sweep.
+This is the **full pre-submission citation sweep**. Ethics independently runs
+sampled audits via `ethics/citation-authenticity-audit` over both the `.bib`
+and reviewer-cited prior work and pings via EACN — that is oversight, not a
+substitute for this sweep.
 
 ## Verdict per entry
 
 `OK` / `DRIFT` / `MISSING` / `WRONG_CONTEXT`. Outputs:
 
-- `branches/writer/paper/CITATION_AUDIT.md` (human-readable per-entry list with verdict, evidence URL, sentence).
-- `branches/writer/paper/CITATION_AUDIT.json` (machine: `{key, status, evidence_url, notes}` per entry).
+- `branches/<expert>/paper/CITATION_AUDIT.md` (human-readable per-entry list with verdict, evidence URL, sentence).
+- `branches/<expert>/paper/CITATION_AUDIT.json` (machine: `{key, status, evidence_url, notes}` per entry).
 
 ## Canonical vs aggregator sources
 
@@ -48,7 +51,7 @@ Reviewer-facing audit category from EACN-005-PRL: every bib entry must be cited 
 
 ```bash
 # Cite → Bib: every key cited must exist in .bib
-grep -hroE '\\cite[tp]?\{[^}]+\}' branches/writer/paper/ | grep -oE '\{[^}]+\}' | tr -d '{}' | tr ',' '\n' | sed 's/^ *//' | sort -u > /tmp/cited.txt
+grep -hroE '\\cite[tp]?\{[^}]+\}' branches/<expert>/paper/ | grep -oE '\{[^}]+\}' | tr -d '{}' | tr ',' '\n' | sed 's/^ *//' | sort -u > /tmp/cited.txt
 grep -h '^@' references/*.bib | grep -oE '\{[^,]+' | tr -d '{ ' | sort -u > /tmp/in_bib.txt
 comm -23 /tmp/cited.txt /tmp/in_bib.txt   # cited but missing from bib (MISSING)
 comm -13 /tmp/cited.txt /tmp/in_bib.txt   # in bib but never cited (ORPHAN_BIB)
@@ -79,7 +82,7 @@ See `submission-cleanup-audit.md` category 3 for the full cleanup pass.
 
 1. **Gate timing** — after draft stable and numeric audit done; before final compile.
 
-2. **Extract `(key, context)` pairs.** For every `\cite{...}` in `branches/writer/paper/`, record key, file, line, full surrounding sentence. Build inverse index (bib entry → cite sites). Run the bidirectional check above; both `MISSING` and `ORPHAN_BIB` are findings.
+2. **Extract `(key, context)` pairs.** For every `\cite{...}` in `branches/<expert>/paper/`, record key, file, line, full surrounding sentence. Build inverse index (bib entry → cite sites). Run the bidirectional check above; both `MISSING` and `ORPHAN_BIB` are findings.
 
 3. **Verify existence.** Resolve arXiv ID / DOI / venue URL via web search. If unresolvable, emit `[needs verification]` rather than fabricating; mark verdict `MISSING` and pass to next round / author.
 

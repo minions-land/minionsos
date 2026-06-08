@@ -34,11 +34,8 @@ you the same outcome.
 
 | Role | Common scenarios | Recipe anchors |
 |---|---|---|
-| **Coder** | Experiment-report synthesis (single / pipeline), debug-and-fix (pipeline: root-cause → minimal-fix → smoke-test), refactor (phase: Plan → fan-out implement → Review → Simplify with gates), code review (single + verifier) | `coder/SYSTEM.md` §C2 / §C6 / §C8 / §C10; `coding-methodology` for any ≥ 2-file or shared-state edit |
-| **Writer** | Section drafting (single agent), figure/table construction (pipeline), end-to-end paper (phase: gather → cite → draft → integrate → compile → QA), reviewer revision (pipeline + adversarial verifier) | `writer/SYSTEM.md` §W6 + the ten-slot paper-work-boundaries table |
 | **Ethics** | Mock-review (single < 50 KB; pipeline otherwise), citation-authenticity sweep (parallel), §Eth7 deep audit (phase + adversarial verifier), adjudication (pipeline + parallel evidence fan-out + adversarial verifier) | `ethics/SYSTEM.md` §Eth7 / §Eth10 / §Eth11; `mock-review` skill |
-| **Expert** | Domain Q&A (pipeline), competitor scan (fan-out + verifier), experiment-result interpretation (phase), falsifiability memo (single + verifier) | `expert/SYSTEM.md` §E4.5 |
-| **Noter** | Multi-artifact ingest (parallel ingest → pipeline lint → promote), full-dream graph maintenance (parallel motif-scan / dead-end-connect / communities-and-god-nodes → verifier), crystallization on context-reset events (single agent, verbatim contract), curator trajectory window (single agent invoking Skill(skill-curator)) | `noter/SYSTEM.md` §N3 / §N11 |
+| **Expert** | Domain Q&A (pipeline), competitor scan (fan-out + verifier), experiment-result interpretation (phase), falsifiability memo (single + verifier), debug-and-fix (pipeline: root-cause → minimal-fix → smoke-test), section drafting (single), end-to-end paper work (phase: gather → cite → draft → integrate → compile → QA) | `expert/SYSTEM.md` §E4.5 plus common skills such as `coding-methodology`, `paper-compile`, and `book-to-paper-compiler` |
 
 ## Size-bounded return contract
 

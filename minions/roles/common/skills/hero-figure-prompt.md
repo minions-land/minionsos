@@ -27,8 +27,8 @@ The user's chosen image generator. Other generators are not interchangeable.
 ### 2. The generation prompt is a paper artifact
 The prompt that produced the figure must be **persisted on disk** alongside the figure file. Path convention:
 ```
-branches/writer/paper/figures/fig_01_hero.pdf       # rendered figure
-branches/writer/paper/figures/fig_01_hero.prompt.md # the gpt-image-2.0 prompt
+branches/<expert>/paper/figures/fig_01_hero.pdf       # rendered figure
+branches/<expert>/paper/figures/fig_01_hero.prompt.md # the gpt-image-2.0 prompt
 ```
 
 The prompt file includes: full prompt text, generator + version, date, the section / claim it supports. This makes the figure regenerable: rename the method, update the prompt, regenerate, re-cite.

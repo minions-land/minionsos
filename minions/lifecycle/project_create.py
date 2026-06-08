@@ -116,12 +116,11 @@ def bootstrap_fixed_roles(
 
     Without this, all fixed roles wait for the live Gru process to issue
     a serial sequence of mos_spawn_role MCP calls — each call is one
-    Opus 4.7 max-effort turn (~60-90s), so for the default
-    scientific-paper profile (noter+coder+ethics) the team takes
-    ~5 min to come online after project_create returns. Pre-spawning
-    in parallel collapses that to a single ~30-60s wave (all three tmux
-    sessions launch concurrently and the only real serialization is the
-    file-lock on projects.json for upsert_role).
+    Opus 4.7 max-effort turn (~60-90s), so the default scientific-paper
+    team can take several minutes to come online after project_create
+    returns. Pre-spawning in parallel collapses that to a single ~30-60s
+    wave; the only real serialization is the file-lock on projects.json
+    for upsert_role.
 
     Mechanics:
 
@@ -454,8 +453,7 @@ def project_create(
     # Register in projects.json.
     _store.add_project(entry)
 
-    # Pre-spawn the profile-active fixed roles (noter / ethics for
-    # `scientific-paper`) in parallel. Without this, the live Gru process
+    # Pre-spawn the profile-active fixed roles in parallel. Without this, the live Gru process
     # has to issue a serial sequence of `mos_spawn_role` MCP calls — each
     # ~60-90s of Opus 4.7 deliberation — pushing the team's first useful
     # cycle ~5 min after project_create returns. Failures are recorded

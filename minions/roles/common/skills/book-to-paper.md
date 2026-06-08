@@ -1,6 +1,6 @@
 ---
 slug: book-to-paper
-summary: Generate a compilable LaTeX paper from a project Book (the main-branch knowledge package). Maps Book layers to paper sections in the fixed order abstract→introduction→related work→methodology→experiments→conclusion, then drives the writer/latex/figure skills to draft, typeset, and compile. The reverse of compiling a paper into a Book.
+summary: Generate a compilable LaTeX paper from a project Book (the main-branch knowledge package). Maps Book layers to paper sections in the fixed order abstract→introduction→related work→methodology→experiments→conclusion, then drives the paper/latex/figure skills to draft, typeset, and compile. The reverse of compiling a paper into a Book.
 layer: logical
 tools:
 version: 2
@@ -148,7 +148,7 @@ methods-last):
 
 **abstract → introduction → related work → methodology → experiments → conclusion**
 
-| Paper section | Primary Book sources | Writer skill |
+| Paper section | Primary Book sources | Expert skill |
 |---|---|---|
 | **Abstract** | `Book.md` frontmatter (abstract, claims_summary) | `abstract-writing` |
 | **Introduction** | `logic/problem.md` (observations→gaps→insight), `Book.md` overview, top 2-3 `logic/claims.md` headline claims | `introduction-discipline` |
@@ -239,7 +239,7 @@ must be measured on real **(Book, ground-truth paper)** pairs:
    surface every headline claim?), evidence fidelity (do our tables match the
    real numbers exactly?), section completeness, scope calibration (no
    over/under-claim vs the original), and compile/typography quality.
-4. Record the gap, improve the writer skills + this mapping, regenerate.
+4. Record the gap, improve the paper skills + this mapping, regenerate.
    **Iterate until the gap converges**; only then is the skill "landed".
 5. Keep each round's coverage report + comparison as evidence — never report
    "it works" without the measured comparison.

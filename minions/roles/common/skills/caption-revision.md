@@ -1,6 +1,6 @@
 ---
 slug: caption-revision
-summary: Single-pass revise loop for figure / table captions — simulate one harsh Reviewer 2 critique, address the *caption text*. Never modify the figure itself. Forces Writer's single-pass output to absorb a critic before the caption ships.
+summary: Single-pass revise loop for figure / table captions — simulate one harsh Reviewer 2 critique, address the *caption text*. Never modify the figure itself. Forces Expert's single-pass output to absorb a critic before the caption ships.
 layer: logical
 tools:
 version: 2
@@ -12,14 +12,14 @@ provenance: FigureDraw2-evidence (borrow #6 — academic-paper-imbad 12-agent pi
 
 # Skill — Caption Revision
 
-MinionsOS Writer's caption.tex output is single-pass — one draft, ship. FigureDraw2 evidence (academic-paper-imbad arm 12-agent pipeline; awesome-writing-prompts arm reviewer_readiness 2.29 vs minionsos 2.13) shows that a single "adversarial reviewer" pass measurably improves caption quality without adding a full review round. This skill is that pass.
+MinionsOS Expert's caption.tex output is single-pass — one draft, ship. FigureDraw2 evidence (academic-paper-imbad arm 12-agent pipeline; awesome-writing-prompts arm reviewer_readiness 2.29 vs minionsos 2.13) shows that a single "adversarial reviewer" pass measurably improves caption quality without adding a full review round. This skill is that pass.
 
 ## When to invoke
 
 - After [[academic-plotting]] writes the first caption.tex but before commit / before paper-compile.
 - After [[latex-typography]] writes a table caption.
 - After [[abstract-writing]] drafts an abstract (not just figure captions — same loop applies).
-- Before submitting a figure to Reviewer / Expert in EACN — never let an unreviewed caption out of Writer.
+- Before submitting a figure to Reviewer / Expert in EACN — never let an unreviewed caption out of Expert.
 - NOT when the user has already manually edited the caption — assume their version is the trusted one.
 
 ## Procedure (one pass, ~30 seconds wall-clock)
@@ -48,7 +48,7 @@ The pass picks the most cutting one *that actually applies* to the current capti
 
 - **Does not modify the figure itself.** This is the most-violated rule. The reviewer-pass critique addresses the *caption text only*. If the criticism reveals a figure flaw — missing dashed line, missing data point, palette ambiguity, "should annotate the top hits" — do NOT add inline `\node`/`\draw`/in-figure annotations to fix it inside this pass. **FD3 evidence**: volcano regressed -4 (FD2 23 → FD3 19) because the reviewer-pass added inline annotations to the figure, diluting visual density beyond what the original draft had. caption-revision touches `caption.tex`, never `gen_figure.py` or `figure.pdf`. Escalate figure-shape problems to [[academic-plotting]] / [[figure-spec]] / [[figure-chart-atlas]] instead.
 - Does not rewrite figures. Same rule, restated: if the figure is wrong, escalate, don't patch.
-- Does not multi-round. One critic, one fix. Multi-round caption iteration is reviewer's job, not Writer's.
+- Does not multi-round. One critic, one fix. Multi-round caption iteration is reviewer's job, not Expert's.
 - Does not invent data. If the seed count is unknown, the criticism becomes "add `\\todo{seed count}`", not "invent 5 seeds".
 - Does not run on hero / Figure-1 illustrations. Hero captions are governed by [[hero-figure-prompt]] which has its own iteration cadence.
 

@@ -24,9 +24,9 @@ Do not invoke this skill for speculative rewrites or for "while we're at it" imp
 
 ## Structure
 
-Revisions are traced to their source. Every edit is attributable to one of: (a) a specific `consolidated.md` required-revision item, (b) a rebuttal promise from `branches/writer/paper/rebuttal/`, (c) an author-added change with a commit message that says so. Unattributable edits are out of scope and defer to a separate task.
+Revisions are traced to their source. Every edit is attributable to one of: (a) a specific `consolidated.md` required-revision item, (b) a rebuttal promise from `branches/<expert>/paper/rebuttal/`, (c) an author-added change with a commit message that says so. Unattributable edits are out of scope and defer to a separate task.
 
-Revision state lives in `branches/writer/paper/revisions/round-<n>.md` — a checklist of `{source_id, concern, change_made, files_touched, status}`. Status ∈ `pending` / `in-progress` / `done` / `deferred`. The checklist is the source of truth for "is the revision complete?" — not Writer's memory.
+Revision state lives in `branches/<expert>/paper/revisions/round-<n>.md` — a checklist of `{source_id, concern, change_made, files_touched, status}`. Status ∈ `pending` / `in-progress` / `done` / `deferred`. The checklist is the source of truth for "is the revision complete?" — not Expert's memory.
 
 ## Procedure
 
@@ -38,7 +38,7 @@ Revision state lives in `branches/writer/paper/revisions/round-<n>.md` — a che
 
    Do NOT use one narrative logic across paper types. A Discussion-tense sentence in a methods-paper Results section is the most common register-mixing failure.
 
-2. **Build the checklist.** Read `branches/shared/reviews/round-<n>/consolidated.md` required-revisions section and `branches/writer/paper/rebuttal/` response blocks. Extract one checklist entry per concern. Write the initial `revisions/round-<n>.md` with all entries `pending`.
+2. **Build the checklist.** Read `branches/shared/reviews/round-<n>/consolidated.md` required-revisions section and `branches/<expert>/paper/rebuttal/` response blocks. Extract one checklist entry per concern. Write the initial `revisions/round-<n>.md` with all entries `pending`.
 
 3. **Group by file target.** Sort entries by which section / figure / table they touch, so one editing pass covers one file.
 
@@ -46,7 +46,10 @@ Revision state lives in `branches/writer/paper/revisions/round-<n>.md` — a che
 
 5. **Apply Results vs Discussion verb taxonomy.** Results sentences use observation verbs: `was detected`, `increased`, `decreased`, `showed`, `enabled`, `achieved`, `abolished`, `replicated`. Discussion sentences use interpretive verbs: `may reflect`, `suggests`, `could indicate`, `is likely due to`, `may facilitate`, `would support`, `is consistent with`. A Results paragraph drifting into Discussion syntax (and vice versa) is a register failure that no amount of polish can fix at the sentence level — the paragraph needs to be re-anchored to the right section first.
 
-6. **Handle evidence-dependent edits.** If an entry requires a new experimental run or analysis (rare at this stage), open a targeted EACN task to Coder or Expert per `prepare-rebuttal`'s rules. Mark the checklist entry `pending` with a blocker note until evidence lands.
+6. **Handle evidence-dependent edits.** If an entry requires a new
+   experimental run or analysis (rare at this stage), open a targeted EACN
+   task to the responsible Expert per `prepare-rebuttal`'s rules. Mark the
+   checklist entry `pending` with a blocker note until evidence lands.
 
 7. **Re-run `citation-audit`** after any bibliography or citation-context changes.
 

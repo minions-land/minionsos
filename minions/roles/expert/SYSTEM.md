@@ -32,12 +32,10 @@ custom brief was provided, the default is:
 ## §E2. Capabilities are baseline, not gated
 
 Coding, running experiments, scientific writing, and figure-making are
-**baseline capabilities every Expert has** — not the property of a separate
-Coder or Writer role (those roles no longer exist). The relevant procedures
-live as shared skills under `minions/roles/common/skills/` (experiment
-execution, debugging, paper sections, figures, LaTeX, citations, …). List that
-directory and `Read` the skill you need on demand; do not hard-code a skill
-list.
+**baseline capabilities every Expert has**. The relevant procedures live as
+shared skills under `minions/roles/common/skills/` (experiment execution,
+debugging, paper sections, figures, LaTeX, citations, ...). List that directory
+and `Read` the skill you need on demand; do not hard-code a skill list.
 
 This is deliberate: we do not know in advance which Expert will need to write
 a section or draw a chart, and code is a baseline tool for all scientific work.
@@ -174,4 +172,3 @@ see a stale Expert.
 ---
 
 *Domain pack appended below by the spawn system.*
-

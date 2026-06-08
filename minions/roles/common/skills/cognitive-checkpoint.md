@@ -85,7 +85,7 @@ For an unrelated event handed off to the next process:
 ```python
 mos_draft_append(nodes=[{
     "type": "question",            # or experiment / hypothesis — match event intent
-    "text": "Writer requests Coder refactor data-loader for arbitrary tokenizers (HF vs SP). Originating event from writer@2026-05-17T14:02Z.",
+    "text": "Expert requests another Expert to refactor data-loader for arbitrary tokenizers (HF vs SP). Originating event from expert@2026-05-17T14:02Z.",
     "support_status": "unverified",
     "metadata": {"pending_plan": True, "source": "eacn_event"},
 }])

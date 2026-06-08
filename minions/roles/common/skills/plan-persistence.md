@@ -71,4 +71,10 @@ status: active   # active | done | abandoned
 
 ## Worked example
 
-You woke to "add /healthz endpoint + test". Two steps minimum (endpoint, test). Write `branches/coder/plans/coder-healthz-2026-05-17.md` with both steps and their goals. Dispatch step 1 via Task subagent. When it returns, flip step 1 to `done`, fill Evidence with the commit SHA, write back. Dispatch step 2. If a context handoff (`mos_compact_context` or `mos_reset_context`) fires between steps, the post-handoff agent sees the active plan, picks up at step 2 — no re-thinking needed.
+You woke to "add /healthz endpoint + test". Two steps minimum (endpoint, test).
+Write `branches/<role>/plans/<role>-healthz-2026-05-17.md` with both steps and
+their goals. Dispatch step 1 via Workflow. When it returns, flip step 1 to
+`done`, fill Evidence with the commit SHA, write back. Dispatch step 2. If a
+context handoff (`mos_compact_context` or `mos_reset_context`) fires between
+steps, the post-handoff agent sees the active plan, picks up at step 2 — no
+re-thinking needed.

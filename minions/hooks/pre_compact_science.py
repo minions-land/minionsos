@@ -2,16 +2,15 @@
 """PreCompact hook — inject memory-layer-aware compaction instructions.
 
 Scope: this hook only fires the science-compact prompt for **Role main
-processes** (Noter / Coder / Writer / Ethics / Expert / domain experts
-spawned via mos_spawn_expert). For every other surface — dev-Claude
-hacking MinionsOS itself, the Gru supervisor, vanilla claude shells
-that happened to land in this repo, or Role subagents — the hook
-passthroughs ``custom_instructions`` so Claude Code uses its default
-summarization. The Draft / Book prompt only makes sense when
-the post-compact agent is the same Role main process re-entering its
-forever-loop, and the resume contract (mos_draft_view →
-mos_await_events) only makes sense in that exact
-context. See ``_is_role_main()`` below for the gate.
+processes** (Ethics / Expert / domain experts spawned via
+mos_spawn_expert). For every other surface — dev-Claude hacking MinionsOS
+itself, the Gru supervisor, vanilla claude shells that happened to land in
+this repo, or Role subagents — the hook passthroughs
+``custom_instructions`` so Claude Code uses its default summarization. The
+Draft / Book prompt only makes sense when the post-compact agent is the same
+Role main process re-entering its forever-loop, and the resume contract
+(mos_draft_view → mos_await_events) only makes sense in that exact context.
+See ``_is_role_main()`` below for the gate.
 
 Reads the hook input from stdin (JSON with ``trigger`` and ``custom_instructions``)
 and prints science-aware ``/compact`` instructions to stdout. Claude Code uses
@@ -40,15 +39,9 @@ Design goals (in priority order):
    model to produce a *pointer-shaped* summary, not a reconstructable
    transcript.
 
-Per-role resume tool. The Resume_protocol block at the end of the
-emitted instructions tells the post-compact role exactly what its
-first tool call must be. EACN-registered roles drive their loop with
-``mos_await_events``; Noter is the exception — it has no EACN agent
-identity. The hook
-reads ``MINIONS_ROLE_NAME`` from the env and emits the matching tool;
-without this branching every Noter compact would tell Noter to call
-a tool not in its whitelist and the role would park indefinitely
-(GitHub Issue #30).
+Per-role resume tool. The Resume_protocol block at the end of the emitted
+instructions tells the post-compact role exactly what its first tool call
+must be. Role main processes drive their loop with ``mos_await_events``.
 
 The output schema is parsed by ``post_compact_draft.py``.  Keep
 section headings (``## Working_on``, ``## Next_action``,
@@ -67,8 +60,7 @@ import sys
 def _resume_tool() -> str:
     """Return the tool name the post-compact role must call first.
 
-    Every role drives its event loop with ``mos_await_events`` (the timer-based
-    noter loop was retired when Noter merged into Ethics).
+    Every Role main process drives its event loop with ``mos_await_events``.
     """
     return "mos_await_events"
 

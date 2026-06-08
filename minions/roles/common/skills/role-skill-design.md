@@ -16,7 +16,7 @@ Turn a recurring role procedure into a small Markdown skill under the correct `m
 
 ## When to invoke
 
-- Adding a new role skill (typically by Gru, but Coder may add one when shipping new system-maintenance procedures, and any role may propose one for itself).
+- Adding a new role skill (typically by Gru, but Expert may add one when shipping new system-maintenance procedures, and any role may propose one for itself).
 - Refactoring a one-off prompt into reusable MinionsOS procedure.
 - A role makes the same coordination, evidence, or boundary mistake in 2 or more separate sessions.
 

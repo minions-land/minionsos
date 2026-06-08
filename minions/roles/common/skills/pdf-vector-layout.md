@@ -156,7 +156,7 @@ When the user has a multi-panel composite that has gone through versions (`v6 â†
 ## Scripts in this skill
 
 The scripts and reference docs live in the sibling directory `pdf-vector-layout/`
-(i.e. `minions/roles/writer/skills/pdf-vector-layout/scripts/*.py` and
+(i.e. `minions/roles/common/skills/pdf-vector-layout/scripts/*.py` and
 `pdf-vector-layout/references/*.md`). Treat this top-level file as the
 orchestrator that's always loaded at wake-up; the scripts and reference notes
 are progressive disclosure â€” open them only when you decide to use this skill.

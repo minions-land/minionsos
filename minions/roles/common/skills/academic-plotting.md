@@ -16,8 +16,8 @@ Two responsibilities: pick the right tool for the figure shape, and apply venue-
 
 ## When to invoke
 
-- Before every new figure goes into `branches/writer/paper/figures/`.
-- When polishing a figure Coder produced — improve readability without changing scientific meaning.
+- Before every new figure goes into `branches/<expert>/paper/figures/`.
+- When polishing a figure Expert produced — improve readability without changing scientific meaning.
 - Before camera-ready, audit every figure against this checklist.
 
 ## When NOT to load (route elsewhere)
@@ -147,7 +147,7 @@ Axis label 9–10 pt; tick label 8 pt; line width ≥ 1.5 pt; marker size ≥ 5 
 
 ## Reproducibility
 
-Plotting scripts at `branches/writer/paper/figures/gen_fig_<name>.py` read concrete data files from `branches/coder/exp/` or `branches/shared/exp/exp-<id>/`. No hardcoded numbers. Re-run reproduces byte-identical output modulo font rendering.
+Plotting scripts at `branches/<expert>/paper/figures/gen_fig_<name>.py` read concrete data files from `branches/<expert>/exp/` or `branches/shared/exp/exp-<id>/`. No hardcoded numbers. Re-run reproduces byte-identical output modulo font rendering.
 
 Export both formats: `fig.savefig(path.pdf)` for LaTeX inclusion, `fig.savefig(path.png, dpi=300)` for slides / web. Verify LaTeX includes the PDF without font warnings; verify the SVG has non-zero `<text>` nodes.
 

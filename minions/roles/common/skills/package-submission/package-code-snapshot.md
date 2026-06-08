@@ -34,7 +34,7 @@ Prepare a code bundle that reproduces the paper's claimed results.
 
 5. **Include license.** MIT, Apache-2.0, or whatever the project uses.
 
-6. **Verify reproduction.** Run the commands yourself (or dispatch to Coder) in a clean environment. If numbers don't match the paper exactly, either fix the snapshot or honestly document the gap.
+6. **Verify reproduction.** Run the commands yourself (or dispatch to Expert) in a clean environment. If numbers don't match the paper exactly, either fix the snapshot or honestly document the gap.
 
 ## Output
 

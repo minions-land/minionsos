@@ -20,17 +20,19 @@ A complete evidence-grounded paper-writing pipeline. Stop only when there is a c
 - A project has stable experimental results and a target venue.
 - Re-running after a major revision that changes claims, results, or venue.
 
-If evidence is missing, stop and ask Expert / Coder / Gru / user through EACN — do not invent or rerun results inside Writer.
+If evidence is missing, stop and ask the responsible Expert, Gru, or the user
+through EACN — do not invent results or rerun experiments inside the paper
+workflow.
 
 ## Structure
 
 Seven phases: gather inputs → structure facts → build citations →
 dispatch by boundary → keep evidence fixed → integrate under
-`branches/writer/paper/` → QA. The pipeline runs as a single
+`branches/<expert>/paper/` → QA. The pipeline runs as a single
 `Workflow` with `phase` shape (one phase per stage, hard gate between
 each). Workflow-agent boundaries are listed in `paper-work-boundaries`.
 Existing experiment outputs are inputs only; `template/` is read-only;
-the editable working copy lives under `branches/writer/paper/`.
+the editable working copy lives under `branches/<expert>/paper/`.
 
 Blockers that prevent calling a paper "done": missing PDF, unresolved
 citations, unsupported claims, too-thin bibliography, structural
@@ -38,11 +40,10 @@ failures from QA.
 
 ## Procedure
 
-1. **Gather inputs first.** Read the project brief,
-   `branches/<role>/` evidence (primarily `branches/coder/` and
-   `branches/coder/exp/`), result tables / logs, existing figures,
-   and any `template/` reference material. Do not write prose until
-   the evidence inventory is clear.
+1. **Gather inputs first.** Read the project brief, `branches/<role>/`
+   evidence, `branches/<expert>/exp/`, result tables / logs, existing figures,
+   and any `template/` reference material. Do not write prose until the
+   evidence inventory is clear.
 2. **Structure facts before narrative.** If method details, numbers,
    comparisons, or missing-evidence questions are not already
    organized, dispatch a `paper-evidence-analyst` Workflow agent and
@@ -62,7 +63,7 @@ failures from QA.
    fragment, and the three required return fields.
 5. **Keep evidence fixed.** Use existing experiment outputs only.
    Missing evidence → ask via EACN, never invent.
-6. **Integrate into `branches/writer/paper/`.** Treat `template/` as
+6. **Integrate into `branches/<expert>/paper/`.** Treat `template/` as
    read-only, create or update the editable working copy, connect
    sections / figures / tables / bibliography, compile.
 7. **Finish with QA.** The `paper-qa-auditor` Workflow agent is the
@@ -70,14 +71,14 @@ failures from QA.
    exits with a "done" structured return.
 
 End-to-end Workflows MUST run with `run_in_background=true` per
-common §4 — Gru's review traffic must never see a stale Writer.
+common §4 — Gru's review traffic must never see a stale Expert.
 
 ## Pitfalls
 
 - Stopping at section drafts when the user asked for a manuscript.
 - Letting Workflow agents skip the required structured return fields
   (`Completed`, `Files Changed`, `Needs Main Thread Attention`).
-- Running new experiments inside Writer.
+- Running new experiments inside the paper workflow.
 - Treating `template/` as editable.
 - Forgetting the §10.1 scratchpad fragment in the Workflow spec —
   the PreToolUse hook will block path-shaped writes inside the

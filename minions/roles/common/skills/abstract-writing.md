@@ -38,7 +38,7 @@ The abstract is a single paragraph. The rungs are sentence-level functions insid
 
 For rung 6, name what the paper actually establishes. A mouse preclinical demonstration closes with `establishes a non-viral route for CNS genome editing in mice and defines a platform for further preclinical evaluation`, NOT `supports further evaluation in neurological disease models` — the latter implies disease-utility evidence the paper does not have.
 
-Output lives in `branches/writer/paper/`. Sentence-level support cited in nearby draft comments or notes when claims are non-obvious: `[derived: section <N>]`, `[derived: Expert note <id>]`, `[derived: artifact <path>]`.
+Output lives in `branches/<expert>/paper/`. Sentence-level support cited in nearby draft comments or notes when claims are non-obvious: `[derived: section <N>]`, `[derived: Expert note <id>]`, `[derived: artifact <path>]`.
 
 ## Procedure
 

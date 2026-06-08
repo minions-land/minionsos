@@ -251,9 +251,9 @@ Roles signal phase-transition readiness by raising signs on
 (The required-signer set is defined in code at `minions/tools/signboard.py`
 `_ELIGIBILITY`: every milestone requires `ethics` plus an Expert quorum — the
 `experts: True` flag means every registered Expert is a required signer. There
-are no Coder/Writer signers; the heavy work — experiments, paper drafting — is
-done by Experts, and paper drafting is Gru-driven via the `book-to-paper`
-skill, not a spawned Writer role.)
+is no separate signer class for experiments or paper drafting; those outputs
+come from Experts, and paper drafting is Gru-driven via the `book-to-paper`
+skill.)
 
 **On a `signboard_change` event:**
 

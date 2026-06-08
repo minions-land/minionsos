@@ -74,14 +74,14 @@ Discipline rules specific to sankey:
 
 Note how every outflow from `raw` would be colored by the source `raw`'s color; every outflow from `clean` by `clean`'s color. The renderer enforces this — do not override per link unless explicitly justified.
 
-Spec and rendered figure live side-by-side under `branches/writer/paper/figures/` (e.g. `fig_overview.json` + `fig_overview.pdf`). Spec includes a provenance comment: which paper section, which claim, last regeneration date.
+Spec and rendered figure live side-by-side under `branches/<expert>/paper/figures/` (e.g. `fig_overview.json` + `fig_overview.pdf`). Spec includes a provenance comment: which paper section, which claim, last regeneration date.
 
 ## Procedure
 
 1. **Decide which archetype** — boxes-and-arrows (A) vs. flow-with-volume (B). If unsure, the test: "do the link widths carry quantitative meaning?" → yes is sankey.
 2. **Draft the spec** with the blocks above.
 3. **Name labels exactly as they appear in the paper.** The spec is also a glossary check — label drift between figure and prose is a common review smell.
-4. **Render deterministically** via a JSON → SVG renderer (e.g. `tools/figure_renderer.py` if present in `branches/writer/tools/`). Commit both spec and rendered SVG / PDF.
+4. **Render deterministically** via a JSON → SVG renderer (e.g. `tools/figure_renderer.py` if present in `branches/<expert>/tools/`). Commit both spec and rendered SVG / PDF.
 5. **Iterate on the spec, not the SVG.** Never hand-edit the rendered SVG for structural changes; edit the spec and re-render. Hand-edit only for final visual polish that will not regenerate.
 6. **Include the provenance comment** in the spec file: paper section, supported claim, date of last regeneration.
 

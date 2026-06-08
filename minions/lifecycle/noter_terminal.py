@@ -97,7 +97,7 @@ def run_noter_terminal(
     task_status: str | None = None,
     console: Console | None = None,
 ) -> None:
-    """Run a periodic read-only Noter terminal for one project."""
+    """Run a periodic read-only observatory terminal for one project."""
     out = console or Console()
     _print_help(out)
     while True:
@@ -121,7 +121,7 @@ def _gru_unread(port: int) -> int:
     """Best-effort read of the project's Gru unread count.
 
     Returns 0 if the events log does not exist yet (project just spun up)
-    or anything fails — the noter terminal is read-only and never raises.
+    or anything fails — the observatory terminal is read-only and never raises.
     """
     try:
         from minions.tools import events_log
@@ -132,11 +132,11 @@ def _gru_unread(port: int) -> int:
 
 
 def render_snapshot(snapshot: NoterSnapshot, console: Console) -> None:
-    """Render the default Noter status report."""
+    """Render the default observatory status report."""
     project = snapshot.project
     alive = snapshot.health.get("backend_alive")
     backend = "up" if alive else ("down" if alive is False else "n/a")
-    console.rule(f"Noter project {project.port} | {snapshot.captured_at}")
+    console.rule(f"Observatory project {project.port} | {snapshot.captured_at}")
     gru_unread = _gru_unread(project.port)
     gru_label = (
         f"[yellow]gru-unread={gru_unread}[/yellow]"
@@ -228,9 +228,9 @@ def _handle_command(
                 from_agent_id=sender,
                 content={"type": "memory_status_request", "text": message},
             )
-            console.print(f"[green]queued Noter request[/green] {target} on {port}")
+            console.print(f"[green]queued Ethics memory/status request[/green] {target} on {port}")
         except Exception as exc:
-            console.print(f"[red]failed to queue Noter request:[/red] {exc}")
+            console.print(f"[red]failed to queue Ethics memory/status request:[/red] {exc}")
         return True
     if cmd in {"help", "h", "?"}:
         _print_help(console)
@@ -385,6 +385,6 @@ def _short_created(value: object) -> str:
 
 def _print_help(console: Console) -> None:
     console.print(
-        "[dim]Noter terminal is read-only. It reports without draining EACN role queues. "
+        "[dim]Observatory terminal is read-only. It reports without draining EACN role queues. "
         "Press Enter for immediate status, or type help.[/dim]"
     )

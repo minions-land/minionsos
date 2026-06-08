@@ -44,7 +44,7 @@ These apply globally; sub-skills enforce them, but the contract is non-negotiabl
 3. **No checkmark / half-checkmark capability tables.** Replace ✓/½/✗ with per-feature explicit content (numbers, scopes, names). See `latex-typography.md`.
 4. **Compile to PDF before submission / handoff.** The manuscript is
    LaTeX → `paper.pdf`; in an autonomous project there is no human to
-   run `latexmk`, so Writer owns the compile (`paper-compile` skill via
+   run `latexmk`, so Expert owns the compile (`paper-compile` skill via
    a Workflow agent). A Markdown file is never the manuscript. Mid-draft
    you may edit `.tex` without recompiling, but a submission, handoff,
    or "done" without a compiled PDF is incomplete.

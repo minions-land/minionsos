@@ -55,7 +55,7 @@ Flag any claim that would not survive a one-sentence challenge from a reviewer w
 
 When a single overclaim is corrected, the same correction must propagate to every other location it appears. Coexistence is Major-Revision-class. See `submission-cleanup-audit.md` partial-integration sweep.
 
-Recipe: after the local fix, `grep` for the *old* phrasing across the entire `branches/writer/paper/`. Every match either gets updated or earns a comment explaining why it's a different claim.
+Recipe: after the local fix, `grep` for the *old* phrasing across the entire `branches/<expert>/paper/`. Every match either gets updated or earns a comment explaining why it's a different claim.
 
 ## Output habit
 

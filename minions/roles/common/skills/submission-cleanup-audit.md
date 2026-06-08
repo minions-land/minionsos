@@ -27,9 +27,9 @@ Figures exist in `figures/` but are never `\includegraphics`'d in any `.tex`. Re
 Check:
 ```bash
 # files referenced
-grep -hroE '\\includegraphics[^{]*\{[^}]+\}' branches/writer/paper/ | grep -oE '\{[^}]+\}' | tr -d '{}' | sort -u > /tmp/used.txt
+grep -hroE '\\includegraphics[^{]*\{[^}]+\}' branches/<expert>/paper/ | grep -oE '\{[^}]+\}' | tr -d '{}' | sort -u > /tmp/used.txt
 # files on disk
-ls branches/writer/paper/figures/ | sort -u > /tmp/on_disk.txt
+ls branches/<expert>/paper/figures/ | sort -u > /tmp/on_disk.txt
 comm -13 /tmp/used.txt /tmp/on_disk.txt   # orphans
 ```
 Either cite each orphan or delete from the repo before submission.
@@ -37,7 +37,7 @@ Either cite each orphan or delete from the repo before submission.
 ### 2. Multiply-defined LaTeX labels
 `Label 'eq:foo' multiply defined` in `main.log`. Compiles but `\eqref` resolves to the wrong occurrence. A single such warning is enough for Minor Revision.
 
-Fix recipe: keep main-text labels canonical; rename appendix-local duplicates with `-app` suffix (`eq:spread-bound` in main, `eq:spread-bound-app` in appendix). Verify via `grep -c "multiply defined" branches/writer/paper/build/*.log` returning 0.
+Fix recipe: keep main-text labels canonical; rename appendix-local duplicates with `-app` suffix (`eq:spread-bound` in main, `eq:spread-bound-app` in appendix). Verify via `grep -c "multiply defined" branches/<expert>/paper/build/*.log` returning 0.
 
 ### 3. Agent-internal artifact leakage
 Bib entries with branch paths (`'GeometricMathematician2024-some-branch'`), agent IDs, tool slugs in citation keys, draft-only labels, `/tmp/` paths. **Must never appear in any submission.**
@@ -67,7 +67,7 @@ After fixes, re-run categories 2 and 5 (they regenerate easily): a label fix in 
 
 ## Output habit
 
-Write verdicts to `branches/writer/paper/SUBMISSION_CLEANUP_AUDIT.md` with:
+Write verdicts to `branches/<expert>/paper/SUBMISSION_CLEANUP_AUDIT.md` with:
 - Per-category verdict and path:line for each FIX.
 - Final commit SHA after fixes.
 - Mark each fix `[evidence: <log path or grep output>]`.

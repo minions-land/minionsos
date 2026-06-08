@@ -63,11 +63,11 @@ def _resolve_time_trigger_interval(role_name: str, interval: str | None) -> str 
     """Resolve optional periodic wakeups for a role.
 
     All roles are event-driven (``mos_await_events``); none gets a default
-    timer cadence. Ethics — the merged memory curator + auditor — does its
-    periodic Draft-flush / Book-maintenance work on the ``idle_check`` ticks
-    that ``mos_await_events`` already emits after ~5 minutes of silence, so it
-    needs no separate timer. A cadence is only set when a caller explicitly
-    passes one; it is recorded on the ``RoleEntry`` for the launcher.
+    timer cadence. Ethics does its Draft-flush / Book-maintenance work on the
+    ``idle_check`` ticks that ``mos_await_events`` already emits after ~5
+    minutes of silence, so it needs no separate timer. A cadence is only set
+    when a caller explicitly passes one; it is recorded on the ``RoleEntry``
+    for the launcher.
     """
     del role_name  # no role gets a default timer cadence anymore
     if not interval:
@@ -101,13 +101,13 @@ _BOUNDARY_TEXT: dict[str, str] = {
         "Cross-role artefacts go to `branches/shared/<subdir>/` via "
         "`mos_publish_to_shared` — Gru may publish into any subdir.\n"
         "Cross-cycle memory: use the Draft (`mos_draft_append` / "
-        "`mos_draft_summary` / `mos_draft_query`) — Noter flushes "
-        "it to the shared branch on its periodic wake.\n"
+        "`mos_draft_summary` / `mos_draft_query`). Ethics curates the Draft "
+        "and Book memory surfaces on its event loop.\n"
     ),
     "ethics": (
         "[Role boundary: EACN-visible agent — memory curator + evidence auditor + adjudicator]\n"
-        "You are the merged Ethics role: you (1) curate the team memory — maintain "
-        "the Draft graph (flush/decay/dedup, draw motif edges), ingest/promote/"
+        "You are Ethics: you (1) curate the team memory — maintain the Draft "
+        "graph (flush/decay/dedup, draw motif edges), ingest/promote/"
         "crystallize the Book; (2) audit whether agent behaviour, theory, code, and "
         "claims have real evidence support; (3) adjudicate EACN tasks. You MAY "
         "inspect internal materials: experiment artifacts, evidence/claim maps, "
@@ -185,8 +185,7 @@ def register_role(
 
     If *init_brief* is given it is delivered as an addressable EACN message
     (advisory, not a Task) so the cold-started Role wakes with role-specific
-    guidance but no bid/claim contract to satisfy. Noter is on a timer
-    backbone so its brief is logged-and-dropped.
+    guidance but no bid/claim contract to satisfy.
     """
     if role not in FIXED_ROLES:
         raise RoleError(
@@ -330,8 +329,8 @@ def _do_register(
     session_name = project_session_name(project_port, role_name)
 
     # Every role registers on the project-local EACN3 network and drives its
-    # loop via mos_await_events (Ethics, the merged memory-curator + auditor,
-    # included — it does periodic memory maintenance on idle ticks).
+    # loop via mos_await_events. Ethics does periodic memory maintenance on
+    # idle ticks.
     try:
         agent_token, _seeds = register_project_role_agent(project_port, role_name)
     except BackendError as exc:

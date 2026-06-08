@@ -6,7 +6,7 @@ CNS-tier journals enforce IMRAD as a hard structure: **Introduction → Methods 
 
 ## Hard rule: full-paragraph prose, no bullets in body
 
-**The single most-violated rule in MinionsOS Writer's drafts.** CNS reviewers expect every section of the body to be flowing prose. Bullet lists are reserved for:
+**The single most-violated rule in MinionsOS Expert's drafts.** CNS reviewers expect every section of the body to be flowing prose. Bullet lists are reserved for:
 
 - Author contributions block.
 - Data / code availability statement.

@@ -16,7 +16,7 @@ The gates are sequential — each depends on the previous. Skip none.
 
 ## When to use
 
-- Gru creates a new project and Coder receives the first implementation task.
+- Gru creates a new project and Expert receives the first implementation task.
 - Inheriting an author repo that has no CLAUDE.md, no architecture doc, and
   no clear module boundaries.
 - The user says "let's build X" and there is no existing scaffold.
@@ -44,7 +44,7 @@ exist under `branches/`, and the branching convention is operational.
    `git init`.
 2. Confirm `.gitignore` is appropriate for the stack. For MinionsOS projects,
    the author repo's `.gitignore` is inherited at seed time.
-3. Verify `branches/coder/` worktree is checked out and clean.
+3. Verify `branches/<expert>/` worktree is checked out and clean.
 4. State the branching model in `project_{port}/CLAUDE.md`:
    - MinionsOS default: each role has its own branch, cross-role artifacts
      travel through `branches/shared/` via `mos_publish_to_shared`.
@@ -93,7 +93,7 @@ possible) in tooling.
 
 **Procedure:**
 
-1. Create the directory structure on `branches/coder/` matching
+1. Create the directory structure on `branches/<expert>/` matching
    `docs/architecture.md`:
    ```
    src/
@@ -111,7 +111,7 @@ possible) in tooling.
    `pub(crate)` boundaries).
 5. Add a minimal test scaffold: one test file per module, even if the
    test is just "module imports without error".
-6. Commit on `branches/coder/`: "scaffold: module boundaries + test stubs".
+6. Commit on `branches/<expert>/`: "scaffold: module boundaries + test stubs".
 
 **Why this gate exists:** low coupling and clear responsibility are not
 emergent properties — they must be designed in from day one. Once modules
@@ -224,7 +224,7 @@ The three gates are fixed, but the specific artifacts are stack-dependent:
 - **Monorepo:** Gate 3 creates `packages/` or `apps/` with explicit
   dependency declarations between packages.
 - **MinionsOS project:** Gate 2 docs go to `branches/shared/docs/`.
-  Gate 3 structure lives on `branches/coder/`. Cross-role handoffs
+  Gate 3 structure lives on `branches/<expert>/`. Cross-role handoffs
   use `mos_publish_to_shared`. Architecture decisions are recorded in
   the Draft via `mos_draft_append` in addition to the decision log.
 

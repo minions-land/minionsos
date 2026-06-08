@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# minions/bin/noter - read-only project Noter terminal launcher.
+# minions/bin/noter - read-only project observatory terminal launcher.
 set -euo pipefail
 
 SOURCE="${BASH_SOURCE[0]}"

@@ -406,8 +406,8 @@ class TestLoadDraftRobustness:
 class TestEthicsMotifContract:
     """Tests for the soft-enforcement motif contract (Stream 2).
 
-    Ethics is now the merged memory curator that owns the Draft motif surface,
-    so the soft-enforcement gate fires on author_role == "ethics".
+    Ethics owns the Draft motif surface, so the soft-enforcement gate fires on
+    author_role == "ethics".
     """
 
     def test_ethics_result_node_requires_motif_kind(

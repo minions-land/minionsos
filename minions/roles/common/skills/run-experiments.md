@@ -23,7 +23,7 @@ scheduler. Report-synthesis goes through Workflow.
 
 ## Procedure
 
-1. **Prepare scripts** under `branches/coder/src/experiments/`. Each script must be self-contained and exit non-zero on failure.
+1. **Prepare scripts** under `branches/<expert>/src/experiments/`. Each script must be self-contained and exit non-zero on failure.
 2. **Check GPU capacity**: `mos_query_gpus(target_id="auto")` and `mos_exp_gpu_pool_get()` for pool limits.
 3. **Submit batch**: `mos_exp_queue_submit(units=[...])`. Use `mos_exp_run` only for single one-off jobs.
 4. **Wait for EACN completion events** (one per experiment). Do not busy-poll status — the Python scheduler sends events automatically.
@@ -32,7 +32,7 @@ scheduler. Report-synthesis goes through Workflow.
    bundle, `pipeline` shape for multi-experiment cross-analysis). Pass
    metrics, failure log, target schema as inputs; receive a size-bounded
    `{report_path, summary, next_actions[]}` per `role-act-via-workflow`.
-7. **Store** result bundle in `branches/coder/exp/exp-<id>/`, then publish to `branches/shared/exp/exp-<id>/` via `mos_publish_to_shared`.
+7. **Store** result bundle in `branches/<expert>/exp/exp-<id>/`, then publish to `branches/shared/exp/exp-<id>/` via `mos_publish_to_shared`.
 8. **Report findings** via EACN to the requesting role.
 
 ## Fire-and-poll rules
@@ -52,5 +52,5 @@ scheduler. Report-synthesis goes through Workflow.
 - On cold start, call `mos_exp_list` on every target to recover still-running experiments.
 - Long Workflows (multi-experiment synthesis) MUST run with
   `run_in_background=true` per common §4 — bid-deadline traffic must
-  never see a stale Coder.
+  never see a stale Expert.
 

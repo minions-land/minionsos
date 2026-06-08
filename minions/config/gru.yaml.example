@@ -43,14 +43,14 @@ local_eacn_initial_balance: 10000
 
 # Structured backend/role health events are always written to
 # project_<port>/logs/health_events.jsonl. Set this true to also post those
-# events to project-local Gru and Noter over EACN.
+# events to project-local Gru over EACN.
 health_event_eacn_notifications: false
 
 # Minimum seconds between any two dispatches for the same role.
 role_cooldown_seconds: 30
 
 # Python-side experiment queue reconcile cadence. This keeps queued experiment
-# units flowing onto newly-free GPUs without waking Coder just to schedule.
+# units flowing onto newly-free GPUs without waking an Expert just to schedule.
 experiment_reconcile_interval_seconds: 30
 
 # Wall-clock seconds of silence after which mos_await_events returns a stable

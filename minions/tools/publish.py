@@ -137,8 +137,8 @@ class PublishFilesToSharedResult(DictLikeBaseModel):
 #   to their own subdir + Ethics ingest-compiles them into book/.
 _DEFAULT_ROLE_ALLOWED_SHARED_SUBDIRS: dict[str, set[str]] = {
     "gru": {"*"},
-    # Ethics is the merged memory curator + auditor: it owns book/, notes/,
-    # draft/, ethics/, handoffs/, governance/.
+    # Ethics is the memory curator + auditor: it owns book/, notes/, draft/,
+    # ethics/, handoffs/, governance/.
     "ethics": {"ethics", "notes", "draft", "handoffs", "governance", "book"},
     # Expert is the unified worker — it publishes experiment bundles plus
     # handoffs and governance.

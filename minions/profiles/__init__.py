@@ -33,7 +33,7 @@ class MissionProfile(BaseModel):
 
     Attributes:
         name: Profile identifier (kebab-case).
-        lightweight: If True, skip heavy infrastructure (e.g., Noter periodic).
+        lightweight: If True, skip heavy project infrastructure.
         roles_active: Roles to spawn at project creation. Gru is always present.
         role_prompt_overlay: Per-role prompt overlay paths (relative to profiles/).
         deliverable_schema: Required deliverable paths and per-role publish whitelist.

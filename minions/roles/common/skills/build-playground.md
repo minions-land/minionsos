@@ -29,7 +29,7 @@ One HTML file with embedded CSS and JS. Three surfaces: real controls (sliders, 
 ## Procedure
 
 1. **Confirm the exploration target.** Identify the visual or structural choice the user or role needs to tune: layout, chart encoding, prompt structure, parameter grid, concept map, or document critique workflow.
-2. **Choose a lightweight output path.** Prefer `branches/coder/playgrounds/<slug>.html` for project-local prototypes. For paper figures, coordinate with Writer and use `branches/writer/paper/figures/prototypes/`.
+2. **Choose a lightweight output path.** Prefer `branches/<expert>/playgrounds/<slug>.html` for project-local prototypes. For paper figures, coordinate with Expert and use `branches/<expert>/paper/figures/prototypes/`.
 3. **Make it self-contained.** One HTML file with embedded CSS and JS unless the project already has a stronger local pattern.
 4. **Expose real controls** for the dimensions users are likely to vary. Avoid explanatory filler.
 5. **Show live output.** Preview updates immediately; generated prompt or config is copyable or easy to inspect.
@@ -41,4 +41,4 @@ One HTML file with embedded CSS and JS. Three surfaces: real controls (sliders, 
 - Building a marketing page instead of the usable control surface.
 - Treating a prototype as reviewed production UI.
 - Hiding important state behind decorative visuals.
-- Writing outside Coder-owned workspace paths without an explicit handoff.
+- Writing outside Expert-owned workspace paths without an explicit handoff.

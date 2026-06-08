@@ -15,8 +15,8 @@ Pixel-level layout audit. Source / log inspection misses what only the rendered 
 
 ## When to invoke
 
-- After Writer compiles a paper PDF, before signing off a draft
-- After Coder produces a figure / plot artifact and wants size and overflow vetted before bundling
+- After Expert compiles a paper PDF, before signing off a draft
+- After Expert produces a figure / plot artifact and wants size and overflow vetted before bundling
 - When Ethics audits a "the figure is clear" claim made elsewhere
 - When an Expert spot-checks a visual artifact attached to an EACN message
 - When a Reviewer aspect note flags layout (forwarded as evidence; do not re-execute mid-review)
@@ -43,7 +43,9 @@ End-to-end audit is `mos_visual_check`. Use the two-step path when reusing rende
 - **DPI matters.** Below 150 DPI the column-void projection is noisy; above 350 DPI memory cost dominates with no detection gain.
 - **Single-column papers fail the `auto` heuristic for column-void**; pass `kind="figure"` explicitly when inspecting a single-column draft, or `kind="layout"` to force layout-mode regardless.
 - **Don't store rendered images in `branches/<role>/`.** Page PNGs are large and ephemeral; keep them under `state/` or the project tmp dir, only commit the JSON report.
-- **`mos_visual_*` tools never edit the PDF or source.** Fixes go through Writer / Coder using their existing workflows; this skill produces evidence, not patches.
+- **`mos_visual_*` tools never edit the PDF or source.** Fixes go through the
+  responsible Expert using the normal paper or figure workflow; this skill
+  produces evidence, not patches.
 
 ## Required coverage (R-future-5 lessons-learned)
 

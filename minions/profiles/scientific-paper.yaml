@@ -1,16 +1,16 @@
 # scientific-paper.yaml
-# Default Mission Profile for MinionsOS — packages the original
-# Autonomous Scientific Discovery behavior with zero functional change.
+# Default Mission Profile for MinionsOS — packages autonomous scientific
+# discovery with the current Gru + Ethics + Expert team contract.
 #
-# This profile is loaded when no --profile is specified, preserving
-# backward compatibility for every existing project workflow:
-# Noter + Coder + Ethics + Writer pipeline producing peer-reviewed paper PDFs.
+# This profile is loaded when no --profile is specified. Gru coordinates the
+# project, Ethics curates/audits memory, and Expert performs science,
+# experiments, writing, and figure work.
 
 name: scientific-paper
 lightweight: false
 
-# Roles spawned at project_create time. Ethics (the merged memory curator +
-# auditor) is pre-spawned via register_role; one generalist Expert (the
+# Roles spawned at project_create time. Ethics (memory curator + auditor) is
+# pre-spawned via register_role; one generalist Expert (the
 # project's general worker — code, experiments, writing, figures) is
 # pre-spawned via register_expert. Gru spawns additional specialist Experts
 # as the science demands.

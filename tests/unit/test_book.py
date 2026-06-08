@@ -229,7 +229,7 @@ def test_wiki_query_returns_empty_when_no_entries_match(project: dict[str, Any])
 
 
 def test_publish_policy_allows_ethics_book() -> None:
-    """Ethics is the merged memory curator now — it owns the book/ surface."""
+    """Ethics owns the book/ curation surface."""
     assert publish._validate_dst("ethics", "book/audit.md") == Path("book/audit.md")
     assert publish._validate_dst("ethics", "book/sources/source.md") == Path(
         "book/sources/source.md"

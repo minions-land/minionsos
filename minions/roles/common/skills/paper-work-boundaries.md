@@ -1,6 +1,6 @@
 ---
 slug: paper-work-boundaries
-summary: Open when about to issue a paper-* Workflow agent — ten-slot boundary map plus required structured-return shape; Workflow agents do not auto-inherit Writer's state.
+summary: Open when about to issue a paper-* Workflow agent — ten-slot boundary map plus required structured-return shape; Workflow agents do not auto-inherit Expert's state.
 layer: scheduling
 tools: Workflow
 version: 3
@@ -13,21 +13,21 @@ provenance: human
 # Skill — Paper Work Boundaries
 
 Boundaries to include in every Workflow agent prompt; Workflow agents
-do not automatically inherit Writer's full state.
+do not automatically inherit Expert's full state.
 
 ## When to invoke
 
-Open whenever Writer is about to dispatch paper work as a Workflow
+Open whenever Expert is about to dispatch paper work as a Workflow
 agent — including the orchestrated path through
 `end-to-end-paper-workflow` and any one-off direct dispatch.
 Detection signal: you are about to issue a Workflow whose agent writes
-inside `branches/writer/paper/` and you need to decide which slot
+inside `branches/<expert>/paper/` and you need to decide which slot
 owns it.
 
 ## Structure
 
-All paper work stays under `branches/writer/paper/`. Template /
-reference directories such as `template/` or `branches/writer/template/`
+All paper work stays under `branches/<expert>/paper/`. Template /
+reference directories such as `template/` or `branches/<expert>/template/`
 are **read-only**. Existing results are inputs; do not run new
 experiments or invent missing evidence.
 
@@ -38,7 +38,7 @@ fields, total ≤ 5 KB per common §4:
 - `Files Changed` — list of paths touched (all under the slot's
   allowed scope).
 - `Needs Main Thread Attention` — blockers, missing evidence, claims
-  that need Writer's judgment.
+  that need Expert's judgment.
 
 Cross-slot rule: work that spans two slots (e.g. a results figure that
 needs both numerical plotting and prose interpretation) does not give
@@ -71,7 +71,7 @@ Boundary map — pick the one that matches the dispatched work:
 | `paper-closing-writer` | Conclusion, compact discussion, optional limitations — after method / results are stable. |
 | `paper-figure-python` | Result-grounded Python figures, plotting scripts, exports, captions. Does not reinterpret result meaning. |
 | `paper-table-tex` | Result-grounded TeX tables and helper scripts with layout-safe formatting. |
-| `paper-template-integrator` | Inspect template references, create / update the editable working copy under `branches/writer/paper/`, integrate sections / assets / bibliography, compile, fix layout / citation errors. |
+| `paper-template-integrator` | Inspect template references, create / update the editable working copy under `branches/<expert>/paper/`, integrate sections / assets / bibliography, compile, fix layout / citation errors. |
 | `paper-qa-auditor` | Final consistency across claims, numbers, citations, structure, references, figures / tables, compiled PDF readiness. Defaults to a report, not large rewrites. |
 
 ## Pitfalls
@@ -79,7 +79,7 @@ Boundary map — pick the one that matches the dispatched work:
 - Letting a Workflow agent write outside its slot (e.g.
   `paper-figure-python` editing prose).
 - Reusing `template/` for live edits instead of cloning into
-  `branches/writer/paper/`.
+  `branches/<expert>/paper/`.
 - Workflow agents inventing missing evidence rather than reporting it
   under `Needs Main Thread Attention`.
 - **Scratchpad escape.** Every Workflow spec MUST include the §10.1

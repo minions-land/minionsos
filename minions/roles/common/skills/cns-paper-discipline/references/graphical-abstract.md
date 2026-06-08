@@ -52,7 +52,7 @@ Implementation: [[academic-plotting]] for the plot + [[hero-figure-prompt]] for 
 
 ### Route A — gpt-image-2.0 via hero-figure-prompt
 
-For mechanism / pipeline / illustrated abstracts. Always go through [[hero-figure-prompt]] so the prompt is persisted as `branches/writer/paper/figures/graphical_abstract.prompt.md`. Regeneration must be possible at camera-ready time.
+For mechanism / pipeline / illustrated abstracts. Always go through [[hero-figure-prompt]] so the prompt is persisted as `branches/<expert>/paper/figures/graphical_abstract.prompt.md`. Regeneration must be possible at camera-ready time.
 
 Baseline prompt skeleton (drop into `hero-figure-prompt`):
 
@@ -100,7 +100,7 @@ Most CNS graphical abstracts mix illustrated mechanism (Route A) + a small hero 
 
 ## File outputs
 
-Canonical paths under `branches/writer/paper/figures/`:
+Canonical paths under `branches/<expert>/paper/figures/`:
 
 - `graphical_abstract.pdf` — the rendered figure for inclusion.
 - `graphical_abstract.svg` — vector source if applicable.

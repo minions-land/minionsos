@@ -2,13 +2,13 @@
 """PostCompact hook — extract pointer-shaped notes from a compact summary.
 
 Scope: this hook only runs the journal-extract + tmux-kick path for **Role
-main processes** (Noter / Coder / Writer / Ethics / Expert / domain experts
-spawned via mos_spawn_expert). For every other surface — dev-Claude
-hacking MinionsOS itself, the Gru supervisor, vanilla claude shells, or
-Role subagents that inherit MINIONS_PROJECT_PORT from their parent — the
-hook short-circuits before touching the journal or tmux. See
-``_is_role_main()`` below for the gate. The pre-compact hook
-(``pre_compact_science.py``) uses the same gate; keep them aligned.
+main processes** (Ethics / Expert / domain experts spawned via
+mos_spawn_expert). For every other surface — dev-Claude hacking MinionsOS
+itself, the Gru supervisor, vanilla claude shells, or Role subagents that
+inherit MINIONS_PROJECT_PORT from their parent — the hook short-circuits
+before touching the journal or tmux. See ``_is_role_main()`` below for the
+gate. The pre-compact hook (``pre_compact_science.py``) uses the same gate;
+keep them aligned.
 
 Fires after Claude Code's ``/compact`` completes.  Reads the hook payload
 from stdin (a JSON object with ``transcript_path``, ``trigger``,

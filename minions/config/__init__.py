@@ -151,18 +151,16 @@ _DRAFT_AUDIT_TOOLS = [
 ]
 
 # Book ratification — Ethics-only. Promotes a verified Book page from the
-# proposed pool into the ratified set. The other Book write paths (ingest,
-# promote_verified, save_synthesis, crystallize_session) belong to Noter as
-# the curator; ratify is the audit gate that lets Ethics stamp a page as
-# durable knowledge.
+# proposed pool into the ratified set. Ethics owns the Book curation/audit
+# write surface; ratify is the final audit gate that stamps a page as durable
+# knowledge.
 _BOOK_RATIFY_TOOLS = [
     "mos_book_ratify",
 ]
 
 # Book question/dead-end tools. ``mos_book_open_question`` is wide-open
-# (any EACN-visible role can flag a pending question for Noter to resolve);
-# ``mos_book_dead_end`` is Noter-only (other roles propose dead-ends via
-# handoff so the registry stays curator-owned).
+# (any EACN-visible role can flag a pending question); ``mos_book_dead_end``
+# is curator-owned at server side so the registry stays evidence-audited.
 _BOOK_OPEN_QUESTION_TOOLS = [
     "mos_book_open_question",
 ]
@@ -173,9 +171,8 @@ _BOOK_DEAD_END_TOOLS = [
 # Visual format-check tools. Format-agnostic detectors over rendered PDF page
 # images (column voids, edge overflow, trailing whitespace, column imbalance,
 # float clustering, short lines). Whitelisted to every EACN-visible main role
-# so Writer can verify paper PDFs, Coder can inspect generated figures/plots,
-# Ethics can audit figure-quality claims, and Experts can spot-check visuals.
-# Noter is excluded — it is human-facing and does not run detectors.
+# so Experts can verify paper PDFs, generated figures, and plots while Ethics
+# can audit figure-quality claims.
 _VISUAL_CHECK_TOOLS = [
     "mos_visual_render",
     "mos_visual_inspect",
@@ -244,9 +241,6 @@ _GRU_EACN_TOOLS = [
 # unified CLI whitelist is the "what the model can see" surface, while the
 # server-side check is the "what actually executes" boundary.
 #
-# Noter is excluded from unification because it runs on a different model
-# (Sonnet) and therefore occupies a separate cache namespace anyway.
-
 _EACN_ROLE_MAIN_TOOLS: list[str] = [
     *_KEEPALIVE_TOOLS,
     *_ISSUE_REPORT_TOOLS,
@@ -255,7 +249,7 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     "mos_await_events",
     "mos_get_events",
     "mos_unread_summary",
-    # Draft (full access including commit for Gru/Noter)
+    # Draft (CLI-visible surface; server-side authz controls commit)
     "mos_draft_*",
     # Book
     *_BOOK_READ_TOOLS,
@@ -273,7 +267,7 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     # Book ratify-promotion (Ethics-only at server side; appears in CLI
     # whitelist for KV cache parity).
     *_BOOK_RATIFY_TOOLS,
-    # Open-question is wide-open (any EACN role); dead-end is Noter-only
+    # Open-question is wide-open (any EACN role); dead-end is curator-owned
     # at server side. Both appear in CLI whitelist for KV cache parity.
     *_BOOK_OPEN_QUESTION_TOOLS,
     *_BOOK_DEAD_END_TOOLS,
@@ -554,7 +548,7 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         "mos_compact_context",
         "Task",
         "mos_project_checkpoint_workspace",
-        # Expert is the unified worker — it runs experiments (was Coder's domain).
+        # Expert is the unified worker: science, experiments, writing, and figures.
         "mos_exp_run",
         "mos_exp_status",
         "mos_exp_wait",
@@ -604,9 +598,8 @@ _SERVER_AUTHZ: dict[tuple[str, str], list[str]] = {
         *_ISSUE_REPORT_TOOLS,
         "eacn3_*",
         "mos_await_events",
-        # Ethics is the merged memory curator + auditor + adjudicator: it owns
-        # the full Draft surface (including commit) and the Book curation tools
-        # that Noter used to hold.
+        # Ethics is the memory curator + auditor + adjudicator: it owns the
+        # full Draft surface (including commit) and Book curation/audit tools.
         "mos_draft_*",
         *_BOOK_READ_TOOLS,
         "mos_book_ingest",
@@ -802,7 +795,7 @@ class GruConfig(BaseModel):
     )
     experiment_reconcile_interval_seconds: int = Field(
         default=30,
-        description="Python-side Coder experiment queue reconcile cadence in seconds.",
+        description="Python-side experiment queue reconcile cadence in seconds.",
     )
     role_evolution_interval_seconds: int = Field(
         default=900,
@@ -1028,7 +1021,7 @@ class GruConfig(BaseModel):
         default=False,
         description=(
             "When true, Gru's health monitor also posts backend/role health events "
-            "to project-local Gru and Noter queues. Structured health events are "
+            "to the project-local Gru queue. Structured health events are "
             "always written to project logs regardless of this flag."
         ),
     )

@@ -171,10 +171,8 @@ _COMMON_SHARED_TERMS = frozenset(
 # negation was enough. Most FPs rode on provenance/scaffolding nouns (role
 # names, GPU/harness words, dates) or on stock idioms ("load-bearing"). These
 # sets gate the shared term to plausible *claim subjects* only.
-# NOTE: this set still includes the retired-role stamps ("coder", "noter",
-# "writer") on purpose — they appear in provenance bylines of existing Book
-# pages on disk, and gating them out is required for backward-compat with that
-# historical data. Do not remove.
+# NOTE: this set includes role stamps that can appear in provenance bylines on
+# Book pages already on disk. Treat them as metadata terms, not claim subjects.
 _PROVENANCE_SHARED_TERMS = frozenset(
     {
         "artifact",
@@ -289,10 +287,9 @@ def _is_structural_line(sentence: str) -> bool:
         return True
     if s[0] in "#|>":  # markdown heading, table row, residual blockquote
         return True
-    # Provenance byline: "**Coder · 2026-05-28 · cuda:1 ..." — a middot or a
+    # Provenance byline: "**Expert · 2026-05-28 · cuda:1 ..." — a middot or a
     # leading bold-role stamp marks metadata, not an assertion. The role list
-    # below intentionally includes retired-role stamps (coder/noter/writer) for
-    # backward-compat with bylines in existing Book pages on disk.
+    # below covers stamps that may already appear in Book pages on disk.
     if "·" in s[:40]:
         return True
     lowered = s.lower()

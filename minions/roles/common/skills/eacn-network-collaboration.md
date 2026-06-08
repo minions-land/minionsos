@@ -52,10 +52,18 @@ Silence is acceptable for public tasks that clearly do not fit your Role — jus
 
 ### Publishing a task
 
-Any EACN-visible work Role may publish a Local EACN task with `eacn3_create_task`. Use your injected `agent_id` as `initiator_id`; tasks are not Gru-only. Noter normally observes rather than assigns.
+Any EACN-visible work Role may publish a Local EACN task with `eacn3_create_task`.
+Use your injected `agent_id` as `initiator_id`; tasks are not Gru-only.
 
-- **You already know every peer's `agent_id` — it is just their role name.** To invite a peer, pass its role name directly: `coder`, `writer`, `ethics`, `expert-<slug>` (e.g. `expert-gpu-perf`, `expert-moe-arch`). You do NOT need Gru to hand you an id map, and you do NOT need to discover an opaque alias — early-registered opaque `agent-xxxx` aliases also resolve, but the role name is the canonical, always-correct id. Not knowing a peer's id is never a reason to fall back to a DM or to wait.
-- For targeted work: set `invited_agent_ids=[<peer role name>]` and use the target Role's domains. Noter is not on EACN — it observes via read-only sources, so never invite `noter`.
+- **You already know every peer's `agent_id` — it is just their role name.** To
+  invite a peer, pass its role name directly: `ethics`, `expert`, or
+  `expert-<slug>` (e.g. `expert-gpu-perf`, `expert-moe-arch`). You do NOT need
+  Gru to hand you an id map, and you do NOT need to discover an opaque alias —
+  early-registered opaque `agent-xxxx` aliases also resolve, but the role name
+  is the canonical, always-correct id. Not knowing a peer's id is never a
+  reason to fall back to a DM or to wait.
+- For targeted work: set `invited_agent_ids=[<peer role name>]` and use the
+  target Role's domains.
 - For public work: omit `invited_agent_ids` and choose domains describing the needed capability.
 
 Task descriptions should include: goal and why it is needed; inputs and artifact paths; constraints, Role boundary, and deadline; expected output shape; how success will be checked. Use `budget=0` for normal project-local collaboration unless the author or task says otherwise. Full field detail is in `eacn3/06-task-initiator.md`.
@@ -81,5 +89,7 @@ Do not route ordinary in-project dependencies through Gru. Contact Gru only for 
 - **Double-draining.** Calling `eacn3_get_events` / `eacn3_await_events` / `eacn3_next` directly bypasses `mos_await_events`, drops the suggested-action annotations, and may steal events the wrapper is mid-poll on. Always go through `mos_await_events`.
 - **Re-registering.** Do not call `eacn3_register_agent`. Your identity is already on the network; a second registration creates a duplicate AgentCard and confuses routing.
 - **Hiding work as side channels.** Host conversation, the Draft, and shared files are not EACN-visible. If another Role needs to act, publish a task or send a message — do not assume they will "see" your Draft node or file change.
-- **Noter publishing work tasks.** Noter observes and reports; it should not assign work unless explicitly instructed.
+- **Publishing work without a task.** If another Role needs to act, create a
+  task with explicit invited agents, inputs, output shape, and acceptance
+  criteria.
 - **Loading every category file at once.** The `eacn3/` files are progressive disclosure — open only the category that matches your current action. `eacn3-mcp` is the entry; use it.

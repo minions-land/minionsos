@@ -17,7 +17,7 @@ The MinionsOS-safe form of an autonomous repair loop: bounded, observable, never
 ## When to invoke
 
 - A unit test, smoke test, type check, or small CLI sanity check fails deterministically.
-- A role request asks Coder to "make this pass" with a concrete command.
+- A role request asks Expert to "make this pass" with a concrete command.
 - A previous implementation handoff included a local verification failure.
 
 If the failure requires GPU jobs, large data pipelines, or experiment sweeps, do not run this loop — submit those to the experiment queue instead (see `run-experiments` skill).
