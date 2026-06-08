@@ -152,7 +152,7 @@ def mos_signboard_reopen(args: SignboardMilestoneArgs) -> dict:
     """Reset a milestone for a fresh round — Gru-only.
 
     Clears all raised signs and the consumed marker on *milestone*,
-    preserving ``consumed_round`` for audit. Use after reviewer feedback
+    preserving ``consumed_round`` for audit. Use after review feedback
     returns to gather a new ``resubmit_ready`` consensus, or any time a
     milestone needs to be re-deliberated.
     """

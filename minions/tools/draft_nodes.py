@@ -131,7 +131,7 @@ def create_nodes(
                     ntype,
                     node.get("id", "<new>"),
                 )
-                node_metadata["warning"] = "noter_node_without_motif_kind"
+                node_metadata["warning"] = "ethics_node_without_motif_kind"
             elif motif_kind == "none":
                 logger.warning(
                     "ethics appending %s node with motif_kind='none' — "

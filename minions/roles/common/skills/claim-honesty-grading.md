@@ -6,7 +6,7 @@ tools:
 version: 1
 status: active
 references: theoretical-justification, paper-quality-contract, submission-cleanup-audit
-provenance: human + EACN-005-PRL Round 1-2 + MinionsOS-Paper Reviewer-Shelf overclaim
+provenance: human + EACN-005-PRL Round 1-2 + MinionsOS-Paper claim-scope audits
 ---
 
 # Skill — Claim Honesty Grading
@@ -49,7 +49,7 @@ Before sending a manuscript or comparison table, walk these four locations and c
 3. Discussion / "what this enables" prose.
 4. Capability comparison table (if any).
 
-Flag any claim that would not survive a one-sentence challenge from a reviewer who has read the system implementation. Specific failure mode: Reviewer claimed "audits Shelf"; actual scope is "audits submission package" (Reviewer-Shelf overclaim, MinionsOS-Paper). The mirror failure is *underclaim*: a pillar originally called "Pluggable Skill Nodes" was renamed to "Workflow Plugin" once the actual scope (external workflow + MCP server + domain pack + skills, registered as a full EACN3 Agent) was verified to be broader than "skills".
+Flag any claim that would not survive a one-sentence challenge from a reviewer who has read the system implementation. Match claims to implemented scope: Ethics audits Draft/Book evidence and claims; `mos_review_run` audits submitted Book-to-Paper packages; workflow-plugin claims must name the implemented surfaces they actually include (external workflow, MCP server, domain pack, skills, and EACN3 Agent registration when present).
 
 ## Propagation on fix
 
@@ -67,4 +67,4 @@ Mark grade choices explicitly in commit messages: `downgrade Theorem D.6 → Con
 - Conflating "the framework predicts X" with "X is determined by the framework alone".
 - Patching one location and assuming the rest follows.
 - Hedging instead of grading: "we believe the result is rigorous" is not a grade.
-- Renaming a pillar without checking the new name's scope claim against implementation. "Workflow Plugin" is broader than "Skill Node" — adoption was justified only after confirming the system absorbs full workflow surfaces (MCP server + domain.md + skills + EACN3 Agent registration), not just skill files.
+- Revising a pillar name without checking the name's scope claim against implementation.

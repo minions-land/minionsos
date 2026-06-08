@@ -2,9 +2,9 @@
 
 Claude Code installations may have a global ``auto_title`` hook (under
 ``~/.claude/hooks/``) that auto-renames sessions for a friendlier
-``/resume`` picker. Role processes and Reviewer/Adjudicator one-shot
-spawns must NOT be auto-renamed — their session names are deliberately
-fixed by MinionsOS at spawn time (e.g. ``mos-{port}-{role}``).
+``/resume`` picker. Role processes and review/adjudication one-shot
+sessions must keep the session names MinionsOS assigns at spawn time
+(e.g. ``mos-{port}-{role}``).
 
 The lock mechanism is the global ``~/.claude/title-registry.json`` sidecar
 that the auto-namer consults: if a session's entry has ``locked=true``,

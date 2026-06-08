@@ -18,10 +18,10 @@ outside the role's branch (or to the trust-root files: ``.mcp.json``,
 
 The hook is pessimistic by design: when in doubt, it blocks. Genuine
 cross-role artifacts must travel through ``mos_publish_to_shared``; system
-maintenance edits to ``minions/`` itself are allowed only when the role's
-SYSTEM.md explicitly grants the system-maintenance scope (current Coder
-contract — controlled by the ``MINIONS_ALLOW_SYSTEM_MAINT`` env var the
-launcher sets when Gru/the author scopes a maintenance task).
+    maintenance edits to ``minions/`` itself are allowed only when the role's
+    SYSTEM.md explicitly grants the system-maintenance scope, controlled by the
+    ``MINIONS_ALLOW_SYSTEM_MAINT`` env var the launcher sets when Gru/the
+    author scopes a maintenance task.
 """
 
 from __future__ import annotations

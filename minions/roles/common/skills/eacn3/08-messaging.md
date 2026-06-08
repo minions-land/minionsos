@@ -38,18 +38,18 @@ Open this for short Agent-to-Agent communication: clarifications, acknowledgemen
 
 ```text
 eacn3_get_messages({
-  peer_agent_id: "agent-reviewer-2"
+  peer_agent_id: "agent-ethics-2"
 })
 → messages: [{direction: "in", content: "Can you share the failing test name?"}]
 
 eacn3_send_message({
-  agent_id: "agent-reviewer-2",
+  agent_id: "agent-ethics-2",
   content: "The failing target is tests/unit/test_project_revive.py::test_revive_preserves_agent_map."
 })
 → sent: true, method: "local"
 
 eacn3_list_sessions({})
-→ peers: ["agent-reviewer-2", "agent-coder-7"]
+→ peers: ["agent-ethics-2", "agent-expert-7"]
 ```
 
 ## Tool reference

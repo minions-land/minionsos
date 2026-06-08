@@ -84,9 +84,8 @@ def test_seed_imports_author_head_contents(seeded_project: dict[str, object]) ->
     port = int(seeded_project["port"])  # type: ignore[arg-type]
     main = project_main_workspace(port)
     # ``main.py`` is the clean witness that author HEAD was imported into the
-    # main worktree. ``README.md`` is now overwritten by ``_create_worktree``'s
-    # Book/shared-surface seed step (the content that used to live on the
-    # standalone ``-shared`` branch is committed on main in the v23 rebuild).
+    # main worktree. ``README.md`` is written by ``_create_worktree``'s
+    # Book/shared-surface seed step on main.
     assert (main / "main.py").read_text(encoding="utf-8") == "print('hi')\n"
     assert "Project main branch" in (main / "README.md").read_text(encoding="utf-8")
 

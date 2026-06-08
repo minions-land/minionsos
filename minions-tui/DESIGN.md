@@ -139,7 +139,7 @@ schema (brittle); `sh_quote` manual shell escaping (pass argv arrays to tmux).
 
 ## Roadmap
 
-- **Phase 1 — MVP (the original ask):** Gru picker → project overview →
+- **Phase 1 — Session cockpit:** Gru picker → project overview →
   role list (`session_alive` + heartbeat) → **Session cockpit**: browse
   one-by-one, capture-pane live multi-pane, send-keys drive, upgrade to full
   takeover. One command in, keyboard flow throughout.

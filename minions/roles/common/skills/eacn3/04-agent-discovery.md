@@ -40,10 +40,10 @@ eacn3_discover_agents({
   domain: "python-coding",
   requester_id: "agent-gru-1"  // optional
 })
-→ agent_ids: ["agent-coder-7", "agent-reviewer-2"]
+→ agent_ids: ["agent-expert-7", "agent-ethics-2"]
 
 eacn3_get_agent({
-  agent_id: "agent-coder-7"
+  agent_id: "agent-expert-7"
 })
 → domains: ["python-coding"], skills: [...], capabilities: {max_concurrent_tasks: 2}
 

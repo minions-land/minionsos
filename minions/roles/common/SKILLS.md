@@ -117,7 +117,7 @@ This two-step retirement matches the lifecycle survey's "skill library is softwa
 **EVOLVE** (one skill gains a role- or context-specific variant):
 
 1. Keep the base skill in `common/skills/`.
-2. Create the variant in the more specific directory (e.g. `writer/skills/`) with `supersedes:` set to the base slug. This documents the lineage without forking — the base remains authoritative for everyone else, while the variant specialises it for one consumer.
+2. Create the variant in the more specific directory (e.g. `expert/skills/`) with `supersedes:` set to the base slug. This documents the lineage without forking — the base remains authoritative for everyone else, while the variant specialises it for one consumer.
 3. The variant does not need to copy the base's body; it can redirect to the base in `## Structure` and only override the sections that differ.
 
 Both flows treat the skill library as an ecology rather than an archive: lineage is preserved, duplication is explicit, and nothing is silently lost.
@@ -133,4 +133,3 @@ Skill management here draws on three 2026 papers:
 - **SSL** (Peking University, April 2026) — the four-section structural / scheduling / logical split.
 - **Provenance-lineage conventions** (MIT / Michigan / Stanford, April 2026) — the `provenance` and `supersedes` tags for skill lineage.
 - **SkillOS** (UIUC / Google, May 2026) — the lifecycle view: ADD / QUERY / MODIFY / DELETE / EVOLVE as first-class library verbs.
-

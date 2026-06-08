@@ -1,9 +1,8 @@
-"""mos_draft_view subsumes the 4 retired Draft read tools (regression guard).
+"""mos_draft_view covers role-facing Draft orientation questions.
 
-The role-facing Draft read surface was collapsed to one tool, mos_draft_view,
-and hot.md was removed. This pins that the unified view answers every question
-the old summary / query / relevant / topic_index answered, on a realistic
-multi-role Draft — so cold-start orientation never silently regresses.
+This pins that the unified view answers summary, query, relevance, and topic
+index questions on a realistic multi-role Draft, so cold-start orientation
+never silently regresses.
 """
 
 from __future__ import annotations

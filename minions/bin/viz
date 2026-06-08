@@ -23,8 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
 
 # Locate the MinionsOS root by walking up from SCRIPT_DIR looking for the
 # `pyproject.toml` marker. This is robust whether the launcher is invoked as a
-# symlink (the canonical layout) OR as a copy at repo root (which used to
-# break the previous bin-relative `../..` calculation — see GitHub Issue #5).
+# symlink or as a copy at repo root.
 ROOT="$SCRIPT_DIR"
 while [ "$ROOT" != "/" ] && [ ! -f "$ROOT/pyproject.toml" ]; do
     ROOT="$(dirname "$ROOT")"

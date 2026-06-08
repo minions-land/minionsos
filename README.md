@@ -72,15 +72,15 @@ research projects.
 - **Mission Profiles.** Each project is parameterised by a *Mission Profile*
   (`minions/profiles/<name>.yaml`) declaring `roles_active`, `deliverable_schema`,
   `evaluation` strategy, `phase_schema`, and `on_done` behaviour. The default
-  `scientific-paper` profile preserves the original Autonomous Scientific
-  Discovery pipeline. New profiles ship as a single YAML file plus optional
-  role-prompt overlays. Drives the `mos_submit` / `mos_evaluate` MCP tools and
-  the `mos benchmark run` CLI for leaderboard sweeps.
+  `scientific-paper` profile runs the autonomous scientific discovery pipeline
+  with Gru, Ethics, Expert workers, peer review output, `mos_submit` /
+  `mos_evaluate`, and benchmark support. New profiles ship as a single YAML
+  file plus optional role-prompt overlays.
 - **Long-lived Roles.** Gru, Ethics, and one or more Experts run as
   resident `claude` processes inside named tmux sessions
   (`mos-{port}-{role}`). EACN-registered roles drive their event loop with
   `mos_await_events()`. Experts are the spawnable general workers (code,
-  experiments, writing, figures, literature); Gru spawns and retires them as
+  experiments, writing, figures, literature); Gru adjusts the Expert roster as
   the project's needs shift.
 - **Gru as the control plane.** Gru is the human-facing supervisor and the only
   component allowed to create projects, spawn roles, and bridge across
@@ -108,11 +108,11 @@ research projects.
   `mos_visual_check` rasterize a PDF and detect layout defects (column void,
   trailing whitespace, edge overflow, float clustering). Available to every
   EACN-visible Role; reports persist under `branches/<role>/visual-reports/`.
-- **Structured review.** Paper review runs through Gru's `mos_review_run` MCP
-  tool, not through a long-lived Role. Its prompt assets (SYSTEM.md, procedural
-  skills, reviewer personas, output templates) live under `minions/review/`,
-  and a round produces 3-5 independent reviewer-instance reports plus a
-  consolidated meta-review and rolling summary.
+- **Structured review.** Paper review runs through Gru's `mos_review_run`
+  workflow. Its prompt assets (SYSTEM.md, procedural skills, reviewer
+  personas, output templates) live under `minions/review/`, and a round
+  produces 3-5 independent reviewer-instance reports plus a consolidated
+  meta-review and rolling summary.
 - **Experiment execution.** Experts run experiments through the `mos_exp_*`
   tools — direct primitives (`mos_exp_run`, `mos_exp_status`,
   `mos_query_gpus`) and a Python-side project queue
@@ -330,13 +330,13 @@ contract at `minions/roles/SYSTEM.md` is injected before each role-specific
 prompt. Skills are discovered from `minions/roles/{role}/skills/` at wake-up
 and injected as a `[Skills]` summary block.
 
-Paper review is **not** a Role: review prompt assets (system prompt, skills,
-personas, templates) live under `minions/review/`, and a round is run by
-Gru's `mos_review_run` MCP tool which writes `reviewer-instance.md`,
-`fresh.md`, `revision_delta.md`, `consolidated.md`, and
-`summaries/round-<n>.md` under `branches/main/reviews/round-<n>/`. Review
-audits a submitted paper (Book→Paper output); Ethics audits the underlying
-evidence and claims in the Draft/Book — do not conflate the two.
+Paper review uses prompt assets (system prompt, skills, personas, templates)
+under `minions/review/`. Gru runs the round with the `mos_review_run` MCP tool,
+which writes `reviewer-instance.md`, `fresh.md`, `revision_delta.md`,
+`consolidated.md`, and `summaries/round-<n>.md` under
+`branches/main/reviews/`. The review workflow audits a submitted paper
+(Book→Paper output); Ethics audits the underlying evidence and claims in the
+Draft/Book.
 
 ### Skill family and autonomous evolution
 
@@ -692,15 +692,15 @@ proprietary/internal until a license is added.
   状态、独立 bare git 仓库、Role worktree、日志、产物以及事件审计流。
 - **任务剖面（Mission Profile）。** 每个项目由一份 YAML 任务剖面
   (`minions/profiles/<name>.yaml`) 决定其角色阵容、产物 schema、评估策略、
-  阶段调度和完成后行为。默认 `scientific-paper` 完整保留 Autonomous
-  Scientific Discovery 流水线（Gru + Ethics + Expert 同行评议产出 PDF）。
-  剖面切换通过 `mos_project_create(profile=...)` 或 CLI `--profile` 完成；
-  原 ASD 能力作为默认行为完整保留，零破坏性变化。配套的 `mos_submit` /
-  `mos_evaluate` MCP 工具与 `mos benchmark run <jsonl>` CLI 用于批量打榜。
+  阶段调度和完成后行为。默认 `scientific-paper` 运行自主科学发现流水线：
+  Gru、Ethics、Expert workers、同行评议产出、`mos_submit` / `mos_evaluate`
+  和 benchmark 支持。剖面切换通过 `mos_project_create(profile=...)` 或
+  CLI `--profile` 完成。
 - **常驻 Role。** Gru、Ethics 和一个或多个 Expert 都是常驻 `claude`
   进程，运行在各自命名的 tmux 会话（`mos-{port}-{role}`）中。注册到 EACN
   的 Role 通过 `mos_await_events()` 驱动事件循环。Expert 是可生成的通用
-  工作者（代码、实验、写作、画图、文献检索），由 Gru 按项目需求 spawn 和退役。
+  工作者（代码、实验、写作、画图、文献检索），由 Gru 按项目需求增减和调整
+  Expert roster。
 - **Gru 作为控制面。** Gru 是唯一人机入口，也是唯一可以创建项目、spawn Role、
   跨项目桥接的组件。
 - **工具与写入边界。** Claude Role 通过 `--allowed-tools` 限制工具面；
@@ -722,8 +722,8 @@ proprietary/internal until a license is added.
   `mos_visual_check` 把 PDF 栅格化并检测版式缺陷（栏内空洞、尾部留白、
   越界、浮动堆积等）。所有 EACN 上的 Role 都可调用，报告留存于
   `branches/<role>/visual-reports/`。
-- **结构化评审。** 论文评审通过 Gru 的 `mos_review_run` MCP 工具运行，而不是
-  常驻 Role。其提示资产（SYSTEM.md、流程 skill、reviewer persona、输出
+- **结构化评审。** 论文评审通过 Gru 的 `mos_review_run` MCP 工具运行。
+  其提示资产（SYSTEM.md、流程 skill、reviewer persona、输出
   template）位于 `minions/review/`，单轮评审会产出 3-5 份独立 reviewer
   报告，加上 consolidated meta-review 和滚动 summary。
 - **实验执行。** Expert 通过 `mos_exp_*` 工具执行实验——既包括直接原语
@@ -933,12 +933,12 @@ Role 提示词位于 `minions/roles/{role}/SYSTEM.md`。共享 Role contract 位
 从 `minions/roles/{role}/skills/` 自动发现，并在唤醒时以 `[Skills]` 摘要块
 注入。
 
-论文评审**不是** Role：评审提示资产（system 提示、skill、persona、template）
+论文评审提示资产（system 提示、skill、persona、template）
 位于 `minions/review/`，单轮评审由 Gru 的 `mos_review_run` MCP 工具运行，
 并在 `branches/main/reviews/round-<n>/` 下写入 `reviewer-instance.md`、
 `fresh.md`、`revision_delta.md`、`consolidated.md` 和
-`summaries/round-<n>.md`。Reviewer 审核提交的论文（Book→Paper 输出），
-Ethics 审核 Draft/Book 中的底层证据和声明 —— 切勿混淆。
+`summaries/round-<n>.md`。Review workflow 审核提交的论文（Book→Paper
+输出），Ethics 审核 Draft/Book 中的底层证据和声明。
 
 ### Skill 家族与自演化
 

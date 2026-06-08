@@ -117,9 +117,9 @@ function messageToEntry(m: Message): TimelineEntry {
 }
 
 const KIND_COLOR: Record<EventKind, string> = {
-  message: "var(--role-writer)",
-  task: "var(--role-noter)",
-  bid: "var(--role-coder)",
+  message: "var(--role-paper)",
+  task: "var(--role-observatory)",
+  bid: "var(--role-expert)",
   result: "var(--status-completed)",
   adjudication: "#fcd34d",
   log: "var(--muted)",

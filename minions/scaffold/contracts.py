@@ -193,10 +193,9 @@ _TOOL_DECL_RE = re.compile(
 def list_registered_mcp_tools() -> list[str]:
     """Parse MCP server source(s) and return registered @mcp.tool() function names.
 
-    The MCP server has been split from a single ``mcp_server.py`` file into
-    a ``mcp/`` package of domain submodules. We scan both shapes so this
-    works for the live production layout (package) and for test fixtures
-    that still seed a legacy single-file ``mcp_server.py``.
+    The MCP server source lives in a ``mcp/`` package of domain submodules.
+    Some fixtures provide a single-file server source; scan both shapes so the
+    contract checker covers production and fixture layouts.
     """
     tools: set[str] = set()
 

@@ -12,7 +12,7 @@ provenance: FigureDraw2-evidence (synthesized from scientific-writing-kdense + s
 
 # Skill — CNS Paper Discipline
 
-MinionsOS's existing writer skills target ML / NeurIPS norms by default. **Cell, Nature, Science, NEJM and their sub-journals add hard requirements that those skills don't enforce**:
+MinionsOS's existing paper-writing skills target ML / NeurIPS norms by default. **Cell, Nature, Science, NEJM and their sub-journals add hard requirements that those skills don't enforce**:
 
 - IMRAD structure with full-paragraph prose (no bullet lists in body — the kdense arm's #1 rule, 446 lines of skill).
 - Mandatory **graphical abstract** plus 1-2 additional schematic figures.

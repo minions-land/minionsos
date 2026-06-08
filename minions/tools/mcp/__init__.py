@@ -5,8 +5,8 @@ imports every domain submodule so each ``@mcp.tool()`` registration runs
 at package load. Tools, helpers, and arg models live in the submodules;
 this file only wires the registry and exposes the public surface.
 
-Legacy ``from minions.tools.mcp_server import …`` paths remain valid via
-the shim at :mod:`minions.tools.mcp_server`.
+``from minions.tools.mcp_server import …`` paths are served by the shim at
+:mod:`minions.tools.mcp_server`.
 """
 
 from __future__ import annotations

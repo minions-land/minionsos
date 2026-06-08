@@ -5,8 +5,7 @@ Gru-only by design. Three primitives, each with a separate apply tool:
   - mos_role_evolve_evaluate: read-only; returns recommendations.
   - mos_role_split:   spawn specialists, dismiss source.
   - mos_role_merge:   spawn unified role, dismiss sources (convergence).
-  - mos_role_evolve_dismiss: retire one role with no recent work
-    (no replacement implied).
+  - mos_role_evolve_dismiss: dismiss one role with no recent work.
 
 The split/merge/dismiss tools require non-empty evidence_refs (paths
 under branches/shared/...). This bakes the evidence-gating contract
@@ -83,9 +82,8 @@ def mos_role_evolve_evaluate(args: RoleEvolveEvaluateArgs) -> dict:
         artifact-overlap score >= merge_convergence_threshold. Works on
         independently-spawned roles, not just SPLIT children.
       - DISMISS-by-starvation: a role active >= dismiss_starve_min_age_hours
-        with <= dismiss_starve_max_tasks tasks in the recent window. NO
-        replacement role is implied; if new work appears later, a separate
-        spawn trigger handles it.
+        with <= dismiss_starve_max_tasks tasks in the recent window. If new
+        work appears later, a separate spawn trigger handles it.
 
     Returns ``{splits, merges, dismisses, when, project_port}``.
     """
@@ -159,7 +157,7 @@ def mos_role_merge(args: RoleMergeArgs) -> dict:
 
 @mcp.tool()
 def mos_role_evolve_dismiss(args: RoleDismissEvolveArgs) -> dict:
-    """Realize a DISMISS decision: retire a Role with no recent work.
+    """Realize a DISMISS decision for a Role with no recent work.
 
     Distinct from generic ``mos_dismiss_role`` because it requires
     non-empty ``evidence_refs`` and writes to the role-evolution audit
@@ -167,8 +165,8 @@ def mos_role_evolve_dismiss(args: RoleDismissEvolveArgs) -> dict:
     evolution decisions; pass ``"auto:starvation:<role>"`` or a
     governance-log line ref as evidence.
 
-    No replacement role is implied. If new work appears later that no
-    active Role can cover, the spawn trigger handles it (separate concern).
+    If new work appears later that no active Role can cover, the spawn
+    trigger handles it (separate concern).
     """
     _require_tool_allowed("mos_role_evolve_dismiss")
     res = RE.apply_dismiss(

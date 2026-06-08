@@ -253,7 +253,7 @@ export type WsMessage =
       type: "role-log:append";
       data: { gruId: string; port: number; role: string; chunk: string };
     }
-  // legacy
+  // project selection events
   | { type: "projects:update"; data: MosProject[] }
   | { type: "selected_project"; data: { port: number | null } }
   | { type: "select_project"; port: number | null }

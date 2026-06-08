@@ -492,7 +492,7 @@ class GruLoop:
             self._last_report_ts = now
 
     def _reconcile_experiment_queues(self) -> None:
-        """Run Python-side Coder experiment queue scheduling for active projects."""
+        """Run Python-side experiment queue scheduling for active projects."""
         try:
             from minions.tools.experiment_scheduler import ExperimentScheduler, default_db_path
         except Exception as exc:

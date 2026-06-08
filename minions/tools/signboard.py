@@ -428,7 +428,7 @@ def consume_milestone(port: int, milestone: MilestoneSlug) -> dict[str, Any]:
 def reopen_milestone(port: int, milestone: MilestoneSlug) -> dict[str, Any]:
     """Clear *milestone*'s raised map and consumed marker.
 
-    Used by Gru after reviewer feedback returns and a new round of
+    Used by Gru after review feedback returns and a new round of
     consensus is needed (e.g. clearing ``submit_ready`` to gather
     ``resubmit_ready`` signs after rebuttal). Preserves ``consumed_round``
     so audit history is not lost.

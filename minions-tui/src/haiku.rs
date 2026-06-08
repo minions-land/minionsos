@@ -36,7 +36,7 @@ fn claude_bin() -> String {
 /// haiku as grounding context. Built by the caller from App state.
 #[derive(Debug, Clone, Default)]
 pub struct AskContext {
-    /// Human label of where we are, e.g. "project 41001 attention-sparsity-study, role coder".
+    /// Human label of where we are, e.g. "project 41001 attention-sparsity-study, role expert".
     pub scope: String,
     /// Optional tmux session whose visible screen should be included verbatim.
     pub session: Option<String>,
@@ -53,9 +53,9 @@ fn build_prompt(ctx: &AskContext, question: &str) -> String {
     }
     format!(
         "You are the operator's assistant embedded in the MinionsOS control-plane \
-TUI. MinionsOS is a multi-agent OS: a Gru supervises many isolated projects, \
-each running Role agents (Noter, Coder, Ethics, Writer, Expert) plus persistent \
-memory layers (Draft, Book). You can see the WHOLE install below — every \
+TUI. MinionsOS is a multi-agent OS: Gru supervises isolated projects, each \
+running resident Role processes (Ethics and Expert instances) plus persistent \
+memory layers (Reel, Draft, Book). You can see the WHOLE install below — every \
 project, every role's live/stopped state and current task, and the focused \
 project's memory. Use all of it to answer; you are not limited to one pane.\n\n\
 The operator is currently looking at: {scope}.\n\n\

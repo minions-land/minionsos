@@ -41,7 +41,7 @@ def test_load_scientific_paper_profile():
     assert "gru" in profile.roles_active
     assert "expert" in profile.roles_active
     assert "ethics" in profile.roles_active
-    assert "noter" not in profile.roles_active
+    assert "observer" not in profile.roles_active
     assert profile.phase_schema == "scientific_three_stage"
     assert profile.on_done == "none"
 
@@ -52,7 +52,7 @@ def test_load_scientific_paper_profile():
     assert "gru" in whitelist
     assert "ethics" in whitelist
     assert "expert" in whitelist
-    assert "noter" not in whitelist
+    assert "observer" not in whitelist
 
     # Check evaluation
     assert "strategy" in profile.evaluation
@@ -87,7 +87,7 @@ def test_other_roles_cannot_call_evaluator_tools():
     """
     from minions.config import resolve_server_authz
 
-    for role in ["ethics", "expert", "noter"]:
+    for role in ["ethics", "expert", "observer"]:
         try:
             auth = resolve_server_authz(role, "main")
         except Exception:

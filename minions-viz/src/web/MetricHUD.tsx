@@ -16,11 +16,11 @@ export default function MetricHUD({ agents, tasks, messageCount, connected }: Pr
 
   const cards = [
     { num: agents.length, lbl: "Agent instances", color: "var(--role-gru)" },
-    { num: tasks.length, lbl: "Total tasks", color: "var(--role-coder)" },
+    { num: tasks.length, lbl: "Total tasks", color: "var(--role-expert)" },
     { num: open, lbl: "Open", color: "var(--status-unclaimed)" },
     { num: progress, lbl: "In progress", color: "var(--status-progress)" },
     { num: completed, lbl: "Completed", color: "var(--status-completed)" },
-    { num: messageCount, lbl: "Messages", color: "var(--role-writer)" },
+    { num: messageCount, lbl: "Messages", color: "var(--role-paper)" },
     {
       num: connected ? "UP" : "DOWN",
       lbl: "Backend",

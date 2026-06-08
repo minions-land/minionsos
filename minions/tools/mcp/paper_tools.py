@@ -50,7 +50,7 @@ def mos_search_google_scholar(args: PaperSearchArgs) -> list[dict]:
 
 @mcp.tool()
 def mos_search_semantic(args: PaperSearchArgs) -> list[dict]:
-    """Search Semantic Scholar (correctly-named alternative to mos_search_google_scholar)."""
+    """Search Semantic Scholar metadata."""
     _require_tool_allowed("mos_search_semantic")
     return _paper_search.search_semantic(args.query, args.max_results)
 

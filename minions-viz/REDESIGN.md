@@ -158,8 +158,8 @@ All components now use `var(--accent)` instead of hardcoded cyan. Role colors ge
 /* Role colors with soft variants */
 --role-gru: #f59e0b
 --role-gru-soft: rgba(245, 158, 11, 0.15)
---role-noter: #22d3ee
---role-noter-soft: rgba(34, 211, 238, 0.15)
+--role-observatory: #22d3ee
+--role-observatory-soft: rgba(34, 211, 238, 0.15)
 /* ... (all roles get -soft variants) */
 
 /* Radius (Marvis uses larger corners) */

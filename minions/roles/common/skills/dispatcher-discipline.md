@@ -1,6 +1,6 @@
 ---
 slug: dispatcher-discipline
-summary: Cache discipline (advisory). The main session's working set is precious; large reads / multi-file scans / heavy edits should land inside Workflow agents (common §4) where the disposable context absorbs the bytes. The forced dispatch ladder is retired; this skill is the cost rationale that motivates Workflow.
+summary: Cache discipline (advisory). The main session's working set is precious; large reads / multi-file scans / heavy edits should land inside Workflow agents (common §4) where the disposable context absorbs the bytes. This skill is the cost rationale that motivates Workflow.
 layer: logical
 tools: Workflow, Task, mos_draft_append
 version: 2
@@ -19,11 +19,10 @@ and gets cached for next turn — so dropping a 16 KB file into
 conversation history is not a one-time cost, it is a permanent rent on
 every future turn until reset.
 
-**This skill is now advisory.** The hard rule was retired in v17:
-common §4 makes Workflow the canonical Act mechanism, and Workflow
-agents are the disposable context that absorbs heavy reads. The cost
-decomposition + break-even tables below are still load-bearing — they
-explain *why* §4 enforces what it enforces.
+**This skill is advisory.** Common §4 makes Workflow the canonical Act
+mechanism, and Workflow agents are the disposable context that absorbs heavy
+reads. The cost decomposition + break-even tables below explain why §4 routes
+substantive work through Workflow.
 
 ## Why (measured, not theoretical)
 
@@ -85,15 +84,13 @@ must move into the Workflow agent.
 | `Grep` / `Glob` broad | no | yes |
 | ≤ 5-second evidence probe | yes (one per Verify) | yes |
 
-## Workflow return discipline (the new rule)
+## Workflow Return Discipline
 
-The old discipline ("write a self-contained subagent prompt") is now
-the Workflow spec contract — see common §4 + the
-`role-act-via-workflow` skill. The point that survives: **return
-size-bounded structured data, not raw content**. A Workflow that
-returns 16 KB of "here's what I read" defeats cache discipline; demand
-bullets + evidence pointers per the §4 schema cap (≤ 5 KB total,
-nested depth ≤ 2, list and string fields each capped).
+The Workflow spec contract lives in common §4 and the
+`role-act-via-workflow` skill. Return **size-bounded structured data, not raw
+content**. A Workflow that returns 16 KB of "here's what I read" defeats cache
+discipline; demand bullets + evidence pointers per the §4 schema cap (≤ 5 KB
+total, nested depth ≤ 2, list and string fields each capped).
 
 ## Persist findings to Draft
 

@@ -22,15 +22,12 @@ interface Props {
 }
 
 /**
- * One entity per AgentCard — never deduplicated by role. Geometry differs
- * per role bucket so spheres aren't the only distinguisher:
+ * One entity per AgentCard. Geometry differs per visual bucket so spheres
+ * aren't the only distinguisher:
  *
- *   - Coder       → icosahedron (faceted crystal)
- *   - Noter       → octahedron (diamond)
- *   - Writer      → tetrahedron (pen-tip cone)
- *   - Reviewer    → low-res sphere (lens)
  *   - Expert      → dodecahedron (dense crystal)
  *   - Ethics      → cylinder (pillar)
+ *   - Review      → low-res sphere (lens)
  *   - Other       → sphere
  *
  * Active agents orbit; idle agents sit still at their phase position and
@@ -44,13 +41,7 @@ function RoleGeometry({
   size: number;
 }) {
   switch (kind) {
-    case "coder":
-      return <icosahedronGeometry args={[size, 0]} />;
-    case "noter":
-      return <octahedronGeometry args={[size, 0]} />;
-    case "writer":
-      return <tetrahedronGeometry args={[size * 1.15, 0]} />;
-    case "reviewer":
+    case "review":
       return <sphereGeometry args={[size, 8, 6]} />;
     case "expert":
       return <dodecahedronGeometry args={[size, 0]} />;
@@ -90,9 +81,8 @@ export default function AgentSphere({
   const color = bucket.color;
   const baseSize = 0.24 + Math.min(agent.reputation ?? 0.5, 1) * 0.18;
 
-  // Per-agent angle tracker. Roles always advance — Noter and Ethics may not
-  // register EACN traffic but they are long-lived processes, not asleep.
-  // "Active" only modulates speed and pulse, not whether the orbit moves.
+  // Per-agent angle tracker. Activity only modulates speed and pulse, not
+  // whether the orbit moves.
   const angleRef = useRef(phase);
 
   useFrame((state3, delta) => {

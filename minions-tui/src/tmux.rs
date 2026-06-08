@@ -181,7 +181,7 @@ mod tests {
     #[test]
     fn session_name_matches_role_launcher_format() {
         // Must equal minions/lifecycle/role_launcher.py:session_name.
-        assert_eq!(session_name(37596, "coder"), "mos-37596-coder");
+        assert_eq!(session_name(37596, "expert"), "mos-37596-expert");
         assert_eq!(session_name(9000, "expert-rl"), "mos-9000-expert-rl");
     }
 
@@ -190,5 +190,4 @@ mod tests {
         assert!(send_text("mos-1-x", "", 1, 1).is_err());
     }
 }
-
 

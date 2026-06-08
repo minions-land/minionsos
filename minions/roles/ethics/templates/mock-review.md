@@ -1,7 +1,7 @@
 # Mock-Review Preview — `<artifact slug>`
 
 > **Scope:** evidence-angle preview only. Not a formal review round. Not a formal review decision.
-> **Authored by:** Ethics (dev-time mock reviewer / validation set).
+> **Authored by:** Ethics (dev-time mock-review preview / validation set).
 > **Target artifact:** `<path/to/artifact>` @ `<commit SHA or revision>`
 > **Triggered by:** `<EACN message id / task id / proactive>`
 > **Date:** `<YYYY-MM-DD>`

@@ -10,18 +10,17 @@ arXiv relevance-sort default; we install from git for that reason).
 This module wraps the library to:
 
 1. Preserve the MinionsOS canonical dict schema (16 fields including ``extra``
-   as ``dict`` and ``fetched_at`` as ISO timestamp) so existing callers and
-   the ``mos_*`` MCP tool surface in ``mcp_server.py`` are unchanged.
+   as ``dict`` and ``fetched_at`` as ISO timestamp) for the ``mos_*`` MCP tool
+   surface.
 2. Enforce workspace-relative paths through ``_relative_output_dir``; the
    library accepts a raw ``save_path`` string and we resolve it before
    passing.
-3. Keep the existing public function names and signatures so no downstream
-   code change is required.
+3. Keep the public function names and signatures stable for callers.
 
-In addition, two new facades are exposed: ``search_semantic`` (a properly-named
-counterpart to the legacy-but-mis-named ``search_google_scholar``, which is
-kept for backwards compatibility) and ``search_papers_federated`` (multi-source
-federated search returning a single deduplicated list).
+The facade exposes ``search_semantic`` for Semantic Scholar metadata,
+``search_google_scholar`` for scholar-like broad search backed by Semantic
+Scholar, and ``search_papers_federated`` for multi-source federated search
+returning a single deduplicated list.
 """
 
 from __future__ import annotations
@@ -65,7 +64,7 @@ DEFAULT_FEDERATED_SOURCES: tuple[str, ...] = ("arxiv", "semantic")
 
 
 # ---------------------------------------------------------------------------
-# Utility helpers (kept name-compatible with the previous handwritten module)
+# Utility helpers
 # ---------------------------------------------------------------------------
 
 
@@ -128,7 +127,7 @@ def _safe_filename(value: str, suffix: str) -> str:
 def _to_minions_dict(paper: Paper, source_override: str | None = None) -> dict[str, Any]:
     """Convert a paper-search-mcp ``Paper`` into the MinionsOS canonical dict.
 
-    Preserves shape compatibility with the previous handwritten implementation:
+    Preserve the MinionsOS paper-record shape:
 
     - ``extra`` is a ``dict`` (the upstream ``Paper.to_dict`` returns ``str(dict)``).
     - ``fetched_at`` is an ISO-8601 UTC timestamp added at conversion time.
@@ -200,22 +199,19 @@ def search_medrxiv(query: str, max_results: int = 10) -> list[dict[str, Any]]:
 def search_google_scholar(query: str, max_results: int = 10) -> list[dict[str, Any]]:
     """Scholar-like broad paper search via Semantic Scholar.
 
-    Kept under the legacy name ``search_google_scholar`` for backwards
-    compatibility with the ``mos_search_google_scholar`` MCP tool surface;
-    new code should call ``search_semantic`` instead. The ``source`` field on
-    returned papers remains ``"semantic_scholar"`` to make the actual provider
-    explicit.
+    The ``source`` field on returned papers is ``"semantic_scholar"`` to make
+    the provider explicit.
     """
     return _search(SemanticSearcher, query, max_results, source_override="semantic_scholar")
 
 
 # ---------------------------------------------------------------------------
-# New search facades
+# Search facades
 # ---------------------------------------------------------------------------
 
 
 def search_semantic(query: str, max_results: int = 10) -> list[dict[str, Any]]:
-    """Search Semantic Scholar (correctly-named alternative to ``search_google_scholar``)."""
+    """Search Semantic Scholar metadata."""
     return _search(SemanticSearcher, query, max_results, source_override="semantic_scholar")
 
 
@@ -276,8 +272,6 @@ def search_papers_federated(
 
 # ---------------------------------------------------------------------------
 # Read facades — return a metadata + abstract block (NOT full PDF text).
-# This preserves the legacy MinionsOS semantics so callers that depend on
-# ``read_*_paper`` returning a short string keep working.
 # ---------------------------------------------------------------------------
 
 
@@ -469,10 +463,8 @@ def download_arxiv(paper_id: str, save_path: str = "paper/references/downloads")
 def download_pubmed(paper_id: str, save_path: str = "paper/references/downloads") -> str:
     """Save PubMed metadata + abstract as a relative ``.txt`` file.
 
-    PubMed itself does not host downloadable PDFs for most articles; the
-    legacy MinionsOS contract is to write a metadata text file at the
-    requested path. Preserved here for backwards compatibility with callers
-    that expect a ``.txt`` artefact.
+    PubMed itself does not host downloadable PDFs for most articles, so this
+    writes a metadata text file at the requested path.
     """
     output = _relative_output_path(save_path, _safe_filename(paper_id, ".txt"))
     output.write_text(read_pubmed_paper(paper_id, save_path), encoding="utf-8")

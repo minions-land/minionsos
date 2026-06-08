@@ -416,8 +416,8 @@ if another role needs to know or act, send an EACN message or task.
   do not work around the invitation.
 - **Cross-project** is **Gru-only**, via `mos_project_bridge`. Local
   roles never contact another project directly.
-- **Formal paper review** is invoked by Gru's `mos_review_run` — the
-  drafting Expert surfaces the paper to Gru, not to a "Reviewer" Role.
+- **Formal paper review** is invoked by Gru's `mos_review_run` after the
+  drafting Expert surfaces a complete submission package.
 - **Non-blocking:** send messages as soon as ready; do not batch until
   end of work.
 - **When blocked or idle, initiate — do not wait.** If your work depends
@@ -574,11 +574,9 @@ and introduce platform-dependent cleanup hazards. The hook reads
 `MINIONS_ROLE_HERMETIC_DIR` (set by `role_launcher._role_env()` only
 when hermetic mode is on) to know the secondary legal root.
 
-**Failure mode that is fixed by this rule:** `agent_host.py` previously
-silently fell back to `MINIONS_ROOT` when the resolved cwd did not
-exist, writing Workflow scratchpads into the developer-shared
-`/Users/mjm/MinionsOS/.claude/`. The fallback is now a hard
-`RoleError` raised before any tmux session is spawned.
+**Startup guard.** `agent_host.py` raises `RoleError` before spawning tmux when
+the resolved cwd does not exist, so Workflow scratchpads stay inside the
+project's hermetic role workspace.
 
 **Gitignore.** `branches/*/.claude/scratchpad/` is added to the
 per-project `.gitignore` seed at `mos_project_create` time. Skill

@@ -14,12 +14,9 @@ Design (evidence-gated approach):
                 independently-spawned Experts that have grown into the
                 same scope are valid merge candidates.
 
-      DISMISS — a Role with no recent work is retired. Distinct from
-                MERGE because a Role with no work is not something to
-                fuse into another Role's scope; it is something that
-                should stop existing. If new work appears later that no
-                active Role can cover, a separate spawn trigger handles
-                it.
+      DISMISS — a Role with no recent work is dismissed. If new work appears
+                later that no active Role can cover, a separate spawn trigger
+                handles it.
 
   - This module is pure logic. It reads project artifacts, computes
     scores, and returns a structured recommendation. It does NOT perform
@@ -66,8 +63,7 @@ class Tunables:
     split_min_per_subdomain: int = 3
     split_recent_window_hours: float = 24.0
 
-    # DISMISS-by-starvation (was MERGE-by-starvation; renamed because the
-    # right primitive for "no work" is retirement, not fusion).
+    # DISMISS-by-starvation.
     dismiss_starve_min_age_hours: float = 6.0
     dismiss_starve_max_tasks: int = 1
     dismiss_starve_min_consecutive_evals: int = 2
@@ -214,13 +210,10 @@ class MergeDecision:
 
 @dataclass
 class DismissDecision:
-    """A starved Role that should simply be retired, not merged.
+    """A Role with no recent work that should be dismissed.
 
-    Conceptually distinct from MERGE: a Role with no recent work is not
-    something we want to fuse into another Role's scope — it is something
-    that should stop existing. If new work appears later that needs the
-    same coverage, a fresh spawn is the right answer (separate trigger,
-    not part of this evaluation).
+    If new work appears later that needs the same coverage, a separate spawn
+    trigger handles it outside this evaluation.
     """
 
     decision: Literal["DISMISS", "KEEP"]
@@ -246,7 +239,7 @@ class EvaluationReport:
 # ---------------------------------------------------------------------------
 
 
-_ROLE_TAG = re.compile(r"\b(noter|coder|writer|ethics|gru|expert-[a-z0-9-]+)\b", re.I)
+_ROLE_TAG = re.compile(r"\b(ethics|gru|expert(?:-[a-z0-9-]+)?)\b", re.I)
 _ARTIFACT_AGE_DAYS_LIMIT = 30
 
 
@@ -569,7 +562,7 @@ def evaluate_split(role, events, tunables=_DEFAULT_TUNABLES):
     proposed = [
         {
             "name": f"{role.name}-{c.label}",
-            "charter": f"Specialist for {c.label} concerns previously handled by {role.name}.",
+            "charter": f"Specialist for {c.label} concerns within {role.name}'s current scope.",
             "pitfalls": _summarize_pitfalls(c.events),
         }
         for c in labeled
@@ -636,9 +629,9 @@ def evaluate_dismiss(stats, tunables=_DEFAULT_TUNABLES):
 
     A Role with age >= dismiss_starve_min_age_hours and recent task count
     <= dismiss_starve_max_tasks is recommended for dismissal. The
-    operator (or auto-apply) calls ``mos_dismiss_role`` directly; no
-    replacement role is implied. If new work appears later that no
-    active Role can cover, a separate spawn trigger handles it.
+    operator (or auto-apply) calls ``mos_dismiss_role`` directly. If new
+    work appears later that no active Role can cover, a separate spawn
+    trigger handles it.
     """
     out: list[DismissDecision] = []
     for name, s in stats.items():
@@ -894,10 +887,10 @@ def apply_dismiss(
     store=None,
     dry_run=False,
 ):
-    """Realize a DISMISS decision: retire a Role with no recent work.
+    """Realize a DISMISS decision for a Role with no recent work.
 
-    No replacement is implied. If new work appears later that no active
-    Role can cover, the spawn trigger handles it (separate concern).
+    If new work appears later that no active Role can cover, the spawn
+    trigger handles it (separate concern).
     Requires non-empty ``evidence_refs`` for symmetry with apply_split /
     apply_merge — typically a synthetic ``"auto:starvation:<role>"``
     string when invoked by the periodic Gru evaluator, or a

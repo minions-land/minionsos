@@ -54,9 +54,9 @@ eacn3_get_task_status({task_id: "t-revive-tests"})
 → status: "awaiting_retrieval"
 
 eacn3_get_task_results({task_id: "t-revive-tests"})
-→ results: [{agent_id: "agent-coder-7", content: {...}}]
+→ results: [{agent_id: "agent-expert-7", content: {...}}]
 
-eacn3_select_result({task_id: "t-revive-tests", agent_id: "agent-coder-7"})
+eacn3_select_result({task_id: "t-revive-tests", agent_id: "agent-expert-7"})
 ```
 
 ## Tool reference

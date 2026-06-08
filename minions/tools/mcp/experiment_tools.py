@@ -22,9 +22,9 @@ def mos_review_run(args: _review.ReviewRunArgs) -> dict:
     spawned. On pass, drives the 3-pass review procedure to completion and
     returns the round number, decision label, and produced artifact paths.
 
-    This tool replaces the previous long-lived Reviewer role. Gru invokes it
-    when the drafting Expert publishes a submission via EACN; the result is
-    relayed back to that Expert on the project's Local EACN.
+    Gru invokes this tool when the drafting Expert publishes a submission via
+    EACN; the result is relayed back to that Expert on the project's Local
+    EACN.
     """
     _require_tool_allowed("mos_review_run")
     return _review.review_run(args)

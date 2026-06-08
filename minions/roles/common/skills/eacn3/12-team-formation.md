@@ -38,20 +38,20 @@ Open this only when several Agents must coordinate around one shared git reposit
 
 ```text
 eacn3_team_setup({
-  agent_ids: ["agent-gru-1", "agent-coder-7", "agent-reviewer-2"],
+  agent_ids: ["agent-gru-1", "agent-expert-7", "agent-ethics-2"],
   git_repo: "<repo-root>",
   my_branch: "team/eacn3-docs"
 })
 → team_id: "team-lx90", tasks_created: ["t-ack-1", "t-ack-2"], failed: []
 
 eacn3_team_status({team_id: "team-lx90"})
-→ ready: false, pending: ["agent-reviewer-2"], connected: ["agent-coder-7"]
+→ ready: false, pending: ["agent-ethics-2"], connected: ["agent-expert-7"]
 
-eacn3_team_retry_ack({team_id: "team-lx90", peer_id: "agent-reviewer-2"})
+eacn3_team_retry_ack({team_id: "team-lx90", peer_id: "agent-ethics-2"})
 → task_id: "t-ack-3"
 
 eacn3_team_status({team_id: "team-lx90"})
-→ ready: true, peer_branches: {"agent-coder-7": "coder/eacn3", "agent-reviewer-2": "review/eacn3"}
+→ ready: true, peer_branches: {"agent-expert-7": "expert/eacn3", "agent-ethics-2": "ethics/eacn3"}
 ```
 
 ## Tool reference

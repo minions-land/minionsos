@@ -17,7 +17,8 @@ The evidence-first EACN convention only has bite if pointers are audited. Sample
 ## When to invoke
 
 - Once per project phase (e.g. after each successful experiment batch settles).
-- Before Review rounds, so Reviewer does not inherit silently broken pointers.
+- Before formal review rounds, so the submission package does not carry
+  silently broken pointers.
 - After heavy refactoring or experiment regeneration — artifact paths may have moved.
 - On request from Gru or the author, especially before a high-stakes decision.
 

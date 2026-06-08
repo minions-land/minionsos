@@ -446,10 +446,10 @@ class TestEthicsMotifContract:
 
         data = draft._load_draft(port)
         node = next(n for n in data["nodes"] if n["id"] == "R-1")
-        assert node.get("metadata", {}).get("warning") == "noter_node_without_motif_kind"
+        assert node.get("metadata", {}).get("warning") == "ethics_node_without_motif_kind"
         assert any("motif_kind" in rec.message for rec in caplog.records)
 
-    def test_noter_edge_no_motif_required(self, tmp_path: Path, caplog: pytest.LogCaptureFixture):
+    def test_ethics_edge_no_motif_required(self, tmp_path: Path, caplog: pytest.LogCaptureFixture):
         """ethics appending only edges (no new nodes) produces no motif warning."""
         port = 9999
         draft_path = draft._draft_path(port)

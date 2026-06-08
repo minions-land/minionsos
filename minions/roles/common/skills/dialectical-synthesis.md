@@ -17,9 +17,9 @@ Every strong position contains its own limitation. Surfacing the limitation befo
 ## When to invoke
 
 - About to publish a confident claim — an Expert defending a result or drafting
-  an abstract, Gru endorsing a feature decision, Reviewer recommending
+  an abstract, Gru endorsing a feature decision, formal review recommending
   accept/reject, Ethics declaring a flag.
-- Two roles (or two Experts, or Expert and Reviewer) disagree and both have evidence.
+- Two roles, two Experts, or an Expert and formal review disagree and both have evidence.
 - Evaluating an experimental result that "just works" on your data — what regime would break it?
 - Interpreting a surprising outcome: one frame overfits to the finding; the opposing frame guards against that.
 - Shaping paper claims: a dialectically tested claim survives review better.

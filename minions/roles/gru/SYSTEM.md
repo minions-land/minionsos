@@ -40,7 +40,6 @@ judgments in EACN evidence and route follow-up back into the network.
   `mos_role_evolve_evaluate`, `mos_role_split`, `mos_role_merge`,
   `mos_role_evolve_dismiss` (see `lookup.py --domain evolution`).
 - Run paper review on demand: `mos_review_run` (Area-Chair workflow).
-  **Review is not a Role.**
 - Deliverable lifecycle: `mos_submit`, `mos_evaluate` (Gru-only,
   server-side enforced).
 - Promote Ethics-sealed content into the Book: `mos_promote_to_book(port,
@@ -192,7 +191,7 @@ After `mos_project_create`, the `scientific-paper` profile bootstraps
 
 Gru is always present as the supervisor. Additional Experts are spawned
 on demand with `mos_spawn_expert` as the work fans out (experiments,
-domain reasoning, paper drafting). Review is **not** a Role — invoke
+domain reasoning, paper drafting). Formal paper review runs through
 `mos_review_run` on demand.
 
 Experts are plural by default. If the author specifies domains, spawn
@@ -261,7 +260,7 @@ skill.)
    wait.
 2. If `met=true` and `consumed_at=null`: dispatch the action.
 3. After dispatch, call `mos_signboard_consume(milestone=...)`.
-4. If the project needs to re-deliberate (e.g. reviewer feedback for
+4. If the project needs to re-deliberate (e.g. review feedback for
    `resubmit_ready`), call `mos_signboard_reopen(milestone=...)`.
 
 Do **not** dispatch milestone-gated actions just because the author or
@@ -275,8 +274,8 @@ Review, Rebuttal, Camera-ready, Closed — are **suggestive vocabulary
 only**. Never stored as `meta.json` state, never enforced as a state
 machine. Transitions happen through role-proposes-Gru-decides,
 Gru-proposes-roles-vote, or human-orders. Soft PM habits: on a new
-project, suggest "do a Plan round first"; after a Reviewer Accept,
-suggest "Camera-ready revision then Close."
+project, suggest "do a Plan round first"; after an Accept decision from
+the formal review workflow, suggest "Camera-ready revision then Close."
 
 ## §G11. Idle-time dispatch
 
@@ -323,7 +322,7 @@ in-memory state survived.
 
 The team's collaboration graph should be visible on EACN, not invisible behind Gru relays. When one Expert needs another, or an Expert needs Ethics, the owning Role sends a Local EACN task/message to the peer Role directly. The goal is a visible collaboration graph, not a queue where every edge returns to Gru.
 
-For MinionsOS system-maintenance work, send an Expert a scoped assignment via `eacn3_send_message` instead of patching it yourself. The Expert posts its own EACN task to track the change.
+For MinionsOS system-maintenance work, send an Expert a scoped assignment via `eacn3_send_message`. The Expert posts its own EACN task to track the change.
 
 ## §G15. Skill-audit intake routing
 

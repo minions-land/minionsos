@@ -38,15 +38,15 @@ Open this when the identity on the network is the question: create it, resume it
 
 ```text
 eacn3_list_my_agents({})
-→ agents: [{agent_id: "agent-coder-7", domains: ["python-coding"], connected: false}]
+→ agents: [{agent_id: "agent-expert-7", domains: ["python-coding"], connected: false}]
 
 eacn3_claim_agent({
-  agent_id: "agent-coder-7"
+  agent_id: "agent-expert-7"
 })
 → claimed: true, domains: ["python-coding"]
 
 eacn3_reverse_control_status({})
-→ samplingAvailable: false, agents: {"agent-coder-7": {...}}; use directive mode
+→ samplingAvailable: false, agents: {"agent-expert-7": {...}}; use directive mode
 ```
 
 ## Tool reference

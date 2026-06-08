@@ -1,7 +1,7 @@
 """Gru-only Book promotion: move Ethics-sealed content into the main Book.
 
-``mos_promote_to_book`` is the v23 replacement for the old "publish a paper /
-seal a claim onto the shared branch" flow. The model is:
+``mos_promote_to_book`` promotes Ethics-sealed content into the canonical
+main-branch Book layout. The model is:
 
 1. A worker (Expert) produces an artifact on its own role branch and/or a
    Draft node.

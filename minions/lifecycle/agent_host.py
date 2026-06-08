@@ -344,7 +344,7 @@ def _build_eacn_role_loop_prompt(
         "  obligation, so once a peer claims it SOMEONE OWNS the next move.\n"
         "  For a cross-role dependency, prefer eacn3_create_task with\n"
         "  invited_agent_ids=[<peer role name>] (a peer's agent_id IS just\n"
-        "  its role name: coder / ethics / expert-<slug> — you do not need\n"
+        "  its role name: ethics / expert-<slug> — you do not need\n"
         "  anyone to hand you an id). Use eacn3_send_message only for a short\n"
         "  unblock nudge or status. And on the executor side: bid / claim /\n"
         "  submit-result on fitting open tasks and retrieve results promptly\n"

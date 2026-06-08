@@ -1,6 +1,6 @@
 ---
 slug: apply-revisions
-summary: Open after rebuttal acceptance or a Reviewer Weak Accept / Borderline decision requiring revisions — incorporate reviewer-requested changes into the manuscript before package-submission.
+summary: Open after rebuttal acceptance or a formal review Weak Accept / Borderline decision requiring revisions — incorporate review-requested changes into the manuscript before package-submission.
 layer: logical
 tools:
 version: 2
@@ -16,7 +16,7 @@ Bridge between `prepare-rebuttal` (which produces the response packet) and `pack
 
 ## When to invoke
 
-- Reviewer publishes a `Weak Accept` or `Borderline` decision and the `consolidated.md` names required revisions.
+- The formal review workflow returns a `Weak Accept` or `Borderline` decision and `consolidated.md` names required revisions.
 - Rebuttal is accepted and the paper moves to camera-ready status with specific reviewer-requested changes.
 - Author explicitly requests a revision pass against a fixed list of reviewer concerns.
 

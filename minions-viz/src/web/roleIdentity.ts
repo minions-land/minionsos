@@ -1,11 +1,6 @@
 /**
- * Role identity derivation — the key fix.
- *
- * Prior versions keyed agents by role bucket, which collapsed multiple
- * instances (e.g. expert-math, expert-bio, reviewer-1, reviewer-2) into one
- * entity. We NEVER dedupe by role; each AgentCard is a first-class instance.
- *
- * `roleKey(id)` returns the role *bucket* (for color/icon/lane), and
+ * Agent identity derivation. Each AgentCard renders as its own instance.
+ * `roleKey(id)` returns the visual bucket for color/icon/lane, and
  * `agentDisplayName` returns the instance's human label.
  */
 
@@ -29,41 +24,14 @@ export const ROLE_BUCKETS: Record<string, RoleBucket> = {
     orbitIndex: 0,
     baseOrbitPeriod: 0,
   },
-  noter: {
-    key: "noter",
-    label: "Noter",
-    color: "#06B6D4",
-    colorRgb: "6,182,212",
-    accent: "var(--role-noter)",
-    orbitIndex: 1,
-    baseOrbitPeriod: 14,
-  },
-  coder: {
-    key: "coder",
-    label: "Coder",
-    color: "#10B981",
-    colorRgb: "16,185,129",
-    accent: "var(--role-coder)",
-    orbitIndex: 2,
-    baseOrbitPeriod: 18,
-  },
-  writer: {
-    key: "writer",
-    label: "Writer",
-    color: "#A855F7",
-    colorRgb: "168,85,247",
-    accent: "var(--role-writer)",
-    orbitIndex: 4,
-    baseOrbitPeriod: 26,
-  },
-  reviewer: {
-    key: "reviewer",
-    label: "Reviewer",
+  review: {
+    key: "review",
+    label: "Review",
     color: "#3B82F6",
     colorRgb: "59,130,246",
-    accent: "var(--role-reviewer)",
-    orbitIndex: 5,
-    baseOrbitPeriod: 30,
+    accent: "var(--role-review)",
+    orbitIndex: 1,
+    baseOrbitPeriod: 18,
   },
   expert: {
     key: "expert",
@@ -71,8 +39,8 @@ export const ROLE_BUCKETS: Record<string, RoleBucket> = {
     color: "#EAB308",
     colorRgb: "234,179,8",
     accent: "var(--role-gru)",
-    orbitIndex: 6,
-    baseOrbitPeriod: 34,
+    orbitIndex: 2,
+    baseOrbitPeriod: 22,
   },
   ethics: {
     key: "ethics",
@@ -80,8 +48,8 @@ export const ROLE_BUCKETS: Record<string, RoleBucket> = {
     color: "#F43F5E",
     colorRgb: "244,63,94",
     accent: "var(--role-ethics)",
-    orbitIndex: 7,
-    baseOrbitPeriod: 38,
+    orbitIndex: 3,
+    baseOrbitPeriod: 26,
   },
   other: {
     key: "other",
@@ -89,22 +57,16 @@ export const ROLE_BUCKETS: Record<string, RoleBucket> = {
     color: "#64748B",
     colorRgb: "100,116,139",
     accent: "var(--role-other)",
-    orbitIndex: 8,
-    baseOrbitPeriod: 42,
+    orbitIndex: 4,
+    baseOrbitPeriod: 30,
   },
 };
 
 const LOOKUP: [string, string][] = [
-  ["noter", "noter"],
-  ["coder", "coder"],
-  ["experiment", "coder"],
-  ["exp-", "coder"],
-  ["writer", "writer"],
-  ["reviewer", "reviewer"],
-  ["review", "reviewer"],
   ["expert", "expert"],
   ["ethics", "ethics"],
   ["gru", "gru"],
+  ["review", "review"],
 ];
 
 export function roleKey(agentId: string): string {
@@ -120,8 +82,8 @@ export function roleBucket(agentId: string): RoleBucket {
 }
 
 export function agentDisplayName(agentId: string, fallback?: string): string {
-  // EACN agent ids are often already human-readable (e.g. "reviewer-1",
-  // "expert-math"). Fall back to the card's `name` if present, else id.
+  // EACN agent ids are often already human-readable (e.g. "expert-math").
+  // Fall back to the card's `name` if present, else id.
   if (fallback && fallback.trim().length > 0) return fallback;
   return agentId;
 }

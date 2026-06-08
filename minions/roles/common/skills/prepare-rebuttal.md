@@ -52,7 +52,7 @@ Composite labels (`DISAGREE + SOFTEN`, `ACCEPT_EXPERIMENT + SOFTEN_CLAIM`) are a
 
 ## Procedure
 
-1. **Ingest reviews.** Read all reviewer reports and Reviewer's consolidated summary at `branches/shared/reviews/summaries/`. Do not work from individual reviews alone — the consolidated summary already dedupes and prioritizes.
+1. **Ingest reviews.** Read all reviewer reports and the review workflow's rolling summary at `branches/main/reviews/summaries/`. Do not work from individual reviews alone — the consolidated summary already dedupes and prioritizes.
 
 2. **Assign stable IDs and action labels.** Label every reviewer comment `R<N>.C<M>`. Classify with one of the FSM action labels above (composite allowed). Do NOT label by paraphrased prose ("the third concern about GPU acceleration") — paraphrases drift and break cross-links to revisions / commits / EACN tasks.
 
@@ -75,7 +75,7 @@ Composite labels (`DISAGREE + SOFTEN`, `ACCEPT_EXPERIMENT + SOFTEN_CLAIM`) are a
 
 10. **Audit honesty.** No "will do in camera-ready" promises unless the team actually can. No silent scope expansion. Material weaknesses acknowledged, not dodged.
 
-11. **Final pass for consistency** with the paper's existing claims and with Reviewer's consolidated summary emphasis.
+11. **Final pass for consistency** with the paper's existing claims and with the formal review workflow's consolidated-summary emphasis.
 
 ## Pitfalls
 

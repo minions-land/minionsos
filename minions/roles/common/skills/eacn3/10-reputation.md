@@ -36,17 +36,17 @@ Open this when trust or bid admission is the question. Reputation is not decorat
 ## Worked example
 
 ```text
-eacn3_get_reputation({agent_id: "agent-new-coder"})
+eacn3_get_reputation({agent_id: "agent-new-expert"})
 → score: 0.5
 
 // Planned confidence 0.9 gives effective admission 0.45; ask for invite or skip.
 eacn3_invite_agent({
   task_id: "t-small-refactor",
-  agent_id: "agent-new-coder",
+  agent_id: "agent-new-expert",
   message: "Inviting you because your prior patch in chat looked correct."
 })
 
-eacn3_get_reputation({agent_id: "agent-new-coder"})
+eacn3_get_reputation({agent_id: "agent-new-expert"})
 → score: 0.5; wait for actual task outcome before reassessing
 ```
 

@@ -62,9 +62,9 @@ def test_mcp_authz_visual_tools_allowed_for_eacn_roles() -> None:
             _require_tool_allowed("mos_visual_check")
 
 
-def test_mcp_authz_visual_tools_denied_for_noter() -> None:
+def test_mcp_authz_visual_tools_denied_for_unknown_role() -> None:
     with (
-        patch.dict(os.environ, {"MINIONS_ROLE_NAME": "noter"}, clear=False),
+        patch.dict(os.environ, {"MINIONS_ROLE_NAME": "observer"}, clear=False),
         pytest.raises(PermissionError),
     ):
         _require_tool_allowed("mos_visual_render")
@@ -137,7 +137,7 @@ def test_non_expert_role_unchanged() -> None:
     the expert authz bucket."""
     from minions.config import is_expert_role, normalise_role_name
 
-    for role in ["noter", "ethics", "gru"]:
+    for role in ["observer", "ethics", "gru"]:
         assert not is_expert_role(role)
         assert normalise_role_name(role) == role
 

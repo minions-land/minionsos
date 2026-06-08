@@ -76,7 +76,7 @@ Key design points:
 3. Add a row to the tool/write boundary table in root `CLAUDE.md`.
 4. If the new role registers via `mos_spawn_role`, add its name to `FIXED_ROLES` in `minions/lifecycle/role.py`.
 5. Write a unit test under `tests/unit/` covering registration and whitelist resolution.
-6. If the new role has a multi-pass workflow with required isolation between passes, document the pass boundaries and isolation rules explicitly; do not let later passes contaminate earlier ones by accident. (See `minions/review/SYSTEM.md` for a worked example — though that one is a tool persona, not a Role.)
+6. If the new role has a multi-pass workflow with required isolation between passes, document the pass boundaries and isolation rules explicitly; do not let later passes contaminate earlier ones by accident. Use `minions/review/SYSTEM.md` as the worked example for pass isolation and review artifacts.
 
 ## How to add a Role skill
 

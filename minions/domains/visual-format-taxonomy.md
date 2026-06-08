@@ -23,8 +23,8 @@ level — not the source level. Coverage:
 Out of scope: typographic correctness *content* (style, citation format,
 language), structural correctness (heading levels, missing sections), and
 semantic claims (whether the figure actually shows what the caption says).
-Those belong to Writer / Ethics / Reviewer review surfaces, not the visual
-detector.
+Those belong to paper-writing, Ethics audit, and formal review surfaces, not
+the visual detector.
 
 ## Canonical references
 

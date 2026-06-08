@@ -309,7 +309,7 @@ _EACN_ROLE_MAIN_TOOLS: list[str] = [
     "mos_evaluate",
     "mos_promote_to_book",
     "mos_start_monitor",
-    # Experiment tools (Coder-only at server side)
+    # Experiment tools (Expert-authorized at server side)
     "mos_exp_run",
     "mos_exp_status",
     "mos_exp_wait",
@@ -1071,10 +1071,8 @@ class GruConfig(BaseModel):
             "Area-Chair drives the whole round inside a single `claude "
             "--print` subprocess, fanning reviewer instances out as "
             "concurrent foreground Task subagents, so this bounds the entire "
-            "round (≈ slowest reviewer + consolidation), NOT each reviewer in "
-            "series. Default 3600 s (1 h). Env override: MOS_REVIEW_TIMEOUT. "
-            "Raised from the old per-reviewer 900 s wall that, with reviewers "
-            "run serially, blew up on multi-aspect Opus 4.8 reviews."
+            "round (≈ slowest reviewer + consolidation). Default 3600 s "
+            "(1 h). Env override: MOS_REVIEW_TIMEOUT."
         ),
     )
     review_ultracode: bool = Field(

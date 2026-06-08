@@ -87,7 +87,7 @@ from minions.tools.draft_helpers import (
 )
 
 
-# Re-export for backward compatibility
+# Re-export for public callers
 from minions.tools.draft_edges import EDGE_RELATIONS
 from minions.tools.draft_nodes import TYPE_PREFIX
 
@@ -465,7 +465,7 @@ def mos_draft_summary() -> dict[str, Any]:
     for n in nodes:
         by_status[n.get("support_status", "unknown")] += 1
 
-    # Counts by provenance, including legacy nodes missing the field.
+    # Counts by provenance, including nodes missing the field.
     by_provenance: dict[str, int] = defaultdict(int)
     by_provenance_role: defaultdict[str, defaultdict[str, int]] = defaultdict(
         lambda: defaultdict(int)

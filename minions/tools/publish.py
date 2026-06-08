@@ -145,7 +145,7 @@ _DEFAULT_ROLE_ALLOWED_SHARED_SUBDIRS: dict[str, set[str]] = {
     "expert": {"exp", "handoffs", "governance"},
 }
 
-# Backward-compat alias for callers that import the old name.
+# Public alias for callers that import this mapping directly.
 _ROLE_ALLOWED_SHARED_SUBDIRS = _DEFAULT_ROLE_ALLOWED_SHARED_SUBDIRS
 
 # Reserved roots no role may publish into via this tool. ``mos_review_run``

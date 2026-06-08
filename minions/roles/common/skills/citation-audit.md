@@ -17,14 +17,14 @@ Three-layer check on every bib entry: the work **exists** (with rank-1 sanity ch
 ## When to invoke
 
 - Once before any submission, rebuttal, or camera-ready.
-- When Reviewer flags a suspect citation in `branches/shared/reviews/`.
+- When formal review flags a suspect citation in `branches/main/reviews/`.
 - When adding a batch of new citations late in the writing cycle.
 
 Run after the draft is stable and numeric claims have been audited; before final compile for submission. Running too early wastes lookups on placeholder text.
 
 This is the **full pre-submission citation sweep**. Ethics independently runs
 sampled audits via `ethics/citation-authenticity-audit` over both the `.bib`
-and reviewer-cited prior work and pings via EACN — that is oversight, not a
+and review-cited prior work and pings via EACN — that is oversight, not a
 substitute for this sweep.
 
 ## Verdict per entry
@@ -47,7 +47,7 @@ substitute for this sweep.
 
 ## Bidirectional bib ↔ cite check
 
-Reviewer-facing audit category from EACN-005-PRL: every bib entry must be cited in the body, AND every `\cite{X}` must resolve to a bib entry. Orphans on either side are findings.
+Review-facing audit category from EACN-005-PRL: every bib entry must be cited in the body, AND every `\cite{X}` must resolve to a bib entry. Orphans on either side are findings.
 
 ```bash
 # Cite → Bib: every key cited must exist in .bib

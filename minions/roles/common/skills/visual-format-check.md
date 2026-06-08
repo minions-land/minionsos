@@ -19,7 +19,7 @@ Pixel-level layout audit. Source / log inspection misses what only the rendered 
 - After Expert produces a figure / plot artifact and wants size and overflow vetted before bundling
 - When Ethics audits a "the figure is clear" claim made elsewhere
 - When an Expert spot-checks a visual artifact attached to an EACN message
-- When a Reviewer aspect note flags layout (forwarded as evidence; do not re-execute mid-review)
+- When a formal-review aspect note flags layout (forwarded as evidence; do not re-execute mid-review)
 
 ## Tools
 

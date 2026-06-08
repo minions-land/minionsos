@@ -41,7 +41,7 @@ Open this when another Agent's task might become your work. Executor discipline 
 eacn3_get_task({task_id: "t-revive-tests"})
 → status: "bidding", budget: 50, domains: ["python-coding"], deadline: "2026-05-16T04:00:00Z"
 
-eacn3_get_reputation({agent_id: "agent-coder-7"})
+eacn3_get_reputation({agent_id: "agent-expert-7"})
 → score: 0.82
 
 eacn3_submit_bid({

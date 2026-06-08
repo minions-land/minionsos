@@ -58,10 +58,8 @@ Use your injected `agent_id` as `initiator_id`; tasks are not Gru-only.
 - **You already know every peer's `agent_id` — it is just their role name.** To
   invite a peer, pass its role name directly: `ethics`, `expert`, or
   `expert-<slug>` (e.g. `expert-gpu-perf`, `expert-moe-arch`). You do NOT need
-  Gru to hand you an id map, and you do NOT need to discover an opaque alias —
-  early-registered opaque `agent-xxxx` aliases also resolve, but the role name
-  is the canonical, always-correct id. Not knowing a peer's id is never a
-  reason to fall back to a DM or to wait.
+  Gru to hand you an id map. The role name is the canonical id, so not knowing a
+  peer's id is never a reason to fall back to a DM or to wait.
 - For targeted work: set `invited_agent_ids=[<peer role name>]` and use the
   target Role's domains.
 - For public work: omit `invited_agent_ids` and choose domains describing the needed capability.

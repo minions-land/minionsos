@@ -111,7 +111,7 @@ class TestGruSystemInvariants:
         # its own task, Gru does not.
         assert "eacn3_send_message" in t
         assert "Expert posts its own EACN task" in collapsed
-        assert "instead of patching it yourself" in t
+        assert "Route system-maintenance changes to an Expert" in t
 
     def test_forbids_periodic_idle_self_thinking(self) -> None:
         t = _text()

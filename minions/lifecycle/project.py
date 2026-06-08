@@ -374,13 +374,15 @@ def _role_entries_from_meta(raw: dict[str, object]) -> list[RoleEntry]:
 
 
 def _migrate_legacy_memory_dirs(port: int) -> None:
-    """Rename legacy memory directories from v11 naming to v12 naming.
+    """Ensure current shared memory directories exist under their canonical names.
 
-    v11: branches/shared/scratchpad/ → v12: branches/shared/draft/
-    v11: branches/shared/library/   → v12: branches/shared/book/
+    Canonical layout:
+        branches/shared/draft/
+        branches/shared/book/
 
-    Runs git mv inside the shared worktree so history is preserved.
-    Idempotent: skips if old dir doesn't exist or new dir already exists.
+    Runs git mv inside the shared worktree when a recognized source directory
+    is present. Idempotent: skips if the source dir doesn't exist or the target
+    already exists.
     """
     shared = project_shared_workspace(port)
     if not shared.exists():

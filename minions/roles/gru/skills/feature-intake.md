@@ -12,7 +12,7 @@ provenance: human
 
 # Skill — Feature Intake
 
-Gru owns intake and coordination; Coder, Writer, and Reviewer own execution. Intake is not implementation. Gru never posts EACN tasks — it sends direct briefs and the owning Role creates its own task.
+Gru owns intake and coordination. Experts own implementation, experiments, and paper drafting; Ethics owns evidence and claim audits; Gru invokes `mos_review_run` for formal submission review. Intake is not implementation. Gru never posts EACN tasks — it sends direct briefs and the owning Role creates its own task.
 
 ## When to invoke
 
@@ -36,7 +36,7 @@ Six steps, ending with an EACN-visible intake note: outcome, owner roles, accept
 ## Pitfalls
 
 - Asking which language / framework to use when the repo is already Python with a clear stack — broad preference questions waste author time when the codebase already implies the answer.
-- Letting Coder start before the success condition is observable.
+- Letting an Expert start before the success condition is observable.
 - Assigning scientific judgment to Gru when Expert should decide.
 - Turning intake into implementation.
 - Trying to post the bounded task yourself with `eacn3_create_task` — server-side denied; send a direct brief and let the Role create the task.

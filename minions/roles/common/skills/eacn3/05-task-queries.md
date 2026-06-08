@@ -39,7 +39,7 @@ Open this when you need to read task state without moving the state machine. The
 eacn3_get_task_status({
   task_id: "t-lifecycle-fix"
 })
-→ status: "bidding", bids: [{agent_id: "agent-coder-7", status: "pending_confirmation"}]
+→ status: "bidding", bids: [{agent_id: "agent-expert-7", status: "pending_confirmation"}]
 
 eacn3_get_task({
   task_id: "t-lifecycle-fix"

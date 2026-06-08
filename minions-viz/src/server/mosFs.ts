@@ -4,11 +4,9 @@
 import fs from "fs";
 import path from "path";
 import type {
-  MosOverview, MosDraft, MosArtifactNode, MosThresholdStatus,
+  MosOverview, MosDraft, MosArtifactNode, MosThresholdStatus, MosProject,
 } from "../shared/types.js";
 import { getGru, getProjectFor, projectDirFor, gruLogPath } from "./grus.js";
-
-export const CANONICAL_ROLES = ["gru", "noter", "coder", "writer", "expert", "ethics"];
 
 const CONTEXT_WINDOW_TOKENS = 1_000_000;
 const SOFT_TOKENS = 0.10 * CONTEXT_WINDOW_TOKENS;
@@ -35,6 +33,19 @@ function resolveProjectDir(gruId: string, port: number): string | null {
   return projectDirFor(g.rootPath, port);
 }
 
+function roleNamesForProject(pdir: string, project: MosProject | null): string[] {
+  void pdir;
+  const names = new Set<string>(["gru"]);
+  for (const role of project?.active_roles ?? []) {
+    if (role.name && role.state !== "dismissed") names.add(role.name);
+  }
+  return Array.from(names).sort((a, b) => {
+    if (a === "gru") return -1;
+    if (b === "gru") return 1;
+    return a.localeCompare(b);
+  });
+}
+
 export function getOverview(gruId: string, port: number): MosOverview | null {
   const pdir = resolveProjectDir(gruId, port);
   if (!pdir) return null;
@@ -54,8 +65,9 @@ export function getOverview(gruId: string, port: number): MosOverview | null {
 export function getDrafts(gruId: string, port: number): MosDraft[] {
   const pdir = resolveProjectDir(gruId, port);
   if (!pdir) return [];
+  const project = getProjectFor(gruId, port);
   const memDir = path.join(pdir, "memory");
-  return CANONICAL_ROLES.map((role) => {
+  return roleNamesForProject(pdir, project).map((role) => {
     const p = path.join(memDir, `${role}.md`);
     try {
       const st = fs.statSync(p);
@@ -75,9 +87,10 @@ export function getDrafts(gruId: string, port: number): MosDraft[] {
 }
 
 export function getDraft(gruId: string, port: number, role: string): string | null {
-  if (!CANONICAL_ROLES.includes(role)) return null;
   const pdir = resolveProjectDir(gruId, port);
   if (!pdir) return null;
+  const project = getProjectFor(gruId, port);
+  if (!roleNamesForProject(pdir, project).includes(role)) return null;
   const p = path.join(pdir, "memory", `${role}.md`);
   try { return fs.readFileSync(p, "utf8"); } catch { return null; }
 }
@@ -150,10 +163,9 @@ export function tailLog(gruId: string, port: number, which: string, tail = 500):
 export function roleLogPath(gruId: string, port: number, role: string): string | null {
   const g = getGru(gruId);
   if (!g) return null;
-  // Gru is not a project-local Role — it has one log per Gru installation
-  // at <gruRoot>/minions/state/logs/gru.log. We treat "gru" as a virtual
-  // role so the WebSocket tailer can stream it the same way it streams
-  // role-{name}.log.
+  // Gru has one log per Gru installation at
+  // <gruRoot>/minions/state/logs/gru.log. Treat "gru" as a virtual role so the
+  // WebSocket tailer can stream it the same way it streams role-{name}.log.
   if (role === "gru") {
     return gruLogPath(g.rootPath);
   }
@@ -166,7 +178,13 @@ export function listRoleSystemPrompts(gruId: string): { role: string; path: stri
   const g = getGru(gruId);
   if (!g) return [];
   const base = path.join(g.rootPath, "minions", "roles");
-  return CANONICAL_ROLES.map((role) => {
+  const roles = new Set<string>(["gru", "ethics", "expert"]);
+  for (const project of g.projects) {
+    for (const role of project.active_roles ?? []) {
+      roles.add(role.name.startsWith("expert") ? "expert" : role.name);
+    }
+  }
+  return Array.from(roles).sort().map((role) => {
     const p = path.join(base, role, "SYSTEM.md");
     return { role, path: p, exists: fs.existsSync(p) };
   });

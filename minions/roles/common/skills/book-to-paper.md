@@ -180,7 +180,7 @@ each gates the next and the final return is a compiled PDF + a coverage report.
 2. **Seed the LaTeX skeleton.** Use `make-latex-model` to lay down
    `branches/<role>/paper/main.tex` + `sections/*.tex` + `references.bib` +
    `figures/`. One `sections/<name>.tex` per section in the fixed order.
-3. **Draft each section** (apply the mapped writer skill). As you write each
+3. **Draft each section** (apply the mapped paper-writing skill). As you write each
    `sections/<name>.tex`, open it with the `% [VERIFY] ...` provenance header
    and drop inline `%` source comments next to non-obvious claims (see "Source
    provenance lives in `%` comments" above — these are stripped from the PDF):

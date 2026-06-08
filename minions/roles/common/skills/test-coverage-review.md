@@ -17,7 +17,7 @@ One focused behavior test beats chasing line coverage.
 ## When to invoke
 
 - Before completing any change that alters a public function signature, state schema, or CLI output.
-- When Reviewer or Gru asks whether the change is covered.
+- When Gru or formal review asks whether the change is covered.
 - After a repair loop exposes a missing regression test.
 
 ## Structure

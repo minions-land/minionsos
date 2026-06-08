@@ -1,6 +1,6 @@
 ---
 slug: citation-authenticity-audit
-summary: Verify every .bib entry and Reviewer-cited prior work actually exists and matches the claimed author / year / venue / title; hallucinated citations are the highest-signal Ethics failure.
+summary: Verify every .bib entry and review-cited prior work actually exists and matches the claimed author / year / venue / title; hallucinated citations are the highest-signal Ethics failure.
 layer: logical
 tools: eacn3_send_message
 version: 2
@@ -17,11 +17,11 @@ Hallucinated citations are the single highest-signal Ethics failure mode and the
 ## When to invoke
 
 - Before any submission gate (initial submission, rebuttal, camera-ready).
-- On any round that materially changes the bibliography (new related-work section, new method comparison, new reviewer-requested prior-work addition).
+- On any round that materially changes the bibliography (new related-work section, new method comparison, new review-requested prior-work addition).
 - Periodically during active writing phases so hallucinations do not accumulate.
 - On demand when Gru or the author requests a citation sweep.
 
-This is **sampled Ethics oversight**, not the full pre-submission sweep — that lives in `writer/citation-audit`, which Writer runs on the entire `.bib` before any submission gate. Both can run in the same window; Ethics samples to catch drift, Writer covers the whole list.
+Experts run the full pre-submission citation sweep on the entire `.bib` before a submission gate. Ethics performs independent sampled oversight in the same window to catch drift, hallucinated entries, and wrong-context cites.
 
 ## Structure
 
@@ -29,14 +29,14 @@ Each audited entry is classified `verified` (all four fields match), `drift` (en
 
 - Per-flag file: draft in `branches/ethics/flag-<slug>.md`, publish to `branches/shared/ethics/flag-<slug>.md` — bib_key, cite site, claimed vs actual, canonical URL, severity, remediation, status.
 - Batch report: draft in `branches/ethics/report-<ts>.md`, publish to `branches/shared/ethics/report-<ts>.md` — counts per classification.
-- EACN ping to the cite site's author Role (Writer for `.bib`, Reviewer for review-artifact cites). Do not paste full reports into EACN.
+- EACN ping to the cite site's author Role; for review-artifact cites, identify the `review_round` and `reviewer_instance` metadata. Do not paste full reports into EACN.
 
 Verification sources: venue proceedings, arXiv, DOI resolvers — never aggregator pages.
 
 ## Procedure
 
 1. **Scope the batch.** Full sweep (submission gate) or statistical sample (periodic audit). For a sample, pick 20–30 % of entries weighted toward: recently added entries, entries cited in high-stakes claims, entries near the abstract / introduction, entries in areas the project Expert did **not** produce.
-2. **Collect cite sites.** Tuples of `(bib_key, sentence, file, line)`. For Reviewer-cited prior work in review artifacts, use `(review_round, reviewer_instance, quote)`.
+2. **Collect cite sites.** Tuples of `(bib_key, sentence, file, line)`. For review-cited prior work in review artifacts, use `(review_round, reviewer_instance, quote)`.
 3. **Verify each entry independently.** For each `(bib_key, claimed_title, claimed_authors, claimed_venue, claimed_year)`: web-search exact title plus first author (prefer venue / arXiv / DOI), record canonical URL / title / authors / venue / year, classify per the four-category scheme.
 4. **Spot-check the claim, not just the title.** For high-stakes citations, open the source and check whether the citing sentence is supported by the cited paper's claims. A real paper cited for a false claim is still an Ethics failure.
 5. **Write the output.** One flag file per `drift` / `wrong_context` / `fabricated` entry; one summary report per batch with counts.

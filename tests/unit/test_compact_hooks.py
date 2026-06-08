@@ -186,7 +186,7 @@ class TestPreCompactGate:
         result = _run(
             PRE_HOOK,
             stdin="{}",
-            env={"MINIONS_ROLE_NAME": "reviewer", "MINIONS_AGENT_TYPE": "main"},
+            env={"MINIONS_ROLE_NAME": "external-auditor", "MINIONS_AGENT_TYPE": "main"},
         )
         assert result.returncode == 0
         assert "## Working_on" not in result.stdout

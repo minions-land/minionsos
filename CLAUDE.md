@@ -247,7 +247,7 @@ Roles are not fixed in number for the lifetime of a project. Gru can grow, fuse,
 - `mos_role_evolve_evaluate` — read-only; reads recent artifacts under `branches/main/` (Ethics reports, review packets, experiment failures) and per-role activity stats; returns `SplitDecision` per active role plus `MergeDecision` (convergence-only) and `DismissDecision` (starvation-only) candidates.
 - `mos_role_split` — realises a SPLIT decision: spawns each specialist via `register_expert`, then dismisses the source role. Requires non-empty `evidence_refs`. On partial spawn failure the source role is **kept alive** to preserve coverage.
 - `mos_role_merge` — realises a MERGE decision: spawns the unified role, dismisses the sources. Used **only for behavioural convergence** between two active Roles. Source roles do **not** need to share a SPLIT lineage; convergence merge applies to independently-spawned Experts whose artifact overlap exceeds `merge_convergence_threshold`.
-- `mos_role_evolve_dismiss` — realises a DISMISS decision: retires a Role with no recent work. Distinct from the generic `mos_dismiss_role` because it requires non-empty `evidence_refs` and writes to the role-evolution audit log. **No replacement is implied.** If new work appears later that no active Role can cover, a separate spawn trigger handles it.
+- `mos_role_evolve_dismiss` — realises a DISMISS decision for a Role with no recent work. It requires non-empty `evidence_refs` and writes to the role-evolution audit log. If new work appears later that no active Role can cover, a separate spawn trigger handles it.
 
 Triggers are evidence-gated, not diversity-gated:
 
@@ -263,7 +263,7 @@ Every recommendation and apply event writes one line to `branches/main/governanc
 
 Role skills are markdown procedure guides under `minions/roles/{role}/skills/`. `minions.lifecycle.skills.list_skills` discovers them at wake-up, extracts one-line summaries, and injects a `[Skills]` block pointing to the full files. Skills should stay procedural and cross-domain; put domain-specific content under `minions/domains/`.
 
-Review is run by Gru's `mos_review_run` MCP tool, not by a long-lived Role. Its prompt assets live under `minions/review/`:
+Review is run by Gru's `mos_review_run` MCP tool. Its prompt assets live under `minions/review/`:
 
 - `minions/review/SYSTEM.md` — Area-Chair / Editor system prompt for the spawned `claude --print` process.
 - `minions/review/skills/*.md` — `run-review-round`, `simulate-reviewer-instance`, `aspect-review`, `code-validity-review`, `revision-delta`, `finalize-review-packet`.

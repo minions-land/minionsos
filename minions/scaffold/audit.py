@@ -375,9 +375,6 @@ def _expand_whitelist(entries: list[str], universe: set[str]) -> set[str]:
 # Recorded here so the audit doesn't repeatedly flag known design decisions.
 # Adding to this list is a privileged action — review carefully.
 _SUBAGENT_BROADER_EXCEPTIONS: dict[str, frozenset[str]] = {
-    # Noter main is observer-only — never writes itself. Its host-native
-    # subagents do the actual file work (drafting reports, formatting). The
-    # asymmetry is the operating model, not drift.
     # Ethics main is read-mostly; concrete writes (mock-reviews, flag files)
     # are produced by short-lived subagents that can use Write / Edit.
     "ethics": frozenset({"Write", "Edit"}),

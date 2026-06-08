@@ -5,7 +5,7 @@ testing, deciding, or handing off right now. The Book is L2: durable
 product memory compiled from shared artefacts after they land.
 
 Phase 2 implements the minimum writable surface under
-``branches/shared/book/``. Ethics is the only writer: other roles publish raw
+``branches/shared/book/``. Ethics owns Book writes: other roles publish raw
 artefacts to their own shared subdirs, then Ethics ingest-compiles them into
 book pages using the shared publish lock and commit machinery.
 
@@ -171,13 +171,12 @@ _COMMON_SHARED_TERMS = frozenset(
 # negation was enough. Most FPs rode on provenance/scaffolding nouns (role
 # names, GPU/harness words, dates) or on stock idioms ("load-bearing"). These
 # sets gate the shared term to plausible *claim subjects* only.
-# NOTE: this set includes role stamps that can appear in provenance bylines on
-# Book pages already on disk. Treat them as metadata terms, not claim subjects.
+# NOTE: this set includes current role stamps that can appear in provenance
+# bylines. Treat them as metadata terms, not claim subjects.
 _PROVENANCE_SHARED_TERMS = frozenset(
     {
         "artifact",
         "bench",
-        "coder",
         "commit",
         "cuda",
         "ethics",
@@ -185,7 +184,6 @@ _PROVENANCE_SHARED_TERMS = frozenset(
         "gru",
         "harness",
         "kernel",
-        "noter",
         "phase",
         "profiler",
         "reel",
@@ -194,7 +192,6 @@ _PROVENANCE_SHARED_TERMS = frozenset(
         "session",
         "torch",
         "wrapper",
-        "writer",
     }
 )
 # Stock phrases whose negation marker is idiomatic, not an assertion about the
@@ -289,11 +286,11 @@ def _is_structural_line(sentence: str) -> bool:
         return True
     # Provenance byline: "**Expert · 2026-05-28 · cuda:1 ..." — a middot or a
     # leading bold-role stamp marks metadata, not an assertion. The role list
-    # below covers stamps that may already appear in Book pages on disk.
+    # below covers current role stamps.
     if "·" in s[:40]:
         return True
     lowered = s.lower()
-    return lowered.startswith(("**coder", "**noter", "**expert", "**ethics", "**writer", "**gru"))
+    return lowered.startswith(("**expert", "**ethics", "**gru"))
 
 
 # Contradiction detection functions moved to book_contradiction.py
@@ -1252,10 +1249,9 @@ def _update_frontmatter_field(text: str, field: str, value: str) -> str:
 # ============================================================================
 
 
-# Hot-cache tools (mos_book_hot_update / mos_book_hot_get) were removed in the
-# V23-era Memory simplification: the hot.md rolling wake-cache layer was retired.
-# Cold-start orientation now comes directly from `mos_draft_view()` (orientation
-# header + newest nodes), so a hand-maintained ~500-word Book summary is moot.
+# Cold-start orientation comes from `mos_draft_view()` (orientation header +
+# newest nodes). Book exposes durable knowledge through query, ingest,
+# crystallize, and audit tools.
 
 
 __all__ = [

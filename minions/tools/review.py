@@ -1,8 +1,7 @@
 """Review MCP tool: synchronous Area-Chair review run.
 
-Reviewer is no longer a long-lived Role. The review workflow is invoked as a
-single MCP tool call by Gru when an Expert submits a manuscript (Book→Paper,
-Gru-driven). This module:
+The review workflow is invoked as a single MCP tool call by Gru when a
+manuscript submission arrives. This module:
 
 1. Parses the accompanying submission checklist and short-circuits with a
    rejection if any Required item is unchecked.
@@ -507,9 +506,8 @@ def _run_review_round(
 
     The single ``claude --print`` Area-Chair process runs all three passes and
     fans reviewer instances out as concurrent foreground ``Task`` subagents
-    (see ``_build_review_round_prompt`` and the review SYSTEM.md). This replaces
-    the old N-serial-subprocess pipeline whose per-reviewer 900 s wall blew up
-    on multi-aspect Opus 4.8 reviews.
+    (see ``_build_review_round_prompt`` and the review SYSTEM.md). One timeout
+    bounds the complete round.
 
     Idempotent: if ``consolidated.md`` and the rolling summary already exist on
     disk (a prior run completed the round), the spawn is skipped — the
@@ -613,8 +611,7 @@ def review_run(args: ReviewRunArgs) -> dict[str, object]:
     runs all three passes and fans reviewer instances out as concurrent
     foreground ``Task`` subagents (see ``_run_review_round`` and the review
     SYSTEM.md). The whole round is bounded by one wall (``review_timeout_seconds``,
-    default 1 h) rather than the old per-reviewer 900 s wall x N serial spawns
-    that timed out on multi-aspect Opus 4.8 reviews.
+    default 1 h).
 
     The round is idempotent: a completed round on disk (consolidated.md +
     rolling summary) is not re-spawned, and the round is always structurally

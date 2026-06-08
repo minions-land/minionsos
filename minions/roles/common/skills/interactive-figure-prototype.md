@@ -17,7 +17,7 @@ Small playground for figures with many visual degrees of freedom. Final submissi
 ## When to invoke
 
 - A figure has 3 or more independent visual choices to make (e.g. grouping, metric, ordering, annotation, subplot layout, color encoding) and Expert has no clear default for any of them.
-- Reviewer or Expert asks for clearer visualization of an existing result.
+- Formal review or an Expert asks for clearer visualization of an existing result.
 - A dashboard-like explorer would help choose one final paper figure.
 
 ## Structure

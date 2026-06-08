@@ -19,7 +19,7 @@ Milestone `v17`–`v20`. Package version realigned with the `vN` milestone serie
 resolved — `v20` ⇒ `0.20.0`.
 
 ### Added
-- Per-role `SYSTEM.md` + role skills; `Workflow` tool on the Noter whitelist (v17)
+- Per-role `SYSTEM.md` + role skills; `Workflow` tool coverage for role workflows (v17)
 - Scratchpad isolation infra; role-launcher hard-fails on a bad cwd (v17)
 - `mos restart` primitives — cold-restart Role tmux sessions and the Gru monitor
   sidecar so `mos upgrade` reaches already-running processes (v19)
@@ -29,8 +29,8 @@ resolved — `v20` ⇒ `0.20.0`.
 
 ### Changed
 - Common role contract: Plan→Workflow→Verify + §10.1; per-role skills (v17)
-- Dispatch tests/audit aligned to the v17 Workflow contract; Writer CNS skill
-  upgrades (v18)
+- Dispatch tests/audit aligned to the v17 Workflow contract; paper-writing CNS
+  skill upgrades (v18)
 - `uv.lock` registry switched from the aliyun mirror back to pypi.org (v16)
 - Book retrieval is body-aware (BM25 over page bodies); tighter contradiction
   detector subject filter (v19)
@@ -94,14 +94,14 @@ reverse chronological order.
 ### v15.52 (2026-05-26)
 - `project_create` cold-start collapse: A/C/D phases from 4–5 min to ~30 s
 - Gru EACN boundary docs+tests (v15.50)
-- Filter dismissed roles from Noter terminal and project list (v15.49)
+- Filter dismissed roles from the observatory terminal and project list (v15.49)
 - Fix bare-slug expert spawn ACL bug + tighten Gru EACN boundary (v15.48)
 - Harden Role spawn defaults: `IS_SANDBOX` for root-uid hosts, 1M-context model strings (v15.47)
 - Install UX overhaul: minimal-core, background visual extras, auto PyPI mirror (v15.46)
 - Scope hooks to MinionsOS-only; guard against outer-repo bleed (v15.45)
 - Tighten author-seed git detection (v15.44)
 - Subagent dispatch: Codex-vs-Sonnet two-case gate (v15.43)
-- Writer figure-chart-atlas: Taylor diagram archetype (v15.42)
+- Paper-writing figure-chart-atlas: Taylor diagram archetype (v15.42)
 - Lifecycle fix: tmux sweep + project revive ordering (v15.40)
 
 ### v15.31 (2026-05-25)
@@ -109,9 +109,9 @@ reverse chronological order.
 - SYSTEM.md slim 529→232 lines (-56%), ~4k tokens saved per turn (v15.30)
 - Context-tax slim: `auto:30` tiered ToolSearch + MANUAL coupling (v15.29)
 - Data-grounded MANUAL refinement + roles/SYSTEM.md hardening (v15.28)
-- Writer skill polish: figure / caption / IMRAD / chart-atlas (v15.27)
+- Paper-writing skill polish: figure / caption / IMRAD / chart-atlas (v15.27)
 - MANUAL refactor: 3-layer fetch-on-demand reference (134 tools, 12 domains, 9 pitfalls) (v15.26)
-- Writer skill expansion + MANUAL/: CNS discipline, chart atlas, figure idioms (v15.24)
+- Paper-writing skill expansion + MANUAL/: CNS discipline, chart atlas, figure idioms (v15.24)
 - MCP-dead wedge detection; revert `cache_keepalive` default to 240s (v15.23)
 - Post-compact tmux kick (#29); `cache_keepalive` filter & retune (#28) (v15.22)
 - MinionsVIZ overhaul: picker, terminals, orbit, packets, tasks, events (v15.20)
@@ -128,7 +128,7 @@ reverse chronological order.
 - Spawn init retry (#21) + template assert (#20) (v15.13)
 - Silent-wedge watchdog (#15) + operator kick (#17) + graphify timeout (#16) (v15.11)
 - Document Tier 0 seed-and-Edit for Opus 4.7 empty-input bug (v15.10.1)
-- Fix GitHub Issues #13 + #14: commit amplification + Noter unbounded turn (v15.10)
+- Fix GitHub Issues #13 + #14: commit amplification + observatory unbounded turn (v15.10)
 - Fix Issues #9/#10/#11/#12 + graphify install + `draft_nodes_persisted` (v15.9)
 - VIZ + Gru drive + scaffolding fixes (Issues #4/#5/#7/#8) (v15.8)
 - Fix Issues #1/#2/#3 + harden label-retry on uploads (v15.7)
@@ -151,20 +151,20 @@ reverse chronological order.
 ### v14 series (2026-05-23)
 - v14.2: README rewrite + correct three v14 errors
 - v14.1: clean delivery surface — untrack dev workspace from public repo
-- v14: Skill family rename + four-stage evolution pipeline (Noter→Ethics→skill-forge)
+- v14: Skill family cleanup + four-stage evolution pipeline
 
 ### v13 series (2026-05-22)
 - v13.6.x: pass-5 audit; historical leftovers, redundant interfaces, registry alignment
 - v13.5.x: deep audit pass 2 — drift fixes, dead code purge, latent-gap hardening; boundary tests + install.sh hook regression smoke
 - v13.4: viz Atlas removal; expert split/merge experiments; memory outline; consistency audit
-- v13.3: full Experimenter removal (alias mechanism + tests + comments) + final atlas/Library cleanup
-- v13.2: full name-consistency sweep — atlas→shelf, Library→Book, Experimenter→Coder; governance seed
-- v13.1: name consistency cleanup — Scratchpad/Atlas → Draft/Shelf, Experimenter → Coder
+- v13.3: execution-role cleanup + final memory-surface cleanup
+- v13.2: full name-consistency sweep for memory and governance surfaces
+- v13.1: name-consistency cleanup for Draft, Book, and governance surfaces
 
 ### v12 / v11 series (2026-05-20 to 2026-05-22)
 - v12.1: scrub author-local absolute paths from committed surfaces
-- v12: memory rename Scratchpad→Draft, Library→Book, Atlas→Shelf + identity module + skill cleanup
-- v11.3: visual format-check tooling + Writer quality contract + keepalive early-exit
+- v12: memory-surface standardization + identity module + skill cleanup
+- v11.3: visual format-check tooling + paper-writing quality contract + keepalive early-exit
 - v11.2: extract 3 cohesive helpers from `lifecycle/project.py` — partial split
 - v11.1: split `mcp_server.py` into `mcp/` package — mechanical-only refactor
 - v11: name-only rename — DAG→Scratchpad, Wiki→Library, global_graph→Atlas
@@ -189,7 +189,7 @@ reverse chronological order.
 - v7.6: workspace restructure — retire `artifacts/`, introduce `branches/shared/` + `mos_publish_to_shared`
 - v7.5.1: prune stale build/audit/eval artifacts
 - v7.5: think-then-act skill v3→v4; Observatory DAG view tab
-- v7: CLI role attach/inspect/drive + role-prompt polish; Writer skill expansion (academic discipline library + figure aesthetic exemplars); retire Reviewer-as-Role, scratchpads → DAG, reset/pending_plan, `mos_review_run`
+- v7: CLI role attach/inspect/drive + role-prompt polish; paper-writing skill expansion (academic discipline library + figure aesthetic exemplars); formal review workflow, Draft graph, reset/pending_plan, `mos_review_run`
 
 ## [Unreleased post-0.5.3] - 2026-05-17 to 2026-05-28 (rollup)
 
@@ -223,11 +223,11 @@ series".
 - `mos audit` + `mos scaffold` CLI subcommands
 - `branches/shared/` publishing model + `mos_publish_to_shared`
 - Per-project bare git repo — author repo seeded once, projects fully isolated
-- High-intensity execution delegation (retired V23.0)
+- High-intensity execution delegation experiments
 - Mission Profile loader (`scientific-paper` manifest)
 - `mos_submit` / `mos_evaluate` profile-aware delivery
 - Batch benchmark harness + CLI
-- `mos_review_run` — paper-review tool persona (replaces Reviewer Role)
+- `mos_review_run` — Gru-run paper-review workflow
 - Skill-curator / skill-audit / skill-forge four-stage evolution pipeline
 - `mos_project_checkpoint_workspace` durable local commits + optional GitHub push
 
@@ -236,12 +236,12 @@ series".
 - Role-wedge protection and anti-wedge backstop
 - bare-slug expert spawn ACL bug
 - Cold-start collapse — `project_create` A/C/D phases from 4–5 min to ~30 s
-- Dismissed roles filtered from Noter terminal and project list
+- Dismissed roles filtered from the observatory terminal and project list
 - tmux safety warning on destructive session ops
 - `.mcp.json` + config files use absolute paths (issue #27)
 - ANSI escape codes in role logs (issue #54)
 - Adjudication task routing to Ethics (issue #55)
-- Commit amplification + Noter unbounded turn (issues #13, #14)
+- Commit amplification + observatory unbounded turn (issues #13, #14)
 - `${PROJECT_DIR}` placeholder rehydration in `get_events` drain (issue #47)
 - Lifecycle revive filter for malformed role names (issue #44)
 - SyntaxWarning in `role_launcher.py` sed regex
@@ -249,12 +249,12 @@ series".
 
 ### Changed
 - Project tree migrated to `projects/` (from `workspaces/`)
-- Memory layers renamed: Scratchpad→Draft, Library→Book, Atlas→Shelf, Experimenter→Coder
+- Memory layers standardized as Reel, Draft, and Book
 - SYSTEM.md slim: 529→232 lines (−56%), ~4k tokens saved per role per turn
 - Graphify/CodeGraph downgraded to per-role optional MCP; removed from project-level Shelf
 - MCP tool namespace prefixed with `mos_` across all role whitelists
 - Common role contract decoupled into single canonical §-numbered file
-- Reviewer retired as Role; replaced by `mos_review_run` tool persona
+- Formal paper review consolidated under `mos_review_run`
 
 ---
 
@@ -267,22 +267,22 @@ exact dates of intermediate releases are approximate. Major themes:
 - v5.1–v5.4 (2026-05-13 → 2026-05-16): simplify lifecycle; promote cross-role skills to `common/`; rewrite EACN3 manual into 3-layer progressive-disclosure skill; Exploration DAG as shared team cognitive memory; cognitive discipline skills
 - Workspace restructure to `branches/`; lifecycle hooks; per-branch AGENTS.md
 - Role wake loop becomes `eacn3_await_events(120s)` with graceful exit
-- Noter reads role session archives non-destructively
+- Observatory reads role session archives non-destructively
 - Archive host session jsonl into role branch after each wake
 - `mos_pool` module — EACN3 wrapper + per-wake local ACK
 - Native `mos_*` MCP tools registered (no role wiring yet at first; subsequently wired)
 - Common role contract switches to `mos_*` + ultrathink-before-act
-- All roles (Coder, Writer, Experimenter, Reviewer, Ethics, Expert, Noter) migrated to `mos_*`
+- Role MCP surfaces migrated to the `mos_*` namespace
 - Gru SYSTEM.md routes internal work through MOS Agent Pool
 - Durable workspace checkpoints + hook-driven wake signals
-- High-intensity execution delegation (retired V23.0)
+- High-intensity execution delegation experiments
 - SSL-based progressive-disclosure skill library + EACN3 manual
 - Stabilize runtime and observatory wiring; standardize MinionsOS repository naming
 - Refresh observatory dependency lock; prune obsolete docs
 
 ### v4 / pre-v5 (2026-04-26 → 2026-04-29)
 - v4: initial public MinionsOS V4 release
-- MinionsVIZ V2 rewrite — network and noter views; dashboard polish
+- MinionsVIZ V2 rewrite — network and observatory views; dashboard polish
 - Stabilize EACN role collaboration; experiment scheduling and role maintenance flow
 - Recover roles after runtime kill
 - Compact scratchpads past veto
@@ -295,7 +295,7 @@ exact dates of intermediate releases are approximate. Major themes:
 - `claude_model` field and `model_registry_valid()` in `GruConfig`
 - `MINIONS_DEBUG` env var for Gru DEBUG_MODE
 - Project-local agent registration enforcement on EACN
-- Role skills + reviewer templates
+- Role skills + review templates
 
 ---
 

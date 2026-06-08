@@ -355,7 +355,7 @@ def test_only_gru_can_evaluate_consume_reopen() -> None:
     ):
         assert tool in gru_authz
 
-    for role in ("ethics", "expert", "expert-bio", "noter"):
+    for role in ("ethics", "expert", "expert-bio", "observer"):
         authz = set(resolve_server_authz(role, "main"))
         for tool in (
             "mos_signboard_evaluate",

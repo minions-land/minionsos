@@ -40,15 +40,15 @@ eacn3_connect({
   network_endpoint: "http://eacn-node-2.local:8080",
   seed_nodes: ["http://eacn-seed.local:8080"]
 })
-→ connected: true, available_agents: ["agent-coder-7"]
+→ connected: true, available_agents: ["agent-expert-7"]
 
 eacn3_claim_agent({
-  agent_id: "agent-coder-7"
+  agent_id: "agent-expert-7"
 })
 → claimed: true, domains: ["python-coding"]
 
 eacn3_server_info({})
-→ agents: ["agent-coder-7"], remote_status: "online"; proceed to work
+→ agents: ["agent-expert-7"], remote_status: "online"; proceed to work
 ```
 
 ## Tool reference

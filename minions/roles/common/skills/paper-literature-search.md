@@ -24,7 +24,7 @@ This skill does two things on purpose: it names the **MCP tools** to use for sch
 
 Tool families from the `minionsos` MCP server. Use the dedicated tool first; fall back to general web search only if it is unavailable.
 
-- **Search.** `mos_search_arxiv`, `mos_search_pubmed`, `mos_search_biorxiv`, `mos_search_medrxiv`, `mos_search_semantic` (or the legacy-named `mos_search_google_scholar`, which routes to the same Semantic Scholar backend), `mos_search_papers_federated` (one call across multiple sources, deduplicated by DOI/title — use when you want broad coverage in a single round-trip).
+- **Search.** `mos_search_arxiv`, `mos_search_pubmed`, `mos_search_biorxiv`, `mos_search_medrxiv`, `mos_search_semantic`, `mos_search_google_scholar` (scholar-like broad search backed by Semantic Scholar), `mos_search_papers_federated` (one call across multiple sources, deduplicated by DOI/title — use when you want broad coverage in a single round-trip).
 - **Resolve.** `mos_resolve_arxiv_ids(ids: list[str])` batches arXiv ids back to canonical paper dicts. Use as the second step of a `WebSearch → ID → paper` workflow (see Procedure step 1b).
 - **Read.** `mos_read_arxiv_paper`, `mos_read_pubmed_paper`, `mos_read_biorxiv_paper`, `mos_read_medrxiv_paper`.
 - **Download.** `mos_download_arxiv`, `mos_download_pubmed`, `mos_download_biorxiv`, `mos_download_medrxiv`.

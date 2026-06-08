@@ -141,8 +141,8 @@ def project_workspace_root(port: int) -> Path:
             expert-<slug>/   # one per spawned Expert
             ...
 
-    The historical name ``project_workspace_root`` is kept so older callers
-    compile; new code should treat the returned directory as "branches".
+    Callers should treat the returned directory as the project's branch
+    container.
     """
     return project_dir(port) / "branches"
 
@@ -242,7 +242,7 @@ def project_role_workspace(port: int, role_name: str) -> Path:
 
 
 def project_workspace(port: int) -> Path:
-    """Backward-compatible alias for the canonical main workspace."""
+    """Return the canonical main workspace."""
     return project_main_workspace(port)
 
 
@@ -304,18 +304,12 @@ def project_role_log(port: int, role_name: str) -> Path:
 
 
 def project_artifacts_dir(port: int) -> Path:
-    """DEPRECATED: ``artifacts/`` is gone. Returns the shared worktree.
-
-    Kept as a transitional alias so any straggling caller hitting this
-    function lands on the new shared tree rather than at a missing path.
-    New code should call :func:`project_shared_workspace` or
-    :func:`project_shared_subdir` directly.
-    """
+    """Return the project shared worktree for artifact-style callers."""
     return project_shared_workspace(port)
 
 
 def project_reviews_dir(port: int) -> Path:
-    """Return ``branches/main/reviews/`` (formerly ``artifacts/reviews/``)."""
+    """Return ``branches/main/reviews/``."""
     return project_shared_subdir(port, "reviews")
 
 

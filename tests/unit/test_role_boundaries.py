@@ -34,10 +34,9 @@ class TestRoleType:
     def test_expert_is_eacn_visible(self) -> None:
         assert ROLE_CLASSIFICATION["expert"] == RoleType.eacn_visible
 
-    def test_reviewer_not_a_role(self) -> None:
-        """Review is run by the mos_review_run MCP tool, not by a Role."""
-        assert "reviewer" not in ROLE_CLASSIFICATION
-        assert "reviewer" not in FIXED_ROLES
+    def test_current_fixed_roles_are_classified(self) -> None:
+        assert {"gru", "ethics", "expert"}.issubset(ROLE_CLASSIFICATION)
+        assert set(FIXED_ROLES).issubset(ROLE_CLASSIFICATION)
 
 
 class TestWriteBoundaries:

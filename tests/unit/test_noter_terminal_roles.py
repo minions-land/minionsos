@@ -18,10 +18,10 @@ def test_render_roles_hides_dismissed() -> None:
         status="active",
         created="2026-05-26T00:00:00Z",
         active_roles=[
-            RoleEntry(name="noter", state="active"),
+            RoleEntry(name="ethics", state="active"),
             RoleEntry(name="expert-general", state="active"),
-            RoleEntry(name="expert-retired-moe", state="dismissed"),
-            RoleEntry(name="expert-retired-triton", state="dismissed"),
+            RoleEntry(name="expert-dismissed-moe", state="dismissed"),
+            RoleEntry(name="expert-dismissed-triton", state="dismissed"),
             RoleEntry(name="expert-moe-arch", state="active"),
             RoleEntry(name="expert-triton-kernel", state="active"),
         ],
@@ -43,14 +43,14 @@ def test_render_roles_hides_dismissed() -> None:
     output = buf.getvalue()
 
     # Active roles should appear
-    assert "noter" in output
+    assert "ethics" in output
     assert "expert-general" in output
     assert "expert-moe-arch" in output
     assert "expert-triton-kernel" in output
 
     # Dismissed roles should NOT appear in the table
-    assert "expert-retired-moe" not in output
-    assert "expert-retired-triton" not in output
+    assert "expert-dismissed-moe" not in output
+    assert "expert-dismissed-triton" not in output
 
     # Footer should mention 2 dismissed roles
     assert "2 dismissed roles hidden" in output
@@ -64,7 +64,7 @@ def test_render_roles_no_footer_when_all_active() -> None:
         status="active",
         created="2026-05-26T00:00:00Z",
         active_roles=[
-            RoleEntry(name="noter", state="active"),
+            RoleEntry(name="ethics", state="active"),
             RoleEntry(name="expert-general", state="sleeping"),
         ],
     )
@@ -84,6 +84,6 @@ def test_render_roles_no_footer_when_all_active() -> None:
     _render_roles(snapshot, console)
     output = buf.getvalue()
 
-    assert "noter" in output
+    assert "ethics" in output
     assert "expert-general" in output
     assert "dismissed" not in output

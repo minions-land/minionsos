@@ -241,14 +241,14 @@ mod tests {
                 status: "active".into(),
                 phase: Some("experiment".into()),
                 venue: None,
-                roles: vec![role("coder", true, Some("run sweep")), role("noter", false, None)],
+                roles: vec![role("expert", true, Some("run sweep")), role("ethics", false, None)],
             }],
             error: None,
         };
         let r = roster(&snap);
         assert!(r.contains("41001 attn-study"));
         assert!(r.contains("experiment"));
-        assert!(r.contains("coder"));
+        assert!(r.contains("expert"));
         assert!(r.contains("run sweep"));
         assert!(r.contains("1/2 roles live"));
     }
@@ -259,4 +259,3 @@ mod tests {
         assert_eq!(trim_one_line("abcdef", 4), "abc…");
     }
 }
-

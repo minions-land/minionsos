@@ -29,16 +29,16 @@
   /* Role colors with gradient support */
   --role-gru: #f59e0b;
   --role-gru-soft: rgba(245, 158, 11, 0.15);
-  --role-noter: #22d3ee;
-  --role-noter-soft: rgba(34, 211, 238, 0.15);
-  --role-coder: #34d399;
-  --role-coder-soft: rgba(52, 211, 153, 0.15);
+  --role-observatory: #22d3ee;
+  --role-observatory-soft: rgba(34, 211, 238, 0.15);
+  --role-expert: #34d399;
+  --role-expert-soft: rgba(52, 211, 153, 0.15);
   --role-exp: #fb923c;
   --role-exp-soft: rgba(251, 146, 60, 0.15);
-  --role-writer: #c084fc;
-  --role-writer-soft: rgba(192, 132, 252, 0.15);
-  --role-reviewer: #60a5fa;
-  --role-reviewer-soft: rgba(96, 165, 250, 0.15);
+  --role-paper: #c084fc;
+  --role-paper-soft: rgba(192, 132, 252, 0.15);
+  --role-review: #60a5fa;
+  --role-review-soft: rgba(96, 165, 250, 0.15);
   --role-ethics: #fb7185;
   --role-ethics-soft: rgba(251, 113, 133, 0.15);
   --role-other: #7a8aa8;
@@ -127,8 +127,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   background-clip: text; }
 .brand .dot {
   width: 12px; height: 12px; border-radius: 50%;
-  background: conic-gradient(from 0deg, var(--role-gru), var(--role-noter), var(--role-coder),
-    var(--role-writer), var(--role-reviewer), var(--role-gru));
+  background: conic-gradient(from 0deg, var(--role-gru), var(--role-observatory), var(--role-expert),
+    var(--role-paper), var(--role-review), var(--role-gru));
   box-shadow: 0 0 18px rgba(245,158,11,.6), 0 0 4px rgba(255,255,255,.2);
   animation: brand-spin 12s linear infinite;
   position: relative;
@@ -229,8 +229,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   display: flex; align-items: center; gap: 9px;
   background: linear-gradient(180deg, rgba(255,255,255,.02), transparent); }
 .float-panel h4 .accent { width: 7px; height: 7px; border-radius: 50%;
-  background: var(--role-noter); box-shadow: 0 0 10px currentColor, 0 0 2px rgba(255,255,255,.4);
-  color: var(--role-noter); }
+  background: var(--role-observatory); box-shadow: 0 0 10px currentColor, 0 0 2px rgba(255,255,255,.4);
+  color: var(--role-observatory); }
 
 .empty { display: flex; align-items: center; justify-content: center; flex-direction: column;
   gap: 8px; padding: 24px; color: var(--muted); font-size: 12px; text-align: center; }
@@ -429,7 +429,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   font-size: 10px; letter-spacing: .04em; font-weight: 500;
   border: 1px solid transparent;
   box-shadow: 0 1px 3px rgba(0,0,0,.15); }
-.badge.active { background: var(--role-coder-soft); color: #6ee7b7;
+.badge.active { background: var(--role-expert-soft); color: #6ee7b7;
   border-color: rgba(52,211,153,.25); }
 .badge.sleeping, .badge.dormant { background: var(--role-gru-soft); color: #fcd34d;
   border-color: rgba(251,191,36,.25); }
@@ -475,7 +475,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .event-row .ev-from, .event-row .ev-to {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .event-row .ev-title { color: var(--text); }
-.event-row .ev-tid { color: var(--role-noter); font-family: var(--font-mono); }
+.event-row .ev-tid { color: var(--role-observatory); font-family: var(--font-mono); }
 .event-row .ev-detail { color: var(--muted); overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; }
 
@@ -536,7 +536,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .scratchpad-search { width: 180px; background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius-pill); height: 30px; padding: 0 12px;
   color: var(--text); font-size: 12px; }
-.scratchpad-search:focus { outline: none; border-color: var(--role-noter);
+.scratchpad-search:focus { outline: none; border-color: var(--role-observatory);
   box-shadow: 0 0 0 3px rgba(34,211,238,.15); }
 .scratchpad-filters { display: flex; gap: 4px; flex-wrap: wrap; }
 .scratchpad-filter-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px;
@@ -560,7 +560,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   border-bottom: 1px solid rgba(34,211,238,.15); display: flex; align-items: center; gap: 10px;
   flex-shrink: 0; z-index: 4; }
 .scratchpad-rq-label { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase;
-  letter-spacing: .12em; color: var(--role-noter); white-space: nowrap; }
+  letter-spacing: .12em; color: var(--role-observatory); white-space: nowrap; }
 .scratchpad-rq-text { font-size: 12px; color: var(--text); }
 
 .scratchpad-canvas { flex: 1; min-height: 0; width: 100%; display: block;
@@ -598,7 +598,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .scratchpad-detail-edge-row:hover { background: var(--surface); }
 .scratchpad-detail-edge-dir { color: var(--muted); font-family: var(--font-mono); width: 14px; }
 .scratchpad-detail-edge-rel { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase;
-  letter-spacing: .06em; color: var(--role-noter); min-width: 60px; }
+  letter-spacing: .06em; color: var(--role-observatory); min-width: 60px; }
 .scratchpad-detail-edge-target { font-family: var(--font-mono); font-size: 10px; color: var(--text); }
 .scratchpad-detail-edge-text { color: var(--muted); font-size: 10px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; flex: 1; }
@@ -1185,8 +1185,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .legend-color.type-role { background: var(--role-ethics); color: var(--role-ethics); }
-.legend-color.type-task { background: var(--role-noter); color: var(--role-noter); }
-.legend-color.type-concept { background: var(--role-reviewer); color: var(--role-reviewer); }
+.legend-color.type-task { background: var(--role-observatory); color: var(--role-observatory); }
+.legend-color.type-concept { background: var(--role-review); color: var(--role-review); }
 .legend-color.type-entity { background: var(--role-gru); color: var(--role-gru); }
 
 .legend-item .count {
@@ -1340,7 +1340,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   background: var(--accent-soft);
   box-shadow: 0 0 0 1px var(--accent) inset; }
 
-/* ── Draft view: bring DraftView CSS into sync (scratchpad-* legacy aliases) ── */
+/* ── Draft view selectors ── */
 .draft-wrap { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
 .draft-toolbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px;
   border-bottom: 1px solid var(--line); background: var(--panel-bg);
@@ -1348,7 +1348,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .draft-search { width: 200px; background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius-pill); height: 30px; padding: 0 12px;
   color: var(--text); font-size: 12px; }
-.draft-search:focus { outline: none; border-color: var(--role-noter);
+.draft-search:focus { outline: none; border-color: var(--role-observatory);
   box-shadow: 0 0 0 3px rgba(34,211,238,.15); }
 .draft-filters { display: flex; gap: 4px; flex-wrap: wrap; }
 .draft-filter-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px;
@@ -1372,7 +1372,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   border-bottom: 1px solid rgba(34,211,238,.15); display: flex; align-items: center; gap: 10px;
   flex-shrink: 0; z-index: 4; }
 .draft-rq-label { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase;
-  letter-spacing: .12em; color: var(--role-noter); white-space: nowrap; }
+  letter-spacing: .12em; color: var(--role-observatory); white-space: nowrap; }
 .draft-rq-text { font-size: 12px; color: var(--text); }
 
 .draft-canvas { flex: 1; min-height: 0; width: 100%; display: block;
@@ -1410,7 +1410,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .draft-detail-edge-row:hover { background: var(--surface); }
 .draft-detail-edge-dir { color: var(--muted); font-family: var(--font-mono); width: 14px; }
 .draft-detail-edge-rel { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase;
-  letter-spacing: .06em; color: var(--role-noter); min-width: 60px; }
+  letter-spacing: .06em; color: var(--role-observatory); min-width: 60px; }
 .draft-detail-edge-target { font-family: var(--font-mono); font-size: 10px; color: var(--text); }
 .draft-detail-edge-text { color: var(--muted); font-size: 10px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; flex: 1; }
@@ -1425,4 +1425,3 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .draft-legend-item { display: flex; align-items: center; gap: 6px;
   font-size: 10px; color: var(--text-2); }
 .draft-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-

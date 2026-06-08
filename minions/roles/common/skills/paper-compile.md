@@ -16,7 +16,7 @@ Clean compile, log-driven diagnosis, bounded iteration, submission-shape checks.
 
 ## When to invoke
 
-- Before handing a draft to Reviewer or Expert for feedback.
+- Before handing a draft to formal review or an Expert for feedback.
 - Before any camera-ready package.
 - When `[VERIFY]` markers, `?` refs, or "Overfull \\hbox" warnings are present in the source or the last `compile.log`.
 

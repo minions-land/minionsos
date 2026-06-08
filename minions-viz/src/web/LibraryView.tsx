@@ -149,7 +149,7 @@ export function LibraryView() {
             >
               <div className="entry-header">
                 <h3>{entry.title}</h3>
-                <span className="tag" style={{ color: "var(--role-noter)" }}>
+                <span className="tag" style={{ color: "var(--role-observatory)" }}>
                   {entry.kind}
                 </span>
               </div>
@@ -177,7 +177,7 @@ export function LibraryView() {
           </div>
           <div className="panel-content">
             <div className="entry-meta" style={{ marginBottom: 12 }}>
-              <span className="tag" style={{ color: "var(--role-noter)" }}>
+              <span className="tag" style={{ color: "var(--role-observatory)" }}>
                 {selectedEntry.kind}
               </span>
               <span style={{ marginLeft: 8, fontFamily: "var(--font-mono)", fontSize: 11 }}>
