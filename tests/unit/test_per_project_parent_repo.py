@@ -80,6 +80,33 @@ def test_seed_creates_bare_repo_with_main_branch(seeded_project: dict[str, objec
     assert f"minionsos/project-{port}" in " ".join(branches)
 
 
+def test_active_create_worktree_checks_out_seeded_branch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """project_create's active worktree module must not recreate the seed branch."""
+    from minions.lifecycle.project_worktree import create_shared_worktree, create_worktree
+
+    author = _make_author_repo(tmp_path)
+    projects_root = tmp_path / "projects-root"
+    projects_root.mkdir()
+    monkeypatch.setenv("MINIONS_AUTHOR_REPO", str(author))
+    monkeypatch.setenv("MINIONS_PROJECTS_ROOT", str(projects_root))
+
+    port = 41005
+    project_dir(port).mkdir(parents=True, exist_ok=True)
+    project_workspace_root(port).mkdir(parents=True, exist_ok=True)
+    project_state_dir(port).mkdir(parents=True, exist_ok=True)
+
+    project_mod._seed_per_project_repo(port)
+    assert create_worktree(port, "HEAD") == f"minionsos/project-{port}"
+    create_shared_worktree(port)
+
+    main = project_main_workspace(port)
+    assert (main / "main.py").read_text(encoding="utf-8") == "print('hi')\n"
+    branch = _git(["branch", "--show-current"], main).strip()
+    assert branch == f"minionsos/project-{port}"
+
+
 def test_seed_imports_author_head_contents(seeded_project: dict[str, object]) -> None:
     port = int(seeded_project["port"])  # type: ignore[arg-type]
     main = project_main_workspace(port)

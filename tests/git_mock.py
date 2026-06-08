@@ -53,13 +53,19 @@ def mock_git_operations(monkeypatch):
         # git worktree add
         if git_cmd == "worktree" and "add" in cmd:
             try:
-                b_idx = cmd.index("-b")
-                branch = cmd[b_idx + 1]
-                path = Path(cmd[b_idx + 2])
+                if "-b" in cmd:
+                    b_idx = cmd.index("-b")
+                    branch = cmd[b_idx + 1]
+                    path = Path(cmd[b_idx + 2])
 
-                # Remove existing branch if exists
-                if branch in branches:
-                    branches.remove(branch)
+                    # Remove existing branch if exists
+                    if branch in branches:
+                        branches.remove(branch)
+                    message = f"Preparing worktree (new branch '{branch}')\n"
+                else:
+                    path = Path(cmd[-2])
+                    branch = cmd[-1]
+                    message = f"Preparing worktree (checking out '{branch}')\n"
 
                 # Create worktree directory with basic git structure
                 path.mkdir(parents=True, exist_ok=True)
@@ -92,7 +98,7 @@ def mock_git_operations(monkeypatch):
 
                 return Mock(
                     returncode=0,
-                    stdout=f"Preparing worktree (new branch '{branch}')\n",
+                    stdout=message,
                     stderr="",
                     check_returncode=lambda: None,
                 )

@@ -62,8 +62,13 @@ Cross-role coordination artifacts live here. Roles publish via
 def create_worktree(port: int, base_branch: str) -> str:
     """Create the main worktree for *port* on branch minionsos/project-{port}.
 
+    ``seed_per_project_repo`` has already pushed the seed commit to this
+    branch and set the bare repo HEAD to it, so worktree creation must check
+    out the existing branch instead of creating it with ``git worktree add -b``.
+
     Returns the branch name.
     """
+    del base_branch  # project branches are seeded before worktree creation
     branch = project_branch_name(port)
     workspace = project_main_workspace(port)
     parent_repo = project_parent_repo_dir(port)
@@ -78,10 +83,8 @@ def create_worktree(port: int, base_branch: str) -> str:
         "git",
         "worktree",
         "add",
-        "-b",
-        branch,
         str(workspace),
-        base_branch,
+        branch,
     ]
     logger.info("Creating main worktree: %s", " ".join(cmd))
     result = subprocess.run(
