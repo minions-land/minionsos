@@ -188,6 +188,60 @@ def test_parked_prompt_watchdog_ignores_dismissed_role(monkeypatch):
     assert kicked == []
 
 
+def test_parked_prompt_watchdog_kicks_batch_of_sleeping_roles(monkeypatch):
+    """A project-wide prompt stall should recover every resident role in one sweep."""
+    loop = GruLoop(heartbeat_interval=1)
+    loop.parked_prompt_min_age = 90
+    role_names = [
+        "ethics",
+        "expert-empirical",
+        "expert-implementation",
+        "expert-mathematician",
+        "expert-theory-grokking",
+        "expert-optimization",
+    ]
+    project = ProjectEntry(
+        port=37597,
+        real_name="Regression",
+        status="active",
+        created="2026-06-09T00:00:00+00:00",
+        active_roles=[
+            *(RoleEntry(name=name, state="sleeping") for name in role_names),
+            RoleEntry(name="dismissed-expert", state="dismissed"),
+        ],
+    )
+    monkeypatch.setattr(loop._store, "list_projects", lambda filter=None: [project])
+    monkeypatch.setattr(loop, "_heartbeat_age_seconds", lambda port, role: 3600)
+
+    @dataclass(frozen=True)
+    class _Signal:
+        parked: bool
+        snapshot_lines: int = 8
+
+    kicked: list[str] = []
+    monkeypatch.setattr(
+        "minions.lifecycle.role_launcher.session_alive",
+        lambda port, role: True,
+    )
+    monkeypatch.setattr(
+        "minions.lifecycle.role_launcher.session_name",
+        lambda port, role: f"mos-{port}-{role}",
+    )
+    monkeypatch.setattr(
+        "minions.lifecycle.parked_prompt.detect_parked_pane",
+        lambda session: _Signal(parked=True),
+    )
+    monkeypatch.setattr(
+        "minions.lifecycle.parked_prompt.kick_pane",
+        lambda session: kicked.append(session) or True,
+    )
+    monkeypatch.setattr(loop, "_emit_health_event", lambda **event: None)
+
+    loop._sweep_parked_roles()
+
+    assert kicked == [f"mos-37597-{name}" for name in role_names]
+
+
 @pytest.mark.forked
 def test_main_uses_run_not_run_async(monkeypatch):
     """Production main() must drive the complete run() path (all watchdogs),
