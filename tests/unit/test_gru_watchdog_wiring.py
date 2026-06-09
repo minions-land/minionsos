@@ -9,11 +9,13 @@ Both entrypoints delegate to _start_watchdog_threads(), so they cannot diverge.
 from __future__ import annotations
 
 import threading
+from dataclasses import dataclass
 from unittest.mock import patch
 
 import pytest
 
 from minions.gru.loop import GruLoop
+from minions.state.store import ProjectEntry, RoleEntry
 
 # Every watchdog thread name _start_watchdog_threads may spawn when all
 # feature flags are enabled. experiment-scheduler and role-evolution are
@@ -93,6 +95,97 @@ def test_run_delegates_to_start_watchdog_threads():
         loop.run()
 
     assert calls == ["watchdogs"]
+
+
+def test_parked_prompt_watchdog_kicks_sleeping_role_at_prompt(monkeypatch):
+    """A sleeping role with a live tmux session and stale heartbeat still needs recovery."""
+    loop = GruLoop(heartbeat_interval=1)
+    loop.parked_prompt_min_age = 90
+    project = ProjectEntry(
+        port=37597,
+        real_name="Regression",
+        status="active",
+        created="2026-06-09T00:00:00+00:00",
+        active_roles=[RoleEntry(name="expert-mathematician", state="sleeping")],
+    )
+    monkeypatch.setattr(
+        loop._store,
+        "list_projects",
+        lambda filter=None: [project],
+    )
+    monkeypatch.setattr(loop, "_heartbeat_age_seconds", lambda port, role: 3600)
+
+    @dataclass(frozen=True)
+    class _Signal:
+        parked: bool
+        snapshot_lines: int = 8
+
+    kicked: list[str] = []
+    health_events: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        "minions.lifecycle.role_launcher.session_alive",
+        lambda port, role: True,
+    )
+    monkeypatch.setattr(
+        "minions.lifecycle.role_launcher.session_name",
+        lambda port, role: f"mos-{port}-{role}",
+    )
+    monkeypatch.setattr(
+        "minions.lifecycle.parked_prompt.detect_parked_pane",
+        lambda session: _Signal(parked=True),
+    )
+    monkeypatch.setattr(
+        "minions.lifecycle.parked_prompt.kick_pane",
+        lambda session: kicked.append(session) or True,
+    )
+    monkeypatch.setattr(
+        loop,
+        "_emit_health_event",
+        lambda **event: health_events.append(event),
+    )
+
+    loop._sweep_parked_roles()
+
+    assert kicked == ["mos-37597-expert-mathematician"]
+    assert health_events[0]["kind"] == "parked_prompt_recovered"
+    assert "input prompt" in str(health_events[0]["message"])
+    assert "hb_age=3600s" in str(health_events[0]["message"])
+
+
+def test_parked_prompt_watchdog_ignores_dismissed_role(monkeypatch):
+    """Dismissed roles are not resident event-loop workers and must not be kicked."""
+    loop = GruLoop(heartbeat_interval=1)
+    project = ProjectEntry(
+        port=37597,
+        real_name="Regression",
+        status="active",
+        created="2026-06-09T00:00:00+00:00",
+        active_roles=[RoleEntry(name="old-expert", state="dismissed")],
+    )
+    monkeypatch.setattr(loop._store, "list_projects", lambda filter=None: [project])
+    monkeypatch.setattr(loop, "_heartbeat_age_seconds", lambda port, role: 3600)
+
+    kicked: list[str] = []
+    monkeypatch.setattr(
+        "minions.lifecycle.role_launcher.session_alive",
+        lambda port, role: True,
+    )
+    monkeypatch.setattr(
+        "minions.lifecycle.role_launcher.session_name",
+        lambda port, role: f"mos-{port}-{role}",
+    )
+    monkeypatch.setattr(
+        "minions.lifecycle.parked_prompt.detect_parked_pane",
+        lambda session: pytest.fail("dismissed roles should not be probed"),
+    )
+    monkeypatch.setattr(
+        "minions.lifecycle.parked_prompt.kick_pane",
+        lambda session: kicked.append(session) or True,
+    )
+
+    loop._sweep_parked_roles()
+
+    assert kicked == []
 
 
 @pytest.mark.forked

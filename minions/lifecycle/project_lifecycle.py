@@ -42,6 +42,45 @@ def _now_iso() -> str:
     return datetime.now(tz=UTC).isoformat()
 
 
+def _reconcile_experiment_scheduler_on_revive(port: int) -> dict[str, object] | None:
+    """Run a best-effort experiment scheduler reconcile for an existing queue DB."""
+    try:
+        from minions.tools.experiment_scheduler import ExperimentScheduler, default_db_path
+    except Exception as exc:
+        logger.debug(
+            "project_revive: experiment scheduler import failed port=%d: %s",
+            port,
+            exc,
+        )
+        return None
+
+    db_path = default_db_path(port)
+    if not db_path.exists():
+        return None
+    try:
+        result = ExperimentScheduler(project_port=port).reconcile()
+    except Exception as exc:
+        logger.warning(
+            "project_revive: experiment scheduler reconcile failed port=%d db=%s: %s",
+            port,
+            db_path,
+            exc,
+        )
+        return None
+
+    logger.info(
+        "project_revive: experiment scheduler reconcile port=%d reaped=%d launched=%d "
+        "completed=%d failed=%d db=%s",
+        port,
+        len(result.get("reaped") or []),
+        len(result.get("launched") or []),
+        len(result.get("completed") or []),
+        len(result.get("failed") or []),
+        db_path,
+    )
+    return result
+
+
 def project_dormant(
     port: int,
     store: StateStore | None = None,
@@ -490,6 +529,8 @@ def project_revive(
             "eacn_agent_map": identity_map_for_meta(port),
         },
     )
+
+    _reconcile_experiment_scheduler_on_revive(port)
 
     logger.info("project_revive done: port=%d pid=%d", port, proc.pid)
     return updated

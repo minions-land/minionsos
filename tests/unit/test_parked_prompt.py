@@ -1,4 +1,4 @@
-"""Tests for the parked-prompt detector + kicker (Issue #29 safety net)."""
+"""Tests for the parked-prompt detector + kicker."""
 # ruff: noqa: RUF001, RUF002, RUF003
 # The `❯` glyph is the actual Claude Code prompt cursor; matching it
 # verbatim is the load-bearing part of the detection. We can't replace
@@ -31,6 +31,16 @@ _HEALTHY_PANE_SAMPLE = (
     "  ✻ Brewed for 12s\n"
 )
 
+_PHANTOM_LISTENING_SAMPLE = (
+    "当前运行状态\n"
+    "持续监听中 - mos_await_events() 正在后台持续运行，等待：\n"
+    "  - Ethics 关于 Pythagorean 分解形式化的请求\n"
+    "  - Gru 的进一步协调指示\n"
+    "需要我做其他什么吗？还是继续保持监听状态？\n"
+    "✻ Baked for 1h 7m 10s\n"
+    "❯\n"
+)
+
 
 def _fake_capture_pane(stdout: str):
     """Build a subprocess.CompletedProcess mock returning *stdout*."""
@@ -50,6 +60,15 @@ class TestDetectParkedPane:
         assert sig.parked is True
         assert sig.session_name == "mos-37596-noter"
         assert sig.snapshot_lines > 0
+
+    def test_prompt_after_listening_narration_is_detected(self) -> None:
+        with patch.object(
+            subprocess,
+            "run",
+            side_effect=_fake_capture_pane(_PHANTOM_LISTENING_SAMPLE),
+        ):
+            sig = parked_prompt.detect_parked_pane("mos-37597-expert-mathematician")
+        assert sig.parked is True
 
     def test_healthy_pane_is_not_parked(self) -> None:
         with patch.object(subprocess, "run", side_effect=_fake_capture_pane(_HEALTHY_PANE_SAMPLE)):

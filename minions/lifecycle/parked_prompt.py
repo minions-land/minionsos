@@ -1,20 +1,16 @@
-"""Detect Role processes parked at the input prompt after /compact.
+"""Detect Role processes parked at the input prompt.
 
-GitHub Issue #29: after Claude Code's ``/compact`` runs, the role's
-tmux pane shows the resume-protocol summary text and then the ``❯``
-input cursor. The model never gets a turn to obey the resume protocol
-because Claude Code returns control to the user prompt. The
-``post_compact_draft`` hook tries to inject a kick on the way out, but
-if that fails (tmux unavailable, race with redraw, etc.) the role
-parks indefinitely.
+Resident Roles are expected to keep their event loop inside
+``mos_await_events`` whenever they have no immediate work. If Claude
+Code is back at the input prompt while the role heartbeat is stale, the
+role is not polling and queued work will not be consumed. This module
+provides the Gru-side recovery path: scan each role's tmux pane on a
+cadence, detect the parked-at-prompt signature, and kick via
+``tmux send-keys -l``. A cooldown prevents re-kicking the same role on
+every tick — once we kick, the role gets a turn, the heartbeat
+refreshes, and the sweep stops firing.
 
-This module is the Gru-side safety net: scan each role's tmux pane on
-a cadence, detect the parked-at-prompt signature, and kick via the
-same ``tmux send-keys -l`` path the hook uses. A cooldown prevents
-re-kicking the same role on every tick — once we kick, the role gets
-a turn, the heartbeat refreshes, and the sweep stops firing.
-
-Detection signal (from the project_37596 capture):
+Detection signal:
 
     ────────────── p<port>/<role> ──
     ❯
@@ -45,8 +41,8 @@ from minions.tools.utils import strip_ansi_escapes
 
 logger = logging.getLogger(__name__)
 
-# The Claude Code TUI's input cursor. Captured verbatim from project_37596
-# pane snapshots — a single ❯ glyph followed by whitespace and end-of-line.
+# The Claude Code TUI's input cursor: a single ❯ glyph followed by whitespace
+# and end-of-line.
 _PROMPT_CURSOR_RE = re.compile(r"^\s*❯\s*$", re.MULTILINE)
 
 
@@ -96,18 +92,9 @@ def detect_parked_pane(session_name: str, *, lines: int = 40) -> ParkedSignal:
     return ParkedSignal(parked=parked, snapshot_lines=len(sample), session_name=session_name)
 
 
-# The recovery kick. We send a Claude Code ``/goal`` slash command rather than
-# a plain-text "Continue per resume protocol." sentence, because the slash
-# command goes into a different UI state than user messages: Claude Code
-# renders ``◎ /goal active (Ns)`` in the TUI footer for the entire goal
-# lifetime, so the model sees the stopping rule at every subsequent turn
-# boundary and cannot "decide to stop" while the goal is unsatisfied. Plain
-# text was a one-shot user message that got read, ack'd, and forgotten —
-# observed empirically against this project's roles when 0/7 plain-text kicks
-# woke any role, while 6/7 ``/goal`` kicks woke them within 30s. See
-# GitHub Issue #64 for the empirical study and the original ``/goal`` insight
-# from the project author. The stopping rule names ``mos_await_events`` so
-# the goal exits cleanly when a real EACN event finally arrives.
+# The recovery kick. We send a Claude Code ``/goal`` slash command so the
+# stopping rule stays visible across turn boundaries. The stopping rule names
+# ``mos_await_events`` so the goal exits cleanly when a real EACN event arrives.
 DEFAULT_KICK_PROMPT = (
     "/goal Continue your event loop: stopping rule = your next "
     "mos_await_events() call returns with a real EACN event. Do not stop "

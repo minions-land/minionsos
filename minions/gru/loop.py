@@ -504,13 +504,16 @@ class GruLoop:
                 continue
             try:
                 result = ExperimentScheduler(project_port=project.port).reconcile()
+                reaped = len(result.get("reaped") or [])
                 launched = len(result.get("launched") or [])
                 completed = len(result.get("completed") or [])
                 failed = len(result.get("failed") or [])
-                if launched or completed or failed:
+                if reaped or launched or completed or failed:
                     logger.info(
-                        "Experiment queue reconcile port=%d launched=%d completed=%d failed=%d",
+                        "Experiment queue reconcile port=%d reaped=%d launched=%d "
+                        "completed=%d failed=%d",
                         project.port,
+                        reaped,
                         launched,
                         completed,
                         failed,
@@ -777,13 +780,7 @@ class GruLoop:
                 self._last_wedge_kill_ts[key] = now
 
     def _sweep_parked_roles(self) -> None:
-        """Recover roles parked at the input prompt after /compact (Issue #29).
-
-        The post_compact_draft hook fires an immediate tmux kick on its
-        way out — this Gru-side sweep is the safety net for the case
-        where the hook itself failed (no tmux on PATH at hook-spawn
-        time, race with the TUI redraw, the hook crashed before it
-        reached the kick).
+        """Recover roles parked at the input prompt with a stale heartbeat.
 
         Detection requires both signals: (a) the role's pane shows the
         prompt cursor on its own line in the recent tail, AND (b) the
@@ -791,8 +788,8 @@ class GruLoop:
         Either signal alone has a high false-positive rate (a healthy
         role renders the cursor briefly between turns; a stale heartbeat
         may indicate a deeper wedge handled by the wedge-watchdog
-        instead). Both together are specific to the parked-after-compact
-        failure mode.
+        instead). Together they indicate a resident role is not inside
+        its ``mos_await_events`` loop and needs a recovery kick.
         """
         from minions.lifecycle.parked_prompt import detect_parked_pane, kick_pane
         from minions.lifecycle.role_launcher import session_alive
@@ -803,7 +800,7 @@ class GruLoop:
         for project in projects:
             port = project.port
             for role in project.active_roles:
-                if role.state != "active":
+                if role.state not in {"active", "sleeping"}:
                     continue
                 key = (port, role.name)
                 # Cooldown after a successful kick — the role needs a
@@ -838,7 +835,7 @@ class GruLoop:
                         severity="info",
                         message=(
                             f"Role {role.name!r} on port {port} was parked at "
-                            f"the input prompt after /compact "
+                            f"the input prompt "
                             f"(hb_age={int(hb_age)}s); Gru sent a recovery kick."
                         ),
                         role_name=role.name,

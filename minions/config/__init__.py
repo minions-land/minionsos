@@ -925,12 +925,10 @@ class GruConfig(BaseModel):
     parked_prompt_watchdog_enabled: bool = Field(
         default=True,
         description=(
-            "Issue #29: Gru-side safety net that detects role panes parked at "
-            "the input prompt (post-/compact failure mode) and sends a tmux "
-            "kick. The post_compact_draft hook fires immediately; this "
-            "watchdog catches the case where the hook itself fails (no tmux, "
-            "race with TUI redraw, etc.). Set false to disable if your "
-            "operator workflow uses /compact heavily and you trust the hook."
+            "Gru-side safety net that detects resident role panes parked at "
+            "the input prompt with a stale heartbeat and sends a tmux kick "
+            "that re-enters mos_await_events. Set false only when an external "
+            "operator already owns prompt-stall recovery."
         ),
     )
     parked_prompt_watchdog_interval_seconds: int = Field(
@@ -946,9 +944,7 @@ class GruConfig(BaseModel):
         description=(
             "Minimum heartbeat staleness before a role's parked pane is "
             "considered a real wedge rather than a momentary between-turn "
-            "render. Default 90 s. The post_compact_draft hook is expected "
-            "to recover in ~2 s; this watchdog only fires if the hook "
-            "failed for some reason."
+            "render. Default 90 s."
         ),
     )
     wedge_watchdog_interval_seconds: int = Field(

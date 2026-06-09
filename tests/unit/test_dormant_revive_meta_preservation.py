@@ -215,6 +215,79 @@ def test_revive_updates_and_preserves_meta_extras(
     assert meta["template_dir"] == "/tmp/tpl"
 
 
+def test_revive_reconciles_existing_experiment_scheduler_db(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    port = 40114
+    store, _entry, pdir = _seed_project(tmp_path, port=port)
+    _install_patches(
+        monkeypatch,
+        pdir,
+        backend_pid=99999,
+        server_id="srv-new",
+        server_token="tok-new",
+        gru_token="gru-new",
+    )
+    scheduler_db = tmp_path / "scheduler.sqlite"
+    scheduler_db.write_text("", encoding="utf-8")
+
+    from minions.tools import experiment_scheduler
+
+    monkeypatch.setattr(experiment_scheduler, "default_db_path", lambda project_port: scheduler_db)
+    reconciled: list[int] = []
+
+    class _FakeScheduler:
+        def __init__(self, *, project_port: int) -> None:
+            self.project_port = project_port
+
+        def reconcile(self) -> dict[str, list[dict[str, object]]]:
+            reconciled.append(self.project_port)
+            return {
+                "reaped": [{"run_id": "r-dead"}],
+                "launched": [],
+                "completed": [],
+                "failed": [],
+            }
+
+    monkeypatch.setattr(experiment_scheduler, "ExperimentScheduler", _FakeScheduler)
+
+    proj_mod.project_dormant(port, store=store)
+    proj_mod.project_revive(port, store=store)
+
+    assert reconciled == [port]
+
+
+def test_revive_does_not_create_experiment_scheduler_db_when_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    port = 40115
+    store, _entry, pdir = _seed_project(tmp_path, port=port)
+    _install_patches(
+        monkeypatch,
+        pdir,
+        backend_pid=99999,
+        server_id="srv-new",
+        server_token="tok-new",
+        gru_token="gru-new",
+    )
+    scheduler_db = tmp_path / "missing" / "scheduler.sqlite"
+
+    from minions.tools import experiment_scheduler
+
+    monkeypatch.setattr(experiment_scheduler, "default_db_path", lambda project_port: scheduler_db)
+
+    class _FailIfConstructed:
+        def __init__(self, *, project_port: int) -> None:
+            raise AssertionError("scheduler should not be constructed without an existing DB")
+
+    monkeypatch.setattr(experiment_scheduler, "ExperimentScheduler", _FailIfConstructed)
+
+    proj_mod.project_dormant(port, store=store)
+    proj_mod.project_revive(port, store=store)
+
+    assert not scheduler_db.exists()
+
+
 def test_revive_adopts_running_backend_left_by_failed_kill(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
