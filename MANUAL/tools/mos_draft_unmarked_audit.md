@@ -3,7 +3,7 @@ id: mos_draft_unmarked_audit
 kind: tool
 domain: memory
 auth: [gru, ethics]
-source: minions/tools/mcp/memory_tools.py:140
+source: minions/tools/mcp/memory_tools.py:141
 since: stable
 keywords: [draft, audit, evidence, unmarked, claims, ethics]
 related: [mos_draft_view, mos_draft_annotate, mos_book_audit_walk]

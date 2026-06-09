@@ -121,6 +121,14 @@ class TestGruSystemInvariants:
     def test_references_repair_command(self) -> None:
         assert "mos project repair" in _text()
 
+    def test_lifecycle_tools_are_the_operator_surface(self) -> None:
+        t = _text()
+        collapsed = " ".join(t.split())
+        assert "Do not bypass project lifecycle tools" in t
+        assert "Use `mos_project_create` exactly once for a new project" in t
+        assert "Do not call create again against that tree" in collapsed
+        assert "Do not repair project state by manually rewriting `projects.json`" in t
+
     def test_task_based_collaboration_mode_section(self) -> None:
         """Issue #86 / live-session lesson: Gru must push roles into
         task-based collaboration and NOT become the inter-role mailroom

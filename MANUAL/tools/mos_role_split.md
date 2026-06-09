@@ -3,7 +3,7 @@ id: mos_role_split
 kind: tool
 domain: evolution
 auth: [gru]
-source: minions/tools/mcp/role_evolution_tools.py:103
+source: minions/tools/mcp/role_evolution_tools.py:101
 since: stub
 keywords: []
 related: []

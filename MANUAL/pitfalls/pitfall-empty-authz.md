@@ -10,9 +10,9 @@ related: [mos_spawn_expert, mos_issue_report, pitfall-tool-denied]
 status: stable
 ---
 
-# pitfall: spawned Expert has empty `server_authz` — every tool denied (P0)
+# pitfall: spawned Expert has empty `server_authz` — every tool denied
 
-**Symptom (project_37596 / `issues/issues.jsonl` ISS-37596-1):**
+**Symptom:**
 ```
 Role 'theory-normalization-expert' has empty server_authz —
 every MCP tool denied, event loop unrunnable
@@ -32,14 +32,14 @@ in `-expert` produces double-suffix corruption.
 ## Recipe
 
 ```python
-mos_spawn_expert(name="theory-normalization")            # ✓ → expert-theory-normalization
-mos_spawn_expert(name="theory-normalization-expert")     # ✗ never. Will P0 the role.
+mos_spawn_expert(name="theory-normalization")            # ok: expert-theory-normalization
+mos_spawn_expert(name="theory-normalization-expert")     # wrong: every tool denied
 ```
 
 If you find an existing expert in the broken shape:
 ```python
-mos_dismiss_role(port=37596, role="theory-normalization-expert", reason="bad slug shape")
-mos_spawn_expert(port=37596, name="theory-normalization", domain=...)
+mos_dismiss_role(port=<port>, role="theory-normalization-expert", reason="bad slug shape")
+mos_spawn_expert(port=<port>, name="theory-normalization", domain=...)
 ```
 
 ## Fallback when the broken role needs to file the issue
@@ -47,8 +47,7 @@ mos_spawn_expert(port=37596, name="theory-normalization", domain=...)
 `mos_issue_report` is in `_KEEPALIVE_TOOLS + _ISSUE_REPORT_TOOLS` spread into
 every authz list — but those universals are spread INTO each list, so if the
 list is empty the universals are also lost. The role must write directly to
-`project_<port>/issues/issues.jsonl` from a `Bash` tool. project_37596's
-ISS-37596-1 was filed this way.
+`project_<port>/issues/issues.jsonl` from a `Bash` tool.
 
 ## Source
 

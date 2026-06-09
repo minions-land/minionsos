@@ -27,6 +27,7 @@ import logging
 import os
 import shutil
 import subprocess
+import threading
 from pathlib import Path
 
 from minions.config import GruConfig, load_gru_config, whitelist_csv
@@ -418,14 +419,16 @@ def _spawn_tmux(
     # Give claude a moment to come up, then deliver the initial prompt.
     # The delivery (poll-until-REPL-ready up to 30s + paste + commit + retry
     # up to 3 attempts x 5s activity check) costs up to ~47s of wall-clock
-    # per role. With Gru spawning ~7 roles at project bootstrap, that's
-    # ~5 min of pure synchronization. Move the whole delivery to a daemon
-    # thread so the launcher returns as soon as the tmux session is alive
-    # and the prompt is *queued*, rather than after it's been delivered.
+    # per role. Move delivery to a background thread so the launcher returns
+    # as soon as the tmux session is alive and the prompt is queued, rather
+    # than after it has been delivered.
     #
-    # Roles already tolerate slow first-prompt delivery — they wake up
-    # when the prompt actually lands, not when launch_role_process
-    # returns. The Claude Code REPL itself buffers keystrokes safely.
+    # The thread must be non-daemon: CLI callers such as `./mos project
+    # revive` exit after launching roles. A daemon delivery thread can be
+    # killed at interpreter shutdown before the initial prompt lands, leaving
+    # Claude parked at the welcome screen with no mos_await_events loop.
+    # Non-daemon delivery still lets launch_role_process return immediately,
+    # while Python waits for the bounded delivery attempt before process exit.
     #
     # Tests that need to assert delivery completed can opt in by setting
     # ``MINIONS_ROLE_LAUNCHER_SYNC=1`` (the default-off env switch
@@ -435,12 +438,11 @@ def _spawn_tmux(
     if sync:
         _tmux_send_initial_prompt(session_name, initial_prompt)
     else:
-        import threading
 
         def _deliver() -> None:
             try:
                 _tmux_send_initial_prompt(session_name, initial_prompt)
-            except Exception as exc:  # daemon thread — never propagate
+            except Exception as exc:  # background thread — never propagate
                 logger.warning(
                     "_spawn_tmux: background prompt delivery failed for %s: %s",
                     session_name,
@@ -450,7 +452,7 @@ def _spawn_tmux(
         threading.Thread(
             target=_deliver,
             name=f"role-launcher-deliver-{session_name}",
-            daemon=True,
+            daemon=False,
         ).start()
 
 

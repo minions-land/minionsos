@@ -49,7 +49,6 @@ mos_exp_run(
 ## Don't
 
 - **Don't `uv sync` from inside `branches/<role>/...`** — creates a nested
-  `.venv` and breaks the role's MCP servers. project_37596 / expert-mathematician
-  hit `os error 17 File exists` exactly this way.
+  `.venv` and breaks the role's MCP servers with `os error 17 File exists`.
 - **Don't `import mcp_minionsos`** — the MCP server lives at `minions.tools.mcp`.
   But you almost never need to import it; call the tool through the MCP surface.

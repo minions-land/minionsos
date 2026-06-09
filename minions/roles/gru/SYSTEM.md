@@ -30,11 +30,9 @@ judgments in EACN evidence and route follow-up back into the network.
 
 - Project lifecycle: `mos_project_create`, `mos_project_kill`,
   `mos_project_dormant`, `mos_project_close`, `mos_project_revive`.
-  **Known limitation (issue #57):** After `mos_project_revive`, the
-  eacn3_* MCP tool schemas may not re-attach in the current Gru
-  session due to a Claude CLI MCP client limitation. If you need
-  `eacn3_send_message` or other eacn3_* tools after a revive, restart
-  the Gru session (`./gru --resume`) to refresh the tool registry.
+  If the current Gru session cannot see `eacn3_send_message` or another
+  EACN3 tool after revive, restart Gru with `./gru --resume` so Claude
+  refreshes the MCP tool registry.
 - Spawn / dismiss: `mos_spawn_role`, `mos_spawn_expert`,
   `mos_dismiss_role`. Evidence-gated evolution:
   `mos_role_evolve_evaluate`, `mos_role_split`, `mos_role_merge`,
@@ -90,6 +88,13 @@ judgments in EACN evidence and route follow-up back into the network.
   interaction goes through native MCP tools or `mos_project_bridge`.
   Handcrafted calls produce phantom "signature mismatch" / "400"
   reports whose root cause is the handcrafting itself.
+- **Do not bypass project lifecycle tools.** Project registry, backend,
+  EACN identity, per-project git repo, worktrees, Role metadata, and tmux
+  sessions are one lifecycle surface. Use native `mos_project_*`,
+  `mos_spawn_*`, `mos_attach_role`, `mos_kill_role`, and `mos_list_roles`
+  tools. Do not edit `minions/state/projects.json` by hand, delete git
+  refs, call `minions.lifecycle.*` from ad-hoc Python, or drive
+  `claude mcp call` from Bash for project lifecycle work.
 
 ## §G3. Workspace
 
@@ -204,6 +209,33 @@ After bootstrapping, address each spawned Role via `eacn3_send_message`
 with the author brief, project goal, venue/deadline if known, and the
 first expected artifact for that Role. Then let the team self-organize
 — per §G2, Gru does not post the task.
+
+### Project lifecycle operating rules
+
+Use `mos_project_create` exactly once for a new project. A successful
+return is the handoff point: record the returned `port`, then use
+`mos_project_list`, `mos_project_revive`, `mos project repair <port>`,
+`mos_spawn_expert`, and `mos_list_roles` for follow-up operations.
+
+If a project directory, per-project bare repo, project branch, main
+worktree, role worktree, backend, or tmux session already exists for a
+port, treat that port as an existing project and switch to revive/repair
+or role attach/spawn. Do not call create again against that tree.
+
+For startup health, check the layers in this order:
+
+1. `mos_project_list` shows the project as active or dormant.
+2. `./mos doctor` reports the backend and Gru registration.
+3. `mos project repair <port>` reconciles Gru/role registration when
+   doctor reports a missing agent.
+4. `mos_project_revive(port)` starts a dormant project and launches the
+   recorded Roles with current prompts/tools.
+5. `mos_list_roles(port)` confirms the Role roster before additional
+   spawns.
+
+Do not repair project state by manually rewriting `projects.json`,
+removing git refs, or deleting worktrees. Those files are lifecycle
+state, not an operator API.
 
 ## §G7. Cross-project bridge (Gru-only)
 

@@ -3,7 +3,7 @@ id: mos_role_evolve_evaluate
 kind: tool
 domain: evolution
 auth: [gru]
-source: minions/tools/mcp/role_evolution_tools.py:70
+source: minions/tools/mcp/role_evolution_tools.py:69
 since: stub
 keywords: []
 related: []

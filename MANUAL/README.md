@@ -30,7 +30,7 @@ MANUAL/
 │   ├── mos_publish_to_shared.md (curated)
 │   ├── eacn3_send_message.md    (auto-generated from plugin description)
 │   └── ...
-├── pitfalls/             ← L2 known-failure pages (real project_37596 evidence)
+├── pitfalls/             ← L2 known-failure pages from runtime evidence
 │   ├── pitfall-deferred-schema.md
 │   ├── pitfall-empty-authz.md
 │   ├── pitfall-queue-deadlaunch-fp.md
@@ -48,14 +48,14 @@ MANUAL/
 
 ```bash
 # Once at startup
-read MANUAL/MANUAL.md       # ~700 tokens
+read $MINIONS_ROOT/MANUAL/MANUAL.md       # ~700 tokens
 
 # Per question
-python3 MANUAL/scripts/lookup.py "queue dispatch retry"
-python3 MANUAL/scripts/lookup.py --id mos_exp_queue_submit
-python3 MANUAL/scripts/lookup.py --decision "I want to publish a result"
-python3 MANUAL/scripts/lookup.py --pitfalls "queue"
-python3 MANUAL/scripts/lookup.py --domain experiments
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py "queue dispatch retry"
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --id mos_exp_queue_submit
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --decision "I want to publish a result"
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --pitfalls "queue"
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --domain experiments
 ```
 
 Mirrors ToolSearch ergonomics: query → minimal payload of page ids + snippets,
@@ -64,10 +64,10 @@ then optional full-page fetch. Output budget ≤ 1 KB per query call.
 ## Maintenance workflow (when MinionsOS changes)
 
 ```bash
-python3 MANUAL/scripts/gen_tool_stubs.py        # scaffold missing Python tool pages
-python3 MANUAL/scripts/gen_eacn3_stubs.py       # scaffold missing EACN3 tool pages
-python3 MANUAL/scripts/build_index.py           # rebuild INDEX.json
-python3 MANUAL/scripts/validate.py              # drift detector
+python3 $MINIONS_ROOT/MANUAL/scripts/gen_tool_stubs.py        # scaffold missing Python tool pages
+python3 $MINIONS_ROOT/MANUAL/scripts/gen_eacn3_stubs.py       # scaffold missing EACN3 tool pages
+python3 $MINIONS_ROOT/MANUAL/scripts/build_index.py           # rebuild INDEX.json
+python3 $MINIONS_ROOT/MANUAL/scripts/validate.py              # drift detector
 ```
 
 The validator checks three things:
@@ -84,7 +84,7 @@ Suitable for CI.
 
 - **131 tool pages** (Python `@mcp.tool()` wrappers plus EACN3 plugin tools)
 - **14 domain cards**
-- **8 pitfall pages** grounded in recorded project evidence
+- **8 pitfall pages** grounded in runtime evidence
 - High-traffic tool pages are hand-curated; the remaining tool pages are auto-generated stubs with correct
   frontmatter and source line. They surface in `lookup.py` correctly and
   link to the source file for full signature.
@@ -92,6 +92,6 @@ Suitable for CI.
 ## Validation
 
 ```bash
-$ python3 MANUAL/scripts/validate.py
+$ python3 $MINIONS_ROOT/MANUAL/scripts/validate.py
 OK — 131 tools, 131 pages, no drift
 ```

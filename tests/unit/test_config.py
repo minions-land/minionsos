@@ -129,7 +129,7 @@ class TestWhitelistResolver:
 
     def test_gru_has_native_eacn3_and_monitor_tools(self) -> None:
         tools = resolve_allowed_tools("gru")
-        assert "eacn3_*" in tools
+        assert "mcp__eacn3__eacn3_*" in tools
         assert "mos_start_monitor" in tools
 
     def test_expert_has_exp_tools(self) -> None:

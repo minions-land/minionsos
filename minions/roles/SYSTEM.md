@@ -95,10 +95,10 @@ For any MCP tool signature, error pattern, recovery recipe, write-scope
 detail, or pitfall:
 
 ```bash
-python3 MANUAL/scripts/lookup.py "<query>"          # search
-python3 MANUAL/scripts/lookup.py --id <tool_id>     # full page
-python3 MANUAL/scripts/lookup.py --domain <name>    # list a domain
-python3 MANUAL/scripts/lookup.py --pitfalls ""      # known traps
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py "<query>"          # search
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --id <tool_id>     # full page
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --domain <name>    # list a domain
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --pitfalls ""      # known traps
 ```
 
 Each lookup returns ≤1 KB. **Do NOT** re-read this `SYSTEM.md`,

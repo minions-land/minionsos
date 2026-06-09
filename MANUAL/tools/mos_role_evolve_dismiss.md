@@ -3,7 +3,7 @@ id: mos_role_evolve_dismiss
 kind: tool
 domain: evolution
 auth: [gru]
-source: minions/tools/mcp/role_evolution_tools.py:160
+source: minions/tools/mcp/role_evolution_tools.py:158
 since: stub
 keywords: []
 related: []

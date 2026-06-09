@@ -68,7 +68,7 @@ def test_ethics_main_whitelist() -> None:
     # CLI whitelist is unified across EACN roles for cache optimization.
     # Verify the unified list includes what Ethics needs.
     tools = resolve_whitelist("ethics", "main")
-    assert "eacn3_*" in tools
+    assert "mcp__eacn3__eacn3_*" in tools
     assert "WebSearch" in tools
     assert "WebFetch" in tools
     assert "Read" in tools

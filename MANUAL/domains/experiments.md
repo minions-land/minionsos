@@ -39,8 +39,8 @@ lookup.py --id mos_exp_gpu_pool_set    # reserve GPUs
 - `gpu_ids=[1]` is your 5-second probe-friendly default.
 - For 30k-step grokking runs, `timeout_s ≥ 3600`.
 - `mos_query_gpus(execution="local")` — `auto` is rejected.
-- Don't reconcile in a defensive loop. Project_37596 burned 46 minutes
-  "simmering" on bare reconciles that did nothing.
+- Don't reconcile in a defensive loop. Inspect queue state, then reconcile
+  only when capacity or completed processes need reaping.
 
 ## Project venv vs MinionsOS venv
 
@@ -50,7 +50,7 @@ live in a separate venv. Either:
 - or `mos_exp_run` with explicit interpreter path: `command="/proj/.venv/bin/python ..."`
 
 Never `uv sync` from inside `branches/<role>/...` — creates a nested `.venv`
-and breaks MCP servers (project_37596 / expert-mathematician hit `os error 17`).
+and breaks MCP servers with `os error 17 File exists`.
 
 ## Full surface
 

@@ -11,14 +11,15 @@ always in your context. Everything else you fetch on demand via `lookup.py`.**
 | **L1** | Domain cards: `MANUAL/domains/<domain>.md`. ~14 files, ~40 lines each. Fetch when you've narrowed to a domain. | ~400 tok each |
 | **L2** | Atomic pages: `MANUAL/tools/<id>.md`, `MANUAL/pitfalls/<id>.md`. Each ≤ 80 lines. Fetch the one page you need. | ~300 tok each |
 
-**The lookup CLI** (use this exactly like `ToolSearch`):
+**The lookup CLI** (use this exactly like `ToolSearch`; Role worktrees use
+`$MINIONS_ROOT` to reach the repository manual):
 ```bash
-python3 MANUAL/scripts/lookup.py "queue dispatch retry"        # top 5 hits + paths
-python3 MANUAL/scripts/lookup.py --id mos_exp_queue_submit     # full page
-python3 MANUAL/scripts/lookup.py --id mos_exp_run --section signature
-python3 MANUAL/scripts/lookup.py --domain experiments          # list a domain
-python3 MANUAL/scripts/lookup.py --decision "I want to publish" # goal-driven
-python3 MANUAL/scripts/lookup.py --pitfalls "queue"            # known traps
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py "queue dispatch retry"        # top 5 hits + paths
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --id mos_exp_queue_submit     # full page
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --id mos_exp_run --section signature
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --domain experiments          # list a domain
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --decision "I want to publish" # goal-driven
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --pitfalls "queue"            # known traps
 ```
 
 Every page carries `source: <file>:<line>`. If the page isn't enough, read source.
@@ -37,7 +38,7 @@ Every page carries `source: <file>:<line>`. If the page isn't enough, read sourc
 
 | Domain | What |
 |---|---|
-| `eacn3` | EACN messaging, tasks, bids, agent registration. **Project_37596 thrash zone.** |
+| `eacn3` | EACN messaging, tasks, bids, agent registration |
 | `lifecycle` | (Gru) projects, roles, spawn, dismiss, phase, signboard |
 | `experiments` | (Expert) `mos_exp_*`, queue, GPU pool |
 | `memory` | Reel (L0), Draft (L1), Book (L2) |
@@ -58,7 +59,7 @@ Every page carries `source: <file>:<line>`. If the page isn't enough, read sourc
 2. **Tool not loaded? Use the MANUAL → ToolSearch chain — never fuzzy-search.**
    The top-30 hot-path tools are eagerly loaded; the long tail is deferred. When you reach for a deferred tool:
    ```bash
-   python3 MANUAL/scripts/lookup.py "<topic>"     # 0-cost, returns exact tool id
+   python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py "<topic>"     # 0-cost, returns exact tool id
    ```
    ```
    ToolSearch(query="select:<exact-id-from-lookup>")   # loads the schema
@@ -68,10 +69,10 @@ Every page carries `source: <file>:<line>`. If the page isn't enough, read sourc
 ## Top pitfalls — read once, save hours
 
 ```bash
-python3 MANUAL/scripts/lookup.py --pitfalls ""   # list all
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --pitfalls ""   # list all
 ```
 
-Highest-impact (from project_37596):
+Highest-impact:
 - `pitfall-deferred-schema` — "tool not found" when ToolSearch hasn't loaded it yet
 - `pitfall-empty-authz` — slug-SUFFIX expert names get empty whitelist (P0)
 - `pitfall-queue-deadlaunch-fp` — `{project_workspace}` not expanded → false-OOM, retry storm
@@ -82,10 +83,10 @@ Highest-impact (from project_37596):
 When a tool is added / renamed / removed in `minions/tools/mcp/*.py` or
 `mcp-servers/eacn3/plugin/index.ts`:
 ```bash
-python3 MANUAL/scripts/gen_tool_stubs.py     # scaffold missing pages
-python3 MANUAL/scripts/gen_eacn3_stubs.py    # same for EACN3
-python3 MANUAL/scripts/build_index.py        # rebuild INDEX.json
-python3 MANUAL/scripts/validate.py           # detect drift; CI-safe
+python3 $MINIONS_ROOT/MANUAL/scripts/gen_tool_stubs.py     # scaffold missing pages
+python3 $MINIONS_ROOT/MANUAL/scripts/gen_eacn3_stubs.py    # same for EACN3
+python3 $MINIONS_ROOT/MANUAL/scripts/build_index.py        # rebuild INDEX.json
+python3 $MINIONS_ROOT/MANUAL/scripts/validate.py           # detect drift; CI-safe
 ```
 
 `validate.py` exits 1 on real drift (BAD_SOURCE / DRIFT) and 0 on warnings only.

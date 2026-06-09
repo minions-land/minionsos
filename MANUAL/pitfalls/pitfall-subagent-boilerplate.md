@@ -12,7 +12,7 @@ status: stable
 
 # pitfall: subagent verdicts are boilerplate, not real
 
-**Symptom (project_37596 / role-ethics):**
+**Symptom:**
 ```
 The subagent did boilerplate work — every "needs-experiment" verdict has a
 one-line generic rationale "Substantive disagreement requires further

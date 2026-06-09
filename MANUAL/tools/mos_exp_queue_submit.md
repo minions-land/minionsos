@@ -37,10 +37,10 @@ assert cells[0]["log_path"].startswith("/")
 submission of the same cell starts at `attempts=cap` and goes straight to
 `failed`. Bump `max_retries` if you're re-submitting after a reaper bug fix.
 
-## Real example (project_37596 P2)
+## Example
 ```py
 mos_exp_queue_submit(
-  port=37596,
+  port=<port>,
   cells=cells,                  # 108 = 3 eps × 3 β1 × 3 β2 × 4 seeds
   max_retries=3,
   group="p4-eps-beta",

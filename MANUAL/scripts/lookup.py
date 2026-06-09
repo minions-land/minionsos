@@ -107,7 +107,9 @@ def cmd_query(idx: dict, query: str, k: int, role: str | None, kind: str | None)
     for i, (_score, pid, page) in enumerate(scored[:k], start=1):
         out_lines.append(fmt_hit(i, pid, page))
     out_lines.append("")
-    out_lines.append("Fetch a page in full:  python3 MANUAL/scripts/lookup.py --id <id>")
+    out_lines.append(
+        "Fetch a page in full:  python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --id <id>"
+    )
     print("\n".join(out_lines))
     return 0
 

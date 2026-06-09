@@ -3,7 +3,7 @@ id: mos_book_ratify
 kind: tool
 domain: memory
 auth: [ethics]
-source: minions/tools/mcp/memory_tools.py:393
+source: minions/tools/mcp/memory_tools.py:394
 since: stable
 keywords: [book, ratify, ethics, verify, promote, ratification]
 related: [mos_book_promote_verified, mos_book_audit_walk, mos_book_query]

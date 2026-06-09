@@ -3,7 +3,7 @@ id: mos_draft_annotate
 kind: tool
 domain: memory
 auth: [*]
-source: minions/tools/mcp/memory_tools.py:118
+source: minions/tools/mcp/memory_tools.py:119
 since: stub
 keywords: []
 related: []

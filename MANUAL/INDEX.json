@@ -1,6 +1,6 @@
 {
-  "version": "e6f63d7",
-  "built_at": "2026-06-06T14:54:39.294005+00:00",
+  "version": "9613db1",
+  "built_at": "2026-06-09T02:23:28.620938+00:00",
   "page_count": 153,
   "pages": {
     "eacn3_a2a_server": {
@@ -878,7 +878,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:294",
+      "source": "minions/tools/mcp/memory_tools.py:295",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -892,7 +892,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:368",
+      "source": "minions/tools/mcp/memory_tools.py:369",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -908,7 +908,7 @@
         "expert",
         "ethics"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:427",
+      "source": "minions/tools/mcp/memory_tools.py:428",
       "since": "stable",
       "status": "stable",
       "summary": "Record a refuted claim as a permanent dead-end Book page so other projects do not re-run the same failed experiment.",
@@ -933,7 +933,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:187",
+      "source": "minions/tools/mcp/memory_tools.py:188",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -947,7 +947,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:220",
+      "source": "minions/tools/mcp/memory_tools.py:221",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -961,7 +961,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:336",
+      "source": "minions/tools/mcp/memory_tools.py:337",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -977,7 +977,7 @@
         "expert",
         "ethics"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:410",
+      "source": "minions/tools/mcp/memory_tools.py:411",
       "since": "stable",
       "status": "stable",
       "summary": "Record an open research question as a durable Book page at `book/open_questions/<slug>.md`.",
@@ -1003,7 +1003,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:343",
+      "source": "minions/tools/mcp/memory_tools.py:344",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1019,7 +1019,7 @@
         "expert",
         "ethics"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:242",
+      "source": "minions/tools/mcp/memory_tools.py:243",
       "since": "stable",
       "status": "stable",
       "summary": "Search durable Book pages by topic. Pages live at `branches/main/book/sources/`.",
@@ -1044,7 +1044,7 @@
       "auth": [
         "ethics"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:393",
+      "source": "minions/tools/mcp/memory_tools.py:394",
       "since": "stable",
       "status": "stable",
       "summary": "Ethics ratifies a promoted Book source page by appending a signed review and setting `ratified_by: ethics`.",
@@ -1069,7 +1069,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:311",
+      "source": "minions/tools/mcp/memory_tools.py:312",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1083,7 +1083,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:269",
+      "source": "minions/tools/mcp/memory_tools.py:270",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1193,7 +1193,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:118",
+      "source": "minions/tools/mcp/memory_tools.py:119",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1209,7 +1209,7 @@
         "expert",
         "ethics"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:107",
+      "source": "minions/tools/mcp/memory_tools.py:108",
       "since": "stable",
       "status": "stable",
       "summary": "Add nodes / edges to the Draft. IDs auto-generated. `reel_ref` auto-injected from session env.",
@@ -1235,7 +1235,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:153",
+      "source": "minions/tools/mcp/memory_tools.py:154",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1249,7 +1249,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:169",
+      "source": "minions/tools/mcp/memory_tools.py:170",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1263,7 +1263,7 @@
       "auth": [
         "*"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:130",
+      "source": "minions/tools/mcp/memory_tools.py:131",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -1278,7 +1278,7 @@
         "gru",
         "ethics"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:140",
+      "source": "minions/tools/mcp/memory_tools.py:141",
       "since": "stable",
       "status": "stable",
       "summary": "Compute each role's unmarked-claim ratio over Draft nodes.",
@@ -1305,7 +1305,7 @@
         "expert",
         "ethics"
       ],
-      "source": "minions/tools/mcp/memory_tools.py:85",
+      "source": "minions/tools/mcp/memory_tools.py:86",
       "since": "stable",
       "status": "stable",
       "summary": "Unified read over the team Draft graph: orientation header + filtered node/edge slice. The single role-facing memory lens.",
@@ -1717,10 +1717,15 @@
       ],
       "source": "minions/tools/mcp/project_tools.py:33",
       "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "status": "stable",
+      "summary": "Create one new MinionsOS project and bootstrap its project-local runtime.",
       "keywords": [],
-      "related": []
+      "related": [
+        "mos_project_revive",
+        "mos_project_list",
+        "mos_spawn_expert",
+        "mos_list_roles"
+      ]
     },
     "mos_project_dormant": {
       "kind": "tool",
@@ -1773,10 +1778,14 @@
       ],
       "source": "minions/tools/mcp/project_tools.py:106",
       "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "status": "stable",
+      "summary": "Restart an existing project from recorded lifecycle state.",
       "keywords": [],
-      "related": []
+      "related": [
+        "mos_project_create",
+        "mos_project_list",
+        "mos_list_roles"
+      ]
     },
     "mos_project_set_phase": {
       "kind": "tool",
@@ -2020,7 +2029,7 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/role_evolution_tools.py:160",
+      "source": "minions/tools/mcp/role_evolution_tools.py:158",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -2034,7 +2043,7 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/role_evolution_tools.py:70",
+      "source": "minions/tools/mcp/role_evolution_tools.py:69",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -2048,7 +2057,7 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/role_evolution_tools.py:131",
+      "source": "minions/tools/mcp/role_evolution_tools.py:129",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -2062,7 +2071,7 @@
       "auth": [
         "gru"
       ],
-      "source": "minions/tools/mcp/role_evolution_tools.py:103",
+      "source": "minions/tools/mcp/role_evolution_tools.py:101",
       "since": "stub",
       "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
@@ -2403,7 +2412,7 @@
       "source": "minions/config/__init__.py:517",
       "since": "v15.0",
       "status": "stable",
-      "summary": "**Symptom (project_37596 / `issues/issues.jsonl` ISS-37596-1):**",
+      "summary": "**Symptom:**",
       "keywords": [
         "authz",
         "denied",
@@ -2430,7 +2439,7 @@
       "source": "minions/tools/mcp/__init__.py:1",
       "since": "stable",
       "status": "stable",
-      "summary": "**Symptom (every role-*.log in project_37596):** the harness footer shows",
+      "summary": "**Symptom:** the harness footer shows",
       "keywords": [
         "mcp",
         "server",
@@ -2531,7 +2540,7 @@
       "source": "minions/review/SYSTEM.md:1",
       "since": "stable",
       "status": "stable",
-      "summary": "**Symptom (project_37596 / role-ethics):**",
+      "summary": "**Symptom:**",
       "keywords": [
         "subagent",
         "boilerplate",

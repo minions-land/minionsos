@@ -24,21 +24,21 @@ mos_spawn_expert(
 ) -> { role, session_name, agent_id, registered_role_name }
 ```
 
-## The slug rule (P0 from project_37596)
+## The slug rule
 
 ```py
-mos_spawn_expert(name="theory-normalization")           # ✓ → expert-theory-normalization
-mos_spawn_expert(name="theory-normalization-expert")    # ✗ slug-SUFFIX → empty authz
+mos_spawn_expert(name="theory-normalization")           # ok: expert-theory-normalization
+mos_spawn_expert(name="theory-normalization-expert")    # wrong: empty authz
 ```
 
 The launcher prepends `expert-` for you. Passing a name that already ends in
 `-expert` produces a double-suffix that `_normalise_role_name()` doesn't
-collapse → empty `server_authz` → every MCP tool denied → P0 incident.
+collapse, so `server_authz` is empty and every MCP tool is denied.
 
 If you find an Expert in the broken shape:
 ```py
-mos_dismiss_role(port=37596, role="theory-normalization-expert", reason="bad slug")
-mos_spawn_expert(port=37596, name="theory-normalization", domain=...)
+mos_dismiss_role(port=<port>, role="theory-normalization-expert", reason="bad slug")
+mos_spawn_expert(port=<port>, name="theory-normalization", domain=...)
 ```
 
 ## See also

@@ -3,7 +3,7 @@ id: mos_book_crystallize_session
 kind: tool
 domain: memory
 auth: [*]
-source: minions/tools/mcp/memory_tools.py:368
+source: minions/tools/mcp/memory_tools.py:369
 since: stub
 keywords: []
 related: []

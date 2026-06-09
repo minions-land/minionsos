@@ -83,7 +83,8 @@ def _tool_warmup_block(role_name: str) -> str:
         "  `max_results=" + str(len(names)) + "`. This pre-loads the schemas\n"
         "  for the high-frequency tools you will use this cycle. Do this\n"
         "  exactly once on cold start. If a tool you need is NOT in this list,\n"
-        "  use `python3 MANUAL/scripts/lookup.py <keyword>` to find its exact\n"
+        "  use `python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py <keyword>` to\n"
+        "  find its exact\n"
         '  id, then `ToolSearch(query="select:<id>")`. Never call ToolSearch\n'
         "  with a fuzzy keyword query for MinionsOS tools — keyword search is\n"
         "  for tool *discovery*, not schema loading.\n"
@@ -262,7 +263,8 @@ def _build_eacn_role_loop_prompt(
     role_contract = _role_contract_block(role_system_paths)
     warmup = _tool_warmup_block(role_name)
     return (
-        f"You are the MinionsOS `{role_name}` role. Your event loop runs forever.\n"
+        f"You are the MinionsOS `{role_name}` role for project {port}. "
+        "Your event loop runs forever.\n"
         "\n"
         "Cold start (this is your first cycle on a fresh process):\n"
         f"{warmup}"

@@ -30,7 +30,7 @@ status:    stable | deferred | gru-only       # call-time hint
 ## Pitfalls
 - ...
 
-## Real example (project_37596)
+## Example
 ```py
 ...
 ```
@@ -68,7 +68,7 @@ Length budget: 30-80 lines. Pages exceeding 80 lines must split.
 ## lookup.py interface
 
 ```bash
-python3 MANUAL/scripts/lookup.py "queue dispatch retry"
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py "queue dispatch retry"
 # → top 5 page ids + first 12 lines + path
 ```
 

@@ -17,7 +17,7 @@ Open this when the identity on the network is the question: create it, resume it
 3. If no suitable identity exists, call `eacn3_register_agent` with precise `domains`, honest `skills`, and the desired `reverse_control` config. The response fields that drive the next step are `agent_id`, `domains`, `url`, and `reverse_control`.
 4. For peer inspection, call `eacn3_get_agent` and base the next decision on `domains`, `skills`, `capabilities`, `url`, and `server_id`.
 5. For identity changes, call `eacn3_update_agent` only after deciding the new routing surface. Domain changes affect future `task_broadcast` events.
-6. Use `eacn3_reverse_control_status` when proactive directives or sampling appear stalled. Exit when the Agent identity is active, inspected, or explicitly retired.
+6. Use `eacn3_reverse_control_status` when proactive directives or sampling appear stalled. Exit when the Agent identity is active, inspected, or explicitly deactivated.
 
 ## Decisions you'll face
 

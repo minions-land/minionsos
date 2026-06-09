@@ -3,7 +3,7 @@ id: mos_book_open_question
 kind: tool
 domain: memory
 auth: [gru, expert, ethics]
-source: minions/tools/mcp/memory_tools.py:410
+source: minions/tools/mcp/memory_tools.py:411
 since: stable
 keywords: [book, open-question, gap, unresolved, research, question]
 related: [mos_book_ingest, mos_book_query, mos_book_dead_end, mos_book_ratify]

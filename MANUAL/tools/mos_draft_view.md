@@ -3,7 +3,7 @@ id: mos_draft_view
 kind: tool
 domain: memory
 auth: [gru, expert, ethics]
-source: minions/tools/mcp/memory_tools.py:85
+source: minions/tools/mcp/memory_tools.py:86
 since: stable
 keywords: [draft, view, query, orient, wake, graph]
 related: [mos_draft_append, mos_draft_annotate, mos_draft_path]

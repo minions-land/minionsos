@@ -199,7 +199,7 @@ def test_warmup_block_steers_away_from_keyword_search() -> None:
     # The warmup MUST tell the role to use select:<id> and lookup.py, not
     # keyword search, for MinionsOS tools.
     prompt = _cold_prompt("expert")
-    assert "MANUAL/scripts/lookup.py" in prompt
+    assert "$MINIONS_ROOT/MANUAL/scripts/lookup.py" in prompt
     assert "keyword" in prompt.lower()
 
 

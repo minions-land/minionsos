@@ -3,7 +3,7 @@ id: mos_book_promote_verified
 kind: tool
 domain: memory
 auth: [*]
-source: minions/tools/mcp/memory_tools.py:343
+source: minions/tools/mcp/memory_tools.py:344
 since: stub
 keywords: []
 related: []

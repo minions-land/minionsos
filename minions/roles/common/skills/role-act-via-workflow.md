@@ -105,8 +105,7 @@ When the Workflow returns, the main role:
 ## Pitfalls
 
 - **Hand-authoring per-subagent prompts and chaining `Task` calls
-  from main.** That is the pre-v17 pattern; §4 forbids it. Issue ONE
-  Workflow per relevant event.
+  from main.** §4 forbids it. Issue one Workflow per relevant event.
 - **Returning raw content from a Workflow.** The return is a digest,
   not a transcript.
 - **Forgetting the scratchpad fragment.** Without it, a Workflow

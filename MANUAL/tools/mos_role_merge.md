@@ -3,7 +3,7 @@ id: mos_role_merge
 kind: tool
 domain: evolution
 auth: [gru]
-source: minions/tools/mcp/role_evolution_tools.py:131
+source: minions/tools/mcp/role_evolution_tools.py:129
 since: stub
 keywords: []
 related: []

@@ -3,7 +3,7 @@ id: mos_draft_commit_shared
 kind: tool
 domain: memory
 auth: [*]
-source: minions/tools/mcp/memory_tools.py:153
+source: minions/tools/mcp/memory_tools.py:154
 since: stub
 keywords: []
 related: []

@@ -18,20 +18,36 @@ Spawning, sleeping, killing, waking projects + roles + signboards.
 
 ```bash
 lookup.py --id mos_project_create
+lookup.py --id mos_project_revive
 lookup.py --id mos_spawn_expert      # Read this BEFORE spawning experts.
 lookup.py --id mos_project_set_phase
 lookup.py --id mos_signboard_set     # callable by all EACN roles
 ```
 
-## The slug-SUFFIX trap (P0 from project_37596)
+## Project lifecycle rule
+
+Create is only for a new project. Once a port has any project tree,
+per-project bare repo, branch, worktree, backend, role metadata, or tmux
+session, use revive/repair/role tools instead:
+
+```bash
+lookup.py --id mos_project_revive
+./mos doctor
+./mos project repair <port>
+```
+
+Do not repair lifecycle state by editing `projects.json`, deleting git
+refs, or calling `minions.lifecycle.*` from ad-hoc Python.
+
+## The slug rule
 
 ```python
-mos_spawn_expert(name="theory-normalization")           # ✓ becomes expert-theory-normalization
-mos_spawn_expert(name="theory-normalization-expert")    # ✗ slug-SUFFIX → empty authz, every tool denied
+mos_spawn_expert(name="theory-normalization")           # ok: becomes expert-theory-normalization
+mos_spawn_expert(name="theory-normalization-expert")    # wrong: empty authz, every tool denied
 ```
 
 `name` is the slug ONLY. The launcher prepends `expert-`. See
-`pitfall-empty-authz` for the full incident write-up.
+`pitfall-empty-authz` for the full recovery recipe.
 
 ## Phase transitions
 

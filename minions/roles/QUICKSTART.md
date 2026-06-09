@@ -55,13 +55,13 @@ projects/project_{port}/
 │   ├── {role}/              ← your workspace ($MINIONS_WORKSPACE)
 │   │   ├── .minionsos/heartbeat   ← updated every mos_await_events cycle
 │   │   └── reel/{session_id}/     ← L0 Reel (raw subagent transcripts)
-│   └── main/                ← shared surface (was "shared" branch pre-v23)
+│   └── main/                ← shared surface
 │       ├── draft/draft.json ← L1 Draft (process graph, pending_plans)
 │       └── book/            ← L2 Book (Ethics-curated from Draft)
 └── events/                  ← per-agent EACN event audit stream
 ```
 
-Full memory-layer reference: `python3 MANUAL/scripts/lookup.py --domain memory`.
+Full memory-layer reference: `python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --domain memory`.
 
 ---
 
@@ -93,9 +93,9 @@ Signatures and full docs are in MANUAL. These one-liners are reminders only.
 
 For any tool not listed here, or before calling one you haven't used recently:
 ```bash
-python3 MANUAL/scripts/lookup.py "<keyword>"
-python3 MANUAL/scripts/lookup.py --id <tool_id>
-python3 MANUAL/scripts/lookup.py --pitfalls ""
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py "<keyword>"
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --id <tool_id>
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --pitfalls ""
 ```
 
 ---

@@ -3,7 +3,7 @@ id: mos_book_lint
 kind: tool
 domain: memory
 auth: [*]
-source: minions/tools/mcp/memory_tools.py:336
+source: minions/tools/mcp/memory_tools.py:337
 since: stub
 keywords: []
 related: []

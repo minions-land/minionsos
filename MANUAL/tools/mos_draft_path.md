@@ -3,7 +3,7 @@ id: mos_draft_path
 kind: tool
 domain: memory
 auth: [*]
-source: minions/tools/mcp/memory_tools.py:130
+source: minions/tools/mcp/memory_tools.py:131
 since: stub
 keywords: []
 related: []

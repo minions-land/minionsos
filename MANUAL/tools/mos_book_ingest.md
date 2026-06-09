@@ -3,7 +3,7 @@ id: mos_book_ingest
 kind: tool
 domain: memory
 auth: [*]
-source: minions/tools/mcp/memory_tools.py:187
+source: minions/tools/mcp/memory_tools.py:188
 since: stub
 keywords: []
 related: []

@@ -12,7 +12,7 @@ status: stable
 
 # pitfall: "4 MCP servers failed · /mcp" footer flashes for minutes
 
-**Symptom (every role-*.log in project_37596):** the harness footer shows
+**Symptom:** the harness footer shows
 `4 MCP servers failed · /mcp` for 30+ seconds at a time.
 
 ## Cause

@@ -35,10 +35,9 @@ mos_issue_report(
 
 ## Universal escape hatch
 This tool is in `_KEEPALIVE_TOOLS + _ISSUE_REPORT_TOOLS` spread into every
-authz list. **If your role has empty authz** (the slug-suffix bug —
-`pitfall-empty-authz`), even this tool is denied. Fall back to writing
-directly to `project_<port>/issues/issues.jsonl` from a `Bash` tool —
-project_37596 ISS-37596-1 was filed this way.
+authz list. **If your role has empty authz** (see `pitfall-empty-authz`),
+even this tool is denied. Fall back to writing directly to
+`project_<port>/issues/issues.jsonl` from a `Bash` tool.
 
 ## Discipline
 - Cite paths + line numbers + commit shas.

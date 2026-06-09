@@ -3,7 +3,7 @@ id: mos_draft_append
 kind: tool
 domain: memory
 auth: [gru, expert, ethics]
-source: minions/tools/mcp/memory_tools.py:107
+source: minions/tools/mcp/memory_tools.py:108
 since: stable
 keywords: [draft, append, node, edge, hypothesis, evidence, plan]
 related: [mos_draft_view, mos_draft_annotate, mos_book_promote_verified]
@@ -40,7 +40,7 @@ mos_draft_append(
 When `MINIONS_ROLE_NAME` and `MINIONS_SESSION_ID` are set, every appended
 node gets `metadata.reel_ref` pointing back to your raw transcript.
 
-## Real example (project_37596)
+## Example
 ```py
 mos_draft_append(nodes=[{
   "type": "result",

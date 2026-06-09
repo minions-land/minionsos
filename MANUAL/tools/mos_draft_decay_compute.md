@@ -3,7 +3,7 @@ id: mos_draft_decay_compute
 kind: tool
 domain: memory
 auth: [*]
-source: minions/tools/mcp/memory_tools.py:169
+source: minions/tools/mcp/memory_tools.py:170
 since: stub
 keywords: []
 related: []

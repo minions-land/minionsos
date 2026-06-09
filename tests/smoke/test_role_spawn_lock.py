@@ -72,6 +72,7 @@ def test_launch_role_process_locks_registry(fake_claude_home: Path, tmp_path: Pa
 
     def fake_spawn_tmux(**kwargs):
         captured["argv"] = list(kwargs.get("argv") or [])
+        captured["initial_prompt"] = kwargs.get("initial_prompt")
         captured["session_name"] = kwargs.get("session_name")
 
     monkeypatch.setattr(role_launcher, "_have_tmux", fake_have_tmux)
@@ -118,6 +119,10 @@ def test_launch_role_process_locks_registry(fake_claude_home: Path, tmp_path: Pa
         # The launcher should have started a session.
         assert result["started"] is True
         assert result["session_name"] == "mos-9991-expert"
+        prompt = captured.get("initial_prompt")
+        assert isinstance(prompt, str)
+        assert "mos_await_events()" in prompt
+        assert "project 9991" in prompt
 
         # The argv should include --session-id with a valid UUID.
         argv = captured.get("argv") or []

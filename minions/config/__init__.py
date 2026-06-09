@@ -244,8 +244,10 @@ _GRU_EACN_TOOLS = [
 _EACN_ROLE_MAIN_TOOLS: list[str] = [
     *_KEEPALIVE_TOOLS,
     *_ISSUE_REPORT_TOOLS,
-    # EACN communication (all EACN roles)
-    "eacn3_*",
+    # EACN communication (all EACN roles). Claude Code allow-rules need the
+    # MCP server scope for wildcard grants; the bare ``eacn3_*`` form is still
+    # used only in server-side MinionsOS authz rows.
+    "mcp__eacn3__eacn3_*",
     "mos_await_events",
     "mos_get_events",
     "mos_unread_summary",

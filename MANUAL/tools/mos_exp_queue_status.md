@@ -27,9 +27,9 @@ mos_exp_queue_status(port: int) -> {
 ```
 
 ## Use as triage
-project_37596 ISS-37596-18 was filed as "zombie scheduler" — but `_status`
-showed 28 done, 8 attempting, 88 pending. The queue was healthy. **Always
-inspect status before claiming the queue is dead.**
+Use `_status` before diagnosing a scheduler failure. A healthy queue can
+show a mix of `done`, `attempting`, and `pending` cells. **Always inspect
+status before claiming the queue is dead.**
 
 ## FP detection
 For each `cell_id` in `failed`, cross-check the on-disk run-dir for a

@@ -225,10 +225,9 @@ def test_spawn_tmux_returns_before_prompt_delivery_completes(tmp_path: Path) -> 
 
     The full prompt delivery sequence (poll-until-REPL-ready up to 30 s
     + paste + commit + retry up to 3 attempts x 5 s activity check)
-    can cost ~47 s of wall-clock per role. With Gru spawning ~7 roles
-    at project bootstrap, that's ~5 min of pure synchronization. The launcher
-    moves delivery to a daemon thread so it returns as soon
-    as the tmux session is alive and the prompt is *queued*.
+    can cost ~47 s of wall-clock per role. The launcher moves delivery to
+    a background thread so it returns as soon as the tmux session is alive
+    and the prompt is queued.
 
     This test simulates a slow REPL-ready (5 s wait) and asserts the
     caller returns within ~50 ms.
@@ -280,9 +279,52 @@ def test_spawn_tmux_returns_before_prompt_delivery_completes(tmp_path: Path) -> 
         f"_spawn_tmux blocked on prompt delivery; elapsed={elapsed:.3f}s. "
         "C-fix is for it to return as soon as the tmux session is alive."
     )
-    # And the daemon thread must actually deliver eventually.
+    # And the background thread must actually deliver eventually.
     assert delivery_started.wait(timeout=2.0), "delivery thread never started"
     assert delivery_done.wait(timeout=2.0), "delivery thread never finished"
+
+
+def test_spawn_tmux_background_delivery_is_non_daemon(tmp_path: Path) -> None:
+    """CLI lifecycle commands must not lose prompt delivery at interpreter exit."""
+    from minions.lifecycle import role_launcher
+
+    captured: dict[str, object] = {}
+
+    def fake_run(argv, **_kw):
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = b""
+        return result
+
+    class FakeThread:
+        def __init__(self, *, target, name=None, daemon=None):
+            captured["target"] = target
+            captured["name"] = name
+            captured["daemon"] = daemon
+
+        def start(self):
+            captured["started"] = True
+
+    log_path = tmp_path / "logs" / "role-expert.log"
+    with (
+        patch.object(role_launcher.subprocess, "run", side_effect=fake_run),
+        patch.object(role_launcher.threading, "Thread", FakeThread),
+        patch.dict("os.environ", {}, clear=False),
+    ):
+        import os
+
+        os.environ.pop("MINIONS_ROLE_LAUNCHER_SYNC", None)
+        role_launcher._spawn_tmux(
+            session_name="mos-12345-expert",
+            cwd=tmp_path,
+            env={},
+            argv=["claude"],
+            initial_prompt="hi",
+            log_path=log_path,
+        )
+
+    assert captured["started"] is True
+    assert captured["daemon"] is False
 
 
 def test_spawn_tmux_blocks_on_delivery_when_sync_env_set(tmp_path: Path) -> None:

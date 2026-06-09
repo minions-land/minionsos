@@ -3,7 +3,7 @@ id: mos_book_audit_walk
 kind: tool
 domain: memory
 auth: [*]
-source: minions/tools/mcp/memory_tools.py:294
+source: minions/tools/mcp/memory_tools.py:295
 since: stub
 keywords: []
 related: []
