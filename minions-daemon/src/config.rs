@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use std::path::PathBuf;
 
 /// Gru daemon configuration (maps to gru.yaml)
 #[derive(Debug, Clone, Deserialize)]
@@ -50,14 +49,17 @@ pub struct DaemonConfig {
 
     /// Parked prompt watchdog enabled
     #[serde(default = "default_true")]
+    #[allow(dead_code)]
     pub parked_prompt_watchdog_enabled: bool,
 
     /// Parked prompt interval
     #[serde(default = "default_parked_interval")]
+    #[allow(dead_code)]
     pub parked_prompt_watchdog_interval_seconds: u64,
 
     /// Parked prompt min age
     #[serde(default = "default_parked_min_age")]
+    #[allow(dead_code)]
     pub parked_prompt_watchdog_min_age_seconds: u64,
 
     /// Log level

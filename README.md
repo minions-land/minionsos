@@ -208,15 +208,25 @@ override the seed source, set `gru.yaml: author_repo` (or
 ```bash
 git clone https://github.com/Minions-Land/MinionsOS.git
 cd MinionsOS
-./install.sh
-./mos doctor
+make install     # unified installer (wraps ./install.sh)
+make doctor      # health check
 ```
 
-`install.sh` is idempotent. It bootstraps `uv` when needed, syncs Python
-dependencies, installs the local editable `mcp-servers/eacn3/` package, builds
-the EACN3 MCP plugin, builds MinionsVIZ when needed, creates launcher
-symlinks, and copies `minions/config/*.yaml.example` to local `.yaml` files
-without overwriting existing config.
+**Unified task runner**: MinionsOS now uses `make` as the single command
+interface across Python (uv), Node (npm), and Rust (cargo). Run `make help` to
+see all available targets. The underlying `install.sh` is idempotent: it
+bootstraps `uv` when needed, syncs Python dependencies, installs the local
+editable `mcp-servers/eacn3/` package, builds the EACN3 MCP plugin, builds
+MinionsVIZ when needed, creates launcher symlinks, and copies
+`minions/config/*.yaml.example` to local `.yaml` files without overwriting
+existing config.
+
+Common tasks:
+- `make install` — full setup (Python + Node + optional Rust CLI)
+- `make test` — run all tests (Python unit + Rust if built)
+- `make lint` — run all linters (ruff + cargo clippy)
+- `make clean` — remove build artifacts
+- `make rust-cli` — build experimental Rust CLI (optional)
 
 ### Update
 

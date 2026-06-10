@@ -1,5 +1,5 @@
 use anyhow::Result;
-use minions_core::{Project, StateStore};
+use minions_core::StateStore;
 use reqwest::Client;
 use std::time::Duration;
 
@@ -24,8 +24,8 @@ pub async fn respawn_backend(port: u16) -> Result<()> {
     tracing::info!("Attempting to respawn backend on port {}", port);
 
     let output = tokio::process::Command::new("uv")
-        .args(&["run", "python", "-m", "minions.lifecycle.project"])
-        .args(&["respawn", &port.to_string()])
+        .args(["run", "python", "-m", "minions.lifecycle.project"])
+        .args(["respawn", &port.to_string()])
         .output()
         .await?;
 
@@ -39,9 +39,10 @@ pub async fn respawn_backend(port: u16) -> Result<()> {
 }
 
 /// Check if a tmux session is alive
+#[allow(dead_code)]
 pub async fn tmux_session_alive(session_name: &str) -> bool {
     let output = tokio::process::Command::new("tmux")
-        .args(&["list-sessions"])
+        .args(["list-sessions"])
         .output()
         .await;
 
@@ -132,7 +133,7 @@ impl CrashCounter {
 
     pub fn record_crash(&mut self, port: u16) {
         let now = std::time::Instant::now();
-        let entry = self.crashes.entry(port).or_insert_with(Vec::new);
+        let entry = self.crashes.entry(port).or_default();
 
         // Remove crashes older than 1 hour
         entry.retain(|&t| now.duration_since(t).as_secs() < 3600);
@@ -140,7 +141,7 @@ impl CrashCounter {
     }
 
     pub fn threshold_exceeded(&self, port: u16) -> bool {
-        self.crashes.get(&port).map_or(false, |v| v.len() >= 3)
+        self.crashes.get(&port).is_some_and(|v| v.len() >= 3)
     }
 
     pub fn reset(&mut self, port: u16) {
