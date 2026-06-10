@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
@@ -605,6 +606,57 @@ def check_dispatch_posture(
     ]
 
 
+_MANUAL_TOOLS_DIR = contracts.REPO_ROOT / "MANUAL" / "tools"
+_STUB_MARKERS = ("status: stub", "No curated MANUAL page yet", "STUB — fill in")
+_SOURCE_RE = re.compile(r"^source:\s*(\S+):(\d+)\s*$", re.MULTILINE)
+
+
+def check_manual_tool_pages_resolve() -> list[Issue]:
+    """Every operable tool's MANUAL page must yield a real contract.
+
+    This closes the "progressive-disclosure dead-end": the role contract tells
+    agents to look a tool up in the MANUAL, but a bare stub body ("No curated
+    page yet") returns nothing actionable, forcing the agent to guess. A page
+    passes if it is curated (no stub marker) OR its ``source:`` ref resolves to
+    a non-empty docstring/description that ``lookup.py`` backfills at read time.
+    A page fails only when it is BOTH an uncurated stub AND has no recoverable
+    source contract — that is the genuine information vacuum.
+
+    Scope: any tool page with a ``source:`` ref. Pages without one (hand-written
+    domain/recipe pages) are skipped — there is no code to backfill from.
+    """
+    issues: list[Issue] = []
+    if not _MANUAL_TOOLS_DIR.is_dir():
+        return issues
+    try:
+        sys.path.insert(0, str(contracts.REPO_ROOT / "MANUAL" / "scripts"))
+        from lookup import backfill_from_source  # type: ignore
+    except Exception:  # pragma: no cover - lookup import guard
+        return issues
+    for page in sorted(_MANUAL_TOOLS_DIR.glob("*.md")):
+        text = page.read_text(encoding="utf-8")
+        if not any(marker in text for marker in _STUB_MARKERS):
+            continue  # curated — fine
+        if not _SOURCE_RE.search(text):
+            continue  # no source ref to resolve; not a tool-from-code page
+        resolved = backfill_from_source(text)
+        if "## Contract (from source docstring)" not in resolved:
+            issues.append(
+                Issue(
+                    "warning",
+                    "manual",
+                    f"MANUAL/tools/{page.name} is an uncurated stub AND its source "
+                    "docstring/description is empty — agents that look this tool up "
+                    "get nothing actionable.",
+                    hint=(
+                        "Add a docstring to the @mcp.tool() function (preferred — "
+                        "lookup.py auto-surfaces it), or curate the MANUAL page."
+                    ),
+                )
+            )
+    return issues
+
+
 _ALL_CHECKS = (
     check_role_dirs_have_system_md,
     check_fixed_roles_have_dir,
@@ -614,6 +666,7 @@ _ALL_CHECKS = (
     check_mcp_servers_have_doc_card,
     check_mcp_tools_whitelisted,
     check_manual_publish_role_coverage,
+    check_manual_tool_pages_resolve,
     check_whitelist_entries_resolve,
     check_publish_policy_matches_boundaries,
     check_subagent_not_broader_than_main,
@@ -637,6 +690,7 @@ __all__ = [
     "check_dispatch_posture",
     "check_fixed_roles_have_dir",
     "check_manual_publish_role_coverage",
+    "check_manual_tool_pages_resolve",
     "check_mcp_servers_have_doc_card",
     "check_mcp_servers_registered",
     "check_mcp_tools_whitelisted",

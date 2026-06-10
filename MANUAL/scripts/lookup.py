@@ -26,6 +26,124 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_PATH = ROOT / "INDEX.json"
+REPO_ROOT = ROOT.parent
+
+
+def _extract_py_docstring(rel_path: str, lineno: int) -> str | None:
+    """Pull the docstring of the function defined at/after ``lineno``.
+
+    The MANUAL ``source:`` ref points at the ``@mcp.tool()`` decorator or the
+    ``def`` line. We scan forward for the ``def``, then capture the triple-
+    quoted docstring that follows. Single source of truth = the code; this is
+    why stub pages never need a hand-copied body.
+    """
+    src = REPO_ROOT / rel_path
+    if not src.exists():
+        return None
+    try:
+        lines = src.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    i = max(0, lineno - 1)
+    # advance to the def line (decorator-tolerant; handles `async def`)
+    def _is_def(ln: str) -> bool:
+        s = ln.lstrip()
+        return s.startswith("def ") or s.startswith("async def ")
+
+    while i < len(lines) and i < lineno + 8 and not _is_def(lines[i]):
+        i += 1
+    if i >= len(lines) or not _is_def(lines[i]):
+        return None
+    # the signature may span multiple lines — advance to the line that closes
+    # it (`)` then optional `-> T` then `:`), and look for the docstring after.
+    sig_end = i
+    while sig_end < len(lines) and sig_end < i + 20:
+        if re.search(r"\)\s*(->[^:]+)?:\s*(#.*)?$", lines[sig_end]):
+            break
+        sig_end += 1
+    # find the opening triple quote within the next few lines
+    j = sig_end + 1
+    quote = None
+    while j < len(lines) and j < sig_end + 6:
+        s = lines[j].lstrip()
+        if s.startswith('"""') or s.startswith("'''"):
+            quote = s[:3]
+            break
+        if s and not s.startswith("#"):
+            break  # first real statement is not a docstring
+        j += 1
+    if quote is None:
+        return None
+    first = lines[j].lstrip()[3:]
+    if quote in first:  # single-line docstring
+        return first.split(quote)[0].strip()
+    rest = []
+    k = j + 1
+    while k < len(lines):
+        if quote in lines[k]:
+            rest.append(lines[k].split(quote)[0])
+            break
+        rest.append(lines[k])
+        k += 1
+    import textwrap
+
+    body = textwrap.dedent("\n".join(rest)).strip()
+    head = first.strip()
+    return (head + "\n\n" + body).strip() if body else head
+
+
+def _extract_ts_description(rel_path: str, lineno: int) -> str | None:
+    """Pull the ``description:`` string from an EACN3 registerTool block."""
+    src = REPO_ROOT / rel_path
+    if not src.exists():
+        return None
+    try:
+        text = src.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    lines = text.splitlines()
+    window = "\n".join(lines[max(0, lineno - 1) : lineno + 40])
+    m = re.search(r'description:\s*"((?:[^"\\]|\\.)*)"', window, re.DOTALL)
+    if not m:
+        return None
+    return m.group(1).replace('\\"', '"').replace("\\n", "\n").strip()
+
+
+def backfill_from_source(text: str) -> str:
+    """If a page body is a stub, append the live source docstring/description.
+
+    Stubs are detected by ``status: stub`` frontmatter or the placeholder
+    body. The contract docs ("look it up in the MANUAL") only pay off if the
+    lookup returns the real thing — so we resolve it from the code at read
+    time rather than maintaining a hand-copied duplicate that drifts.
+    """
+    is_stub = (
+        "status: stub" in text
+        or "No curated MANUAL page yet" in text
+        or "STUB — fill in" in text
+    )
+    if not is_stub:
+        return text
+    m = re.search(r"^source:\s*(\S+):(\d+)\s*$", text, re.MULTILINE)
+    if not m:
+        return text
+    rel_path, lineno = m.group(1), int(m.group(2))
+    if rel_path.endswith(".py"):
+        doc = _extract_py_docstring(rel_path, lineno)
+    elif rel_path.endswith(".ts"):
+        doc = _extract_ts_description(rel_path, lineno)
+    else:
+        doc = None
+    if not doc:
+        return text
+    return (
+        text.rstrip()
+        + "\n\n## Contract (from source docstring)\n\n"
+        + doc.strip()
+        + f"\n\n_(Auto-surfaced from `{rel_path}:{lineno}` — the code is the "
+        "single source of truth; this page is a stub with no hand-curated "
+        "additions yet.)_\n"
+    )
 
 
 def load_index() -> dict:
@@ -127,6 +245,7 @@ def cmd_id(idx: dict, page_id: str, section: str | None, full: bool) -> int:
             return 2
     p = ROOT / page["path"]
     text = p.read_text(encoding="utf-8")
+    text = backfill_from_source(text)
     if full:
         sys.stdout.write(text)
         return 0

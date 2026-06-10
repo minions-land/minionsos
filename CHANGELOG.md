@@ -26,6 +26,24 @@ resolved — `v20` ⇒ `0.20.0`.
 - CI type gate: `uv run ty check minions` (v19)
 - `docs/README.md` — documents the doc-layer boundary (docs = contributor, MANUAL
   = agent runtime, dev-log = journal, root `*.md` = release) (v20)
+- `lookup.py` now backfills the live source contract for un-curated tool pages:
+  a stub lookup resolves its `source:` ref and appends the function docstring
+  (Python) or `description:` (EACN3 TS) at read time — so the 100 stub pages
+  (76% of the tool surface) finally return something actionable instead of
+  "No curated page yet." Single source of truth stays the code; no hand-copied
+  duplicate to drift. (v20.17)
+- Audit invariant `check_manual_tool_pages_resolve`: a gru/expert/ethics tool
+  whose MANUAL page is BOTH an un-curated stub AND has no recoverable source
+  docstring now fails `mos audit` — the progressive-disclosure dead-end is
+  caught at commit time, not at runtime. (v20.17)
+- Common contract §0.5 **System map**: a one-read mental model (4 memory layers,
+  a tool-family decision table, role topology) so a freshly-woken role has its
+  bearings before the protocol layers — Role vs Claude Code subagent stated
+  explicitly. (v20.17)
+- Gru §G0 **Basic operations you must know cold**: the everyday revive / spawn /
+  message / pause-vs-close operations as muscle memory, each annotated with the
+  live-session failure it prevents (`ethics` ≠ `expert-ethics`, revive ≠ loop-
+  spawn, EACN ≠ task-files). (v20.17)
 
 ### Changed
 - Hermetic Role cwd is now **default-ON** — the structural disclosure boundary.
@@ -49,6 +67,15 @@ resolved — `v20` ⇒ `0.20.0`.
   defaults to `claude-opus-4-8[1m]`; `role_ultracode` passthrough (v19)
 - Single version source of truth: `minions.__version__` now reads package
   metadata instead of a hard-coded literal (v20)
+- Common contract §13 **native MCP tools only, never the raw API**: hoisted from
+  Gru-private §G2 into the shared contract so every role is bound — no
+  hand-rolled HTTP to `127.0.0.1:<port>/api/...`, no `import eacn`, no lifecycle/
+  state bypass. A missing tool is an `mos_issue_report`, not a license to reach
+  around the MCP boundary. (v20.17)
+- Common contract §2 **mandatory lookup triggers**: five hard "look it up BEFORE
+  acting" cases (first use of a `mos_*`/`eacn3_*` tool, unknown MinionsOS term,
+  unseen error, user jargon, Role-vs-subagent doubt) — derived from a live Gru
+  trace that burned 30+ turns guessing at tools whose MANUAL pages were stubs. (v20.17)
 
 ### Fixed
 - Role disclosure leak: in the previous non-hermetic default, Claude Code's
