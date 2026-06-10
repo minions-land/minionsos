@@ -29,11 +29,13 @@ navigate without rereading the contract on every operation.
 | `minions/roles/{role}/SYSTEM.md` | Appended to initial_prompt | That role | Every cold start |
 | `minions/roles/{role}/skills/*.md` | Agent `Read()` (on demand) | That role | Before non-trivial actions |
 | `minions/roles/common/skills/*.md` | Agent `Read()` (on demand) | All roles | Before framing-sensitive decisions |
-| `CLAUDE.md` (root) | cwd CLAUDE.md walk (automatic) | Developer / agent* | Automatic unless hermetic mode |
 
-*Note: In non-hermetic mode (default), Claude Code's cwd walk reaches
-`MinionsOS/CLAUDE.md` automatically. That file is developer documentation;
-rules that apply to you as a Role agent live in SYSTEM.md, not CLAUDE.md.
+You run under a **hermetic working directory** (default): your cwd is an
+isolated stub outside the repo, so Claude Code's automatic `CLAUDE.md` cwd-walk
+never reaches `MinionsOS/CLAUDE.md`, the project `CLAUDE.md`, or any host-level
+config. Your contract is the injected `SYSTEM.md` + this file + `MANUAL/` — not
+ambient repo documentation. There is nothing to "ignore"; the boundary is
+structural, enforced by where your process starts.
 
 ### Retrieval surfaces — three jobs, one each
 

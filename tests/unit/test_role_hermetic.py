@@ -5,7 +5,8 @@ Covers:
 - prepare_hermetic_cwd seeds CLAUDE.md and is idempotent
 - cleanup_hermetic_cwd removes per-role and per-project trees
 - hermetic_add_dirs filters non-existent paths and dedupes via resolve()
-- ENV switches default OFF (default command shape preserved)
+- ENV switch default ON (Tier 1 is the structural disclosure boundary;
+  opt out only with MINIONS_ROLE_HERMETIC_CWD=0, which warns)
 - Tier 2 auth pre-flight refuses when no env auth is present
 - build_role_invocation surfaces hermetic_cwd + add_dirs into argv only
   when hermetic mode is enabled (default mode emits no --add-dir)
@@ -149,21 +150,36 @@ def test_hermetic_add_dirs_drops_missing_and_dedupes(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# ENV switches default OFF
+# ENV switches — Tier 1 default ON (structural disclosure boundary)
 # ---------------------------------------------------------------------------
 
 
-def test_hermetic_disabled_by_default(monkeypatch):
+def test_hermetic_enabled_by_default(monkeypatch):
+    """Tier 1 is the disclosure boundary; it must be ON unless explicitly opted out."""
     monkeypatch.delenv(role_hermetic.ENV_HERMETIC_CWD, raising=False)
     monkeypatch.delenv(role_hermetic.ENV_HERMETIC_HOME, raising=False)
-    assert role_hermetic.hermetic_enabled() is False
+    assert role_hermetic.hermetic_enabled() is True
+    # Tier 2 still requires its own explicit flag.
     assert role_hermetic.hermetic_home_enabled() is False
 
 
-def test_hermetic_home_requires_tier1(monkeypatch):
-    """Tier 2 alone (without Tier 1) is treated as off — both must be on."""
-    monkeypatch.setenv(role_hermetic.ENV_HERMETIC_HOME, "1")
+def test_hermetic_opt_out_with_zero(monkeypatch):
+    """Setting the var to '0' opts out (debugging only) and warns."""
+    monkeypatch.setenv(role_hermetic.ENV_HERMETIC_CWD, "0")
+    monkeypatch.delenv(role_hermetic.ENV_HERMETIC_HOME, raising=False)
+    assert role_hermetic.hermetic_enabled() is False
+    assert role_hermetic.warn_if_disclosure_unbounded() is True
+
+
+def test_warn_silent_when_hermetic_on(monkeypatch):
     monkeypatch.delenv(role_hermetic.ENV_HERMETIC_CWD, raising=False)
+    assert role_hermetic.warn_if_disclosure_unbounded() is False
+
+
+def test_hermetic_home_requires_tier1(monkeypatch):
+    """Tier 2 needs Tier 1 active. With Tier 1 explicitly opted out, Tier 2 is off."""
+    monkeypatch.setenv(role_hermetic.ENV_HERMETIC_HOME, "1")
+    monkeypatch.setenv(role_hermetic.ENV_HERMETIC_CWD, "0")
     assert role_hermetic.hermetic_home_enabled() is False
 
 
@@ -309,3 +325,59 @@ def test_role_launcher_imports_compose():
 
     assert hasattr(role_launcher, "_hermetic_cwd_for")
     assert hasattr(role_launcher, "_hermetic_add_dirs_for")
+
+
+# ---------------------------------------------------------------------------
+# Structural disclosure boundary (pins the security invariant in CI)
+# ---------------------------------------------------------------------------
+
+
+def test_default_launch_is_hermetic_so_cwd_walk_cannot_reach_repo(hermetic_base, monkeypatch):
+    """In the DEFAULT configuration (no env override), a Role's cwd must live
+    outside the repo tree under ~/.minionsos/role-cwd, seeded with the stub,
+    so Claude Code's CLAUDE.md cwd-walk physically cannot ascend into
+    MinionsOS/CLAUDE.md, project CLAUDE.md, or ~/.claude/CLAUDE.md.
+    """
+    from minions.lifecycle import role_launcher
+    from minions.paths import MINIONS_ROOT
+
+    # No env override → default behavior.
+    monkeypatch.delenv(role_hermetic.ENV_HERMETIC_CWD, raising=False)
+    monkeypatch.delenv(role_hermetic.ENV_HERMETIC_HOME, raising=False)
+
+    assert role_hermetic.hermetic_enabled() is True, "hermetic must be ON by default"
+
+    cwd = role_launcher._hermetic_cwd_for(37596, "expert")
+    assert cwd is not None, "default mode must return a hermetic cwd, not None"
+
+    # cwd is outside the repo — the walk can never reach repo dev docs.
+    resolved_cwd = cwd.resolve()
+    repo = MINIONS_ROOT.resolve()
+    assert repo not in resolved_cwd.parents and resolved_cwd != repo, (
+        f"hermetic cwd {resolved_cwd} must NOT be inside the repo {repo}"
+    )
+    resolved_base = hermetic_base.resolve()
+    assert resolved_base in resolved_cwd.parents or resolved_cwd == resolved_base
+
+    # The seeded stub terminates the walk.
+    stub = cwd / "CLAUDE.md"
+    assert stub.exists(), "hermetic cwd must seed a terminating CLAUDE.md stub"
+    assert "hermetic working directory" in stub.read_text(encoding="utf-8")
+
+
+def test_opt_out_returns_repo_cwd_and_warns(hermetic_base, monkeypatch, caplog):
+    """Explicit opt-out (debugging) returns None (legacy in-repo cwd) AND warns."""
+    import logging
+
+    monkeypatch.setenv(role_hermetic.ENV_HERMETIC_CWD, "0")
+    monkeypatch.delenv(role_hermetic.ENV_HERMETIC_HOME, raising=False)
+
+    from minions.lifecycle import role_launcher
+
+    with caplog.at_level(logging.WARNING):
+        cwd = role_launcher._hermetic_cwd_for(37596, "expert")
+
+    assert cwd is None, "opt-out must fall back to legacy in-repo cwd (None)"
+    assert any("disclosure boundary is OFF" in r.message for r in caplog.records), (
+        "opt-out must emit a disclosure WARNING"
+    )

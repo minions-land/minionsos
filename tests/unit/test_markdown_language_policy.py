@@ -17,6 +17,7 @@ SKIP_DIRS = {
     "dist",
     "node_modules",
     "projects",
+    "scratch",
 }
 PROTECTED_PREFIXES = (Path("mcp-servers/eacn3"),)
 
@@ -60,10 +61,3 @@ def test_markdown_chinese_prose_is_limited_to_readme_chinese_section() -> None:
             offenders.append(str(rel))
 
     assert offenders == []
-
-
-def test_root_markdown_files_are_named_in_markdown_index() -> None:
-    index = (ROOT / "MARKDOWN_INDEX.md").read_text(encoding="utf-8")
-    root_docs = sorted(path.name for path in ROOT.glob("*.md") if path.is_file())
-    missing = [name for name in root_docs if f"`{name}`" not in index]
-    assert missing == []

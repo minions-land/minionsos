@@ -173,7 +173,6 @@ minions-viz/                # read-only React/Vite dashboard
 mcp-servers/                # standalone MCP servers
   eacn3/                    # local editable EACN3 dependency (Python + Node plugin)
 MANUAL/                     # on-demand reference for Role agents (lookup.py)
-MARKDOWN_INDEX.md           # map of Markdown assets and discovery surfaces
 tests/unit/                 # fast behavior tests
 tests/smoke/                # integration-style smoke checks
 ```
@@ -620,8 +619,9 @@ Useful extension points:
 - Add an MCP tool under `minions/tools/`, register it in
   `minions/tools/mcp_server.py`, then update the whitelist and tests.
 
-See `AGENTS.md`, root `CLAUDE.md`, and `minions/CLAUDE.md` for contributor
-rules and deeper architecture notes.
+See root `CLAUDE.md` (quick orientation), `minions/CLAUDE.md` (package
+architecture), and the `MANUAL/` handbook (`python3 MANUAL/scripts/lookup.py`)
+for contributor rules and deeper architecture notes.
 
 ### Troubleshooting
 
@@ -1217,8 +1217,9 @@ npm run dev
 - 新 MCP 工具：在 `minions/tools/` 实现，注册到
   `minions/tools/mcp_server.py`，并更新白名单与测试。
 
-贡献规则和更深入的架构说明见 `AGENTS.md`、根目录 `CLAUDE.md` 和
-`minions/CLAUDE.md`。
+贡献规则和更深入的架构说明见根目录 `CLAUDE.md`(快速定位)、
+`minions/CLAUDE.md`(包内架构),以及 `MANUAL/` 手册
+(`python3 MANUAL/scripts/lookup.py`)。
 
 ### 排障入口
 

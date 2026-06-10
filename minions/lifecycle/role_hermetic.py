@@ -1,15 +1,22 @@
 """Hermetic Role process isolation.
 
-Two opt-in tiers, both off by default to keep this branch safe to merge while
-coworkers iterate on the rest of the system.
+Tier 1 (hermetic cwd) is **on by default** — it is the structural disclosure
+boundary for Role processes. Tier 2 (hermetic HOME) remains opt-in.
 
-Tier 1 — ``MINIONS_ROLE_HERMETIC_CWD=1``: launch the Role's ``claude`` from a
-stable per-(project, role) directory under ``~/.minionsos/role-cwd/`` instead of
-the worktree. Stops Claude Code's CLAUDE.md walk before it reaches
-``MinionsOS/CLAUDE.md`` or ``minions/CLAUDE.md`` (both dev-view files) and
-``~/CLAUDE.md`` (host operator view). The worktree, project shared tree,
-``MINIONS_ROOT``, and ``MANUAL`` are added back via ``--add-dir`` so the Role
-keeps full read/write/edit access.
+Tier 1 — ``MINIONS_ROLE_HERMETIC_CWD`` (default ``1``; set ``0`` to opt out):
+launch the Role's ``claude`` from a stable per-(project, role) directory under
+``~/.minionsos/role-cwd/`` instead of the worktree. This is the **only**
+structural barrier that stops Claude Code's automatic CLAUDE.md cwd-walk before
+it reaches ``MinionsOS/CLAUDE.md`` or ``minions/CLAUDE.md`` (dev-view files),
+``projects/project_{port}/CLAUDE.md``, and ``~/CLAUDE.md`` /
+``~/.claude/CLAUDE.md`` (host operator views). Without it, every Role process
+ingests those files into context — the in-file "treat as dev documentation"
+header is an advisory the model has already read past, not an enforced boundary.
+The worktree, project shared tree, ``MINIONS_ROOT``, and ``MANUAL`` are added
+back via ``--add-dir`` so the Role keeps full read/write/edit access.
+
+Opt out only for debugging a single session (``MINIONS_ROLE_HERMETIC_CWD=0``);
+a pre-flight WARNING fires so non-hermetic runs are never silent.
 
 Tier 2 — ``MINIONS_ROLE_HERMETIC_HOME=1`` (requires Tier 1): also set ``HOME``
 to a per-(project, role) fake home so host-level personal Claude instructions
@@ -62,9 +69,34 @@ this directory is not inside any worktree.
 
 
 def hermetic_enabled(env: Mapping[str, str] | None = None) -> bool:
-    """Whether Tier 1 (hermetic cwd) is requested."""
+    """Whether Tier 1 (hermetic cwd) is active.
+
+    On by default — this is the structural disclosure boundary. Set
+    ``MINIONS_ROLE_HERMETIC_CWD=0`` to opt out (debugging only); a pre-flight
+    WARNING fires in that case via :func:`warn_if_disclosure_unbounded`.
+    """
     src = env if env is not None else os.environ
-    return src.get(ENV_HERMETIC_CWD, "0") == "1"
+    return src.get(ENV_HERMETIC_CWD, "1") != "0"
+
+
+def warn_if_disclosure_unbounded(env: Mapping[str, str] | None = None) -> bool:
+    """Emit a WARNING when a Role launches without the hermetic cwd boundary.
+
+    Returns True when a warning was emitted (i.e. hermetic cwd is OFF). In
+    non-hermetic mode the Role's cwd is its in-repo branch worktree, so Claude
+    Code's automatic CLAUDE.md cwd-walk ascends into MinionsOS dev-view files
+    and host-level operator config. Surfacing this keeps the leak from being
+    silent. See module docstring for the full walk path.
+    """
+    if hermetic_enabled(env):
+        return False
+    logger.warning(
+        "Role launching with MINIONS_ROLE_HERMETIC_CWD=0: cwd-walk can read "
+        "MinionsOS/CLAUDE.md, project CLAUDE.md, and ~/.claude/CLAUDE.md into "
+        "the Role's context. The disclosure boundary is OFF. Unset the var (or "
+        "set it to 1) to restore the structural boundary."
+    )
+    return True
 
 
 def hermetic_home_enabled(env: Mapping[str, str] | None = None) -> bool:

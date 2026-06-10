@@ -38,6 +38,11 @@ MCP_SERVERS_DIR: Path = REPO_ROOT / "mcp-servers"
 MCP_JSON: Path = REPO_ROOT / ".mcp.json"
 ROOT_CLAUDE_MD: Path = REPO_ROOT / "CLAUDE.md"
 PACKAGE_CLAUDE_MD: Path = PACKAGE_ROOT / "CLAUDE.md"
+# Canonical handbook surface for the per-role publish/write boundary. The root
+# CLAUDE.md no longer carries a duplicate prose table; the boundary lives in
+# code (_WHITELIST / _ROLE_ALLOWED_SHARED_SUBDIRS) and is documented here for
+# humans + agents. The audit cross-checks that this page lists every role.
+MANUAL_PUBLISH_DOMAIN: Path = REPO_ROOT / "MANUAL" / "domains" / "publish.md"
 
 
 @dataclass(frozen=True)
@@ -64,7 +69,7 @@ EXTENSION_POINTS: dict[str, ExtensionPoint] = {
             " in minions/config/__init__.py.",
             "Add the role to FIXED_ROLES in minions/lifecycle/role.py if it is"
             " registered via mos_spawn_role.",
-            "Add a row to the tool/write-boundary table in root CLAUDE.md.",
+            "Add a row to the per-role table in MANUAL/domains/publish.md.",
             "Add a _BOUNDARY_TEXT entry in minions/lifecycle/role.py if the"
             " role needs custom boundary copy.",
             "Add a unit test under tests/unit/ covering registration and whitelist resolution.",
@@ -113,7 +118,7 @@ EXTENSION_POINTS: dict[str, ExtensionPoint] = {
             "Register the tool with @mcp.tool() in minions/tools/mcp_server.py "
             "(or import it from a new module).",
             "Update the per-role lists in minions/config/__init__.py:_WHITELIST.",
-            "Add the tool to the tool/write-boundary table in root CLAUDE.md.",
+            "Add the tool to the per-role table in MANUAL/domains/publish.md.",
             "Add a unit test under tests/unit/.",
         ),
     ),

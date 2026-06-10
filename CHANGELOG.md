@@ -28,6 +28,15 @@ resolved — `v20` ⇒ `0.20.0`.
   = agent runtime, dev-log = journal, root `*.md` = release) (v20)
 
 ### Changed
+- Hermetic Role cwd is now **default-ON** — the structural disclosure boundary.
+  Role processes launch from `~/.minionsos/role-cwd/` (outside the repo) with a
+  terminating `CLAUDE.md` stub, so Claude Code's automatic cwd-walk can no longer
+  reach repo or host dev docs. Opt out with `MINIONS_ROLE_HERMETIC_CWD=0`, which
+  now emits a pre-flight WARNING. Gru stays non-hermetic by design (control
+  plane). (v20.14)
+- Root `CLAUDE.md` rewritten 344→49 lines: a minimal pointer (what it is /
+  install / "MANUAL is the handbook" via `lookup.py` / the one Opus tool-use
+  rule / where to look when broken). `MANUAL/` is the throughline, not an index. (v20.14)
 - Common role contract: Plan→Workflow→Verify + §10.1; per-role skills (v17)
 - Dispatch tests/audit aligned to the v17 Workflow contract; paper-writing CNS
   skill upgrades (v18)
@@ -42,6 +51,13 @@ resolved — `v20` ⇒ `0.20.0`.
   metadata instead of a hard-coded literal (v20)
 
 ### Fixed
+- Role disclosure leak: in the previous non-hermetic default, Claude Code's
+  `CLAUDE.md` cwd-walk ascended from a Role's in-repo branch worktree through
+  project `CLAUDE.md`, root `CLAUDE.md`, and `~/.claude/CLAUDE.md`, pulling
+  dev/host docs into every Role's context — bounded only by an advisory
+  "treat as dev documentation" header. Now bounded structurally by the
+  default-ON hermetic cwd; CI smoke test pins that a launched Role's cwd is
+  outside `MINIONS_ROOT` and the stub terminates the walk. (v20.14)
 - Gru-monitor watchdog drift: production sidecar (`run_async`) silently started
   only 1 of 7 watchdogs; both entrypoints now share `_start_watchdog_threads`
   and `main()` drives the complete `run()` path (v19)
@@ -53,6 +69,11 @@ resolved — `v20` ⇒ `0.20.0`.
   `MINIONS_ROOT` instead of probing every live backend over HTTP (v19)
 
 ### Removed
+- `MARKDOWN_INDEX.md` + `MODULE_PATH_INDEX.md` — navigation-patch index files
+  (and the test forcing every root `.md` into the index). The root is now
+  self-explaining; `MANUAL/` is the handbook. (v20.14)
+- Root `AGENTS.md` — Gru hosts on Claude Code, not Codex; the per-project
+  `AGENTS.md` runtime shim is a separate file and is untouched. (v20.14)
 - Unwired `agent_host/` quota/telemetry prototype + its orphan test (v20)
 - Stale `docs/eacn3-mcp-tools-reference.html` (superseded by MANUAL) (v20)
 - `outline/` 21GB research/dataset workspace relocated out of the repo

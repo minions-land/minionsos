@@ -57,7 +57,7 @@ command = "uv"
 args = ["run", "--project", ".", "python", "-m", "minions.tools.mcp_server"]
 ```
 
-Both invocations resolve through Python's module path, not a filesystem path — that's why moving the package would require coordinated changes across CLAUDE.md, AGENTS.md, the test suite, and the many `from minions.tools.publish import ...` style imports inside the package.
+Both invocations resolve through Python's module path, not a filesystem path — that's why moving the package would require coordinated changes across CLAUDE.md, the test suite, and the many `from minions.tools.publish import ...` style imports inside the package.
 
 ## Why it does NOT live in `mcp-servers/`
 

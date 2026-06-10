@@ -296,7 +296,7 @@ _TOOL_MODULE_TEMPLATE = '''"""MCP tool stub for ``{tool_name}``.
 Wire this tool into the FastMCP server by importing :func:`{tool_name}`
 in ``minions/tools/mcp_server.py`` and decorating it with ``@mcp.tool()``.
 Update the per-role whitelist in ``minions/config/__init__.py:_WHITELIST``
-and add a row to the tool/write-boundary table in root ``CLAUDE.md``.
+and document the boundary in ``MANUAL/domains/publish.md``.
 """
 
 from __future__ import annotations

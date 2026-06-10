@@ -33,6 +33,9 @@ def fake_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(contracts, "MCP_JSON", repo / ".mcp.json")
     monkeypatch.setattr(contracts, "ROOT_CLAUDE_MD", repo / "CLAUDE.md")
     monkeypatch.setattr(contracts, "PACKAGE_CLAUDE_MD", package / "CLAUDE.md")
+    monkeypatch.setattr(
+        contracts, "MANUAL_PUBLISH_DOMAIN", repo / "MANUAL" / "domains" / "publish.md"
+    )
 
     monkeypatch.setattr(generators, "ROLES_DIR", package / "roles")
     monkeypatch.setattr(generators, "REVIEW_DIR", package / "review")
@@ -49,11 +52,20 @@ def _seed_role(repo: Path, name: str, *, system_md: bool = True) -> None:
 
 
 def _seed_minimal_repo(repo: Path) -> None:
-    """Seed CLAUDE.md, .mcp.json, README so structural checks have a baseline."""
+    """Seed CLAUDE.md, the MANUAL publish domain, .mcp.json, README baseline."""
     (repo / "CLAUDE.md").write_text(
-        "| Gru main | a | b | c | d | e | f |\n"
-        "| Ethics main | a | b | c | d | e | f |\n"
-        "| Expert main | a | b | c | d | e | f |\n",
+        "# CLAUDE.md\n\nMinimal pointer — the handbook is `MANUAL/`.\n",
+        encoding="utf-8",
+    )
+    publish = repo / "MANUAL" / "domains" / "publish.md"
+    publish.parent.mkdir(parents=True, exist_ok=True)
+    publish.write_text(
+        "# domain: publish\n\n"
+        "| Role | Allowed `dst_subpath` top-level |\n"
+        "|---|---|\n"
+        "| `gru` | `*` |\n"
+        "| `expert*` | `handoffs`, `governance` |\n"
+        "| `ethics` | `ethics`, `handoffs`, `governance` |\n",
         encoding="utf-8",
     )
     (repo / ".mcp.json").write_text(

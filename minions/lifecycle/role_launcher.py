@@ -44,6 +44,7 @@ from minions.lifecycle.role_hermetic import (
     hermetic_home_enabled,
     prepare_fake_home,
     prepare_hermetic_cwd,
+    warn_if_disclosure_unbounded,
 )
 from minions.paths import (
     MINIONS_ROOT,
@@ -825,6 +826,7 @@ def _hermetic_cwd_for(project_port: int, role_name: str) -> Path | None:
     if hermetic_home_enabled():
         assert_tier2_auth_available()
     if not hermetic_enabled():
+        warn_if_disclosure_unbounded()
         return None
     return prepare_hermetic_cwd(project_port, role_name)
 

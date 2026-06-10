@@ -239,15 +239,24 @@ def check_mcp_tools_whitelisted() -> list[Issue]:
     return issues
 
 
-_TABLE_ROW_RE = re.compile(r"^\|\s*([A-Za-z][A-Za-z\- ]*?)\s+main\b", re.MULTILINE)
+_TABLE_ROW_RE = re.compile(r"^\|\s*`([A-Za-z][A-Za-z\-]*?)\*?`\s*\|", re.MULTILINE)
 
 
-def check_root_claudemd_role_table() -> list[Issue]:
-    """Every role in the whitelist should appear in the root CLAUDE.md role table."""
+def check_manual_publish_role_coverage() -> list[Issue]:
+    """Every whitelisted role must appear in the MANUAL publish-domain table.
+
+    The per-role write boundary lives in code (``_WHITELIST`` /
+    ``_ROLE_ALLOWED_SHARED_SUBDIRS``). Its human/agent-facing documentation is
+    the MANUAL publish domain page — the single canonical handbook surface that
+    root ``CLAUDE.md`` points to. This check is the docs-match-code guarantee:
+    it fails if a role gains a whitelist entry but is never documented there.
+    (Previously this cross-checked a duplicate prose table in root CLAUDE.md;
+    that duplicate was removed in favour of the handbook as the single source.)
+    """
     issues: list[Issue] = []
-    if not contracts.ROOT_CLAUDE_MD.is_file():
-        return [Issue("error", "claudemd", "root CLAUDE.md is missing.")]
-    text = contracts.ROOT_CLAUDE_MD.read_text(encoding="utf-8")
+    if not contracts.MANUAL_PUBLISH_DOMAIN.is_file():
+        return [Issue("error", "manual", "MANUAL/domains/publish.md is missing.")]
+    text = contracts.MANUAL_PUBLISH_DOMAIN.read_text(encoding="utf-8")
     listed = {match.group(1).strip().lower() for match in _TABLE_ROW_RE.finditer(text)}
     classified = {key[0] for key in contracts.whitelist_table()}
     for role in classified:
@@ -255,9 +264,9 @@ def check_root_claudemd_role_table() -> list[Issue]:
             issues.append(
                 Issue(
                     "warning",
-                    "claudemd",
-                    f"role {role!r} has a whitelist entry but no row in the root CLAUDE.md "
-                    "tool/write-boundary table.",
+                    "manual",
+                    f"role {role!r} has a whitelist entry but no row in the MANUAL "
+                    "publish-domain table (MANUAL/domains/publish.md).",
                 )
             )
     return issues
@@ -604,7 +613,7 @@ _ALL_CHECKS = (
     check_mcp_servers_registered,
     check_mcp_servers_have_doc_card,
     check_mcp_tools_whitelisted,
-    check_root_claudemd_role_table,
+    check_manual_publish_role_coverage,
     check_whitelist_entries_resolve,
     check_publish_policy_matches_boundaries,
     check_subagent_not_broader_than_main,
@@ -627,13 +636,13 @@ __all__ = [
     "audit",
     "check_dispatch_posture",
     "check_fixed_roles_have_dir",
+    "check_manual_publish_role_coverage",
     "check_mcp_servers_have_doc_card",
     "check_mcp_servers_registered",
     "check_mcp_tools_whitelisted",
     "check_publish_policy_covers_known_roles",
     "check_publish_policy_matches_boundaries",
     "check_role_dirs_have_system_md",
-    "check_root_claudemd_role_table",
     "check_subagent_not_broader_than_main",
     "check_whitelist_entries_resolve",
     "check_whitelist_role_coverage",
