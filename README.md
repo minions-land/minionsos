@@ -636,6 +636,16 @@ for contributor rules and deeper architecture notes.
 | Viz is not reachable | `./viz status` and `./viz logs` |
 | Doctor fails parent-git check | initialize and commit the parent directory |
 
+For known pitfalls, debugging recipes, and deeper architecture questions:
+
+```bash
+python3 MANUAL/scripts/lookup.py --kind pitfall <query>  # known failure modes
+python3 MANUAL/scripts/lookup.py <query>                 # tools, domains, recipes
+```
+
+The full handbook is at `MANUAL/` — the single progressive-disclosure reference
+for both contributors and agents.
+
 ### Security and Configuration
 
 Do not commit secrets, generated project worktrees, experiment credentials,
