@@ -1,6 +1,6 @@
 {
-  "version": "7cacef3",
-  "built_at": "2026-06-10T05:11:38.747384+00:00",
+  "version": "9e01001",
+  "built_at": "2026-06-10T13:10:16.483270+00:00",
   "page_count": 154,
   "pages": {
     "eacn3_a2a_server": {
@@ -14,7 +14,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:464",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Start or stop the A2A (Agent-to-Agent) HTTP server for direct messaging.",
       "keywords": [
         "a2a",
         "server",
@@ -60,7 +60,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:502",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Claim a previously registered agent from disk into this session.",
       "keywords": [
         "claim",
         "agent",
@@ -79,7 +79,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:811",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Stop accepting bids and results for a task you initiated, moving it to closed status.",
       "keywords": [
         "close",
         "task",
@@ -100,7 +100,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:339",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Retrieve the full cluster topology including all member nodes, their online/offline status, and seed URLs.",
       "keywords": [
         "cluster",
         "status"
@@ -118,7 +118,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:835",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Approve or reject a bid that exceeded your task's budget, triggered by a 'bid_request_confirmation' event.",
       "keywords": [
         "confirm",
         "budget",
@@ -141,7 +141,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:364",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Connect to the EACN3 network \u2014 this must be your FIRST call.",
       "keywords": [
         "connect",
         "agent"
@@ -159,7 +159,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:931",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Delegate part of your work by creating a child task under a parent task you are executing.",
       "keywords": [
         "create",
         "subtask",
@@ -214,7 +214,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1053",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Add EACN credits to an agent's available balance.",
       "keywords": [
         "deposit",
         "task",
@@ -235,7 +235,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:428",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Disconnect from the EACN3 network.",
       "keywords": [
         "disconnect",
         "task",
@@ -256,7 +256,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:665",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Search for agents matching a specific domain using the network's discovery protocol (Gossip, then DHT, then Bootstrap fallback).",
       "keywords": [
         "discover",
         "agents",
@@ -278,7 +278,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:597",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Fetch the full AgentCard for any agent by ID \u2014 checks local state first, then queries the network.",
       "keywords": [
         "get",
         "agent",
@@ -299,7 +299,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1043",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Check an agent's credit balance.",
       "keywords": [
         "get",
         "balance",
@@ -354,7 +354,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1027",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Query an agent's global reputation score (0.0-1.0, starts at 0.5 for new agents).",
       "keywords": [
         "get",
         "reputation",
@@ -376,7 +376,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:696",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Fetch complete task details from the network including description, content, bids[], results[], status, budget, deadline, and domains.",
       "keywords": [
         "get",
         "task",
@@ -397,7 +397,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:795",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Retrieve submitted results and adjudications for a task you initiated.",
       "keywords": [
         "get",
         "task",
@@ -417,7 +417,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:704",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Lightweight task query returning only status and bid list \u2014 no result content.",
       "keywords": [
         "get",
         "task",
@@ -439,7 +439,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:318",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Check if a network node is alive and responding.",
       "keywords": [
         "health"
       ],
@@ -457,7 +457,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:443",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Manually send a heartbeat to the network to signal this server is still alive.",
       "keywords": [
         "heartbeat"
       ],
@@ -474,7 +474,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:843",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Invite a specific agent to bid on your task, bypassing the normal bid admission filter (confidence\u00d7reputation threshold).",
       "keywords": [
         "invite",
         "agent",
@@ -497,7 +497,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:675",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Browse and paginate all agents registered on the network with optional filters by domain or server_id.",
       "keywords": [
         "list",
         "agents",
@@ -518,7 +518,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:654",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "List all agents registered on this local server instance.",
       "keywords": [
         "list",
         "my",
@@ -540,7 +540,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:712",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Browse tasks currently accepting bids (status: unclaimed or bidding).",
       "keywords": [
         "list",
         "open",
@@ -564,7 +564,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:723",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Browse all tasks on the network with optional filters by status (unclaimed, bidding, awaiting_retrieval, completed, no_one) and/or initiator_id.",
       "keywords": [
         "list",
         "tasks",
@@ -585,7 +585,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:531",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Create and register an agent identity on the EACN3 network.",
       "keywords": [
         "register",
         "agent",
@@ -608,7 +608,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:918",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Abandon a task you accepted, freeing your execution slot for another agent.",
       "keywords": [
         "reject",
         "task",
@@ -630,7 +630,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1015",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Manually report a reputation event for an agent.",
       "keywords": [
         "report",
         "event",
@@ -653,7 +653,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1128",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Get the current status of the MCP reverse control engine.",
       "keywords": [
         "reverse",
         "control",
@@ -674,7 +674,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:803",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Pick the winning result for a task, triggering credit transfer from escrow to the selected executor agent.",
       "keywords": [
         "select",
         "result",
@@ -724,7 +724,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:451",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Get current server connection state, including server_card, network_endpoint, registered agent IDs, task count, and remote status.",
       "keywords": [
         "server",
         "info",
@@ -797,7 +797,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:638",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Remove an agent from the network.",
       "keywords": [
         "unregister",
         "agent",
@@ -818,7 +818,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:609",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Update a registered agent's mutable fields: name, domains, skills, and/or description.",
       "keywords": [
         "update",
         "agent",
@@ -839,7 +839,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:819",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Extend or shorten a task's deadline.",
       "keywords": [
         "update",
         "deadline",
@@ -858,7 +858,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:827",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Post a clarification or discussion message on a task visible to all bidders.",
       "keywords": [
         "update",
         "discussions",
@@ -880,8 +880,21 @@
       "source": "minions/tools/mcp/runtime_tools.py:207",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Return the tmux command to attach to a Role's resident session.",
+      "keywords": [
+        "tmux",
+        "command",
+        "attach",
+        "role",
+        "resident",
+        "session",
+        "launcher",
+        "itself",
+        "does",
+        "caller",
+        "operator",
+        "runs"
+      ],
       "related": []
     },
     "mos_await_events": {
@@ -924,8 +937,21 @@
       "source": "minions/tools/mcp/memory_tools.py:295",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "List Book pages awaiting audit, with reel_refs surfaced for drill-down.",
+      "keywords": [
+        "book",
+        "pages",
+        "awaiting",
+        "audit",
+        "reel_refs",
+        "surfaced",
+        "drill",
+        "down",
+        "ethics",
+        "primary",
+        "entry",
+        "point"
+      ],
       "related": []
     },
     "mos_book_crystallize_session": {
@@ -938,8 +964,21 @@
       "source": "minions/tools/mcp/memory_tools.py:369",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Crystallize a role's recent reasoning window into a verbatim Book page.",
+      "keywords": [
+        "crystallize",
+        "role",
+        "recent",
+        "reasoning",
+        "window",
+        "verbatim",
+        "book",
+        "page",
+        "captures",
+        "closed",
+        "interval",
+        "before"
+      ],
       "related": []
     },
     "mos_book_dead_end": {
@@ -977,8 +1016,21 @@
       "source": "minions/tools/mcp/memory_tools.py:188",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Ingest a shared artifact into Book; see minions.tools.book.mos_book_ingest.",
+      "keywords": [
+        "ingest",
+        "shared",
+        "artifact",
+        "book",
+        "minions",
+        "tools",
+        "reel_ref",
+        "provided",
+        "form",
+        "role",
+        "session_id",
+        "task_id"
+      ],
       "related": []
     },
     "mos_book_ingest_batch": {
@@ -991,8 +1043,21 @@
       "source": "minions/tools/mcp/memory_tools.py:221",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Ingest multiple shared artifacts into Book as one ordered batch.",
+      "keywords": [
+        "ingest",
+        "multiple",
+        "shared",
+        "artifacts",
+        "book",
+        "ordered",
+        "batch",
+        "entry",
+        "sources",
+        "src_path",
+        "source_role",
+        "source_slug"
+      ],
       "related": []
     },
     "mos_book_lint": {
@@ -1005,8 +1070,12 @@
       "source": "minions/tools/mcp/memory_tools.py:337",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Audit book/ structure.",
+      "keywords": [
+        "audit",
+        "book",
+        "structure"
+      ],
       "related": []
     },
     "mos_book_open_question": {
@@ -1047,8 +1116,21 @@
       "source": "minions/tools/mcp/memory_tools.py:344",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Promote verified Draft insights to durable Book pages.",
+      "keywords": [
+        "promote",
+        "verified",
+        "draft",
+        "insights",
+        "durable",
+        "book",
+        "pages",
+        "knowledge",
+        "promotion",
+        "nodes",
+        "type",
+        "insight"
+      ],
       "related": []
     },
     "mos_book_query": {
@@ -1114,8 +1196,21 @@
       "source": "minions/tools/mcp/memory_tools.py:312",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Ethics writes a verdict on a contradiction page.",
+      "keywords": [
+        "ethics",
+        "writes",
+        "verdict",
+        "contradiction",
+        "page",
+        "flips",
+        "frontmatter",
+        "status",
+        "appends",
+        "section",
+        "verbatim",
+        "original"
+      ],
       "related": []
     },
     "mos_book_save_synthesis": {
@@ -1129,8 +1224,21 @@
       "source": "minions/tools/mcp/memory_tools.py:270",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Save a synthesized question\u2192answer as a compounding Book page.",
+      "keywords": [
+        "save",
+        "synthesized",
+        "question",
+        "answer",
+        "compounding",
+        "book",
+        "page",
+        "caller",
+        "role",
+        "does",
+        "synthesis",
+        "tool"
+      ],
       "related": []
     },
     "mos_compact_context": {
@@ -1169,8 +1277,21 @@
       "source": "minions/tools/mcp/spawn_tools.py:101",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Terminate a resident role and remove its EACN registration.",
+      "keywords": [
+        "terminate",
+        "resident",
+        "role",
+        "remove",
+        "eacn",
+        "registration",
+        "side",
+        "effects",
+        "kills",
+        "tmux",
+        "session",
+        "mos"
+      ],
       "related": []
     },
     "mos_download_arxiv": {
@@ -1185,8 +1306,15 @@
       "source": "minions/tools/mcp/paper_tools.py:102",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Download an arXiv PDF to a relative workspace path.",
+      "keywords": [
+        "download",
+        "arxiv",
+        "pdf",
+        "relative",
+        "workspace",
+        "path"
+      ],
       "related": []
     },
     "mos_download_biorxiv": {
@@ -1201,8 +1329,15 @@
       "source": "minions/tools/mcp/paper_tools.py:116",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Download a bioRxiv PDF to a relative workspace path.",
+      "keywords": [
+        "download",
+        "biorxiv",
+        "pdf",
+        "relative",
+        "workspace",
+        "path"
+      ],
       "related": []
     },
     "mos_download_medrxiv": {
@@ -1217,8 +1352,15 @@
       "source": "minions/tools/mcp/paper_tools.py:123",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Download a medRxiv PDF to a relative workspace path.",
+      "keywords": [
+        "download",
+        "medrxiv",
+        "pdf",
+        "relative",
+        "workspace",
+        "path"
+      ],
       "related": []
     },
     "mos_download_pubmed": {
@@ -1233,8 +1375,17 @@
       "source": "minions/tools/mcp/paper_tools.py:109",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Save PubMed metadata and abstract text to a relative workspace path.",
+      "keywords": [
+        "save",
+        "pubmed",
+        "metadata",
+        "abstract",
+        "text",
+        "relative",
+        "workspace",
+        "path"
+      ],
       "related": []
     },
     "mos_draft_annotate": {
@@ -1249,8 +1400,14 @@
       "source": "minions/tools/mcp/memory_tools.py:119",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Update a node's support_status, evidence_tag, or metadata.",
+      "keywords": [
+        "update",
+        "node",
+        "support_status",
+        "evidence_tag",
+        "metadata"
+      ],
       "related": []
     },
     "mos_draft_append": {
@@ -1292,8 +1449,21 @@
       "source": "minions/tools/mcp/memory_tools.py:154",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Flush the buffered Draft to a single commit on the project main branch.",
+      "keywords": [
+        "flush",
+        "buffered",
+        "draft",
+        "single",
+        "commit",
+        "project",
+        "main",
+        "branch",
+        "owned",
+        "ethics",
+        "whitelist",
+        "also"
+      ],
       "related": []
     },
     "mos_draft_decay_compute": {
@@ -1307,8 +1477,21 @@
       "source": "minions/tools/mcp/memory_tools.py:170",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Compute the Draft decay sidecar at draft/decay.json.",
+      "keywords": [
+        "compute",
+        "draft",
+        "decay",
+        "sidecar",
+        "json",
+        "pure",
+        "observation",
+        "walks",
+        "every",
+        "node",
+        "records",
+        "age"
+      ],
       "related": []
     },
     "mos_draft_path": {
@@ -1323,8 +1506,14 @@
       "source": "minions/tools/mcp/memory_tools.py:131",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Extract the path from root (or from_node_id) to target_node_id.",
+      "keywords": [
+        "extract",
+        "path",
+        "root",
+        "from_node_id",
+        "target_node_id"
+      ],
       "related": []
     },
     "mos_draft_unmarked_audit": {
@@ -1390,8 +1579,21 @@
       "source": "minions/tools/mcp/evaluator_tools.py:37",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Evaluate the project's paper deliverable via full peer review.",
+      "keywords": [
+        "evaluate",
+        "project",
+        "paper",
+        "deliverable",
+        "full",
+        "peer",
+        "review",
+        "runs",
+        "multi",
+        "pass",
+        "area",
+        "chair"
+      ],
       "related": []
     },
     "mos_exp_get": {
@@ -1404,8 +1606,18 @@
       "source": "minions/tools/mcp/experiment_tools.py:75",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Download a target file, refusing files over the experiment size limit.",
+      "keywords": [
+        "download",
+        "target",
+        "file",
+        "refusing",
+        "files",
+        "over",
+        "experiment",
+        "size",
+        "limit"
+      ],
       "related": []
     },
     "mos_exp_gpu_pool_get": {
@@ -1418,8 +1630,13 @@
       "source": "minions/tools/mcp/experiment_tools.py:137",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Return dynamic GPU pool overrides.",
+      "keywords": [
+        "dynamic",
+        "gpu",
+        "pool",
+        "overrides"
+      ],
       "related": []
     },
     "mos_exp_gpu_pool_set": {
@@ -1432,8 +1649,16 @@
       "source": "minions/tools/mcp/experiment_tools.py:130",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Set the dynamic GPU allow-list for new experiment runs.",
+      "keywords": [
+        "set",
+        "dynamic",
+        "gpu",
+        "allow",
+        "new",
+        "experiment",
+        "runs"
+      ],
       "related": []
     },
     "mos_exp_kill": {
@@ -1446,8 +1671,14 @@
       "source": "minions/tools/mcp/experiment_tools.py:54",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Send SIGTERM to a running experiment process.",
+      "keywords": [
+        "send",
+        "sigterm",
+        "running",
+        "experiment",
+        "process"
+      ],
       "related": []
     },
     "mos_exp_list": {
@@ -1460,8 +1691,13 @@
       "source": "minions/tools/mcp/experiment_tools.py:61",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "List known experiment runs on a target.",
+      "keywords": [
+        "known",
+        "experiment",
+        "runs",
+        "target"
+      ],
       "related": []
     },
     "mos_exp_put": {
@@ -1474,8 +1710,14 @@
       "source": "minions/tools/mcp/experiment_tools.py:68",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Upload a local file to a target workdir.",
+      "keywords": [
+        "upload",
+        "local",
+        "file",
+        "target",
+        "workdir"
+      ],
       "related": []
     },
     "mos_exp_queue_plan": {
@@ -1488,8 +1730,21 @@
       "source": "minions/tools/mcp/experiment_tools.py:117",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Dry-run a candidate submission against the live GPU snapshot.",
+      "keywords": [
+        "dry",
+        "run",
+        "candidate",
+        "submission",
+        "against",
+        "live",
+        "gpu",
+        "snapshot",
+        "unit",
+        "placement",
+        "target",
+        "gpu_ids"
+      ],
       "related": []
     },
     "mos_exp_queue_reconcile": {
@@ -1606,8 +1861,13 @@
       "source": "minions/tools/mcp/experiment_tools.py:40",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Check an experiment run state.",
+      "keywords": [
+        "check",
+        "experiment",
+        "run",
+        "state"
+      ],
       "related": []
     },
     "mos_exp_tail": {
@@ -1620,8 +1880,13 @@
       "source": "minions/tools/mcp/experiment_tools.py:82",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Tail a target log file.",
+      "keywords": [
+        "tail",
+        "target",
+        "log",
+        "file"
+      ],
       "related": []
     },
     "mos_exp_wait": {
@@ -1634,8 +1899,14 @@
       "source": "minions/tools/mcp/experiment_tools.py:47",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Poll up to timeout seconds for a run to exit.",
+      "keywords": [
+        "poll",
+        "timeout",
+        "seconds",
+        "run",
+        "exit"
+      ],
       "related": []
     },
     "mos_get_events": {
@@ -1703,8 +1974,21 @@
       "source": "minions/tools/mcp/runtime_tools.py:233",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Kill the tmux session for a Role.",
+      "keywords": [
+        "kill",
+        "tmux",
+        "session",
+        "role",
+        "semantics",
+        "controlled",
+        "purge",
+        "false",
+        "default",
+        "recycle",
+        "registry",
+        "row"
+      ],
       "related": []
     },
     "mos_list_roles": {
@@ -1717,8 +2001,11 @@
       "source": "minions/tools/mcp/spawn_tools.py:130",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "List all roles for a project.",
+      "keywords": [
+        "roles",
+        "project"
+      ],
       "related": []
     },
     "mos_list_workflow_plugins": {
@@ -1754,8 +2041,21 @@
       "source": "minions/tools/mcp/project_tools.py:184",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Bridge a message from one project to a specific agent on another project.",
+      "keywords": [
+        "bridge",
+        "message",
+        "project",
+        "specific",
+        "agent",
+        "another",
+        "cross",
+        "communication",
+        "intentionally",
+        "gru",
+        "sees",
+        "every"
+      ],
       "related": []
     },
     "mos_project_checkpoint_workspace": {
@@ -1769,8 +2069,21 @@
       "source": "minions/tools/mcp/project_tools.py:157",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Commit the project workspace to its branch and optionally push.",
+      "keywords": [
+        "commit",
+        "project",
+        "workspace",
+        "branch",
+        "optionally",
+        "push",
+        "side",
+        "effects",
+        "role",
+        "git",
+        "worktree",
+        "add"
+      ],
       "related": []
     },
     "mos_project_close": {
@@ -1783,8 +2096,16 @@
       "source": "minions/tools/mcp/project_tools.py:83",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Close a project permanently (stops backend, retires port).",
+      "keywords": [
+        "close",
+        "project",
+        "permanently",
+        "stops",
+        "backend",
+        "retires",
+        "port"
+      ],
       "related": []
     },
     "mos_project_create": {
@@ -1798,7 +2119,24 @@
       "since": "stub",
       "status": "stable",
       "summary": "Create one new MinionsOS project and bootstrap its project-local runtime.",
-      "keywords": [],
+      "keywords": [
+        "create",
+        "new",
+        "minionsos",
+        "project",
+        "bootstrap",
+        "local",
+        "runtime",
+        "signature",
+        "python",
+        "real_name",
+        "venue",
+        "none",
+        "brief",
+        "base_branch",
+        "head",
+        "topic_doc"
+      ],
       "related": [
         "mos_project_revive",
         "mos_project_list",
@@ -1816,8 +2154,17 @@
       "source": "minions/tools/mcp/project_tools.py:91",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Put a project into dormant state (stops backend, dismisses roles).",
+      "keywords": [
+        "put",
+        "project",
+        "dormant",
+        "state",
+        "stops",
+        "backend",
+        "dismisses",
+        "roles"
+      ],
       "related": []
     },
     "mos_project_kill": {
@@ -1830,8 +2177,19 @@
       "source": "minions/tools/mcp/project_tools.py:99",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Hard-stop a project runtime without deleting EACN data or retiring its port.",
+      "keywords": [
+        "hard",
+        "stop",
+        "project",
+        "runtime",
+        "without",
+        "deleting",
+        "eacn",
+        "data",
+        "retiring",
+        "port"
+      ],
       "related": []
     },
     "mos_project_list": {
@@ -1844,8 +2202,13 @@
       "source": "minions/tools/mcp/project_tools.py:118",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "List projects, optionally filtered by status.",
+      "keywords": [
+        "projects",
+        "optionally",
+        "filtered",
+        "status"
+      ],
       "related": []
     },
     "mos_project_revive": {
@@ -1859,7 +2222,24 @@
       "since": "stub",
       "status": "stable",
       "summary": "Restart an existing project from recorded lifecycle state.",
-      "keywords": [],
+      "keywords": [
+        "restart",
+        "existing",
+        "project",
+        "recorded",
+        "lifecycle",
+        "state",
+        "signature",
+        "python",
+        "port",
+        "call",
+        "already",
+        "exists",
+        "needs",
+        "backend",
+        "roles",
+        "running"
+      ],
       "related": [
         "mos_project_create",
         "mos_project_list",
@@ -1876,8 +2256,16 @@
       "source": "minions/tools/mcp/project_tools.py:137",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Record the current project phase and wake roles to reconcile.",
+      "keywords": [
+        "record",
+        "current",
+        "project",
+        "phase",
+        "wake",
+        "roles",
+        "reconcile"
+      ],
       "related": []
     },
     "mos_promote_to_book": {
@@ -1945,8 +2333,13 @@
       "source": "minions/tools/mcp/experiment_tools.py:89",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Query GPU memory on a target.",
+      "keywords": [
+        "query",
+        "gpu",
+        "memory",
+        "target"
+      ],
       "related": []
     },
     "mos_read_arxiv_paper": {
@@ -1961,8 +2354,15 @@
       "source": "minions/tools/mcp/paper_tools.py:74",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Read arXiv metadata and abstract text for a paper id.",
+      "keywords": [
+        "read",
+        "arxiv",
+        "metadata",
+        "abstract",
+        "text",
+        "paper"
+      ],
       "related": []
     },
     "mos_read_biorxiv_paper": {
@@ -1977,8 +2377,16 @@
       "source": "minions/tools/mcp/paper_tools.py:88",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Read bioRxiv metadata pointers for a DOI-like paper id.",
+      "keywords": [
+        "read",
+        "biorxiv",
+        "metadata",
+        "pointers",
+        "doi",
+        "like",
+        "paper"
+      ],
       "related": []
     },
     "mos_read_medrxiv_paper": {
@@ -1993,8 +2401,16 @@
       "source": "minions/tools/mcp/paper_tools.py:95",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Read medRxiv metadata pointers for a DOI-like paper id.",
+      "keywords": [
+        "read",
+        "medrxiv",
+        "metadata",
+        "pointers",
+        "doi",
+        "like",
+        "paper"
+      ],
       "related": []
     },
     "mos_read_pubmed_paper": {
@@ -2009,8 +2425,15 @@
       "source": "minions/tools/mcp/paper_tools.py:81",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Read PubMed metadata and abstract text for a PMID.",
+      "keywords": [
+        "read",
+        "pubmed",
+        "metadata",
+        "abstract",
+        "text",
+        "pmid"
+      ],
       "related": []
     },
     "mos_reel_get": {
@@ -2052,8 +2475,21 @@
       "source": "minions/tools/mcp/reel_tools.py:49",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Read index entries around a reel reference.",
+      "keywords": [
+        "read",
+        "index",
+        "entries",
+        "around",
+        "reel",
+        "reference",
+        "args",
+        "ref",
+        "form",
+        "role",
+        "session_id",
+        "task_id"
+      ],
       "related": []
     },
     "mos_reset_context": {
@@ -2095,8 +2531,18 @@
       "source": "minions/tools/mcp/paper_tools.py:67",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Batch-resolve arXiv ids to canonical paper dicts (Web \u2192 ID \u2192 paper, step 2).",
+      "keywords": [
+        "batch",
+        "resolve",
+        "arxiv",
+        "ids",
+        "canonical",
+        "paper",
+        "dicts",
+        "web",
+        "step"
+      ],
       "related": []
     },
     "mos_review_run": {
@@ -2134,8 +2580,21 @@
       "source": "minions/tools/mcp/role_evolution_tools.py:158",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Realize a DISMISS decision for a Role with no recent work.",
+      "keywords": [
+        "realize",
+        "dismiss",
+        "decision",
+        "role",
+        "recent",
+        "work",
+        "distinct",
+        "generic",
+        "because",
+        "requires",
+        "non",
+        "empty"
+      ],
       "related": []
     },
     "mos_role_evolve_evaluate": {
@@ -2148,8 +2607,21 @@
       "source": "minions/tools/mcp/role_evolution_tools.py:69",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Evaluate whether any roles in this project should split, merge, or be dismissed.",
+      "keywords": [
+        "evaluate",
+        "whether",
+        "roles",
+        "project",
+        "should",
+        "split",
+        "merge",
+        "dismissed",
+        "read",
+        "splitdecision",
+        "active",
+        "role"
+      ],
       "related": []
     },
     "mos_role_merge": {
@@ -2162,8 +2634,21 @@
       "source": "minions/tools/mcp/role_evolution_tools.py:129",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Realize a MERGE decision: spawn unified role, dismiss the sources.",
+      "keywords": [
+        "realize",
+        "merge",
+        "decision",
+        "spawn",
+        "unified",
+        "role",
+        "dismiss",
+        "sources",
+        "active",
+        "roles",
+        "have",
+        "converged"
+      ],
       "related": []
     },
     "mos_role_split": {
@@ -2176,8 +2661,21 @@
       "source": "minions/tools/mcp/role_evolution_tools.py:101",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Realize a SPLIT decision: spawn specialists, dismiss the source role.",
+      "keywords": [
+        "realize",
+        "split",
+        "decision",
+        "spawn",
+        "specialists",
+        "dismiss",
+        "source",
+        "role",
+        "requires",
+        "non",
+        "empty",
+        "evidence_refs"
+      ],
       "related": []
     },
     "mos_search_arxiv": {
@@ -2192,8 +2690,18 @@
       "source": "minions/tools/mcp/paper_tools.py:16",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Search arXiv papers through the project-local MinionsOS MCP server.",
+      "keywords": [
+        "search",
+        "arxiv",
+        "papers",
+        "through",
+        "project",
+        "local",
+        "minionsos",
+        "mcp",
+        "server"
+      ],
       "related": []
     },
     "mos_search_biorxiv": {
@@ -2208,8 +2716,16 @@
       "source": "minions/tools/mcp/paper_tools.py:30",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Search bioRxiv-indexed preprints through Europe PMC.",
+      "keywords": [
+        "search",
+        "biorxiv",
+        "indexed",
+        "preprints",
+        "through",
+        "europe",
+        "pmc"
+      ],
       "related": []
     },
     "mos_search_google_scholar": {
@@ -2224,8 +2740,16 @@
       "source": "minions/tools/mcp/paper_tools.py:44",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Scholar-like broad search using Semantic Scholar metadata.",
+      "keywords": [
+        "scholar",
+        "like",
+        "broad",
+        "search",
+        "using",
+        "semantic",
+        "metadata"
+      ],
       "related": []
     },
     "mos_search_medrxiv": {
@@ -2240,8 +2764,16 @@
       "source": "minions/tools/mcp/paper_tools.py:37",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Search medRxiv-indexed preprints through Europe PMC.",
+      "keywords": [
+        "search",
+        "medrxiv",
+        "indexed",
+        "preprints",
+        "through",
+        "europe",
+        "pmc"
+      ],
       "related": []
     },
     "mos_search_papers_federated": {
@@ -2256,8 +2788,19 @@
       "source": "minions/tools/mcp/paper_tools.py:58",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Run a federated search across multiple academic sources, deduplicating by DOI/title.",
+      "keywords": [
+        "run",
+        "federated",
+        "search",
+        "across",
+        "multiple",
+        "academic",
+        "sources",
+        "deduplicating",
+        "doi",
+        "title"
+      ],
       "related": []
     },
     "mos_search_pubmed": {
@@ -2272,8 +2815,18 @@
       "source": "minions/tools/mcp/paper_tools.py:23",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Search PubMed papers through the project-local MinionsOS MCP server.",
+      "keywords": [
+        "search",
+        "pubmed",
+        "papers",
+        "through",
+        "project",
+        "local",
+        "minionsos",
+        "mcp",
+        "server"
+      ],
       "related": []
     },
     "mos_search_semantic": {
@@ -2288,8 +2841,13 @@
       "source": "minions/tools/mcp/paper_tools.py:51",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Search Semantic Scholar metadata.",
+      "keywords": [
+        "search",
+        "semantic",
+        "scholar",
+        "metadata"
+      ],
       "related": []
     },
     "mos_signboard_consume": {
@@ -2302,8 +2860,21 @@
       "source": "minions/tools/mcp/signboard_tools.py:128",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Mark a milestone as consumed \u2014 Gru-only bookkeeping after dispatch.",
+      "keywords": [
+        "mark",
+        "milestone",
+        "consumed",
+        "gru",
+        "bookkeeping",
+        "after",
+        "dispatch",
+        "call",
+        "exactly",
+        "once",
+        "has",
+        "dispatched"
+      ],
       "related": []
     },
     "mos_signboard_evaluate": {
@@ -2316,8 +2887,21 @@
       "source": "minions/tools/mcp/signboard_tools.py:106",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Evaluate quorum for a milestone \u2014 Gru-only.",
+      "keywords": [
+        "evaluate",
+        "quorum",
+        "milestone",
+        "gru",
+        "reads",
+        "live",
+        "signboard",
+        "eacn3",
+        "registered",
+        "expert",
+        "roster",
+        "fixed_required"
+      ],
       "related": []
     },
     "mos_signboard_read": {
@@ -2332,8 +2916,21 @@
       "source": "minions/tools/mcp/signboard_tools.py:95",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Read current signboard state.",
+      "keywords": [
+        "read",
+        "current",
+        "signboard",
+        "state",
+        "pure",
+        "lock",
+        "notify",
+        "side",
+        "effects",
+        "either",
+        "whole",
+        "board"
+      ],
       "related": []
     },
     "mos_signboard_reopen": {
@@ -2346,8 +2943,21 @@
       "source": "minions/tools/mcp/signboard_tools.py:150",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Reset a milestone for a fresh round \u2014 Gru-only.",
+      "keywords": [
+        "reset",
+        "milestone",
+        "fresh",
+        "round",
+        "gru",
+        "clears",
+        "raised",
+        "signs",
+        "consumed",
+        "marker",
+        "preserving",
+        "consumed_round"
+      ],
       "related": []
     },
     "mos_signboard_set": {
@@ -2362,8 +2972,21 @@
       "source": "minions/tools/mcp/signboard_tools.py:59",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Raise or lower this role's sign for a milestone.",
+      "keywords": [
+        "raise",
+        "lower",
+        "role",
+        "sign",
+        "milestone",
+        "signboard",
+        "lightweight",
+        "consensus",
+        "surface",
+        "eligible",
+        "independently",
+        "raises"
+      ],
       "related": []
     },
     "mos_spawn_expert": {
@@ -2401,8 +3024,21 @@
       "source": "minions/tools/mcp/spawn_tools.py:27",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Register a fixed role and start its long-lived ``claude`` process.",
+      "keywords": [
+        "register",
+        "fixed",
+        "role",
+        "start",
+        "long",
+        "lived",
+        "claude",
+        "process",
+        "side",
+        "effects",
+        "registers",
+        "project"
+      ],
       "related": []
     },
     "mos_start_monitor": {
@@ -2415,8 +3051,21 @@
       "source": "minions/tools/mcp/runtime_tools.py:32",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Start the Gru heartbeat/health monitor as a background daemon thread.",
+      "keywords": [
+        "start",
+        "gru",
+        "heartbeat",
+        "health",
+        "monitor",
+        "background",
+        "daemon",
+        "thread",
+        "idempotent",
+        "second",
+        "call",
+        "while"
+      ],
       "related": []
     },
     "mos_submit": {
@@ -2429,8 +3078,21 @@
       "source": "minions/tools/mcp/evaluator_tools.py:23",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Persist the paper deliverable under branches/main/submissions/.",
+      "keywords": [
+        "persist",
+        "paper",
+        "deliverable",
+        "under",
+        "branches",
+        "main",
+        "submissions",
+        "authoring",
+        "role",
+        "composes",
+        "payload",
+        "pdf_path"
+      ],
       "related": []
     },
     "mos_unread_summary": {
@@ -2470,8 +3132,21 @@
       "source": "minions/tools/mcp/visual_tools.py:198",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "End-to-end: render the PDF, inspect every page, optionally save the report.",
+      "keywords": [
+        "end",
+        "render",
+        "pdf",
+        "inspect",
+        "every",
+        "page",
+        "optionally",
+        "save",
+        "report",
+        "equivalent",
+        "calling",
+        "then"
+      ],
       "related": []
     },
     "mos_visual_inspect": {
@@ -2486,8 +3161,21 @@
       "source": "minions/tools/mcp/visual_tools.py:147",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Run visual detectors on a PDF, single image, or a directory of pages.",
+      "keywords": [
+        "run",
+        "visual",
+        "detectors",
+        "pdf",
+        "single",
+        "image",
+        "directory",
+        "pages",
+        "structured",
+        "defectreport",
+        "report_path",
+        "set"
+      ],
       "related": []
     },
     "mos_visual_render": {
@@ -2502,8 +3190,21 @@
       "source": "minions/tools/mcp/visual_tools.py:122",
       "since": "stub",
       "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
+      "summary": "Rasterize a PDF to per-page PNG images via Poppler.",
+      "keywords": [
+        "rasterize",
+        "pdf",
+        "page",
+        "png",
+        "images",
+        "poppler",
+        "output_dir",
+        "dpi",
+        "page_count",
+        "page_files",
+        "raises",
+        "permissionerror"
+      ],
       "related": []
     },
     "pitfall-deferred-schema": {
@@ -3604,6 +4305,8 @@
     "server": [
       "eacn3_a2a_server",
       "eacn3_server_info",
+      "mos_search_arxiv",
+      "mos_search_pubmed",
       "pitfall-mcp-cosmetic"
     ],
     "agent": [
@@ -3636,6 +4339,7 @@
       "eacn3_unregister_agent",
       "eacn3_update_agent",
       "eacn3_update_discussions",
+      "mos_project_bridge",
       "mos_reel_get",
       "mos_spawn_expert",
       "pitfall-subagent-boilerplate"
@@ -3646,7 +4350,8 @@
       "eacn3_get_events",
       "eacn3_invite_agent",
       "eacn3_send_message",
-      "eacn3_update_discussions"
+      "eacn3_update_discussions",
+      "mos_project_bridge"
     ],
     "await": [
       "eacn3_await_events",
@@ -3679,7 +4384,8 @@
       "eacn3_claim_agent"
     ],
     "close": [
-      "eacn3_close_task"
+      "eacn3_close_task",
+      "mos_project_close"
     ],
     "task": [
       "domain-subagent-handoff",
@@ -3743,7 +4449,9 @@
       "eacn3_cluster_status",
       "eacn3_get_task_status",
       "eacn3_reverse_control_status",
-      "mos_exp_queue_status"
+      "mos_book_resolve_contradiction",
+      "mos_exp_queue_status",
+      "mos_project_list"
     ],
     "confirm": [
       "eacn3_confirm_budget"
@@ -3764,7 +4472,8 @@
     ],
     "create": [
       "eacn3_create_subtask",
-      "eacn3_create_task"
+      "eacn3_create_task",
+      "mos_project_create"
     ],
     "subtask": [
       "eacn3_create_subtask",
@@ -3835,10 +4544,12 @@
       "eacn3_get_task_results"
     ],
     "health": [
-      "eacn3_health"
+      "eacn3_health",
+      "mos_start_monitor"
     ],
     "heartbeat": [
-      "eacn3_heartbeat"
+      "eacn3_heartbeat",
+      "mos_start_monitor"
     ],
     "invite": [
       "eacn3_invite_agent"
@@ -3861,14 +4572,16 @@
       "eacn3_list_tasks"
     ],
     "register": [
-      "eacn3_register_agent"
+      "eacn3_register_agent",
+      "mos_spawn_role"
     ],
     "reject": [
       "eacn3_reject_task"
     ],
     "report": [
       "eacn3_report_event",
-      "mos_issue_report"
+      "mos_issue_report",
+      "mos_visual_check"
     ],
     "reverse": [
       "eacn3_reverse_control_status"
@@ -3884,7 +4597,8 @@
       "eacn3_submit_result"
     ],
     "send": [
-      "eacn3_send_message"
+      "eacn3_send_message",
+      "mos_exp_kill"
     ],
     "info": [
       "eacn3_server_info"
@@ -3910,7 +4624,8 @@
     "update": [
       "eacn3_update_agent",
       "eacn3_update_deadline",
-      "eacn3_update_discussions"
+      "eacn3_update_discussions",
+      "mos_draft_annotate"
     ],
     "deadline": [
       "eacn3_update_deadline"
@@ -3918,17 +4633,88 @@
     "discussions": [
       "eacn3_update_discussions"
     ],
+    "tmux": [
+      "mos_attach_role",
+      "mos_dismiss_role",
+      "mos_kill_role"
+    ],
+    "command": [
+      "mos_attach_role",
+      "mos_exp_run"
+    ],
+    "attach": [
+      "domain-runtime",
+      "mos_attach_role"
+    ],
+    "role": [
+      "domain-evolution",
+      "domain-lifecycle",
+      "mos_attach_role",
+      "mos_book_crystallize_session",
+      "mos_book_ingest",
+      "mos_book_save_synthesis",
+      "mos_dismiss_role",
+      "mos_kill_role",
+      "mos_project_checkpoint_workspace",
+      "mos_publish_to_shared",
+      "mos_reel_window",
+      "mos_role_evolve_dismiss",
+      "mos_role_evolve_evaluate",
+      "mos_role_merge",
+      "mos_role_split",
+      "mos_signboard_set",
+      "mos_spawn_expert",
+      "mos_spawn_role",
+      "mos_submit",
+      "pitfall-empty-authz",
+      "pitfall-tool-denied"
+    ],
+    "resident": [
+      "mos_attach_role",
+      "mos_dismiss_role"
+    ],
+    "session": [
+      "mos_attach_role",
+      "mos_dismiss_role",
+      "mos_kill_role"
+    ],
+    "launcher": [
+      "mos_attach_role"
+    ],
+    "itself": [
+      "mos_attach_role"
+    ],
+    "does": [
+      "mos_attach_role",
+      "mos_book_save_synthesis"
+    ],
+    "caller": [
+      "mos_attach_role",
+      "mos_book_save_synthesis"
+    ],
+    "operator": [
+      "mos_attach_role"
+    ],
+    "runs": [
+      "mos_attach_role",
+      "mos_evaluate",
+      "mos_exp_gpu_pool_set",
+      "mos_exp_list"
+    ],
     "wake": [
       "domain-runtime",
       "mos_await_events",
-      "mos_draft_view"
+      "mos_draft_view",
+      "mos_project_set_phase"
     ],
     "idle": [
       "mos_await_events"
     ],
     "eacn": [
       "mos_await_events",
+      "mos_dismiss_role",
       "mos_get_events",
+      "mos_project_kill",
       "mos_unread_summary"
     ],
     "loop": [
@@ -3942,11 +4728,99 @@
     "book": [
       "domain-memory",
       "domain-reel-l0-memory",
+      "mos_book_audit_walk",
+      "mos_book_crystallize_session",
       "mos_book_dead_end",
+      "mos_book_ingest",
+      "mos_book_ingest_batch",
+      "mos_book_lint",
       "mos_book_open_question",
+      "mos_book_promote_verified",
       "mos_book_query",
       "mos_book_ratify",
+      "mos_book_save_synthesis",
       "mos_promote_to_book"
+    ],
+    "pages": [
+      "mos_book_audit_walk",
+      "mos_book_promote_verified",
+      "mos_visual_inspect"
+    ],
+    "awaiting": [
+      "mos_book_audit_walk"
+    ],
+    "audit": [
+      "mos_book_audit_walk",
+      "mos_book_lint",
+      "mos_draft_unmarked_audit",
+      "mos_reel_get"
+    ],
+    "reel_refs": [
+      "mos_book_audit_walk"
+    ],
+    "surfaced": [
+      "mos_book_audit_walk"
+    ],
+    "drill": [
+      "mos_book_audit_walk"
+    ],
+    "down": [
+      "mos_book_audit_walk"
+    ],
+    "ethics": [
+      "mos_book_audit_walk",
+      "mos_book_ratify",
+      "mos_book_resolve_contradiction",
+      "mos_draft_commit_shared",
+      "mos_draft_unmarked_audit",
+      "mos_promote_to_book"
+    ],
+    "primary": [
+      "mos_book_audit_walk"
+    ],
+    "entry": [
+      "mos_book_audit_walk",
+      "mos_book_ingest_batch"
+    ],
+    "point": [
+      "mos_book_audit_walk"
+    ],
+    "crystallize": [
+      "mos_book_crystallize_session"
+    ],
+    "recent": [
+      "mos_book_crystallize_session",
+      "mos_role_evolve_dismiss"
+    ],
+    "reasoning": [
+      "mos_book_crystallize_session"
+    ],
+    "window": [
+      "mos_book_crystallize_session"
+    ],
+    "verbatim": [
+      "mos_book_crystallize_session",
+      "mos_book_resolve_contradiction"
+    ],
+    "page": [
+      "mos_book_crystallize_session",
+      "mos_book_query",
+      "mos_book_resolve_contradiction",
+      "mos_book_save_synthesis",
+      "mos_visual_check",
+      "mos_visual_render"
+    ],
+    "captures": [
+      "mos_book_crystallize_session"
+    ],
+    "closed": [
+      "mos_book_crystallize_session"
+    ],
+    "interval": [
+      "mos_book_crystallize_session"
+    ],
+    "before": [
+      "mos_book_crystallize_session"
     ],
     "dead-end": [
       "mos_book_dead_end"
@@ -3963,6 +4837,74 @@
     "do-not-repeat": [
       "mos_book_dead_end"
     ],
+    "ingest": [
+      "mos_book_ingest",
+      "mos_book_ingest_batch"
+    ],
+    "shared": [
+      "mos_book_ingest",
+      "mos_book_ingest_batch",
+      "mos_publish_to_shared"
+    ],
+    "artifact": [
+      "mos_book_ingest"
+    ],
+    "minions": [
+      "mos_book_ingest"
+    ],
+    "tools": [
+      "mos_book_ingest"
+    ],
+    "reel_ref": [
+      "mos_book_ingest"
+    ],
+    "provided": [
+      "mos_book_ingest"
+    ],
+    "form": [
+      "mos_book_ingest",
+      "mos_reel_window"
+    ],
+    "session_id": [
+      "mos_book_ingest",
+      "mos_reel_window"
+    ],
+    "task_id": [
+      "mos_book_ingest",
+      "mos_reel_window"
+    ],
+    "multiple": [
+      "mos_book_ingest_batch",
+      "mos_search_papers_federated"
+    ],
+    "artifacts": [
+      "mos_book_ingest_batch"
+    ],
+    "ordered": [
+      "mos_book_ingest_batch"
+    ],
+    "batch": [
+      "mos_book_ingest_batch",
+      "mos_exp_queue_submit",
+      "mos_resolve_arxiv_ids"
+    ],
+    "sources": [
+      "mos_book_ingest_batch",
+      "mos_role_merge",
+      "mos_search_papers_federated"
+    ],
+    "src_path": [
+      "mos_book_ingest_batch"
+    ],
+    "source_role": [
+      "mos_book_ingest_batch"
+    ],
+    "source_slug": [
+      "mos_book_ingest_batch"
+    ],
+    "structure": [
+      "mos_book_lint"
+    ],
     "open-question": [
       "mos_book_open_question"
     ],
@@ -3976,43 +4918,123 @@
       "mos_book_open_question"
     ],
     "question": [
-      "mos_book_open_question"
+      "mos_book_open_question",
+      "mos_book_save_synthesis"
     ],
-    "query": [
-      "mos_book_query",
+    "promote": [
+      "mos_book_promote_verified",
+      "mos_book_ratify",
+      "mos_promote_to_book"
+    ],
+    "verified": [
+      "mos_book_promote_verified"
+    ],
+    "draft": [
+      "domain-memory",
+      "domain-reel-l0-memory",
+      "mos_book_promote_verified",
+      "mos_draft_append",
+      "mos_draft_commit_shared",
+      "mos_draft_decay_compute",
+      "mos_draft_unmarked_audit",
       "mos_draft_view"
     ],
-    "search": [
-      "domain-papers",
-      "mos_book_query"
+    "insights": [
+      "mos_book_promote_verified"
     ],
-    "page": [
+    "durable": [
+      "mos_book_promote_verified",
       "mos_book_query"
     ],
     "knowledge": [
+      "mos_book_promote_verified",
       "mos_book_query"
     ],
-    "durable": [
-      "mos_book_query"
+    "promotion": [
+      "mos_book_promote_verified"
+    ],
+    "nodes": [
+      "mos_book_promote_verified"
+    ],
+    "type": [
+      "mos_book_promote_verified"
+    ],
+    "insight": [
+      "mos_book_promote_verified"
+    ],
+    "query": [
+      "mos_book_query",
+      "mos_draft_view",
+      "mos_query_gpus"
+    ],
+    "search": [
+      "domain-papers",
+      "mos_book_query",
+      "mos_search_arxiv",
+      "mos_search_biorxiv",
+      "mos_search_google_scholar",
+      "mos_search_medrxiv",
+      "mos_search_papers_federated",
+      "mos_search_pubmed",
+      "mos_search_semantic"
     ],
     "ratify": [
       "domain-memory",
       "mos_book_ratify"
     ],
-    "ethics": [
-      "mos_book_ratify",
-      "mos_draft_unmarked_audit",
-      "mos_promote_to_book"
-    ],
     "verify": [
       "mos_book_ratify"
     ],
-    "promote": [
-      "mos_book_ratify",
-      "mos_promote_to_book"
-    ],
     "ratification": [
       "mos_book_ratify"
+    ],
+    "writes": [
+      "mos_book_resolve_contradiction"
+    ],
+    "verdict": [
+      "mos_book_resolve_contradiction",
+      "pitfall-subagent-boilerplate"
+    ],
+    "contradiction": [
+      "mos_book_resolve_contradiction",
+      "pitfall-subagent-boilerplate"
+    ],
+    "flips": [
+      "mos_book_resolve_contradiction"
+    ],
+    "frontmatter": [
+      "mos_book_resolve_contradiction"
+    ],
+    "appends": [
+      "mos_book_resolve_contradiction"
+    ],
+    "section": [
+      "mos_book_resolve_contradiction"
+    ],
+    "original": [
+      "mos_book_resolve_contradiction"
+    ],
+    "save": [
+      "mos_book_save_synthesis",
+      "mos_download_pubmed",
+      "mos_visual_check"
+    ],
+    "synthesized": [
+      "mos_book_save_synthesis"
+    ],
+    "answer": [
+      "domain-deliverables",
+      "mos_book_save_synthesis"
+    ],
+    "compounding": [
+      "mos_book_save_synthesis"
+    ],
+    "synthesis": [
+      "mos_book_save_synthesis"
+    ],
+    "tool": [
+      "mos_book_save_synthesis",
+      "pitfall-deferred-schema"
     ],
     "compact": [
       "domain-runtime",
@@ -4034,17 +5056,123 @@
     "harness": [
       "mos_compact_context"
     ],
-    "draft": [
-      "domain-memory",
-      "domain-reel-l0-memory",
-      "mos_draft_append",
-      "mos_draft_unmarked_audit",
-      "mos_draft_view"
+    "terminate": [
+      "mos_dismiss_role"
     ],
-    "append": [
-      "mos_draft_append"
+    "remove": [
+      "mos_dismiss_role"
+    ],
+    "registration": [
+      "mos_dismiss_role"
+    ],
+    "side": [
+      "mos_dismiss_role",
+      "mos_project_checkpoint_workspace",
+      "mos_signboard_read",
+      "mos_spawn_role"
+    ],
+    "effects": [
+      "mos_dismiss_role",
+      "mos_project_checkpoint_workspace",
+      "mos_signboard_read",
+      "mos_spawn_role"
+    ],
+    "kills": [
+      "mos_dismiss_role"
+    ],
+    "mos": [
+      "mos_dismiss_role"
+    ],
+    "download": [
+      "mos_download_arxiv",
+      "mos_download_biorxiv",
+      "mos_download_medrxiv",
+      "mos_exp_get"
+    ],
+    "arxiv": [
+      "domain-papers",
+      "mos_download_arxiv",
+      "mos_read_arxiv_paper",
+      "mos_resolve_arxiv_ids",
+      "mos_search_arxiv"
+    ],
+    "pdf": [
+      "mos_download_arxiv",
+      "mos_download_biorxiv",
+      "mos_download_medrxiv",
+      "mos_visual_check",
+      "mos_visual_inspect",
+      "mos_visual_render"
+    ],
+    "relative": [
+      "mos_download_arxiv",
+      "mos_download_biorxiv",
+      "mos_download_medrxiv",
+      "mos_download_pubmed"
+    ],
+    "workspace": [
+      "mos_download_arxiv",
+      "mos_download_biorxiv",
+      "mos_download_medrxiv",
+      "mos_download_pubmed",
+      "mos_project_checkpoint_workspace"
+    ],
+    "path": [
+      "mos_download_arxiv",
+      "mos_download_biorxiv",
+      "mos_download_medrxiv",
+      "mos_download_pubmed",
+      "mos_draft_path"
+    ],
+    "biorxiv": [
+      "domain-papers",
+      "mos_download_biorxiv",
+      "mos_read_biorxiv_paper",
+      "mos_search_biorxiv"
+    ],
+    "medrxiv": [
+      "mos_download_medrxiv",
+      "mos_read_medrxiv_paper",
+      "mos_search_medrxiv"
+    ],
+    "pubmed": [
+      "domain-papers",
+      "mos_download_pubmed",
+      "mos_read_pubmed_paper",
+      "mos_search_pubmed"
+    ],
+    "metadata": [
+      "mos_download_pubmed",
+      "mos_draft_annotate",
+      "mos_read_arxiv_paper",
+      "mos_read_biorxiv_paper",
+      "mos_read_medrxiv_paper",
+      "mos_read_pubmed_paper",
+      "mos_search_google_scholar",
+      "mos_search_semantic"
+    ],
+    "abstract": [
+      "mos_download_pubmed",
+      "mos_read_arxiv_paper",
+      "mos_read_pubmed_paper"
+    ],
+    "text": [
+      "mos_download_pubmed",
+      "mos_read_arxiv_paper",
+      "mos_read_pubmed_paper"
     ],
     "node": [
+      "mos_draft_annotate",
+      "mos_draft_append",
+      "mos_draft_decay_compute"
+    ],
+    "support_status": [
+      "mos_draft_annotate"
+    ],
+    "evidence_tag": [
+      "mos_draft_annotate"
+    ],
+    "append": [
       "mos_draft_append"
     ],
     "edge": [
@@ -4061,9 +5189,103 @@
     "plan": [
       "mos_draft_append"
     ],
-    "audit": [
-      "mos_draft_unmarked_audit",
-      "mos_reel_get"
+    "flush": [
+      "mos_draft_commit_shared"
+    ],
+    "buffered": [
+      "mos_draft_commit_shared"
+    ],
+    "single": [
+      "mos_draft_commit_shared",
+      "mos_visual_inspect"
+    ],
+    "commit": [
+      "domain-publish",
+      "mos_draft_commit_shared",
+      "mos_project_checkpoint_workspace",
+      "mos_publish_to_shared"
+    ],
+    "project": [
+      "domain-lifecycle",
+      "mos_draft_commit_shared",
+      "mos_evaluate",
+      "mos_list_roles",
+      "mos_project_bridge",
+      "mos_project_checkpoint_workspace",
+      "mos_project_close",
+      "mos_project_create",
+      "mos_project_dormant",
+      "mos_project_kill",
+      "mos_project_revive",
+      "mos_project_set_phase",
+      "mos_role_evolve_evaluate",
+      "mos_search_arxiv",
+      "mos_search_pubmed",
+      "mos_spawn_role"
+    ],
+    "main": [
+      "mos_draft_commit_shared",
+      "mos_promote_to_book",
+      "mos_submit"
+    ],
+    "branch": [
+      "mos_draft_commit_shared",
+      "mos_project_checkpoint_workspace"
+    ],
+    "owned": [
+      "mos_draft_commit_shared"
+    ],
+    "whitelist": [
+      "mos_draft_commit_shared",
+      "pitfall-tool-denied"
+    ],
+    "also": [
+      "mos_draft_commit_shared"
+    ],
+    "compute": [
+      "mos_draft_decay_compute"
+    ],
+    "decay": [
+      "mos_draft_decay_compute"
+    ],
+    "sidecar": [
+      "mos_draft_decay_compute"
+    ],
+    "json": [
+      "mos_draft_decay_compute"
+    ],
+    "pure": [
+      "mos_draft_decay_compute",
+      "mos_signboard_read"
+    ],
+    "observation": [
+      "mos_draft_decay_compute"
+    ],
+    "walks": [
+      "mos_draft_decay_compute"
+    ],
+    "every": [
+      "mos_draft_decay_compute",
+      "mos_project_bridge",
+      "mos_visual_check"
+    ],
+    "records": [
+      "mos_draft_decay_compute"
+    ],
+    "age": [
+      "mos_draft_decay_compute"
+    ],
+    "extract": [
+      "mos_draft_path"
+    ],
+    "root": [
+      "mos_draft_path"
+    ],
+    "from_node_id": [
+      "mos_draft_path"
+    ],
+    "target_node_id": [
+      "mos_draft_path"
     ],
     "unmarked": [
       "mos_draft_unmarked_audit"
@@ -4080,6 +5302,183 @@
     "graph": [
       "mos_draft_view"
     ],
+    "evaluate": [
+      "domain-deliverables",
+      "mos_evaluate",
+      "mos_role_evolve_evaluate",
+      "mos_signboard_evaluate"
+    ],
+    "paper": [
+      "domain-deliverables",
+      "domain-papers",
+      "mos_evaluate",
+      "mos_read_arxiv_paper",
+      "mos_read_biorxiv_paper",
+      "mos_read_medrxiv_paper",
+      "mos_resolve_arxiv_ids",
+      "mos_review_run",
+      "mos_submit"
+    ],
+    "deliverable": [
+      "domain-deliverables",
+      "mos_evaluate",
+      "mos_review_run",
+      "mos_submit"
+    ],
+    "full": [
+      "mos_evaluate"
+    ],
+    "peer": [
+      "mos_evaluate"
+    ],
+    "review": [
+      "domain-deliverables",
+      "mos_evaluate",
+      "mos_review_run",
+      "pitfall-subagent-boilerplate"
+    ],
+    "multi": [
+      "mos_evaluate"
+    ],
+    "pass": [
+      "mos_evaluate"
+    ],
+    "area": [
+      "mos_evaluate"
+    ],
+    "chair": [
+      "mos_evaluate"
+    ],
+    "target": [
+      "mos_exp_get",
+      "mos_exp_list",
+      "mos_exp_put",
+      "mos_exp_queue_plan",
+      "mos_exp_tail",
+      "mos_query_gpus"
+    ],
+    "file": [
+      "mos_exp_get",
+      "mos_exp_put",
+      "mos_exp_tail"
+    ],
+    "refusing": [
+      "mos_exp_get"
+    ],
+    "files": [
+      "mos_exp_get"
+    ],
+    "over": [
+      "mos_exp_get"
+    ],
+    "experiment": [
+      "domain-experiments",
+      "mos_exp_get",
+      "mos_exp_gpu_pool_set",
+      "mos_exp_kill",
+      "mos_exp_list",
+      "mos_exp_status"
+    ],
+    "size": [
+      "mos_exp_get"
+    ],
+    "limit": [
+      "mos_exp_get"
+    ],
+    "dynamic": [
+      "mos_exp_gpu_pool_get",
+      "mos_exp_gpu_pool_set"
+    ],
+    "gpu": [
+      "domain-experiments",
+      "mos_exp_gpu_pool_get",
+      "mos_exp_gpu_pool_set",
+      "mos_exp_queue_plan",
+      "mos_exp_run",
+      "mos_query_gpus"
+    ],
+    "pool": [
+      "mos_exp_gpu_pool_get"
+    ],
+    "overrides": [
+      "mos_exp_gpu_pool_get"
+    ],
+    "set": [
+      "mos_exp_gpu_pool_set",
+      "mos_visual_inspect"
+    ],
+    "allow": [
+      "mos_exp_gpu_pool_set"
+    ],
+    "new": [
+      "mos_exp_gpu_pool_set",
+      "mos_project_create"
+    ],
+    "sigterm": [
+      "mos_exp_kill"
+    ],
+    "running": [
+      "mos_exp_kill",
+      "mos_exp_queue_status",
+      "mos_project_revive"
+    ],
+    "process": [
+      "mos_exp_kill",
+      "mos_spawn_role"
+    ],
+    "known": [
+      "mos_exp_list"
+    ],
+    "upload": [
+      "mos_exp_put"
+    ],
+    "local": [
+      "mos_exp_put",
+      "mos_exp_run",
+      "mos_project_create",
+      "mos_search_arxiv",
+      "mos_search_pubmed"
+    ],
+    "workdir": [
+      "mos_exp_put"
+    ],
+    "dry": [
+      "mos_exp_queue_plan"
+    ],
+    "run": [
+      "mos_exp_queue_plan",
+      "mos_exp_run",
+      "mos_exp_status",
+      "mos_exp_wait",
+      "mos_search_papers_federated",
+      "mos_visual_inspect"
+    ],
+    "candidate": [
+      "mos_exp_queue_plan"
+    ],
+    "submission": [
+      "mos_exp_queue_plan",
+      "mos_review_run"
+    ],
+    "against": [
+      "mos_exp_queue_plan"
+    ],
+    "live": [
+      "mos_exp_queue_plan",
+      "mos_signboard_evaluate"
+    ],
+    "snapshot": [
+      "mos_exp_queue_plan"
+    ],
+    "unit": [
+      "mos_exp_queue_plan"
+    ],
+    "placement": [
+      "mos_exp_queue_plan"
+    ],
+    "gpu_ids": [
+      "mos_exp_queue_plan"
+    ],
     "queue": [
       "domain-experiments",
       "mos_exp_queue_reconcile",
@@ -4090,7 +5489,8 @@
       "pitfall-queue-deadlaunch-fp"
     ],
     "reconcile": [
-      "mos_exp_queue_reconcile"
+      "mos_exp_queue_reconcile",
+      "mos_project_set_phase"
     ],
     "reap": [
       "mos_exp_queue_reconcile"
@@ -4098,7 +5498,8 @@
     "dispatch": [
       "domain-experiments",
       "domain-subagent-handoff",
-      "mos_exp_queue_reconcile"
+      "mos_exp_queue_reconcile",
+      "mos_signboard_consume"
     ],
     "retry": [
       "mos_exp_queue_reconcile",
@@ -4110,9 +5511,6 @@
       "mos_exp_queue_reconcile",
       "mos_exp_queue_submit",
       "mos_exp_queue_submit"
-    ],
-    "running": [
-      "mos_exp_queue_status"
     ],
     "pending": [
       "mos_exp_queue_status"
@@ -4127,17 +5525,7 @@
     "cells": [
       "mos_exp_queue_submit"
     ],
-    "batch": [
-      "mos_exp_queue_submit"
-    ],
     "exp": [
-      "domain-experiments",
-      "mos_exp_run"
-    ],
-    "run": [
-      "mos_exp_run"
-    ],
-    "gpu": [
       "domain-experiments",
       "mos_exp_run"
     ],
@@ -4148,18 +5536,46 @@
     "ssh": [
       "mos_exp_run"
     ],
-    "local": [
-      "mos_exp_run"
+    "check": [
+      "mos_exp_status"
     ],
-    "command": [
-      "mos_exp_run"
+    "state": [
+      "mos_exp_status",
+      "mos_project_dormant",
+      "mos_project_revive",
+      "mos_signboard_read"
+    ],
+    "tail": [
+      "mos_exp_tail"
+    ],
+    "log": [
+      "domain-debug",
+      "mos_exp_tail"
+    ],
+    "poll": [
+      "mos_exp_wait"
+    ],
+    "timeout": [
+      "mos_exp_wait"
+    ],
+    "seconds": [
+      "mos_exp_wait"
+    ],
+    "exit": [
+      "mos_exp_wait",
+      "pitfall-queue-deadlaunch-fp"
     ],
     "gru": [
       "domain-bridge",
       "domain-lifecycle",
       "domain-runtime",
       "mos_get_events",
+      "mos_project_bridge",
       "mos_promote_to_book",
+      "mos_signboard_consume",
+      "mos_signboard_evaluate",
+      "mos_signboard_reopen",
+      "mos_start_monitor",
       "mos_unread_summary"
     ],
     "unread": [
@@ -4193,6 +5609,43 @@
       "domain-debug",
       "mos_issue_report"
     ],
+    "kill": [
+      "domain-runtime",
+      "mos_kill_role"
+    ],
+    "semantics": [
+      "mos_kill_role"
+    ],
+    "controlled": [
+      "mos_kill_role"
+    ],
+    "purge": [
+      "mos_kill_role"
+    ],
+    "false": [
+      "mos_kill_role",
+      "pitfall-queue-deadlaunch-fp"
+    ],
+    "default": [
+      "mos_kill_role"
+    ],
+    "recycle": [
+      "mos_kill_role"
+    ],
+    "registry": [
+      "mos_kill_role"
+    ],
+    "row": [
+      "mos_kill_role"
+    ],
+    "roles": [
+      "mos_list_roles",
+      "mos_project_dormant",
+      "mos_project_revive",
+      "mos_project_set_phase",
+      "mos_role_evolve_evaluate",
+      "mos_role_merge"
+    ],
     "workflow": [
       "mos_list_workflow_plugins"
     ],
@@ -4201,12 +5654,15 @@
     ],
     "expert": [
       "mos_list_workflow_plugins",
+      "mos_signboard_evaluate",
       "mos_spawn_expert",
       "pitfall-empty-authz"
     ],
     "mcp": [
       "domain-runtime",
       "mos_list_workflow_plugins",
+      "mos_search_arxiv",
+      "mos_search_pubmed",
       "pitfall-mcp-cosmetic"
     ],
     "evoany": [
@@ -4215,12 +5671,183 @@
     "spawn": [
       "domain-lifecycle",
       "mos_list_workflow_plugins",
+      "mos_role_merge",
+      "mos_role_split",
       "mos_spawn_expert"
     ],
-    "sealed": [
-      "mos_promote_to_book"
+    "bridge": [
+      "domain-bridge",
+      "mos_project_bridge"
     ],
-    "main": [
+    "specific": [
+      "mos_project_bridge"
+    ],
+    "another": [
+      "mos_project_bridge"
+    ],
+    "cross": [
+      "mos_project_bridge",
+      "mos_publish_to_shared"
+    ],
+    "communication": [
+      "mos_project_bridge"
+    ],
+    "intentionally": [
+      "mos_project_bridge"
+    ],
+    "sees": [
+      "mos_project_bridge"
+    ],
+    "optionally": [
+      "mos_project_checkpoint_workspace",
+      "mos_project_list",
+      "mos_visual_check"
+    ],
+    "push": [
+      "mos_project_checkpoint_workspace"
+    ],
+    "git": [
+      "mos_project_checkpoint_workspace"
+    ],
+    "worktree": [
+      "mos_project_checkpoint_workspace"
+    ],
+    "add": [
+      "mos_project_checkpoint_workspace"
+    ],
+    "permanently": [
+      "mos_project_close"
+    ],
+    "stops": [
+      "mos_project_close",
+      "mos_project_dormant"
+    ],
+    "backend": [
+      "mos_project_close",
+      "mos_project_dormant",
+      "mos_project_revive"
+    ],
+    "retires": [
+      "mos_project_close"
+    ],
+    "port": [
+      "mos_project_close",
+      "mos_project_kill",
+      "mos_project_revive"
+    ],
+    "minionsos": [
+      "mos_project_create",
+      "mos_search_arxiv",
+      "mos_search_pubmed"
+    ],
+    "bootstrap": [
+      "mos_project_create"
+    ],
+    "runtime": [
+      "mos_project_create",
+      "mos_project_kill"
+    ],
+    "signature": [
+      "mos_project_create",
+      "mos_project_revive"
+    ],
+    "python": [
+      "mos_project_create",
+      "mos_project_revive"
+    ],
+    "real_name": [
+      "mos_project_create"
+    ],
+    "venue": [
+      "mos_project_create"
+    ],
+    "none": [
+      "mos_project_create"
+    ],
+    "brief": [
+      "mos_project_create"
+    ],
+    "base_branch": [
+      "mos_project_create"
+    ],
+    "head": [
+      "mos_project_create"
+    ],
+    "topic_doc": [
+      "mos_project_create"
+    ],
+    "put": [
+      "mos_project_dormant"
+    ],
+    "dormant": [
+      "mos_project_dormant"
+    ],
+    "dismisses": [
+      "mos_project_dormant"
+    ],
+    "hard": [
+      "mos_project_kill"
+    ],
+    "stop": [
+      "mos_project_kill"
+    ],
+    "without": [
+      "mos_project_kill"
+    ],
+    "deleting": [
+      "mos_project_kill"
+    ],
+    "data": [
+      "mos_project_kill"
+    ],
+    "retiring": [
+      "mos_project_kill"
+    ],
+    "projects": [
+      "mos_project_list",
+      "mos_unread_summary"
+    ],
+    "filtered": [
+      "mos_project_list"
+    ],
+    "restart": [
+      "mos_project_revive"
+    ],
+    "existing": [
+      "mos_project_revive"
+    ],
+    "recorded": [
+      "mos_project_revive"
+    ],
+    "lifecycle": [
+      "mos_project_revive"
+    ],
+    "call": [
+      "mos_project_revive",
+      "mos_signboard_consume",
+      "mos_start_monitor"
+    ],
+    "already": [
+      "mos_project_revive"
+    ],
+    "exists": [
+      "mos_project_revive"
+    ],
+    "needs": [
+      "mos_project_revive"
+    ],
+    "record": [
+      "mos_project_set_phase"
+    ],
+    "current": [
+      "mos_project_set_phase",
+      "mos_signboard_read"
+    ],
+    "phase": [
+      "domain-lifecycle",
+      "mos_project_set_phase"
+    ],
+    "sealed": [
       "mos_promote_to_book"
     ],
     "publish": [
@@ -4236,31 +5863,46 @@
       "domain-subagent-handoff",
       "mos_publish_to_shared"
     ],
-    "cross": [
-      "mos_publish_to_shared"
-    ],
-    "role": [
-      "domain-evolution",
-      "domain-lifecycle",
-      "mos_publish_to_shared",
-      "mos_spawn_expert",
-      "pitfall-empty-authz",
-      "pitfall-tool-denied"
-    ],
-    "commit": [
-      "domain-publish",
-      "mos_publish_to_shared"
-    ],
     "lock": [
-      "mos_publish_to_shared"
+      "mos_publish_to_shared",
+      "mos_signboard_read"
     ],
-    "shared": [
-      "mos_publish_to_shared"
+    "memory": [
+      "domain-memory",
+      "domain-reel-l0-memory",
+      "mos_query_gpus"
+    ],
+    "read": [
+      "mos_read_arxiv_paper",
+      "mos_read_biorxiv_paper",
+      "mos_read_medrxiv_paper",
+      "mos_read_pubmed_paper",
+      "mos_reel_window",
+      "mos_role_evolve_evaluate",
+      "mos_signboard_read"
+    ],
+    "pointers": [
+      "mos_read_biorxiv_paper",
+      "mos_read_medrxiv_paper"
+    ],
+    "doi": [
+      "mos_read_biorxiv_paper",
+      "mos_read_medrxiv_paper",
+      "mos_search_papers_federated"
+    ],
+    "like": [
+      "mos_read_biorxiv_paper",
+      "mos_read_medrxiv_paper",
+      "mos_search_google_scholar"
+    ],
+    "pmid": [
+      "mos_read_pubmed_paper"
     ],
     "reel": [
       "domain-memory",
       "domain-reel-l0-memory",
-      "mos_reel_get"
+      "mos_reel_get",
+      "mos_reel_window"
     ],
     "raw": [
       "mos_reel_get"
@@ -4279,29 +5921,60 @@
       "pitfall-mcp-cosmetic",
       "pitfall-subagent-boilerplate"
     ],
+    "index": [
+      "mos_reel_window"
+    ],
+    "entries": [
+      "mos_reel_window"
+    ],
+    "around": [
+      "mos_reel_window"
+    ],
+    "reference": [
+      "mos_reel_window"
+    ],
+    "args": [
+      "mos_reel_window"
+    ],
+    "ref": [
+      "mos_reel_window"
+    ],
     "reset": [
       "domain-runtime",
-      "mos_reset_context"
+      "mos_reset_context",
+      "mos_signboard_reopen"
     ],
     "fresh": [
-      "mos_reset_context"
+      "mos_reset_context",
+      "mos_signboard_reopen"
     ],
     "boot": [
       "mos_reset_context"
     ],
     "marker": [
-      "mos_reset_context"
+      "mos_reset_context",
+      "mos_signboard_reopen"
     ],
     "checkpoint": [
       "mos_reset_context"
     ],
-    "review": [
-      "domain-deliverables",
-      "mos_review_run",
-      "pitfall-subagent-boilerplate"
+    "resolve": [
+      "mos_resolve_arxiv_ids"
     ],
-    "submission": [
-      "mos_review_run"
+    "ids": [
+      "mos_resolve_arxiv_ids"
+    ],
+    "canonical": [
+      "mos_resolve_arxiv_ids"
+    ],
+    "dicts": [
+      "mos_resolve_arxiv_ids"
+    ],
+    "web": [
+      "mos_resolve_arxiv_ids"
+    ],
+    "step": [
+      "mos_resolve_arxiv_ids"
     ],
     "checklist": [
       "mos_review_run"
@@ -4309,27 +5982,405 @@
     "area-chair": [
       "mos_review_run"
     ],
-    "deliverable": [
-      "domain-deliverables",
-      "mos_review_run"
+    "realize": [
+      "mos_role_evolve_dismiss",
+      "mos_role_merge",
+      "mos_role_split"
     ],
-    "paper": [
-      "domain-deliverables",
+    "dismiss": [
+      "domain-evolution",
+      "domain-lifecycle",
+      "mos_role_evolve_dismiss",
+      "mos_role_merge",
+      "mos_role_split"
+    ],
+    "decision": [
+      "mos_role_evolve_dismiss",
+      "mos_role_merge",
+      "mos_role_split"
+    ],
+    "work": [
+      "mos_role_evolve_dismiss"
+    ],
+    "distinct": [
+      "mos_role_evolve_dismiss"
+    ],
+    "generic": [
+      "mos_role_evolve_dismiss"
+    ],
+    "because": [
+      "mos_role_evolve_dismiss"
+    ],
+    "requires": [
+      "mos_role_evolve_dismiss",
+      "mos_role_split"
+    ],
+    "non": [
+      "mos_role_evolve_dismiss",
+      "mos_role_split"
+    ],
+    "empty": [
+      "mos_role_evolve_dismiss",
+      "mos_role_split",
+      "pitfall-opus-empty-input"
+    ],
+    "whether": [
+      "mos_role_evolve_evaluate"
+    ],
+    "should": [
+      "mos_role_evolve_evaluate"
+    ],
+    "split": [
+      "domain-evolution",
+      "mos_role_evolve_evaluate",
+      "mos_role_split"
+    ],
+    "merge": [
+      "domain-evolution",
+      "mos_role_evolve_evaluate",
+      "mos_role_merge"
+    ],
+    "dismissed": [
+      "mos_role_evolve_evaluate"
+    ],
+    "splitdecision": [
+      "mos_role_evolve_evaluate"
+    ],
+    "active": [
+      "mos_role_evolve_evaluate",
+      "mos_role_merge"
+    ],
+    "unified": [
+      "mos_role_merge"
+    ],
+    "have": [
+      "mos_role_merge"
+    ],
+    "converged": [
+      "mos_role_merge"
+    ],
+    "specialists": [
+      "mos_role_split"
+    ],
+    "source": [
+      "mos_role_split"
+    ],
+    "evidence_refs": [
+      "mos_role_split"
+    ],
+    "papers": [
+      "mos_search_arxiv",
+      "mos_search_pubmed"
+    ],
+    "through": [
+      "mos_search_arxiv",
+      "mos_search_biorxiv",
+      "mos_search_medrxiv",
+      "mos_search_pubmed"
+    ],
+    "indexed": [
+      "mos_search_biorxiv",
+      "mos_search_medrxiv"
+    ],
+    "preprints": [
+      "mos_search_biorxiv",
+      "mos_search_medrxiv"
+    ],
+    "europe": [
+      "mos_search_biorxiv",
+      "mos_search_medrxiv"
+    ],
+    "pmc": [
+      "mos_search_biorxiv",
+      "mos_search_medrxiv"
+    ],
+    "scholar": [
       "domain-papers",
-      "mos_review_run"
+      "mos_search_google_scholar",
+      "mos_search_semantic"
+    ],
+    "broad": [
+      "mos_search_google_scholar"
+    ],
+    "using": [
+      "mos_search_google_scholar"
+    ],
+    "semantic": [
+      "domain-papers",
+      "mos_search_google_scholar",
+      "mos_search_semantic"
+    ],
+    "federated": [
+      "mos_search_papers_federated"
+    ],
+    "across": [
+      "mos_search_papers_federated"
+    ],
+    "academic": [
+      "mos_search_papers_federated"
+    ],
+    "deduplicating": [
+      "mos_search_papers_federated"
+    ],
+    "title": [
+      "mos_search_papers_federated"
+    ],
+    "mark": [
+      "mos_signboard_consume"
+    ],
+    "milestone": [
+      "mos_signboard_consume",
+      "mos_signboard_evaluate",
+      "mos_signboard_reopen",
+      "mos_signboard_set"
+    ],
+    "consumed": [
+      "mos_signboard_consume",
+      "mos_signboard_reopen"
+    ],
+    "bookkeeping": [
+      "mos_signboard_consume"
+    ],
+    "after": [
+      "mos_signboard_consume"
+    ],
+    "exactly": [
+      "mos_signboard_consume"
+    ],
+    "once": [
+      "mos_signboard_consume"
+    ],
+    "has": [
+      "mos_signboard_consume"
+    ],
+    "dispatched": [
+      "mos_signboard_consume"
+    ],
+    "quorum": [
+      "mos_signboard_evaluate"
+    ],
+    "reads": [
+      "mos_signboard_evaluate"
+    ],
+    "signboard": [
+      "domain-lifecycle",
+      "mos_signboard_evaluate",
+      "mos_signboard_read",
+      "mos_signboard_set"
+    ],
+    "eacn3": [
+      "domain-eacn3",
+      "mos_signboard_evaluate",
+      "pitfall-deferred-schema"
+    ],
+    "registered": [
+      "mos_signboard_evaluate"
+    ],
+    "roster": [
+      "mos_signboard_evaluate"
+    ],
+    "fixed_required": [
+      "mos_signboard_evaluate"
+    ],
+    "notify": [
+      "mos_signboard_read"
+    ],
+    "either": [
+      "mos_signboard_read"
+    ],
+    "whole": [
+      "mos_signboard_read"
+    ],
+    "board": [
+      "mos_signboard_read"
+    ],
+    "round": [
+      "mos_signboard_reopen"
+    ],
+    "clears": [
+      "mos_signboard_reopen"
+    ],
+    "raised": [
+      "mos_signboard_reopen"
+    ],
+    "signs": [
+      "mos_signboard_reopen"
+    ],
+    "preserving": [
+      "mos_signboard_reopen"
+    ],
+    "consumed_round": [
+      "mos_signboard_reopen"
+    ],
+    "raise": [
+      "mos_signboard_set"
+    ],
+    "lower": [
+      "mos_signboard_set"
+    ],
+    "sign": [
+      "mos_signboard_set"
+    ],
+    "lightweight": [
+      "mos_signboard_set"
+    ],
+    "consensus": [
+      "mos_signboard_set"
+    ],
+    "surface": [
+      "mos_signboard_set"
+    ],
+    "eligible": [
+      "mos_signboard_set"
+    ],
+    "independently": [
+      "mos_signboard_set"
+    ],
+    "raises": [
+      "mos_signboard_set",
+      "mos_visual_render"
     ],
     "slug": [
       "mos_spawn_expert",
       "pitfall-empty-authz"
     ],
-    "projects": [
-      "mos_unread_summary"
+    "fixed": [
+      "mos_spawn_role"
+    ],
+    "start": [
+      "mos_spawn_role",
+      "mos_start_monitor"
+    ],
+    "long": [
+      "mos_spawn_role"
+    ],
+    "lived": [
+      "mos_spawn_role"
+    ],
+    "claude": [
+      "mos_spawn_role"
+    ],
+    "registers": [
+      "mos_spawn_role"
+    ],
+    "monitor": [
+      "domain-runtime",
+      "mos_start_monitor"
+    ],
+    "background": [
+      "mos_start_monitor"
+    ],
+    "daemon": [
+      "mos_start_monitor"
+    ],
+    "thread": [
+      "mos_start_monitor"
+    ],
+    "idempotent": [
+      "mos_start_monitor"
+    ],
+    "second": [
+      "mos_start_monitor"
+    ],
+    "while": [
+      "mos_start_monitor"
+    ],
+    "persist": [
+      "mos_submit"
+    ],
+    "under": [
+      "mos_submit"
+    ],
+    "branches": [
+      "mos_submit"
+    ],
+    "submissions": [
+      "mos_submit"
+    ],
+    "authoring": [
+      "mos_submit"
+    ],
+    "composes": [
+      "mos_submit"
+    ],
+    "payload": [
+      "mos_submit"
+    ],
+    "pdf_path": [
+      "mos_submit"
     ],
     "scan": [
       "mos_unread_summary"
     ],
-    "tool": [
-      "pitfall-deferred-schema"
+    "end": [
+      "mos_visual_check"
+    ],
+    "render": [
+      "domain-visual",
+      "mos_visual_check"
+    ],
+    "inspect": [
+      "domain-visual",
+      "mos_visual_check"
+    ],
+    "equivalent": [
+      "mos_visual_check"
+    ],
+    "calling": [
+      "mos_visual_check"
+    ],
+    "then": [
+      "mos_visual_check"
+    ],
+    "visual": [
+      "domain-visual",
+      "mos_visual_inspect"
+    ],
+    "detectors": [
+      "mos_visual_inspect"
+    ],
+    "image": [
+      "domain-visual",
+      "mos_visual_inspect"
+    ],
+    "directory": [
+      "mos_visual_inspect"
+    ],
+    "structured": [
+      "mos_visual_inspect"
+    ],
+    "defectreport": [
+      "mos_visual_inspect"
+    ],
+    "report_path": [
+      "mos_visual_inspect"
+    ],
+    "rasterize": [
+      "mos_visual_render"
+    ],
+    "png": [
+      "mos_visual_render"
+    ],
+    "images": [
+      "mos_visual_render"
+    ],
+    "poppler": [
+      "mos_visual_render"
+    ],
+    "output_dir": [
+      "mos_visual_render"
+    ],
+    "dpi": [
+      "mos_visual_render"
+    ],
+    "page_count": [
+      "mos_visual_render"
+    ],
+    "page_files": [
+      "mos_visual_render"
+    ],
+    "permissionerror": [
+      "mos_visual_render"
     ],
     "not": [
       "pitfall-deferred-schema",
@@ -4354,10 +6405,6 @@
       "pitfall-empty-authz",
       "pitfall-tool-denied"
     ],
-    "eacn3": [
-      "domain-eacn3",
-      "pitfall-deferred-schema"
-    ],
     "authz": [
       "pitfall-empty-authz",
       "pitfall-tool-denied"
@@ -4375,9 +6422,6 @@
       "pitfall-mcp-cosmetic"
     ],
     "opus": [
-      "pitfall-opus-empty-input"
-    ],
-    "empty": [
       "pitfall-opus-empty-input"
     ],
     "input": [
@@ -4436,12 +6480,6 @@
     "oom": [
       "pitfall-queue-deadlaunch-fp"
     ],
-    "exit": [
-      "pitfall-queue-deadlaunch-fp"
-    ],
-    "false": [
-      "pitfall-queue-deadlaunch-fp"
-    ],
     "positive": [
       "pitfall-queue-deadlaunch-fp"
     ],
@@ -4454,23 +6492,11 @@
     "lazy": [
       "pitfall-subagent-boilerplate"
     ],
-    "verdict": [
-      "pitfall-subagent-boilerplate"
-    ],
-    "contradiction": [
-      "pitfall-subagent-boilerplate"
-    ],
     "allowed": [
-      "pitfall-tool-denied"
-    ],
-    "whitelist": [
       "pitfall-tool-denied"
     ],
     "forbidden": [
       "pitfall-tool-denied"
-    ],
-    "bridge": [
-      "domain-bridge"
     ],
     "cross-project": [
       "domain-bridge"
@@ -4484,15 +6510,6 @@
     "triage": [
       "domain-debug"
     ],
-    "log": [
-      "domain-debug"
-    ],
-    "evaluate": [
-      "domain-deliverables"
-    ],
-    "answer": [
-      "domain-deliverables"
-    ],
     "comms": [
       "domain-eacn3"
     ],
@@ -4502,58 +6519,17 @@
     "messages": [
       "domain-eacn3"
     ],
-    "split": [
-      "domain-evolution"
-    ],
-    "merge": [
-      "domain-evolution"
-    ],
-    "dismiss": [
-      "domain-evolution",
-      "domain-lifecycle"
-    ],
     "evolution": [
       "domain-evolution"
     ],
     "governance": [
       "domain-evolution"
     ],
-    "experiment": [
-      "domain-experiments"
-    ],
-    "project": [
-      "domain-lifecycle"
-    ],
-    "phase": [
-      "domain-lifecycle"
-    ],
-    "signboard": [
-      "domain-lifecycle"
-    ],
-    "memory": [
-      "domain-memory",
-      "domain-reel-l0-memory"
-    ],
     "open_question": [
       "domain-memory"
     ],
     "dead_end": [
       "domain-memory"
-    ],
-    "arxiv": [
-      "domain-papers"
-    ],
-    "pubmed": [
-      "domain-papers"
-    ],
-    "biorxiv": [
-      "domain-papers"
-    ],
-    "scholar": [
-      "domain-papers"
-    ],
-    "semantic": [
-      "domain-papers"
     ],
     "citation": [
       "domain-papers"
@@ -4566,15 +6542,6 @@
     ],
     "claude_jsonl": [
       "domain-reel-l0-memory"
-    ],
-    "attach": [
-      "domain-runtime"
-    ],
-    "kill": [
-      "domain-runtime"
-    ],
-    "monitor": [
-      "domain-runtime"
     ],
     "skills": [
       "domain-skills"
@@ -4597,19 +6564,7 @@
     "self-contained": [
       "domain-subagent-handoff"
     ],
-    "visual": [
-      "domain-visual"
-    ],
-    "render": [
-      "domain-visual"
-    ],
     "html": [
-      "domain-visual"
-    ],
-    "inspect": [
-      "domain-visual"
-    ],
-    "image": [
       "domain-visual"
     ],
     "figure": [

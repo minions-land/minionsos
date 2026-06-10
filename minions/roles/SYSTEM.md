@@ -176,6 +176,17 @@ burns a turn fixing a problem you created.
 
 **Hard triggers — look up FIRST, act second:**
 
+- **When you know the operation but not the exact tool** (e.g. "I want to
+  wake a dormant project", "stop these roles", "hand off work"), do NOT
+  guess keywords into search — keyword search ranks by wording overlap and
+  can float a near-synonym tool (`dormant` when you meant `revive`) above
+  the one you need. Instead **browse the family**:
+  `lookup.py --domain <family>` (lifecycle / eacn3 / memory / publish /
+  experiments / runtime). It returns the whole family as a flat,
+  one-line-each table you disambiguate by intent. The family map in §0.5
+  tells you which `<family>` to ask for. (Gru: the everyday lifecycle
+  operations are already spelled out cold in Gru §G0 — use those first.)
+
 - **Before calling any `mos_*` or `eacn3_*` tool for the first time in
   this session**, look it up: `lookup.py --id <tool_name>`. The tool's
   contract (parameters, authz, side effects, known failure modes) is the

@@ -157,23 +157,99 @@ def tokenize(s: str) -> list[str]:
     return [t for t in re.split(r"[\s,;./_\-:]+", s.lower()) if t]
 
 
-def score_page(page_id: str, page: dict, query_tokens: list[str]) -> float:
+# Concept→vocabulary bridge. Pure word-matching can't connect the verb a role
+# *thinks* in ("activate a role") to the verb the tool is *named* with
+# ("revive a project") — that gap is exactly what made mos_project_revive
+# unfindable in the live trace. Each query token also matches any term in its
+# synonym set, so a role finds the right tool by intent, not exact wording.
+# Keep this small and lifecycle-focused; it is a bridge, not a thesaurus.
+_SYNONYMS: dict[str, set[str]] = {
+    "activate": {"revive", "spawn", "start", "wake", "launch", "resume", "relaunch"},
+    "wake": {"revive", "resume", "activate", "start", "launch", "working"},
+    "resume": {"revive", "restart", "attach", "wake", "reattach"},
+    "start": {"revive", "spawn", "launch", "create", "bootstrap"},
+    "restart": {"revive", "respawn", "relaunch"},
+    "relaunch": {"revive", "restart", "respawn"},
+    "paused": {"dormant", "revive", "sleeping", "suspended"},
+    "working": {"revive", "active", "running"},
+    "revive": {"restart", "resume", "wake", "activate", "dormant", "sleeping", "back"},
+    "sleeping": {"dormant", "revive", "asleep", "paused"},
+    "asleep": {"dormant", "revive", "sleeping"},
+    "back": {"revive", "resume", "restart", "reactivate"},
+    "bring": {"revive", "restart", "launch"},
+    "stop": {"dismiss", "kill", "dormant", "close", "retire", "off"},
+    "off": {"dismiss", "kill", "stop", "retire"},
+    "turn": {"dismiss", "kill"},
+    "pause": {"dormant", "suspend", "sleep"},
+    "sleep": {"dormant", "pause"},
+    "close": {"dormant", "kill", "dismiss", "retire", "end"},
+    "kill": {"dismiss", "purge", "retire", "terminate"},
+    "agent": {"role", "expert", "ethics"},
+    "agents": {"roles", "experts"},
+    "role": {"agent", "expert"},
+    "message": {"dm", "send", "notify"},
+    "task": {"bid", "claim", "subtask"},
+    "existing": {"recorded", "dormant", "registered"},
+    "publish": {"share", "promote"},
+}
+
+
+def expand_query(tokens: list[str]) -> set[str]:
+    """Return query tokens plus their lifecycle synonyms (the concept bridge)."""
+    expanded: set[str] = set(tokens)
+    for t in tokens:
+        expanded |= _SYNONYMS.get(t, set())
+    return expanded
+
+
+def score_page(
+    page_id: str,
+    page: dict,
+    query_tokens: list[str],
+    primary_tokens: set[str] | None = None,
+) -> float:
+    """Score a page against query tokens.
+
+    ``primary_tokens`` are the user's *original* words (pre-synonym-expansion);
+    they score at full weight. Synonym-expanded tokens score at a fraction, so
+    the bridge widens recall without letting a loose synonym ("agent"→"role")
+    outrank a page the user named almost exactly. A coverage bonus rewards a
+    page whose id is mostly spanned by the primary query — so "dismiss a role"
+    favours ``mos_dismiss_role`` over the longer ``mos_role_evolve_dismiss``.
+    """
     score = 0.0
+    primary = primary_tokens if primary_tokens is not None else set(query_tokens)
     id_tokens = set(tokenize(page_id))
     kw_tokens = set(t.lower() for t in page.get("keywords", []))
     summary_tokens = set(tokenize(page.get("summary", "")))
     related_tokens = set(tokenize(" ".join(page.get("related", []))))
     for q in query_tokens:
+        w = 1.0 if q in primary else 0.45  # synonyms count less than the real word
         if q in id_tokens:
-            score += 5.0
+            score += 5.0 * w
         if q in kw_tokens:
-            score += 3.0
+            score += 3.0 * w
         if any(q in tk for tk in id_tokens):
-            score += 1.5
+            score += 1.5 * w
         if q in summary_tokens:
-            score += 1.0
+            score += 1.0 * w
         if q in related_tokens:
-            score += 0.5
+            score += 0.5 * w
+    # Coverage / exact-name bonus: reward tight id↔query overlap so an
+    # exactly-named tool beats a longer id that merely contains the same
+    # tokens plus extras. A *complete* match in both directions (the query's
+    # content words are exactly the id's content words) is a near-certain hit.
+    content_id = {t for t in id_tokens if t not in {"mos", "eacn3"}}
+    if content_id:
+        hit = content_id & primary
+        coverage = len(hit) / len(content_id)
+        if coverage >= 0.5:
+            score += 4.0 * coverage
+        # exact name: every id word is in the query AND every primary content
+        # word is in the id (set equality on content words) → decisive boost.
+        primary_content = {t for t in primary if len(t) > 2}
+        if content_id == (content_id & primary) and content_id >= primary_content:
+            score += 10.0
     return score
 
 
@@ -203,7 +279,8 @@ def fmt_hit(idx: int, page_id: str, page: dict, with_excerpt: bool = True) -> st
 
 
 def cmd_query(idx: dict, query: str, k: int, role: str | None, kind: str | None) -> int:
-    qt = tokenize(query)
+    primary = set(tokenize(query))
+    qt = list(expand_query(tokenize(query)))
     if not qt:
         print("ERR: empty query", file=sys.stderr)
         return 2
@@ -212,7 +289,7 @@ def cmd_query(idx: dict, query: str, k: int, role: str | None, kind: str | None)
         items = [(i, p) for i, p in items if role in p.get("auth", []) or "*" in p.get("auth", [])]
     if kind:
         items = [(i, p) for i, p in items if p.get("kind") == kind]
-    scored = [(score_page(i, p, qt), i, p) for i, p in items]
+    scored = [(score_page(i, p, qt, primary), i, p) for i, p in items]
     scored = [t for t in scored if t[0] > 0]
     scored.sort(key=lambda t: -t[0])
     if not scored:
@@ -225,6 +302,18 @@ def cmd_query(idx: dict, query: str, k: int, role: str | None, kind: str | None)
     for i, (_score, pid, page) in enumerate(scored[:k], start=1):
         out_lines.append(fmt_hit(i, pid, page))
     out_lines.append("")
+    # Deterministic fallback for the concept-vocabulary gap: word-matching can
+    # rank a near-synonym tool (dormant vs revive) above the one you meant, and
+    # no synonym table is ever complete. When the top hits cluster in a single
+    # domain, point at the domain's full tool list — a flat, skim-able table
+    # that disambiguates by intent where ranked search cannot.
+    top_domains = [p.get("domain", "") for _s, _i, p in scored[:3] if p.get("domain")]
+    if top_domains and len(set(top_domains)) == 1 and top_domains[0]:
+        dom = top_domains[0]
+        out_lines.append(
+            f"Unsure which one? List the whole family:  "
+            f"python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --domain {dom}"
+        )
     out_lines.append(
         "Fetch a page in full:  python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --id <id>"
     )
