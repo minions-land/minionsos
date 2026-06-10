@@ -1,0 +1,19 @@
+[package]
+name = "minions-cli"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+description = "Rust CLI for MinionsOS - fast status queries and project management"
+license = "MIT"
+
+[[bin]]
+name = "mos"
+path = "src/main.rs"
+
+[dependencies]
+minions-core = { path = "../minions-core" }
+clap = { version = "4.5", features = ["derive", "cargo"] }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+tabled = "0.16"

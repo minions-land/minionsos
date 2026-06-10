@@ -11,6 +11,11 @@ build/
 .playwright-mcp/
 *.so
 
+# Rust
+/target/
+Cargo.lock
+**/*.rs.bk
+
 # uv lock — keep committed for reproducibility
 # uv.lock  ← intentionally NOT ignored
 
@@ -74,6 +79,7 @@ EACN3/plugin/node_modules/
 .claude/*.local.md
 **/.claude/*.local.md
 .claude/worktrees/
+/.claude/skills/
 
 # EACN3 runtime and local data
 eacn/network/config.toml
@@ -115,6 +121,7 @@ minions/roles/common/_behavioral_evals/
 
 .mcp.json
 .codex/config.toml
+.codex/local/
 
 # Background visual-extras installer artifacts (install.sh phase B)
 .install_visual.log

@@ -1,0 +1,14 @@
+[package]
+name = "minions-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+description = "Shared state and domain types for MinionsOS Rust components"
+license = "MIT"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+dirs = { workspace = true }
