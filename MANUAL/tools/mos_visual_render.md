@@ -2,7 +2,7 @@
 id: mos_visual_render
 kind: tool
 domain: visual
-auth: [expert, ethics, gru]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/visual_tools.py:122
 since: stub
 keywords: []

@@ -1,18 +1,19 @@
 {
-  "version": "9613db1",
-  "built_at": "2026-06-09T02:23:28.620938+00:00",
-  "page_count": 153,
+  "version": "7cacef3",
+  "built_at": "2026-06-10T05:11:38.747384+00:00",
+  "page_count": 154,
   "pages": {
     "eacn3_a2a_server": {
       "kind": "tool",
       "path": "tools/eacn3_a2a_server.md",
       "domain": "eacn3",
       "auth": [
-        "gru"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:464",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "a2a",
@@ -34,25 +35,31 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1081",
       "since": "stable",
       "status": "stable",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Raw EACN3 long-poll for one agent identity.",
       "keywords": [
         "await",
         "events",
         "agent",
         "event"
       ],
-      "related": []
+      "related": [
+        "mos_await_events",
+        "mos_get_events",
+        "mos_unread_summary",
+        "eacn3_get_events"
+      ]
     },
     "eacn3_claim_agent": {
       "kind": "tool",
       "path": "tools/eacn3_claim_agent.md",
       "domain": "eacn3",
       "auth": [
-        "gru"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:502",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "claim",
@@ -66,13 +73,12 @@
       "path": "tools/eacn3_close_task.md",
       "domain": "eacn3",
       "auth": [
-        "gru",
         "expert",
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:811",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "close",
@@ -87,11 +93,13 @@
       "path": "tools/eacn3_cluster_status.md",
       "domain": "eacn3",
       "auth": [
-        "gru"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:339",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "cluster",
@@ -104,13 +112,12 @@
       "path": "tools/eacn3_confirm_budget.md",
       "domain": "eacn3",
       "auth": [
-        "gru",
         "expert",
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:835",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "confirm",
@@ -127,11 +134,13 @@
       "path": "tools/eacn3_connect.md",
       "domain": "eacn3",
       "auth": [
-        "gru"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:364",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "connect",
@@ -144,13 +153,12 @@
       "path": "tools/eacn3_create_subtask.md",
       "domain": "eacn3",
       "auth": [
-        "gru",
         "expert",
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:931",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "create",
@@ -170,14 +178,13 @@
       "path": "tools/eacn3_create_task.md",
       "domain": "eacn3",
       "auth": [
-        "gru",
         "expert",
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:738",
       "since": "stable",
       "status": "stable",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Role-level task broadcast on EACN3 for work that should be bid and tracked.",
       "keywords": [
         "create",
         "task",
@@ -189,20 +196,24 @@
         "escrow",
         "broadcast"
       ],
-      "related": []
+      "related": [
+        "eacn3_submit_bid",
+        "eacn3_submit_result",
+        "eacn3_send_message",
+        "mos_spawn_expert"
+      ]
     },
     "eacn3_deposit": {
       "kind": "tool",
       "path": "tools/eacn3_deposit.md",
       "domain": "eacn3",
       "auth": [
-        "gru",
         "expert",
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:1053",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "deposit",
@@ -217,11 +228,13 @@
       "path": "tools/eacn3_disconnect.md",
       "domain": "eacn3",
       "auth": [
-        "gru"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:428",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "disconnect",
@@ -241,8 +254,8 @@
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:665",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "discover",
@@ -263,8 +276,8 @@
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:597",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "get",
@@ -280,13 +293,12 @@
       "path": "tools/eacn3_get_balance.md",
       "domain": "eacn3",
       "auth": [
-        "gru",
         "expert",
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:1043",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "get",
@@ -310,7 +322,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1067",
       "since": "stable",
       "status": "stable",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Raw non-blocking EACN3 event drain for one agent identity.",
       "keywords": [
         "get",
         "events",
@@ -320,9 +332,15 @@
         "bid",
         "event",
         "subtask",
-        "broadcast"
+        "broadcast",
+        "drain"
       ],
-      "related": []
+      "related": [
+        "mos_await_events",
+        "mos_get_events",
+        "mos_unread_summary",
+        "eacn3_await_events"
+      ]
     },
     "eacn3_get_reputation": {
       "kind": "tool",
@@ -334,8 +352,8 @@
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:1027",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "get",
@@ -356,8 +374,8 @@
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:696",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "get",
@@ -377,8 +395,8 @@
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:795",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "get",
@@ -397,8 +415,8 @@
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:704",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "get",
@@ -419,8 +437,8 @@
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:318",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "health"
@@ -432,11 +450,13 @@
       "path": "tools/eacn3_heartbeat.md",
       "domain": "eacn3",
       "auth": [
-        "*"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:443",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "heartbeat"
@@ -448,11 +468,12 @@
       "path": "tools/eacn3_invite_agent.md",
       "domain": "eacn3",
       "auth": [
-        "gru"
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:843",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "invite",
@@ -474,8 +495,8 @@
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:675",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "list",
@@ -495,8 +516,8 @@
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:654",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "list",
@@ -517,8 +538,8 @@
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:712",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "list",
@@ -541,8 +562,8 @@
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:723",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "list",
@@ -557,11 +578,13 @@
       "path": "tools/eacn3_register_agent.md",
       "domain": "eacn3",
       "auth": [
-        "gru"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:531",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "register",
@@ -579,13 +602,12 @@
       "path": "tools/eacn3_reject_task.md",
       "domain": "eacn3",
       "auth": [
-        "gru",
         "expert",
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:918",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "reject",
@@ -601,11 +623,13 @@
       "path": "tools/eacn3_report_event.md",
       "domain": "eacn3",
       "auth": [
-        "gru"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:1015",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "report",
@@ -622,11 +646,13 @@
       "path": "tools/eacn3_reverse_control_status.md",
       "domain": "eacn3",
       "auth": [
-        "gru"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:1128",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "reverse",
@@ -642,13 +668,12 @@
       "path": "tools/eacn3_select_result.md",
       "domain": "eacn3",
       "auth": [
-        "gru",
         "expert",
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:803",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "select",
@@ -672,7 +697,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:954",
       "since": "stable",
       "status": "stable",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Send a direct EACN3 message to another agent without creating a task.",
       "keywords": [
         "send",
         "message",
@@ -680,7 +705,12 @@
         "agent",
         "event"
       ],
-      "related": []
+      "related": [
+        "mos_await_events",
+        "mos_get_events",
+        "eacn3_get_agent",
+        "eacn3_list_agents"
+      ]
     },
     "eacn3_server_info": {
       "kind": "tool",
@@ -692,8 +722,8 @@
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:451",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "server",
@@ -708,54 +738,65 @@
       "path": "tools/eacn3_submit_bid.md",
       "domain": "eacn3",
       "auth": [
-        "gru",
         "expert",
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:888",
       "since": "stable",
       "status": "stable",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Role-level bid on an open EACN3 task.",
       "keywords": [
         "submit",
         "bid",
         "task",
-        "agent"
+        "agent",
+        "confidence",
+        "price"
       ],
-      "related": []
+      "related": [
+        "eacn3_create_task",
+        "eacn3_submit_result",
+        "eacn3_get_task"
+      ]
     },
     "eacn3_submit_result": {
       "kind": "tool",
       "path": "tools/eacn3_submit_result.md",
       "domain": "eacn3",
       "auth": [
-        "gru",
         "expert",
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:905",
       "since": "stable",
       "status": "stable",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
+      "summary": "Role-level result submission for an EACN3 task the caller is executing.",
       "keywords": [
         "submit",
         "result",
         "task",
         "event",
-        "reputation"
+        "reputation",
+        "executor"
       ],
-      "related": []
+      "related": [
+        "eacn3_create_task",
+        "eacn3_submit_bid",
+        "eacn3_get_task_results"
+      ]
     },
     "eacn3_unregister_agent": {
       "kind": "tool",
       "path": "tools/eacn3_unregister_agent.md",
       "domain": "eacn3",
       "auth": [
-        "gru"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:638",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "unregister",
@@ -770,11 +811,13 @@
       "path": "tools/eacn3_update_agent.md",
       "domain": "eacn3",
       "auth": [
-        "gru"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:609",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "update",
@@ -790,13 +833,12 @@
       "path": "tools/eacn3_update_deadline.md",
       "domain": "eacn3",
       "auth": [
-        "gru",
         "expert",
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:819",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "update",
@@ -810,13 +852,12 @@
       "path": "tools/eacn3_update_discussions.md",
       "domain": "eacn3",
       "auth": [
-        "gru",
         "expert",
         "ethics"
       ],
       "source": "mcp-servers/eacn3/plugin/index.ts:827",
-      "since": "stable",
-      "status": "stable",
+      "since": "stub",
+      "status": "stub",
       "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
       "keywords": [
         "update",
@@ -834,7 +875,7 @@
       "path": "tools/mos_attach_role.md",
       "domain": "runtime",
       "auth": [
-        "*"
+        "gru"
       ],
       "source": "minions/tools/mcp/runtime_tools.py:207",
       "since": "stub",
@@ -848,14 +889,13 @@
       "path": "tools/mos_await_events.md",
       "domain": "runtime",
       "auth": [
-        "gru",
         "expert",
         "ethics"
       ],
       "source": "minions/tools/mcp/runtime_tools.py:73",
       "since": "stable",
       "status": "stable",
-      "summary": "Default wake driver for every EACN-registered Role. Long-polls, drains on read, idle-checks at ~5 min.",
+      "summary": "Resident wake driver for Expert and Ethics. Blocks internally, returns only actionable events.",
       "keywords": [
         "await",
         "events",
@@ -863,12 +903,14 @@
         "drain",
         "idle",
         "eacn",
-        "loop"
+        "loop",
+        "keepalive"
       ],
       "related": [
         "mos_unread_summary",
         "mos_get_events",
-        "eacn3_await_events"
+        "eacn3_await_events",
+        "eacn3_get_events"
       ]
     },
     "mos_book_audit_walk": {
@@ -876,7 +918,8 @@
       "path": "tools/mos_book_audit_walk.md",
       "domain": "memory",
       "auth": [
-        "*"
+        "gru",
+        "ethics"
       ],
       "source": "minions/tools/mcp/memory_tools.py:295",
       "since": "stub",
@@ -890,7 +933,7 @@
       "path": "tools/mos_book_crystallize_session.md",
       "domain": "memory",
       "auth": [
-        "*"
+        "ethics"
       ],
       "source": "minions/tools/mcp/memory_tools.py:369",
       "since": "stub",
@@ -904,8 +947,6 @@
       "path": "tools/mos_book_dead_end.md",
       "domain": "memory",
       "auth": [
-        "gru",
-        "expert",
         "ethics"
       ],
       "source": "minions/tools/mcp/memory_tools.py:428",
@@ -931,7 +972,7 @@
       "path": "tools/mos_book_ingest.md",
       "domain": "memory",
       "auth": [
-        "*"
+        "ethics"
       ],
       "source": "minions/tools/mcp/memory_tools.py:188",
       "since": "stub",
@@ -945,7 +986,7 @@
       "path": "tools/mos_book_ingest_batch.md",
       "domain": "memory",
       "auth": [
-        "*"
+        "ethics"
       ],
       "source": "minions/tools/mcp/memory_tools.py:221",
       "since": "stub",
@@ -959,7 +1000,7 @@
       "path": "tools/mos_book_lint.md",
       "domain": "memory",
       "auth": [
-        "*"
+        "ethics"
       ],
       "source": "minions/tools/mcp/memory_tools.py:337",
       "since": "stub",
@@ -1001,7 +1042,7 @@
       "path": "tools/mos_book_promote_verified.md",
       "domain": "memory",
       "auth": [
-        "*"
+        "ethics"
       ],
       "source": "minions/tools/mcp/memory_tools.py:344",
       "since": "stub",
@@ -1067,7 +1108,8 @@
       "path": "tools/mos_book_resolve_contradiction.md",
       "domain": "memory",
       "auth": [
-        "*"
+        "gru",
+        "ethics"
       ],
       "source": "minions/tools/mcp/memory_tools.py:312",
       "since": "stub",
@@ -1081,7 +1123,8 @@
       "path": "tools/mos_book_save_synthesis.md",
       "domain": "memory",
       "auth": [
-        "*"
+        "gru",
+        "ethics"
       ],
       "source": "minions/tools/mcp/memory_tools.py:270",
       "since": "stub",
@@ -1135,7 +1178,9 @@
       "path": "tools/mos_download_arxiv.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:102",
       "since": "stub",
@@ -1149,7 +1194,9 @@
       "path": "tools/mos_download_biorxiv.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:116",
       "since": "stub",
@@ -1163,7 +1210,9 @@
       "path": "tools/mos_download_medrxiv.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:123",
       "since": "stub",
@@ -1177,7 +1226,9 @@
       "path": "tools/mos_download_pubmed.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:109",
       "since": "stub",
@@ -1191,7 +1242,9 @@
       "path": "tools/mos_draft_annotate.md",
       "domain": "memory",
       "auth": [
-        "*"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/memory_tools.py:119",
       "since": "stub",
@@ -1233,7 +1286,8 @@
       "path": "tools/mos_draft_commit_shared.md",
       "domain": "memory",
       "auth": [
-        "*"
+        "gru",
+        "ethics"
       ],
       "source": "minions/tools/mcp/memory_tools.py:154",
       "since": "stub",
@@ -1247,7 +1301,8 @@
       "path": "tools/mos_draft_decay_compute.md",
       "domain": "memory",
       "auth": [
-        "*"
+        "gru",
+        "ethics"
       ],
       "source": "minions/tools/mcp/memory_tools.py:170",
       "since": "stub",
@@ -1261,7 +1316,9 @@
       "path": "tools/mos_draft_path.md",
       "domain": "memory",
       "auth": [
-        "*"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/memory_tools.py:131",
       "since": "stub",
@@ -1586,14 +1643,26 @@
       "path": "tools/mos_get_events.md",
       "domain": "runtime",
       "auth": [
-        "*"
+        "gru"
       ],
       "source": "minions/tools/mcp/runtime_tools.py:316",
-      "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
-      "related": []
+      "since": "stable",
+      "status": "stable",
+      "summary": "Gru-only one-project event drain. Pulls Gru's EACN queue and mirrors it to disk.",
+      "keywords": [
+        "gru",
+        "events",
+        "unread",
+        "drain",
+        "eacn",
+        "pull",
+        "queue"
+      ],
+      "related": [
+        "mos_unread_summary",
+        "mos_await_events",
+        "eacn3_get_events"
+      ]
     },
     "mos_issue_report": {
       "kind": "tool",
@@ -1629,7 +1698,7 @@
       "path": "tools/mos_kill_role.md",
       "domain": "runtime",
       "auth": [
-        "*"
+        "gru"
       ],
       "source": "minions/tools/mcp/runtime_tools.py:233",
       "since": "stub",
@@ -1660,11 +1729,20 @@
         "gru"
       ],
       "source": "minions/tools/mcp/spawn_tools.py:86",
-      "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
-      "related": []
+      "since": "stable",
+      "status": "stable",
+      "summary": "Gru-only discovery for workflow plugins that can be attached to a spawned Expert.",
+      "keywords": [
+        "workflow",
+        "plugin",
+        "expert",
+        "mcp",
+        "evoany",
+        "spawn"
+      ],
+      "related": [
+        "mos_spawn_expert"
+      ]
     },
     "mos_project_bridge": {
       "kind": "tool",
@@ -1685,7 +1763,8 @@
       "path": "tools/mos_project_checkpoint_workspace.md",
       "domain": "lifecycle",
       "auth": [
-        "gru"
+        "gru",
+        "expert"
       ],
       "source": "minions/tools/mcp/project_tools.py:157",
       "since": "stub",
@@ -1875,7 +1954,9 @@
       "path": "tools/mos_read_arxiv_paper.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:74",
       "since": "stub",
@@ -1889,7 +1970,9 @@
       "path": "tools/mos_read_biorxiv_paper.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:88",
       "since": "stub",
@@ -1903,7 +1986,9 @@
       "path": "tools/mos_read_medrxiv_paper.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:95",
       "since": "stub",
@@ -1917,7 +2002,9 @@
       "path": "tools/mos_read_pubmed_paper.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:81",
       "since": "stub",
@@ -1958,7 +2045,9 @@
       "path": "tools/mos_reel_window.md",
       "domain": "memory",
       "auth": [
-        "*"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/reel_tools.py:49",
       "since": "stub",
@@ -1999,7 +2088,9 @@
       "path": "tools/mos_resolve_arxiv_ids.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:67",
       "since": "stub",
@@ -2011,16 +2102,27 @@
     "mos_review_run": {
       "kind": "tool",
       "path": "tools/mos_review_run.md",
-      "domain": "experiments",
+      "domain": "deliverables",
       "auth": [
-        "expert"
+        "gru"
       ],
       "source": "minions/tools/mcp/experiment_tools.py:16",
-      "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
-      "related": []
+      "since": "stable",
+      "status": "stable",
+      "summary": "Gru-only Area-Chair review round for a submitted manuscript package.",
+      "keywords": [
+        "review",
+        "submission",
+        "checklist",
+        "area-chair",
+        "deliverable",
+        "paper"
+      ],
+      "related": [
+        "mos_submit",
+        "mos_evaluate",
+        "mos_promote_to_book"
+      ]
     },
     "mos_role_evolve_dismiss": {
       "kind": "tool",
@@ -2083,7 +2185,9 @@
       "path": "tools/mos_search_arxiv.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:16",
       "since": "stub",
@@ -2097,7 +2201,9 @@
       "path": "tools/mos_search_biorxiv.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:30",
       "since": "stub",
@@ -2111,7 +2217,9 @@
       "path": "tools/mos_search_google_scholar.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:44",
       "since": "stub",
@@ -2125,7 +2233,9 @@
       "path": "tools/mos_search_medrxiv.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:37",
       "since": "stub",
@@ -2139,7 +2249,9 @@
       "path": "tools/mos_search_papers_federated.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:58",
       "since": "stub",
@@ -2153,7 +2265,9 @@
       "path": "tools/mos_search_pubmed.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:23",
       "since": "stub",
@@ -2167,7 +2281,9 @@
       "path": "tools/mos_search_semantic.md",
       "domain": "papers",
       "auth": [
-        "expert"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/paper_tools.py:51",
       "since": "stub",
@@ -2209,7 +2325,9 @@
       "path": "tools/mos_signboard_read.md",
       "domain": "lifecycle",
       "auth": [
-        "gru"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/signboard_tools.py:95",
       "since": "stub",
@@ -2237,7 +2355,9 @@
       "path": "tools/mos_signboard_set.md",
       "domain": "lifecycle",
       "auth": [
-        "gru"
+        "gru",
+        "expert",
+        "ethics"
       ],
       "source": "minions/tools/mcp/signboard_tools.py:59",
       "since": "stub",
@@ -2290,7 +2410,7 @@
       "path": "tools/mos_start_monitor.md",
       "domain": "runtime",
       "auth": [
-        "*"
+        "gru"
       ],
       "source": "minions/tools/mcp/runtime_tools.py:32",
       "since": "stub",
@@ -2318,23 +2438,34 @@
       "path": "tools/mos_unread_summary.md",
       "domain": "runtime",
       "auth": [
-        "*"
+        "gru"
       ],
       "source": "minions/tools/mcp/runtime_tools.py:332",
-      "since": "stub",
-      "status": "stub",
-      "summary": "No curated MANUAL page yet. The MCP description is in your Role system prompt.",
-      "keywords": [],
-      "related": []
+      "since": "stable",
+      "status": "stable",
+      "summary": "Gru-only unread scan across active projects. Pure read; does not drain.",
+      "keywords": [
+        "gru",
+        "unread",
+        "events",
+        "projects",
+        "eacn",
+        "queue",
+        "scan"
+      ],
+      "related": [
+        "mos_get_events",
+        "mos_await_events"
+      ]
     },
     "mos_visual_check": {
       "kind": "tool",
       "path": "tools/mos_visual_check.md",
       "domain": "visual",
       "auth": [
+        "gru",
         "expert",
-        "ethics",
-        "gru"
+        "ethics"
       ],
       "source": "minions/tools/mcp/visual_tools.py:198",
       "since": "stub",
@@ -2348,9 +2479,9 @@
       "path": "tools/mos_visual_inspect.md",
       "domain": "visual",
       "auth": [
+        "gru",
         "expert",
-        "ethics",
-        "gru"
+        "ethics"
       ],
       "source": "minions/tools/mcp/visual_tools.py:147",
       "since": "stub",
@@ -2364,9 +2495,9 @@
       "path": "tools/mos_visual_render.md",
       "domain": "visual",
       "auth": [
+        "gru",
         "expert",
-        "ethics",
-        "gru"
+        "ethics"
       ],
       "source": "minions/tools/mcp/visual_tools.py:122",
       "since": "stub",
@@ -2665,7 +2796,7 @@
       "source": "mcp-servers/eacn3/plugin/index.ts:1",
       "since": "stable",
       "status": "stable",
-      "summary": "EACN3 is the per-project agent network. Every EACN-registered Role",
+      "summary": "EACN3 is the per-project agent network. Roles use it for direct messages,",
       "keywords": [
         "eacn3",
         "comms",
@@ -2677,6 +2808,8 @@
       ],
       "related": [
         "mos_await_events",
+        "mos_get_events",
+        "mos_unread_summary",
         "eacn3_send_message",
         "eacn3_create_task",
         "pitfall-deferred-schema"
@@ -2877,20 +3010,46 @@
       "source": "minions/tools/mcp/runtime_tools.py:1",
       "since": "stable",
       "status": "stable",
-      "summary": "Wake-loop control. Three real entry points, one escape hatch.",
+      "summary": "MCP topology and wake-loop control. The visible tool list is broad for cache",
       "keywords": [
+        "mcp",
         "wake",
         "compact",
         "reset",
         "attach",
         "kill",
         "monitor",
-        "loop"
+        "loop",
+        "gru"
       ],
       "related": [
         "mos_await_events",
+        "mos_get_events",
+        "mos_unread_summary",
         "mos_compact_context",
         "mos_reset_context"
+      ]
+    },
+    "domain-skills": {
+      "kind": "domain",
+      "path": "domains/skills.md",
+      "domain": "skills",
+      "auth": [
+        "*"
+      ],
+      "source": "minions/lifecycle/skills.py:1",
+      "since": "stable",
+      "status": "stable",
+      "summary": "MinionsOS Role skills are repository-shipped markdown procedures. Workflow",
+      "keywords": [
+        "skills",
+        "role-skills",
+        "workflow-plugin",
+        "skill-forge"
+      ],
+      "related": [
+        "mos_list_workflow_plugins",
+        "mos_spawn_expert"
       ]
     },
     "domain-subagent-handoff": {
@@ -3076,6 +3235,7 @@
       "domain-deliverables",
       "mos_evaluate",
       "mos_promote_to_book",
+      "mos_review_run",
       "mos_submit"
     ],
     "experiments": [
@@ -3095,7 +3255,6 @@
       "mos_exp_tail",
       "mos_exp_wait",
       "mos_query_gpus",
-      "mos_review_run",
       "pitfall-project-venv",
       "pitfall-queue-deadlaunch-fp"
     ],
@@ -3128,16 +3287,17 @@
     "bridge": [
       "domain-bridge"
     ],
+    "skills": [
+      "domain-skills"
+    ],
     "subagent-handoff": [
       "domain-subagent-handoff"
     ]
   },
   "by_role": {
-    "gru": [
-      "domain-bridge",
-      "domain-deliverables",
-      "domain-evolution",
-      "domain-lifecycle",
+    "expert": [
+      "domain-experiments",
+      "domain-papers",
       "domain-visual",
       "eacn3_a2a_server",
       "eacn3_await_events",
@@ -3159,6 +3319,7 @@
       "eacn3_get_task_results",
       "eacn3_get_task_status",
       "eacn3_health",
+      "eacn3_heartbeat",
       "eacn3_invite_agent",
       "eacn3_list_agents",
       "eacn3_list_my_agents",
@@ -3178,81 +3339,6 @@
       "eacn3_update_deadline",
       "eacn3_update_discussions",
       "mos_await_events",
-      "mos_book_dead_end",
-      "mos_book_open_question",
-      "mos_book_query",
-      "mos_compact_context",
-      "mos_dismiss_role",
-      "mos_draft_append",
-      "mos_draft_unmarked_audit",
-      "mos_draft_view",
-      "mos_evaluate",
-      "mos_issue_report",
-      "mos_list_roles",
-      "mos_list_workflow_plugins",
-      "mos_project_bridge",
-      "mos_project_checkpoint_workspace",
-      "mos_project_close",
-      "mos_project_create",
-      "mos_project_dormant",
-      "mos_project_kill",
-      "mos_project_list",
-      "mos_project_revive",
-      "mos_project_set_phase",
-      "mos_promote_to_book",
-      "mos_publish_to_shared",
-      "mos_reel_get",
-      "mos_reset_context",
-      "mos_role_evolve_dismiss",
-      "mos_role_evolve_evaluate",
-      "mos_role_merge",
-      "mos_role_split",
-      "mos_signboard_consume",
-      "mos_signboard_evaluate",
-      "mos_signboard_read",
-      "mos_signboard_reopen",
-      "mos_signboard_set",
-      "mos_spawn_expert",
-      "mos_spawn_role",
-      "mos_submit",
-      "mos_visual_check",
-      "mos_visual_inspect",
-      "mos_visual_render",
-      "pitfall-empty-authz"
-    ],
-    "expert": [
-      "domain-experiments",
-      "domain-papers",
-      "domain-visual",
-      "eacn3_await_events",
-      "eacn3_close_task",
-      "eacn3_confirm_budget",
-      "eacn3_create_subtask",
-      "eacn3_create_task",
-      "eacn3_deposit",
-      "eacn3_discover_agents",
-      "eacn3_get_agent",
-      "eacn3_get_balance",
-      "eacn3_get_events",
-      "eacn3_get_reputation",
-      "eacn3_get_task",
-      "eacn3_get_task_results",
-      "eacn3_get_task_status",
-      "eacn3_health",
-      "eacn3_list_agents",
-      "eacn3_list_my_agents",
-      "eacn3_list_open_tasks",
-      "eacn3_list_tasks",
-      "eacn3_reject_task",
-      "eacn3_select_result",
-      "eacn3_send_message",
-      "eacn3_server_info",
-      "eacn3_submit_bid",
-      "eacn3_submit_result",
-      "eacn3_update_deadline",
-      "eacn3_update_discussions",
-      "mos_await_events",
-      "mos_book_dead_end",
       "mos_book_open_question",
       "mos_book_query",
       "mos_compact_context",
@@ -3260,7 +3346,9 @@
       "mos_download_biorxiv",
       "mos_download_medrxiv",
       "mos_download_pubmed",
+      "mos_draft_annotate",
       "mos_draft_append",
+      "mos_draft_path",
       "mos_draft_view",
       "mos_exp_get",
       "mos_exp_gpu_pool_get",
@@ -3277,6 +3365,7 @@
       "mos_exp_tail",
       "mos_exp_wait",
       "mos_issue_report",
+      "mos_project_checkpoint_workspace",
       "mos_publish_to_shared",
       "mos_query_gpus",
       "mos_read_arxiv_paper",
@@ -3284,9 +3373,9 @@
       "mos_read_medrxiv_paper",
       "mos_read_pubmed_paper",
       "mos_reel_get",
+      "mos_reel_window",
       "mos_reset_context",
       "mos_resolve_arxiv_ids",
-      "mos_review_run",
       "mos_search_arxiv",
       "mos_search_biorxiv",
       "mos_search_google_scholar",
@@ -3294,6 +3383,8 @@
       "mos_search_papers_federated",
       "mos_search_pubmed",
       "mos_search_semantic",
+      "mos_signboard_read",
+      "mos_signboard_set",
       "mos_visual_check",
       "mos_visual_inspect",
       "mos_visual_render",
@@ -3301,12 +3392,17 @@
     ],
     "ethics": [
       "domain-visual",
+      "eacn3_a2a_server",
       "eacn3_await_events",
+      "eacn3_claim_agent",
       "eacn3_close_task",
+      "eacn3_cluster_status",
       "eacn3_confirm_budget",
+      "eacn3_connect",
       "eacn3_create_subtask",
       "eacn3_create_task",
       "eacn3_deposit",
+      "eacn3_disconnect",
       "eacn3_discover_agents",
       "eacn3_get_agent",
       "eacn3_get_balance",
@@ -3316,34 +3412,173 @@
       "eacn3_get_task_results",
       "eacn3_get_task_status",
       "eacn3_health",
+      "eacn3_heartbeat",
+      "eacn3_invite_agent",
       "eacn3_list_agents",
       "eacn3_list_my_agents",
       "eacn3_list_open_tasks",
       "eacn3_list_tasks",
+      "eacn3_register_agent",
       "eacn3_reject_task",
+      "eacn3_report_event",
+      "eacn3_reverse_control_status",
       "eacn3_select_result",
       "eacn3_send_message",
       "eacn3_server_info",
       "eacn3_submit_bid",
       "eacn3_submit_result",
+      "eacn3_unregister_agent",
+      "eacn3_update_agent",
       "eacn3_update_deadline",
       "eacn3_update_discussions",
       "mos_await_events",
+      "mos_book_audit_walk",
+      "mos_book_crystallize_session",
       "mos_book_dead_end",
+      "mos_book_ingest",
+      "mos_book_ingest_batch",
+      "mos_book_lint",
       "mos_book_open_question",
+      "mos_book_promote_verified",
       "mos_book_query",
       "mos_book_ratify",
+      "mos_book_resolve_contradiction",
+      "mos_book_save_synthesis",
       "mos_compact_context",
+      "mos_download_arxiv",
+      "mos_download_biorxiv",
+      "mos_download_medrxiv",
+      "mos_download_pubmed",
+      "mos_draft_annotate",
       "mos_draft_append",
+      "mos_draft_commit_shared",
+      "mos_draft_decay_compute",
+      "mos_draft_path",
       "mos_draft_unmarked_audit",
       "mos_draft_view",
       "mos_issue_report",
       "mos_publish_to_shared",
+      "mos_read_arxiv_paper",
+      "mos_read_biorxiv_paper",
+      "mos_read_medrxiv_paper",
+      "mos_read_pubmed_paper",
       "mos_reel_get",
+      "mos_reel_window",
       "mos_reset_context",
+      "mos_resolve_arxiv_ids",
+      "mos_search_arxiv",
+      "mos_search_biorxiv",
+      "mos_search_google_scholar",
+      "mos_search_medrxiv",
+      "mos_search_papers_federated",
+      "mos_search_pubmed",
+      "mos_search_semantic",
+      "mos_signboard_read",
+      "mos_signboard_set",
       "mos_visual_check",
       "mos_visual_inspect",
       "mos_visual_render"
+    ],
+    "gru": [
+      "domain-bridge",
+      "domain-deliverables",
+      "domain-evolution",
+      "domain-lifecycle",
+      "domain-visual",
+      "eacn3_await_events",
+      "eacn3_cluster_status",
+      "eacn3_connect",
+      "eacn3_disconnect",
+      "eacn3_discover_agents",
+      "eacn3_get_agent",
+      "eacn3_get_events",
+      "eacn3_get_reputation",
+      "eacn3_get_task",
+      "eacn3_get_task_results",
+      "eacn3_get_task_status",
+      "eacn3_health",
+      "eacn3_heartbeat",
+      "eacn3_list_agents",
+      "eacn3_list_my_agents",
+      "eacn3_list_open_tasks",
+      "eacn3_list_tasks",
+      "eacn3_register_agent",
+      "eacn3_report_event",
+      "eacn3_reverse_control_status",
+      "eacn3_send_message",
+      "eacn3_server_info",
+      "eacn3_unregister_agent",
+      "eacn3_update_agent",
+      "mos_attach_role",
+      "mos_book_audit_walk",
+      "mos_book_open_question",
+      "mos_book_query",
+      "mos_book_resolve_contradiction",
+      "mos_book_save_synthesis",
+      "mos_compact_context",
+      "mos_dismiss_role",
+      "mos_download_arxiv",
+      "mos_download_biorxiv",
+      "mos_download_medrxiv",
+      "mos_download_pubmed",
+      "mos_draft_annotate",
+      "mos_draft_append",
+      "mos_draft_commit_shared",
+      "mos_draft_decay_compute",
+      "mos_draft_path",
+      "mos_draft_unmarked_audit",
+      "mos_draft_view",
+      "mos_evaluate",
+      "mos_get_events",
+      "mos_issue_report",
+      "mos_kill_role",
+      "mos_list_roles",
+      "mos_list_workflow_plugins",
+      "mos_project_bridge",
+      "mos_project_checkpoint_workspace",
+      "mos_project_close",
+      "mos_project_create",
+      "mos_project_dormant",
+      "mos_project_kill",
+      "mos_project_list",
+      "mos_project_revive",
+      "mos_project_set_phase",
+      "mos_promote_to_book",
+      "mos_publish_to_shared",
+      "mos_read_arxiv_paper",
+      "mos_read_biorxiv_paper",
+      "mos_read_medrxiv_paper",
+      "mos_read_pubmed_paper",
+      "mos_reel_get",
+      "mos_reel_window",
+      "mos_reset_context",
+      "mos_resolve_arxiv_ids",
+      "mos_review_run",
+      "mos_role_evolve_dismiss",
+      "mos_role_evolve_evaluate",
+      "mos_role_merge",
+      "mos_role_split",
+      "mos_search_arxiv",
+      "mos_search_biorxiv",
+      "mos_search_google_scholar",
+      "mos_search_medrxiv",
+      "mos_search_papers_federated",
+      "mos_search_pubmed",
+      "mos_search_semantic",
+      "mos_signboard_consume",
+      "mos_signboard_evaluate",
+      "mos_signboard_read",
+      "mos_signboard_reopen",
+      "mos_signboard_set",
+      "mos_spawn_expert",
+      "mos_spawn_role",
+      "mos_start_monitor",
+      "mos_submit",
+      "mos_unread_summary",
+      "mos_visual_check",
+      "mos_visual_inspect",
+      "mos_visual_render",
+      "pitfall-empty-authz"
     ],
     "*": [
       "domain-debug",
@@ -3352,26 +3587,8 @@
       "domain-publish",
       "domain-reel-l0-memory",
       "domain-runtime",
+      "domain-skills",
       "domain-subagent-handoff",
-      "eacn3_heartbeat",
-      "mos_attach_role",
-      "mos_book_audit_walk",
-      "mos_book_crystallize_session",
-      "mos_book_ingest",
-      "mos_book_ingest_batch",
-      "mos_book_lint",
-      "mos_book_promote_verified",
-      "mos_book_resolve_contradiction",
-      "mos_book_save_synthesis",
-      "mos_draft_annotate",
-      "mos_draft_commit_shared",
-      "mos_draft_decay_compute",
-      "mos_draft_path",
-      "mos_get_events",
-      "mos_kill_role",
-      "mos_reel_window",
-      "mos_start_monitor",
-      "mos_unread_summary",
       "pitfall-deferred-schema",
       "pitfall-mcp-cosmetic",
       "pitfall-opus-empty-input",
@@ -3439,7 +3656,9 @@
       "domain-eacn3",
       "eacn3_await_events",
       "eacn3_get_events",
-      "mos_await_events"
+      "mos_await_events",
+      "mos_get_events",
+      "mos_unread_summary"
     ],
     "event": [
       "eacn3_await_events",
@@ -3607,6 +3826,11 @@
       "eacn3_get_task_results",
       "eacn3_get_task_status"
     ],
+    "drain": [
+      "eacn3_get_events",
+      "mos_await_events",
+      "mos_get_events"
+    ],
     "results": [
       "eacn3_get_task_results"
     ],
@@ -3671,6 +3895,15 @@
       "eacn3_submit_result",
       "mos_exp_queue_submit"
     ],
+    "confidence": [
+      "eacn3_submit_bid"
+    ],
+    "price": [
+      "eacn3_submit_bid"
+    ],
+    "executor": [
+      "eacn3_submit_result"
+    ],
     "unregister": [
       "eacn3_unregister_agent"
     ],
@@ -3690,18 +3923,21 @@
       "mos_await_events",
       "mos_draft_view"
     ],
-    "drain": [
-      "mos_await_events"
-    ],
     "idle": [
       "mos_await_events"
     ],
     "eacn": [
-      "mos_await_events"
+      "mos_await_events",
+      "mos_get_events",
+      "mos_unread_summary"
     ],
     "loop": [
       "domain-runtime",
       "mos_await_events"
+    ],
+    "keepalive": [
+      "mos_await_events",
+      "pitfall-mcp-cosmetic"
     ],
     "book": [
       "domain-memory",
@@ -3849,6 +4085,8 @@
       "mos_exp_queue_reconcile",
       "mos_exp_queue_status",
       "mos_exp_queue_submit",
+      "mos_get_events",
+      "mos_unread_summary",
       "pitfall-queue-deadlaunch-fp"
     ],
     "reconcile": [
@@ -3916,6 +4154,21 @@
     "command": [
       "mos_exp_run"
     ],
+    "gru": [
+      "domain-bridge",
+      "domain-lifecycle",
+      "domain-runtime",
+      "mos_get_events",
+      "mos_promote_to_book",
+      "mos_unread_summary"
+    ],
+    "unread": [
+      "mos_get_events",
+      "mos_unread_summary"
+    ],
+    "pull": [
+      "mos_get_events"
+    ],
     "issue": [
       "domain-debug",
       "mos_issue_report"
@@ -3940,10 +4193,29 @@
       "domain-debug",
       "mos_issue_report"
     ],
-    "gru": [
-      "domain-bridge",
+    "workflow": [
+      "mos_list_workflow_plugins"
+    ],
+    "plugin": [
+      "mos_list_workflow_plugins"
+    ],
+    "expert": [
+      "mos_list_workflow_plugins",
+      "mos_spawn_expert",
+      "pitfall-empty-authz"
+    ],
+    "mcp": [
+      "domain-runtime",
+      "mos_list_workflow_plugins",
+      "pitfall-mcp-cosmetic"
+    ],
+    "evoany": [
+      "mos_list_workflow_plugins"
+    ],
+    "spawn": [
       "domain-lifecycle",
-      "mos_promote_to_book"
+      "mos_list_workflow_plugins",
+      "mos_spawn_expert"
     ],
     "sealed": [
       "mos_promote_to_book"
@@ -4023,17 +4295,38 @@
     "checkpoint": [
       "mos_reset_context"
     ],
-    "spawn": [
-      "domain-lifecycle",
-      "mos_spawn_expert"
+    "review": [
+      "domain-deliverables",
+      "mos_review_run",
+      "pitfall-subagent-boilerplate"
     ],
-    "expert": [
-      "mos_spawn_expert",
-      "pitfall-empty-authz"
+    "submission": [
+      "mos_review_run"
+    ],
+    "checklist": [
+      "mos_review_run"
+    ],
+    "area-chair": [
+      "mos_review_run"
+    ],
+    "deliverable": [
+      "domain-deliverables",
+      "mos_review_run"
+    ],
+    "paper": [
+      "domain-deliverables",
+      "domain-papers",
+      "mos_review_run"
     ],
     "slug": [
       "mos_spawn_expert",
       "pitfall-empty-authz"
+    ],
+    "projects": [
+      "mos_unread_summary"
+    ],
+    "scan": [
+      "mos_unread_summary"
     ],
     "tool": [
       "pitfall-deferred-schema"
@@ -4075,16 +4368,10 @@
     "prefix": [
       "pitfall-empty-authz"
     ],
-    "mcp": [
-      "pitfall-mcp-cosmetic"
-    ],
     "cosmetic": [
       "pitfall-mcp-cosmetic"
     ],
     "footer": [
-      "pitfall-mcp-cosmetic"
-    ],
-    "keepalive": [
       "pitfall-mcp-cosmetic"
     ],
     "opus": [
@@ -4170,10 +4457,6 @@
     "verdict": [
       "pitfall-subagent-boilerplate"
     ],
-    "review": [
-      "domain-deliverables",
-      "pitfall-subagent-boilerplate"
-    ],
     "contradiction": [
       "pitfall-subagent-boilerplate"
     ],
@@ -4206,13 +4489,6 @@
     ],
     "evaluate": [
       "domain-deliverables"
-    ],
-    "deliverable": [
-      "domain-deliverables"
-    ],
-    "paper": [
-      "domain-deliverables",
-      "domain-papers"
     ],
     "answer": [
       "domain-deliverables"
@@ -4299,6 +4575,18 @@
     ],
     "monitor": [
       "domain-runtime"
+    ],
+    "skills": [
+      "domain-skills"
+    ],
+    "role-skills": [
+      "domain-skills"
+    ],
+    "workflow-plugin": [
+      "domain-skills"
+    ],
+    "skill-forge": [
+      "domain-skills"
     ],
     "delegate": [
       "domain-subagent-handoff"

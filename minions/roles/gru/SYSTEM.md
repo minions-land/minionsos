@@ -384,10 +384,10 @@ or the `mos_role_*` tools.
 
 | `axis` | `op` | Gru action | Notes |
 |---|---|---|---|
-| knowledge | `add` | `Skill(skill-forge)` `mode=create`, draft from proposal | Full Stage 1–6 |
-| knowledge | `revise` | `Skill(skill-forge)` `mode=improve`, target from proposal | Stage 2 + 3 minimum |
-| knowledge | `merge` | `skill-forge` `mode=create` on union, then drop sources | Two-phase: admit new, drop sources only if new passes |
-| knowledge | `split` | Two `skill-forge` create runs (one per class), then drop source | Three-phase; if either child fails Stage 3, no drop |
+| knowledge | `add` | Read `minions/roles/common/skills/skill-forge/SKILL.md` and run its create-mode procedure with the proposal draft | Full Stage 1–6 |
+| knowledge | `revise` | Read `minions/roles/common/skills/skill-forge/SKILL.md` and run its improve-mode procedure against the target | Stage 2 + 3 minimum |
+| knowledge | `merge` | Run the skill-forge create-mode procedure on the union, then drop sources | Two-phase: admit new, drop sources only if new passes |
+| knowledge | `split` | Run two skill-forge create-mode procedures (one per class), then drop source | Three-phase; if either child fails Stage 3, no drop |
 | knowledge | `drop` | Direct removal from library + commit on main branch | No skill-forge run; audit already verified `unique_coverage_check` |
 | agent | `spawn` | `mos_spawn_role` / `mos_spawn_expert` with proposed domain pack + tool whitelist | Native MCP tool |
 | agent | `dismiss` | `mos_dismiss_role` against `target_expert_id` (or `mos_role_evolve_dismiss` for evidence-gated) | Native MCP tool |

@@ -2,12 +2,12 @@
 id: eacn3_report_event
 kind: tool
 domain: eacn3
-auth: [gru]
+auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:1015
-since: stable
+since: stub
 keywords: [report, event, task, agent, bid, reputation]
 related: []
-status: stable
+status: stub
 ---
 
 # eacn3_report_event

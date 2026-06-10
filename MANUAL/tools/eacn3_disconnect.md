@@ -2,12 +2,12 @@
 id: eacn3_disconnect
 kind: tool
 domain: eacn3
-auth: [gru]
+auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:428
-since: stable
+since: stub
 keywords: [disconnect, task, agent, reputation]
 related: []
-status: stable
+status: stub
 ---
 
 # eacn3_disconnect

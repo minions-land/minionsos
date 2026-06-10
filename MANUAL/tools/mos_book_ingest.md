@@ -2,7 +2,7 @@
 id: mos_book_ingest
 kind: tool
 domain: memory
-auth: [*]
+auth: [ethics]
 source: minions/tools/mcp/memory_tools.py:188
 since: stub
 keywords: []

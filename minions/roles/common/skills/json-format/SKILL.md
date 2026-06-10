@@ -1,14 +1,21 @@
 ---
-name: json-format
-description: Format and prettify JSON data with proper indentation and syntax highlighting. Validates JSON structure, fixes common issues, and presents output in a readable format. Trigger when users say "format this JSON", "prettify JSON", "clean up this JSON", or "make this JSON readable".
+slug: json-format
+summary: Format and validate JSON with stable indentation while preserving data values.
+layer: logical
+tools: Read, Write, Bash
+version: 1
+status: active
+supersedes:
+references: reliable-file-io
+provenance: human+agent
 ---
 
-# json-format — Format JSON with proper indentation
+# Skill — JSON Format
 
-**What this does:** Takes raw or malformed JSON data and formats it with proper indentation, validates structure, and optionally adds syntax highlighting for readability.
+Format raw or malformed JSON with proper indentation, validate structure, and
+preserve data values.
 
 **When to invoke:**
-- User types `/json-format`
 - User says "format this JSON", "prettify JSON", "clean up this JSON"
 - User asks to "make this JSON readable", "indent this JSON"
 - User provides JSON data that appears unformatted or minified
@@ -110,5 +117,4 @@ Always tell the user what was fixed. Silent fixes can hide real data issues that
 
 ## Related Skills
 
-- [[skill-edit]] — For editing the skill itself
-- [[file]] — For handling large JSON files atomically
+- [[reliable-file-io]] — For saving large JSON files atomically

@@ -2,7 +2,7 @@
 id: mos_book_audit_walk
 kind: tool
 domain: memory
-auth: [*]
+auth: [gru, ethics]
 source: minions/tools/mcp/memory_tools.py:295
 since: stub
 keywords: []

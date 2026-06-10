@@ -2,12 +2,12 @@
 id: eacn3_connect
 kind: tool
 domain: eacn3
-auth: [gru]
+auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:364
-since: stable
+since: stub
 keywords: [connect, agent]
 related: []
-status: stable
+status: stub
 ---
 
 # eacn3_connect

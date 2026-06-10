@@ -36,7 +36,7 @@ These two registries are deliberately different shapes. Both are first-class, bu
 | Discovery | Automatic — non-recursive `glob("*.md")` over `minions/roles/{role}/skills/` and `minions/roles/common/skills/` | Explicit — every server is named in the config files |
 | Adding a new entry | Drop a `.md` file in the right `skills/` directory; it appears in the role's `[Skills]` block on the next wake | Implement the server, add an entry to `.mcp.json` and `.codex/config.toml`, register it in `minions/tools/whitelist.py` if access control matters, add coverage in `tests/unit/test_eacn3_plugin_wiring.py` style |
 | Hiding sub-content | Nest sub-skills into a same-named subdirectory (orchestrator + nested files); the non-recursive glob hides them while orchestrator links them by relative path | Not applicable — every MCP server is a top-level concern |
-| Doc surface | `SKILL.md` frontmatter `summary:` populates the discovery summary | `mcp-servers/README.md` (this file) for human registry; the server's own README/help for tool docs |
+| Doc surface | Direct `.md` Role-skill frontmatter `summary:` populates the discovery summary; workflow-plugin bundles are generated inside project branch workspaces | `mcp-servers/README.md` (this file) for human registry; the server's own README/help for tool docs |
 
 Skills can be added/reorganised without touching code paths; MCP servers cannot. That's why MCP additions need the heavier checklist above and why this registry is hand-maintained rather than auto-generated.
 

@@ -85,7 +85,7 @@ Applies to any Role (Gru, Ethics, Expert).
 1. Create `minions/roles/{role}/skills/{slug}.md` where `{slug}` is lowercase hyphen-separated (e.g. `occams-razor.md`, `triage-request.md`, `citation-audit.md`).
 2. Follow the standard structure: H1 title on the first line, a one-line summary on the next non-blank line (used by the discovery mechanism), then `Core move` / `Core question`, `Procedure`, `When to invoke`, `Pitfalls`, `Output habit` (marking derived claims per root `Evidence-first EACN communication`).
 3. Keep skills short (≤ 60 lines). They are reasoning / procedure disciplines, not exhaustive treatises.
-4. No code change needed — every Role discovers its skills by listing `minions/roles/{role}/skills/` at wake-up via `minions.lifecycle.skills.list_skills`, which seeds a `[Skills]` block into the init message.
+4. No code change needed — every Role discovers its skills by listing `minions/roles/{role}/skills/` at wake-up via `minions.lifecycle.skills.list_skills`, which seeds a `[Skills]` block into the init message. The Role reads the markdown file directly when it needs the procedure.
 5. Do not duplicate domain knowledge into a skill; domain specifics belong in `minions/domains/`. Skills are cross-domain reasoning or procedure tools.
 6. Add or extend a unit test under `tests/unit/test_skills_discovery.py` if the new skill exercises an edge case (e.g. unusual title format).
 
@@ -128,8 +128,7 @@ The **Agent-axis** `merge` collapses two Experts whose domains and bid patterns 
    raw trajectory  (Draft, EACN events, shared artefacts)
         │
         ▼
-   skill-curator              ← Gru-driven (periodic), kept off Ethics by design
-   (~/.claude/skills/skill-curator/)
+   proposal ledger            ← Gru-driven, kept off Ethics by design
         │  branches/main/notes/skill-proposals.md
         ▼
    skill-audit                ← Ethics operates this
@@ -137,7 +136,7 @@ The **Agent-axis** `merge` collapses two Experts whose domains and bid patterns 
         │  accepted subset  →  notify Gru
         ▼
    skill-forge (Knowledge) │ mos_spawn_expert / mos_dismiss_role / Agent-axis tools
-   (~/.claude/skills/skill-forge/)
+   (minions/roles/common/skills/skill-forge/SKILL.md)
         │
         ▼
    Library / Expert roster
@@ -146,15 +145,15 @@ The **Agent-axis** `merge` collapses two Experts whose domains and bid patterns 
    feeds back into trajectory for the next curation pass
 ```
 
-The four stages are **structurally decorrelated**: the curator (proposer) is run as a Gru-driven periodic pass that never makes business decisions and is deliberately not Ethics; Ethics (auditor) reads the proposal artefact, not the proposer's reasoning; skill-forge (validator) runs blind A/B testing; the operating Roles (consumer) only see admitted artefacts. This satisfies the decorrelation principle that makes the multi-agent error rate fall below the single-agent rate.
+The four stages are **structurally decorrelated**: Gru writes the proposal ledger without making the audit decision; Ethics reads the proposal artefact, not Gru's private reasoning; skill-forge validates accepted Knowledge-axis proposals; the operating Roles only see admitted artefacts. This satisfies the decorrelation principle that makes the multi-agent error rate fall below the single-agent rate.
 
 ### Implementation status
 
 | Component | Status |
 |---|---|
-| Global `skill-curator` skill | Implemented (`~/.claude/skills/skill-curator/SKILL.md`); invoked as a Gru-driven periodic pass |
+| Proposal ledger | Implemented as `branches/main/notes/skill-proposals.md`; maintained by Gru from project trajectory |
 | Ethics `skill-audit` skill | Implemented (`minions/roles/ethics/skills/skill-audit.md`) |
-| `skill-forge` orchestrator | Implemented (`~/.claude/skills/skill-forge/`) |
+| `skill-forge` orchestrator | Implemented (`minions/roles/common/skills/skill-forge/SKILL.md`) |
 | Knowledge-axis ops (add/revise/merge/split/drop) | Routed through skill-forge — operational |
 | Agent-axis `spawn` / `dismiss` | MCP tools `mos_spawn_expert`, `mos_dismiss_role` |
 | Agent-axis `merge` / `split` | MCP tools `mos_role_merge`, `mos_role_split` (plus `mos_role_evolve_evaluate` / `mos_role_evolve_dismiss`); Signboard sign-off still required for `split` |
@@ -185,17 +184,17 @@ Ethics' audit pass ends with one EACN message to Gru. Gru is then the routing au
 
 | `axis` | `op` | Gru action | Notes |
 |---|---|---|---|
-| knowledge | `add` | `Skill(skill-forge)` with `mode=create`, draft_skill_md from proposal | Runs full Stage 1–6 |
-| knowledge | `revise` | `Skill(skill-forge)` with `mode=improve`, target_skill_path from proposal | Runs Stage 2 + 3 minimum |
-| knowledge | `merge` | `Skill(skill-forge)` with `mode=create` against the union, plus `drop` of source_a + source_b after admission | Two-phase: admit new, then drop sources only if new passes |
-| knowledge | `split` | Two `Skill(skill-forge)` create runs (one per decision class), then `drop` of source after both admit | Three-phase; if either child fails Stage 3, no drop |
+| knowledge | `add` | Read `minions/roles/common/skills/skill-forge/SKILL.md` and run its create-mode procedure with `draft_skill_md` from the proposal | Runs full Stage 1–6 |
+| knowledge | `revise` | Read `minions/roles/common/skills/skill-forge/SKILL.md` and run its improve-mode procedure against `target_skill_path` | Runs Stage 2 + 3 minimum |
+| knowledge | `merge` | Run the skill-forge create-mode procedure against the union, plus `drop` of source_a + source_b after admission | Two-phase: admit new, then drop sources only if new passes |
+| knowledge | `split` | Run two skill-forge create-mode procedures (one per decision class), then `drop` of source after both admit | Three-phase; if either child fails Stage 3, no drop |
 | knowledge | `drop` | Direct removal from library + commit on the project main branch | No skill-forge run needed; audit already verified `unique_coverage_check` |
 | agent | `spawn` | `mos_spawn_role` or `mos_spawn_expert` with proposed_domain_pack + proposed_tool_whitelist from proposal | Native MCP tool |
 | agent | `dismiss` | `mos_dismiss_role` against target_expert_id | Native MCP tool (also `mos_role_evolve_dismiss` for evidence-gated dismiss with Draft + EACN inputs) |
 | agent | `merge` | `mos_role_merge` against `expert_a` + `expert_b` with `union_domain_pack` | Native MCP tool; bid-overlap-gated. `mos_role_evolve_evaluate` produces the supporting evidence summary first |
 | agent | `split` | `mos_role_split` against `target_expert_id` with `domain_partition` | Native MCP tool; **the proposal's `requires_signboard: true` is enforced here — Gru must reach Signboard consensus before calling the tool** |
 
-**Post-enactment.** After Gru completes enactment for a proposal, it appends an `### enactment (by gru on YYYY-MM-DD)` sub-block to that proposal in `branches/main/notes/skill-proposals.md`, closing the lifecycle (see [[skill-curator]] §5 lifecycle annotations). The proposal's `status` flips to `enacted`. If enactment fails (e.g. skill-forge Stage 3 rejects), `status` becomes `superseded` and Gru explains in the enactment block.
+**Post-enactment.** After Gru completes enactment for a proposal, it appends an `### enactment (by gru on YYYY-MM-DD)` sub-block to that proposal in `branches/main/notes/skill-proposals.md`, closing the lifecycle. The proposal's `status` flips to `enacted`. If enactment fails (e.g. skill-forge Stage 3 rejects), `status` becomes `superseded` and Gru explains in the enactment block.
 
 ## Running tests
 

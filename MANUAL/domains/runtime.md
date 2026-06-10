@@ -5,22 +5,41 @@ domain: runtime
 auth: ['*']
 source: minions/tools/mcp/runtime_tools.py:1
 since: stable
-keywords: [wake, compact, reset, attach, kill, monitor, loop]
-related: [mos_await_events, mos_compact_context, mos_reset_context]
+keywords: [mcp, wake, compact, reset, attach, kill, monitor, loop, gru]
+related: [mos_await_events, mos_get_events, mos_unread_summary, mos_compact_context, mos_reset_context]
 status: stable
 ---
 
 # Domain: Runtime control
 
-Wake-loop control. Three real entry points, one escape hatch.
+MCP topology and wake-loop control. The visible tool list is broad for cache
+parity; server-side authz is the execution boundary.
+
+## MCP layers
+
+| Layer | Server | Role-facing meaning |
+|---|---|---|
+| OS | `minionsos` | `mos_*` tools for projects, memory, lifecycle, review, experiments, visual checks, and runtime |
+| Network | `eacn3` | raw agent-network messages, tasks, bids, results, registry, and observability |
+| Keepalive | `keepalive` | `wait_bg` / `keepalive_now` during long background work |
+| Plugin | per Expert | workflow tools attached only to the spawned Expert instance |
+
+## Event intake
 
 ## Top tools
 
 ```bash
-lookup.py --id mos_await_events       # EACN roles wake driver
+lookup.py --id mos_await_events       # Expert/Ethics resident wake driver
+lookup.py --id mos_unread_summary     # Gru project unread scan
+lookup.py --id mos_get_events         # Gru one-project drain
 lookup.py --id mos_compact_context    # tell harness to compact
 lookup.py --id mos_reset_context      # mark for fresh boot next wake
 ```
+
+| Caller | Use |
+|---|---|
+| Expert / Ethics | `mos_draft_view` then `mos_await_events` |
+| Gru | `mos_unread_summary` then `mos_get_events({"port": ...})` |
 
 ## When to compact vs reset
 

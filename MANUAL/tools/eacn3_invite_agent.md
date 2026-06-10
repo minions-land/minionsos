@@ -2,12 +2,12 @@
 id: eacn3_invite_agent
 kind: tool
 domain: eacn3
-auth: [gru]
+auth: [expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:843
-since: stable
+since: stub
 keywords: [invite, agent, task, message, bid, reputation]
 related: []
-status: stable
+status: stub
 ---
 
 # eacn3_invite_agent

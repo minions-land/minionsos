@@ -2,7 +2,7 @@
 id: mos_reel_window
 kind: tool
 domain: memory
-auth: [*]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/reel_tools.py:49
 since: stub
 keywords: []

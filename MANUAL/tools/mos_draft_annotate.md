@@ -2,7 +2,7 @@
 id: mos_draft_annotate
 kind: tool
 domain: memory
-auth: [*]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/memory_tools.py:119
 since: stub
 keywords: []

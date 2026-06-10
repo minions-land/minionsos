@@ -2,7 +2,7 @@
 id: mos_resolve_arxiv_ids
 kind: tool
 domain: papers
-auth: [expert]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/paper_tools.py:67
 since: stub
 keywords: []

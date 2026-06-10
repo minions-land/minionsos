@@ -82,11 +82,10 @@ When a step fails:
 
 1. **Diagnose first.** Run `gh auth status`, `gh api rate_limit --jq '.resources.core'`, `curl -v --max-time 10 https://api.github.com/zen`, `curl -v --max-time 10 https://github.com/ 2>&1 | head -20`. Identify which assumption broke (auth? throttle? scope? DNS?).
 2. **Find the next working path.** Walk the fallback ladder, or invent a new rung. Capture the exact command line that returned bytes.
-3. **Patch BOTH copies of this skill:**
-   - `minions/roles/common/skills/github-fetch.md` (this file — MinionsOS common layer)
-   - `~/.claude/skills/github-fetch/SKILL.md` (user-global, used by Claude Code root sessions)
-
-   Add the new path as a fallback rung, pitfall, or updated host fact. Date-stamp it (`verified 2026-MM-DD`). Keep both files structurally aligned so the next Role and the next root session see the same fix.
+3. **Patch this repository skill:** update
+   `minions/roles/common/skills/github-fetch.md` with the new path as a
+   fallback rung, pitfall, or updated host fact. Date-stamp it
+   (`verified 2026-MM-DD`) so the next Role sees the same fix.
 4. **Surface the change.** Note `github-fetch updated: <one-line diff>` in the EACN report or final reply so the patch can be audited and committed. Never amend the skill silently.
 
 The skill is a **cumulative log of how to get bytes off GitHub from this host**, not a fixed protocol. Any failure that costs >2 minutes to work around belongs in here.

@@ -2,12 +2,12 @@
 id: eacn3_register_agent
 kind: tool
 domain: eacn3
-auth: [gru]
+auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:531
-since: stable
+since: stub
 keywords: [register, agent, task, event, domain, subtask, broadcast]
 related: []
-status: stable
+status: stub
 ---
 
 # eacn3_register_agent

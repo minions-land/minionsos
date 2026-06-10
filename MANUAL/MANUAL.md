@@ -8,7 +8,7 @@ always in your context. Everything else you fetch on demand via `lookup.py`.**
 | Layer | What | Cost |
 |---|---|---|
 | **L0** | This file. Always loaded. | ~700 tokens |
-| **L1** | Domain cards: `MANUAL/domains/<domain>.md`. ~14 files, ~40 lines each. Fetch when you've narrowed to a domain. | ~400 tok each |
+| **L1** | Domain cards: `MANUAL/domains/<domain>.md`. ~15 files, ~40 lines each. Fetch when you've narrowed to a domain. | ~400 tok each |
 | **L2** | Atomic pages: `MANUAL/tools/<id>.md`, `MANUAL/pitfalls/<id>.md`. Each ≤ 80 lines. Fetch the one page you need. | ~300 tok each |
 
 **The lookup CLI** (use this exactly like `ToolSearch`; Role worktrees use
@@ -24,7 +24,24 @@ python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --pitfalls "queue"            # k
 
 Every page carries `source: <file>:<line>`. If the page isn't enough, read source.
 
+## MCP map
+
+MinionsOS exposes four MCP layers:
+
+| Layer | Server | Current use |
+|---|---|---|
+| OS tools | `minionsos` | 92 `mos_*` project, memory, lifecycle, review, experiment, visual, and runtime tools |
+| Network substrate | `eacn3` | 39 `eacn3_*` agent-network tools for messages, tasks, bids, results, registry, and observability |
+| Runtime keepalive | `keepalive` | `wait_bg` and `keepalive_now` for long background work |
+| Workflow plugins | per Expert | Optional tools such as `evo_*`, attached by `mos_spawn_expert(..., workflow_plugin=...)` |
+
+Claude Code may show a broad tool list for cache parity. Actual execution is
+server-side authorized per role. If a page says a tool is Gru-only or Role-only,
+follow that page even if the tool name appears in the visible list.
+
 ## Cold-start protocol (every wake)
+
+For Expert and Ethics resident roles:
 
 ```
 1. mos_draft_view              # what was I doing? what did past-me leave? (no-arg orient)
@@ -32,6 +49,14 @@ Every page carries `source: <file>:<line>`. If the page isn't enough, read sourc
    → for each event: act
 3. when context > 70%: mos_compact_context
    when phase boundary:        mos_reset_context
+```
+
+For Gru project intake:
+
+```
+1. mos_unread_summary          # which active projects have Gru events?
+2. mos_get_events({port})      # drain one project's Gru queue, mirror to disk
+3. act via direct message, spawn/dismiss, review, bridge, or lifecycle tools
 ```
 
 ## Domains (run `lookup.py --domain <name>` for the card)
@@ -46,7 +71,8 @@ Every page carries `source: <file>:<line>`. If the page isn't enough, read sourc
 | `papers` | (Expert) arXiv / PubMed / bioRxiv / Scholar / Semantic |
 | `deliverables` | (Gru) `mos_submit`, `mos_evaluate`, `mos_review_run` |
 | `visual` | LaTeX/HTML/MD render + vision-model inspect |
-| `runtime` | wake loop, compact, reset, attach |
+| `runtime` | MCP map, wake loop, compact, reset, attach |
+| `skills` | Repository Role skill files and workflow-plugin skill mounting |
 | `debug` | `mos_issue_report` + log triage |
 | `bridge` | (Gru) cross-project read |
 | `evolution` | (Gru) SPLIT / MERGE / DISMISS |
@@ -87,6 +113,8 @@ python3 $MINIONS_ROOT/MANUAL/scripts/gen_tool_stubs.py     # scaffold missing pa
 python3 $MINIONS_ROOT/MANUAL/scripts/gen_eacn3_stubs.py    # same for EACN3
 python3 $MINIONS_ROOT/MANUAL/scripts/build_index.py        # rebuild INDEX.json
 python3 $MINIONS_ROOT/MANUAL/scripts/validate.py           # detect drift; CI-safe
+python3 $MINIONS_ROOT/MANUAL/scripts/validate_mcp_operability.py # hot-path MCP gate
+python3 $MINIONS_ROOT/MANUAL/scripts/validate_skill_operability.py # Skill exposure gate
 ```
 
 `validate.py` exits 1 on real drift (BAD_SOURCE / DRIFT) and 0 on warnings only.

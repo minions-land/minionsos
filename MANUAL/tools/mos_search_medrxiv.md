@@ -2,7 +2,7 @@
 id: mos_search_medrxiv
 kind: tool
 domain: papers
-auth: [expert]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/paper_tools.py:37
 since: stub
 keywords: []

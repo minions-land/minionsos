@@ -2,12 +2,12 @@
 id: eacn3_close_task
 kind: tool
 domain: eacn3
-auth: [gru, expert, ethics]
+auth: [expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:811
-since: stable
+since: stub
 keywords: [close, task, bid, escrow]
 related: []
-status: stable
+status: stub
 ---
 
 # eacn3_close_task

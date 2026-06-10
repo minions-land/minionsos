@@ -1,6 +1,13 @@
 ---
-name: evidence-driven-proposal
-description: "Open before submitting a proposal-shaped output (recommendation, root-cause claim, fix recipe, refutation). At least one load-bearing assertion must be backed by a fresh probe (≤5 s) embedded next to the claim. Practice over assertion."
+slug: evidence-driven-proposal
+summary: Open before proposal-shaped output; back at least one load-bearing assertion with a fresh probe or explicit marker. Practice over assertion.
+layer: logical
+tools:
+version: 1
+status: active
+supersedes:
+references: think-then-act
+provenance: human
 ---
 
 # Skill — Evidence-Driven Proposal
@@ -56,6 +63,7 @@ The cost of a probe is ≤5 s. The cost of a wrong armchair sanity check is desi
 
 - **Read-as-probe.** Reading a file is derivation, not a probe. A probe asks the running system a question whose answer you do not already know.
 - **Ceremony probes.** A probe whose output you already knew is theatre. Anchor on the claim that would *change* if the system answered differently.
+- **Confirmation-biased evaluation.** When you ran an experiment expecting improvement, but the data shows regression or no change, that negative result *is* the finding — report it as-is. Do not rationalize it away, cherry-pick the one positive sub-metric, or retrofit the hypothesis to match what happened. The discipline is "measure, then conclude", not "conclude, then find supporting measurements". A negative result is still a valid result; discarding it because it contradicts your prior is the opposite of evidence-driven work. If the probe shows your proposal does not hold, say so clearly and either iterate the approach or accept the boundary. This is "practice over claims": the data decides, not your expectations.
 - **Probe spam.** Five trivial greps on every proposal trains the user to skim past evidence. Aim for the one or two assertions whose truth most steers the user's next action.
 - **Stale probe.** If you ran the probe ten turns ago and the codebase has changed since, re-run it. "I checked earlier" is not evidence.
 - **Probe under tool-mock.** A mocked subprocess is not a probe of the real system. State the mock boundary or run the probe outside the mock.

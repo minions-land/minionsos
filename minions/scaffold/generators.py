@@ -96,7 +96,9 @@ Your tool access is governed by the runtime whitelist; see the common role contr
 
 Methodology / procedure skills live on disk under
 `minions/roles/{slug}/skills/` and the shared `minions/roles/common/skills/`.
-List those directories and `Read` the relevant skill on demand.
+The wake-up `[Skills]` block lists `slug: summary` pairs. `Read` the matching
+markdown file on demand. Host-level personal Claude configuration is outside
+the Role contract.
 """
 
 
@@ -126,9 +128,10 @@ _SKILL_TEMPLATE = """---
 slug: {slug}
 summary: {summary}
 layer: logical
+# Advisory Role metadata, not Claude Code allowed-tools.
 tools:
 version: 1
-status: draft
+status: active
 supersedes:
 references:
 provenance: human

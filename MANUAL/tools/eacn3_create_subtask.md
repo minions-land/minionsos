@@ -2,12 +2,12 @@
 id: eacn3_create_subtask
 kind: tool
 domain: eacn3
-auth: [gru, expert, ethics]
+auth: [expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:931
-since: stable
+since: stub
 keywords: [create, subtask, task, agent, event, domain, balance, escrow, broadcast]
 related: []
-status: stable
+status: stub
 ---
 
 # eacn3_create_subtask

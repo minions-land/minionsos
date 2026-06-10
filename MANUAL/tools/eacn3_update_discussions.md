@@ -2,12 +2,12 @@
 id: eacn3_update_discussions
 kind: tool
 domain: eacn3
-auth: [gru, expert, ethics]
+auth: [expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:827
-since: stable
+since: stub
 keywords: [update, discussions, task, agent, message, bid, event]
 related: []
-status: stable
+status: stub
 ---
 
 # eacn3_update_discussions

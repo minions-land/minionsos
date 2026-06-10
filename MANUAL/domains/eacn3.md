@@ -6,44 +6,59 @@ auth: ['*']
 source: mcp-servers/eacn3/plugin/index.ts:1
 since: stable
 keywords: [eacn3, comms, agents, tasks, bids, messages, events]
-related: [mos_await_events, eacn3_send_message, eacn3_create_task, pitfall-deferred-schema]
+related: [mos_await_events, mos_get_events, mos_unread_summary, eacn3_send_message, eacn3_create_task, pitfall-deferred-schema]
 status: stable
 ---
 
 # Domain: EACN3
 
-EACN3 is the per-project agent network. Every EACN-registered Role
-(gru / ethics / expert-*) has an agent identity on it.
+EACN3 is the per-project agent network. Roles use it for direct messages,
+task broadcast, bids, result submission, registry, and low-level network
+observability.
 
-## Don't do these
+## Event intake
 
-| Wrong | Right | Why |
+| Caller | Standard entry | Notes |
 |---|---|---|
-| `eacn3_await_events()` directly | `mos_await_events()` | wrapper supplies `suggested_tool` annotations and idle-checks |
-| `eacn3_get_events()` to "double-check" | nothing — `mos_await_events` already drained | re-call drains nothing, confuses you |
-| `eacn3_send_message` (call fails "not found") | `ToolSearch(query="select:eacn3_send_message")` first | schema is deferred; load it once per session |
+| Expert / Ethics | `mos_await_events()` | resident loop; env supplies project and agent identity |
+| Gru | `mos_unread_summary()` then `mos_get_events({"port": ...})` | pull-mode across active projects |
+| Low-level diagnostics | `eacn3_get_events` / `eacn3_await_events` | raw drain/long-poll primitives; use when explicitly inspecting EACN3 behavior |
+
+EACN reads are drain-on-read. Do not call a raw event tool after a standard
+wrapper just to double-check; the queue may already be empty because the wrapper
+persisted and surfaced the event.
 
 ## Top tools
 
 ```bash
-lookup.py --id mos_await_events     # the wake driver
-lookup.py --id eacn3_send_message   # DM another role
-lookup.py --id eacn3_create_task    # broadcast / directed task
-lookup.py --id eacn3_submit_bid     # bid on open task
-lookup.py --id eacn3_submit_result  # post a task result
+lookup.py --id mos_await_events       # Expert/Ethics wake driver
+lookup.py --id mos_unread_summary     # Gru unread scan
+lookup.py --id mos_get_events         # Gru one-project drain
+lookup.py --id eacn3_send_message     # direct message another role
+lookup.py --id eacn3_create_task      # Role publishes work to the network
+lookup.py --id eacn3_submit_bid       # Role bids on open work
+lookup.py --id eacn3_submit_result    # Role submits completed work
 ```
 
-## Wake loop
+## Role loop
 
 ```python
-loop:
-  ev = mos_await_events()                # blocks ~60s; drains on read
-  if ev.idle_check:
-      mos_draft_view(); continue         # think, don't busy-loop
-  for e in ev.events:
-      handle(e)                          # may dispatch subagent / experiment / publish
-  if context_load > 0.7:
-      mos_compact_context()
+while True:
+    ev = mos_await_events()
+    for item in ev["events"]:
+        handle(item["event"], item.get("suggested_tool"))
+    if context_load > 0.7:
+        mos_compact_context({"pending_plans": [...]})
+```
+
+## Gru loop
+
+```python
+summary = mos_unread_summary()
+for row in summary["ports"]:
+    if row["unread"]:
+        events = mos_get_events({"port": row["port"]})
+        handle_gru_events(events)
 ```
 
 ## Evidence-first style
@@ -55,12 +70,14 @@ Substantive EACN messages from a Role start with one of:
 
 Ethics audits the unmarked-claim ratio statistically.
 
-## Project lessons
+## Tool loading
 
-- An Expert can spend a full turn thrashing on `eacn3_send_message` if the schema is deferred.
-  Recipe: `ToolSearch(query="select:eacn3_send_message")` once per session.
-- `theory-normalization-expert` (slug-SUFFIX) → empty authz → every EACN call
-  denied. See `lookup.py --id pitfall-empty-authz`.
+If `eacn3_send_message` or another raw EACN3 tool is not loaded yet:
+
+```bash
+python3 $MINIONS_ROOT/MANUAL/scripts/lookup.py --id eacn3_send_message
+ToolSearch(query="select:eacn3_send_message")
+```
 
 ## Full surface
 

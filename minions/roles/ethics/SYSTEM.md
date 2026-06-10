@@ -217,10 +217,10 @@ first.
 ## §Eth6. Skill-proposals surface (audit gate before library/Expert mutation)
 
 Treat `branches/main/notes/skill-proposals.md` as a separate,
-**higher-stakes** audit feed. The `skill-curator` workflow produces this
-file (Gru-driven, periodic — kept off Ethics by design so the proposer is
-never the validator); Ethics gates which proposals enter `skill-forge` and
-which Expert-axis changes Gru is asked to enact.
+**higher-stakes** audit feed. Gru maintains this file from project
+trajectory and keeps proposal writing separate from Ethics review; Ethics
+gates which proposals enter `skill-forge` and which Expert-axis changes
+Gru is asked to enact.
 
 A wrongly admitted Skill is permanent contamination; a wrongly
 spawned Expert distorts the EACN labour market. Stricter than
@@ -229,9 +229,8 @@ self-correlated proposals are reject conditions.
 
 Workflow:
 
-1. Read the proposal file directly. Do **not** read the curator's
-   accompanying EACN message — it carries the proposer's framing, the bias
-   the audit must avoid.
+1. Read the proposal file directly. Do **not** rely on accompanying EACN
+   framing; the proposal must stand on its own evidence.
 2. For each proposal, verify lineage resolves (event ids →
    `events/*.jsonl`, Draft node ids → `mos_draft_view`, artefact
    paths → filesystem). Lineage gaps reject directly.

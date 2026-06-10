@@ -2,12 +2,12 @@
 id: eacn3_claim_agent
 kind: tool
 domain: eacn3
-auth: [gru]
+auth: [expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:502
-since: stable
+since: stub
 keywords: [claim, agent, event]
 related: []
-status: stable
+status: stub
 ---
 
 # eacn3_claim_agent

@@ -7,8 +7,8 @@ When Write or Edit fails, this hook:
   1. Taints the failed file path in /tmp/claude_taint/<session>.txt. The
      PreToolUse hook reads this file and blocks subsequent Write/Edit calls on
      the same path for the rest of the session.
-  2. Emits additionalContext telling the model to recover with reliable-file-io
-     instead of stopping or retrying plain Write/Edit.
+  2. Emits additionalContext telling the model to recover with the reliable
+     file-IO procedure instead of stopping or retrying plain Write/Edit.
 
 The hook always exits 0; it never blocks work itself.
 """
@@ -26,11 +26,12 @@ TAINT_DIR = Path("/tmp/claude_taint")
 NUDGE = (
     "Write/Edit just failed on this path. Do NOT stop and wait for the user, "
     "and do NOT retry plain Write/Edit on this path; it is now session-tainted. "
-    "Switch immediately to the reliable-file-io skill (Skill tool, "
-    'skill="reliable-file-io") and use the anchor-based update template '
-    "(Python pathlib + atomic rename inside one quoted heredoc). That path "
-    "raises a precise Python error if the anchor is missing, so it is "
-    "recoverable; staring at `Error editing file` is not."
+    "Open the reliable file-IO procedure immediately: read "
+    "`minions/roles/common/skills/reliable-file-io.md`. Then "
+    "use the anchor-based update template (Python pathlib + atomic rename "
+    "inside one quoted heredoc). That path raises a precise Python error if "
+    "the anchor is missing, so it is recoverable; staring at `Error editing "
+    "file` is not."
 )
 
 

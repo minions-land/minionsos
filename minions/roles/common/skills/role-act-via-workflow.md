@@ -96,9 +96,9 @@ When the Workflow returns, the main role:
 1. Checks the structured return against the acceptance criterion.
 2. Emits **at most one** ≤ 5-second evidence probe inline (per
    `evidence-driven-proposal`).
-3. If suspect: `Skill(think-in-parallel)` escalates to K=3 / K=5
-   parallel reasoning. Do NOT dispatch a fresh Workflow as a
-   workaround.
+3. If suspect: read `minions/roles/common/skills/think-in-parallel.md`
+   and follow its K=3 / K=5 parallel-reasoning procedure. Do NOT dispatch
+   a fresh Workflow as a workaround.
 4. If accepted: `mos_publish_to_shared` for cross-role writes (main
    only), commit durable files in your branch, emit the EACN response.
 

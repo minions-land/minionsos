@@ -4,10 +4,10 @@ kind: tool
 domain: eacn3
 auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:318
-since: stable
+since: stub
 keywords: [health]
 related: []
-status: stable
+status: stub
 ---
 
 # eacn3_health

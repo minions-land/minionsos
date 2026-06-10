@@ -12,8 +12,8 @@ the worktree. Stops Claude Code's CLAUDE.md walk before it reaches
 keeps full read/write/edit access.
 
 Tier 2 — ``MINIONS_ROLE_HERMETIC_HOME=1`` (requires Tier 1): also set ``HOME``
-to a per-(project, role) fake home so user-level ``~/.claude/CLAUDE.md`` and
-``~/.claude/skills/`` (host operator skills) are not loaded. Pre-flight
+to a per-(project, role) fake home so host-level personal Claude instructions
+and skills are not loaded. Pre-flight
 refuses to enable Tier 2 without ``ANTHROPIC_AUTH_TOKEN`` /
 ``ANTHROPIC_API_KEY`` because changing ``HOME`` cuts the macOS-keychain auth
 path that a stock ``claude`` CLI otherwise uses.
@@ -177,7 +177,7 @@ def prepare_fake_home(project_port: int, role_name: str) -> Path:
 
     The fake home deliberately ships *no* ``CLAUDE.md`` and no ``skills/``.
     User-level operator skills (``minionsos-push``, ``dev-log``, etc.) live in
-    the operator's real ``~/.claude/skills/`` and have triggers that target
+    the operator's host-level personal skills and have triggers that target
     operator workflows, not Role workflows. Excluding them is part of the
     point of Tier 2.
     """

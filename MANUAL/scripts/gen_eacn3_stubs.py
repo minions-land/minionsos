@@ -9,9 +9,12 @@ from __future__ import annotations
 
 import re
 import sys
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 MANUAL_TOOLS = ROOT / "MANUAL" / "tools"
 TS_FILE = ROOT / "mcp-servers" / "eacn3" / "plugin" / "index.ts"
 
@@ -19,24 +22,19 @@ TS_FILE = ROOT / "mcp-servers" / "eacn3" / "plugin" / "index.ts"
 NAME_RE = re.compile(r'name:\s*"(eacn3_[a-z0-9_]+)"')
 DESC_RE = re.compile(r'description:\s*"([^"]+)"', re.DOTALL)
 
-DEFAULT_AUTH_BY_NAME = {
-    # Lifecycle / connection — Gru-only
-    "eacn3_connect": ["gru"],
-    "eacn3_disconnect": ["gru"],
-    "eacn3_register_agent": ["gru"],
-    "eacn3_unregister_agent": ["gru"],
-    "eacn3_claim_agent": ["gru"],
-    "eacn3_update_agent": ["gru"],
-    "eacn3_a2a_server": ["gru"],
-    "eacn3_invite_agent": ["gru"],
-    "eacn3_report_event": ["gru"],
-    # Reverse control / federation
-    "eacn3_reverse_control_status": ["gru"],
-    "eacn3_cluster_status": ["gru"],
-    # Heartbeat is auto
-    "eacn3_heartbeat": ["*"],
-    # Everything else — every EACN-registered role
-}
+MAIN_ROLES = ("gru", "expert", "ethics")
+
+
+def auth_for_tool(tool_name: str) -> list[str]:
+    """Return MANUAL auth frontmatter from server-side MCP authorization."""
+    from minions.config import resolve_server_authz
+
+    return [
+        role
+        for role in MAIN_ROLES
+        if any(fnmatchcase(tool_name, pattern) for pattern in resolve_server_authz(role, "main"))
+    ]
+
 
 STUB = """---
 id: {name}
@@ -44,24 +42,19 @@ kind: tool
 domain: eacn3
 auth: [{auth}]
 source: mcp-servers/eacn3/plugin/index.ts:{line}
-since: stable
+since: stub
 keywords: [{keywords}]
 related: []
-status: stable
+status: stub
 ---
 
 # {name}
 
-**One line:** {one_line}
+No curated MANUAL page yet. The MCP description is in your Role system prompt.
+Source: mcp-servers/eacn3/plugin/index.ts:{line}
 
-## Full description (from EACN3 plugin)
-
-{description}
-
-## See also
-Use `mos_await_events` instead of `eacn3_await_events` / `eacn3_get_events` /
-`eacn3_next` directly — the wrapper supplies suggested-tool annotations and
-the Gru watchdog. See `domains/eacn3.md` for the wake-loop pattern.
+For event intake, start from `mos_await_events` for Expert/Ethics or
+`mos_unread_summary` / `mos_get_events` for Gru before using raw EACN3 tools.
 """
 
 
@@ -122,8 +115,7 @@ def main() -> int:
                 if page.exists():
                     skipped += 1
                 else:
-                    auth_list = DEFAULT_AUTH_BY_NAME.get(name, ["gru", "ethics", "expert"])
-                    auth = ", ".join(auth_list)
+                    auth = ", ".join(auth_for_tool(name) or MAIN_ROLES)
                     one_line = (desc.split(".")[0] if desc else "TODO").strip()[:160]
                     keywords = ", ".join(derive_keywords(name, desc))
                     page.write_text(

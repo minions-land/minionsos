@@ -347,9 +347,9 @@ trajectory itself. The four components live at distinct authority levels:
 
 | Stage | Component | Operator | Output |
 |---|---|---|---|
-| 1. Propose | `~/.claude/skills/skill-curator/` | Skill-change proposal process | `branches/main/notes/skill-proposals.md` — append-only ledger of add/revise/merge/split/drop proposals |
+| 1. Propose | Proposal ledger | Gru records Skill / Expert change proposals from project trajectory | `branches/main/notes/skill-proposals.md` — append-only ledger of add/revise/merge/split/drop proposals |
 | 2. Audit | `minions/roles/ethics/skills/skill-audit.md` | Ethics | Audit verdicts under `branches/main/ethics/` |
-| 3. Validate + ship | `~/.claude/skills/skill-forge/` (orchestrates `skill-edit` for form, `skill-evaluator` for behavioral A/B) | Gru routes accepted proposals here | Validated SKILL.md admitted to the active skill set |
+| 3. Validate + ship | `minions/roles/common/skills/skill-forge/SKILL.md` procedure | Gru routes accepted proposals here | Validated Role skill admitted to `minions/roles/*/skills/` |
 | 4. Enact Expert roster | `mos_role_split`, `mos_role_merge`, `mos_role_evolve_evaluate`, `mos_role_evolve_dismiss`, `mos_spawn_expert`, `mos_dismiss_role` | Gru | Updated Expert roster on EACN |
 
 The decorrelation is structural, not procedural: proposal, Ethics audit,
@@ -948,9 +948,9 @@ roster 的演化。四个组件分布在不同的权限层：
 
 | 阶段 | 组件 | 操作者 | 输出 |
 |---|---|---|---|
-| 1. 提案 | `~/.claude/skills/skill-curator/` | Skill 变更提案流程 | `branches/main/notes/skill-proposals.md` —— append-only 提案 ledger |
+| 1. 提案 | Proposal ledger | Gru 根据项目轨迹记录 Skill / Expert 变更提案 | `branches/main/notes/skill-proposals.md` —— append-only 提案 ledger |
 | 2. 审计 | `minions/roles/ethics/skills/skill-audit.md` | Ethics | `branches/main/ethics/` 下的审计裁决 |
-| 3. 验证 + 入库 | `~/.claude/skills/skill-forge/`（编排 `skill-edit`、`skill-evaluator`） | Gru 把通过审计的提案路由到此 | 验证通过的 SKILL.md 进入当前 skill set |
+| 3. 验证 + 入库 | `minions/roles/common/skills/skill-forge/SKILL.md` procedure | Gru 把通过审计的提案路由到此 | 验证通过的 Role skill 进入 `minions/roles/*/skills/` |
 | 4. 落地 Expert roster | `mos_role_split`、`mos_role_merge`、`mos_role_evolve_evaluate`、`mos_role_evolve_dismiss`、`mos_spawn_expert`、`mos_dismiss_role` | Gru | EACN 上 Expert roster 更新 |
 
 去相关性是结构性的，不是流程上的：提案、Ethics 审计、Gru 验证和消费

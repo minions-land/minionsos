@@ -2,7 +2,7 @@
 id: mos_book_save_synthesis
 kind: tool
 domain: memory
-auth: [*]
+auth: [gru, ethics]
 source: minions/tools/mcp/memory_tools.py:270
 since: stub
 keywords: []

@@ -4,10 +4,10 @@ kind: tool
 domain: eacn3
 auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:696
-since: stable
+since: stub
 keywords: [get, task, bid, domain]
 related: []
-status: stable
+status: stub
 ---
 
 # eacn3_get_task

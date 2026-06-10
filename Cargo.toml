@@ -2,7 +2,7 @@
 members = [
     "minions-tui",
     "minions-cli",
-    "minions-core",
+    "minions-core", "minions-daemon",
 ]
 resolver = "2"
 

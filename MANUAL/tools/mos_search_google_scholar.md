@@ -2,7 +2,7 @@
 id: mos_search_google_scholar
 kind: tool
 domain: papers
-auth: [expert]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/paper_tools.py:44
 since: stub
 keywords: []

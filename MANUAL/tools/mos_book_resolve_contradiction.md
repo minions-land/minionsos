@@ -2,7 +2,7 @@
 id: mos_book_resolve_contradiction
 kind: tool
 domain: memory
-auth: [*]
+auth: [gru, ethics]
 source: minions/tools/mcp/memory_tools.py:312
 since: stub
 keywords: []

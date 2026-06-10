@@ -392,9 +392,11 @@ _PROJECT_GITIGNORE = """\
 
 # Workflow / Task / Sonnet scratchpad — ephemeral run artefacts
 # (run scripts, transcripts, session metadata) written by Role processes
-# under their branch's .claude/. Skill symlinks at branches/*/.claude/skills/
-# remain tracked because workflow_plugins.inject_skills_to_workspace
-# recreates them on respawn. See common SYSTEM.md §10.1.
+# under their branch's .claude/. Workflow-plugin skill bundles at
+# branches/*/.claude/skills/ project-local workflow-plugin bundles remain
+# tracked because workflow_plugins.inject_skills_to_workspace recreates them
+# on respawn.
+# See common SYSTEM.md §10.1.
 branches/*/.claude/scratchpad/
 branches/*/.claude/scratchpad/**
 """

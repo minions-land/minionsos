@@ -1,7 +1,8 @@
 ---
 slug: <kebab-case-slug-matching-this-filename>
-summary: <one-line capability statement, ≤200 chars; the [Skills] block shows only this>
+summary: <one-line capability statement; [Skills] shows this capped at 200 chars>
 layer: <scheduling | structural | logical | composite>
+# Advisory Role metadata, not Claude Code allowed-tools.
 tools:
 version: 1
 status: active

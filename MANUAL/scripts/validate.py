@@ -172,12 +172,22 @@ def main() -> int:
             print(f"  ⚠ {w}")
     if not errors and not warnings:
         print(f"OK — {len(decorators)} tools, {len(pages)} pages, no drift")
-        return 0
-    print(
-        f"---\n{len(errors)} errors, {len(warnings)} warnings, "
-        f"{len(decorators)} tools, {len(pages)} pages"
-    )
-    return 1 if errors else 0
+    else:
+        print(
+            f"---\n{len(errors)} errors, {len(warnings)} warnings, "
+            f"{len(decorators)} tools, {len(pages)} pages"
+        )
+
+    if errors:
+        return 1
+
+    from validate_mcp_operability import main as validate_mcp_operability_main
+    from validate_skill_operability import main as validate_skill_operability_main
+
+    mcp_rc = validate_mcp_operability_main()
+    if mcp_rc != 0:
+        return mcp_rc
+    return validate_skill_operability_main()
 
 
 if __name__ == "__main__":

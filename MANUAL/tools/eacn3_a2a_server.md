@@ -2,12 +2,12 @@
 id: eacn3_a2a_server
 kind: tool
 domain: eacn3
-auth: [gru]
+auth: [expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:464
-since: stable
+since: stub
 keywords: [a2a, server, agent, message]
 related: []
-status: stable
+status: stub
 ---
 
 # eacn3_a2a_server

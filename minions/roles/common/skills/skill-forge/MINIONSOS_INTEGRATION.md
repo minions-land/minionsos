@@ -15,12 +15,12 @@ improves the skill artifact.
 
 ```text
 Stage 0  Request triage and mode selection
-Stage 1  Skill creation: research related skills, draft SKILL.md, write evals
+Stage 1  Skill creation: research related skills and draft Role Skill markdown
 Stage 2  Structural validation: frontmatter, sections, triggers, references
-Stage 3  Behavioral validation: A/B tests or benchmark evals
-Stage 4  Iterative optimization against eval sets
-Stage 5  Description and trigger-boundary optimization
-Stage 6  Packaging and installation notes
+Stage 3  Behavioral validation: concrete probes or focused regression tests
+Stage 4  Iterative revision against observed failures
+Stage 5  Summary and trigger-boundary optimization
+Stage 6  Repository admission and enactment note
 ```
 
 Each stage makes the skill more mature. The process does not mutate the Role
@@ -34,7 +34,7 @@ Need identified
   -> structural validation
   -> behavioral validation
   -> trigger optimization
-  -> packaged skill admitted to production
+  -> repository skill admitted to production
   -> production weakness observed
   -> Stage 4 or Stage 5 creates the next generation
 ```
@@ -62,18 +62,18 @@ it is structurally valid and behaviorally useful.
 
 `skill-forge` coordinates three tool families:
 
-- local validation tools such as `skill-edit` and `skill-evaluator`,
-- official skill-creator scripts such as `init_skill.py`, `quick_validate.py`,
-  `run_eval.py`, `improve_description.py`, `aggregate_benchmark.py`, and
-  `package_skill.py`,
-- evaluator agents such as grader, comparator, and analyzer roles.
+- repository search with `rg`,
+- discovery validation with `tests/unit/test_skills_discovery.py`,
+- Role Skill contract validation with
+  `MANUAL/scripts/validate_skill_operability.py`,
+- focused unit tests when a skill affects runtime prompts or tooling.
 
 ## Metrics
 
 Structural metrics:
 
 - frontmatter validity,
-- description length,
+- summary quality,
 - trigger alignment,
 - step ordering,
 - absence of forward references.
@@ -99,14 +99,14 @@ previous generation.
 - **EACN:** admitted common skills become available to EACN-visible Roles.
 - **Role system:** common skills serve all Roles; role-specific skills can use
   the same lifecycle when they need specialization.
-- **Workflows:** production skills become reusable workflow parts, while
+- **Workflows:** production skills become reusable procedure parts, while
   `skill-forge` keeps their reliability measurable.
 
 ## Bundle Structure
 
 ```text
 skill-forge/
-├── SKILL.md                 # primary executable procedure
+├── SKILL.md                 # operational procedure
 ├── README.md                # architecture notes
 ├── REGISTRATION.md          # suggested registration entry
 ├── SUMMARY.md               # executive summary

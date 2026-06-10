@@ -24,6 +24,8 @@ upstream content.
 | `STABILITY.md` | Stability and support-level notes. |
 | `MODULE_PATH_INDEX.md` | Runtime module map after the modularization pass. |
 | `MARKDOWN_INDEX.md` | This Markdown asset map and language policy. |
+| `RUST_CLI.md` | Rust CLI documentation (usage, architecture, performance). |
+| `RUST_IMPLEMENTATION.md` | Rust enhancement implementation report (Phase 1 CLI + Phase 2 daemon). |
 
 ## Agent Manual
 

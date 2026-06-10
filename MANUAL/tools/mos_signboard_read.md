@@ -2,7 +2,7 @@
 id: mos_signboard_read
 kind: tool
 domain: lifecycle
-auth: [gru]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/signboard_tools.py:95
 since: stub
 keywords: []

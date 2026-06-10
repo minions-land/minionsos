@@ -47,7 +47,7 @@ workflow-plugins/{slug}/
 ├── .gitignore          # typically ignores repo/ (cloned at setup time)
 ├── setup.sh            # optional — idempotent clone + build script
 ├── domain.md           # optional — injected into Expert system prompt
-├── skills/             # optional — *.md procedure files injected at wake-up
+├── skills/             # optional — *.md procedure files rendered as Skill bundles
 │   └── *.md
 └── repo/               # the external workflow repo (gitignored)
     └── ...
@@ -110,7 +110,9 @@ The spawned Expert gets:
 - Its own branch (`branches/expert-{slug}/`)
 - The workflow plugin's MCP server in a per-instance config (not global `.mcp.json`)
 - The workflow plugin's `domain.md` appended to its system prompt
-- The workflow plugin's `skills/*.md` discoverable at wake-up
+- The workflow plugin's `skills/*.md` rendered into
+  `.claude/skills/workflow-plugin-{slug}-{skill}/SKILL.md` inside that
+  branch workspace
 - Full EACN3 participation (messages, tasks, bids — not just Gru DM)
 
 ## Boundaries
@@ -168,8 +170,10 @@ Repositories of markdown skills, prompts, and procedures. No runtime server.
 | [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) | Engineering methodology → `skills/` for lifecycle commands |
 
 **Key principle**: no MCP server needed. The value is in `domain.md` (context)
-and `skills/*.md` (procedures). The Expert reads them and applies them through
-its existing tool surface.
+and `skills/*.md` (procedures). At spawn time MinionsOS turns each procedure
+file into a project-local Claude Code bundle in the spawned Expert's branch
+workspace. Tool access still comes from the Expert's existing tool surface;
+the source file's prose does not grant extra tools.
 
 ### Category 3: Structured artifact protocols
 
@@ -217,7 +221,7 @@ visible to MinionsOS; internal agents are implementation details.
 For any workflow not listed above, the pattern is:
 
 1. **Does it have a runnable API/CLI?** → Wrap as MCP server, mount in manifest
-2. **Is it just prompts/procedures?** → Put in `skills/` and `domain.md`
+2. **Is it just prompts/procedures?** → Put markdown source files in `skills/` and context in `domain.md`
 3. **Is it both?** → MCP for the runtime, skills for the procedures
 4. **Does it need persistent state?** → Its state lives in `repo/` or its own
    database; the Expert's branch is for MinionsOS-facing outputs only

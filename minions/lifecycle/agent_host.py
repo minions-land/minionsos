@@ -261,6 +261,7 @@ def _build_eacn_role_loop_prompt(
 ) -> str:
     """Forever-loop prompt for EACN-registered roles."""
     role_contract = _role_contract_block(role_system_paths)
+    skills = _skills_block(role_name)
     warmup = _tool_warmup_block(role_name)
     return (
         f"You are the MinionsOS `{role_name}` role for project {port}. "
@@ -390,6 +391,7 @@ def _build_eacn_role_loop_prompt(
         "Your output is tool calls. Do not emit a final assistant turn that\n"
         "does not end with `mos_await_events()` (or `mos_reset_context()`,\n"
         "which terminates this process so the watchdog respawns it).\n"
+        f"{skills}"
         f"{role_contract}"
     )
 
@@ -425,3 +427,37 @@ def _role_contract_block(role_system_paths: list[Path] | None = None) -> str:
         "\n"
         f"{combined}\n"
     )
+
+
+def _skills_block(role_name: str) -> str:
+    """Return the MinionsOS Role skill summary block for the first prompt."""
+    try:
+        from minions.lifecycle.skills import list_skills
+
+        skills = list_skills(role_name)
+    except Exception as exc:  # launch must survive a malformed skill file
+        logger.warning("failed to list role skills for %s: %s", role_name, exc)
+        return (
+            "\n\n"
+            "## [Skills]\n"
+            "MinionsOS Role skill discovery failed during launch. Continue the\n"
+            "event loop and report the failure with `mos_issue_report` if it\n"
+            "affects the current task.\n"
+        )
+
+    if not skills:
+        return ""
+
+    lines = [
+        "",
+        "",
+        "## [Skills]",
+        "These are MinionsOS Role skills, exposed as `slug: summary` pairs.",
+        "To use one, read the matching markdown file under",
+        "`minions/roles/common/skills/` or `minions/roles/<role>/skills/`.",
+        "Use this repository copy as the source of truth; host-level personal",
+        "Claude configuration is outside the Role contract.",
+        "",
+    ]
+    lines.extend(f"- `{slug}`: {summary}" for slug, summary in skills)
+    return "\n".join(lines) + "\n"

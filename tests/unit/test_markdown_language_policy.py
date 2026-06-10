@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 HAN_RE = re.compile(r"[\u3400-\u9fff]")
 SKIP_DIRS = {
+    ".codex",
     ".git",
     ".mypy_cache",
     ".pytest_cache",

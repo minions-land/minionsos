@@ -2,7 +2,7 @@
 id: mos_draft_decay_compute
 kind: tool
 domain: memory
-auth: [*]
+auth: [gru, ethics]
 source: minions/tools/mcp/memory_tools.py:170
 since: stub
 keywords: []

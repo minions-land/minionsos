@@ -206,7 +206,7 @@ def test_prepare_fake_home_has_empty_claude_dir(hermetic_base):
     assert home.is_dir()
     claude_dir = home / ".claude"
     assert claude_dir.is_dir()
-    # Operator skills live in real ~/.claude/skills — fake home ships none.
+    # Operator skills live in host-level personal config; fake home ships none.
     assert not (claude_dir / "skills").exists()
     # No CLAUDE.md leaked from operator's real home.
     assert not (claude_dir / "CLAUDE.md").exists()

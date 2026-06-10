@@ -4,11 +4,23 @@ The `minions/roles/common/skills/` and `minions/roles/{role}/skills/` directorie
 
 Keep it short. If this file grows beyond a page, the methodology has drifted.
 
+## Repository delivery contract
+
+MinionsOS Role skills are markdown procedures. A Role sees their `slug:
+summary` entries at wake-up, then reads the matching file directly from
+`minions/roles/common/skills/` or `minions/roles/<role>/skills/`.
+
+Host-level personal Claude configuration is outside the MinionsOS Role
+contract. The deliverable source of truth is the repository file under
+`minions/roles/**/skills`.
+
 ## What a skill is
 
 A single `.md` file with optional YAML frontmatter. One file, one skill. A skill is a reusable reasoning or procedure discipline — cross-domain, ≤100 lines, written for a language model to read. Domain knowledge belongs in `minions/domains/`, not here.
 
-Every skill carries a **one-line summary** (≤200 chars) that is the only evidence the `[Skills]` block injects at wake-up. The rest of the file is loaded lazily, only when the Role decides it needs the detail.
+Every skill carries a **one-line summary**. The wake-up `[Skills]` block shows
+that summary capped at 200 characters; the rest of the file is loaded lazily,
+only when the Role decides it needs the detail.
 
 ## The SSL four-section template
 
@@ -39,10 +51,10 @@ Frontmatter is optional but recommended for every new skill. Unknown keys are si
 
 | Key | Type | Purpose |
 |---|---|---|
-| `slug` | string | Canonical identifier; must match the file stem. |
-| `summary` | string | One-line capability statement (≤200 chars); overrides body-derived summary. |
+| `slug:` | string | Canonical identifier; must match the file stem. |
+| `summary:` | string | One-line capability statement; overrides body-derived summary and is capped at 200 chars in wake-up display. |
 | `layer` | `scheduling` / `structural` / `logical` / `composite` | Which retrieval question this skill primarily answers. Routing skills are `scheduling`; FSM references are `structural`; per-tool procedures are `logical`; multi-layer skills are `composite`. |
-| `tools` | comma list | MCP or lifecycle tools this skill governs. `[]` or omitted when the skill is pure procedure. |
+| `tools` | comma list | MCP or lifecycle tools this procedure governs. This is advisory Role metadata, not Claude Code `allowed-tools:`. |
 | `version` | integer | Bumped on every `MODIFY`. Starts at `1`. |
 | `status` | `active` / `deprecated` / `merged` | `active` is visible. `deprecated` and `merged` are hidden from `list_skills()` but remain on disk during a transition window. |
 | `supersedes` | comma list of slugs | Skills this one replaces; set when merging or evolving. |

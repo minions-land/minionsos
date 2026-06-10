@@ -2,7 +2,7 @@
 id: mos_start_monitor
 kind: tool
 domain: runtime
-auth: [*]
+auth: [gru]
 source: minions/tools/mcp/runtime_tools.py:32
 since: stub
 keywords: []

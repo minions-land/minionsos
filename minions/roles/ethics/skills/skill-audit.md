@@ -85,7 +85,7 @@ Skip when the proposal file is identical to a previously audited version
    - **Universal hedging**: does the proposed skill steer agents toward "always
      check with the user" or "consider all options"? Reject — those degrade
      decision quality without preventing failures.
-   - **Trigger leakage**: does the proposed `description:` field contain
+   - **Trigger leakage**: does the proposed `summary:` field contain
      phrasing too close to the eval probes? Reject; this is the recall stage
      gaming itself.
    - **Single-source lineage**: are >50% of lineage entries from one source,

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -154,10 +155,13 @@ def resolve_extra_allowed_tools(manifest: WorkflowPluginManifest) -> list[str]:
 
 
 def inject_skills_to_workspace(manifest: WorkflowPluginManifest, workspace: Path) -> None:
-    """Symlink workflow plugin's skills into the workspace for Claude Code discovery.
+    """Install workflow plugin skills into the role workspace.
 
-    Creates ``.claude/skills/`` in the workspace and symlinks each skill
-    file from the plugin's ``skills/`` directory.
+    Creates project-local Claude Code bundles under the branch workspace's
+    ``.claude/skills/`` directory. Source files remain simple ``skills/*.md``
+    procedure files in the plugin tree; each launch renders them as
+    ``<skill-name>/SKILL.md`` with generated ``name:`` and ``description:``
+    frontmatter. This never writes to the operator's home directory.
     """
     skills_src = manifest.skills_dir
     if not skills_src:
@@ -167,11 +171,86 @@ def inject_skills_to_workspace(manifest: WorkflowPluginManifest, workspace: Path
     target_dir.mkdir(parents=True, exist_ok=True)
 
     for md_file in skills_src.glob("*.md"):
-        link = target_dir / f"workflow-plugin-{manifest.slug}-{md_file.name}"
-        if link.exists() or link.is_symlink():
-            link.unlink()
-        link.symlink_to(md_file.resolve())
-        logger.debug("workflow_plugins: symlinked %s → %s", link, md_file)
+        skill_name = f"workflow-plugin-{manifest.slug}-{md_file.stem}"
+        legacy_link = target_dir / f"{skill_name}.md"
+        if legacy_link.exists() or legacy_link.is_symlink():
+            legacy_link.unlink()
+
+        bundle_dir = target_dir / skill_name
+        if bundle_dir.exists() or bundle_dir.is_symlink():
+            if bundle_dir.is_dir() and not bundle_dir.is_symlink():
+                shutil.rmtree(bundle_dir)
+            else:
+                bundle_dir.unlink()
+        bundle_dir.mkdir(parents=True)
+
+        source_text = md_file.read_text(encoding="utf-8")
+        (bundle_dir / "SKILL.md").write_text(
+            _render_claude_skill_bundle(skill_name, source_text), encoding="utf-8"
+        )
+        logger.debug("workflow_plugins: installed %s from %s", bundle_dir, md_file)
+
+
+def _render_claude_skill_bundle(skill_name: str, source_text: str) -> str:
+    fields, body = _split_flat_frontmatter(source_text)
+    description = (
+        fields.get("description")
+        or fields.get("summary")
+        or _summary_from_markdown(body)
+        or f"Workflow plugin procedure for {skill_name}."
+    )
+    return (
+        f"---\nname: {skill_name}\ndescription: {_yaml_quote(description)}\n---\n\n{body.lstrip()}"
+    )
+
+
+def _split_flat_frontmatter(text: str) -> tuple[dict[str, str], str]:
+    if not text.startswith("---"):
+        return {}, text
+    lines = text.splitlines(keepends=True)
+    if not lines or lines[0].rstrip() != "---":
+        return {}, text
+    end = -1
+    for index in range(1, len(lines)):
+        if lines[index].rstrip() == "---":
+            end = index
+            break
+    if end == -1:
+        return {}, text
+    fields: dict[str, str] = {}
+    for raw in lines[1:end]:
+        line = raw.strip()
+        if not line or line.startswith("#") or ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        fields[key.strip()] = value.strip().strip("'\"")
+    return fields, "".join(lines[end + 1 :])
+
+
+def _summary_from_markdown(text: str) -> str:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if not lines:
+        return ""
+    if lines[0].startswith("# "):
+        for line in lines[1:]:
+            if line.startswith("#"):
+                continue
+            return _clean_summary(line)
+        return _clean_summary(lines[0][2:])
+    return _clean_summary(lines[0])
+
+
+def _clean_summary(line: str) -> str:
+    if line.lower().startswith("one-line:"):
+        line = line.split(":", 1)[1]
+    for token in ("**", "__", "*", "_", "`"):
+        line = line.replace(token, "")
+    return " ".join(line.split())[:200]
+
+
+def _yaml_quote(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
 
 
 # ---------------------------------------------------------------------------

@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from minions.config import GruConfig
+from minions.lifecycle import skills as skills_mod
 from minions.lifecycle.agent_host import build_forever_loop_prompt, build_role_invocation
 from minions.paths import MINIONS_ROOT
 
@@ -100,6 +101,34 @@ def test_forever_loop_prompt_is_role_specific() -> None:
     assert "`expert`" in expert
     assert "`ethics`" in ethics
     assert expert != ethics
+
+
+def test_forever_loop_prompt_exposes_minions_role_skills(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    roles = tmp_path / "roles"
+    common_skills = roles / "common" / "skills"
+    expert_skills = roles / "expert" / "skills"
+    common_skills.mkdir(parents=True)
+    expert_skills.mkdir(parents=True)
+    (common_skills / "think-then-act.md").write_text(
+        "---\nslug: think-then-act\nsummary: Plan before acting.\n---\n\n# Skill\n",
+        encoding="utf-8",
+    )
+    (expert_skills / "bench-run.md").write_text(
+        "---\nslug: bench-run\nsummary: Run a benchmark.\n---\n\n# Skill\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(skills_mod, "ROLES_DIR", roles)
+
+    prompt = build_forever_loop_prompt(role_name="expert", port=37596)
+
+    assert "## [Skills]" in prompt
+    assert "`think-then-act`: Plan before acting." in prompt
+    assert "`bench-run`: Run a benchmark." in prompt
+    assert "read the matching markdown file" in prompt
+    assert "source of truth" in prompt
+    assert "host-level personal" in prompt
 
 
 def test_invocation_omits_resume_by_default(tmp_path: Path) -> None:

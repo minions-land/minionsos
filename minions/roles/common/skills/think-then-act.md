@@ -105,9 +105,10 @@ When you have enough clarity (from however many postures you used):
   `coding-methodology` (Plan → Review → Simplify, smoke-test gated)
   inside the Workflow agent that does the editing.
 - **If the Workflow's return is suspect** (broken logic, contradictory
-  reasoning, two probes disagree): escalate via
-  `Skill(think-in-parallel)` — do NOT accept or fix manually, and do
-  NOT dispatch a fresh Workflow as a workaround.
+  reasoning, two probes disagree): read
+  `minions/roles/common/skills/think-in-parallel.md` and follow its
+  K=3 / K=5 procedure — do NOT accept or fix manually, and do NOT
+  dispatch a fresh Workflow as a workaround.
 - **Pass goals verbatim**: copy your Goal-Setting threshold (specific
   numbers, not "a good report") into the Workflow spec as its
   acceptance criterion. No placeholders — "TBD", "reasonable",

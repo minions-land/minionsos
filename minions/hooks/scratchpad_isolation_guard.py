@@ -79,9 +79,9 @@ def _is_legal_scratchpad(target: Path, legal_roots: list[Path]) -> bool:
         legal = root / ".claude" / "scratchpad"
         if _is_under(target, legal):
             return True
-        # Also permit reads/writes to skill symlinks under .claude/skills/ ;
-        # workflow_plugins.inject_skills_to_workspace recreates them on
-        # respawn and roles legitimately need to introspect them.
+        # Also permit reads/writes to workflow-plugin skill bundles under
+        # .claude/skills/; workflow_plugins.inject_skills_to_workspace
+        # recreates them on respawn and roles legitimately need to inspect them.
         skills = root / ".claude" / "skills"
         if _is_under(target, skills):
             return True

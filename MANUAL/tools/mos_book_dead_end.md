@@ -2,7 +2,7 @@
 id: mos_book_dead_end
 kind: tool
 domain: memory
-auth: [gru, expert, ethics]
+auth: [ethics]
 source: minions/tools/mcp/memory_tools.py:428
 since: stable
 keywords: [book, dead-end, refuted, negative-knowledge, refutation, do-not-repeat]

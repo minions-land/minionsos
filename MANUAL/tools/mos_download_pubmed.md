@@ -2,7 +2,7 @@
 id: mos_download_pubmed
 kind: tool
 domain: papers
-auth: [expert]
+auth: [gru, expert, ethics]
 source: minions/tools/mcp/paper_tools.py:109
 since: stub
 keywords: []

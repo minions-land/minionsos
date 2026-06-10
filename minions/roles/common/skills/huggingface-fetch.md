@@ -1,12 +1,19 @@
 ---
-name: huggingface-fetch
-description: "Pull HuggingFace datasets/models from this host. Use when the user wants to download anything off `huggingface.co` — dataset, model, single file, gated repo. Inherits a load-bearing host fact: huggingface.co is fully TCP-reset on this network, miniconda Python's OpenSSL 3.6 hits SSL EOF on the mirror handshake. Stable path is `curl + hf-mirror.com` (system LibreSSL works); the `hf` CLI is unusable here. Falls back to git-clone-via-mirror with manual LFS endpoint rewrite for whole-repo pulls."
+slug: huggingface-fetch
+summary: Pull Hugging Face datasets/models through the working mirror path on this host; use curl against hf-mirror.com and avoid the broken hf CLI path.
+layer: logical
+tools: Bash, curl, git
+version: 1
+status: active
+supersedes:
+references: fetch-fallback-ladder
+provenance: human
 ---
 
 # huggingface-fetch (MinionsOS Role mirror)
 
-This is the in-project mirror of the `~/.claude/skills/huggingface-fetch/SKILL.md` skill.
-Roles use this when they need to download a dataset or model from Hugging Face during execution.
+Roles use this procedure when they need to download a dataset or model from
+Hugging Face during execution.
 
 ## Trigger phrases
 - "pull / download / fetch from huggingface", "huggingface dataset", "hf:" URL
@@ -102,4 +109,6 @@ Terms must already be accepted on huggingface.co (over VPN). The mirror proxies 
 
 ## Self-update
 
-If a step stops working, **patch this file AND `~/.claude/skills/huggingface-fetch/SKILL.md`** with the new working command line and a date stamp. Keep both copies aligned. Treat this as a cumulative log, not a fixed protocol.
+If a step stops working, patch this file with the new working command line and
+a date stamp. If a native Claude Code bundle exists for the same host recipe,
+keep its command path aligned with this Role procedure.

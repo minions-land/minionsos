@@ -2,7 +2,7 @@
 id: mos_attach_role
 kind: tool
 domain: runtime
-auth: [*]
+auth: [gru]
 source: minions/tools/mcp/runtime_tools.py:207
 since: stub
 keywords: []

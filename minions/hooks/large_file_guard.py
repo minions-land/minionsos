@@ -3,7 +3,8 @@
 PreToolUse hook for Write / Edit.
 
 Blocks calls that are likely to stall the tool, time out, or produce a
-half-written file, and routes the next turn into the reliable-file-io skill.
+half-written file, and routes the next turn into the reliable file-IO
+procedure.
 The hook trips on four independent signals:
 
   1. Size: Write content > threshold lines.
@@ -17,7 +18,7 @@ The hook trips on four independent signals:
 
 When blocked, the hook exits 2 with stderr guidance; Claude Code feeds that
 stderr to the model as a tool error so the next turn is steered into the
-reliable-file-io skill.
+reliable file-IO procedure.
 
 Allowed tools and small/clean Write/Edit calls pass through with exit 0.
 """
@@ -45,10 +46,11 @@ GUIDANCE_HEADER = "Skill required: reliable-file-io"
 GUIDANCE_TEMPLATE = (
     "{header}\n"
     "Reason: {reason}\n"
-    "Action: invoke the reliable-file-io skill (Skill tool, "
-    'skill="reliable-file-io"). It uses Python pathlib + atomic rename '
-    "inside one quoted heredoc and produces an identical file. Covers all "
-    "three cases: large generation, anchor-based update, and append.\n"
+    "Action: open the reliable file-IO procedure before writing. In a "
+    "MinionsOS checkout, read `minions/roles/common/skills/reliable-file-io.md`. "
+    "The procedure uses Python pathlib + atomic rename inside one quoted heredoc "
+    "and produces an identical file. "
+    "Covers all three cases: large generation, anchor-based update, and append.\n"
     "Do NOT retry plain Write/Edit on this path; first failure on a path is "
     "a one-way door for the rest of this session."
 )

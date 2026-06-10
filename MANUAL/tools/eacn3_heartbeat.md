@@ -2,12 +2,12 @@
 id: eacn3_heartbeat
 kind: tool
 domain: eacn3
-auth: [*]
+auth: [gru, expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:443
-since: stable
+since: stub
 keywords: [heartbeat]
 related: []
-status: stable
+status: stub
 ---
 
 # eacn3_heartbeat

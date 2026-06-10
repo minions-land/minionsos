@@ -15,9 +15,12 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 MANUAL_TOOLS = ROOT / "MANUAL" / "tools"
 MCP_DIR = ROOT / "minions" / "tools" / "mcp"
 
@@ -39,18 +42,18 @@ DOMAIN_BY_FILE = {
     "role_evolution_tools.py": "evolution",
 }
 
-# Default auth — overridden per-tool when known. Placeholder, refined later.
-DEFAULT_AUTH = {
-    "lifecycle": ["gru"],
-    "memory": ["*"],
-    "experiments": ["expert"],
-    "publish": ["*"],
-    "papers": ["expert"],
-    "deliverables": ["gru"],
-    "visual": ["ethics", "expert", "gru"],
-    "runtime": ["*"],
-    "evolution": ["gru"],
-}
+MAIN_ROLES = ("gru", "expert", "ethics")
+
+
+def auth_for_tool(tool_name: str) -> list[str]:
+    """Return MANUAL auth frontmatter from server-side MCP authorization."""
+    from minions.config import resolve_server_authz
+
+    return [
+        role
+        for role in MAIN_ROLES
+        if any(fnmatchcase(tool_name, pattern) for pattern in resolve_server_authz(role, "main"))
+    ]
 
 
 def find_tools(mcp_dir: Path):
@@ -119,7 +122,7 @@ def main() -> int:
         if path.exists():
             skipped_existing += 1
             continue
-        auth = ", ".join(DEFAULT_AUTH.get(domain, ["*"]))
+        auth = ", ".join(auth_for_tool(name) or MAIN_ROLES)
         content = STUB_TEMPLATE.format(name=name, domain=domain, auth=auth, source=source)
         if args.dry_run:
             print(f"DRY: would write {path.relative_to(ROOT)}")

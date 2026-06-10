@@ -2,12 +2,12 @@
 id: eacn3_get_balance
 kind: tool
 domain: eacn3
-auth: [gru, expert, ethics]
+auth: [expert, ethics]
 source: mcp-servers/eacn3/plugin/index.ts:1043
-since: stable
+since: stub
 keywords: [get, balance, task, agent, deposit, escrow]
 related: []
-status: stable
+status: stub
 ---
 
 # eacn3_get_balance

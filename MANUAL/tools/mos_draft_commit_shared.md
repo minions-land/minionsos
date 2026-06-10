@@ -2,7 +2,7 @@
 id: mos_draft_commit_shared
 kind: tool
 domain: memory
-auth: [*]
+auth: [gru, ethics]
 source: minions/tools/mcp/memory_tools.py:154
 since: stub
 keywords: []

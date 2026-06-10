@@ -2,7 +2,7 @@
 id: mos_kill_role
 kind: tool
 domain: runtime
-auth: [*]
+auth: [gru]
 source: minions/tools/mcp/runtime_tools.py:233
 since: stub
 keywords: []

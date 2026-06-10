@@ -2,7 +2,7 @@
 id: mos_project_checkpoint_workspace
 kind: tool
 domain: lifecycle
-auth: [gru]
+auth: [gru, expert]
 source: minions/tools/mcp/project_tools.py:157
 since: stub
 keywords: []
