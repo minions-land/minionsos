@@ -29,8 +29,34 @@ class TestGruSystemInvariants:
 
     def test_forbids_handcrafted_eacn_http(self) -> None:
         t = _text()
-        assert "Do not call the EACN3 HTTP API by hand" in t
-        assert "phantom" in t.lower() or "signature mismatch" in t.lower()
+        # v20.17 hoisted the canonical rule to common §13 and reworded Gru's
+        # restatement to "native MCP tools only — never the raw API". Either
+        # the legacy phrasing or the current one satisfies the invariant; what
+        # must persist is the ban on hand-rolled HTTP to the backend.
+        assert (
+            "Do not call the EACN3 HTTP API by hand" in t
+            or "never the raw API" in t
+        )
+        assert "127.0.0.1:<port>/api" in t or "phantom" in t.lower()
+
+    def test_g0_capability_boundary_pinned(self) -> None:
+        """v20.18: trace-derived §G0 rules — Gru's hands are MCP tools.
+
+        Live trace (project_37597): Gru repeatedly (a) did
+        `from minions.lifecycle import ...` to bypass MCP, and (b) ran
+        matplotlib/pip to render figures itself. Both are capability-boundary
+        confusions that the §G0 cheat-sheet now states cold. Pin them so the
+        muscle-memory guidance cannot silently regress.
+        """
+        t = _text()
+        # (a) no import-bypass
+        assert "import minions" in t and "backend process" in t
+        # (b) figures/experiments are an Expert's job, not Gru's
+        assert "matplotlib" in t
+        assert "No module named matplotlib" in t or "do an Expert's job" in t.lower() \
+            or "Expert's job" in t
+        # (c) cwd/path discipline (hermetic launch breaks relative paths)
+        assert "absolute" in t.lower() and "hermetic" in t.lower()
 
     def test_uses_native_eacn3_send_message(self) -> None:
         t = _text()

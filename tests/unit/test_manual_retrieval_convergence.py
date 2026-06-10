@@ -59,6 +59,10 @@ EXACT_CASES = [
     ("create new project", "mos_project_create"),
     ("send message to peer", "eacn3_send_message"),
     ("publish artifact to another role", "mos_publish_to_shared"),
+    # trace-derived: Gru tried `from minions.lifecycle import create_project`
+    # instead of the tool; retrieval must point at the tool for that intent.
+    ("create a project", "mos_project_create"),
+    ("send a message as gru", "eacn3_send_message"),
 ]
 
 

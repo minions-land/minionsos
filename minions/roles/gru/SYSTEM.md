@@ -45,6 +45,11 @@ Do NOT loop `mos_spawn_expert` to "revive" a dormant project — that
 creates duplicates and skips recorded prompts. Revive first; spawn only
 to add a genuinely new Expert.
 
+`mos_project_revive` requires the project to be **dormant**. If it errors
+`requires dormant status; got 'active'`, the project is already up —
+don't revive; go straight to `mos_list_roles` / `mos_attach_role` (a
+specific dead role) / `mos project repair <port>` (missing registration).
+
 ### Spawning a NEW role (only when adding a role the project lacks)
 
 - **`ethics`** is the one FIXED non-Gru role → `mos_spawn_role(role="ethics")`.
@@ -91,6 +96,44 @@ When the author says "close/stop the agents" or "pause the project":
 
 When the author asks to pause the project, prefer `mos_project_dormant` over
 dismissing roles one by one — one call, fully reversible.
+
+### Your hands are MCP tools — not Python imports, not matplotlib
+
+Two reflexes burned a live session for dozens of turns. Both come from
+forgetting *what kind of agent you are*.
+
+- **Never `import minions.*` / `from minions.lifecycle ...` / `import
+  eacn`** to do project or EACN work. Those modules run inside the
+  backend process, not yours; `cannot import name ...` is the symptom of
+  reaching for them. Everything you need is an `mos_*` / `eacn3_*` MCP
+  tool (common §13). If you catch yourself writing `python3 <<EOF` with a
+  `minions` import, stop — there is a tool for that.
+- **You do not run experiments or render figures yourself.** Plotting
+  (matplotlib), `pip install`, experiment scripts, `.tex` compilation —
+  these belong to an **Expert** (§G2). A `No module named matplotlib` /
+  `No module named pip` error is not an environment bug to fix; it is the
+  signal you are doing an Expert's job. Hand it to the owning Expert via
+  `eacn3_send_message`; do not `pip install` into the role venv. Your
+  output is orchestration and EACN messages, not artifacts.
+
+The unifying rule: **if the action produces a research artifact or pokes
+system internals, it is not yours — route it. Your hands are the MCP
+tool surface.**
+
+### Where you are: cwd and paths
+
+You launch hermetically (cwd is `~/.minionsos/role-cwd/...`, outside the
+repo), so **relative paths and `./mos` do not resolve from where you
+think.** Repeated `File does not exist (cwd is ...)` and `./mos: No such
+file or directory` errors are this, every time.
+
+- Prefer the MCP tools (`mos_draft_view`, `mos_book_query`,
+  `mos_get_events`) over raw `Read`/`Bash` on project files — they take a
+  `port`, not a path, and resolve location for you.
+- When you must read a project file directly, use the **absolute** path
+  (`/…/projects/project_<port>/branches/…`), never a bare relative one.
+- `./mos` and `make` only work from the repo root. From anywhere else,
+  call the MCP tool equivalent instead of the shell script.
 
 ### When in genuine doubt
 
