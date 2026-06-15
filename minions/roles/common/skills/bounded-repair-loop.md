@@ -3,10 +3,10 @@ slug: bounded-repair-loop
 summary: Iterate on a failing local check in a controlled diagnose-fix-verify loop with a fixed iteration bound; the MinionsOS-safe form of an autonomous repair loop.
 layer: logical
 tools:
-version: 2
+version: 3
 status: active
 supersedes:
-references: coding-methodology, feature-implementation
+references: feature-implementation
 provenance: human
 ---
 
@@ -31,7 +31,7 @@ A short diagnose-fix-verify loop with three hard gates: a named failing command,
 1. **Name the failing check.** Record the exact command, failure summary, and the file or behavior it is meant to validate.
 2. **Set a bound before editing.** Default to 3 iterations for focused failures and 5 only when the failure is deterministic and cheap. Do not run unbounded loops.
 3. **Diagnose before each edit.** Read the relevant traceback, log, or assertion. Identify the most likely root cause before touching code.
-4. **Apply one coherent fix per iteration.** Keep each edit small enough that the next failure can still be attributed to a specific change.
+4. **Apply one coherent fix per iteration.** Keep each edit small enough that the next failure can still be attributed to a specific change. For code edits, apply SYSTEM.md §4 Stage 1 code quality gate (ruff check, ty check, pytest).
 5. **Rerun the same check.** If it passes, optionally run one adjacent fast check for confidence. If it fails differently, start the next iteration from the new evidence.
 6. **Stop cleanly.** Stop on pass, bound exhaustion, unclear ownership, missing dependency, or when the next step would require heavy experiments.
 7. **Report.** Command, iteration count, final status, changed paths, final failure if unresolved. If blocked, send an EACN note with the smallest missing input needed to continue.

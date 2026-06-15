@@ -3,9 +3,9 @@ slug: project-bootstrap
 summary: Project bootstrap — three-gate checklist before writing the first line of code. Ensures version control, documentation boundaries, and architecture contracts are in place so AI-generated code stays predictable and maintainable.
 layer: logical
 tools:
-version: 2
+version: 3
 status: active
-references: coding-methodology, think-then-act, feature-implementation
+references: feature-implementation
 provenance: human+agent
 ---
 
@@ -27,7 +27,7 @@ The gates are sequential — each depends on the previous. Skip none.
 - The project already has CLAUDE.md + architecture doc + git history
   (the `project_{port}/CLAUDE.md` written by Gru at project_create counts).
 - You are making a change to an existing, well-structured project
-  (use `coding-methodology` instead).
+  (apply SYSTEM.md §4 code quality gate instead).
 - The task is a one-off script that will never be maintained.
 
 ## The three gates

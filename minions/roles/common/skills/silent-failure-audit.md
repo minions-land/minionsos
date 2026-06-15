@@ -6,7 +6,7 @@ tools:
 version: 2
 status: active
 supersedes:
-references: coding-methodology, test-coverage-review
+references: test-coverage-review
 provenance: human
 ---
 

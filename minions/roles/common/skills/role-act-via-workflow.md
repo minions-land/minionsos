@@ -1,11 +1,11 @@
 ---
 slug: role-act-via-workflow
-summary: Pick the right Workflow shape (single / parallel / pipeline / phase / fan-out+verifier) for an event, with per-role recipe pointers and the size-bounded return contract. Use after Think-then-Act, before issuing the Workflow call.
+summary: Pick the right Workflow shape (single / parallel / pipeline / phase / fan-out+verifier) for an event, with per-role recipe pointers and the size-bounded return contract. Use after planning per SYSTEM.md §4 Stage 1, before issuing the Workflow call.
 layer: logical
 tools: Workflow
-version: 1
+version: 2
 status: active
-references: think-then-act, dispatcher-discipline, coding-methodology, think-in-parallel, evidence-driven-proposal
+references: dispatcher-discipline
 provenance: human+agent
 ---
 
@@ -35,7 +35,14 @@ you the same outcome.
 | Role | Common scenarios | Recipe anchors |
 |---|---|---|
 | **Ethics** | Mock-review (single < 50 KB; pipeline otherwise), citation-authenticity sweep (parallel), §Eth7 deep audit (phase + adversarial verifier), adjudication (pipeline + parallel evidence fan-out + adversarial verifier) | `ethics/SYSTEM.md` §Eth7 / §Eth10 / §Eth11; `mock-review` skill |
-| **Expert** | Domain Q&A (pipeline), competitor scan (fan-out + verifier), experiment-result interpretation (phase), falsifiability memo (single + verifier), debug-and-fix (pipeline: root-cause → minimal-fix → smoke-test), section drafting (single), end-to-end paper work (phase: gather → cite → draft → integrate → compile → QA) | `expert/SYSTEM.md` §E4.5 plus common skills such as `coding-methodology`, `paper-compile`, and `book-to-paper-compiler` |
+| **Expert** | Domain Q&A (pipeline), competitor scan (fan-out + verifier), experiment-result interpretation (phase), falsifiability memo (single + verifier), debug-and-fix (pipeline: root-cause → minimal-fix → smoke-test), section drafting (single), end-to-end paper work (phase: gather → cite → draft → integrate → compile → QA) | `expert/SYSTEM.md` §E4.5 plus common skills such as `paper-compile` and `book-to-paper-compiler` |
+
+## Code changes in Workflow
+
+When the Workflow agent writes code, include SYSTEM.md §4 Stage 1 code
+quality gate in the Workflow spec. The three-phase gate (Plan → Review →
+Simplify) with smoke tests (ruff / ty / pytest) must pass before the
+Workflow returns.
 
 ## Size-bounded return contract
 
@@ -63,8 +70,8 @@ Every Workflow spec must include:
 2. **Allowed write paths** — restate the role's own branch root
    explicitly. Workflow inner agents inherit cwd but not the
    write-boundary contract.
-3. **Acceptance criterion** — copy the `goal-setting` block verbatim.
-   This is the verifier's only stopping rule.
+3. **Acceptance criterion** — write sensor / metric / threshold /
+   feedback period / stop rule. This is the verifier's only stopping rule.
 4. **Return schema** — the size-bounded shape above.
 5. **Forbidden tool surface** — restate the §4 list. Workflow inner
    agents are EACN-invisible **by prompt convention** (server authz

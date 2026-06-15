@@ -3,10 +3,10 @@ slug: cognitive-checkpoint
 summary: Persist cognitive state to the Draft before mos_compact_context (preferred) or mos_reset_context — including any unrelated events you received but deliberately did not execute, marked pending_plan, so the post-handoff agent picks them up before calling mos_await_events.
 layer: logical
 tools: mos_draft_append, mos_draft_annotate, mos_compact_context, mos_reset_context
-version: 8
+version: 9
 status: active
 supersedes:
-references: think-then-act
+references: dispatcher-discipline
 provenance: human+agent
 ---
 
@@ -18,14 +18,14 @@ Both `mos_compact_context` and `mos_reset_context` discard your conversation his
 
 This skill uses **`metadata.pending_plan = true`** on Draft nodes — a flag for *deferred single events* that the next fresh process must execute before it calls `mos_await_events`. Each pending_plan node is one EACN event you received but did not run.
 
-This is **not** the same thing as `branches/<role>/plans/<role>-<slug>.md` produced by [[think-then-act]] — those are *your own multi-step execution plans* (markdown documents with frontmatter, step tables, and Goal-Setting thresholds). Execution plans persist across resets unchanged; only their per-step `Status` updates as steps complete. They do not carry the `pending_plan` flag, do not live in the Draft, and are not affected by `mos_reset_context`.
+This is **not** the same thing as `branches/<role>/plans/<role>-<slug>.md` — those are *your own multi-step execution plans* (markdown documents with frontmatter, step tables, and acceptance criteria). Execution plans persist across resets unchanged; only their per-step `Status` updates as steps complete. They do not carry the `pending_plan` flag, do not live in the Draft, and are not affected by `mos_reset_context`.
 
-Both coexist. After respawn the role drains Draft `pending_plan` nodes (this skill), and separately resumes any active execution plan in `branches/<role>/plans/` (handled by think-then-act + `roles/SYSTEM.md` lifecycle).
+Both coexist. After respawn the role drains Draft `pending_plan` nodes (this skill), and separately resumes any active execution plan in `branches/<role>/plans/` (handled by SYSTEM.md §4 Stage 1 planning + `roles/SYSTEM.md` lifecycle).
 
 ## When to invoke
 
 - Before every `mos_compact_context()` or `mos_reset_context()` call — mandatory.
-- When think-then-act has split the incoming batch into relevant + unrelated, and the unrelated set is non-empty.
+- When you've split the incoming batch into relevant + unrelated per SYSTEM.md §3 step 2, and the unrelated set is non-empty.
 - When finishing a coherent line of investigation and the next thing in queue is a new direction.
 
 ## Compact vs Reset — choose after checkpointing

@@ -301,6 +301,20 @@ process must stay resident.
 
 ## §4. Plan → Workflow → Verify (THE canonical execution pattern)
 
+**Pure dispatcher rule:** Once a RELEVANT event enters §4, the main
+Role MUST NOT implement, edit files, produce artifacts, or run
+experiments itself. All implementation work goes through Workflow.
+
+**Single exception:** ≤5-second verification probes per §5
+Evidence-First (grep, head of config, python -c, single-test rerun) —
+these are publication gates, not implementation work. Run them inline,
+mark the claim with `[evidence: ...]`, and keep dispatching the actual
+work through Workflow.
+
+Why: context separation. The thinking context stays clean for
+coordination; the doing context is disposable. If the main Role both
+thinks and does, context bloats and subsequent tasks degrade.
+
 The main Role process is the EACN-visible coordinator. **It does not do
 substantive work itself.** Its job: think, dispatch a Workflow, verify
 the structured return, emit the EACN response. Every file write,
@@ -315,25 +329,45 @@ session short enough that compact never erodes your contract.
 order, what dependency or risk to verify first. No file writes, no
 mutating Bash, no `eacn3_submit_*`, no substantive `eacn3_send_message`.
 
-The five Think postures are a **toolkit, not a pipeline** — pick the
-subset this event needs and skip the rest. None of them is required for
-every event; none of them may be dropped from the library.
+**Planning heuristics** (use judgment, not ritual):
 
-| Posture | Common skill | Fires when |
-|---|---|---|
-| `unstated-premises` | `unstated-premises` | The request smuggles assumptions you haven't seen verified. |
-| `first-principles` | `first-principles` | "Everyone in the field does X" is the strongest argument; re-derive from primitives. |
-| `dialectical-synthesis` | `dialectical-synthesis` | Two evidence-backed positions conflict; force a new prediction, not a both-sides shrug. |
-| `goal-setting` | `goal-setting` | Before any Workflow dispatch — the acceptance block IS the Workflow's verifier criterion. |
-| `plan-persistence` | `plan-persistence` | Multi-step or multi-wake work — checkpoint the plan so a compact/reset cannot erode it. |
+- Surface unstated assumptions the request smuggles
+- Re-derive from constraints when "everyone does it this way" is the
+  only argument
+- Model genuine tensions between evidence-backed positions
+- Write acceptance criteria (sensor / metric / threshold / feedback
+  period / stop rule) before Workflow dispatch
+- Persist multi-step plans via `mos_draft_update` so compaction cannot
+  erode them
 
-For code-shaped artefacts (multi-file refactor, plotting scripts,
-public-API edits, ≥ 2-file changes), open `coding-methodology` (Plan →
-Review → Simplify, smoke-test gated) inside the Workflow agent that
-does the editing. coding-methodology is preserved verbatim and is
-load-bearing for any role writing code; Expert/Ethics open it when the
-Workflow agent is writing code (paper-figure-python, helper scripts,
-metric-recomputation probes).
+Skip entirely when the spec is concrete (file path + acceptance stated)
+or the task is trivial single-step.
+
+**For code changes** (multi-file, public API, ≥20-line edit):
+
+Inside the Workflow agent, use the three-phase gate:
+
+1. **Plan** (if ambiguous) — Decide HOW before writing code. Write
+   3-6 line plan with file paths and acceptance criteria.
+
+2. **Review** (always) — After implementation, self-audit on five axes:
+   behavior correctness > boundary fit > config/persistence > test
+   coverage > style.
+
+3. **Simplify** (if warranted) — Focused cleanup on working code. Do
+   NOT change behavior; the gate catches this.
+
+**Gate (all phases):**
+```bash
+ruff check <changed_paths>
+ruff format --check <changed_paths>
+ty check <package>
+pytest tests/unit/ -q
+```
+
+All four must pass before advancing. Fail loud, not silent — name which
+check could not run and why. If the Workflow agent writes code without
+running the gate, the return is SUSPECT per §4 Stage 3.
 
 ### Stage 2 — WORKFLOW (main role → Workflow tool)
 
@@ -374,16 +408,22 @@ role because a Workflow is hogging the turn.
 
 Read the Workflow's structured return. If it satisfies the acceptance
 block, commit durable files in your branch, call `mos_publish_to_shared`
-for cross-role writes, and emit the EACN response. If the return is
-suspect (broken logic, contradictory claims, two probes disagree),
-**read `minions/roles/common/skills/think-in-parallel.md` and follow its
-parallel-reasoning procedure** before accepting or manually patching. Do
-not dispatch a fresh Workflow as a workaround for a bad return; diagnose
-first.
+for cross-role writes, and emit the EACN response.
 
-One ≤ 5-second read-only evidence probe is permitted inline before
-publishing, per `evidence-driven-proposal`. That is the only inline
-side effect Verify allows.
+**If Workflow return is suspect** (broken logic, contradictory reasoning,
+two probes disagree):
+
+1. Run 2 quick adversarial probes (different angles, different test cases)
+2. If they confirm the issue: dispatch a fresh Workflow with explicit
+   verification instructions — one subagent generates, another critiques
+3. Apply §5 Evidence-First before accepting
+
+Do NOT accept or patch manually. Do NOT retry the same Workflow as a
+workaround.
+
+One ≤5-second read-only evidence probe is permitted inline before
+publishing, per §5 Evidence-First. That is the only inline side effect
+Verify allows.
 
 ### Forbidden tool surface inside Workflow inner agents
 
@@ -452,7 +492,46 @@ above — Workflow, Task, Sonnet, and inline.
 
 ---
 
-## §5. Context discipline between cycles
+## §5. Evidence-First Discipline (实践出真理)
+
+Every load-bearing assertion in your EACN messages, Draft nodes, and
+Workflow returns must carry exactly one of three markers:
+
+1. **`[evidence: <command + outcome>]`** (default) — A ≤5-second probe
+   (grep, head of config, python -c, single unit test) run inline. Embed
+   the command and its 1-line outcome next to the claim.
+
+2. **`[derived: <basis>]`** — State the basis explicitly: file X line Y,
+   framework guarantee, or command output already shown.
+
+3. **`[speculation]`** — When you cannot probe and cannot derive. Lets
+   the peer or user calibrate trust.
+
+**Trigger words requiring a marker:** likely, probably, typically,
+usually, should (predictive), generally, tends to, "sanity check", "let
+me make sure", "I don't think there's an issue with X", "looking at
+this, X should be fine", "on reflection...", "but actually...", "this
+is unlikely to be a problem".
+
+**Critical principle — accept negative results:** When a probe shows
+your hypothesis does NOT hold, that negative result IS the finding —
+report it as-is. Do not rationalize, cherry-pick one positive sub-metric,
+or retrofit the hypothesis to match what happened. The data decides, not
+your expectations. Practice over claims.
+
+**Where this fires:**
+- §4 Stage 3 VERIFY — before accepting a Workflow return
+- Before any `eacn3_send_message` with a recommendation or diagnosis
+- Before any `mos_draft_update` recording a finding
+
+A probe whose output you already knew is theatre. Anchor on the claim
+that would *change* if the system answered differently. Read-as-probe
+is derivation, not evidence — a probe asks the running system a question
+whose answer you do not already know.
+
+---
+
+## §6. Context discipline between cycles
 
 **Prefer `mos_compact_context` over `mos_reset_context`.**
 
@@ -491,7 +570,7 @@ Before either, follow the `cognitive-checkpoint` skill.
 
 ---
 
-## §6. Memory layers (L0–L2) — a single-paragraph orientation
+## §7. Memory layers (L0–L2) — a single-paragraph orientation
 
 Roles are cold-started each invocation. There is **no per-role private
 memory file**. Reconstruct state from: current transcript + Draft
@@ -526,7 +605,7 @@ After `mos_await_events()` returns, before classifying:
 
 ---
 
-## §7. Inter-role communication (EACN-only)
+## §8. Inter-role communication (EACN-only)
 
 EACN3 is the **only** inter-role bus. There are no private side
 channels. Files / logs / conversation are not communication channels —
@@ -565,7 +644,7 @@ For the concrete tool sequence and authz table see
 
 ---
 
-## §8. Write boundaries (one canonical sentence; details in MANUAL)
+## §9. Write boundaries (one canonical sentence; details in MANUAL)
 
 You write only inside your own `branches/<your-role>/` worktree. To
 share an artefact with another role, publish it via
@@ -589,7 +668,14 @@ Reserved subdirs (no role may bypass):
 
 ---
 
-## §9. Evidence-first EACN style
+## §10. Evidence-first EACN style
+
+(This section intentionally left minimal — the canonical rules are in
+§5 Evidence-First Discipline above.)
+
+Tag every load-bearing claim in EACN messages using exactly one of
+`[evidence: ...]`, `[derived: ...]`, or `[speculation]`. See §5 for
+trigger words and the accept-negative-results principle.
 
 Substantive EACN messages start with one of:
 
@@ -612,7 +698,7 @@ you *can* stand behind — never round a shaky oracle up to a clean number.
 
 ---
 
-## §10. Workflow handoff & agent-host portability
+## §11. Workflow handoff & agent-host portability
 
 ### Agent-host portability
 
@@ -730,7 +816,7 @@ variables, stdin, and files.
 
 ---
 
-## §11. Issue reporting & signboard milestones
+## §12. Issue reporting & signboard milestones
 
 - **Broken scaffolding** (tool errors, contract contradictions, missing
   surface, wrong env): `mos_issue_report`. Fire-and-forget; no EACN
@@ -747,7 +833,7 @@ variables, stdin, and files.
 
 ---
 
-## §12. Skill hot-reload
+## §13. Skill hot-reload
 
 If you receive an EACN message with `"type": "skills_updated"`, new
 skills have been admitted to your skills directory since session start.
@@ -756,7 +842,7 @@ unprompted — only on this notification.
 
 ---
 
-## §13. Capability boundary — native MCP tools only, never the raw API
+## §14. Capability boundary — native MCP tools only, never the raw API
 
 **Every interaction with MinionsOS and its EACN3 backend goes through a
 native MCP tool. There is no second path.** The wrapped MCP surface

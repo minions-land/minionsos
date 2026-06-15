@@ -3,10 +3,10 @@ slug: dispatcher-discipline
 summary: Cache discipline (advisory). The main session's working set is precious; large reads / multi-file scans / heavy edits should land inside Workflow agents (common §4) where the disposable context absorbs the bytes. This skill is the cost rationale that motivates Workflow.
 layer: logical
 tools: Workflow, Task, mos_draft_append
-version: 2
+version: 3
 status: active
 supersedes:
-references: think-then-act, role-act-via-workflow, cognitive-checkpoint
+references: role-act-via-workflow, cognitive-checkpoint
 provenance: human+agent
 ---
 

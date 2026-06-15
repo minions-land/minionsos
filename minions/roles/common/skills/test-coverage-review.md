@@ -6,7 +6,7 @@ tools:
 version: 2
 status: active
 supersedes:
-references: coding-methodology, feature-implementation
+references: feature-implementation
 provenance: human
 ---
 

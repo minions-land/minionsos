@@ -123,12 +123,11 @@ def test_forever_loop_prompt_exposes_minions_role_skills(
 
     prompt = build_forever_loop_prompt(role_name="expert", port=37596)
 
-    assert "## [Skills]" in prompt
+    assert "## [Domain Reference]" in prompt
     assert "`think-then-act`: Plan before acting." in prompt
     assert "`bench-run`: Run a benchmark." in prompt
-    assert "read the matching markdown file" in prompt
-    assert "source of truth" in prompt
-    assert "host-level personal" in prompt
+    assert "Read the matching markdown file" in prompt
+    assert "Core disciplines" in prompt
 
 
 def test_invocation_omits_resume_by_default(tmp_path: Path) -> None:

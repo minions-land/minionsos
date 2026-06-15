@@ -6,7 +6,7 @@ tools:
 version: 2
 status: active
 supersedes:
-references: static-type-check, coding-methodology
+references: static-type-check
 provenance: human
 ---
 

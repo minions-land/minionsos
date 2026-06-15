@@ -99,7 +99,7 @@ def check_direct_role_skill_metadata(errors: list[str]) -> None:
             errors.append(f"{rel} must declare slug: {expected_slug!r}")
         summary = fields.get("summary", "")
         if not summary:
-            errors.append(f"{rel} must declare summary: for the wake-up [Skills] block")
+            errors.append(f"{rel} must declare summary: for the wake-up [Domain Reference] block")
         status = fields.get("status")
         if status not in ROLE_SKILL_ALLOWED_STATUS:
             errors.append(
@@ -139,13 +139,12 @@ def check_prompt_exposes_role_skills(errors: list[str]) -> None:
 
     prompt = build_forever_loop_prompt(role_name="expert", port=1)
     for fragment in (
-        "## [Skills]",
-        "MinionsOS Role skills",
-        "read the matching markdown file",
-        "source of truth",
+        "## [Domain Reference]",
+        "Optional domain-specific guidance",
+        "Read the matching markdown file",
     ):
         if fragment not in prompt:
-            errors.append(f"expert forever-loop prompt missing Skill fragment: {fragment!r}")
+            errors.append(f"expert forever-loop prompt missing Domain Reference fragment: {fragment!r}")
 
 
 def check_manual_fragments(errors: list[str]) -> None:

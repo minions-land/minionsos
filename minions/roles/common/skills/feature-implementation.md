@@ -3,10 +3,10 @@ slug: feature-implementation
 summary: Translate an accepted feature task into a small, integrated implementation that matches the existing codebase; prefer local patterns over new abstractions.
 layer: logical
 tools:
-version: 3
+version: 4
 status: active
 supersedes:
-references: coding-methodology, bounded-repair-loop
+references: bounded-repair-loop
 provenance: human
 ---
 
@@ -33,7 +33,7 @@ Smallest viable implementation in Expert-owned paths. Seven phases: read the tas
 1. **Read the task and acceptance criteria.** If problem, owner, output path, or success condition is unclear, ask through EACN before implementation.
 2. **Explore the nearest precedent.** Read similar commands, lifecycle helpers, tests, UI components, or role skills before designing anything new.
 3. **Choose the smallest viable architecture.** Add an abstraction only if it removes real duplication, protects a contract, or matches an existing pattern.
-4. **Implement in owned paths.** Edits scoped to Expert-owned workspace or system-maintenance paths explicitly assigned by Gru or the author.
+4. **Implement in owned paths.** Edits scoped to Expert-owned workspace or system-maintenance paths explicitly assigned by Gru or the author. For code changes, apply SYSTEM.md §4 Stage 1 code quality gate (Plan → Review → Simplify with ruff/ty/pytest).
 5. **Add focused verification.** Unit tests for Python behavior, smoke tests
    for orchestration, or a build for dashboard changes. Heavy experiments stay
    on the experiment queue.

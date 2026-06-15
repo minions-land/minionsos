@@ -6,7 +6,7 @@ tools:
 version: 2
 status: active
 supersedes:
-references: type-design-review, coding-methodology
+references: type-design-review
 provenance: human
 ---
 

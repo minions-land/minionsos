@@ -451,12 +451,15 @@ def _skills_block(role_name: str) -> str:
     lines = [
         "",
         "",
-        "## [Skills]",
-        "These are MinionsOS Role skills, exposed as `slug: summary` pairs.",
-        "To use one, read the matching markdown file under",
-        "`minions/roles/common/skills/` or `minions/roles/<role>/skills/`.",
-        "Use this repository copy as the source of truth; host-level personal",
-        "Claude configuration is outside the Role contract.",
+        "## [Domain Reference]",
+        "Optional domain-specific guidance, exposed as `slug: summary` pairs.",
+        "Browse when you need specialized knowledge (figure drawing, paper",
+        "search, skill forge, etc.). Read the matching markdown file under",
+        "`minions/roles/common/skills/` or `minions/roles/<role>/skills/`",
+        "when a task enters that domain.",
+        "",
+        "Core disciplines (evidence-first, code quality, dispatcher rule) are",
+        "in SYSTEM.md §4-§5 — already loaded, not listed here.",
         "",
     ]
     lines.extend(f"- `{slug}`: {summary}" for slug, summary in skills)
