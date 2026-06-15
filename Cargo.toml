@@ -2,7 +2,9 @@
 members = [
     "minions-tui",
     "minions-cli",
-    "minions-core", "minions-daemon",
+    "minions-core",
+    "minions-daemon",
+    "mcp-servers/eacn3-rust",
 ]
 resolver = "2"
 
